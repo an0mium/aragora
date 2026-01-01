@@ -1004,6 +1004,228 @@ function downloadJSON() {
     a.click();
     URL.revokeObjectURL(url);
 }
+
+// === LIVE DEBATE CONNECTION ===
+class LiveDebateConnection {
+    constructor(wsUrl = 'ws://localhost:8765') {
+        this.wsUrl = wsUrl;
+        this.ws = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+    }
+
+    connect() {
+        console.log(`Connecting to ${this.wsUrl}...`);
+        this.ws = new WebSocket(this.wsUrl);
+
+        this.ws.onopen = () => {
+            console.log('WebSocket connected');
+            this.reconnectAttempts = 0;
+            this.updateStatus('live');
+        };
+
+        this.ws.onmessage = (e) => {
+            try {
+                const event = JSON.parse(e.data);
+                this.handleEvent(event);
+            } catch (err) {
+                console.error('Failed to parse event:', err);
+            }
+        };
+
+        this.ws.onclose = () => {
+            console.log('WebSocket disconnected');
+            this.updateStatus('disconnected');
+
+            if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                const delay = 2000 * Math.pow(1.5, this.reconnectAttempts);
+                console.log(`Reconnecting in ${delay}ms...`);
+                setTimeout(() => {
+                    this.reconnectAttempts++;
+                    this.connect();
+                }, delay);
+            }
+        };
+
+        this.ws.onerror = (err) => {
+            console.error('WebSocket error:', err);
+        };
+    }
+
+    handleEvent(event) {
+        console.log('Event:', event.type, event);
+
+        switch (event.type) {
+            case 'debate_start':
+                // Initialize new debate
+                debateData = {
+                    id: `live-${Date.now()}`,
+                    task: event.data.task,
+                    agents: event.data.agents.map(name => ({
+                        name,
+                        model: name.split('-')[0],
+                        role: 'proposer'
+                    })),
+                    messages: [],
+                    consensus_reached: false,
+                    confidence: 0,
+                    rounds: 0,
+                    duration_seconds: 0,
+                    created_at: new Date().toISOString()
+                };
+                renderDebate();
+                this.updateStatus('live');
+                break;
+
+            case 'agent_message':
+                if (!debateData) return;
+                const msg = {
+                    agent: event.agent,
+                    role: event.data.role,
+                    round: event.round,
+                    content: event.data.content
+                };
+                debateData.messages.push(msg);
+                debateData.rounds = Math.max(debateData.rounds, event.round);
+                this.appendMessage(msg);
+                break;
+
+            case 'critique':
+                // Visual feedback for critique (optional enhancement)
+                console.log(`Critique from ${event.agent}: ${event.data.issues.join(', ')}`);
+                break;
+
+            case 'consensus':
+                if (!debateData) return;
+                debateData.consensus_reached = event.data.reached;
+                debateData.confidence = event.data.confidence;
+                debateData.final_answer = event.data.answer;
+
+                const badge = document.getElementById('consensus-badge');
+                if (event.data.reached) {
+                    badge.className = 'consensus-badge reached';
+                    badge.innerHTML = `&#10003; Consensus (${Math.round(event.data.confidence * 100)}%)`;
+                } else {
+                    badge.className = 'consensus-badge not-reached';
+                    badge.innerHTML = `&#9888; No Consensus`;
+                }
+
+                if (event.data.answer) {
+                    document.getElementById('final-answer').style.display = 'block';
+                    document.getElementById('final-answer-content').textContent = event.data.answer;
+                }
+                break;
+
+            case 'debate_end':
+                if (debateData) {
+                    debateData.duration_seconds = event.data.duration;
+                }
+                this.updateStatus('ended');
+                break;
+
+            case 'sync':
+                // Sync full state for late joiners
+                debateData = event.data;
+                renderDebate();
+                break;
+        }
+    }
+
+    appendMessage(msg) {
+        const feed = document.getElementById('debate-feed');
+        if (!feed) return;
+
+        const provider = getProvider(msg.agent);
+        const idx = debateData.messages.length - 1;
+
+        const div = document.createElement('div');
+        div.className = `message ${provider} visible`;
+        div.dataset.index = idx;
+        div.innerHTML = `
+            <div class="message-header">
+                <div class="agent-name">
+                    <div class="avatar">${provider[0].toUpperCase()}</div>
+                    ${escapeHtml(msg.agent)}
+                </div>
+                <div class="meta-info">
+                    <span class="role-badge ${msg.role}">${msg.role}</span>
+                    <span>Round ${msg.round}</span>
+                </div>
+            </div>
+            <div class="message-content">${escapeHtml(msg.content)}</div>
+        `;
+
+        feed.appendChild(div);
+        div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+        // Update slider
+        const slider = document.getElementById('timeline-slider');
+        if (slider) {
+            slider.max = idx;
+            slider.value = idx;
+            currentStep = idx;
+        }
+    }
+
+    updateStatus(status) {
+        let indicator = document.getElementById('live-indicator');
+
+        if (!indicator) {
+            indicator = document.createElement('span');
+            indicator.id = 'live-indicator';
+            indicator.style.cssText = `
+                display: inline-flex;
+                align-items: center;
+                padding: 0.3rem 0.8rem;
+                border-radius: 1rem;
+                font-size: 0.8rem;
+                font-weight: 600;
+                margin-left: 1rem;
+            `;
+            const h1 = document.querySelector('header h1');
+            if (h1) h1.appendChild(indicator);
+        }
+
+        switch (status) {
+            case 'live':
+                indicator.style.background = 'rgba(239, 68, 68, 0.2)';
+                indicator.style.color = '#ef4444';
+                indicator.textContent = '● LIVE';
+                break;
+            case 'ended':
+                indicator.style.background = 'rgba(34, 197, 94, 0.2)';
+                indicator.style.color = '#22c55e';
+                indicator.textContent = '● ENDED';
+                break;
+            case 'disconnected':
+                indicator.style.background = 'rgba(156, 163, 175, 0.2)';
+                indicator.style.color = '#9ca3af';
+                indicator.textContent = '○ Reconnecting...';
+                break;
+        }
+    }
+}
+
+// Initialize live mode if ?live=true
+(function initLiveMode() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('live') === 'true') {
+        const wsPort = params.get('ws') || '8765';
+        const wsHost = params.get('host') || 'localhost';
+        const wsUrl = `ws://${wsHost}:${wsPort}`;
+
+        console.log('Live mode enabled, connecting to', wsUrl);
+        const connection = new LiveDebateConnection(wsUrl);
+        connection.connect();
+
+        // Show loading state for live mode
+        document.getElementById('loading').innerHTML = `
+            <div class="spinner"></div>
+            <p>Waiting for live debate...</p>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">Connected to ${wsUrl}</p>
+        `;
+    }
+})();
     </script>
 </body>
 </html>

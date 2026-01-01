@@ -48,11 +48,13 @@ class Arena:
         agents: list[Agent],
         protocol: DebateProtocol = None,
         memory=None,  # CritiqueStore instance
+        event_hooks: dict = None,  # Optional hooks for streaming events
     ):
         self.env = environment
         self.agents = agents
         self.protocol = protocol or DebateProtocol()
         self.memory = memory
+        self.hooks = event_hooks or {}
 
         # Assign roles if not already set
         self._assign_roles()
@@ -99,6 +101,10 @@ class Arena:
         print(f"Rounds: {self.protocol.rounds}")
         print(f"{'='*60}\n")
 
+        # Emit debate start event
+        if "on_debate_start" in self.hooks:
+            self.hooks["on_debate_start"](self.env.task, [a.name for a in self.agents])
+
         # Generate initial proposals
         print("Round 0: Initial Proposals")
         print("-" * 40)
@@ -127,10 +133,23 @@ class Arena:
             context.append(msg)
             result.messages.append(msg)
 
+            # Emit message event
+            if "on_message" in self.hooks:
+                self.hooks["on_message"](
+                    agent=agent.name,
+                    content=proposals[agent.name],
+                    role="proposer",
+                    round_num=0,
+                )
+
         # === DEBATE ROUNDS ===
         for round_num in range(1, self.protocol.rounds + 1):
             print(f"\nRound {round_num}: Critique & Revise")
             print("-" * 40)
+
+            # Emit round start event
+            if "on_round_start" in self.hooks:
+                self.hooks["on_round_start"](round_num)
 
             # Get critics
             critics = [a for a in self.agents if a.role in ("critic", "synthesizer")]
@@ -161,6 +180,16 @@ class Arena:
                                 f"{len(crit_result.issues)} issues, "
                                 f"severity {crit_result.severity:.1f}"
                             )
+
+                            # Emit critique event
+                            if "on_critique" in self.hooks:
+                                self.hooks["on_critique"](
+                                    agent=critic.name,
+                                    target=proposal_agent,
+                                    issues=crit_result.issues,
+                                    severity=crit_result.severity,
+                                    round_num=round_num,
+                                )
 
                             # Add critique to context
                             msg = Message(
@@ -196,6 +225,15 @@ class Arena:
                         )
                         context.append(msg)
                         result.messages.append(msg)
+
+                        # Emit message event for revision
+                        if "on_message" in self.hooks:
+                            self.hooks["on_message"](
+                                agent=agent.name,
+                                content=revised,
+                                role="proposer",
+                                round_num=round_num,
+                            )
                     except Exception as e:
                         print(f"  {agent.name} revision ERROR: {e}")
 
@@ -270,6 +308,21 @@ class Arena:
                     self.memory.store_pattern(critique, result.final_answer)
 
         result.duration_seconds = time.time() - start_time
+
+        # Emit consensus event
+        if "on_consensus" in self.hooks:
+            self.hooks["on_consensus"](
+                reached=result.consensus_reached,
+                confidence=result.confidence,
+                answer=result.final_answer,
+            )
+
+        # Emit debate end event
+        if "on_debate_end" in self.hooks:
+            self.hooks["on_debate_end"](
+                duration=result.duration_seconds,
+                rounds=result.rounds_used,
+            )
 
         print(f"\n{'='*60}")
         print(f"DEBATE COMPLETE in {result.duration_seconds:.1f}s")

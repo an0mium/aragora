@@ -204,13 +204,13 @@ Be specific enough that an engineer could implement it.""",
             name="architect",
             model="claude-sonnet-4-20250514",
             role="proposer",
-            timeout=120,
+            timeout=300,  # 5 min for complex design work
         ),
         ClaudeAgent(
             name="reviewer",
             model="claude-sonnet-4-20250514",
             role="synthesizer",
-            timeout=120,
+            timeout=300,
         ),
     ]
 
