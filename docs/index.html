@@ -3,8 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>aragora - Multi-Agent Debate Framework</title>
-    <meta name="description" content="A society of heterogeneous AI agents that discuss, critique, improve each other's responses, and learn from successful patterns.">
+    <title>aragora - Agorist AI</title>
+    <meta name="description" content="Decentralized reasoning through voluntary agent participation. Truth emerges from the marketplace of ideas, not central authority.">
+    <meta property="og:title" content="aragora - Agorist AI">
+    <meta property="og:description" content="Decentralized reasoning through voluntary agent participation. Truth emerges from the marketplace of ideas.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://aragora.ai">
+    <link rel="canonical" href="https://aragora.ai">
     <style>
         :root {
             --bg: #0a0a0f;
@@ -17,6 +22,7 @@
             --green: #22c55e;
             --orange: #f97316;
             --purple: #a78bfa;
+            --gold: #fbbf24;
         }
 
         * {
@@ -41,7 +47,7 @@
 
         header {
             text-align: center;
-            padding: 4rem 0 3rem;
+            padding: 4rem 0 2rem;
         }
 
         .logo {
@@ -54,11 +60,19 @@
             background-clip: text;
         }
 
+        .subtitle {
+            font-size: 1.5rem;
+            color: var(--gold);
+            margin-top: 0.25rem;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+        }
+
         .tagline {
             font-size: 1.25rem;
             color: var(--text-muted);
-            margin-top: 0.5rem;
-            max-width: 600px;
+            margin-top: 1rem;
+            max-width: 650px;
             margin-left: auto;
             margin-right: auto;
         }
@@ -88,6 +102,60 @@
         .badge:hover {
             border-color: var(--accent);
             color: var(--text);
+        }
+
+        /* Philosophy Section */
+        .philosophy {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(251, 191, 36, 0.05));
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 1rem;
+            padding: 2rem;
+            margin: 2.5rem 0;
+            text-align: center;
+        }
+
+        .philosophy h2 {
+            font-size: 1.25rem;
+            color: var(--gold);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .philosophy-quote {
+            font-size: 1.1rem;
+            font-style: italic;
+            color: var(--text);
+            max-width: 700px;
+            margin: 0 auto 1.5rem;
+        }
+
+        .philosophy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+            text-align: left;
+        }
+
+        .philosophy-item {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .philosophy-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .philosophy-item h4 {
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .philosophy-item p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
         }
 
         .install-box {
@@ -198,25 +266,50 @@
             line-height: 1.8;
         }
 
-        .demo-content .prompt {
-            color: var(--accent);
+        .demo-content .prompt { color: var(--accent); }
+        .demo-content .command { color: var(--text); }
+        .demo-content .output { color: var(--text-muted); }
+        .demo-content .success { color: var(--green); }
+        .demo-content .highlight { color: var(--purple); }
+
+        .comparison {
+            margin: 3rem 0;
         }
 
-        .demo-content .command {
-            color: var(--text);
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface);
+            border-radius: 0.75rem;
+            overflow: hidden;
         }
 
-        .demo-content .output {
+        .comparison-table th,
+        .comparison-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .comparison-table th {
+            background: #1a1a24;
+            font-weight: 600;
             color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
         }
 
-        .demo-content .success {
-            color: var(--green);
+        .comparison-table td {
+            font-size: 0.9rem;
         }
 
-        .demo-content .highlight {
-            color: var(--purple);
+        .comparison-table tr:last-child td {
+            border-bottom: none;
         }
+
+        .check { color: var(--green); }
+        .cross { color: #ef4444; }
 
         .architecture {
             margin: 3rem 0;
@@ -276,16 +369,34 @@
             border-color: var(--accent);
         }
 
-        footer {
-            text-align: center;
-            padding: 3rem 0;
-            color: var(--text-muted);
-            font-size: 0.875rem;
+        .use-cases {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
         }
 
-        footer a {
-            color: var(--accent);
-            text-decoration: none;
+        .use-case {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .use-case-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .use-case h4 {
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .use-case p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
         }
 
         .inspired {
@@ -318,69 +429,26 @@
             color: var(--text-muted);
         }
 
-        .version-highlight {
-            background: linear-gradient(135deg, var(--surface), rgba(99, 102, 241, 0.1));
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            margin: 2rem 0;
+        footer {
+            text-align: center;
+            padding: 3rem 0;
+            color: var(--text-muted);
+            font-size: 0.875rem;
         }
 
-        .version-highlight h3 {
+        footer a {
             color: var(--accent);
-            font-size: 1.1rem;
-            margin-bottom: 0.75rem;
+            text-decoration: none;
         }
 
-        .version-highlight ul {
-            list-style: none;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 0.5rem;
-        }
-
-        .version-highlight li {
+        .etymology {
             font-size: 0.85rem;
             color: var(--text-muted);
-            padding-left: 1.25rem;
-            position: relative;
+            margin-top: 0.5rem;
         }
 
-        .version-highlight li::before {
-            content: ">";
-            position: absolute;
-            left: 0;
-            color: var(--green);
-        }
-
-        .use-cases {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin: 1.5rem 0;
-        }
-
-        .use-case {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            text-align: center;
-        }
-
-        .use-case-icon {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .use-case h4 {
-            font-size: 0.9rem;
-            margin-bottom: 0.25rem;
-        }
-
-        .use-case p {
-            font-size: 0.75rem;
-            color: var(--text-muted);
+        .etymology span {
+            color: var(--purple);
         }
     </style>
 </head>
@@ -388,7 +456,9 @@
     <div class="container">
         <header>
             <h1 class="logo">aragora</h1>
-            <p class="tagline">A society of heterogeneous AI agents that discuss, critique, improve each other's responses, and learn from successful patterns.</p>
+            <p class="subtitle">Agorist AI</p>
+            <p class="tagline">Decentralized reasoning through voluntary agent participation. Truth emerges from the marketplace of ideas, not central authority.</p>
+            <p class="etymology"><span>ar-</span> (Latin: toward, enhanced) + <span>agora</span> (Greek: marketplace of ideas)</p>
             <div class="badges">
                 <a href="https://pypi.org/project/aragora/" class="badge">
                     <span>PyPI</span>
@@ -406,97 +476,127 @@
             </div>
         </header>
 
+        <div class="philosophy">
+            <h2>The Agorist Principle</h2>
+            <p class="philosophy-quote">"The goal of agorism is the agora. The society of the open marketplace as near to untainted by coercion as can be humanly attained."</p>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">- Samuel Edward Konkin III</p>
+
+            <div class="philosophy-grid">
+                <div class="philosophy-item">
+                    <div class="philosophy-icon">&#9878;</div>
+                    <div>
+                        <h4>Voluntary Exchange</h4>
+                        <p>Agents participate freely. Consensus emerges from debate, not dictation.</p>
+                    </div>
+                </div>
+                <div class="philosophy-item">
+                    <div class="philosophy-icon">&#128279;</div>
+                    <div>
+                        <h4>Counter to Monolithic AI</h4>
+                        <p>Alternative to "trust the one big model." Multiple perspectives, better truth.</p>
+                    </div>
+                </div>
+                <div class="philosophy-item">
+                    <div class="philosophy-icon">&#127759;</div>
+                    <div>
+                        <h4>Decentralized Coordination</h4>
+                        <p>No single authority. Truth from the marketplace of ideas.</p>
+                    </div>
+                </div>
+                <div class="philosophy-item">
+                    <div class="philosophy-icon">&#128161;</div>
+                    <div>
+                        <h4>Emergent Order</h4>
+                        <p>Like markets, better answers emerge from competition of ideas.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="install-box">
             <code>pip install aragora</code>
         </div>
 
-        <div class="version-highlight">
-            <h3>What's New in v0.7.0</h3>
-            <ul>
-                <li>Graph-based debates with branching</li>
-                <li>Evidence provenance chains</li>
-                <li>Consensus memory & dissent retrieval</li>
-                <li>Scenario matrix debates</li>
-                <li>Executable verification proofs</li>
-                <li>Red-team adversarial mode</li>
-                <li>Human intervention breakpoints</li>
-                <li>Self-improvement code editing</li>
-            </ul>
+        <h2 class="section-title"><span class="icon">&#9878;</span> Why Multi-Agent Debate?</h2>
+
+        <div class="comparison">
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Single Model</th>
+                        <th>aragora (Multi-Agent)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="cross">&#10005;</span> One perspective</td>
+                        <td><span class="check">&#10003;</span> Heterogeneous viewpoints</td>
+                    </tr>
+                    <tr>
+                        <td><span class="cross">&#10005;</span> Hallucinations go unchallenged</td>
+                        <td><span class="check">&#10003;</span> Agents critique each other</td>
+                    </tr>
+                    <tr>
+                        <td><span class="cross">&#10005;</span> Black box reasoning</td>
+                        <td><span class="check">&#10003;</span> Transparent debate transcript</td>
+                    </tr>
+                    <tr>
+                        <td><span class="cross">&#10005;</span> Single point of failure</td>
+                        <td><span class="check">&#10003;</span> Consensus requires agreement</td>
+                    </tr>
+                    <tr>
+                        <td><span class="cross">&#10005;</span> No dissent recorded</td>
+                        <td><span class="check">&#10003;</span> Minority views preserved</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         <h2 class="section-title"><span class="icon">&#9881;</span> Core Features</h2>
         <div class="features">
             <div class="feature">
                 <h3>Heterogeneous Agents</h3>
-                <p>Mix Claude, Codex, Gemini, Grok, Qwen, Deepseek, and local models in a single debate.</p>
+                <p>Mix Claude, GPT, Gemini, Grok, Qwen, Deepseek, and local models. Different biases create stronger consensus.</p>
             </div>
             <div class="feature">
                 <h3>Structured Debate</h3>
-                <p>Propose, Critique, Revise loop with configurable rounds and consensus mechanisms.</p>
+                <p>Propose, Critique, Revise loop. Configurable rounds and consensus mechanisms (majority, unanimous, judge).</p>
             </div>
             <div class="feature">
-                <h3>ELO Rankings</h3>
-                <p>Agents are ranked by performance. Better agents get selected for harder tasks.</p>
+                <h3>Evidence Provenance</h3>
+                <p>Cryptographic chain tracking sources. Every claim linked to evidence with reliability scoring.</p>
             </div>
             <div class="feature">
-                <h3>Memory Streams</h3>
-                <p>Agents maintain long-term memory of past debates and learned patterns.</p>
+                <h3>Cost/Quality Autotuning</h3>
+                <p>Budget-aware optimization. Early-stop on consensus. Automatic model tier selection.</p>
             </div>
         </div>
 
-        <h2 class="section-title"><span class="icon">&#128302;</span> Advanced Capabilities <span class="new-badge">New</span></h2>
+        <h2 class="section-title"><span class="icon">&#128302;</span> Advanced Capabilities <span class="new-badge">v0.7</span></h2>
         <div class="features">
             <div class="feature feature-new">
-                <h3>Debate Graph</h3>
-                <p>Non-linear debates with counterfactual branching. Explore alternative reasoning paths in parallel.</p>
+                <h3>Formal Verification</h3>
+                <p>Z3-powered proof checking. Verify logical claims with SMT solver integration.</p>
             </div>
             <div class="feature feature-new">
-                <h3>Evidence Provenance</h3>
-                <p>Cryptographic chain tracking evidence sources. Merkle tree verification for integrity.</p>
+                <h3>Plugin System</h3>
+                <p>Sandboxed extensibility. Built-in: lint, security-scan, test-runner. Add custom tools safely.</p>
             </div>
             <div class="feature feature-new">
-                <h3>Consensus Memory</h3>
-                <p>Store debate outcomes. Retrieve similar past debates and dissenting views.</p>
+                <h3>Decision-to-PR Pipeline</h3>
+                <p>Turn debate outcomes into GitHub PRs. Risk registers, test plans, implementation specs.</p>
             </div>
             <div class="feature feature-new">
-                <h3>Scenario Matrix</h3>
-                <p>Run debates across multiple scenarios (scale, risk, time horizon) in parallel.</p>
+                <h3>Static Artifacts</h3>
+                <p>Export debates as shareable HTML. Complete audit trail of reasoning.</p>
             </div>
             <div class="feature feature-new">
-                <h3>Verification Proofs</h3>
-                <p>Link claims to executable code. Verify assertions automatically with sandboxed execution.</p>
+                <h3>Nomic Self-Improvement</h3>
+                <p>aragora debates how to improve itself. Autonomous evolution through dialectic tension.</p>
             </div>
             <div class="feature feature-new">
                 <h3>Red-Team Mode</h3>
                 <p>Adversarial testing with steelman/strawman attacks. Find weaknesses before production.</p>
-            </div>
-        </div>
-
-        <h2 class="section-title"><span class="icon">&#128187;</span> More Features</h2>
-        <div class="features">
-            <div class="feature">
-                <h3>Human Breakpoints</h3>
-                <p>Pause debates for human input when confidence is low or stakes are high.</p>
-            </div>
-            <div class="feature">
-                <h3>Domain Templates</h3>
-                <p>Pre-built templates for code review, design docs, incident response, research.</p>
-            </div>
-            <div class="feature">
-                <h3>Self-Improvement</h3>
-                <p>aragora can edit its own code. Git integration for safe modifications.</p>
-            </div>
-            <div class="feature">
-                <h3>GitHub Action</h3>
-                <p>Multi-agent PR reviews. Drop into any repo's CI/CD pipeline.</p>
-            </div>
-            <div class="feature">
-                <h3>Typed Claims</h3>
-                <p>Structured reasoning with claim types, evidence categories, and logical relations.</p>
-            </div>
-            <div class="feature">
-                <h3>Adaptive Selection</h3>
-                <p>Automatically select the best agents for each task based on expertise and history.</p>
             </div>
         </div>
 
@@ -507,18 +607,18 @@
                 <div class="demo-dot green"></div>
             </div>
             <div class="demo-content">
-<span class="prompt">$</span> <span class="command">aragora ask "Design a rate limiter for 1M req/sec" --agents codex,claude</span>
+<span class="prompt">$</span> <span class="command">aragora ask "Design a rate limiter for 1M req/sec"</span>
 
-<span class="output">[Round 1] codex_proposer: Proposing solution...</span>
-<span class="output">[Round 1] claude_critic: Analyzing proposal...</span>
-<span class="output">  Issues found: Race condition in distributed counter</span>
-<span class="output">[Round 2] codex_proposer: Revising based on critique...</span>
-<span class="output">[Round 2] claude_critic: Re-evaluating...</span>
+<span class="output">[Round 1] claude_proposer: Token bucket with Redis cluster...</span>
+<span class="output">[Round 1] gemini_critic: Race condition in distributed counter</span>
+<span class="output">[Round 1] gpt_critic: Missing backpressure mechanism</span>
+<span class="output">[Round 2] claude_proposer: Revised with CAS operations...</span>
+<span class="output">[Round 2] gemini_critic: Addresses race condition </span><span class="success">&#10003;</span>
+<span class="output">[Round 2] gpt_critic: Added circuit breaker </span><span class="success">&#10003;</span>
 <span class="success">Consensus reached (confidence: 87%)</span>
 
-<span class="prompt">$</span> <span class="command">aragora demo rate-limiter</span>  <span class="highlight"># Quick 60-second demo</span>
-
-<span class="prompt">$</span> <span class="command">aragora templates</span>  <span class="highlight"># List available debate templates</span>
+<span class="prompt">$</span> <span class="command">aragora export --format html debate_123.json</span>
+<span class="output">Exported to debate_123.html</span>  <span class="highlight"># Shareable artifact</span>
             </div>
         </div>
 
@@ -537,12 +637,12 @@
             <div class="use-case">
                 <div class="use-case-icon">&#128293;</div>
                 <h4>Incident Response</h4>
-                <p>Rapid multi-perspective analysis</p>
+                <p>Rapid multi-perspective RCA</p>
             </div>
             <div class="use-case">
                 <div class="use-case-icon">&#128218;</div>
                 <h4>Research Synthesis</h4>
-                <p>Combine findings from multiple sources</p>
+                <p>Combine findings, challenge claims</p>
             </div>
             <div class="use-case">
                 <div class="use-case-icon">&#128274;</div>
@@ -552,58 +652,69 @@
             <div class="use-case">
                 <div class="use-case-icon">&#9989;</div>
                 <h4>Decision Making</h4>
-                <p>Scenario analysis across conditions</p>
+                <p>Scenario analysis with dissent tracking</p>
             </div>
         </div>
 
         <div class="architecture">
             <h2 class="section-title"><span class="icon">&#128736;</span> Architecture</h2>
             <div class="arch-diagram">
-┌────────────────────────────────────────────────────────────────────────────┐
-│                            AAGORA v0.7.0                                    │
-├────────────────────────────────────────────────────────────────────────────┤
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │
-│  │ Claude  │ │ Codex   │ │ Gemini  │ │  Grok   │ │  Qwen   │ │Deepseek │   │
-│  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘   │
-│       └───────────┴───────────┴───────────┴───────────┴───────────┘        │
-│                                    ▼                                        │
-│  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │                    ARENA (Orchestrator)                               │  │
-│  │  • Role assignment (proposer, critic, synthesizer)                    │  │
-│  │  • Round management • ELO-based agent selection                       │  │
-│  └────────────────────────────────┬─────────────────────────────────────┘  │
-│           ┌───────────────────────┼───────────────────────┐                │
-│           ▼                       ▼                       ▼                │
-│  ┌─────────────────┐   ┌─────────────────────┐   ┌─────────────────────┐   │
-│  │  DEBATE GRAPH   │   │   SCENARIO MATRIX   │   │    RED-TEAM MODE    │   │
-│  │ • Branching     │   │ • Parallel scenarios│   │ • Adversarial test  │   │
-│  │ • Counterfactual│   │ • Scale/risk/time   │   │ • Steelman/strawman │   │
-│  │ • Merge points  │   │ • Outcome analysis  │   │ • Exploit detection │   │
-│  └────────┬────────┘   └─────────┬───────────┘   └──────────┬──────────┘   │
-│           └───────────────────────┼──────────────────────────┘             │
-│                                   ▼                                        │
-│  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │                      VERIFICATION & PROVENANCE                        │  │
-│  │  • Executable proofs • Evidence chains • Merkle verification          │  │
-│  │  • Claim-to-code linking • Cryptographic integrity                    │  │
-│  └────────────────────────────────┬─────────────────────────────────────┘  │
-│                                   ▼                                        │
-│  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │                    MEMORY & LEARNING LAYER                            │  │
-│  │  • Consensus memory • Dissent retrieval • Pattern storage             │  │
-│  │  • Semantic search • Prompt evolution • ELO rankings                  │  │
-│  └──────────────────────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────────────────┘</div>
+                              ┌─────────────────────────────────────────────────┐
+                              │              THE AGORA (Arena)                  │
+                              │   Voluntary participation, emergent consensus   │
+                              └─────────────────────────────────────────────────┘
+                                                     │
+          ┌──────────────┬──────────────┬────────────┼────────────┬──────────────┬──────────────┐
+          ▼              ▼              ▼            ▼            ▼              ▼              ▼
+    ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+    │  Claude  │  │   GPT    │  │  Gemini  │  │   Grok   │  │   Qwen   │  │ Deepseek │  │  Local   │
+    │ proposer │  │  critic  │  │  critic  │  │  critic  │  │  critic  │  │  critic  │  │  judge   │
+    └──────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘
+          │              │              │            │            │              │              │
+          └──────────────┴──────────────┴────────────┼────────────┴──────────────┴──────────────┘
+                                                     ▼
+    ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+    │                                    VERIFICATION LAYER                                       │
+    │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐ │
+    │  │ Evidence Chain  │  │ Z3 Formal Proof │  │ Reliability     │  │ Sandboxed Plugins       │ │
+    │  │ (Provenance)    │  │ (SMT Solver)    │  │ Scoring         │  │ (lint, security, test)  │ │
+    │  └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────────────────┘ │
+    └─────────────────────────────────────────────────────────────────────────────────────────────┘
+                                                     │
+    ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+    │                                    MEMORY & LEARNING                                        │
+    │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐ │
+    │  │ Consensus Store │  │ Dissent Archive │  │ Pattern Memory  │  │ ELO Rankings            │ │
+    │  └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────────────────┘ │
+    └─────────────────────────────────────────────────────────────────────────────────────────────┘
+                                                     │
+    ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+    │                                      OUTPUT LAYER                                           │
+    │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐ │
+    │  │ HTML Artifacts  │  │ PR Generator    │  │ Risk Register   │  │ Autotuner (cost/quality)│ │
+    │  └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────────────────┘ │
+    └─────────────────────────────────────────────────────────────────────────────────────────────┘</div>
         </div>
 
         <div class="inspired">
-            <h3>Inspired By</h3>
+            <h3>Philosophical Roots</h3>
+            <div class="inspired-list">
+                <span class="inspired-item">Agorism (SEK3)</span>
+                <span class="inspired-item">Counter-Economics</span>
+                <span class="inspired-item">Marketplace of Ideas</span>
+                <span class="inspired-item">Dialectical Reasoning</span>
+                <span class="inspired-item">Emergent Order</span>
+            </div>
+        </div>
+
+        <div class="inspired">
+            <h3>Technical Inspiration</h3>
             <div class="inspired-list">
                 <span class="inspired-item">Stanford Generative Agents</span>
-                <span class="inspired-item">ChatArena</span>
                 <span class="inspired-item">LLM Multi-Agent Debate</span>
-                <span class="inspired-item">UniversalBackrooms</span>
+                <span class="inspired-item">ChatArena</span>
                 <span class="inspired-item">Project Sid</span>
+                <span class="inspired-item">Nomic (rules that change rules)</span>
             </div>
         </div>
 
@@ -617,7 +728,8 @@
         </div>
 
         <footer>
-            <p>Built with curiosity. Released under <a href="https://github.com/an0mium/aragora/blob/main/LICENSE">MIT License</a>.</p>
+            <p>Built for the open marketplace of ideas.</p>
+            <p style="margin-top: 0.5rem;">Released under <a href="https://github.com/an0mium/aragora/blob/main/LICENSE">MIT License</a>.</p>
         </footer>
     </div>
 </body>
