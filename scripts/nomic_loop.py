@@ -27,7 +27,6 @@ to prevent the nomic loop from breaking itself.
 import asyncio
 import argparse
 import hashlib
-import io
 import json
 import os
 import shutil
@@ -379,28 +378,39 @@ Reject any proposal that would break the nomic loop or core debate infrastructur
         except Exception:
             return "Unable to read git history"
 
+    def _create_arena_hooks(self, phase_name: str) -> dict:
+        """Create event hooks for real-time Arena logging."""
+        return {
+            "on_debate_start": lambda task, agents: self._log(
+                f"    Debate started: {len(agents)} agents"
+            ),
+            "on_message": lambda agent, content, role, round_num: self._log(
+                f"    [{role}] {agent} (round {round_num}): {content[:80]}..."
+            ),
+            "on_critique": lambda agent, target, issues, severity, round_num: self._log(
+                f"    [critique] {agent} -> {target}: {len(issues)} issues, severity {severity:.1f}"
+            ),
+            "on_round_start": lambda round_num: self._log(
+                f"    --- Round {round_num} ---"
+            ),
+            "on_consensus": lambda reached, confidence, answer: self._log(
+                f"    Consensus: {'Yes' if reached else 'No'} ({confidence:.0%})"
+            ),
+            "on_debate_end": lambda duration, rounds: self._log(
+                f"    Completed in {duration:.1f}s ({rounds} rounds)"
+            ),
+        }
+
     async def _run_arena_with_logging(self, arena: Arena, phase_name: str) -> "DebateResult":
-        """Run an Arena debate while capturing and logging all output."""
+        """Run an Arena debate with real-time logging via event hooks."""
         self._log(f"  Starting {phase_name} arena...")
         self._save_state({"phase": phase_name, "stage": "arena_starting"})
 
-        # Capture stdout during arena run
-        captured_output = io.StringIO()
+        # Add event hooks for real-time logging
+        arena.hooks = self._create_arena_hooks(phase_name)
 
         try:
-            old_stdout = sys.stdout
-            sys.stdout = captured_output
-
             result = await arena.run()
-
-            sys.stdout = old_stdout
-
-            # Log captured output
-            output = captured_output.getvalue()
-            if output:
-                for line in output.strip().split('\n'):
-                    if line.strip():
-                        self._log(f"    {line}", also_print=False)
 
             self._log(f"  {phase_name} arena complete")
             self._log(f"    Consensus: {result.consensus_reached}", also_print=False)
@@ -418,7 +428,6 @@ Reject any proposal that would break the nomic loop or core debate infrastructur
             return result
 
         except Exception as e:
-            sys.stdout = old_stdout
             self._log(f"  {phase_name} arena ERROR: {e}")
             self._save_state({"phase": phase_name, "stage": "arena_error", "error": str(e)})
             raise
