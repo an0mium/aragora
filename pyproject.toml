@@ -34,7 +34,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
-dependencies = []
+dependencies = [
+    "aiohttp>=3.9",
+]
 
 [project.optional-dependencies]
 dev = [

@@ -13,8 +13,25 @@ Inspired by:
 """
 
 from aagora.core import Agent, Critique, DebateResult, Environment
-from aagora.debate.orchestrator import Arena
+from aagora.debate.orchestrator import Arena, DebateProtocol
 from aagora.memory.store import CritiqueStore
+from aagora.memory.embeddings import SemanticRetriever
+from aagora.evolution.evolver import PromptEvolver, EvolutionStrategy
 
 __version__ = "0.1.0"
-__all__ = ["Agent", "Critique", "DebateResult", "Environment", "Arena", "CritiqueStore"]
+__all__ = [
+    # Core
+    "Agent",
+    "Critique",
+    "DebateResult",
+    "Environment",
+    # Debate
+    "Arena",
+    "DebateProtocol",
+    # Memory
+    "CritiqueStore",
+    "SemanticRetriever",
+    # Evolution
+    "PromptEvolver",
+    "EvolutionStrategy",
+]
