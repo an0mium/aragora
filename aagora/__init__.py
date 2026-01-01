@@ -14,24 +14,75 @@ Inspired by:
 
 from aagora.core import Agent, Critique, DebateResult, Environment
 from aagora.debate.orchestrator import Arena, DebateProtocol
+from aagora.debate.meta import MetaCritiqueAnalyzer, MetaCritique, MetaObservation
+from aagora.debate.forking import (
+    DebateForker,
+    ForkDetector,
+    Branch,
+    ForkDecision,
+    ForkPoint,
+    MergeResult,
+)
 from aagora.memory.store import CritiqueStore
 from aagora.memory.embeddings import SemanticRetriever
+from aagora.memory.streams import MemoryStream, Memory, RetrievedMemory
 from aagora.evolution.evolver import PromptEvolver, EvolutionStrategy
+from aagora.agents.personas import Persona, PersonaManager, PerformanceRecord
+from aagora.ranking import EloSystem, AgentRating, MatchResult
+from aagora.tournaments import (
+    Tournament,
+    TournamentFormat,
+    TournamentTask,
+    TournamentMatch,
+    TournamentStanding,
+    TournamentResult,
+    create_default_tasks,
+)
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __all__ = [
     # Core
     "Agent",
     "Critique",
     "DebateResult",
     "Environment",
-    # Debate
+    # Debate Orchestration
     "Arena",
     "DebateProtocol",
+    # Meta-Critique
+    "MetaCritiqueAnalyzer",
+    "MetaCritique",
+    "MetaObservation",
+    # Debate Forking
+    "DebateForker",
+    "ForkDetector",
+    "Branch",
+    "ForkDecision",
+    "ForkPoint",
+    "MergeResult",
     # Memory
     "CritiqueStore",
     "SemanticRetriever",
+    "MemoryStream",
+    "Memory",
+    "RetrievedMemory",
     # Evolution
     "PromptEvolver",
     "EvolutionStrategy",
+    # Personas
+    "Persona",
+    "PersonaManager",
+    "PerformanceRecord",
+    # Ranking
+    "EloSystem",
+    "AgentRating",
+    "MatchResult",
+    # Tournaments
+    "Tournament",
+    "TournamentFormat",
+    "TournamentTask",
+    "TournamentMatch",
+    "TournamentStanding",
+    "TournamentResult",
+    "create_default_tasks",
 ]
