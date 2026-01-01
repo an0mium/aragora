@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aagora"
-version = "0.3.0"
+version = "0.4.0"
 description = "Multi-Agent Debate Framework - A society of AI agents that discuss, critique, and improve each other's responses"
 readme = "README.md"
 license = {text = "MIT"}

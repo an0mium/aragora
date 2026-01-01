@@ -56,6 +56,12 @@ npm install -g @google/gemini-cli
 # xAI Grok CLI
 npm install -g grok-cli
 
+# Alibaba Qwen Code CLI
+npm install -g @qwen-code/qwen-code
+
+# Deepseek CLI
+pip install deepseek-cli
+
 # OpenAI CLI
 pip install openai
 ```
@@ -67,10 +73,13 @@ pip install openai
 │                         AAGORA FRAMEWORK                         │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────┐ │
-│  │  Claude  │ │  Codex   │ │  Gemini  │ │   Grok   │ │ OpenAI │ │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └───┬────┘ │
-│       └────────────┴────────────┴────────────┴───────────┘      │
+│    ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐       │
+│    │ Claude │ │ Codex  │ │ Gemini │ │  Grok  │ │ OpenAI │       │
+│    └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘       │
+│        │    ┌─────┴─────┐    │    ┌─────┴─────┐    │            │
+│        │    │   Qwen    │    │    │ Deepseek  │    │            │
+│        │    └─────┬─────┘    │    └─────┬─────┘    │            │
+│        └──────────┴──────────┴──────────┴──────────┘            │
 │                             ▼                                   │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │                    ARENA (Orchestrator)                  │    │
@@ -204,7 +213,7 @@ for pattern in security_patterns:
 
 Contributions welcome! Areas of interest:
 
-- Additional agent backends (Llama, Mistral, Deepseek)
+- Additional agent backends (Llama, Mistral, Cohere)
 - Debate visualization
 - Benchmark datasets
 - Prompt engineering for better critiques

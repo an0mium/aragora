@@ -6,7 +6,7 @@ from typing import Literal, Union
 
 AgentType = Literal[
     # CLI-based
-    "codex", "claude", "openai", "gemini-cli", "grok-cli",
+    "codex", "claude", "openai", "gemini-cli", "grok-cli", "qwen-cli", "deepseek-cli",
     # API-based
     "gemini", "ollama", "anthropic-api", "openai-api",
 ]
@@ -29,6 +29,8 @@ def create_agent(
             - "openai": OpenAI CLI
             - "gemini-cli": Google Gemini CLI
             - "grok-cli": xAI Grok CLI
+            - "qwen-cli": Alibaba Qwen Code CLI
+            - "deepseek-cli": Deepseek CLI
             - "gemini": Google Gemini API
             - "ollama": Local Ollama API
             - "anthropic-api": Direct Anthropic API
@@ -77,6 +79,20 @@ def create_agent(
             model=model or "grok-3-latest",
             role=role,
         )
+    elif model_type == "qwen-cli":
+        from aagora.agents.cli_agents import QwenCLIAgent
+        return QwenCLIAgent(
+            name=name or "qwen",
+            model=model or "qwen3-coder",
+            role=role,
+        )
+    elif model_type == "deepseek-cli":
+        from aagora.agents.cli_agents import DeepseekCLIAgent
+        return DeepseekCLIAgent(
+            name=name or "deepseek",
+            model=model or "deepseek-v3",
+            role=role,
+        )
 
     # API-based agents
     elif model_type == "gemini":
@@ -114,7 +130,7 @@ def create_agent(
     else:
         raise ValueError(
             f"Unknown model type: {model_type}. "
-            f"Valid types: codex, claude, openai, gemini-cli, grok-cli, gemini, ollama, anthropic-api, openai-api"
+            f"Valid types: codex, claude, openai, gemini-cli, grok-cli, qwen-cli, deepseek-cli, gemini, ollama, anthropic-api, openai-api"
         )
 
 
@@ -145,6 +161,16 @@ def list_available_agents() -> dict:
             "type": "CLI",
             "requires": "grok CLI (npm install -g grok-cli)",
             "env_vars": None,
+        },
+        "qwen-cli": {
+            "type": "CLI",
+            "requires": "qwen CLI (npm install -g @qwen-code/qwen-code)",
+            "env_vars": None,
+        },
+        "deepseek-cli": {
+            "type": "CLI",
+            "requires": "deepseek CLI (pip install deepseek-cli)",
+            "env_vars": "DEEPSEEK_API_KEY",
         },
         "gemini": {
             "type": "API",
