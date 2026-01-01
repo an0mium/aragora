@@ -23,6 +23,7 @@ Inspired by:
 
 import asyncio
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -38,6 +39,15 @@ from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.core import Environment
 from aragora.agents.api_agents import GeminiAgent
 from aragora.agents.cli_agents import CodexAgent, ClaudeAgent
+from aragora.implement import (
+    generate_implement_plan,
+    create_single_task_plan,
+    HybridExecutor,
+    load_progress,
+    save_progress,
+    clear_progress,
+    ImplementProgress,
+)
 
 
 class NomicLoop:
@@ -201,13 +211,188 @@ Be specific enough that an engineer could implement it.""",
             "consensus_reached": result.consensus_reached,
         }
 
+    def _git_stash_create(self) -> Optional[str]:
+        """Create a git stash for transactional safety."""
+        try:
+            # Check if there are changes to stash
+            status = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            if not status.stdout.strip():
+                return None  # Nothing to stash
+
+            result = subprocess.run(
+                ["git", "stash", "push", "-m", "nomic-implement-backup"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                # Get the stash ref
+                ref_result = subprocess.run(
+                    ["git", "stash", "list", "-1", "--format=%H"],
+                    cwd=self.aragora_path,
+                    capture_output=True,
+                    text=True,
+                )
+                return ref_result.stdout.strip() or "stash@{0}"
+        except Exception as e:
+            print(f"Warning: Could not create stash: {e}")
+        return None
+
+    def _git_stash_pop(self, stash_ref: Optional[str]) -> None:
+        """Pop a stash to restore previous state."""
+        if not stash_ref:
+            return
+        try:
+            # First reset any changes
+            subprocess.run(
+                ["git", "checkout", "."],
+                cwd=self.aragora_path,
+                capture_output=True,
+            )
+            # Then pop the stash
+            subprocess.run(
+                ["git", "stash", "pop"],
+                cwd=self.aragora_path,
+                capture_output=True,
+            )
+        except Exception as e:
+            print(f"Warning: Could not pop stash: {e}")
+
+    def _get_git_diff(self) -> str:
+        """Get current git diff."""
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--stat"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            return result.stdout
+        except Exception:
+            return ""
+
     async def phase_implement(self, design: str) -> dict:
-        """Phase 3: Codex implements the design."""
+        """
+        Phase 3: Hybrid multi-model implementation.
+
+        Uses the consensus architecture from the 3-provider debate:
+        - Gemini generates an implementation plan
+        - Claude handles complex tasks
+        - Codex handles simple tasks
+        """
         print("\n" + "=" * 70)
-        print("PHASE 3: IMPLEMENTATION (Codex)")
+        print("PHASE 3: IMPLEMENTATION (Hybrid)")
         print("=" * 70)
 
-        # Use codex directly with repo access
+        use_hybrid = os.environ.get("ARAGORA_HYBRID_IMPLEMENT", "1") == "1"
+
+        if not use_hybrid:
+            # Legacy single-codex path
+            return await self._legacy_implement(design)
+
+        design_hash = hashlib.md5(design.encode()).hexdigest()
+
+        # 1. Check for crash recovery
+        progress = load_progress(self.aragora_path)
+        if progress and progress.plan.design_hash == design_hash:
+            print("  Resuming from checkpoint...")
+            plan = progress.plan
+            completed = set(progress.completed_tasks)
+            stash_ref = progress.git_stash_ref
+        else:
+            # 2. Generate plan with Gemini
+            try:
+                plan = await generate_implement_plan(design, self.aragora_path)
+            except Exception as e:
+                print(f"  Plan generation failed: {e}")
+                print("  Falling back to single-task mode...")
+                plan = create_single_task_plan(design, self.aragora_path)
+
+            completed = set()
+
+            # 3. Git stash for transactional safety
+            stash_ref = self._git_stash_create()
+
+            # Save initial progress
+            save_progress(
+                ImplementProgress(
+                    plan=plan,
+                    completed_tasks=[],
+                    git_stash_ref=stash_ref,
+                ),
+                self.aragora_path,
+            )
+
+        # 4. Execute tasks with hybrid executor
+        executor = HybridExecutor(self.aragora_path)
+
+        def on_task_complete(task_id: str, result):
+            """Callback to save progress after each task."""
+            completed.add(task_id)
+            save_progress(
+                ImplementProgress(
+                    plan=plan,
+                    completed_tasks=list(completed),
+                    current_task=None,
+                    git_stash_ref=stash_ref,
+                ),
+                self.aragora_path,
+            )
+
+        try:
+            results = await executor.execute_plan(
+                plan.tasks,
+                completed,
+                on_task_complete=on_task_complete,
+            )
+
+            # Check if all tasks completed
+            all_success = all(r.success for r in results)
+            tasks_completed = len([r for r in results if r.success])
+
+            if all_success and tasks_completed == len(plan.tasks):
+                # Full success - clear checkpoint
+                clear_progress(self.aragora_path)
+                return {
+                    "phase": "implement",
+                    "success": True,
+                    "tasks_completed": tasks_completed,
+                    "tasks_total": len(plan.tasks),
+                    "diff": self._get_git_diff(),
+                    "results": [r.to_dict() for r in results],
+                }
+            else:
+                # Partial success or failure
+                failed = [r for r in results if not r.success]
+                return {
+                    "phase": "implement",
+                    "success": False,
+                    "tasks_completed": tasks_completed,
+                    "tasks_total": len(plan.tasks),
+                    "error": failed[0].error if failed else "Unknown error",
+                    "diff": self._get_git_diff(),
+                }
+
+        except Exception as e:
+            # Rollback on catastrophic failure
+            print(f"  Catastrophic failure: {e}")
+            print("  Rolling back changes...")
+            self._git_stash_pop(stash_ref)
+            return {
+                "phase": "implement",
+                "success": False,
+                "error": str(e),
+            }
+
+    async def _legacy_implement(self, design: str) -> dict:
+        """Legacy single-Codex implementation (fallback)."""
+        print("  Using legacy Codex-only mode...")
+
         prompt = f"""Implement this design in the aragora codebase:
 
 {design}
@@ -220,7 +405,6 @@ IMPORTANT: Only make changes that are safe and reversible.
 Do not delete or break existing functionality."""
 
         try:
-            # Run codex with full repo access
             result = subprocess.run(
                 ["codex", "exec", "-C", str(self.aragora_path), prompt],
                 capture_output=True,
@@ -228,20 +412,10 @@ Do not delete or break existing functionality."""
                 timeout=300,
             )
 
-            implementation = result.stdout
-
-            # Check what changed
-            diff_result = subprocess.run(
-                ["git", "diff", "--stat"],
-                cwd=self.aragora_path,
-                capture_output=True,
-                text=True,
-            )
-
             return {
                 "phase": "implement",
-                "output": implementation,
-                "diff": diff_result.stdout,
+                "output": result.stdout,
+                "diff": self._get_git_diff(),
                 "success": result.returncode == 0,
             }
 

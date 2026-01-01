@@ -76,3 +76,4 @@ logs/
 # Local config
 .env.local
 config.local.yaml
+.DS_Store
