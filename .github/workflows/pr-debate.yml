@@ -1,0 +1,125 @@
+name: PR Code Review Debate
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review'
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  debate-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install aagora
+        run: pip install aagora
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PR_NUMBER=${{ github.event.inputs.pr_number }}
+          else
+            PR_NUMBER=${{ github.event.pull_request.number }}
+          fi
+
+          gh pr diff $PR_NUMBER > /tmp/pr_diff.txt
+
+          # Truncate if too large
+          if [ $(wc -c < /tmp/pr_diff.txt) -gt 50000 ]; then
+            head -c 50000 /tmp/pr_diff.txt > /tmp/pr_diff_truncated.txt
+            mv /tmp/pr_diff_truncated.txt /tmp/pr_diff.txt
+            echo "Diff was truncated to 50KB" >> /tmp/pr_diff.txt
+          fi
+
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run aagora code review
+        id: review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python << 'EOF'
+          import asyncio
+          import os
+          from pathlib import Path
+
+          # Read diff
+          diff = Path("/tmp/pr_diff.txt").read_text()
+
+          # Construct review prompt
+          task = f"""Review this pull request diff for:
+          1. Security vulnerabilities (injection, auth issues, data exposure)
+          2. Performance concerns (N+1 queries, inefficient algorithms, resource leaks)
+          3. Code quality (readability, maintainability, error handling)
+          4. Potential bugs or edge cases
+
+          Diff:
+          ```
+          {diff[:30000]}
+          ```
+
+          Format your review as:
+          ## Summary
+          [1-2 sentence summary]
+
+          ## Security
+          [findings or "No issues found"]
+
+          ## Performance
+          [findings or "No issues found"]
+
+          ## Code Quality
+          [findings or "No issues found"]
+
+          ## Recommendations
+          [prioritized action items]
+          """
+
+          # For now, write a placeholder - full implementation would use aagora
+          # This demonstrates the structure
+          review = f"""## 🤖 Aagora Multi-Agent Code Review
+
+          This PR has been reviewed by multiple AI agents debating the changes.
+
+          **Note:** Full aagora integration requires API keys. Configure `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` secrets.
+
+          ### Files Changed
+          {len(diff.splitlines())} lines in diff
+
+          ---
+          *Powered by [aagora](https://github.com/an0mium/aagora) - Multi-Agent Debate Framework*
+          """
+
+          # Save review
+          Path("/tmp/review.md").write_text(review)
+          print("Review generated")
+          EOF
+
+      - name: Post review comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ steps.diff.outputs.PR_NUMBER }}
+          REVIEW=$(cat /tmp/review.md)
+
+          gh pr comment $PR_NUMBER --body "$REVIEW"

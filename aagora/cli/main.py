@@ -160,6 +160,123 @@ def cmd_patterns(args):
             print(f"  Suggestion: {p.suggestion_text[:80]}...")
 
 
+def cmd_demo(args):
+    """Handle 'demo' command - run a quick compelling demo."""
+    import time
+
+    demo_tasks = {
+        "rate-limiter": {
+            "task": "Design a distributed rate limiter that handles 1M requests/second across multiple regions",
+            "agents": "codex,claude",
+            "rounds": 2,
+        },
+        "auth": {
+            "task": "Design a secure authentication system with passwordless login and MFA support",
+            "agents": "claude,codex",
+            "rounds": 2,
+        },
+        "cache": {
+            "task": "Design a cache invalidation strategy for a social media feed with 100M users",
+            "agents": "codex,claude",
+            "rounds": 2,
+        },
+    }
+
+    demo_name = args.name or "rate-limiter"
+    if demo_name not in demo_tasks:
+        print(f"Unknown demo: {demo_name}")
+        print(f"Available demos: {', '.join(demo_tasks.keys())}")
+        return
+
+    demo = demo_tasks[demo_name]
+
+    print("\n" + "=" * 60)
+    print("🎭 AAGORA DEMO - Multi-Agent Debate")
+    print("=" * 60)
+    print(f"\n📋 Task: {demo['task'][:80]}...")
+    print(f"🤖 Agents: {demo['agents']}")
+    print(f"🔄 Rounds: {demo['rounds']}")
+    print("\n" + "-" * 60)
+    print("Starting debate...")
+    print("-" * 60 + "\n")
+
+    start = time.time()
+
+    result = asyncio.run(
+        run_debate(
+            task=demo["task"],
+            agents_str=demo["agents"],
+            rounds=demo["rounds"],
+            consensus="majority",
+            learn=False,
+        )
+    )
+
+    elapsed = time.time() - start
+
+    print("\n" + "=" * 60)
+    print("✅ DEBATE COMPLETE")
+    print("=" * 60)
+    print(f"⏱️  Duration: {elapsed:.1f}s")
+    print(f"🎯 Consensus: {'Reached' if result.consensus_reached else 'Not reached'}")
+    print(f"📊 Confidence: {result.confidence:.0%}")
+    print("\n" + "-" * 60)
+    print("FINAL ANSWER:")
+    print("-" * 60)
+    print(result.final_answer[:1000])
+    if len(result.final_answer) > 1000:
+        print("...")
+    print("\n" + "=" * 60)
+
+
+def cmd_templates(args):
+    """Handle 'templates' command - list available debate templates."""
+    from aagora.templates import list_templates
+
+    templates = list_templates()
+
+    print("\n" + "=" * 60)
+    print("📋 AVAILABLE DEBATE TEMPLATES")
+    print("=" * 60 + "\n")
+
+    for t in templates:
+        print(f"[{t['type']}] {t['name']}")
+        print(f"  {t['description'][:60]}...")
+        print(f"  Agents: {t['agents']}, Domain: {t['domain']}")
+        print()
+
+
+def cmd_improve(args):
+    """Handle 'improve' command - self-improvement mode."""
+    print("\n" + "=" * 60)
+    print("🔧 SELF-IMPROVEMENT MODE")
+    print("=" * 60)
+    print(f"\nTarget: {args.path or 'current directory'}")
+    print(f"Focus: {args.focus or 'general improvements'}")
+    print()
+
+    # This is a placeholder - full implementation would use SelfImprover
+    print("⚠️  Self-improvement mode is experimental.")
+    print("   Use 'aagora ask' to debate specific improvements.")
+    print()
+
+    if args.analyze:
+        from aagora.tools.code import CodeReader
+
+        reader = CodeReader(args.path or ".")
+        tree = reader.get_file_tree(max_depth=2)
+
+        print("📂 Codebase structure:")
+        def print_tree(t, indent=0):
+            for k, v in sorted(t.items()):
+                if isinstance(v, dict):
+                    print("  " * indent + f"📁 {k}")
+                    print_tree(v, indent + 1)
+                else:
+                    print("  " * indent + f"📄 {k} ({v} bytes)")
+        print_tree(tree)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Agora - Multi-Agent Debate Framework",
@@ -211,6 +328,22 @@ Examples:
     patterns_parser.add_argument("--min-success", type=int, default=1, help="Minimum success count")
     patterns_parser.add_argument("--limit", "-l", type=int, default=10, help="Max patterns to show")
     patterns_parser.set_defaults(func=cmd_patterns)
+
+    # Demo command
+    demo_parser = subparsers.add_parser("demo", help="Run a quick demo debate")
+    demo_parser.add_argument("name", nargs="?", help="Demo name (rate-limiter, auth, cache)")
+    demo_parser.set_defaults(func=cmd_demo)
+
+    # Templates command
+    templates_parser = subparsers.add_parser("templates", help="List available debate templates")
+    templates_parser.set_defaults(func=cmd_templates)
+
+    # Improve command (self-improvement mode)
+    improve_parser = subparsers.add_parser("improve", help="Self-improvement mode")
+    improve_parser.add_argument("--path", "-p", help="Path to codebase (default: current dir)")
+    improve_parser.add_argument("--focus", "-f", help="Focus area for improvements")
+    improve_parser.add_argument("--analyze", "-a", action="store_true", help="Analyze codebase structure")
+    improve_parser.set_defaults(func=cmd_improve)
 
     args = parser.parse_args()
 

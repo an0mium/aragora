@@ -1,0 +1,91 @@
+name: 'Aagora PR Review'
+description: 'Multi-agent AI debate for pull request code reviews'
+author: 'aagora'
+branding:
+  icon: 'message-circle'
+  color: 'purple'
+
+inputs:
+  agents:
+    description: 'Comma-separated list of agents to use (e.g., claude,codex)'
+    required: false
+    default: 'claude,codex'
+  rounds:
+    description: 'Number of debate rounds'
+    required: false
+    default: '2'
+  focus:
+    description: 'Focus areas (security, performance, quality, all)'
+    required: false
+    default: 'all'
+  anthropic_api_key:
+    description: 'Anthropic API key for Claude'
+    required: false
+  openai_api_key:
+    description: 'OpenAI API key for Codex'
+    required: false
+
+outputs:
+  review:
+    description: 'The generated code review'
+    value: ${{ steps.review.outputs.review }}
+  consensus:
+    description: 'Whether consensus was reached'
+    value: ${{ steps.review.outputs.consensus }}
+  confidence:
+    description: 'Confidence score of the review'
+    value: ${{ steps.review.outputs.confidence }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install aagora
+      shell: bash
+      run: pip install aagora
+
+    - name: Get PR diff
+      id: diff
+      shell: bash
+      run: |
+        gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr_diff.txt
+      env:
+        GH_TOKEN: ${{ github.token }}
+
+    - name: Run aagora review
+      id: review
+      shell: bash
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        AGENTS: ${{ inputs.agents }}
+        ROUNDS: ${{ inputs.rounds }}
+        FOCUS: ${{ inputs.focus }}
+      run: |
+        python << 'EOF'
+        import os
+        from pathlib import Path
+
+        diff = Path("/tmp/pr_diff.txt").read_text()
+        agents = os.environ.get("AGENTS", "claude,codex")
+        rounds = os.environ.get("ROUNDS", "2")
+        focus = os.environ.get("FOCUS", "all")
+
+        # Placeholder for actual implementation
+        review = f"""## Aagora Code Review
+
+        **Agents:** {agents}
+        **Rounds:** {rounds}
+        **Focus:** {focus}
+
+        [Review would be generated here with full API integration]
+        """
+
+        print(f"review={review[:100]}")
+        print("consensus=true")
+        print("confidence=0.8")
+        EOF

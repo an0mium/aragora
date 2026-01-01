@@ -1,0 +1,567 @@
+"""
+Consensus Proofs with Dissent Tracking.
+
+Generates auditable artifacts from debates with:
+- Structured claims and supporting evidence
+- Dissenting opinions with reasoning
+- Confidence scores and unresolved tensions
+- Traceable evidence chains
+"""
+
+import json
+import hashlib
+from dataclasses import dataclass, field, asdict
+from datetime import datetime
+from typing import Optional, Any
+from enum import Enum
+
+
+class VoteType(Enum):
+    """Types of consensus votes."""
+
+    AGREE = "agree"
+    DISAGREE = "disagree"
+    ABSTAIN = "abstain"
+    CONDITIONAL = "conditional"  # Agree with reservations
+
+
+@dataclass
+class Evidence:
+    """A piece of evidence supporting or refuting a claim."""
+
+    evidence_id: str
+    source: str  # Agent name, tool output, or external reference
+    content: str
+    evidence_type: str  # "argument", "data", "citation", "tool_output"
+    supports_claim: bool  # True if supports, False if refutes
+    strength: float  # 0-1
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    metadata: dict = field(default_factory=dict)
+
+
+@dataclass
+class Claim:
+    """A structured claim with evidence."""
+
+    claim_id: str
+    statement: str
+    author: str
+    confidence: float  # 0-1
+    supporting_evidence: list[Evidence] = field(default_factory=list)
+    refuting_evidence: list[Evidence] = field(default_factory=list)
+    round_introduced: int = 0
+    status: str = "active"  # "active", "revised", "withdrawn", "merged"
+    parent_claim_id: Optional[str] = None  # If this revises another claim
+
+    @property
+    def net_evidence_strength(self) -> float:
+        """Calculate net evidence strength (support - refutation)."""
+        support = sum(e.strength for e in self.supporting_evidence)
+        refute = sum(e.strength for e in self.refuting_evidence)
+        total = support + refute
+        return (support - refute) / total if total > 0 else 0.0
+
+
+@dataclass
+class DissentRecord:
+    """Record of an agent's dissent from consensus."""
+
+    agent: str
+    claim_id: str
+    dissent_type: str  # "full", "partial", "procedural"
+    reasons: list[str]
+    alternative_view: Optional[str] = None
+    suggested_resolution: Optional[str] = None
+    severity: float = 0.5  # How strongly they dissent (0-1)
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+
+@dataclass
+class UnresolvedTension:
+    """A tension or tradeoff that wasn't fully resolved."""
+
+    tension_id: str
+    description: str
+    agents_involved: list[str]
+    options: list[str]  # The competing approaches/values
+    impact: str  # What depends on resolving this
+    suggested_followup: Optional[str] = None
+
+
+@dataclass
+class ConsensusVote:
+    """An agent's vote on the consensus."""
+
+    agent: str
+    vote: VoteType
+    confidence: float  # 0-1
+    reasoning: str
+    conditions: list[str] = field(default_factory=list)  # For conditional votes
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+
+@dataclass
+class ConsensusProof:
+    """
+    Auditable proof of debate consensus with full provenance.
+
+    This artifact provides:
+    - The final claim and supporting reasoning
+    - Which agents agreed/disagreed and why
+    - Unresolved tensions and tradeoffs
+    - Evidence chain for verification
+    """
+
+    proof_id: str
+    debate_id: str
+    task: str
+
+    # Final consensus
+    final_claim: str
+    confidence: float
+    consensus_reached: bool
+
+    # Voting record
+    votes: list[ConsensusVote]
+    supporting_agents: list[str]
+    dissenting_agents: list[str]
+
+    # Detailed records
+    claims: list[Claim]
+    dissents: list[DissentRecord]
+    unresolved_tensions: list[UnresolvedTension]
+
+    # Provenance
+    evidence_chain: list[Evidence]
+    reasoning_summary: str
+
+    # Metadata
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    rounds_to_consensus: int = 0
+    metadata: dict = field(default_factory=dict)
+
+    @property
+    def checksum(self) -> str:
+        """Generate checksum for proof integrity."""
+        content = json.dumps({
+            "final_claim": self.final_claim,
+            "votes": [asdict(v) for v in self.votes],
+            "claims": [asdict(c) for c in self.claims],
+        }, sort_keys=True)
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    @property
+    def agreement_ratio(self) -> float:
+        """Ratio of agreeing agents."""
+        total = len(self.supporting_agents) + len(self.dissenting_agents)
+        return len(self.supporting_agents) / total if total > 0 else 0.0
+
+    @property
+    def has_strong_consensus(self) -> bool:
+        """Check if consensus is strong (>80% agreement, >0.7 confidence)."""
+        return self.consensus_reached and self.agreement_ratio > 0.8 and self.confidence > 0.7
+
+    def get_dissent_summary(self) -> str:
+        """Generate summary of dissenting views."""
+        if not self.dissents:
+            return "No dissenting views recorded."
+
+        lines = ["## Dissenting Views", ""]
+        for dissent in self.dissents:
+            lines.append(f"### {dissent.agent}")
+            lines.append(f"**Type:** {dissent.dissent_type}")
+            lines.append(f"**Severity:** {dissent.severity:.0%}")
+            lines.append("")
+            lines.append("**Reasons:**")
+            for reason in dissent.reasons:
+                lines.append(f"- {reason}")
+            if dissent.alternative_view:
+                lines.append("")
+                lines.append(f"**Alternative:** {dissent.alternative_view}")
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def get_tension_summary(self) -> str:
+        """Generate summary of unresolved tensions."""
+        if not self.unresolved_tensions:
+            return "No unresolved tensions."
+
+        lines = ["## Unresolved Tensions", ""]
+        for tension in self.unresolved_tensions:
+            lines.append(f"### {tension.description}")
+            lines.append(f"**Involves:** {', '.join(tension.agents_involved)}")
+            lines.append("")
+            lines.append("**Competing options:**")
+            for opt in tension.options:
+                lines.append(f"- {opt}")
+            lines.append("")
+            lines.append(f"**Impact:** {tension.impact}")
+            if tension.suggested_followup:
+                lines.append(f"**Suggested followup:** {tension.suggested_followup}")
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "proof_id": self.proof_id,
+            "debate_id": self.debate_id,
+            "task": self.task,
+            "final_claim": self.final_claim,
+            "confidence": self.confidence,
+            "consensus_reached": self.consensus_reached,
+            "votes": [asdict(v) for v in self.votes],
+            "supporting_agents": self.supporting_agents,
+            "dissenting_agents": self.dissenting_agents,
+            "claims": [asdict(c) for c in self.claims],
+            "dissents": [asdict(d) for d in self.dissents],
+            "unresolved_tensions": [asdict(t) for t in self.unresolved_tensions],
+            "evidence_chain": [asdict(e) for e in self.evidence_chain],
+            "reasoning_summary": self.reasoning_summary,
+            "created_at": self.created_at,
+            "rounds_to_consensus": self.rounds_to_consensus,
+            "checksum": self.checksum,
+            "metadata": self.metadata,
+        }
+
+    def to_json(self, indent: int = 2) -> str:
+        """Serialize to JSON."""
+        return json.dumps(self.to_dict(), indent=indent)
+
+    def to_markdown(self) -> str:
+        """Generate readable Markdown report."""
+        lines = [
+            f"# Consensus Proof",
+            f"",
+            f"**Proof ID:** `{self.proof_id}`",
+            f"**Debate ID:** `{self.debate_id}`",
+            f"**Checksum:** `{self.checksum}`",
+            f"",
+            "---",
+            "",
+            "## Task",
+            "",
+            self.task,
+            "",
+            "---",
+            "",
+            "## Consensus",
+            "",
+            f"**Status:** {'Reached' if self.consensus_reached else 'Not Reached'}",
+            f"**Confidence:** {self.confidence:.0%}",
+            f"**Agreement:** {self.agreement_ratio:.0%}",
+            f"**Rounds:** {self.rounds_to_consensus}",
+            "",
+            "### Final Claim",
+            "",
+            f"> {self.final_claim}",
+            "",
+            "### Supporting Agents",
+            "",
+        ]
+
+        for agent in self.supporting_agents:
+            vote = next((v for v in self.votes if v.agent == agent), None)
+            if vote:
+                lines.append(f"- **{agent}** ({vote.confidence:.0%}): {vote.reasoning[:100]}...")
+            else:
+                lines.append(f"- **{agent}**")
+
+        lines.append("")
+        lines.append("### Dissenting Agents")
+        lines.append("")
+
+        if self.dissenting_agents:
+            for agent in self.dissenting_agents:
+                vote = next((v for v in self.votes if v.agent == agent), None)
+                if vote:
+                    lines.append(f"- **{agent}** ({vote.confidence:.0%}): {vote.reasoning[:100]}...")
+                else:
+                    lines.append(f"- **{agent}**")
+        else:
+            lines.append("*None*")
+
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        lines.append(self.get_dissent_summary())
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        lines.append(self.get_tension_summary())
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        lines.append("## Reasoning Summary")
+        lines.append("")
+        lines.append(self.reasoning_summary)
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        lines.append("## Evidence Chain")
+        lines.append("")
+
+        for i, evidence in enumerate(self.evidence_chain, 1):
+            support = "+" if evidence.supports_claim else "-"
+            lines.append(f"{i}. [{support}] **{evidence.source}** ({evidence.evidence_type})")
+            lines.append(f"   {evidence.content[:200]}...")
+            lines.append("")
+
+        return "\n".join(lines)
+
+
+class ConsensusBuilder:
+    """
+    Builds ConsensusProof artifacts from debate results.
+
+    Analyzes debate messages and critiques to extract:
+    - Claims and evidence
+    - Voting patterns
+    - Dissenting views
+    - Unresolved tensions
+    """
+
+    def __init__(self, debate_id: str, task: str):
+        self.debate_id = debate_id
+        self.task = task
+        self.claims: list[Claim] = []
+        self.evidence: list[Evidence] = []
+        self.votes: list[ConsensusVote] = []
+        self.dissents: list[DissentRecord] = []
+        self.tensions: list[UnresolvedTension] = []
+        self._claim_counter = 0
+        self._evidence_counter = 0
+
+    def add_claim(
+        self,
+        statement: str,
+        author: str,
+        confidence: float = 0.5,
+        round_num: int = 0,
+        parent_claim_id: Optional[str] = None,
+    ) -> Claim:
+        """Add a claim from the debate."""
+        self._claim_counter += 1
+        claim = Claim(
+            claim_id=f"{self.debate_id}-claim-{self._claim_counter}",
+            statement=statement,
+            author=author,
+            confidence=confidence,
+            round_introduced=round_num,
+            parent_claim_id=parent_claim_id,
+        )
+        self.claims.append(claim)
+        return claim
+
+    def add_evidence(
+        self,
+        claim_id: str,
+        source: str,
+        content: str,
+        evidence_type: str = "argument",
+        supports: bool = True,
+        strength: float = 0.5,
+    ) -> Evidence:
+        """Add evidence for or against a claim."""
+        self._evidence_counter += 1
+        evidence = Evidence(
+            evidence_id=f"{self.debate_id}-ev-{self._evidence_counter}",
+            source=source,
+            content=content,
+            evidence_type=evidence_type,
+            supports_claim=supports,
+            strength=strength,
+        )
+
+        # Attach to claim
+        claim = next((c for c in self.claims if c.claim_id == claim_id), None)
+        if claim:
+            if supports:
+                claim.supporting_evidence.append(evidence)
+            else:
+                claim.refuting_evidence.append(evidence)
+
+        self.evidence.append(evidence)
+        return evidence
+
+    def record_vote(
+        self,
+        agent: str,
+        vote: VoteType,
+        confidence: float,
+        reasoning: str,
+        conditions: Optional[list[str]] = None,
+    ) -> ConsensusVote:
+        """Record an agent's vote on consensus."""
+        v = ConsensusVote(
+            agent=agent,
+            vote=vote,
+            confidence=confidence,
+            reasoning=reasoning,
+            conditions=conditions or [],
+        )
+        self.votes.append(v)
+        return v
+
+    def record_dissent(
+        self,
+        agent: str,
+        claim_id: str,
+        reasons: list[str],
+        dissent_type: str = "partial",
+        alternative: Optional[str] = None,
+        severity: float = 0.5,
+    ) -> DissentRecord:
+        """Record a dissenting view."""
+        dissent = DissentRecord(
+            agent=agent,
+            claim_id=claim_id,
+            dissent_type=dissent_type,
+            reasons=reasons,
+            alternative_view=alternative,
+            severity=severity,
+        )
+        self.dissents.append(dissent)
+        return dissent
+
+    def record_tension(
+        self,
+        description: str,
+        agents: list[str],
+        options: list[str],
+        impact: str,
+        followup: Optional[str] = None,
+    ) -> UnresolvedTension:
+        """Record an unresolved tension."""
+        tension = UnresolvedTension(
+            tension_id=f"{self.debate_id}-tension-{len(self.tensions) + 1}",
+            description=description,
+            agents_involved=agents,
+            options=options,
+            impact=impact,
+            suggested_followup=followup,
+        )
+        self.tensions.append(tension)
+        return tension
+
+    def build(
+        self,
+        final_claim: str,
+        confidence: float,
+        consensus_reached: bool,
+        reasoning_summary: str,
+        rounds: int = 0,
+    ) -> ConsensusProof:
+        """Build the final ConsensusProof."""
+        # Categorize agents by vote
+        supporting = [v.agent for v in self.votes if v.vote in (VoteType.AGREE, VoteType.CONDITIONAL)]
+        dissenting = [v.agent for v in self.votes if v.vote == VoteType.DISAGREE]
+
+        return ConsensusProof(
+            proof_id=f"proof-{self.debate_id}",
+            debate_id=self.debate_id,
+            task=self.task,
+            final_claim=final_claim,
+            confidence=confidence,
+            consensus_reached=consensus_reached,
+            votes=self.votes,
+            supporting_agents=supporting,
+            dissenting_agents=dissenting,
+            claims=self.claims,
+            dissents=self.dissents,
+            unresolved_tensions=self.tensions,
+            evidence_chain=self.evidence,
+            reasoning_summary=reasoning_summary,
+            rounds_to_consensus=rounds,
+        )
+
+    @classmethod
+    def from_debate_result(cls, result: Any) -> "ConsensusBuilder":
+        """
+        Create a ConsensusBuilder from a DebateResult.
+
+        Extracts claims, evidence, and voting patterns from the debate.
+        """
+        builder = cls(result.id, result.task)
+
+        # Extract claims from messages
+        for msg in result.messages:
+            if msg.role == "proposer":
+                # Each proposal is a claim
+                claim = builder.add_claim(
+                    statement=msg.content[:500],  # Truncate for claim
+                    author=msg.agent,
+                    round_num=msg.round,
+                )
+
+                # Add the full content as evidence
+                builder.add_evidence(
+                    claim_id=claim.claim_id,
+                    source=msg.agent,
+                    content=msg.content,
+                    evidence_type="argument",
+                    supports=True,
+                    strength=0.6,
+                )
+
+        # Extract critiques as evidence
+        for critique in result.critiques:
+            # Find the claim being critiqued
+            target_claims = [c for c in builder.claims if c.author == critique.target_agent]
+            if target_claims:
+                target_claim = target_claims[-1]  # Most recent claim
+
+                # Add critique as refuting evidence
+                for issue in critique.issues:
+                    builder.add_evidence(
+                        claim_id=target_claim.claim_id,
+                        source=critique.agent,
+                        content=issue,
+                        evidence_type="argument",
+                        supports=False,
+                        strength=critique.severity * 0.8,
+                    )
+
+                # If high severity, record as tension
+                if critique.severity > 0.7:
+                    builder.record_tension(
+                        description=f"Disagreement between {critique.agent} and {critique.target_agent}",
+                        agents=[critique.agent, critique.target_agent],
+                        options=[
+                            f"{critique.target_agent}'s approach",
+                            ", ".join(critique.suggestions[:2]) if critique.suggestions else "Alternative approach",
+                        ],
+                        impact="May affect final solution quality",
+                    )
+
+        # Infer votes from final state
+        all_agents = set(msg.agent for msg in result.messages)
+        for agent in all_agents:
+            # Agents with high-severity critiques in final round likely dissent
+            agent_critiques = [c for c in result.critiques if c.agent == agent]
+            final_severity = agent_critiques[-1].severity if agent_critiques else 0
+
+            if final_severity > 0.6:
+                builder.record_vote(
+                    agent=agent,
+                    vote=VoteType.DISAGREE,
+                    confidence=1 - final_severity,
+                    reasoning=f"Raised concerns: {agent_critiques[-1].issues[0] if agent_critiques else 'Unknown'}",
+                )
+                builder.record_dissent(
+                    agent=agent,
+                    claim_id=builder.claims[-1].claim_id if builder.claims else "",
+                    reasons=agent_critiques[-1].issues if agent_critiques else [],
+                    severity=final_severity,
+                )
+            else:
+                builder.record_vote(
+                    agent=agent,
+                    vote=VoteType.AGREE if result.consensus_reached else VoteType.CONDITIONAL,
+                    confidence=result.confidence,
+                    reasoning="Supported final consensus" if result.consensus_reached else "Partial agreement",
+                )
+
+        return builder
