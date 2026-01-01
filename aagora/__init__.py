@@ -18,7 +18,7 @@ from aagora.memory.store import CritiqueStore
 from aagora.memory.embeddings import SemanticRetriever
 from aagora.evolution.evolver import PromptEvolver, EvolutionStrategy
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     # Core
     "Agent",
