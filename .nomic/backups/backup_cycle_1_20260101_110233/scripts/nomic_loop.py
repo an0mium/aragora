@@ -27,6 +27,7 @@ to prevent the nomic loop from breaking itself.
 import asyncio
 import argparse
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -378,39 +379,28 @@ Reject any proposal that would break the nomic loop or core debate infrastructur
         except Exception:
             return "Unable to read git history"
 
-    def _create_arena_hooks(self, phase_name: str) -> dict:
-        """Create event hooks for real-time Arena logging."""
-        return {
-            "on_debate_start": lambda task, agents: self._log(
-                f"    Debate started: {len(agents)} agents"
-            ),
-            "on_message": lambda agent, content, role, round_num: self._log(
-                f"    [{role}] {agent} (round {round_num}): {content[:80]}..."
-            ),
-            "on_critique": lambda agent, target, issues, severity, round_num: self._log(
-                f"    [critique] {agent} -> {target}: {len(issues)} issues, severity {severity:.1f}"
-            ),
-            "on_round_start": lambda round_num: self._log(
-                f"    --- Round {round_num} ---"
-            ),
-            "on_consensus": lambda reached, confidence, answer: self._log(
-                f"    Consensus: {'Yes' if reached else 'No'} ({confidence:.0%})"
-            ),
-            "on_debate_end": lambda duration, rounds: self._log(
-                f"    Completed in {duration:.1f}s ({rounds} rounds)"
-            ),
-        }
-
     async def _run_arena_with_logging(self, arena: Arena, phase_name: str) -> "DebateResult":
-        """Run an Arena debate with real-time logging via event hooks."""
+        """Run an Arena debate while capturing and logging all output."""
         self._log(f"  Starting {phase_name} arena...")
         self._save_state({"phase": phase_name, "stage": "arena_starting"})
 
-        # Add event hooks for real-time logging
-        arena.hooks = self._create_arena_hooks(phase_name)
+        # Capture stdout during arena run
+        captured_output = io.StringIO()
 
         try:
+            old_stdout = sys.stdout
+            sys.stdout = captured_output
+
             result = await arena.run()
+
+            sys.stdout = old_stdout
+
+            # Log captured output
+            output = captured_output.getvalue()
+            if output:
+                for line in output.strip().split('\n'):
+                    if line.strip():
+                        self._log(f"    {line}", also_print=False)
 
             self._log(f"  {phase_name} arena complete")
             self._log(f"    Consensus: {result.consensus_reached}", also_print=False)
@@ -428,6 +418,7 @@ Reject any proposal that would break the nomic loop or core debate infrastructur
             return result
 
         except Exception as e:
+            sys.stdout = old_stdout
             self._log(f"  {phase_name} arena ERROR: {e}")
             self._save_state({"phase": phase_name, "stage": "arena_error", "error": str(e)})
             raise
@@ -973,122 +964,16 @@ CRITICAL SAFETY RULES:
             return cycle_result
         self._log("  All protected files intact")
 
-        # === Iterative Review/Fix Cycle ===
-        # When ARAGORA_CODEX_REVIEW=1, run up to 2 review/fix iterations before rollback
-        max_fix_iterations = 2 if os.environ.get("ARAGORA_CODEX_REVIEW", "0") == "1" else 0
-        fix_iteration = 0
-        cycle_result["fix_iterations"] = []
+        # Phase 4: Verify
+        verify_result = await self.phase_verify()
+        cycle_result["phases"]["verify"] = verify_result
 
-        while True:
-            # Phase 4: Verify
-            verify_result = await self.phase_verify()
-            cycle_result["phases"]["verify"] = verify_result
-
-            if verify_result.get("all_passed"):
-                self._log(f"\nVerification passed!")
-                break  # Success - exit the fix loop
-
-            # Verification failed
-            fix_iteration += 1
-            iteration_result = {
-                "iteration": fix_iteration,
-                "verify_result": verify_result,
-            }
-
-            if fix_iteration > max_fix_iterations:
-                # No more fix attempts allowed - rollback
-                self._log(f"Verification failed after {fix_iteration - 1} fix attempts. Rolling back.")
-                self._restore_backup(backup_path)
-                subprocess.run(["git", "checkout", "."], cwd=self.aragora_path)
-                cycle_result["outcome"] = "verification_failed"
-                cycle_result["fix_iterations"].append(iteration_result)
-                return cycle_result
-
-            self._log(f"\n{'=' * 50}")
-            self._log(f"FIX ITERATION {fix_iteration}/{max_fix_iterations}")
-            self._log(f"{'=' * 50}")
-
-            # Get test failure details
-            test_output = ""
-            for check in verify_result.get("checks", []):
-                if check.get("check") == "tests" and not check.get("passed"):
-                    test_output = check.get("output", "")
-
-            # Step 1: Codex reviews the failed changes
-            self._log("\n  Step 1: Codex analyzing test failures...")
-            from aragora.implement import HybridExecutor
-            executor = HybridExecutor(self.aragora_path)
-            diff = self._get_git_diff()
-
-            review_prompt = f"""The following code changes caused test failures. Analyze and suggest fixes.
-
-## Test Failures
-```
-{test_output[:2000]}
-```
-
-## Code Changes (git diff)
-```
-{diff[:3000]}
-```
-
-Provide specific, actionable fixes. Focus on:
-1. What exactly is broken?
-2. What specific code changes will fix it?
-3. Are there missing imports or dependencies?
-"""
-            review_result = await executor.review_with_codex(review_prompt, timeout=600)
-            iteration_result["codex_review"] = review_result
-            self._log(f"    Codex review complete")
-
-            # Step 2: Claude fixes based on Codex review
-            self._log("\n  Step 2: Claude applying fixes...")
-            fix_prompt = f"""{SAFETY_PREAMBLE}
-
-Fix the test failures in the codebase. Here's what went wrong and how to fix it:
-
-## Test Failures
-```
-{test_output[:1500]}
-```
-
-## Codex Analysis
-{review_result.get('review', 'No review available')[:2000]}
-
-## Instructions
-1. Read the failing tests to understand what's expected
-2. Apply the minimal fixes needed to make tests pass
-3. Do NOT remove or simplify existing functionality
-4. Preserve all imports and dependencies
-
-Working directory: {self.aragora_path}
-"""
-            try:
-                fix_agent = ClaudeAgent(
-                    name="claude-fixer",
-                    model="claude",
-                    role="fixer",
-                    timeout=300,
-                )
-                await fix_agent.generate(fix_prompt, context=[])
-                iteration_result["fix_applied"] = True
-                self._log("    Fixes applied")
-            except Exception as e:
-                iteration_result["fix_error"] = str(e)
-                self._log(f"    Fix failed: {e}")
-
-            cycle_result["fix_iterations"].append(iteration_result)
-
-            # Re-check protected files after fix
-            protected_issues = self._verify_protected_files()
-            if protected_issues:
-                self._log("  CRITICAL: Fix damaged protected files!")
-                self._restore_backup(backup_path)
-                subprocess.run(["git", "checkout", "."], cwd=self.aragora_path)
-                cycle_result["outcome"] = "protected_files_damaged"
-                return cycle_result
-
-            self._log("\n  Re-running verification...")
+        if not verify_result.get("all_passed"):
+            self._log("Verification failed. Rolling back.")
+            self._restore_backup(backup_path)
+            subprocess.run(["git", "checkout", "."], cwd=self.aragora_path)
+            cycle_result["outcome"] = "verification_failed"
+            return cycle_result
 
         self._log(f"\nVerification passed")
 
