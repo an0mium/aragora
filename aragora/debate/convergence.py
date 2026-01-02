@@ -187,10 +187,11 @@ class SentenceTransformerBackend(SimilarityBackend):
 
             self.cosine_similarity = cosine_similarity
 
-        except ImportError as e:
+        except (ImportError, RuntimeError) as e:
+            # RuntimeError can occur from transformers/Keras compatibility issues
             raise ImportError(
                 "SentenceTransformerBackend requires sentence-transformers. "
-                "Install with: pip install sentence-transformers"
+                f"Install with: pip install sentence-transformers. Error: {e}"
             ) from e
 
     def compute_similarity(self, text1: str, text2: str) -> float:
@@ -279,16 +280,16 @@ class ConvergenceDetector:
             backend = SentenceTransformerBackend()
             logger.info("Using SentenceTransformerBackend (best accuracy)")
             return backend
-        except ImportError:
-            logger.debug("sentence-transformers not available")
+        except (ImportError, RuntimeError, Exception) as e:
+            logger.debug(f"sentence-transformers not available: {e}")
 
         # Try TF-IDF (good)
         try:
             backend = TFIDFBackend()
             logger.info("Using TFIDFBackend (good accuracy)")
             return backend
-        except ImportError:
-            logger.debug("scikit-learn not available")
+        except (ImportError, RuntimeError, Exception) as e:
+            logger.debug(f"scikit-learn not available: {e}")
 
         # Fallback to Jaccard (always available)
         logger.info("Using JaccardBackend (fallback)")
@@ -388,12 +389,12 @@ def get_similarity_backend(preferred: str = "auto") -> SimilarityBackend:
     # Auto-select best available
     try:
         return SentenceTransformerBackend()
-    except ImportError:
+    except (ImportError, RuntimeError, Exception):
         pass
 
     try:
         return TFIDFBackend()
-    except ImportError:
+    except (ImportError, RuntimeError, Exception):
         pass
 
     return JaccardBackend()

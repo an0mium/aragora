@@ -125,6 +125,8 @@ async def run_with_streaming(
     finally:
         # Unregister the loop instance
         server.stream_server.unregister_loop(loop_id)
+        # Gracefully close all websocket connections
+        await server.stream_server.graceful_shutdown()
         # Cancel server task
         server_task.cancel()
         try:

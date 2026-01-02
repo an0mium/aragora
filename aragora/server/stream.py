@@ -273,6 +273,9 @@ class DebateStreamServer:
                         }))
                 except json.JSONDecodeError:
                     pass
+        except Exception:
+            # Silently handle connection closed errors (normal during shutdown)
+            pass
         finally:
             self.clients.discard(websocket)
 
@@ -295,6 +298,21 @@ class DebateStreamServer:
     def stop(self) -> None:
         """Stop the server."""
         self._running = False
+
+    async def graceful_shutdown(self) -> None:
+        """Gracefully close all client connections."""
+        self._running = False
+        # Close all connected clients
+        if self.clients:
+            close_tasks = []
+            for client in list(self.clients):
+                try:
+                    close_tasks.append(client.close())
+                except Exception:
+                    pass
+            if close_tasks:
+                await asyncio.gather(*close_tasks, return_exceptions=True)
+            self.clients.clear()
 
 
 def create_arena_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
