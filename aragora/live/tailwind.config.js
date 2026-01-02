@@ -19,6 +19,7 @@ module.exports = {
         'warning': '#f97316',
         'purple': '#a78bfa',
         'gold': '#fbbf24',
+        'crimson': '#ef4444',  // Grok/xAI red
       },
     },
   },

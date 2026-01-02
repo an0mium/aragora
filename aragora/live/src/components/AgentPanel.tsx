@@ -7,12 +7,24 @@ interface AgentPanelProps {
   events: StreamEvent[];
 }
 
-// Agent colors for different roles
+// Agent colors for different models
 const AGENT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  // Gemini - purple (Google AI)
   'gemini-visionary': { bg: 'bg-purple/10', text: 'text-purple', border: 'border-purple/30' },
+  'gemini': { bg: 'bg-purple/10', text: 'text-purple', border: 'border-purple/30' },
+  'gemini-explorer': { bg: 'bg-purple/10', text: 'text-purple', border: 'border-purple/30' },
+  // Codex - gold (OpenAI)
   'codex-engineer': { bg: 'bg-gold/10', text: 'text-gold', border: 'border-gold/30' },
+  'codex': { bg: 'bg-gold/10', text: 'text-gold', border: 'border-gold/30' },
+  // Claude - accent/indigo (Anthropic)
   'claude-synthesizer': { bg: 'bg-accent/10', text: 'text-accent', border: 'border-accent/30' },
   'claude-visionary': { bg: 'bg-accent/10', text: 'text-accent', border: 'border-accent/30' },
+  'claude': { bg: 'bg-accent/10', text: 'text-accent', border: 'border-accent/30' },
+  // Grok - crimson red (xAI)
+  'grok-explorer': { bg: 'bg-crimson/10', text: 'text-crimson', border: 'border-crimson/30' },
+  'grok': { bg: 'bg-crimson/10', text: 'text-crimson', border: 'border-crimson/30' },
+  'grok-pragmatist': { bg: 'bg-crimson/10', text: 'text-crimson', border: 'border-crimson/30' },
+  // Default
   default: { bg: 'bg-surface', text: 'text-text', border: 'border-border' },
 };
 
