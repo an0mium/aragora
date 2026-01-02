@@ -1,13 +1,35 @@
 """
-Debate modes for different use cases.
+Aragora Mode System.
 
-Provides specialized debate protocols for:
-- Adversarial red-teaming
-- Code review
-- Policy analysis
-- Research synthesis
+Provides two complementary mode systems:
+
+1. **Operational Modes** (Kilocode-inspired)
+   - Architect, Coder, Reviewer, Debugger, Orchestrator
+   - Granular tool access control via ToolGroups
+   - Custom mode creation via YAML
+
+2. **Debate Modes**
+   - Adversarial red-teaming
+   - Specialized debate protocols
 """
 
+# Operational Mode System
+from aragora.modes.tool_groups import ToolGroup, can_use_tool, get_required_group
+from aragora.modes.base import Mode, ModeRegistry
+from aragora.modes.handoff import HandoffContext, ModeHandoff
+from aragora.modes.custom import CustomMode, CustomModeLoader
+
+# Built-in operational modes (auto-registered on import)
+from aragora.modes.builtin import (
+    ArchitectMode,
+    CoderMode,
+    ReviewerMode,
+    DebuggerMode,
+    OrchestratorMode,
+    register_all_builtins,
+)
+
+# Debate Modes (existing)
 from aragora.modes.redteam import (
     RedTeamMode,
     RedTeamProtocol,
@@ -21,6 +43,24 @@ from aragora.modes.redteam import (
 )
 
 __all__ = [
+    # Operational Mode System
+    "ToolGroup",
+    "can_use_tool",
+    "get_required_group",
+    "Mode",
+    "ModeRegistry",
+    "HandoffContext",
+    "ModeHandoff",
+    "CustomMode",
+    "CustomModeLoader",
+    # Built-in Modes
+    "ArchitectMode",
+    "CoderMode",
+    "ReviewerMode",
+    "DebuggerMode",
+    "OrchestratorMode",
+    "register_all_builtins",
+    # Debate Modes
     "RedTeamMode",
     "RedTeamProtocol",
     "RedTeamResult",
