@@ -154,6 +154,17 @@ except ImportError:
     create_nomic_hooks = None
     create_arena_hooks = None
 
+# Optional Supabase persistence
+try:
+    from aragora.persistence import SupabaseClient, NomicCycle, StreamEvent, DebateArtifact
+    PERSISTENCE_AVAILABLE = True
+except ImportError:
+    PERSISTENCE_AVAILABLE = False
+    SupabaseClient = None
+    NomicCycle = None
+    StreamEvent = None
+    DebateArtifact = None
+
 
 class NomicLoop:
     """
@@ -182,6 +193,7 @@ class NomicLoop:
         initial_proposal: str = None,
         stream_emitter: "SyncEventEmitter" = None,
         use_genesis: bool = False,
+        enable_persistence: bool = True,
     ):
         self.aragora_path = Path(aragora_path or Path(__file__).parent.parent)
         self.max_cycles = max_cycles
@@ -191,6 +203,9 @@ class NomicLoop:
         self.cycle_count = 0
         self.history = []
 
+        # Generate unique loop ID for this run
+        self.loop_id = f"nomic-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
         # Genesis mode: fractal debates with agent evolution
         self.use_genesis = use_genesis and GENESIS_AVAILABLE
         self.genesis_ledger = None
@@ -198,6 +213,15 @@ class NomicLoop:
         if self.use_genesis:
             self.genesis_ledger = GenesisLedger(str(self.aragora_path / ".nomic" / "genesis.db"))
             self.population_manager = PopulationManager(str(self.aragora_path / ".nomic" / "genesis.db"))
+
+        # Supabase persistence for history tracking
+        self.persistence = None
+        if enable_persistence and PERSISTENCE_AVAILABLE:
+            self.persistence = SupabaseClient()
+            if self.persistence.is_configured:
+                print(f"[persistence] Supabase connected, loop_id: {self.loop_id}")
+            else:
+                self.persistence = None
 
         # Setup logging infrastructure
         self.nomic_dir = self.aragora_path / ".nomic"
@@ -227,12 +251,72 @@ class NomicLoop:
         self._init_agents()
 
     def _stream_emit(self, hook_name: str, *args, **kwargs) -> None:
-        """Emit event to WebSocket stream if streaming is enabled."""
+        """Emit event to WebSocket stream and persist to Supabase."""
+        # Emit to WebSocket stream
         if hook_name in self.stream_hooks:
             try:
                 self.stream_hooks[hook_name](*args, **kwargs)
             except Exception:
                 pass  # Don't let streaming errors break the loop
+
+        # Persist to Supabase
+        if self.persistence and StreamEvent:
+            try:
+                event = StreamEvent(
+                    loop_id=self.loop_id,
+                    cycle=self.cycle_count,
+                    event_type=hook_name,
+                    event_data={"args": [str(a)[:500] for a in args], "kwargs": {k: str(v)[:500] for k, v in kwargs.items()}},
+                    agent=kwargs.get("agent"),
+                )
+                # Run async save in background (fire and forget)
+                asyncio.get_event_loop().create_task(self.persistence.save_event(event))
+            except Exception:
+                pass  # Don't let persistence errors break the loop
+
+    async def _persist_cycle(self, phase: str, stage: str, success: bool = None,
+                              git_commit: str = None, task_description: str = None,
+                              error_message: str = None) -> None:
+        """Persist cycle state to Supabase."""
+        if not self.persistence or not NomicCycle:
+            return
+        try:
+            cycle = NomicCycle(
+                loop_id=self.loop_id,
+                cycle_number=self.cycle_count,
+                phase=phase,
+                stage=stage,
+                started_at=datetime.utcnow(),
+                success=success,
+                git_commit=git_commit,
+                task_description=task_description,
+                error_message=error_message,
+            )
+            await self.persistence.save_cycle(cycle)
+        except Exception:
+            pass  # Don't let persistence errors break the loop
+
+    async def _persist_debate(self, phase: str, task: str, agents: list,
+                               transcript: list, consensus_reached: bool,
+                               confidence: float, winning_proposal: str = None) -> None:
+        """Persist debate artifact to Supabase."""
+        if not self.persistence or not DebateArtifact:
+            return
+        try:
+            debate = DebateArtifact(
+                loop_id=self.loop_id,
+                cycle_number=self.cycle_count,
+                phase=phase,
+                task=task,
+                agents=agents,
+                transcript=transcript,
+                consensus_reached=consensus_reached,
+                confidence=confidence,
+                winning_proposal=winning_proposal,
+            )
+            await self.persistence.save_debate(debate)
+        except Exception:
+            pass  # Don't let persistence errors break the loop
 
     def _log(self, message: str, also_print: bool = True, phase: str = None):
         """Log to file and optionally stdout. File is always flushed immediately."""

@@ -46,6 +46,12 @@ dev = [
     "black>=23.0",
     "ruff>=0.1",
 ]
+persistence = [
+    "supabase>=2.0",
+]
+all = [
+    "aragora[dev,persistence]",
+]
 
 [project.scripts]
 aragora = "aragora.cli.main:main"
