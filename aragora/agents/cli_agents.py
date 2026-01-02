@@ -291,6 +291,38 @@ Provide structured feedback:
 class GrokCLIAgent(CLIAgent):
     """Agent that uses xAI Grok CLI."""
 
+    def _extract_grok_response(self, output: str) -> str:
+        """Extract the final assistant response from Grok CLI JSON output.
+
+        Grok CLI returns JSON lines with full conversation history.
+        We need to extract only the final assistant content.
+        """
+        # Try to parse as JSON lines (each line is a JSON object)
+        lines = output.strip().split('\n')
+        final_content = None
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                msg = json.loads(line)
+                # Look for assistant messages with actual content (not just tool calls)
+                if msg.get("role") == "assistant":
+                    content = msg.get("content", "")
+                    # Skip messages that are just "Using tools..." placeholders
+                    if content and not content.startswith("Using tools"):
+                        final_content = content
+            except json.JSONDecodeError:
+                # If it's not JSON, might be plain text response
+                # This could be the actual response if Grok outputs plain text
+                if not output.startswith('{"role":'):
+                    return output
+                continue
+
+        # Return the final content we found, or the raw output if nothing was extracted
+        return final_content if final_content else output
+
     async def generate(self, prompt: str, context: list[Message] = None) -> str:
         """Generate a response using grok CLI."""
         full_prompt = prompt
@@ -305,7 +337,8 @@ class GrokCLIAgent(CLIAgent):
             "grok", "-p", full_prompt
         ])
 
-        return result
+        # Extract actual response from JSON conversation format
+        return self._extract_grok_response(result)
 
     async def critique(self, proposal: str, task: str, context: list[Message] = None) -> Critique:
         """Critique a proposal using grok."""
