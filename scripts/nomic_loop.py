@@ -1494,8 +1494,9 @@ CRITICAL SAFETY RULES:
         self._log("  All protected files intact")
 
         # === Iterative Review/Fix Cycle ===
-        # When ARAGORA_CODEX_REVIEW=1, run up to 2 review/fix iterations before rollback
-        max_fix_iterations = 2 if os.environ.get("ARAGORA_CODEX_REVIEW", "0") == "1" else 0
+        # Default: 1 fix attempt. Set ARAGORA_MAX_FIX_ITERATIONS for more.
+        # The fix cycle: Codex reviews failure -> Claude fixes -> Gemini reviews -> re-verify
+        max_fix_iterations = int(os.environ.get("ARAGORA_MAX_FIX_ITERATIONS", "1"))
         fix_iteration = 0
         cycle_result["fix_iterations"] = []
 
