@@ -6,6 +6,7 @@ debate protocols and consensus mechanisms.
 """
 
 import asyncio
+import random
 import time
 from dataclasses import dataclass, field
 from typing import Literal, Optional
@@ -28,6 +29,9 @@ class DebateProtocol:
     # Role assignments
     proposer_count: int = 1  # how many agents propose initially
     critic_count: int = -1  # -1 means all non-proposers critique
+
+    # Judge selection (for consensus="judge" mode)
+    judge_selection: Literal["random", "voted", "last"] = "random"
 
 
 class Arena:
@@ -304,9 +308,13 @@ class Arena:
                 result.confidence = 0.0
 
         elif self.protocol.consensus == "judge":
-            # Use synthesizer as judge
-            synthesizers = [a for a in self.agents if a.role == "synthesizer"]
-            judge = synthesizers[0] if synthesizers else self.agents[-1]
+            # Select judge based on protocol setting (random, voted, or last)
+            judge = await self._select_judge(proposals, context)
+            print(f"  Judge selected: {judge.name} (via {self.protocol.judge_selection})")
+
+            # Emit judge selection event
+            if "on_judge_selected" in self.hooks:
+                self.hooks["on_judge_selected"](judge.name, self.protocol.judge_selection)
 
             judge_prompt = self._build_judge_prompt(proposals, self.env.task, result.critiques)
             try:
@@ -376,6 +384,70 @@ class Arena:
     ) -> Vote:
         """Get vote from an agent."""
         return await agent.vote(proposals, task)
+
+    async def _select_judge(self, proposals: dict[str, str], context: list[Message]) -> Agent:
+        """Select judge based on protocol.judge_selection setting."""
+        if self.protocol.judge_selection == "last":
+            # Legacy behavior - use synthesizer or last agent
+            synthesizers = [a for a in self.agents if a.role == "synthesizer"]
+            return synthesizers[0] if synthesizers else self.agents[-1]
+
+        elif self.protocol.judge_selection == "random":
+            # Random selection from all agents
+            return random.choice(self.agents)
+
+        elif self.protocol.judge_selection == "voted":
+            # Agents vote on who should judge
+            return await self._vote_for_judge(proposals, context)
+
+        # Default fallback
+        return random.choice(self.agents)
+
+    async def _vote_for_judge(self, proposals: dict[str, str], context: list[Message]) -> Agent:
+        """Have agents vote on who should be the judge."""
+        vote_counts: dict[str, int] = {}
+
+        for agent in self.agents:
+            # Each agent votes for who should judge (can't vote for self)
+            other_agents = [a for a in self.agents if a.name != agent.name]
+            prompt = self._build_judge_vote_prompt(other_agents, proposals)
+
+            try:
+                response = await agent.generate(prompt, context)
+                # Parse vote from response - look for agent names
+                for other in other_agents:
+                    if other.name.lower() in response.lower():
+                        vote_counts[other.name] = vote_counts.get(other.name, 0) + 1
+                        break
+            except Exception:
+                pass  # Skip failed votes
+
+        # Select agent with most votes, random tiebreaker
+        if vote_counts:
+            max_votes = max(vote_counts.values())
+            candidates = [name for name, count in vote_counts.items() if count == max_votes]
+            winner_name = random.choice(candidates)
+            return next(a for a in self.agents if a.name == winner_name)
+
+        # Fallback to random if voting fails
+        return random.choice(self.agents)
+
+    def _build_judge_vote_prompt(self, candidates: list[Agent], proposals: dict[str, str]) -> str:
+        """Build prompt for voting on who should judge."""
+        candidate_names = ", ".join(a.name for a in candidates)
+        proposals_summary = "\n".join(
+            f"- {name}: {prop[:300]}..." for name, prop in proposals.items()
+        )
+
+        return f"""Based on the proposals in this debate, vote for which agent should synthesize the final answer.
+
+Candidates: {candidate_names}
+
+Proposals summary:
+{proposals_summary}
+
+Consider: Which agent showed the most balanced, thorough, and fair reasoning?
+Vote by stating ONLY the agent's name. You cannot vote for yourself."""
 
     def _build_proposal_prompt(self, agent: Agent) -> str:
         """Build the initial proposal prompt."""
