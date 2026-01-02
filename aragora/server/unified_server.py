@@ -18,6 +18,14 @@ from urllib.parse import urlparse, parse_qs
 from .stream import DebateStreamServer, SyncEventEmitter
 from .storage import DebateStorage
 
+# Optional Supabase persistence
+try:
+    from aragora.persistence import SupabaseClient
+    PERSISTENCE_AVAILABLE = True
+except ImportError:
+    PERSISTENCE_AVAILABLE = False
+    SupabaseClient = None
+
 
 class UnifiedHandler(BaseHTTPRequestHandler):
     """HTTP handler with API endpoints and static file serving."""
@@ -26,6 +34,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     static_dir: Optional[Path] = None
     stream_emitter: Optional[SyncEventEmitter] = None
     nomic_state_file: Optional[Path] = None
+    persistence: Optional["SupabaseClient"] = None  # Supabase client for history
 
     def do_GET(self) -> None:
         """Handle GET requests."""
@@ -47,6 +56,23 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         elif path == '/api/nomic/log':
             lines = int(query.get('lines', [100])[0])
             self._get_nomic_log(lines)
+
+        # History API (Supabase)
+        elif path == '/api/history/cycles':
+            loop_id = query.get('loop_id', [None])[0]
+            limit = int(query.get('limit', [50])[0])
+            self._get_history_cycles(loop_id, limit)
+        elif path == '/api/history/events':
+            loop_id = query.get('loop_id', [None])[0]
+            limit = int(query.get('limit', [100])[0])
+            self._get_history_events(loop_id, limit)
+        elif path == '/api/history/debates':
+            loop_id = query.get('loop_id', [None])[0]
+            limit = int(query.get('limit', [50])[0])
+            self._get_history_debates(loop_id, limit)
+        elif path == '/api/history/summary':
+            loop_id = query.get('loop_id', [None])[0]
+            self._get_history_summary(loop_id)
 
         # Static file serving
         elif path in ('/', '/index.html'):
@@ -132,6 +158,83 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send_json({"lines": [], "error": str(e)})
 
+    def _get_history_cycles(self, loop_id: Optional[str], limit: int) -> None:
+        """Get nomic cycles from Supabase."""
+        if not self.persistence:
+            self._send_json({"error": "Persistence not configured", "cycles": []})
+            return
+
+        try:
+            import asyncio
+            cycles = asyncio.get_event_loop().run_until_complete(
+                self.persistence.list_cycles(loop_id=loop_id, limit=limit)
+            )
+            self._send_json({
+                "cycles": [c.to_dict() for c in cycles],
+                "count": len(cycles),
+            })
+        except Exception as e:
+            self._send_json({"error": str(e), "cycles": []})
+
+    def _get_history_events(self, loop_id: Optional[str], limit: int) -> None:
+        """Get stream events from Supabase."""
+        if not self.persistence:
+            self._send_json({"error": "Persistence not configured", "events": []})
+            return
+
+        if not loop_id:
+            self._send_json({"error": "loop_id required", "events": []})
+            return
+
+        try:
+            import asyncio
+            events = asyncio.get_event_loop().run_until_complete(
+                self.persistence.get_events(loop_id=loop_id, limit=limit)
+            )
+            self._send_json({
+                "events": [e.to_dict() for e in events],
+                "count": len(events),
+            })
+        except Exception as e:
+            self._send_json({"error": str(e), "events": []})
+
+    def _get_history_debates(self, loop_id: Optional[str], limit: int) -> None:
+        """Get debate artifacts from Supabase."""
+        if not self.persistence:
+            self._send_json({"error": "Persistence not configured", "debates": []})
+            return
+
+        try:
+            import asyncio
+            debates = asyncio.get_event_loop().run_until_complete(
+                self.persistence.list_debates(loop_id=loop_id, limit=limit)
+            )
+            self._send_json({
+                "debates": [d.to_dict() for d in debates],
+                "count": len(debates),
+            })
+        except Exception as e:
+            self._send_json({"error": str(e), "debates": []})
+
+    def _get_history_summary(self, loop_id: Optional[str]) -> None:
+        """Get summary statistics for a loop."""
+        if not self.persistence:
+            self._send_json({"error": "Persistence not configured"})
+            return
+
+        if not loop_id:
+            self._send_json({"error": "loop_id required"})
+            return
+
+        try:
+            import asyncio
+            summary = asyncio.get_event_loop().run_until_complete(
+                self.persistence.get_loop_summary(loop_id)
+            )
+            self._send_json(summary)
+        except Exception as e:
+            self._send_json({"error": str(e)})
+
     def _serve_file(self, filename: str) -> None:
         """Serve a static file."""
         if not self.static_dir:
@@ -216,6 +319,7 @@ class UnifiedServer:
         static_dir: Optional[Path] = None,
         nomic_dir: Optional[Path] = None,
         storage: Optional[DebateStorage] = None,
+        enable_persistence: bool = True,
     ):
         self.http_port = http_port
         self.ws_port = ws_port
@@ -228,10 +332,20 @@ class UnifiedServer:
         # Create WebSocket server
         self.stream_server = DebateStreamServer(host=ws_host, port=ws_port)
 
+        # Initialize Supabase persistence if available
+        self.persistence = None
+        if enable_persistence and PERSISTENCE_AVAILABLE:
+            self.persistence = SupabaseClient()
+            if self.persistence.is_configured:
+                print("[server] Supabase persistence enabled")
+            else:
+                self.persistence = None
+
         # Setup HTTP handler
         UnifiedHandler.storage = storage
         UnifiedHandler.static_dir = static_dir
         UnifiedHandler.stream_emitter = self.stream_server.emitter
+        UnifiedHandler.persistence = self.persistence
         if nomic_dir:
             UnifiedHandler.nomic_state_file = nomic_dir / "nomic_state.json"
 
