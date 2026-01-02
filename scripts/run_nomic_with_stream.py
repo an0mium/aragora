@@ -46,6 +46,7 @@ async def run_with_streaming(
     http_port: int = 8080,
     ws_port: int = 8765,
     aragora_path: Path = None,
+    auto_commit: bool = False,
 ):
     """Run nomic loop with streaming enabled."""
     aragora_path = aragora_path or Path(__file__).parent.parent
@@ -84,6 +85,7 @@ async def run_with_streaming(
     print(f"Live view:    https://live.aragora.ai")
     print(f"WebSocket:    ws://localhost:{ws_port}")
     print(f"Cycles:       {cycles}")
+    print(f"Auto-commit:  {'Yes' if auto_commit else 'No (requires confirmation)'}")
     print("=" * 60)
     print()
 
@@ -92,6 +94,7 @@ async def run_with_streaming(
         aragora_path=aragora_path,
         max_cycles=cycles,
         stream_emitter=emitter,
+        auto_commit=auto_commit,
     )
 
     # Start server in background task
@@ -172,6 +175,11 @@ def main():
         default=None,
         help="Path to aragora root (default: auto-detect)",
     )
+    run_parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="Auto-commit without human approval",
+    )
 
     args = parser.parse_args()
 
@@ -181,6 +189,7 @@ def main():
             http_port=args.http_port,
             ws_port=args.ws_port,
             aragora_path=args.aragora_path,
+            auto_commit=args.auto,
         ))
     else:
         parser.print_help()
