@@ -52,6 +52,7 @@ class Vote:
     choice: str  # which proposal/agent they vote for
     confidence: float  # 0-1
     reasoning: str
+    continue_debate: bool = True  # Whether agent thinks debate should continue
 
 
 @dataclass
@@ -69,6 +70,13 @@ class DebateResult:
     dissenting_views: list[str] = field(default_factory=list)
     winning_patterns: list[str] = field(default_factory=list)
     duration_seconds: float = 0.0
+    # Convergence detection results
+    convergence_status: str = ""  # "converged", "refining", "diverging", ""
+    convergence_similarity: float = 0.0  # Average similarity at end
+    per_agent_similarity: dict = field(default_factory=dict)  # Agent -> similarity
+    # Consensus strength: "strong" (var < 1), "medium" (var < 2), "weak" (var >= 2)
+    consensus_strength: str = ""
+    consensus_variance: float = 0.0
 
     def summary(self) -> str:
         """Human-readable summary of the debate."""
@@ -104,6 +112,11 @@ class Agent(ABC):
         self.model = model
         self.role = role
         self.system_prompt: str = ""
+        # Stance for asymmetric debate: "affirmative", "negative", or "neutral"
+        # - Affirmative: Defend/support proposals
+        # - Negative: Challenge/critique proposals
+        # - Neutral: Evaluate fairly without bias
+        self.stance: str = "neutral"
 
     @abstractmethod
     async def generate(self, prompt: str, context: list[Message] = None) -> str:
@@ -126,6 +139,7 @@ Proposals to evaluate:
 Which proposal best addresses the task? Respond with:
 CHOICE: <agent_name>
 CONFIDENCE: <0.0-1.0>
+CONTINUE: <yes/no> (whether more debate rounds would help improve the answer)
 REASONING: <brief explanation>"""
 
         response = await self.generate(prompt)
@@ -134,6 +148,7 @@ REASONING: <brief explanation>"""
         choice = ""
         confidence = 0.5
         reasoning = ""
+        continue_debate = True
 
         for line in lines:
             if line.startswith("CHOICE:"):
@@ -143,10 +158,19 @@ REASONING: <brief explanation>"""
                     confidence = float(line.replace("CONFIDENCE:", "").strip())
                 except:
                     confidence = 0.5
+            elif line.startswith("CONTINUE:"):
+                cont_val = line.replace("CONTINUE:", "").strip().lower()
+                continue_debate = cont_val not in ("no", "false", "0", "n")
             elif line.startswith("REASONING:"):
                 reasoning = line.replace("REASONING:", "").strip()
 
-        return Vote(agent=self.name, choice=choice, confidence=confidence, reasoning=reasoning)
+        return Vote(
+            agent=self.name,
+            choice=choice,
+            confidence=confidence,
+            reasoning=reasoning,
+            continue_debate=continue_debate,
+        )
 
     def set_system_prompt(self, prompt: str):
         """Update the agent's system prompt (for self-improvement)."""

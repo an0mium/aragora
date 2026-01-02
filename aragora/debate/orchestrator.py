@@ -13,6 +13,11 @@ from typing import Literal, Optional
 from collections import Counter
 
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
+from aragora.debate.convergence import (
+    ConvergenceDetector,
+    ConvergenceResult,
+    get_similarity_backend,
+)
 
 
 @dataclass
@@ -32,6 +37,40 @@ class DebateProtocol:
 
     # Judge selection (for consensus="judge" mode)
     judge_selection: Literal["random", "voted", "last"] = "random"
+
+    # Agreement intensity (0-10): Controls how much agents agree vs disagree
+    # 0 = strongly disagree 100% of the time (adversarial)
+    # 5 = balanced (agree/disagree based on argument quality)
+    # 10 = fully incorporate others' opinions (collaborative)
+    # Research shows intensity=2 (slight disagreement bias) often improves accuracy
+    agreement_intensity: int = 5
+
+    # Early stopping: End debate when agents agree further rounds won't help
+    # Based on ai-counsel pattern - can save 40-70% API costs
+    early_stopping: bool = True
+    early_stop_threshold: float = 0.66  # fraction of agents saying stop to trigger
+    min_rounds_before_early_stop: int = 1  # minimum rounds before allowing early exit
+
+    # Asymmetric debate roles: Assign affirmative/negative/neutral stances
+    # Forces perspective diversity, prevents premature consensus
+    asymmetric_stances: bool = False  # Enable asymmetric stance assignment
+    rotate_stances: bool = True  # Rotate stances between rounds
+
+    # Semantic convergence detection
+    # Auto-detect consensus without explicit voting
+    convergence_detection: bool = True
+    convergence_threshold: float = 0.85  # Similarity for convergence
+    divergence_threshold: float = 0.40  # Below this is diverging
+
+    # Vote option grouping: Merge semantically similar vote choices
+    # Prevents artificial disagreement from wording variations
+    vote_grouping: bool = True
+    vote_grouping_threshold: float = 0.85  # Similarity to merge options
+
+    # Judge-based termination: Single judge decides when debate is conclusive
+    # Different from early_stopping (agent votes) - uses a designated judge
+    judge_termination: bool = False
+    min_rounds_before_judge_check: int = 2  # Check only after this many rounds
 
 
 class Arena:
@@ -63,6 +102,24 @@ class Arena:
         # Assign roles if not already set
         self._assign_roles()
 
+        # Assign initial stances for asymmetric debate
+        self._assign_stances(round_num=0)
+
+        # Apply agreement intensity guidance to all agents
+        self._apply_agreement_intensity()
+
+        # Initialize convergence detector if enabled
+        self.convergence_detector = None
+        if self.protocol.convergence_detection:
+            self.convergence_detector = ConvergenceDetector(
+                convergence_threshold=self.protocol.convergence_threshold,
+                divergence_threshold=self.protocol.divergence_threshold,
+                min_rounds_before_check=1,
+            )
+
+        # Track responses for convergence detection
+        self._previous_round_responses: dict[str, str] = {}
+
     def _assign_roles(self):
         """Assign roles to agents based on protocol."""
         # If agents already have roles, respect them
@@ -78,6 +135,73 @@ class Arena:
                 agent.role = "synthesizer"
             else:
                 agent.role = "critic"
+
+    def _apply_agreement_intensity(self):
+        """Apply agreement intensity guidance to all agents' system prompts.
+
+        This modifies each agent's system_prompt to include guidance on how
+        much to agree vs disagree with other agents, based on the protocol's
+        agreement_intensity setting.
+        """
+        guidance = self._get_agreement_intensity_guidance()
+
+        for agent in self.agents:
+            if agent.system_prompt:
+                agent.system_prompt = f"{agent.system_prompt}\n\n{guidance}"
+            else:
+                agent.system_prompt = guidance
+
+    def _assign_stances(self, round_num: int = 0):
+        """Assign debate stances to agents for asymmetric debate.
+
+        Stances: "affirmative" (defend), "negative" (challenge), "neutral" (evaluate)
+        If rotate_stances is True, stances rotate each round.
+        """
+        if not self.protocol.asymmetric_stances:
+            return
+
+        stances = ["affirmative", "negative", "neutral"]
+        n_agents = len(self.agents)
+
+        for i, agent in enumerate(self.agents):
+            # Rotate stance based on round number if enabled
+            if self.protocol.rotate_stances:
+                stance_idx = (i + round_num) % len(stances)
+            else:
+                stance_idx = i % len(stances)
+
+            agent.stance = stances[stance_idx]
+
+    def _get_stance_guidance(self, agent) -> str:
+        """Generate prompt guidance based on agent's debate stance."""
+        if not self.protocol.asymmetric_stances:
+            return ""
+
+        if agent.stance == "affirmative":
+            return """DEBATE STANCE: AFFIRMATIVE
+You are assigned to DEFEND and SUPPORT proposals. Your role is to:
+- Find strengths and merits in arguments
+- Build upon existing ideas
+- Advocate for the proposal's value
+- Counter criticisms constructively
+Even if you personally disagree, argue the affirmative position."""
+
+        elif agent.stance == "negative":
+            return """DEBATE STANCE: NEGATIVE
+You are assigned to CHALLENGE and CRITIQUE proposals. Your role is to:
+- Identify weaknesses, flaws, and risks
+- Play devil's advocate
+- Raise objections and counterarguments
+- Stress-test the proposal
+Even if you personally agree, argue the negative position."""
+
+        else:  # neutral
+            return """DEBATE STANCE: NEUTRAL
+You are assigned to EVALUATE FAIRLY. Your role is to:
+- Weigh arguments from both sides impartially
+- Identify the strongest and weakest points
+- Seek balanced synthesis
+- Judge on merit, not position"""
 
     async def run(self) -> DebateResult:
         """Run the full debate and return results."""
@@ -103,6 +227,7 @@ class Arena:
         print(f"DEBATE: {self.env.task[:80]}...")
         print(f"Agents: {', '.join(a.name for a in self.agents)}")
         print(f"Rounds: {self.protocol.rounds}")
+        print(f"Agreement intensity: {self.protocol.agreement_intensity}/10")
         print(f"{'='*60}\n")
 
         # Emit debate start event
@@ -150,6 +275,12 @@ class Arena:
         for round_num in range(1, self.protocol.rounds + 1):
             print(f"\nRound {round_num}: Critique & Revise")
             print("-" * 40)
+
+            # Rotate stances if asymmetric debate is enabled
+            if self.protocol.asymmetric_stances and self.protocol.rotate_stances:
+                self._assign_stances(round_num)
+                stances_str = ", ".join(f"{a.name}:{a.stance}" for a in self.agents)
+                print(f"  Stances: {stances_str}")
 
             # Emit round start event
             if "on_round_start" in self.hooks:
@@ -258,6 +389,54 @@ class Arena:
 
             result.rounds_used = round_num
 
+            # === Convergence Detection ===
+            # Track responses for convergence comparison
+            current_responses = {agent: proposals[agent] for agent in proposals}
+
+            if self.convergence_detector and self._previous_round_responses:
+                convergence = self.convergence_detector.check_convergence(
+                    current_responses, self._previous_round_responses, round_num
+                )
+                if convergence:
+                    result.convergence_status = convergence.status
+                    result.convergence_similarity = convergence.avg_similarity
+                    result.per_agent_similarity = convergence.per_agent_similarity
+
+                    print(f"  Convergence: {convergence.status} ({convergence.avg_similarity:.0%} avg)")
+
+                    # Emit convergence event
+                    if "on_convergence_check" in self.hooks:
+                        self.hooks["on_convergence_check"](
+                            status=convergence.status,
+                            similarity=convergence.avg_similarity,
+                            per_agent=convergence.per_agent_similarity,
+                            round_num=round_num,
+                        )
+
+                    # Stop early if converged
+                    if convergence.converged:
+                        print(f"  Debate converged at round {round_num}")
+                        self._previous_round_responses = current_responses
+                        break
+
+            self._previous_round_responses = current_responses
+
+            # === Termination Checks ===
+            if round_num < self.protocol.rounds:  # Only check if not last round
+                # Judge-based termination (single judge decision)
+                should_continue, reason = await self._check_judge_termination(
+                    round_num, proposals, context
+                )
+                if not should_continue:
+                    break  # Exit debate loop, proceed to consensus
+
+                # Early stopping (agent votes)
+                should_continue = await self._check_early_stopping(
+                    round_num, proposals, context
+                )
+                if not should_continue:
+                    break  # Exit debate loop, proceed to consensus
+
         # === CONSENSUS PHASE ===
         print(f"\nConsensus Phase ({self.protocol.consensus})")
         print("-" * 40)
@@ -288,13 +467,49 @@ class Arena:
                     if "on_vote" in self.hooks:
                         self.hooks["on_vote"](agent.name, vote_result.choice, vote_result.confidence)
 
-            # Count votes
-            vote_counts = Counter(v.choice for v in result.votes if not isinstance(v, Exception))
+            # Group similar vote options before counting
+            vote_groups = self._group_similar_votes(result.votes)
+
+            # Create mapping from variant -> canonical
+            choice_mapping: dict[str, str] = {}
+            for canonical, variants in vote_groups.items():
+                for variant in variants:
+                    choice_mapping[variant] = canonical
+
+            if vote_groups:
+                print(f"  Vote grouping merged: {vote_groups}")
+
+            # Count votes using canonical choices
+            vote_counts = Counter()
+            for v in result.votes:
+                if not isinstance(v, Exception):
+                    canonical = choice_mapping.get(v.choice, v.choice)
+                    vote_counts[canonical] += 1
+
             if vote_counts:
                 winner, count = vote_counts.most_common(1)[0]
                 result.final_answer = proposals.get(winner, list(proposals.values())[0])
                 result.consensus_reached = count / len(self.agents) >= self.protocol.consensus_threshold
                 result.confidence = count / len(self.agents)
+
+                # Calculate consensus variance and strength
+                if len(vote_counts) > 1:
+                    counts = list(vote_counts.values())
+                    mean = sum(counts) / len(counts)
+                    variance = sum((c - mean) ** 2 for c in counts) / len(counts)
+                    result.consensus_variance = variance
+
+                    if variance < 1:
+                        result.consensus_strength = "strong"
+                    elif variance < 2:
+                        result.consensus_strength = "medium"
+                    else:
+                        result.consensus_strength = "weak"
+
+                    print(f"  Consensus strength: {result.consensus_strength} (variance: {variance:.2f})")
+                else:
+                    result.consensus_strength = "unanimous"
+                    result.consensus_variance = 0.0
 
                 # Track dissenting views (full content)
                 for agent, prop in proposals.items():
@@ -385,6 +600,164 @@ class Arena:
         """Get vote from an agent."""
         return await agent.vote(proposals, task)
 
+    def _group_similar_votes(self, votes: list[Vote]) -> dict[str, list[str]]:
+        """
+        Group semantically similar vote choices.
+
+        This prevents artificial disagreement when agents vote for the
+        same thing using different wording (e.g., "Vector DB" vs "Use vector database").
+
+        Returns:
+            Dict mapping canonical choice -> list of original choices that map to it
+        """
+        if not self.protocol.vote_grouping or not votes:
+            return {}
+
+        # Get similarity backend
+        backend = get_similarity_backend("auto")
+
+        # Extract unique choices
+        choices = list(set(v.choice for v in votes if v.choice))
+        if len(choices) < 2:
+            return {}
+
+        # Build groups using union-find approach
+        groups: dict[str, list[str]] = {}  # canonical -> [choices]
+        assigned: dict[str, str] = {}  # choice -> canonical
+
+        for choice in choices:
+            if choice in assigned:
+                continue
+
+            # Start a new group with this choice as canonical
+            groups[choice] = [choice]
+            assigned[choice] = choice
+
+            # Check other unassigned choices for similarity
+            for other in choices:
+                if other in assigned or other == choice:
+                    continue
+
+                similarity = backend.compute_similarity(choice, other)
+                if similarity >= self.protocol.vote_grouping_threshold:
+                    groups[choice].append(other)
+                    assigned[other] = choice
+
+        # Only return groups with multiple members (merges occurred)
+        return {k: v for k, v in groups.items() if len(v) > 1}
+
+    async def _check_judge_termination(
+        self, round_num: int, proposals: dict[str, str], context: list[Message]
+    ) -> tuple[bool, str]:
+        """
+        Have a judge evaluate if the debate is conclusive.
+
+        Returns:
+            Tuple of (should_continue: bool, reason: str)
+        """
+        if not self.protocol.judge_termination:
+            return True, ""
+
+        if round_num < self.protocol.min_rounds_before_judge_check:
+            return True, ""
+
+        # Select a judge (use existing method)
+        judge = await self._select_judge(proposals, context)
+
+        prompt = f"""You are evaluating whether this multi-agent debate has reached a conclusive state.
+
+Task: {self.env.task[:300]}
+
+After {round_num} rounds of debate, the proposals are:
+{chr(10).join(f"- {agent}: {prop[:200]}..." for agent, prop in proposals.items())}
+
+Evaluate:
+1. Have the key issues been thoroughly discussed?
+2. Are there major unresolved disagreements that more debate could resolve?
+3. Would additional rounds likely produce meaningful improvements?
+
+Respond with:
+CONCLUSIVE: <yes/no>
+REASON: <brief explanation>"""
+
+        try:
+            response = await self._generate_with_agent(judge, prompt, context[-5:])
+            lines = response.strip().split('\n')
+
+            conclusive = False
+            reason = ""
+
+            for line in lines:
+                if line.upper().startswith("CONCLUSIVE:"):
+                    val = line.split(":", 1)[1].strip().lower()
+                    conclusive = val in ("yes", "true", "1")
+                elif line.upper().startswith("REASON:"):
+                    reason = line.split(":", 1)[1].strip()
+
+            if conclusive:
+                print(f"  Judge ({judge.name}) says debate is conclusive: {reason[:100]}")
+                # Emit event
+                if "on_judge_termination" in self.hooks:
+                    self.hooks["on_judge_termination"](judge.name, reason)
+                return False, reason
+
+        except Exception as e:
+            print(f"  Judge termination check failed: {e}")
+
+        return True, ""
+
+    async def _check_early_stopping(
+        self, round_num: int, proposals: dict[str, str], context: list[Message]
+    ) -> bool:
+        """Check if agents want to stop debate early.
+
+        Returns True if debate should continue, False if it should stop.
+        """
+        if not self.protocol.early_stopping:
+            return True  # Continue
+
+        if round_num < self.protocol.min_rounds_before_early_stop:
+            return True  # Continue - haven't met minimum rounds
+
+        # Ask each agent if they think more debate would help
+        prompt = f"""After {round_num} round(s) of debate on this task:
+Task: {self.env.task[:200]}
+
+Current proposals have been critiqued and revised. Do you think additional debate
+rounds would significantly improve the answer quality?
+
+Respond with only: CONTINUE or STOP
+- CONTINUE: More debate rounds would help refine the answer
+- STOP: The proposals are mature enough, further debate is unlikely to help"""
+
+        stop_votes = 0
+        total_votes = 0
+
+        tasks = [self._generate_with_agent(agent, prompt, context[-5:]) for agent in self.agents]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for agent, result in zip(self.agents, results):
+            if isinstance(result, Exception):
+                continue
+            total_votes += 1
+            response = result.strip().upper()
+            if "STOP" in response and "CONTINUE" not in response:
+                stop_votes += 1
+
+        if total_votes == 0:
+            return True  # Continue if voting failed
+
+        stop_ratio = stop_votes / total_votes
+        should_stop = stop_ratio >= self.protocol.early_stop_threshold
+
+        if should_stop:
+            print(f"\n  Early stopping: {stop_votes}/{total_votes} agents voted to stop")
+            # Emit early stop event
+            if "on_early_stop" in self.hooks:
+                self.hooks["on_early_stop"](round_num, stop_votes, total_votes)
+
+        return not should_stop  # Return True to continue, False to stop
+
     async def _select_judge(self, proposals: dict[str, str], context: list[Message]) -> Agent:
         """Select judge based on protocol.judge_selection setting."""
         if self.protocol.judge_selection == "last":
@@ -449,11 +822,43 @@ Proposals summary:
 Consider: Which agent showed the most balanced, thorough, and fair reasoning?
 Vote by stating ONLY the agent's name. You cannot vote for yourself."""
 
+    def _get_agreement_intensity_guidance(self) -> str:
+        """Generate prompt guidance based on agreement intensity setting.
+
+        Agreement intensity (0-10) affects how agents approach disagreements:
+        - Low (0-3): Adversarial - strongly challenge others' positions
+        - Medium (4-6): Balanced - judge arguments on merit
+        - High (7-10): Collaborative - seek common ground and synthesis
+        """
+        intensity = self.protocol.agreement_intensity
+
+        if intensity <= 1:
+            return """IMPORTANT: You strongly disagree with other agents. Challenge every assumption,
+find flaws in every argument, and maintain your original position unless presented
+with irrefutable evidence. Be adversarial but constructive."""
+        elif intensity <= 3:
+            return """IMPORTANT: Approach others' arguments with healthy skepticism. Be critical of
+proposals and require strong evidence before changing your position. Point out
+weaknesses even if you partially agree."""
+        elif intensity <= 6:
+            return """Evaluate arguments on their merits. Agree when others make valid points,
+disagree when you see genuine flaws. Let the quality of reasoning guide your response."""
+        elif intensity <= 8:
+            return """Look for common ground with other agents. Acknowledge valid points in others'
+arguments and try to build on them. Seek synthesis where possible while maintaining
+your own reasoned perspective."""
+        else:  # 9-10
+            return """Actively seek to incorporate other agents' perspectives. Find value in all
+proposals and work toward collaborative synthesis. Prioritize finding agreement
+and building on others' ideas."""
+
     def _build_proposal_prompt(self, agent: Agent) -> str:
         """Build the initial proposal prompt."""
         context_str = f"\n\nContext: {self.env.context}" if self.env.context else ""
+        stance_str = self._get_stance_guidance(agent)
+        stance_section = f"\n\n{stance_str}" if stance_str else ""
 
-        return f"""You are acting as a {agent.role} in a multi-agent debate.
+        return f"""You are acting as a {agent.role} in a multi-agent debate.{stance_section}
 
 Task: {self.env.task}{context_str}
 
@@ -465,8 +870,13 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
     ) -> str:
         """Build the revision prompt including critiques."""
         critiques_str = "\n\n".join(c.to_prompt() for c in critiques)
+        intensity_guidance = self._get_agreement_intensity_guidance()
+        stance_str = self._get_stance_guidance(agent)
+        stance_section = f"\n\n{stance_str}" if stance_str else ""
 
         return f"""You are revising your proposal based on critiques from other agents.
+
+{intensity_guidance}{stance_section}
 
 Original Task: {self.env.task}
 
