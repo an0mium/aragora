@@ -7,6 +7,7 @@ import { MetricsCards } from '@/components/MetricsCards';
 import { PhaseProgress } from '@/components/PhaseProgress';
 import { AgentPanel } from '@/components/AgentPanel';
 import { HistoryPanel } from '@/components/HistoryPanel';
+import { UserParticipation } from '@/components/UserParticipation';
 import type { NomicState } from '@/types/events';
 
 // WebSocket URL - can be overridden via environment variable
@@ -14,7 +15,7 @@ const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
 export default function Home() {
-  const { events, connected, activeLoops, selectedLoopId, selectLoop } = useNomicStream(WS_URL);
+  const { events, connected, activeLoops, selectedLoopId, selectLoop, sendMessage } = useNomicStream(WS_URL);
   const [nomicState, setNomicState] = useState<NomicState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,6 +86,23 @@ export default function Home() {
     if (seconds < 60) return `${seconds}s ago`;
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     return `${Math.floor(seconds / 3600)}h ago`;
+  };
+
+  // User participation handlers
+  const handleUserVote = (choice: string) => {
+    sendMessage({
+      type: 'user_vote',
+      user_id: 'anonymous', // Could be enhanced with user auth
+      data: { choice }
+    });
+  };
+
+  const handleUserSuggestion = (suggestion: string) => {
+    sendMessage({
+      type: 'user_suggestion',
+      user_id: 'anonymous',
+      data: { suggestion }
+    });
   };
 
   return (
@@ -158,8 +176,13 @@ export default function Home() {
             <AgentPanel events={events} />
           </div>
 
-          {/* History Panel (Supabase) */}
-          <div className="lg:col-span-1">
+          {/* Side Panel */}
+          <div className="lg:col-span-1 space-y-4">
+            <UserParticipation
+              events={events}
+              onVote={handleUserVote}
+              onSuggest={handleUserSuggestion}
+            />
             <HistoryPanel />
           </div>
         </div>
@@ -177,6 +200,14 @@ export default function Home() {
             >
               Learn more about aragora →
             </a>
+          </p>
+          <p className="mt-4 text-xs">
+            Built on ideas from{' '}
+            <a href="https://github.com/AI-Counsel/ai-counsel" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">ai-counsel</a>,{' '}
+            <a href="https://github.com/Tsinghua-MARS-Lab/DebateLLM" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">DebateLLM</a>,{' '}
+            <a href="https://github.com/camel-ai/camel" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">CAMEL-AI</a>,{' '}
+            <a href="https://github.com/joonspk-research/generative_agents" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">Generative Agents</a>, and{' '}
+            <a href="https://github.com/composable-models/llm_multiagent_debate" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">LLM Multi-Agent Debate</a>.
           </p>
         </footer>
       </div>

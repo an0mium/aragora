@@ -6,14 +6,30 @@ A society of heterogeneous AI agents that discuss, critique, improve each other'
 
 **Domain**: [aragora.ai](https://aragora.ai) (available)
 
-## Inspiration
+## Inspiration & Citations
 
-aragora synthesizes ideas from:
+aragora synthesizes ideas from these excellent open-source projects:
+
+### Foundational Inspiration
 - **[Stanford Generative Agents](https://github.com/joonspk-research/generative_agents)** - Memory + reflection architecture
 - **[ChatArena](https://github.com/chatarena/chatarena)** - Game environments for multi-agent interaction
 - **[LLM Multi-Agent Debate](https://github.com/composable-models/llm_multiagent_debate)** - ICML 2024 consensus mechanisms
 - **[UniversalBackrooms](https://github.com/scottviteri/UniversalBackrooms)** - Multi-model infinite conversations
 - **[Project Sid](https://github.com/altera-al/project-sid)** - Emergent civilization with 1000+ agents
+
+### Borrowed Patterns (MIT/Apache Licensed)
+
+We gratefully acknowledge these projects whose patterns we adapted:
+
+| Project | What We Borrowed | License |
+|---------|------------------|---------|
+| **[ai-counsel](https://github.com/AI-Counsel/ai-counsel)** | Semantic convergence detection (3-tier fallback: SentenceTransformer → TF-IDF → Jaccard), vote option grouping, per-agent similarity tracking | MIT |
+| **[DebateLLM](https://github.com/Tsinghua-MARS-Lab/DebateLLM)** | Agreement intensity modulation (0-10 scale), asymmetric debate roles (affirmative/negative/neutral stances), judge-based termination | Apache 2.0 |
+| **[CAMEL-AI](https://github.com/camel-ai/camel)** | Multi-agent orchestration patterns, critic agent design | Apache 2.0 |
+| **[CrewAI](https://github.com/joaomdmoura/crewAI)** | Agent role and task patterns | MIT |
+| **[AIDO](https://github.com/aido-research/aido)** | Consensus variance tracking (strong/medium/weak classification), reputation-weighted voting concepts | MIT |
+
+See `aragora/debate/convergence.py` and `aragora/debate/orchestrator.py` for implementations.
 
 ## Philosophical Foundation
 
