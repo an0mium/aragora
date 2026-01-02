@@ -748,7 +748,99 @@ Be concise (1-2 sentences). Focus on correctness and safety issues only.
             arena = Arena(environment=env, agents=agents, protocol=protocol)
             return await self._run_arena_with_logging(arena, phase_name)
 
-    async def phase_debate(self) -> dict:
+    async def phase_context_gathering(self) -> dict:
+        """
+        Phase 0: Claude and Codex explore codebase to gather context.
+
+        This phase runs BEFORE the main debate. Claude and Codex have built-in
+        codebase exploration abilities, while Gemini and Grok do not. By having
+        the capable agents gather context first, we ensure ALL agents in the
+        debate have accurate, up-to-date information about existing features.
+
+        This prevents agents from proposing features that already exist.
+        """
+        phase_start = datetime.now()
+        self._log("\n" + "=" * 70)
+        self._log("PHASE 0: CONTEXT GATHERING (Claude + Codex)")
+        self._log("=" * 70)
+        self._stream_emit("on_phase_start", "context", self.cycle_count, {"agents": 2})
+
+        # Prompt for codebase exploration
+        explore_prompt = f"""Explore the aragora codebase and provide a comprehensive summary of EXISTING features.
+
+Working directory: {self.aragora_path}
+
+Your task:
+1. Read key files: aragora/__init__.py, aragora/debate/orchestrator.py, aragora/server/stream.py
+2. List ALL existing major features and capabilities
+3. Note any features related to: streaming, real-time, visualization, spectator mode, WebSocket
+4. Identify the project's current architecture and patterns
+
+Output format:
+## EXISTING FEATURES (DO NOT RECREATE)
+- Feature 1: description
+- Feature 2: description
+...
+
+## ARCHITECTURE OVERVIEW
+Brief description of how the system is organized.
+
+## RECENT FOCUS AREAS
+What has been worked on recently (from git log).
+
+## GAPS AND OPPORTUNITIES
+What's genuinely missing (not already implemented).
+
+CRITICAL: Be thorough. Features you miss here may be accidentally proposed for recreation."""
+
+        async def gather_with_agent(agent, name: str) -> tuple[str, str]:
+            """Run exploration with one agent."""
+            try:
+                self._log(f"  {name}: exploring codebase...")
+                result = await agent.generate(explore_prompt, context=[])
+                self._log(f"  {name}: complete ({len(result) if result else 0} chars)")
+                return (name, result if result else "No response")
+            except Exception as e:
+                self._log(f"  {name}: error - {e}")
+                return (name, f"Error: {e}")
+
+        # Run Claude and Codex in parallel (they have codebase access)
+        results = await asyncio.gather(
+            gather_with_agent(self.claude, "claude"),
+            gather_with_agent(self.codex, "codex"),
+            return_exceptions=True,
+        )
+
+        # Combine the context from both agents
+        combined_context = []
+        for result in results:
+            if isinstance(result, Exception):
+                continue
+            name, content = result
+            if content and "Error:" not in content:
+                combined_context.append(f"=== {name.upper()}'S CODEBASE ANALYSIS ===\n{content}")
+
+        # If both failed, fall back to basic context
+        if not combined_context:
+            self._log("  Warning: Context gathering failed, using basic context")
+            combined_context = [f"Current features (from docstring):\n{self.get_current_features()}"]
+
+        gathered_context = "\n\n".join(combined_context)
+
+        phase_duration = (datetime.now() - phase_start).total_seconds()
+        self._log(f"  Context gathered in {phase_duration:.1f}s")
+        self._stream_emit(
+            "on_phase_end", "context", self.cycle_count, True,
+            phase_duration, {"agents": 2, "context_length": len(gathered_context)}
+        )
+
+        return {
+            "phase": "context",
+            "context": gathered_context,
+            "duration": phase_duration,
+        }
+
+    async def phase_debate(self, codebase_context: str = None) -> dict:
         """Phase 1: Agents debate what to improve."""
         phase_start = datetime.now()
         self._log("\n" + "=" * 70)
@@ -756,7 +848,11 @@ Be concise (1-2 sentences). Focus on correctness and safety issues only.
         self._log("=" * 70)
         self._stream_emit("on_phase_start", "debate", self.cycle_count, {"agents": 4})
 
-        current_features = self.get_current_features()
+        # Use provided context or fall back to basic
+        if codebase_context:
+            current_features = codebase_context
+        else:
+            current_features = self.get_current_features()
         recent_changes = self.get_recent_changes()
 
         # Build task with optional initial proposal
@@ -773,9 +869,24 @@ You may adopt it, critique it, improve upon it, or propose something entirely di
 """
             self._log(f"  Including human proposal: {self.initial_proposal[:100]}...")
 
+        # Build context section with clear attribution
+        if codebase_context and len(codebase_context) > 500:
+            context_section = f"""
+===== CODEBASE ANALYSIS (from Claude + Codex who explored the code) =====
+The following is a comprehensive analysis of aragora's EXISTING features.
+Claude and Codex have read the actual codebase. DO NOT propose features that already exist below.
+
+{current_features}
+========================================================================"""
+        else:
+            context_section = f"Current aragora features:\n{current_features}"
+
         task = f"""{SAFETY_PREAMBLE}
 
 What single improvement would most benefit aragora RIGHT NOW?
+
+CRITICAL: Read the codebase analysis below carefully. DO NOT propose features that already exist.
+Claude and Codex have explored the codebase and documented existing features.
 
 Consider what would make aragora:
 - More INTERESTING (novel, creative, intellectually stimulating)
@@ -787,14 +898,16 @@ Each agent should propose ONE specific, implementable feature.
 Be concrete: describe what it does, how it works, and why it matters.
 After debate, reach consensus on THE SINGLE BEST improvement to implement this cycle.
 
-REMEMBER: Propose ADDITIONS, not removals. Build new capabilities, don't simplify existing ones.
+REMEMBER:
+- Propose ADDITIONS, not removals. Build new capabilities, don't simplify existing ones.
+- Check the codebase analysis - if a feature is listed there, it ALREADY EXISTS.
 
 Recent changes:
 {recent_changes}"""
 
         env = Environment(
             task=task,
-            context=f"Current aragora features:\n{current_features}",
+            context=context_section,
         )
 
         protocol = DebateProtocol(
@@ -1440,8 +1553,14 @@ CRITICAL SAFETY RULES:
             "backup_path": str(backup_path),
         })
 
-        # Phase 1: Debate
-        debate_result = await self.phase_debate()
+        # Phase 0: Context Gathering (Claude + Codex explore codebase)
+        # This ensures Gemini and Grok get accurate context about existing features
+        context_result = await self.phase_context_gathering()
+        cycle_result["phases"]["context"] = context_result
+        codebase_context = context_result.get("context", "")
+
+        # Phase 1: Debate (all agents, with gathered context)
+        debate_result = await self.phase_debate(codebase_context=codebase_context)
         cycle_result["phases"]["debate"] = debate_result
 
         if not debate_result.get("consensus_reached"):
