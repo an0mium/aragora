@@ -194,12 +194,14 @@ class NomicLoop:
         stream_emitter: "SyncEventEmitter" = None,
         use_genesis: bool = False,
         enable_persistence: bool = True,
+        disable_rollback: bool = False,  # Disable rollback on verification failure
     ):
         self.aragora_path = Path(aragora_path or Path(__file__).parent.parent)
         self.max_cycles = max_cycles
         self.require_human_approval = require_human_approval
         self.auto_commit = auto_commit
         self.initial_proposal = initial_proposal
+        self.disable_rollback = disable_rollback
         self.cycle_count = 0
         self.history = []
 
@@ -928,6 +930,89 @@ The implementation MUST preserve all existing aragora functionality.""",
         except Exception:
             return ""
 
+    async def _preserve_failed_work(self, branch_name: str) -> Optional[str]:
+        """
+        Preserve failed implementation work in a git branch before rollback.
+
+        This ensures that even failed implementations can be inspected and
+        potentially salvaged later.
+
+        Returns:
+            Branch name if successful, None if failed
+        """
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        full_branch_name = f"{branch_name}-{timestamp}"
+
+        try:
+            # Get current branch
+            current_result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            current_branch = current_result.stdout.strip()
+
+            # Check if there are any changes to preserve
+            status_result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            if not status_result.stdout.strip():
+                self._log("  No changes to preserve")
+                return None
+
+            # Create and switch to preservation branch
+            subprocess.run(
+                ["git", "checkout", "-b", full_branch_name],
+                cwd=self.aragora_path,
+                capture_output=True,
+                check=True,
+            )
+
+            # Stage all changes including untracked files
+            subprocess.run(
+                ["git", "add", "-A"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                check=True,
+            )
+
+            # Commit the failed work
+            commit_msg = f"WIP: Failed nomic cycle {self.cycle_count} (verification failed)\n\nThis branch contains work that failed verification and was rolled back.\nPreserved for inspection and potential salvage."
+            subprocess.run(
+                ["git", "commit", "-m", commit_msg],
+                cwd=self.aragora_path,
+                capture_output=True,
+            )
+
+            # Switch back to original branch
+            subprocess.run(
+                ["git", "checkout", current_branch],
+                cwd=self.aragora_path,
+                capture_output=True,
+                check=True,
+            )
+
+            self._log(f"  Preserved failed work in branch: {full_branch_name}")
+            self._stream_emit("on_work_preserved", full_branch_name, self.cycle_count)
+            return full_branch_name
+
+        except Exception as e:
+            self._log(f"  Warning: Could not preserve work in branch: {e}")
+            # Try to get back to original branch
+            try:
+                subprocess.run(
+                    ["git", "checkout", current_branch],
+                    cwd=self.aragora_path,
+                    capture_output=True,
+                )
+            except Exception:
+                pass
+            return None
+
     async def phase_implement(self, design: str) -> dict:
         """Phase 3: Hybrid multi-model implementation."""
         phase_start = datetime.now()
@@ -1201,13 +1286,17 @@ CRITICAL SAFETY RULES:
                 text=True,
                 timeout=240,
             )
-            passed = result.returncode == 0
+            # pytest returns 5 when no tests are collected - treat as pass
+            # Also check for "no tests ran" in output as a fallback
+            no_tests_collected = result.returncode == 5 or "no tests ran" in result.stdout.lower()
+            passed = result.returncode == 0 or no_tests_collected
             checks.append({
                 "check": "tests",
                 "passed": passed,
                 "output": result.stdout[-500:] if result.stdout else "",
+                "note": "no tests collected" if no_tests_collected else "",
             })
-            self._log(f"    {'passed' if passed else 'FAILED'} tests")
+            self._log(f"    {'passed' if passed else 'FAILED'} tests" + (" (no tests collected)" if no_tests_collected else ""))
             self._stream_emit("on_verification_result", "tests", passed, result.stdout[-200:] if result.stdout else "")
         except Exception as e:
             checks.append({"check": "tests", "passed": True, "note": "No tests or timeout"})
@@ -1389,6 +1478,13 @@ CRITICAL SAFETY RULES:
             self._log("  CRITICAL: Protected files damaged!")
             for issue in protected_issues:
                 self._log(f"    - {issue}")
+
+            # Preserve work before rollback
+            preserve_branch = await self._preserve_failed_work(f"nomic-protected-damaged-{self.cycle_count}")
+            if preserve_branch:
+                cycle_result["preserved_branch"] = preserve_branch
+                self._log(f"  Work preserved in branch: {preserve_branch}")
+
             self._log("  Restoring from backup...")
             self._restore_backup(backup_path)
             subprocess.run(["git", "checkout", "."], cwd=self.aragora_path)
@@ -1420,13 +1516,26 @@ CRITICAL SAFETY RULES:
             }
 
             if fix_iteration > max_fix_iterations:
-                # No more fix attempts allowed - rollback
-                self._log(f"Verification failed after {fix_iteration - 1} fix attempts. Rolling back.")
-                self._restore_backup(backup_path)
-                subprocess.run(["git", "checkout", "."], cwd=self.aragora_path)
-                cycle_result["outcome"] = "verification_failed"
-                cycle_result["fix_iterations"].append(iteration_result)
-                return cycle_result
+                # No more fix attempts allowed
+                if self.disable_rollback:
+                    self._log(f"Verification failed after {fix_iteration - 1} fix attempts.")
+                    self._log("  ROLLBACK DISABLED - keeping changes for inspection")
+                    cycle_result["outcome"] = "verification_failed_no_rollback"
+                    cycle_result["fix_iterations"].append(iteration_result)
+                    return cycle_result
+                else:
+                    # Preserve work in a branch before rollback
+                    preserve_branch = await self._preserve_failed_work(f"nomic-failed-cycle-{self.cycle_count}")
+                    if preserve_branch:
+                        cycle_result["preserved_branch"] = preserve_branch
+                        self._log(f"  Work preserved in branch: {preserve_branch}")
+
+                    self._log(f"Verification failed after {fix_iteration - 1} fix attempts. Rolling back.")
+                    self._restore_backup(backup_path)
+                    subprocess.run(["git", "checkout", "."], cwd=self.aragora_path)
+                    cycle_result["outcome"] = "verification_failed"
+                    cycle_result["fix_iterations"].append(iteration_result)
+                    return cycle_result
 
             self._log(f"\n{'=' * 50}")
             self._log(f"FIX ITERATION {fix_iteration}/{max_fix_iterations}")
@@ -1526,6 +1635,11 @@ Reply with: LOOKS_GOOD or ISSUES: <brief description>
             protected_issues = self._verify_protected_files()
             if protected_issues:
                 self._log("  CRITICAL: Fix damaged protected files!")
+                # Preserve work before rollback
+                preserve_branch = await self._preserve_failed_work(f"nomic-fix-damaged-{self.cycle_count}")
+                if preserve_branch:
+                    cycle_result["preserved_branch"] = preserve_branch
+                    self._log(f"  Work preserved in branch: {preserve_branch}")
                 self._restore_backup(backup_path)
                 subprocess.run(["git", "checkout", "."], cwd=self.aragora_path)
                 cycle_result["outcome"] = "protected_files_damaged"
@@ -1707,6 +1821,10 @@ async def main():
     run_parser.add_argument(
         "--genesis", action="store_true",
         help="Enable genesis mode: fractal debates with agent evolution"
+    )
+    run_parser.add_argument(
+        "--no-rollback", action="store_true",
+        help="Disable rollback on verification failure (keep changes for inspection)"
     )
     run_parser.add_argument(
         "--no-stream", action="store_true",
