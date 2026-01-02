@@ -1604,6 +1604,10 @@ async def main():
         "--genesis", action="store_true",
         help="Enable genesis mode: fractal debates with agent evolution"
     )
+    run_parser.add_argument(
+        "--no-stream", action="store_true",
+        help="DISCOURAGED: Run without live streaming. Use 'python scripts/run_nomic_with_stream.py run' instead."
+    )
 
     # Backup management subcommands
     list_parser = subparsers.add_parser("list-backups", help="List available backups")
@@ -1629,6 +1633,10 @@ async def main():
         "--genesis", action="store_true",
         help="Enable genesis mode: fractal debates with agent evolution"
     )
+    parser.add_argument(
+        "--no-stream", action="store_true",
+        help="DISCOURAGED: Run without live streaming. Use 'python scripts/run_nomic_with_stream.py run' instead."
+    )
 
     args = parser.parse_args()
 
@@ -1645,6 +1653,49 @@ async def main():
         return
 
     # Default: run the nomic loop (either "run" subcommand or no subcommand)
+    no_stream = getattr(args, 'no_stream', False)
+
+    # ENFORCE STREAMING: Redirect to run_nomic_with_stream.py unless --no-stream is specified
+    if not no_stream:
+        print("=" * 70)
+        print("STREAMING IS REQUIRED")
+        print("=" * 70)
+        print()
+        print("The nomic loop MUST stream to live.aragora.ai for transparency.")
+        print()
+        print("Please use the streaming script instead:")
+        print()
+        print("    python scripts/run_nomic_with_stream.py run --cycles 3")
+        print()
+        print("This ensures that all nomic loop activity is visible in real-time")
+        print("at https://live.aragora.ai")
+        print()
+        print("If you MUST run without streaming (not recommended), use:")
+        print()
+        print("    python scripts/nomic_loop.py run --no-stream --cycles 3")
+        print()
+        print("=" * 70)
+        sys.exit(1)
+
+    # If --no-stream is specified, show warning and continue
+    print("=" * 70)
+    print("WARNING: Running WITHOUT live streaming")
+    print("=" * 70)
+    print()
+    print("Activity will NOT be visible at https://live.aragora.ai")
+    print("This is strongly discouraged for transparency reasons.")
+    print()
+    print("Press Ctrl+C within 5 seconds to cancel...")
+    print()
+    try:
+        await asyncio.sleep(5)
+    except KeyboardInterrupt:
+        print("\nCancelled. Use 'python scripts/run_nomic_with_stream.py run' instead.")
+        sys.exit(0)
+    print("Continuing without streaming...")
+    print("=" * 70)
+    print()
+
     initial_proposal = getattr(args, 'proposal', None)
     if hasattr(args, 'proposal_file') and args.proposal_file:
         with open(args.proposal_file) as f:

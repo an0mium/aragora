@@ -22,7 +22,11 @@ export type StreamEventType =
   | 'backup_restored'
   | 'error'
   | 'log_message'
-  | 'sync';
+  | 'sync'
+  // Multi-loop events
+  | 'loop_register'
+  | 'loop_unregister'
+  | 'loop_list';
 
 export interface StreamEvent {
   type: StreamEventType;
@@ -73,4 +77,19 @@ export interface PhaseStatus {
   ended?: number;
   success?: boolean;
   details?: Record<string, unknown>;
+}
+
+// Multi-loop support
+export interface LoopInstance {
+  loop_id: string;
+  name: string;
+  started_at: number;
+  cycle: number;
+  phase: string;
+  path: string;
+}
+
+export interface LoopListData {
+  loops: LoopInstance[];
+  count: number;
 }

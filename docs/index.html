@@ -840,5 +840,76 @@
             <p style="margin-top: 0.5rem;">Released under <a href="https://github.com/an0mium/aragora/blob/main/LICENSE">MIT License</a>.</p>
         </footer>
     </div>
+
+    <script>
+        (function() {
+            // Nomic loop connection detection
+            const WS_URL = 'wss://api.aragora.ai';
+            const RECONNECT_INTERVAL = 5000;
+            const liveSection = document.querySelector('.live-section');
+            const liveIndicator = document.querySelector('.live-indicator');
+            const liveDot = document.querySelector('.live-dot');
+            const statusSpan = liveIndicator ? liveIndicator.querySelector('span') : null;
+
+            let isConnected = false;
+            let reconnectTimeout = null;
+
+            function updateUI(connected) {
+                if (!liveSection) return;
+
+                if (connected) {
+                    liveSection.style.display = '';
+                    if (liveDot) {
+                        liveDot.style.background = 'var(--green)';
+                        liveDot.style.animation = 'pulse 2s infinite';
+                    }
+                    if (statusSpan) {
+                        statusSpan.textContent = 'NOMIC LOOP ACTIVE';
+                        statusSpan.style.color = 'var(--green)';
+                    }
+                } else {
+                    // Hide the entire section when disconnected
+                    liveSection.style.display = 'none';
+                }
+            }
+
+            function connect() {
+                try {
+                    const ws = new WebSocket(WS_URL);
+
+                    ws.onopen = function() {
+                        isConnected = true;
+                        updateUI(true);
+                    };
+
+                    ws.onclose = function() {
+                        isConnected = false;
+                        updateUI(false);
+                        // Reconnect after delay
+                        if (reconnectTimeout) clearTimeout(reconnectTimeout);
+                        reconnectTimeout = setTimeout(connect, RECONNECT_INTERVAL);
+                    };
+
+                    ws.onerror = function() {
+                        isConnected = false;
+                        updateUI(false);
+                    };
+
+                    // Keep alive by ignoring messages (we just check connection status)
+                    ws.onmessage = function() {};
+
+                } catch (e) {
+                    isConnected = false;
+                    updateUI(false);
+                    if (reconnectTimeout) clearTimeout(reconnectTimeout);
+                    reconnectTimeout = setTimeout(connect, RECONNECT_INTERVAL);
+                }
+            }
+
+            // Start hidden, then show if connected
+            updateUI(false);
+            connect();
+        })();
+    </script>
 </body>
 </html>

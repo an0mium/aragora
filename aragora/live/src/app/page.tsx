@@ -13,7 +13,7 @@ const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
 export default function Home() {
-  const { events, connected } = useNomicStream(WS_URL);
+  const { events, connected, activeLoops, selectedLoopId, selectLoop } = useNomicStream(WS_URL);
   const [nomicState, setNomicState] = useState<NomicState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +78,14 @@ export default function Home() {
   // Derive current phase from state or latest phase event
   const currentPhase = nomicState?.phase || 'idle';
 
+  // Format timestamp as relative time
+  const formatRelativeTime = (timestamp: number) => {
+    const seconds = Math.floor((Date.now() / 1000) - timestamp);
+    if (seconds < 60) return `${seconds}s ago`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    return `${Math.floor(seconds / 3600)}h ago`;
+  };
+
   return (
     <main className="min-h-screen bg-bg text-text">
       {/* Header */}
@@ -89,7 +97,32 @@ export default function Home() {
               <span className="text-text-muted font-normal ml-2">live</span>
             </h1>
           </div>
-          <ConnectionStatus connected={connected} />
+          <div className="flex items-center gap-4">
+            {/* Loop Selector - Only show if multiple loops */}
+            {activeLoops.length > 1 && (
+              <div className="flex items-center gap-2">
+                <span className="text-text-muted text-sm">{activeLoops.length} loops active</span>
+                <select
+                  value={selectedLoopId || ''}
+                  onChange={(e) => selectLoop(e.target.value)}
+                  className="bg-surface border border-border rounded px-2 py-1 text-sm text-text"
+                >
+                  {activeLoops.map((loop) => (
+                    <option key={loop.loop_id} value={loop.loop_id}>
+                      {loop.name} (cycle {loop.cycle}, {formatRelativeTime(loop.started_at)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {/* Single loop indicator */}
+            {activeLoops.length === 1 && (
+              <span className="text-text-muted text-sm">
+                {activeLoops[0].name}
+              </span>
+            )}
+            <ConnectionStatus connected={connected} />
+          </div>
         </div>
       </header>
 

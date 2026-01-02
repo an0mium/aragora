@@ -12,7 +12,10 @@ Usage:
 
 import argparse
 import asyncio
+import os
 import sys
+import uuid
+from datetime import datetime
 from pathlib import Path
 from threading import Thread
 
@@ -23,6 +26,21 @@ from aragora.server.unified_server import UnifiedServer
 from scripts.nomic_loop import NomicLoop
 
 
+def generate_loop_id() -> str:
+    """Generate a unique loop ID."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    short_uuid = str(uuid.uuid4())[:8]
+    return f"loop_{timestamp}_{short_uuid}"
+
+
+def get_loop_name(aragora_path: Path) -> str:
+    """Generate a human-readable loop name."""
+    # Use hostname + path as identifier
+    hostname = os.uname().nodename if hasattr(os, 'uname') else "local"
+    path_suffix = aragora_path.name
+    return f"{hostname}:{path_suffix}"
+
+
 async def run_with_streaming(
     cycles: int = 3,
     http_port: int = 8080,
@@ -31,6 +49,10 @@ async def run_with_streaming(
 ):
     """Run nomic loop with streaming enabled."""
     aragora_path = aragora_path or Path(__file__).parent.parent
+
+    # Generate unique loop ID for multi-loop tracking
+    loop_id = generate_loop_id()
+    loop_name = get_loop_name(aragora_path)
 
     # Resolve paths
     static_dir = aragora_path / "aragora" / "live" / "out"
@@ -55,6 +77,8 @@ async def run_with_streaming(
     print("=" * 60)
     print("ARAGORA NOMIC LOOP WITH LIVE STREAMING")
     print("=" * 60)
+    print(f"Loop ID:      {loop_id}")
+    print(f"Loop Name:    {loop_name}")
     print(f"Dashboard:    http://localhost:{http_port}")
     print(f"Live view:    https://live.aragora.ai")
     print(f"WebSocket:    ws://localhost:{ws_port}")
@@ -78,7 +102,15 @@ async def run_with_streaming(
     # Give server time to start
     await asyncio.sleep(1)
 
+    # Register this loop instance with the stream server
+    server.stream_server.register_loop(
+        loop_id=loop_id,
+        name=loop_name,
+        path=str(aragora_path),
+    )
+
     print("Server started. Running nomic loop...")
+    print(f"This loop is now visible at https://live.aragora.ai as '{loop_name}'")
     print()
 
     try:
@@ -90,6 +122,8 @@ async def run_with_streaming(
         print(f"Error: {e}")
         raise
     finally:
+        # Unregister the loop instance
+        server.stream_server.unregister_loop(loop_id)
         # Cancel server task
         server_task.cancel()
         try:

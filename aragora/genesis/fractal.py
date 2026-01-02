@@ -137,6 +137,10 @@ class FractalOrchestrator:
         """
         debate_id = str(uuid.uuid4())[:8]
 
+        # Require at least 2 agents
+        if len(agents) < 2:
+            raise ValueError(f"Fractal debate requires at least 2 agents, got {len(agents)}")
+
         # Emit fractal start event
         if "on_fractal_start" in self.hooks:
             self.hooks["on_fractal_start"](
@@ -295,10 +299,31 @@ class FractalOrchestrator:
         # Build focused task from tension
         focused_task = self._build_sub_task(tension)
 
+        # Require at least 2 agents for sub-debate
+        if len(specialist_agents) < 2:
+            # Not enough specialists, skip sub-debate
+            if "on_fractal_merge" in self.hooks:
+                self.hooks["on_fractal_merge"](
+                    debate_id=sub_debate_id,
+                    parent_id=parent_debate_id,
+                    success=False,
+                    resolution="Not enough agents available for sub-debate",
+                )
+            return SubDebateResult(
+                debate_id=sub_debate_id,
+                parent_debate_id=parent_debate_id,
+                tension=tension,
+                result=None,
+                specialist_genomes=specialists,
+                depth=depth,
+                resolution="Not enough agents available for sub-debate",
+                success=False,
+            )
+
         # Run sub-debate recursively
         sub_result = await self.run(
             task=focused_task,
-            agents=specialist_agents if specialist_agents else [],
+            agents=specialist_agents,
             population=population,
             depth=depth,
             parent_debate_id=parent_debate_id,

@@ -41,6 +41,11 @@ class StreamEventType(Enum):
     ERROR = "error"
     LOG_MESSAGE = "log_message"
 
+    # Multi-loop management events
+    LOOP_REGISTER = "loop_register"      # New loop instance started
+    LOOP_UNREGISTER = "loop_unregister"  # Loop instance ended
+    LOOP_LIST = "loop_list"              # List of active loops (sent on connect)
+
 
 @dataclass
 class StreamEvent:
@@ -100,9 +105,22 @@ class SyncEventEmitter:
         return events
 
 
+@dataclass
+class LoopInstance:
+    """Represents an active nomic loop instance."""
+    loop_id: str
+    name: str
+    started_at: float
+    cycle: int = 0
+    phase: str = "starting"
+    path: str = ""
+
+
 class DebateStreamServer:
     """
     WebSocket server broadcasting debate events to connected clients.
+
+    Supports multiple concurrent nomic loop instances with view switching.
 
     Usage:
         server = DebateStreamServer(port=8765)
@@ -121,6 +139,8 @@ class DebateStreamServer:
         self.current_debate: Optional[dict] = None
         self._emitter = SyncEventEmitter()
         self._running = False
+        # Multi-loop tracking
+        self.active_loops: dict[str, LoopInstance] = {}  # loop_id -> LoopInstance
 
     @property
     def emitter(self) -> SyncEventEmitter:
@@ -150,10 +170,75 @@ class DebateStreamServer:
                 await self.broadcast(event)
             await asyncio.sleep(0.05)
 
+    def register_loop(self, loop_id: str, name: str, path: str = "") -> None:
+        """Register a new nomic loop instance."""
+        instance = LoopInstance(
+            loop_id=loop_id,
+            name=name,
+            started_at=time.time(),
+            path=path,
+        )
+        self.active_loops[loop_id] = instance
+        # Emit registration event
+        self._emitter.emit(StreamEvent(
+            type=StreamEventType.LOOP_REGISTER,
+            data={
+                "loop_id": loop_id,
+                "name": name,
+                "started_at": instance.started_at,
+                "path": path,
+                "active_loops": len(self.active_loops),
+            },
+        ))
+
+    def unregister_loop(self, loop_id: str) -> None:
+        """Unregister a nomic loop instance."""
+        if loop_id in self.active_loops:
+            del self.active_loops[loop_id]
+            # Emit unregistration event
+            self._emitter.emit(StreamEvent(
+                type=StreamEventType.LOOP_UNREGISTER,
+                data={
+                    "loop_id": loop_id,
+                    "active_loops": len(self.active_loops),
+                },
+            ))
+
+    def update_loop_state(self, loop_id: str, cycle: int = None, phase: str = None) -> None:
+        """Update the state of an active loop instance."""
+        if loop_id in self.active_loops:
+            if cycle is not None:
+                self.active_loops[loop_id].cycle = cycle
+            if phase is not None:
+                self.active_loops[loop_id].phase = phase
+
+    def get_loop_list(self) -> list[dict]:
+        """Get list of active loops for client sync."""
+        return [
+            {
+                "loop_id": loop.loop_id,
+                "name": loop.name,
+                "started_at": loop.started_at,
+                "cycle": loop.cycle,
+                "phase": loop.phase,
+                "path": loop.path,
+            }
+            for loop in self.active_loops.values()
+        ]
+
     async def handler(self, websocket) -> None:
         """Handle a WebSocket connection."""
         self.clients.add(websocket)
         try:
+            # Send list of active loops
+            await websocket.send(json.dumps({
+                "type": "loop_list",
+                "data": {
+                    "loops": self.get_loop_list(),
+                    "count": len(self.active_loops),
+                }
+            }))
+
             # Send current debate state if one is in progress
             if self.current_debate:
                 await websocket.send(json.dumps({
@@ -163,8 +248,19 @@ class DebateStreamServer:
 
             # Keep connection alive, handle incoming messages if needed
             async for message in websocket:
-                # Currently we don't expect client messages, but could add commands
-                pass
+                # Handle client requests (e.g., switch active loop view)
+                try:
+                    data = json.loads(message)
+                    if data.get("type") == "get_loops":
+                        await websocket.send(json.dumps({
+                            "type": "loop_list",
+                            "data": {
+                                "loops": self.get_loop_list(),
+                                "count": len(self.active_loops),
+                            }
+                        }))
+                except json.JSONDecodeError:
+                    pass
         finally:
             self.clients.discard(websocket)
 
