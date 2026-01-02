@@ -53,18 +53,25 @@ class HybridExecutor:
     Updated routing strategy (Dec 2025):
     - ALL tasks: Claude (fastest, best quality for implementation)
     - Post-implementation: Codex review (optional QA phase)
+    - Fallback: Codex if Claude times out (resilience)
 
     Rationale:
     - Codex has severe latency issues (GitHub #5149, #1811, #6990)
     - Claude is 37% faster and produces more organized code
     - Codex quality shines in review mode where latency is acceptable
+
+    Resilience features (Jan 2026):
+    - Retry failed tasks with 2x timeout
+    - Model fallback on timeout (Claude → Codex)
+    - Continue execution after failures (collect, retry at end)
     """
 
     def __init__(
         self,
         repo_path: Path,
-        claude_timeout: int = 600,
-        codex_timeout: int = 600,  # Increased from 300 - Codex has known latency issues
+        claude_timeout: int = 1200,  # 20 min - doubled from 600
+        codex_timeout: int = 1200,   # 20 min - doubled from 600
+        max_retries: int = 2,
     ):
         self.repo_path = repo_path
 
@@ -74,6 +81,7 @@ class HybridExecutor:
 
         self.claude_timeout = claude_timeout
         self.codex_timeout = codex_timeout
+        self.max_retries = max_retries
 
     @property
     def claude(self) -> ClaudeAgent:
@@ -137,20 +145,40 @@ Make only the changes specified. Follow existing code style."""
         except Exception:
             return ""
 
-    async def execute_task(self, task: ImplementTask) -> TaskResult:
+    async def execute_task(
+        self,
+        task: ImplementTask,
+        attempt: int = 1,
+        use_fallback: bool = False,
+    ) -> TaskResult:
         """
-        Execute a single implementation task.
+        Execute a single implementation task with retry and fallback support.
 
         Args:
             task: The task to execute
+            attempt: Current attempt number (1-based)
+            use_fallback: If True, use Codex instead of Claude
 
         Returns:
             TaskResult with success status and diff
         """
-        agent, model_name = self._select_agent(task.complexity)
-        prompt = self._build_prompt(task)
+        # Select agent - use fallback (Codex) if primary (Claude) failed
+        if use_fallback:
+            agent = self.codex
+            model_name = "codex-fallback"
+            # Use 2x timeout for fallback
+            agent.timeout = self.codex_timeout * 2
+            print(f"  Retry [{task.complexity}] {task.id} with {model_name} (attempt {attempt})...")
+        else:
+            agent, model_name = self._select_agent(task.complexity)
+            # Increase timeout on retry
+            if attempt > 1:
+                agent.timeout = self.claude_timeout * attempt
+                print(f"  Retry [{task.complexity}] {task.id} with {model_name} (attempt {attempt}, timeout {agent.timeout}s)...")
+            else:
+                print(f"  Executing [{task.complexity}] {task.id} with {model_name}...")
 
-        print(f"  Executing [{task.complexity}] {task.id} with {model_name}...")
+        prompt = self._build_prompt(task)
         start_time = time.time()
 
         try:
@@ -195,25 +223,65 @@ Make only the changes specified. Follow existing code style."""
                 duration_seconds=duration,
             )
 
+    async def execute_task_with_retry(self, task: ImplementTask) -> TaskResult:
+        """
+        Execute a task with automatic retry and model fallback.
+
+        Retry strategy:
+        1. First attempt with Claude (primary)
+        2. If timeout, retry with Claude + 2x timeout
+        3. If still fails, try Codex as fallback with 2x timeout
+
+        Returns:
+            Best TaskResult from attempts
+        """
+        # Attempt 1: Claude with normal timeout
+        result = await self.execute_task(task, attempt=1, use_fallback=False)
+        if result.success:
+            return result
+
+        # Check if it was a timeout (worth retrying) vs other error
+        is_timeout = result.error and "timeout" in result.error.lower()
+
+        if is_timeout and self.max_retries >= 2:
+            # Attempt 2: Claude with 2x timeout
+            print(f"    Retrying {task.id} with extended timeout...")
+            result = await self.execute_task(task, attempt=2, use_fallback=False)
+            if result.success:
+                return result
+
+        if is_timeout and self.max_retries >= 3:
+            # Attempt 3: Fallback to Codex
+            print(f"    Falling back to Codex for {task.id}...")
+            result = await self.execute_task(task, attempt=3, use_fallback=True)
+
+        return result
+
     async def execute_plan(
         self,
         tasks: list[ImplementTask],
         completed: set[str],
         on_task_complete=None,
+        stop_on_failure: bool = False,
     ) -> list[TaskResult]:
         """
         Execute all tasks in a plan, respecting dependencies.
+
+        Updated Jan 2026: Now continues after failures by default and retries.
 
         Args:
             tasks: List of tasks to execute
             completed: Set of already-completed task IDs
             on_task_complete: Optional callback after each task
+            stop_on_failure: If True, stop on first failure (legacy behavior)
 
         Returns:
             List of TaskResults for executed tasks
         """
         results = []
+        failed_tasks = []
 
+        # First pass: execute all tasks, collecting failures
         for task in tasks:
             # Skip already completed
             if task.id in completed:
@@ -225,8 +293,8 @@ Make only the changes specified. Follow existing code style."""
                 print(f"  Skipping {task.id} - dependencies not met")
                 continue
 
-            # Execute
-            result = await self.execute_task(task)
+            # Execute with retry
+            result = await self.execute_task_with_retry(task)
             results.append(result)
 
             if result.success:
@@ -234,13 +302,41 @@ Make only the changes specified. Follow existing code style."""
                 if on_task_complete:
                     on_task_complete(task.id, result)
             else:
-                # Stop on first failure
-                print(f"  Stopping execution due to failure in {task.id}")
-                break
+                failed_tasks.append(task)
+                if stop_on_failure:
+                    print(f"  Stopping execution due to failure in {task.id}")
+                    break
+                else:
+                    print(f"  Task {task.id} failed, continuing with remaining tasks...")
+
+        # Second pass: retry failed tasks once more (dependencies may now be met)
+        if failed_tasks and not stop_on_failure:
+            print(f"\n  Retrying {len(failed_tasks)} failed tasks...")
+            for task in failed_tasks:
+                # Check if dependencies are now met
+                deps_met = all(dep in completed for dep in task.dependencies)
+                if not deps_met:
+                    print(f"  Skipping retry of {task.id} - dependencies still not met")
+                    continue
+
+                # Already tried with retry, try one more time with max timeout
+                print(f"  Final retry for {task.id}...")
+                result = await self.execute_task(task, attempt=self.max_retries + 1, use_fallback=True)
+
+                # Update results (replace the failed one)
+                for i, r in enumerate(results):
+                    if r.task_id == task.id:
+                        results[i] = result
+                        break
+
+                if result.success:
+                    completed.add(task.id)
+                    if on_task_complete:
+                        on_task_complete(task.id, result)
 
         return results
 
-    async def review_with_codex(self, diff: str, timeout: int = 1200) -> dict:  # 20 min - Codex is slow but thorough
+    async def review_with_codex(self, diff: str, timeout: int = 2400) -> dict:  # 40 min - Codex is slow but thorough
         """
         Run Codex code review on implemented changes.
 
