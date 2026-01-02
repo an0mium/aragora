@@ -1880,10 +1880,16 @@ Reply with: LOOKS_GOOD or ISSUES: <brief description>
                     self._log("Continuing to next cycle...")
                 else:
                     self._log("Cycle did not complete successfully.")
-                    if self.require_human_approval:
-                        response = input("Continue to next cycle? [Y/n]: ")
-                        if response.lower() == 'n':
-                            break
+                    if self.require_human_approval and not self.auto_commit:
+                        try:
+                            response = input("Continue to next cycle? [Y/n]: ")
+                            if response.lower() == 'n':
+                                break
+                        except EOFError:
+                            # Running in background/non-interactive mode
+                            self._log("Non-interactive mode detected, continuing...")
+                    else:
+                        self._log("Auto-commit mode: continuing to next cycle...")
 
                 await asyncio.sleep(2)
 
