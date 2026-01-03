@@ -1,0 +1,858 @@
+"""
+Incremental Consensus Checkpointing.
+
+Enables pause/resume for long-running debates:
+- Durable checkpoints at configurable intervals
+- Resume from last checkpoint on crash/timeout
+- Async human participation (review + intervene + resume)
+- Distributed debates across sessions
+
+Key concepts:
+- DebateCheckpoint: Full state snapshot at a point in time
+- CheckpointStore: Persistence layer (file, S3, git)
+- CheckpointManager: Orchestrates checkpointing lifecycle
+- ResumedDebate: Context for continuing from checkpoint
+"""
+
+import asyncio
+import json
+import gzip
+import hashlib
+import os
+import shutil
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Callable, Optional
+from enum import Enum
+import uuid
+
+from aragora.core import Message, Vote, DebateResult, Critique
+
+
+class CheckpointStatus(Enum):
+    """Status of a checkpoint."""
+    CREATING = "creating"
+    COMPLETE = "complete"
+    RESUMING = "resuming"
+    CORRUPTED = "corrupted"
+    EXPIRED = "expired"
+
+
+@dataclass
+class AgentState:
+    """Serialized state of an agent at checkpoint time."""
+    agent_name: str
+    agent_model: str
+    agent_role: str
+    system_prompt: str
+    stance: str
+    memory_snapshot: Optional[dict] = None
+
+
+@dataclass
+class DebateCheckpoint:
+    """
+    Complete state snapshot for debate resumption.
+
+    Captures everything needed to continue a debate from
+    exactly where it left off.
+    """
+    checkpoint_id: str
+    debate_id: str
+    task: str
+
+    # Progress
+    current_round: int
+    total_rounds: int
+    phase: str  # "proposal", "critique", "vote", "synthesis"
+
+    # Message history
+    messages: list[dict]  # Serialized Message objects
+    critiques: list[dict]  # Serialized Critique objects
+    votes: list[dict]  # Serialized Vote objects
+
+    # Agent states
+    agent_states: list[AgentState]
+
+    # Consensus state
+    current_consensus: Optional[str] = None
+    consensus_confidence: float = 0.0
+    convergence_status: str = ""
+
+    # Claims kernel state (if using)
+    claims_kernel_state: Optional[dict] = None
+
+    # Belief network state (if using)
+    belief_network_state: Optional[dict] = None
+
+    # Metadata
+    status: CheckpointStatus = CheckpointStatus.COMPLETE
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    expires_at: Optional[str] = None
+    checksum: str = ""
+
+    # Resumption info
+    resume_count: int = 0
+    last_resumed_at: Optional[str] = None
+    resumed_by: Optional[str] = None  # User/system that resumed
+
+    # Human intervention
+    pending_intervention: bool = False
+    intervention_notes: list[str] = field(default_factory=list)
+
+    def __post_init__(self):
+        if not self.checksum:
+            self.checksum = self._compute_checksum()
+
+    def _compute_checksum(self) -> str:
+        """Compute checksum for integrity verification."""
+        data = f"{self.debate_id}:{self.current_round}:{len(self.messages)}"
+        return hashlib.sha256(data.encode()).hexdigest()[:16]
+
+    def verify_integrity(self) -> bool:
+        """Verify checkpoint integrity."""
+        return self.checksum == self._compute_checksum()
+
+    def to_dict(self) -> dict:
+        return {
+            "checkpoint_id": self.checkpoint_id,
+            "debate_id": self.debate_id,
+            "task": self.task,
+            "current_round": self.current_round,
+            "total_rounds": self.total_rounds,
+            "phase": self.phase,
+            "messages": self.messages,
+            "critiques": self.critiques,
+            "votes": self.votes,
+            "agent_states": [
+                {
+                    "agent_name": s.agent_name,
+                    "agent_model": s.agent_model,
+                    "agent_role": s.agent_role,
+                    "system_prompt": s.system_prompt,
+                    "stance": s.stance,
+                    "memory_snapshot": s.memory_snapshot,
+                }
+                for s in self.agent_states
+            ],
+            "current_consensus": self.current_consensus,
+            "consensus_confidence": self.consensus_confidence,
+            "convergence_status": self.convergence_status,
+            "claims_kernel_state": self.claims_kernel_state,
+            "belief_network_state": self.belief_network_state,
+            "status": self.status.value,
+            "created_at": self.created_at,
+            "expires_at": self.expires_at,
+            "checksum": self.checksum,
+            "resume_count": self.resume_count,
+            "last_resumed_at": self.last_resumed_at,
+            "resumed_by": self.resumed_by,
+            "pending_intervention": self.pending_intervention,
+            "intervention_notes": self.intervention_notes,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "DebateCheckpoint":
+        return cls(
+            checkpoint_id=data["checkpoint_id"],
+            debate_id=data["debate_id"],
+            task=data["task"],
+            current_round=data["current_round"],
+            total_rounds=data["total_rounds"],
+            phase=data["phase"],
+            messages=data["messages"],
+            critiques=data["critiques"],
+            votes=data["votes"],
+            agent_states=[
+                AgentState(
+                    agent_name=s["agent_name"],
+                    agent_model=s["agent_model"],
+                    agent_role=s["agent_role"],
+                    system_prompt=s["system_prompt"],
+                    stance=s["stance"],
+                    memory_snapshot=s.get("memory_snapshot"),
+                )
+                for s in data["agent_states"]
+            ],
+            current_consensus=data.get("current_consensus"),
+            consensus_confidence=data.get("consensus_confidence", 0.0),
+            convergence_status=data.get("convergence_status", ""),
+            claims_kernel_state=data.get("claims_kernel_state"),
+            belief_network_state=data.get("belief_network_state"),
+            status=CheckpointStatus(data.get("status", "complete")),
+            created_at=data["created_at"],
+            expires_at=data.get("expires_at"),
+            checksum=data["checksum"],
+            resume_count=data.get("resume_count", 0),
+            last_resumed_at=data.get("last_resumed_at"),
+            resumed_by=data.get("resumed_by"),
+            pending_intervention=data.get("pending_intervention", False),
+            intervention_notes=data.get("intervention_notes", []),
+        )
+
+
+@dataclass
+class ResumedDebate:
+    """Context for a debate resumed from checkpoint."""
+    checkpoint: DebateCheckpoint
+    original_debate_id: str
+    resumed_at: str
+    resumed_by: str
+
+    # Restored state
+    messages: list[Message]
+    votes: list[Vote]
+
+    # Reconciliation
+    context_drift_detected: bool = False
+    drift_notes: list[str] = field(default_factory=list)
+
+
+class CheckpointStore(ABC):
+    """Abstract base for checkpoint persistence."""
+
+    @abstractmethod
+    async def save(self, checkpoint: DebateCheckpoint) -> str:
+        """Save checkpoint, return storage path."""
+        pass
+
+    @abstractmethod
+    async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+        """Load checkpoint by ID."""
+        pass
+
+    @abstractmethod
+    async def list_checkpoints(
+        self,
+        debate_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        """List available checkpoints."""
+        pass
+
+    @abstractmethod
+    async def delete(self, checkpoint_id: str) -> bool:
+        """Delete a checkpoint."""
+        pass
+
+
+class FileCheckpointStore(CheckpointStore):
+    """File-based checkpoint storage."""
+
+    def __init__(
+        self,
+        base_dir: str = ".checkpoints",
+        compress: bool = True,
+    ):
+        self.base_dir = Path(base_dir)
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+        self.compress = compress
+
+    def _get_path(self, checkpoint_id: str) -> Path:
+        ext = ".json.gz" if self.compress else ".json"
+        return self.base_dir / f"{checkpoint_id}{ext}"
+
+    async def save(self, checkpoint: DebateCheckpoint) -> str:
+        path = self._get_path(checkpoint.checkpoint_id)
+        data = json.dumps(checkpoint.to_dict(), indent=2)
+
+        if self.compress:
+            with gzip.open(path, "wt", encoding="utf-8") as f:
+                f.write(data)
+        else:
+            path.write_text(data)
+
+        return str(path)
+
+    async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+        path = self._get_path(checkpoint_id)
+
+        if not path.exists():
+            return None
+
+        try:
+            if self.compress:
+                with gzip.open(path, "rt", encoding="utf-8") as f:
+                    data = json.load(f)
+            else:
+                data = json.loads(path.read_text())
+
+            return DebateCheckpoint.from_dict(data)
+
+        except Exception as e:
+            return None
+
+    async def list_checkpoints(
+        self,
+        debate_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        checkpoints = []
+        pattern = "*.json.gz" if self.compress else "*.json"
+
+        for path in sorted(self.base_dir.glob(pattern), reverse=True)[:limit]:
+            try:
+                cp = await self.load(path.stem.replace(".json", ""))
+                if cp and (debate_id is None or cp.debate_id == debate_id):
+                    checkpoints.append({
+                        "checkpoint_id": cp.checkpoint_id,
+                        "debate_id": cp.debate_id,
+                        "task": cp.task[:100],
+                        "current_round": cp.current_round,
+                        "created_at": cp.created_at,
+                        "status": cp.status.value,
+                    })
+            except:
+                continue
+
+        return checkpoints
+
+    async def delete(self, checkpoint_id: str) -> bool:
+        path = self._get_path(checkpoint_id)
+        if path.exists():
+            path.unlink()
+            return True
+        return False
+
+
+class S3CheckpointStore(CheckpointStore):
+    """S3-based checkpoint storage for distributed deployments."""
+
+    def __init__(
+        self,
+        bucket: str,
+        prefix: str = "checkpoints/",
+        region: str = "us-east-1",
+    ):
+        self.bucket = bucket
+        self.prefix = prefix
+        self.region = region
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            try:
+                import boto3
+                self._client = boto3.client("s3", region_name=self.region)
+            except ImportError:
+                raise RuntimeError("boto3 required for S3CheckpointStore")
+        return self._client
+
+    def _get_key(self, checkpoint_id: str) -> str:
+        return f"{self.prefix}{checkpoint_id}.json.gz"
+
+    async def save(self, checkpoint: DebateCheckpoint) -> str:
+        import io
+        client = self._get_client()
+        key = self._get_key(checkpoint.checkpoint_id)
+
+        data = json.dumps(checkpoint.to_dict())
+        compressed = gzip.compress(data.encode())
+
+        client.put_object(
+            Bucket=self.bucket,
+            Key=key,
+            Body=compressed,
+            ContentType="application/json",
+            ContentEncoding="gzip",
+        )
+
+        return f"s3://{self.bucket}/{key}"
+
+    async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+        try:
+            client = self._get_client()
+            key = self._get_key(checkpoint_id)
+
+            response = client.get_object(Bucket=self.bucket, Key=key)
+            compressed = response["Body"].read()
+            data = json.loads(gzip.decompress(compressed))
+
+            return DebateCheckpoint.from_dict(data)
+
+        except Exception as e:
+            return None
+
+    async def list_checkpoints(
+        self,
+        debate_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        client = self._get_client()
+        checkpoints = []
+
+        paginator = client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=self.prefix):
+            for obj in page.get("Contents", []):
+                checkpoint_id = obj["Key"].replace(self.prefix, "").replace(".json.gz", "")
+                cp = await self.load(checkpoint_id)
+                if cp and (debate_id is None or cp.debate_id == debate_id):
+                    checkpoints.append({
+                        "checkpoint_id": cp.checkpoint_id,
+                        "debate_id": cp.debate_id,
+                        "task": cp.task[:100],
+                        "current_round": cp.current_round,
+                        "created_at": cp.created_at,
+                        "status": cp.status.value,
+                    })
+
+                if len(checkpoints) >= limit:
+                    break
+
+        return checkpoints
+
+    async def delete(self, checkpoint_id: str) -> bool:
+        try:
+            client = self._get_client()
+            key = self._get_key(checkpoint_id)
+            client.delete_object(Bucket=self.bucket, Key=key)
+            return True
+        except:
+            return False
+
+
+class GitCheckpointStore(CheckpointStore):
+    """Git branch-based checkpoint storage for version control."""
+
+    def __init__(
+        self,
+        repo_path: str = ".",
+        branch_prefix: str = "checkpoint/",
+    ):
+        self.repo_path = Path(repo_path)
+        self.branch_prefix = branch_prefix
+        self.checkpoint_dir = self.repo_path / ".checkpoints"
+        self.checkpoint_dir.mkdir(exist_ok=True)
+
+    def _run_git(self, args: list[str]) -> tuple[bool, str]:
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["git"] + args,
+                cwd=self.repo_path,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            return result.returncode == 0, result.stdout.strip()
+        except Exception as e:
+            return False, str(e)
+
+    async def save(self, checkpoint: DebateCheckpoint) -> str:
+        # Save to file
+        path = self.checkpoint_dir / f"{checkpoint.checkpoint_id}.json"
+        path.write_text(json.dumps(checkpoint.to_dict(), indent=2))
+
+        # Create git branch
+        branch_name = f"{self.branch_prefix}{checkpoint.checkpoint_id}"
+        self._run_git(["checkout", "-b", branch_name])
+        self._run_git(["add", str(path)])
+        self._run_git(["commit", "-m", f"Checkpoint: {checkpoint.checkpoint_id}"])
+        self._run_git(["checkout", "-"])  # Return to previous branch
+
+        return f"git:{branch_name}"
+
+    async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+        path = self.checkpoint_dir / f"{checkpoint_id}.json"
+
+        if path.exists():
+            data = json.loads(path.read_text())
+            return DebateCheckpoint.from_dict(data)
+
+        # Try loading from git branch
+        branch_name = f"{self.branch_prefix}{checkpoint_id}"
+        success, _ = self._run_git(["show", f"{branch_name}:.checkpoints/{checkpoint_id}.json"])
+
+        if success:
+            success, content = self._run_git(["show", f"{branch_name}:.checkpoints/{checkpoint_id}.json"])
+            if success:
+                data = json.loads(content)
+                return DebateCheckpoint.from_dict(data)
+
+        return None
+
+    async def list_checkpoints(
+        self,
+        debate_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        success, branches = self._run_git(["branch", "-a"])
+        checkpoints = []
+
+        if success:
+            for line in branches.split("\n"):
+                branch = line.strip().replace("* ", "")
+                if branch.startswith(self.branch_prefix):
+                    checkpoint_id = branch.replace(self.branch_prefix, "")
+                    cp = await self.load(checkpoint_id)
+                    if cp and (debate_id is None or cp.debate_id == debate_id):
+                        checkpoints.append({
+                            "checkpoint_id": cp.checkpoint_id,
+                            "debate_id": cp.debate_id,
+                            "task": cp.task[:100],
+                            "current_round": cp.current_round,
+                            "created_at": cp.created_at,
+                            "status": cp.status.value,
+                        })
+
+        return checkpoints[:limit]
+
+    async def delete(self, checkpoint_id: str) -> bool:
+        branch_name = f"{self.branch_prefix}{checkpoint_id}"
+        success, _ = self._run_git(["branch", "-D", branch_name])
+
+        path = self.checkpoint_dir / f"{checkpoint_id}.json"
+        if path.exists():
+            path.unlink()
+
+        return success
+
+
+@dataclass
+class CheckpointConfig:
+    """Configuration for checkpointing behavior."""
+    interval_rounds: int = 1  # Checkpoint every N rounds
+    interval_seconds: float = 300.0  # Or every N seconds
+    max_checkpoints: int = 10  # Keep at most N checkpoints per debate
+    expiry_hours: float = 72.0  # Delete checkpoints after N hours
+    compress: bool = True
+    auto_cleanup: bool = True
+
+
+class CheckpointManager:
+    """
+    Manages checkpoint lifecycle for debates.
+
+    Handles creation, storage, resumption, and cleanup.
+    """
+
+    def __init__(
+        self,
+        store: Optional[CheckpointStore] = None,
+        config: Optional[CheckpointConfig] = None,
+    ):
+        self.store = store or FileCheckpointStore()
+        self.config = config or CheckpointConfig()
+
+        self._last_checkpoint_time: dict[str, datetime] = {}
+        self._checkpoint_count: dict[str, int] = {}
+
+    def should_checkpoint(
+        self,
+        debate_id: str,
+        current_round: int,
+    ) -> bool:
+        """Determine if a checkpoint should be created."""
+        # Check round interval
+        if current_round % self.config.interval_rounds == 0:
+            return True
+
+        # Check time interval
+        last_time = self._last_checkpoint_time.get(debate_id)
+        if last_time:
+            elapsed = (datetime.now() - last_time).total_seconds()
+            if elapsed >= self.config.interval_seconds:
+                return True
+
+        return False
+
+    async def create_checkpoint(
+        self,
+        debate_id: str,
+        task: str,
+        current_round: int,
+        total_rounds: int,
+        phase: str,
+        messages: list[Message],
+        critiques: list[Critique],
+        votes: list[Vote],
+        agents: list,  # Agent objects
+        current_consensus: Optional[str] = None,
+        claims_kernel_state: Optional[dict] = None,
+        belief_network_state: Optional[dict] = None,
+    ) -> DebateCheckpoint:
+        """Create and save a checkpoint."""
+        checkpoint_id = f"cp-{debate_id[:8]}-{current_round:03d}-{uuid.uuid4().hex[:4]}"
+
+        # Serialize messages
+        messages_dict = [
+            {
+                "role": m.role,
+                "agent": m.agent,
+                "content": m.content,
+                "timestamp": m.timestamp.isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp),
+                "round": m.round,
+            }
+            for m in messages
+        ]
+
+        # Serialize critiques
+        critiques_dict = [
+            {
+                "agent": c.agent,
+                "target_agent": c.target_agent,
+                "target_content": c.target_content,
+                "issues": c.issues,
+                "suggestions": c.suggestions,
+                "severity": c.severity,
+                "reasoning": c.reasoning,
+            }
+            for c in critiques
+        ]
+
+        # Serialize votes
+        votes_dict = [
+            {
+                "agent": v.agent,
+                "choice": v.choice,
+                "confidence": v.confidence,
+                "reasoning": v.reasoning,
+                "continue_debate": v.continue_debate,
+            }
+            for v in votes
+        ]
+
+        # Serialize agent states
+        agent_states = [
+            AgentState(
+                agent_name=a.name,
+                agent_model=a.model,
+                agent_role=a.role,
+                system_prompt=getattr(a, "system_prompt", ""),
+                stance=getattr(a, "stance", "neutral"),
+            )
+            for a in agents
+        ]
+
+        # Calculate expiry
+        expiry = None
+        if self.config.expiry_hours > 0:
+            expiry = (
+                datetime.now() + timedelta(hours=self.config.expiry_hours)
+            ).isoformat()
+
+        checkpoint = DebateCheckpoint(
+            checkpoint_id=checkpoint_id,
+            debate_id=debate_id,
+            task=task,
+            current_round=current_round,
+            total_rounds=total_rounds,
+            phase=phase,
+            messages=messages_dict,
+            critiques=critiques_dict,
+            votes=votes_dict,
+            agent_states=agent_states,
+            current_consensus=current_consensus,
+            claims_kernel_state=claims_kernel_state,
+            belief_network_state=belief_network_state,
+            expires_at=expiry,
+        )
+
+        # Save
+        await self.store.save(checkpoint)
+
+        # Track
+        self._last_checkpoint_time[debate_id] = datetime.now()
+        self._checkpoint_count[debate_id] = self._checkpoint_count.get(debate_id, 0) + 1
+
+        # Cleanup old checkpoints if needed
+        if self.config.auto_cleanup:
+            await self._cleanup_old_checkpoints(debate_id)
+
+        return checkpoint
+
+    async def resume_from_checkpoint(
+        self,
+        checkpoint_id: str,
+        resumed_by: str = "system",
+    ) -> Optional[ResumedDebate]:
+        """Resume a debate from a checkpoint."""
+        checkpoint = await self.store.load(checkpoint_id)
+
+        if not checkpoint:
+            return None
+
+        if not checkpoint.verify_integrity():
+            checkpoint.status = CheckpointStatus.CORRUPTED
+            return None
+
+        # Restore messages
+        messages = [
+            Message(
+                role=m["role"],
+                agent=m["agent"],
+                content=m["content"],
+                timestamp=datetime.fromisoformat(m["timestamp"]) if isinstance(m["timestamp"], str) else m["timestamp"],
+                round=m["round"],
+            )
+            for m in checkpoint.messages
+        ]
+
+        # Restore votes
+        votes = [
+            Vote(
+                agent=v["agent"],
+                choice=v["choice"],
+                confidence=v["confidence"],
+                reasoning=v["reasoning"],
+                continue_debate=v.get("continue_debate", True),
+            )
+            for v in checkpoint.votes
+        ]
+
+        # Update checkpoint
+        checkpoint.resume_count += 1
+        checkpoint.last_resumed_at = datetime.now().isoformat()
+        checkpoint.resumed_by = resumed_by
+        checkpoint.status = CheckpointStatus.RESUMING
+
+        await self.store.save(checkpoint)
+
+        return ResumedDebate(
+            checkpoint=checkpoint,
+            original_debate_id=checkpoint.debate_id,
+            resumed_at=datetime.now().isoformat(),
+            resumed_by=resumed_by,
+            messages=messages,
+            votes=votes,
+        )
+
+    async def add_intervention(
+        self,
+        checkpoint_id: str,
+        note: str,
+        by: str = "human",
+    ) -> bool:
+        """Add an intervention note to a checkpoint."""
+        checkpoint = await self.store.load(checkpoint_id)
+
+        if not checkpoint:
+            return False
+
+        checkpoint.pending_intervention = True
+        checkpoint.intervention_notes.append(f"[{by}] {note}")
+
+        await self.store.save(checkpoint)
+        return True
+
+    async def list_debates_with_checkpoints(self) -> list[dict]:
+        """List all debates that have checkpoints."""
+        all_checkpoints = await self.store.list_checkpoints()
+
+        debates = {}
+        for cp in all_checkpoints:
+            debate_id = cp["debate_id"]
+            if debate_id not in debates:
+                debates[debate_id] = {
+                    "debate_id": debate_id,
+                    "task": cp["task"],
+                    "checkpoint_count": 0,
+                    "latest_checkpoint": None,
+                    "latest_round": 0,
+                }
+
+            debates[debate_id]["checkpoint_count"] += 1
+            if cp["current_round"] > debates[debate_id]["latest_round"]:
+                debates[debate_id]["latest_round"] = cp["current_round"]
+                debates[debate_id]["latest_checkpoint"] = cp["checkpoint_id"]
+
+        return list(debates.values())
+
+    async def _cleanup_old_checkpoints(self, debate_id: str):
+        """Remove old checkpoints beyond the limit."""
+        checkpoints = await self.store.list_checkpoints(debate_id=debate_id)
+
+        # Sort by creation time
+        checkpoints.sort(key=lambda x: x["created_at"], reverse=True)
+
+        # Delete extras
+        for cp in checkpoints[self.config.max_checkpoints:]:
+            await self.store.delete(cp["checkpoint_id"])
+
+
+class CheckpointWebhook:
+    """Webhook notifications for checkpoint events."""
+
+    def __init__(self, webhook_url: Optional[str] = None):
+        self.webhook_url = webhook_url
+        self.handlers: dict[str, list[Callable]] = {
+            "on_checkpoint": [],
+            "on_resume": [],
+            "on_intervention": [],
+        }
+
+    def on_checkpoint(self, handler: Callable):
+        """Register checkpoint creation handler."""
+        self.handlers["on_checkpoint"].append(handler)
+        return handler
+
+    def on_resume(self, handler: Callable):
+        """Register resume handler."""
+        self.handlers["on_resume"].append(handler)
+        return handler
+
+    def on_intervention(self, handler: Callable):
+        """Register intervention handler."""
+        self.handlers["on_intervention"].append(handler)
+        return handler
+
+    async def emit(self, event: str, data: dict):
+        """Emit event to all handlers."""
+        for handler in self.handlers.get(event, []):
+            try:
+                if asyncio.iscoroutinefunction(handler):
+                    await handler(data)
+                else:
+                    handler(data)
+            except Exception as e:
+                pass  # Log but don't fail
+
+        # Send to webhook if configured
+        if self.webhook_url:
+            await self._send_webhook(event, data)
+
+    async def _send_webhook(self, event: str, data: dict):
+        """Send webhook notification."""
+        try:
+            import aiohttp
+
+            async with aiohttp.ClientSession() as session:
+                await session.post(
+                    self.webhook_url,
+                    json={"event": event, "data": data},
+                    timeout=aiohttp.ClientTimeout(total=10),
+                )
+        except:
+            pass
+
+
+# Convenience function for quick checkpointing
+async def checkpoint_debate(
+    debate_id: str,
+    task: str,
+    round_num: int,
+    total_rounds: int,
+    phase: str,
+    messages: list[Message],
+    agents: list,
+    store_path: str = ".checkpoints",
+) -> DebateCheckpoint:
+    """Quick checkpoint creation."""
+    manager = CheckpointManager(
+        store=FileCheckpointStore(store_path),
+        config=CheckpointConfig(),
+    )
+
+    return await manager.create_checkpoint(
+        debate_id=debate_id,
+        task=task,
+        current_round=round_num,
+        total_rounds=total_rounds,
+        phase=phase,
+        messages=messages,
+        critiques=[],
+        votes=[],
+        agents=agents,
+    )

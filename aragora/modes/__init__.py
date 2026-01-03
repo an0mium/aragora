@@ -41,6 +41,20 @@ from aragora.modes.redteam import (
     redteam_code_review,
     redteam_policy,
 )
+from aragora.modes.prober import (
+    CapabilityProber,
+    VulnerabilityReport,
+    ProbeResult,
+    ProbeType,
+    ProbeStrategy,
+    ContradictionTrap,
+    HallucinationBait,
+    SycophancyTest,
+    PersistenceChallenge,
+    VulnerabilitySeverity,
+    ProbeBeforePromote,
+    generate_probe_report_markdown,
+)
 
 __all__ = [
     # Operational Mode System
@@ -70,4 +84,17 @@ __all__ = [
     "AttackType",
     "redteam_code_review",
     "redteam_policy",
+    # Capability Probing
+    "CapabilityProber",
+    "VulnerabilityReport",
+    "ProbeResult",
+    "ProbeType",
+    "ProbeStrategy",
+    "ContradictionTrap",
+    "HallucinationBait",
+    "SycophancyTest",
+    "PersistenceChallenge",
+    "VulnerabilitySeverity",
+    "ProbeBeforePromote",
+    "generate_probe_report_markdown",
 ]

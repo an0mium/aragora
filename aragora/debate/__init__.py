@@ -29,6 +29,31 @@ from aragora.debate.scenarios import (
     create_risk_scenarios,
     create_time_horizon_scenarios,
 )
+from aragora.debate.counterfactual import (
+    CounterfactualOrchestrator,
+    CounterfactualBranch,
+    ConditionalConsensus,
+    PivotClaim,
+    ImpactDetector,
+    CounterfactualIntegration,
+    CounterfactualStatus,
+    BranchComparison,
+    explore_counterfactual,
+)
+from aragora.debate.checkpoint import (
+    CheckpointManager,
+    DebateCheckpoint,
+    CheckpointStore,
+    FileCheckpointStore,
+    S3CheckpointStore,
+    GitCheckpointStore,
+    CheckpointConfig,
+    CheckpointStatus,
+    ResumedDebate,
+    AgentState,
+    CheckpointWebhook,
+    checkpoint_debate,
+)
 
 __all__ = [
     "Arena",
@@ -57,4 +82,27 @@ __all__ = [
     "create_scale_scenarios",
     "create_risk_scenarios",
     "create_time_horizon_scenarios",
+    # Counterfactual Branching
+    "CounterfactualOrchestrator",
+    "CounterfactualBranch",
+    "ConditionalConsensus",
+    "PivotClaim",
+    "ImpactDetector",
+    "CounterfactualIntegration",
+    "CounterfactualStatus",
+    "BranchComparison",
+    "explore_counterfactual",
+    # Checkpointing
+    "CheckpointManager",
+    "DebateCheckpoint",
+    "CheckpointStore",
+    "FileCheckpointStore",
+    "S3CheckpointStore",
+    "GitCheckpointStore",
+    "CheckpointConfig",
+    "CheckpointStatus",
+    "ResumedDebate",
+    "AgentState",
+    "CheckpointWebhook",
+    "checkpoint_debate",
 ]

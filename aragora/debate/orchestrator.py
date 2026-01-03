@@ -123,6 +123,7 @@ class Arena:
         debate_embeddings=None,  # DebateEmbeddingsDatabase for historical context
         insight_store=None,  # Optional InsightStore for extracting learnings from debates
         recorder=None,  # Optional ReplayRecorder for debate recording
+        agent_weights: dict[str, float] = None,  # Optional reliability weights from capability probing
     ):
         self.env = environment
         self.agents = agents
@@ -134,6 +135,7 @@ class Arena:
         self.debate_embeddings = debate_embeddings
         self.insight_store = insight_store
         self.recorder = recorder
+        self.agent_weights = agent_weights or {}  # Reliability weights from capability probing
 
         # User participation tracking
         self.user_votes: list[dict] = []  # List of user vote events
@@ -783,7 +785,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             if vote_groups:
                 print(f"  Vote grouping merged: {vote_groups}")
 
-            # Count votes using canonical choices with reputation weighting
+            # Count votes using canonical choices with reputation and reliability weighting
             vote_counts = Counter()
             total_weighted_votes = 0.0
 
@@ -795,6 +797,10 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     vote_weight = 1.0
                     if self.memory and hasattr(self.memory, 'get_vote_weight'):
                         vote_weight = self.memory.get_vote_weight(v.agent)
+
+                    # Apply reliability weight from capability probing (0.0-1.0 multiplier)
+                    if self.agent_weights and v.agent in self.agent_weights:
+                        vote_weight *= self.agent_weights[v.agent]
 
                     vote_counts[canonical] += vote_weight
                     total_weighted_votes += vote_weight

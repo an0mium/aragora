@@ -249,6 +249,76 @@ except ImportError:
     WebhookDispatcher = None
     WebhookConfig = None
 
+# ConsensusMemory for tracking settled vs contested topics
+try:
+    from aragora.memory.consensus import ConsensusMemory, ConsensusStrength, DissentRetriever
+    CONSENSUS_MEMORY_AVAILABLE = True
+except ImportError:
+    CONSENSUS_MEMORY_AVAILABLE = False
+    ConsensusMemory = None
+    ConsensusStrength = None
+    DissentRetriever = None
+
+# InsightExtractor for post-debate pattern learning
+try:
+    from aragora.insights.extractor import InsightExtractor
+    INSIGHTS_AVAILABLE = True
+except ImportError:
+    INSIGHTS_AVAILABLE = False
+    InsightExtractor = None
+
+# NomicIntegration for advanced feature coordination
+try:
+    from aragora.nomic.integration import NomicIntegration, create_nomic_integration
+    NOMIC_INTEGRATION_AVAILABLE = True
+except ImportError:
+    NOMIC_INTEGRATION_AVAILABLE = False
+    NomicIntegration = None
+    create_nomic_integration = None
+
+# MemoryStream for per-agent persistent memory (Phase 3)
+try:
+    from aragora.memory.streams import MemoryStream
+    MEMORY_STREAM_AVAILABLE = True
+except ImportError:
+    MEMORY_STREAM_AVAILABLE = False
+    MemoryStream = None
+
+# LocalDocsConnector for evidence grounding (Phase 3)
+try:
+    from aragora.connectors.local_docs import LocalDocsConnector
+    LOCAL_DOCS_AVAILABLE = True
+except ImportError:
+    LOCAL_DOCS_AVAILABLE = False
+    LocalDocsConnector = None
+
+# CounterfactualOrchestrator for deadlock resolution (Phase 3)
+try:
+    from aragora.debate.counterfactual import CounterfactualOrchestrator
+    COUNTERFACTUAL_AVAILABLE = True
+except ImportError:
+    COUNTERFACTUAL_AVAILABLE = False
+    CounterfactualOrchestrator = None
+
+# CapabilityProber for agent quality assurance (Phase 3)
+try:
+    from aragora.modes.prober import CapabilityProber, ProbeType
+    PROBER_AVAILABLE = True
+except ImportError:
+    PROBER_AVAILABLE = False
+    CapabilityProber = None
+    ProbeType = None
+
+# DebateTemplates for structured debate formats (Phase 3)
+try:
+    from aragora.templates import CODE_REVIEW_TEMPLATE, DESIGN_DOC_TEMPLATE, DebateTemplate
+    TEMPLATES_AVAILABLE = True
+except ImportError:
+    TEMPLATES_AVAILABLE = False
+    CODE_REVIEW_TEMPLATE = None
+    DESIGN_DOC_TEMPLATE = None
+    DebateTemplate = None
+
 
 class NomicLoop:
     """
@@ -373,6 +443,41 @@ class NomicLoop:
                 print(f"[webhook] Dispatcher started for {webhook_url[:50]}...")
             except Exception as e:
                 print(f"[webhook] Failed to initialize: {e}")
+
+        # ConsensusMemory for tracking settled vs contested topics
+        self.consensus_memory = None
+        self.dissent_retriever = None
+        if CONSENSUS_MEMORY_AVAILABLE:
+            consensus_db_path = self.nomic_dir / "consensus_memory.db"
+            self.consensus_memory = ConsensusMemory(str(consensus_db_path))
+            self.dissent_retriever = DissentRetriever(self.consensus_memory)
+            print(f"[consensus] ConsensusMemory initialized for topic tracking")
+
+        # InsightExtractor for post-debate pattern learning
+        self.insight_extractor = None
+        if INSIGHTS_AVAILABLE:
+            self.insight_extractor = InsightExtractor()
+            print(f"[insights] InsightExtractor initialized for pattern learning")
+
+        # NomicIntegration for advanced feature coordination
+        # Integrates: belief propagation, capability probing, staleness detection,
+        # counterfactual branching, and checkpointing
+        self.nomic_integration = None
+        if NOMIC_INTEGRATION_AVAILABLE and create_nomic_integration:
+            try:
+                checkpoint_dir = self.nomic_dir / "checkpoints"
+                self.nomic_integration = create_nomic_integration(
+                    checkpoint_dir=str(checkpoint_dir),
+                    enable_probing=True,  # Probe agents for reliability
+                    enable_belief_analysis=True,  # Bayesian belief propagation
+                    enable_staleness_check=True,  # Detect stale evidence
+                    enable_counterfactual=True,  # Fork on contested claims
+                    enable_checkpointing=True,  # Phase checkpointing
+                )
+                print(f"[integration] NomicIntegration initialized for advanced features")
+            except Exception as e:
+                print(f"[integration] Failed to initialize: {e}")
+                self.nomic_integration = None
 
         # Setup streaming (optional)
         self.stream_emitter = stream_emitter
@@ -837,6 +942,161 @@ Propose additions that unlock new capabilities and create emergent value.""" + s
             return "\n".join(lines)
         except Exception:
             return ""
+
+    def _format_consensus_history(self, topic: str, limit: int = 3) -> str:
+        """Format prior consensus decisions for prompt injection (P1: ConsensusMemory).
+
+        Retrieves similar past debates and their conclusions to avoid
+        rehashing settled topics and to surface unaddressed dissents.
+        """
+        if not self.consensus_memory or not CONSENSUS_MEMORY_AVAILABLE:
+            return ""
+
+        try:
+            # Find similar past debates
+            similar = self.consensus_memory.find_similar_debates(topic, limit=limit)
+            if not similar:
+                return ""
+
+            lines = ["## HISTORICAL CONSENSUS (from past debates)"]
+            lines.append("Previous debates on similar topics:\n")
+
+            for s in similar:
+                strength = s.consensus.strength.value if s.consensus.strength else "unknown"
+                lines.append(f"- **{s.consensus.topic[:80]}** ({strength}, {s.similarity_score:.0%} similar)")
+                lines.append(f"  Decision: {s.consensus.conclusion[:100]}...")
+                if s.dissents:
+                    lines.append(f"  ⚠️ {len(s.dissents)} dissenting view(s) - consider addressing")
+
+            # Add unaddressed dissents if any
+            if self.dissent_retriever:
+                context = self.dissent_retriever.retrieve_for_new_debate(topic)
+                if context.get("unacknowledged_dissents"):
+                    lines.append("\n### Unaddressed Historical Concerns")
+                    for d in context["unacknowledged_dissents"][:3]:
+                        lines.append(f"- [{d['dissent_type']}] {d['content'][:100]}...")
+
+            return "\n".join(lines)
+        except Exception as e:
+            self._log(f"  [consensus] Error formatting history: {e}")
+            return ""
+
+    async def _store_debate_consensus(self, result, topic: str) -> None:
+        """Store debate consensus for future reference (P1: ConsensusMemory).
+
+        Records the consensus reached, participating agents, and any
+        dissenting views for retrieval in future debates.
+        """
+        if not self.consensus_memory or not CONSENSUS_MEMORY_AVAILABLE:
+            return
+
+        try:
+            if not result.consensus_reached:
+                return
+
+            # Determine consensus strength from confidence
+            if result.confidence >= 0.95:
+                strength = ConsensusStrength.UNANIMOUS
+            elif result.confidence >= 0.8:
+                strength = ConsensusStrength.STRONG
+            elif result.confidence >= 0.6:
+                strength = ConsensusStrength.MODERATE
+            elif result.confidence >= 0.5:
+                strength = ConsensusStrength.WEAK
+            else:
+                strength = ConsensusStrength.SPLIT
+
+            # Get participating agents
+            agents = [self.gemini.name, self.codex.name, self.claude.name, self.grok.name]
+
+            # Store the consensus
+            record = self.consensus_memory.store_consensus(
+                topic=topic[:500],
+                conclusion=result.final_answer[:2000] if result.final_answer else "",
+                strength=strength,
+                confidence=result.confidence,
+                participating_agents=agents,
+                agreeing_agents=agents,  # All participate in consensus
+                domain="aragora_improvement",
+                debate_duration=result.duration_seconds,
+                rounds=result.rounds_used,
+                metadata={"cycle": self.cycle_count},
+            )
+
+            self._log(f"  [consensus] Stored consensus: {strength.value} ({result.confidence:.0%})")
+
+            # Store any dissenting views from the result
+            dissenting = getattr(result, 'dissenting_views', [])
+            for i, view in enumerate(dissenting):
+                from aragora.memory.consensus import DissentType
+                self.consensus_memory.store_dissent(
+                    debate_id=record.id,
+                    agent_id=f"agent_{i}",
+                    dissent_type=DissentType.ALTERNATIVE_APPROACH,
+                    content=view[:500],
+                    reasoning="Minority view from debate",
+                    confidence=0.5,
+                )
+
+        except Exception as e:
+            self._log(f"  [consensus] Error storing: {e}")
+
+    async def _extract_and_store_insights(self, result) -> None:
+        """Extract and store insights from debate result (P2: InsightExtractor).
+
+        Analyzes the debate to extract patterns, agent performances,
+        and key takeaways to feed into learning systems.
+        """
+        if not self.insight_extractor or not INSIGHTS_AVAILABLE:
+            return
+
+        try:
+            # Extract insights from the debate result
+            insights = await self.insight_extractor.extract(result)
+
+            self._log(f"  [insights] Extracted {insights.total_insights} insights: {insights.key_takeaway[:80]}")
+
+            # Feed key takeaway to ContinuumMemory for long-term learning
+            if self.continuum and insights.key_takeaway:
+                self.continuum.add(
+                    id=f"insight-{self.cycle_count}-debate",
+                    content=insights.key_takeaway,
+                    tier=MemoryTier.MEDIUM,
+                    importance=insights.consensus_insight.confidence if insights.consensus_insight else 0.5,
+                    metadata={
+                        "type": "debate_insight",
+                        "cycle": self.cycle_count,
+                        "consensus_reached": insights.consensus_reached,
+                    },
+                )
+
+            # Update agent reputations based on extracted performances
+            if self.critique_store and insights.agent_performances:
+                for perf in insights.agent_performances:
+                    # Update reputation with more detailed metrics
+                    self.critique_store.update_reputation(
+                        perf.agent_name,
+                        proposal_made=perf.proposals_made > 0,
+                        proposal_accepted=perf.proposal_accepted,
+                    )
+
+            # Store pattern insights to ContinuumMemory if significant
+            for pattern in insights.pattern_insights:
+                if pattern.confidence > 0.7 and self.continuum:
+                    self.continuum.add(
+                        id=f"pattern-{self.cycle_count}-{pattern.id[:8]}",
+                        content=f"Pattern: {pattern.title} - {pattern.description[:200]}",
+                        tier=MemoryTier.SLOW,
+                        importance=pattern.confidence,
+                        metadata={
+                            "type": "pattern_insight",
+                            "cycle": self.cycle_count,
+                            "category": pattern.metadata.get("category", "general"),
+                        },
+                    )
+
+        except Exception as e:
+            self._log(f"  [insights] Error extracting: {e}")
 
     def _record_replay_event(self, event_type: str, agent: str, content: str, round_num: int = 0) -> None:
         """Record an event to the ReplayRecorder if active."""
@@ -1451,6 +1711,12 @@ Claude and Codex have read the actual codebase. DO NOT propose features that alr
             if len(introspection_lines) > 1:
                 learning_context += "\n" + "\n".join(introspection_lines) + "\n"
 
+        # Add consensus history context (avoid rehashing settled topics)
+        topic_hint = self.initial_proposal[:200] if self.initial_proposal else "aragora improvement"
+        consensus_context = self._format_consensus_history(topic_hint)
+        if consensus_context:
+            learning_context += f"\n{consensus_context}\n"
+
         task = f"""{SAFETY_PREAMBLE}
 
 What single improvement would most benefit aragora RIGHT NOW?
@@ -1508,6 +1774,37 @@ Recent changes:
                     proposal_accepted=proposal_accepted,
                 )
 
+        # Store consensus for future reference (P1: ConsensusMemory)
+        await self._store_debate_consensus(result, topic_hint)
+
+        # Extract and store insights for pattern learning (P2: InsightExtractor)
+        await self._extract_and_store_insights(result)
+
+        # NomicIntegration: Belief analysis and deadlock detection
+        belief_analysis = None
+        conditional_consensus = None
+        if self.nomic_integration:
+            try:
+                belief_analysis = await self.nomic_integration.analyze_debate(result)
+                if belief_analysis.has_deadlock:
+                    self._log(f"  [integration] Detected deadlock on {len(belief_analysis.crux_claims)} crux claims")
+                    # Try to resolve with counterfactual branching
+                    conditional_consensus = await self.nomic_integration.resolve_deadlock(
+                        belief_analysis.crux_claims
+                    )
+                    if conditional_consensus:
+                        self._log(f"  [integration] Resolved with conditional consensus")
+                else:
+                    self._log(f"  [integration] Belief analysis: {len(belief_analysis.contested_claims)} contested claims")
+                # Checkpoint the debate phase
+                await self.nomic_integration.checkpoint(
+                    phase="debate",
+                    state={"result": result.final_answer, "confidence": result.confidence},
+                    cycle=self.cycle_count,
+                )
+            except Exception as e:
+                self._log(f"  [integration] Analysis failed: {e}")
+
         phase_duration = (datetime.now() - phase_start).total_seconds()
         self._stream_emit(
             "on_phase_end", "debate", self.cycle_count, result.consensus_reached,
@@ -1520,6 +1817,8 @@ Recent changes:
             "consensus_reached": result.consensus_reached,
             "confidence": result.confidence,
             "duration": result.duration_seconds,
+            "belief_analysis": belief_analysis.to_dict() if belief_analysis else None,
+            "conditional_consensus": conditional_consensus,
         }
 
     async def phase_design(self, improvement: str) -> dict:
@@ -1572,9 +1871,43 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
             proposer_count=4,  # All 4 agents participate as proposers
         )
 
-        # All 4 agents participate in design
-        arena = Arena(env, [self.gemini, self.codex, self.claude, self.grok], protocol, memory=self.critique_store, debate_embeddings=self.debate_embeddings)
+        # NomicIntegration: Probe agents for reliability weights
+        agent_weights = {}
+        design_agents = [self.gemini, self.codex, self.claude, self.grok]
+        if self.nomic_integration:
+            try:
+                self._log("  [integration] Probing agents for reliability...")
+                agent_weights = await self.nomic_integration.probe_agents(
+                    design_agents,
+                    probe_count=2,  # Quick probe
+                    min_weight=0.5,
+                )
+                reliable_count = sum(1 for w in agent_weights.values() if w >= 0.7)
+                self._log(f"  [integration] Agent weights: {agent_weights} ({reliable_count}/4 reliable)")
+            except Exception as e:
+                self._log(f"  [integration] Probing failed: {e}")
+
+        # All 4 agents participate in design (with reliability weights)
+        arena = Arena(
+            env,
+            design_agents,
+            protocol,
+            memory=self.critique_store,
+            debate_embeddings=self.debate_embeddings,
+            agent_weights=agent_weights,
+        )
         result = await self._run_arena_with_logging(arena, "design")
+
+        # NomicIntegration: Checkpoint the design phase
+        if self.nomic_integration:
+            try:
+                await self.nomic_integration.checkpoint(
+                    phase="design",
+                    state={"design": result.final_answer, "agent_weights": agent_weights},
+                    cycle=self.cycle_count,
+                )
+            except Exception as e:
+                self._log(f"  [integration] Checkpoint failed: {e}")
 
         phase_duration = (datetime.now() - phase_start).total_seconds()
         self._stream_emit(
@@ -1586,6 +1919,7 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
             "phase": "design",
             "design": result.final_answer,
             "consensus_reached": result.consensus_reached,
+            "agent_weights": agent_weights,
         }
 
     def _git_stash_create(self) -> Optional[str]:
@@ -2275,6 +2609,27 @@ CRITICAL SAFETY RULES:
             "checks": checks,
         })
 
+        # NomicIntegration: Check evidence staleness and checkpoint
+        stale_claims = []
+        if self.nomic_integration:
+            try:
+                # Get changed files from git
+                changed_files = self._get_changed_files()
+                if changed_files:
+                    self._log(f"  [integration] Checking staleness for {len(changed_files)} changed files...")
+                    # Note: We'd need claims from debate to check properly
+                    # For now, just log and checkpoint
+                    self._log(f"  [integration] Changed files: {changed_files[:5]}...")
+
+                # Checkpoint the verify phase
+                await self.nomic_integration.checkpoint(
+                    phase="verify",
+                    state={"all_passed": all_passed, "checks": checks},
+                    cycle=self.cycle_count,
+                )
+            except Exception as e:
+                self._log(f"  [integration] Staleness check failed: {e}")
+
         phase_duration = (datetime.now() - phase_start).total_seconds()
         self._stream_emit(
             "on_phase_end", "verify", self.cycle_count, all_passed,
@@ -2285,7 +2640,23 @@ CRITICAL SAFETY RULES:
             "phase": "verify",
             "checks": checks,
             "all_passed": all_passed,
+            "stale_claims": stale_claims,
         }
+
+    def _get_changed_files(self) -> list[str]:
+        """Get list of files changed in this cycle."""
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return [f.strip() for f in result.stdout.strip().split('\n') if f.strip()]
+        except Exception:
+            pass
+        return []
 
     async def phase_commit(self, improvement: str) -> dict:
         """Phase 5: Commit changes if verified."""

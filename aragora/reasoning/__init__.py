@@ -27,6 +27,26 @@ from aragora.reasoning.provenance import (
     SourceType,
     TransformationType,
 )
+from aragora.reasoning.belief import (
+    BeliefNetwork,
+    BeliefNode,
+    BeliefDistribution,
+    BeliefStatus,
+    Factor,
+    PropagationResult,
+    BeliefPropagationAnalyzer,
+)
+from aragora.reasoning.provenance_enhanced import (
+    EnhancedProvenanceManager,
+    GitProvenanceTracker,
+    WebProvenanceTracker,
+    GitSourceInfo,
+    WebSourceInfo,
+    StalenessCheck,
+    StalenessStatus,
+    RevalidationTrigger,
+    ProvenanceValidator,
+)
 
 __all__ = [
     # Claims
@@ -49,4 +69,22 @@ __all__ = [
     "MerkleTree",
     "SourceType",
     "TransformationType",
+    # Belief Propagation
+    "BeliefNetwork",
+    "BeliefNode",
+    "BeliefDistribution",
+    "BeliefStatus",
+    "Factor",
+    "PropagationResult",
+    "BeliefPropagationAnalyzer",
+    # Enhanced Provenance
+    "EnhancedProvenanceManager",
+    "GitProvenanceTracker",
+    "WebProvenanceTracker",
+    "GitSourceInfo",
+    "WebSourceInfo",
+    "StalenessCheck",
+    "StalenessStatus",
+    "RevalidationTrigger",
+    "ProvenanceValidator",
 ]
