@@ -48,6 +48,7 @@ dev = [
 ]
 persistence = [
     "supabase>=2.0",
+    "sqlalchemy>=2.0.40",
 ]
 all = [
     "aragora[dev,persistence]",
@@ -78,3 +79,7 @@ ignore = ["E501"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]

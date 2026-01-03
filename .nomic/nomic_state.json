@@ -16,10 +16,10 @@
     {
       "check": "tests",
       "passed": false,
-      "output": ". Deprecated in Pydantic V2.12 to be removed in V3.0.\n    def construct_refs(cls, table_metadata: TableMetadata) -> TableMetadata:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED tests/integrations/test_webhooks.py::TestWebhookDelivery::test_handles_set_in_payload\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 23 passed, 9 warnings in 2.48s\n",
+      "output": "________\ntests/test_replay.py:35: in test_save_debate\n    votes=[Vote(agent=\"agent1\", choice=\"accept\", reasoning=\"Good proposal\")],\nE   TypeError: Vote.__init__() missing 1 required positional argument: 'confidence'\n=========================== short test summary info ============================\nFAILED tests/test_replay.py::TestDebateRecorder::test_save_debate - TypeError...\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 143 passed, 2 skipped in 5.23s\n",
       "note": ""
     }
   ],
-  "saved_at": "2026-01-03T07:06:19.953490",
+  "saved_at": "2026-01-03T08:50:42.004336",
   "cycle": 1
 }

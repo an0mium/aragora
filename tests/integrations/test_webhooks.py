@@ -209,6 +209,8 @@ class TestWebhookDelivery(unittest.TestCase):
     def tearDown(self):
         if self.server:
             self.server.shutdown()
+            self.server.server_close()
+            self.server = None
 
     def _start_server(self, status_code=200):
         self.response_code = status_code
@@ -229,7 +231,13 @@ class TestWebhookDelivery(unittest.TestCase):
             def log_message(self, *args):
                 pass
 
-        self.server = http.server.HTTPServer(("127.0.0.1", self.port), Handler)
+        class ReusableHTTPServer(http.server.HTTPServer):
+            def server_bind(self):
+                import socket
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                super().server_bind()
+
+        self.server = ReusableHTTPServer(("127.0.0.1", self.port), Handler)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         time.sleep(0.1)
 
