@@ -98,6 +98,7 @@ class Arena:
         event_hooks: dict = None,  # Optional hooks for streaming events
         event_emitter=None,  # Optional event emitter for subscribing to user events
         spectator: SpectatorStream = None,  # Optional spectator stream for real-time events
+        debate_embeddings=None,  # DebateEmbeddingsDatabase for historical context
     ):
         self.env = environment
         self.agents = agents
@@ -106,6 +107,7 @@ class Arena:
         self.hooks = event_hooks or {}
         self.event_emitter = event_emitter
         self.spectator = spectator or SpectatorStream(enabled=False)
+        self.debate_embeddings = debate_embeddings
 
         # User participation tracking
         self.user_votes: list[dict] = []  # List of user vote events
@@ -138,6 +140,32 @@ class Arena:
         """Helper method to emit spectator events."""
         if self.spectator:
             self.spectator.emit(event_type, **kwargs)
+
+    async def _fetch_historical_context(self, task: str, limit: int = 3) -> str:
+        """Fetch similar past debates for historical context.
+
+        This enables agents to learn from what worked (or didn't) in similar debates.
+        """
+        if not self.debate_embeddings:
+            return ""
+
+        try:
+            results = await self.debate_embeddings.find_similar_debates(
+                task, limit=limit, min_similarity=0.6
+            )
+            if not results:
+                return ""
+
+            lines = ["## HISTORICAL CONTEXT (Similar Past Debates)"]
+            lines.append("Learn from these previous debates on similar topics:\n")
+
+            for debate_id, excerpt, similarity in results:
+                lines.append(f"**[{similarity:.0%} similar]** {excerpt[:400]}...")
+                lines.append("")  # blank line between entries
+
+            return "\n".join(lines)
+        except Exception:
+            return ""
 
         # Initialize convergence detector if enabled
         self.convergence_detector = None
@@ -556,14 +584,21 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             if vote_groups:
                 print(f"  Vote grouping merged: {vote_groups}")
 
-            # Count votes using canonical choices
+            # Count votes using canonical choices with reputation weighting
             vote_counts = Counter()
-            total_agent_votes = 0
+            total_weighted_votes = 0.0
+
             for v in result.votes:
                 if not isinstance(v, Exception):
                     canonical = choice_mapping.get(v.choice, v.choice)
-                    vote_counts[canonical] += 1
-                    total_agent_votes += 1
+
+                    # Get reputation-based vote weight (0.5-1.5 range)
+                    vote_weight = 1.0
+                    if self.memory and hasattr(self.memory, 'get_vote_weight'):
+                        vote_weight = self.memory.get_vote_weight(v.agent)
+
+                    vote_counts[canonical] += vote_weight
+                    total_weighted_votes += vote_weight
 
             # Include user votes with configurable weight
             user_vote_weight = getattr(self.protocol, 'user_vote_weight', 0.5)  # Default: users count as half an agent
@@ -572,9 +607,10 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 if choice:
                     canonical = choice_mapping.get(choice, choice)
                     vote_counts[canonical] += user_vote_weight
+                    total_weighted_votes += user_vote_weight
                     print(f"  User {user_vote.get('user_id', 'anonymous')} votes: {choice}")
 
-            total_votes = total_agent_votes + len(self.user_votes) * user_vote_weight
+            total_votes = total_weighted_votes
 
             if vote_counts:
                 winner, count = vote_counts.most_common(1)[0]

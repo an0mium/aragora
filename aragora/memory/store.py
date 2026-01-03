@@ -36,6 +36,37 @@ class Pattern:
         return self.success_count / total if total > 0 else 0.5
 
 
+@dataclass
+class AgentReputation:
+    """Per-agent reputation tracking for weighted voting."""
+
+    agent_name: str
+    proposals_made: int = 0
+    proposals_accepted: int = 0
+    critiques_given: int = 0
+    critiques_valuable: int = 0
+    updated_at: str = ""
+
+    @property
+    def score(self) -> float:
+        """0-1 reputation score based on track record."""
+        if self.proposals_made == 0:
+            return 0.5  # Neutral for new agents
+        acceptance = self.proposals_accepted / self.proposals_made
+        critique_quality = (
+            self.critiques_valuable / self.critiques_given
+            if self.critiques_given > 0
+            else 0.5
+        )
+        # Weight: 60% proposal acceptance, 40% critique quality
+        return 0.6 * acceptance + 0.4 * critique_quality
+
+    @property
+    def vote_weight(self) -> float:
+        """Vote weight multiplier (0.5-1.5 range)."""
+        return 0.5 + self.score
+
+
 class CritiqueStore:
     """
     SQLite-based storage for critique patterns.
@@ -111,11 +142,26 @@ class CritiqueStore:
             )
         """)
 
+        # Agent reputation tracking for weighted voting
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS agent_reputation (
+                agent_name TEXT PRIMARY KEY,
+                proposals_made INTEGER DEFAULT 0,
+                proposals_accepted INTEGER DEFAULT 0,
+                critiques_given INTEGER DEFAULT 0,
+                critiques_valuable INTEGER DEFAULT 0,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         # Create indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_critiques_debate ON critiques(debate_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_patterns_type ON patterns(issue_type)")
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_patterns_success ON patterns(success_count DESC)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_reputation_score ON agent_reputation(proposals_accepted DESC)"
         )
 
         conn.commit()
@@ -344,3 +390,118 @@ class CritiqueStore:
 
         conn.close()
         return training_data
+
+    # =========================================================================
+    # Agent Reputation Tracking
+    # =========================================================================
+
+    def get_reputation(self, agent_name: str) -> Optional[AgentReputation]:
+        """Get reputation for an agent."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT agent_name, proposals_made, proposals_accepted,
+                   critiques_given, critiques_valuable, updated_at
+            FROM agent_reputation
+            WHERE agent_name = ?
+        """,
+            (agent_name,),
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row:
+            return None
+
+        return AgentReputation(
+            agent_name=row[0],
+            proposals_made=row[1],
+            proposals_accepted=row[2],
+            critiques_given=row[3],
+            critiques_valuable=row[4],
+            updated_at=row[5],
+        )
+
+    def get_vote_weight(self, agent_name: str) -> float:
+        """Get vote weight for an agent (0.5-1.5 range based on reputation)."""
+        rep = self.get_reputation(agent_name)
+        if not rep:
+            return 1.0  # Neutral weight for unknown agents
+        return rep.vote_weight
+
+    def update_reputation(
+        self,
+        agent_name: str,
+        proposal_made: bool = False,
+        proposal_accepted: bool = False,
+        critique_given: bool = False,
+        critique_valuable: bool = False,
+    ) -> None:
+        """Update reputation metrics for an agent."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # Ensure agent exists
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO agent_reputation (agent_name)
+            VALUES (?)
+        """,
+            (agent_name,),
+        )
+
+        # Update metrics
+        updates = []
+        if proposal_made:
+            updates.append("proposals_made = proposals_made + 1")
+        if proposal_accepted:
+            updates.append("proposals_accepted = proposals_accepted + 1")
+        if critique_given:
+            updates.append("critiques_given = critiques_given + 1")
+        if critique_valuable:
+            updates.append("critiques_valuable = critiques_valuable + 1")
+
+        if updates:
+            updates.append(f"updated_at = '{datetime.now().isoformat()}'")
+            cursor.execute(
+                f"""
+                UPDATE agent_reputation
+                SET {', '.join(updates)}
+                WHERE agent_name = ?
+            """,
+                (agent_name,),
+            )
+
+        conn.commit()
+        conn.close()
+
+    def get_all_reputations(self) -> list[AgentReputation]:
+        """Get all agent reputations, ordered by score."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT agent_name, proposals_made, proposals_accepted,
+                   critiques_given, critiques_valuable, updated_at
+            FROM agent_reputation
+            ORDER BY proposals_accepted DESC
+        """
+        )
+
+        reputations = [
+            AgentReputation(
+                agent_name=row[0],
+                proposals_made=row[1],
+                proposals_accepted=row[2],
+                critiques_given=row[3],
+                critiques_valuable=row[4],
+                updated_at=row[5],
+            )
+            for row in cursor.fetchall()
+        ]
+
+        conn.close()
+        return reputations

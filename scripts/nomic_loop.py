@@ -258,6 +258,16 @@ class NomicLoop:
         self.backup_dir = self.nomic_dir / "backups"
         self.backup_dir.mkdir(exist_ok=True)
 
+        # CritiqueStore for patterns and agent reputation tracking
+        self.critique_store = None
+        try:
+            from aragora.memory.store import CritiqueStore
+            critique_db_path = self.nomic_dir / "agora_memory.db"
+            self.critique_store = CritiqueStore(str(critique_db_path))
+            print(f"[memory] CritiqueStore initialized for patterns and reputation")
+        except ImportError:
+            pass
+
         # Setup streaming (optional)
         self.stream_emitter = stream_emitter
         if stream_emitter and STREAMING_AVAILABLE and create_nomic_hooks:
@@ -566,6 +576,83 @@ Propose additions that unlock new capabilities and create emergent value.""" + s
         except Exception:
             return "Unable to read git history"
 
+    def _analyze_failed_branches(self, limit: int = 3) -> str:
+        """Analyze recent failed branches for lessons learned.
+
+        This extracts information from preserved failed branches so agents
+        can learn from previous failures and avoid repeating them.
+        """
+        try:
+            # List failed branches
+            result = subprocess.run(
+                ["git", "branch", "--list", "nomic-failed-*"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            branches = [b.strip() for b in result.stdout.strip().split("\n") if b.strip()]
+            if not branches:
+                return ""
+
+            # Get most recent ones (sorted by name which includes timestamp)
+            recent = sorted(branches, reverse=True)[:limit]
+
+            lessons = ["## LESSONS FROM RECENT FAILURES"]
+            lessons.append("Learn from these previous failed attempts:\n")
+
+            for branch in recent:
+                # Get commit message
+                msg_result = subprocess.run(
+                    ["git", "log", branch, "-1", "--format=%B"],
+                    cwd=self.aragora_path,
+                    capture_output=True,
+                    text=True,
+                )
+                # Get changed files summary
+                files_result = subprocess.run(
+                    ["git", "diff", f"main...{branch}", "--stat", "--stat-width=60"],
+                    cwd=self.aragora_path,
+                    capture_output=True,
+                    text=True,
+                )
+
+                lessons.append(f"**{branch}:**")
+                lessons.append(f"```\n{msg_result.stdout[:300].strip()}")
+                if files_result.stdout.strip():
+                    lessons.append(f"\nFiles changed:\n{files_result.stdout[:200].strip()}")
+                lessons.append("```\n")
+
+            return "\n".join(lessons)
+        except Exception:
+            return ""
+
+    def _format_successful_patterns(self, limit: int = 5) -> str:
+        """Format successful critique patterns for prompt injection.
+
+        This retrieves patterns from the CritiqueStore that have led to
+        successful fixes in previous debates.
+        """
+        if not hasattr(self, 'critique_store') or not self.critique_store:
+            return ""
+
+        try:
+            patterns = self.critique_store.retrieve_patterns(min_success=2, limit=limit)
+            if not patterns:
+                return ""
+
+            lines = ["## SUCCESSFUL PATTERNS (from past debates)"]
+            lines.append("These critique patterns have worked well before:\n")
+
+            for p in patterns:
+                lines.append(f"- **{p.issue_type}**: {p.issue_text[:100]}")
+                if p.suggestion_text:
+                    lines.append(f"  → Fix: {p.suggestion_text[:100]}")
+                lines.append(f"  ({p.success_count} successes)")
+
+            return "\n".join(lines)
+        except Exception:
+            return ""
+
     async def _parallel_implementation_review(self, diff: str) -> Optional[str]:
         """
         All 3 agents review implementation changes in parallel.
@@ -716,7 +803,7 @@ Be concise (1-2 sentences). Focus on correctness and safety issues only.
             # Fall back to regular arena
             env = Environment(task=task)
             protocol = DebateProtocol(rounds=2, consensus="majority")
-            arena = Arena(environment=env, agents=agents, protocol=protocol, debate_embeddings=self.debate_embeddings)
+            arena = Arena(environment=env, agents=agents, protocol=protocol, memory=self.critique_store, debate_embeddings=self.debate_embeddings)
             return await self._run_arena_with_logging(arena, phase_name)
 
         self._log(f"  Starting {phase_name} fractal debate (genesis mode)...")
@@ -774,7 +861,7 @@ Be concise (1-2 sentences). Focus on correctness and safety issues only.
             self._log(f"  Falling back to regular arena...")
             env = Environment(task=task)
             protocol = DebateProtocol(rounds=2, consensus="majority")
-            arena = Arena(environment=env, agents=agents, protocol=protocol, debate_embeddings=self.debate_embeddings)
+            arena = Arena(environment=env, agents=agents, protocol=protocol, memory=self.critique_store, debate_embeddings=self.debate_embeddings)
             return await self._run_arena_with_logging(arena, phase_name)
 
     async def phase_context_gathering(self) -> dict:
@@ -928,6 +1015,10 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
             current_features = self.get_current_features()
         recent_changes = self.get_recent_changes()
 
+        # Gather learning context from previous cycles
+        failure_lessons = self._analyze_failed_branches()
+        successful_patterns = self._format_successful_patterns()
+
         # Build task with optional initial proposal
         initial_proposal_section = ""
         if self.initial_proposal:
@@ -954,13 +1045,20 @@ Claude and Codex have read the actual codebase. DO NOT propose features that alr
         else:
             context_section = f"Current aragora features:\n{current_features}"
 
+        # Build learning context section
+        learning_context = ""
+        if failure_lessons:
+            learning_context += f"\n{failure_lessons}\n"
+        if successful_patterns:
+            learning_context += f"\n{successful_patterns}\n"
+
         task = f"""{SAFETY_PREAMBLE}
 
 What single improvement would most benefit aragora RIGHT NOW?
 
 CRITICAL: Read the codebase analysis below carefully. DO NOT propose features that already exist.
 Claude and Codex have explored the codebase and documented existing features.
-
+{learning_context}
 Consider what would make aragora:
 - More INTERESTING (novel, creative, intellectually stimulating)
 - More POWERFUL (capable, versatile, effective)
@@ -974,6 +1072,7 @@ After debate, reach consensus on THE SINGLE BEST improvement to implement this c
 REMEMBER:
 - Propose ADDITIONS, not removals. Build new capabilities, don't simplify existing ones.
 - Check the codebase analysis - if a feature is listed there, it ALREADY EXISTS.
+- Learn from previous failures shown above - avoid repeating them.
 
 Recent changes:
 {recent_changes}"""
@@ -989,8 +1088,26 @@ Recent changes:
             proposer_count=4,  # All 4 agents participate
         )
 
-        arena = Arena(env, [self.gemini, self.codex, self.claude, self.grok], protocol, debate_embeddings=self.debate_embeddings)
+        arena = Arena(
+            env,
+            [self.gemini, self.codex, self.claude, self.grok],
+            protocol,
+            memory=self.critique_store,
+            debate_embeddings=self.debate_embeddings,
+        )
         result = await self._run_arena_with_logging(arena, "debate")
+
+        # Update agent reputation based on debate outcome
+        if self.critique_store and result.consensus_reached:
+            winning_proposal = result.final_answer[:200] if result.final_answer else ""
+            for agent in [self.gemini, self.codex, self.claude, self.grok]:
+                # Check if this agent's proposal was selected
+                proposal_accepted = agent.name.lower() in winning_proposal.lower()
+                self.critique_store.update_reputation(
+                    agent.name,
+                    proposal_made=True,
+                    proposal_accepted=proposal_accepted,
+                )
 
         phase_duration = (datetime.now() - phase_start).total_seconds()
         self._stream_emit(
@@ -1040,7 +1157,7 @@ The implementation MUST preserve all existing aragora functionality.""",
         )
 
         # All 4 agents participate in design
-        arena = Arena(env, [self.gemini, self.codex, self.claude, self.grok], protocol, debate_embeddings=self.debate_embeddings)
+        arena = Arena(env, [self.gemini, self.codex, self.claude, self.grok], protocol, memory=self.critique_store, debate_embeddings=self.debate_embeddings)
         result = await self._run_arena_with_logging(arena, "design")
 
         phase_duration = (datetime.now() - phase_start).total_seconds()
