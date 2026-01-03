@@ -51,6 +51,10 @@ class StreamEventType(Enum):
     USER_SUGGESTION = "user_suggestion"  # Audience member submitted suggestion
     AUDIENCE_SUMMARY = "audience_summary"  # Clustered audience input summary
 
+    # Memory/learning events
+    MEMORY_RECALL = "memory_recall"      # Historical context retrieved from memory
+    INSIGHT_EXTRACTED = "insight_extracted"  # New insight extracted from debate
+
 
 @dataclass
 class StreamEvent:
@@ -440,6 +444,14 @@ class DebateStreamServer:
                         # Handle audience participation
                         client_id = str(id(websocket))
                         loop_id = data.get("loop_id", "")
+
+                        # Validate loop_id exists and is active
+                        if not loop_id or loop_id not in self.active_loops:
+                            await websocket.send(json.dumps({
+                                "type": "error",
+                                "data": {"message": f"Invalid or inactive loop_id: {loop_id}"}
+                            }))
+                            continue
 
                         # Get or create rate limiter for this client
                         if client_id not in self._rate_limiters:

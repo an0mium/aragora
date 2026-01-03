@@ -26,6 +26,14 @@ except ImportError:
     PERSISTENCE_AVAILABLE = False
     SupabaseClient = None
 
+# Optional InsightStore for debate insights
+try:
+    from aragora.insights.store import InsightStore
+    INSIGHTS_AVAILABLE = True
+except ImportError:
+    INSIGHTS_AVAILABLE = False
+    InsightStore = None
+
 
 class UnifiedHandler(BaseHTTPRequestHandler):
     """HTTP handler with API endpoints and static file serving."""
@@ -35,6 +43,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     stream_emitter: Optional[SyncEventEmitter] = None
     nomic_state_file: Optional[Path] = None
     persistence: Optional["SupabaseClient"] = None  # Supabase client for history
+    insight_store: Optional["InsightStore"] = None  # InsightStore for debate insights
 
     def do_GET(self) -> None:
         """Handle GET requests."""
@@ -73,6 +82,11 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         elif path == '/api/history/summary':
             loop_id = query.get('loop_id', [None])[0]
             self._get_history_summary(loop_id)
+
+        # Insights API (debate consensus feature)
+        elif path == '/api/insights/recent':
+            limit = int(query.get('limit', [20])[0])
+            self._get_recent_insights(limit)
 
         # Static file serving
         elif path in ('/', '/index.html'):
@@ -235,6 +249,35 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send_json({"error": str(e)})
 
+    def _get_recent_insights(self, limit: int) -> None:
+        """Get recent insights from InsightStore (debate consensus feature)."""
+        if not self.insight_store:
+            self._send_json({"error": "Insights not configured", "insights": []})
+            return
+
+        try:
+            import asyncio
+            insights = asyncio.get_event_loop().run_until_complete(
+                self.insight_store.get_recent_insights(limit=limit)
+            )
+            self._send_json({
+                "insights": [
+                    {
+                        "id": i.id,
+                        "type": i.type.value,
+                        "title": i.title,
+                        "description": i.description,
+                        "confidence": i.confidence,
+                        "agents_involved": i.agents_involved,
+                        "evidence": i.evidence[:3] if i.evidence else [],
+                    }
+                    for i in insights
+                ],
+                "count": len(insights),
+            })
+        except Exception as e:
+            self._send_json({"error": str(e), "insights": []})
+
     def _serve_file(self, filename: str) -> None:
         """Serve a static file."""
         if not self.static_dir:
@@ -348,6 +391,12 @@ class UnifiedServer:
         UnifiedHandler.persistence = self.persistence
         if nomic_dir:
             UnifiedHandler.nomic_state_file = nomic_dir / "nomic_state.json"
+            # Initialize InsightStore from nomic directory
+            if INSIGHTS_AVAILABLE:
+                insights_path = nomic_dir / "aragora_insights.db"
+                if insights_path.exists():
+                    UnifiedHandler.insight_store = InsightStore(str(insights_path))
+                    print("[server] InsightStore loaded for API access")
 
     @property
     def emitter(self) -> SyncEventEmitter:

@@ -8,6 +8,8 @@ import { PhaseProgress } from '@/components/PhaseProgress';
 import { AgentPanel } from '@/components/AgentPanel';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { UserParticipation } from '@/components/UserParticipation';
+import { ReplayBrowser } from '@/components/ReplayBrowser';
+import { InsightsPanel } from '@/components/InsightsPanel';
 import type { NomicState } from '@/types/events';
 
 // WebSocket URL - can be overridden via environment variable
@@ -194,6 +196,8 @@ export default function Home() {
               onError={onError}
             />
             <HistoryPanel />
+            <InsightsPanel wsMessages={events} />
+            <ReplayBrowser />
           </div>
         </div>
 
