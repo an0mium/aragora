@@ -211,10 +211,50 @@ Each agent has a persona that evolves based on success:
 |-------|------|----------------|
 | **Claude** | Visionary | Architecture, design patterns |
 | **Codex** | Engineer | Implementation, performance |
-| **Gemini** | Architect | Systems design, scalability |
+| **Gemini** | Strategist | Product vision, viral growth |
 | **Grok** | Lateral Thinker | Creative solutions, edge cases |
 
 Personas are managed by PersonaManager and evolve via PersonaLaboratory.
+
+### Structured Thinking Protocols
+
+Each agent uses a specialized thinking protocol to ensure high-quality proposals:
+
+#### Claude (Visionary Architect)
+```
+1. EXPLORE: Understand current state - read files, trace code paths
+2. PLAN: Design approach before implementing - consider alternatives
+3. REASON: Show thinking step-by-step - explain tradeoffs
+4. PROPOSE: Make concrete, actionable proposals with clear impact
+```
+Uses Claude Code's Explore/Plan modes for deep codebase understanding.
+
+#### Codex (Pragmatic Engineer)
+```
+1. TRACE: Follow code paths to understand dependencies and data flow
+2. ANALYZE: Identify patterns, anti-patterns, and improvement opportunities
+3. DESIGN: Consider multiple implementation approaches with pros/cons
+4. VALIDATE: Think about edge cases, tests, and failure modes
+```
+Shows reasoning chains: "I observed X → which implies Y → so we should Z"
+
+#### Gemini (Product Strategist)
+```
+1. EXPLORE: Understand current state - what exists, what's missing
+2. ENVISION: Imagine the ideal outcome - what would success look like
+3. REASON: Show thinking step-by-step - explain tradeoffs
+4. PROPOSE: Make concrete, actionable proposals with clear impact
+```
+Focuses on viral growth potential and developer excitement.
+
+#### Grok (Lateral Synthesizer)
+```
+1. DIVERGE: Generate multiple unconventional perspectives
+2. CONNECT: Find surprising links between disparate ideas
+3. SYNTHESIZE: Combine insights into novel, coherent proposals
+4. GROUND: Anchor creative ideas in practical implementation
+```
+Shows lateral thinking: "Others see X, but what if Y..."
 
 ## Integrated Features
 

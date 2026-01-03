@@ -558,6 +558,57 @@ if decision.should_fork:
 
 ---
 
+## Agent Cognition: Structured Thinking Protocols
+
+Each agent in the nomic loop uses a specialized thinking protocol that guides their analysis and proposal generation.
+
+### Overview
+
+Structured Thinking Protocols ensure agents:
+- Explore before proposing (avoid assumptions)
+- Show their reasoning chain (transparent decision-making)
+- Consider alternatives (avoid premature convergence)
+- Ground proposals in evidence (reference specific code)
+
+### Protocol Details
+
+| Agent | Protocol Steps | Focus |
+|-------|----------------|-------|
+| **Claude** | EXPLORE → PLAN → REASON → PROPOSE | Architecture, system cohesion |
+| **Codex** | TRACE → ANALYZE → DESIGN → VALIDATE | Implementation, code quality |
+| **Gemini** | EXPLORE → ENVISION → REASON → PROPOSE | Product vision, user impact |
+| **Grok** | DIVERGE → CONNECT → SYNTHESIZE → GROUND | Creative solutions, novel patterns |
+
+### Implementation
+
+The protocols are injected via system prompts in `scripts/nomic_loop.py`:
+
+```python
+# Example: Claude's structured thinking protocol
+self.claude.system_prompt = """You are a visionary architect for aragora.
+
+=== STRUCTURED THINKING PROTOCOL ===
+When analyzing a task:
+1. EXPLORE: First understand the current state - read relevant files, trace code paths
+2. PLAN: Design your approach before implementing - consider alternatives
+3. REASON: Show your thinking step-by-step - explain tradeoffs
+4. PROPOSE: Make concrete, actionable proposals with clear impact
+
+When using Claude Code:
+- Use 'Explore' mode to deeply understand the codebase before proposing
+- Use 'Plan' mode to design implementation approaches with user approval
+"""
+```
+
+### Benefits
+
+1. **Higher Quality Proposals**: Agents analyze before proposing
+2. **Transparent Reasoning**: Other agents can critique the reasoning, not just conclusions
+3. **Evidence-Grounded**: Proposals reference specific files and code patterns
+4. **Complementary Perspectives**: Each agent's protocol highlights different aspects
+
+---
+
 ## Integration in Nomic Loop
 
 All features are integrated into the nomic loop (`scripts/nomic_loop.py`) using an optional import pattern:

@@ -261,6 +261,12 @@ docs/
 │                      AGENT EVOLUTION                             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
+│  Structured Thinking Protocols (per-agent cognition)            │
+│  ├── Claude:  EXPLORE → PLAN → REASON → PROPOSE                 │
+│  ├── Codex:   TRACE → ANALYZE → DESIGN → VALIDATE               │
+│  ├── Gemini:  EXPLORE → ENVISION → REASON → PROPOSE             │
+│  └── Grok:    DIVERGE → CONNECT → SYNTHESIZE → GROUND           │
+│                                                                  │
 │  PersonaManager                                                  │
 │  ├── Trait storage (expertise, personality)                     │
 │  ├── Success tracking by domain                                 │
