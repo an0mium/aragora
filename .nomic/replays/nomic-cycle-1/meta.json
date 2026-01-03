@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "debate_id": "nomic-cycle-1",
+  "topic": "Nomic Loop Cycle 1",
+  "proposal": "Self-improvement",
+  "agents": [
+    {
+      "name": "gemini",
+      "model": "gemini"
+    },
+    {
+      "name": "claude",
+      "model": "claude"
+    },
+    {
+      "name": "codex",
+      "model": "codex"
+    },
+    {
+      "name": "grok",
+      "model": "grok"
+    }
+  ],
+  "started_at": "2026-01-03T21:06:30.798759",
+  "ended_at": null,
+  "duration_ms": null,
+  "status": "in_progress",
+  "final_verdict": null,
+  "vote_tally": {},
+  "event_count": 0,
+  "tags": []
+}

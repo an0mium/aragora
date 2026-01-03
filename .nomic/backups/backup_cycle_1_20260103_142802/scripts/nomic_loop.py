@@ -1,0 +1,5361 @@
+#!/usr/bin/env python3
+"""
+Nomic Loop: Autonomous self-improvement cycle for aragora.
+
+Like a PCR machine for code evolution:
+1. DEBATE: All agents propose improvements to aragora
+2. CONSENSUS: Agents critique and refine until consensus
+3. DESIGN: Agents design the implementation
+4. IMPLEMENT: Agents write the code
+5. VERIFY: Run tests, check quality
+6. COMMIT: If verified, commit changes
+7. REPEAT: Cycle continues
+
+The dialectic tension between models (visionary vs pragmatic vs synthesizer)
+creates emergent complexity and self-criticality.
+
+Inspired by:
+- Nomic (game where rules change the rules)
+- Project Sid (emergent civilization)
+- PCR (exponential amplification through cycles)
+- Self-organized criticality (sandpile dynamics)
+
+SAFETY: This file includes backup/restore mechanisms and safety prompts
+to prevent the nomic loop from breaking itself.
+"""
+
+import asyncio
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Optional, List
+
+# =============================================================================
+# SAFETY CONSTANTS - Files that must NEVER be deleted or broken
+# =============================================================================
+PROTECTED_FILES = [
+    # Core nomic loop infrastructure
+    "scripts/nomic_loop.py",  # The nomic loop itself - CRITICAL
+    "scripts/run_nomic_with_stream.py",  # Streaming wrapper - protects --auto flag
+
+    # Core aragora modules
+    "aragora/__init__.py",     # Core package initialization
+    "aragora/core.py",         # Core types and abstractions
+    "aragora/debate/orchestrator.py",  # Debate infrastructure
+    "aragora/agents/__init__.py",      # Agent system
+    "aragora/implement/__init__.py",   # Implementation system
+
+    # Valuable features added by nomic loop
+    "aragora/agents/cli_agents.py",    # CLI agent harnesses (KiloCode, Claude, Codex, Grok)
+    "aragora/server/stream.py",        # Streaming, AudienceInbox, TokenBucket
+    "aragora/memory/store.py",         # CritiqueStore, AgentReputation
+    "aragora/debate/embeddings.py",    # DebateEmbeddingsDatabase for historical search
+
+    # Live dashboard (web interface)
+    "aragora/live/src/components/AgentPanel.tsx",       # Agent activity panel with colors
+    "aragora/live/src/components/UserParticipation.tsx", # User participation UI
+    "aragora/live/src/app/page.tsx",                    # Main dashboard page
+    "aragora/live/tailwind.config.js",                  # Tailwind config with agent colors
+]
+
+SAFETY_PREAMBLE = """
+=== CRITICAL SAFETY RULES ===
+You are modifying a self-improving system. These rules are NON-NEGOTIABLE:
+
+1. NEVER DELETE OR BREAK:
+   - scripts/nomic_loop.py (the loop itself)
+   - aragora/__init__.py (core package)
+   - aragora/core.py (core types)
+   - aragora/debate/orchestrator.py (debate infrastructure)
+   - Any file that enables the nomic loop to function
+
+2. ANABOLISM OVER CATABOLISM:
+   - ADD features, don't remove working ones
+   - EXTEND functionality, don't simplify it away
+   - Only remove code that is BROKEN or HARMFUL
+   - When in doubt, keep existing functionality
+
+3. PRESERVE CORE CAPABILITIES:
+   - Multi-agent debate must keep working
+   - File logging must keep working
+   - Git integration must keep working
+   - All existing API contracts must be maintained
+
+4. DEFENSIVE CODING:
+   - New features should not break existing ones
+   - Add tests for new functionality
+   - Maintain backward compatibility
+
+5. TECHNICAL DEBT - REDUCE SAFELY:
+   - Reducing technical debt is GOOD when it's safe
+   - Safe refactoring: improve code without changing behavior
+   - UNSAFE: removing functionality, breaking APIs, deleting imports
+   - SAFE: renaming for clarity, extracting functions, improving types
+   - Test that refactored code works identically to original
+   - If unsure whether a change is safe, DON'T MAKE IT
+
+6. AGENT PROMPTS ARE SACRED:
+   - NEVER modify agent system prompts in the codebase
+   - Agent prompts define the personalities and safety constraints
+   - Changes to agent prompts require UNANIMOUS consent from all agents
+   - If ANY doubt exists about modifying prompts, DO NOT MODIFY THEM
+   - This includes prompts in: nomic_loop.py, agents/*.py, any prompt templates
+   - The only exception: fixing an obvious typo or syntax error
+===========================
+"""
+
+
+# Load .env file if present
+def load_dotenv(env_path: Path):
+    """Load environment variables from .env file."""
+    if env_path.exists():
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ.setdefault(key.strip(), value.strip())
+
+
+# Load .env from aragora root
+_script_dir = Path(__file__).parent
+_env_file = _script_dir.parent / ".env"
+load_dotenv(_env_file)
+
+# Add aragora to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from aragora.debate.orchestrator import Arena, DebateProtocol
+from aragora.core import Environment
+from aragora.agents.api_agents import GeminiAgent
+from aragora.agents.cli_agents import CodexAgent, ClaudeAgent, GrokCLIAgent, KiloCodeAgent
+
+# Check if Kilo Code CLI is available for Gemini/Grok codebase exploration
+KILOCODE_AVAILABLE = False
+try:
+    import subprocess
+    result = subprocess.run(["which", "kilocode"], capture_output=True, text=True)
+    KILOCODE_AVAILABLE = result.returncode == 0
+except Exception:
+    pass
+
+# Genesis module for fractal debates with agent evolution
+GENESIS_AVAILABLE = False
+try:
+    from aragora.genesis import (
+        FractalOrchestrator,
+        PopulationManager,
+        GenesisLedger,
+        create_genesis_hooks,
+        create_logging_hooks,
+    )
+    GENESIS_AVAILABLE = True
+except ImportError:
+    pass
+from aragora.implement import (
+    generate_implement_plan,
+    create_single_task_plan,
+    HybridExecutor,
+    load_progress,
+    save_progress,
+    clear_progress,
+    ImplementProgress,
+)
+
+# Optional streaming support
+try:
+    from aragora.server.stream import SyncEventEmitter, create_arena_hooks
+    from aragora.server.nomic_stream import create_nomic_hooks
+    STREAMING_AVAILABLE = True
+except ImportError:
+    STREAMING_AVAILABLE = False
+    SyncEventEmitter = None
+    create_nomic_hooks = None
+    create_arena_hooks = None
+
+# Optional Supabase persistence
+try:
+    from aragora.persistence import SupabaseClient, NomicCycle, StreamEvent, DebateArtifact
+    PERSISTENCE_AVAILABLE = True
+except ImportError:
+    PERSISTENCE_AVAILABLE = False
+    SupabaseClient = None
+    NomicCycle = None
+    StreamEvent = None
+    DebateArtifact = None
+
+# Debate embeddings for historical search
+try:
+    from aragora.debate.embeddings import DebateEmbeddingsDatabase
+    EMBEDDINGS_AVAILABLE = True
+except ImportError:
+    EMBEDDINGS_AVAILABLE = False
+    DebateEmbeddingsDatabase = None
+
+# ContinuumMemory for multi-timescale learning
+try:
+    from aragora.memory.continuum import ContinuumMemory, MemoryTier
+    CONTINUUM_AVAILABLE = True
+except ImportError:
+    CONTINUUM_AVAILABLE = False
+    ContinuumMemory = None
+    MemoryTier = None
+
+# ReplayRecorder for cycle event recording
+try:
+    from aragora.replay.recorder import ReplayRecorder
+    REPLAY_AVAILABLE = True
+except ImportError:
+    REPLAY_AVAILABLE = False
+    ReplayRecorder = None
+
+# MetaLearner for self-tuning hyperparameters
+try:
+    from aragora.learning.meta import MetaLearner
+    METALEARNER_AVAILABLE = True
+except ImportError:
+    METALEARNER_AVAILABLE = False
+    MetaLearner = None
+
+# IntrospectionAPI for agent self-awareness
+try:
+    from aragora.introspection.api import get_agent_introspection, format_introspection_section
+    INTROSPECTION_AVAILABLE = True
+except ImportError:
+    INTROSPECTION_AVAILABLE = False
+    get_agent_introspection = None
+    format_introspection_section = None
+
+# ArgumentCartographer for debate visualization
+try:
+    from aragora.visualization.mapper import ArgumentCartographer
+    CARTOGRAPHER_AVAILABLE = True
+except ImportError:
+    CARTOGRAPHER_AVAILABLE = False
+    ArgumentCartographer = None
+
+# WebhookDispatcher for external event notifications
+try:
+    from aragora.integrations.webhooks import WebhookDispatcher, WebhookConfig
+    WEBHOOKS_AVAILABLE = True
+except ImportError:
+    WEBHOOKS_AVAILABLE = False
+    WebhookDispatcher = None
+    WebhookConfig = None
+
+# ConsensusMemory for tracking settled vs contested topics
+try:
+    from aragora.memory.consensus import ConsensusMemory, ConsensusStrength, DissentRetriever
+    CONSENSUS_MEMORY_AVAILABLE = True
+except ImportError:
+    CONSENSUS_MEMORY_AVAILABLE = False
+    ConsensusMemory = None
+    ConsensusStrength = None
+    DissentRetriever = None
+
+# InsightExtractor for post-debate pattern learning
+try:
+    from aragora.insights.extractor import InsightExtractor
+    INSIGHTS_AVAILABLE = True
+except ImportError:
+    INSIGHTS_AVAILABLE = False
+    InsightExtractor = None
+
+# NomicIntegration for advanced feature coordination
+try:
+    from aragora.nomic.integration import NomicIntegration, create_nomic_integration
+    NOMIC_INTEGRATION_AVAILABLE = True
+except ImportError:
+    NOMIC_INTEGRATION_AVAILABLE = False
+    NomicIntegration = None
+    create_nomic_integration = None
+
+# MemoryStream for per-agent persistent memory (Phase 3)
+try:
+    from aragora.memory.streams import MemoryStream
+    MEMORY_STREAM_AVAILABLE = True
+except ImportError:
+    MEMORY_STREAM_AVAILABLE = False
+    MemoryStream = None
+
+# LocalDocsConnector for evidence grounding (Phase 3)
+try:
+    from aragora.connectors.local_docs import LocalDocsConnector
+    LOCAL_DOCS_AVAILABLE = True
+except ImportError:
+    LOCAL_DOCS_AVAILABLE = False
+    LocalDocsConnector = None
+
+# CounterfactualOrchestrator for deadlock resolution (Phase 3)
+try:
+    from aragora.debate.counterfactual import CounterfactualOrchestrator
+    COUNTERFACTUAL_AVAILABLE = True
+except ImportError:
+    COUNTERFACTUAL_AVAILABLE = False
+    CounterfactualOrchestrator = None
+
+# CapabilityProber for agent quality assurance (Phase 3)
+try:
+    from aragora.modes.prober import CapabilityProber, ProbeType
+    PROBER_AVAILABLE = True
+except ImportError:
+    PROBER_AVAILABLE = False
+    CapabilityProber = None
+    ProbeType = None
+
+# DebateTemplates for structured debate formats (Phase 3)
+try:
+    from aragora.templates import CODE_REVIEW_TEMPLATE, DESIGN_DOC_TEMPLATE, DebateTemplate
+    TEMPLATES_AVAILABLE = True
+except ImportError:
+    TEMPLATES_AVAILABLE = False
+    CODE_REVIEW_TEMPLATE = None
+    DESIGN_DOC_TEMPLATE = None
+    DebateTemplate = None
+
+# PersonaManager for agent traits/expertise evolution (Phase 4)
+try:
+    from aragora.agents.personas import PersonaManager, get_or_create_persona, EXPERTISE_DOMAINS
+    PERSONAS_AVAILABLE = True
+except ImportError:
+    PERSONAS_AVAILABLE = False
+    PersonaManager = None
+    get_or_create_persona = None
+    EXPERTISE_DOMAINS = []
+
+# PromptEvolver for prompt evolution from winning patterns (Phase 4)
+try:
+    from aragora.evolution.evolver import PromptEvolver, EvolutionStrategy
+    EVOLVER_AVAILABLE = True
+except ImportError:
+    EVOLVER_AVAILABLE = False
+    PromptEvolver = None
+    EvolutionStrategy = None
+
+# Tournament for periodic competitive benchmarking (Phase 4)
+try:
+    from aragora.tournaments import Tournament, TournamentFormat, create_default_tasks
+    TOURNAMENT_AVAILABLE = True
+except ImportError:
+    TOURNAMENT_AVAILABLE = False
+    Tournament = None
+    TournamentFormat = None
+    create_default_tasks = None
+
+# ConvergenceDetector for early stopping (Phase 5)
+try:
+    from aragora.debate.convergence import ConvergenceDetector, ConvergenceResult
+    CONVERGENCE_AVAILABLE = True
+except ImportError:
+    CONVERGENCE_AVAILABLE = False
+    ConvergenceDetector = None
+    ConvergenceResult = None
+
+# MetaCritiqueAnalyzer for process feedback (Phase 5)
+try:
+    from aragora.debate.meta import MetaCritiqueAnalyzer, MetaCritique
+    META_CRITIQUE_AVAILABLE = True
+except ImportError:
+    META_CRITIQUE_AVAILABLE = False
+    MetaCritiqueAnalyzer = None
+    MetaCritique = None
+
+# EloSystem for agent skill tracking (Phase 5)
+try:
+    from aragora.ranking.elo import EloSystem, AgentRating
+    ELO_AVAILABLE = True
+except ImportError:
+    ELO_AVAILABLE = False
+    EloSystem = None
+    AgentRating = None
+
+# AgentSelector for smart team selection (Phase 5)
+try:
+    from aragora.routing.selection import AgentSelector, AgentProfile, TaskRequirements
+    SELECTOR_AVAILABLE = True
+except ImportError:
+    SELECTOR_AVAILABLE = False
+    AgentSelector = None
+    AgentProfile = None
+    TaskRequirements = None
+
+# RiskRegister for risk tracking (Phase 5)
+try:
+    from aragora.pipeline.risk_register import RiskLevel
+    RISK_REGISTER_AVAILABLE = True
+except ImportError:
+    RISK_REGISTER_AVAILABLE = False
+    RiskLevel = None
+
+# =============================================================================
+# Phase 6: Verifiable Reasoning & Robustness Testing
+# =============================================================================
+
+# ClaimsKernel for structured reasoning (Phase 6)
+try:
+    from aragora.reasoning.claims import (
+        ClaimsKernel, TypedClaim, TypedEvidence, ClaimRelation,
+        ClaimType, RelationType, EvidenceType
+    )
+    CLAIMS_KERNEL_AVAILABLE = True
+except ImportError:
+    CLAIMS_KERNEL_AVAILABLE = False
+    ClaimsKernel = None
+    TypedClaim = None
+    ClaimType = None
+    RelationType = None
+
+# ProvenanceManager for evidence tracking (Phase 6)
+try:
+    from aragora.reasoning.provenance import (
+        ProvenanceManager, ProvenanceChain, SourceType, TransformationType
+    )
+    PROVENANCE_AVAILABLE = True
+except ImportError:
+    PROVENANCE_AVAILABLE = False
+    ProvenanceManager = None
+    SourceType = None
+
+# BeliefNetwork for probabilistic reasoning (Phase 6)
+try:
+    from aragora.reasoning.belief import (
+        BeliefNetwork, BeliefPropagationAnalyzer, BeliefDistribution
+    )
+    BELIEF_NETWORK_AVAILABLE = True
+except ImportError:
+    BELIEF_NETWORK_AVAILABLE = False
+    BeliefNetwork = None
+    BeliefPropagationAnalyzer = None
+
+# ProofExecutor for executable verification (Phase 6)
+try:
+    from aragora.verification.proofs import (
+        ProofExecutor, ClaimVerifier, VerificationProof, VerificationReport,
+        ProofType, ProofStatus, ProofBuilder
+    )
+    PROOF_EXECUTOR_AVAILABLE = True
+except ImportError:
+    PROOF_EXECUTOR_AVAILABLE = False
+    ProofExecutor = None
+    ClaimVerifier = None
+    VerificationReport = None
+    ProofBuilder = None
+
+# ScenarioMatrix for robustness testing (Phase 6)
+try:
+    from aragora.debate.scenarios import (
+        ScenarioMatrix, MatrixDebateRunner, ScenarioComparator,
+        Scenario, ScenarioType, OutcomeCategory
+    )
+    SCENARIO_MATRIX_AVAILABLE = True
+except ImportError:
+    SCENARIO_MATRIX_AVAILABLE = False
+    ScenarioMatrix = None
+    ScenarioComparator = None
+
+# =============================================================================
+# Phase 7: Resilience, Living Documents, & Observability
+# =============================================================================
+
+# EnhancedProvenanceManager for staleness detection (Phase 7)
+try:
+    from aragora.reasoning.provenance_enhanced import (
+        EnhancedProvenanceManager, GitProvenanceTracker, StalenessCheck,
+        StalenessStatus, RevalidationTrigger
+    )
+    ENHANCED_PROVENANCE_AVAILABLE = True
+except ImportError:
+    ENHANCED_PROVENANCE_AVAILABLE = False
+    EnhancedProvenanceManager = None
+    StalenessStatus = None
+
+# CheckpointManager for pause/resume (Phase 7)
+try:
+    from aragora.debate.checkpoint import (
+        CheckpointManager, DebateCheckpoint, FileCheckpointStore, CheckpointConfig
+    )
+    CHECKPOINT_AVAILABLE = True
+except ImportError:
+    CHECKPOINT_AVAILABLE = False
+    CheckpointManager = None
+
+# BreakpointManager for human intervention (Phase 7)
+try:
+    from aragora.debate.breakpoints import (
+        BreakpointManager, BreakpointConfig, Breakpoint, HumanGuidance, BreakpointTrigger
+    )
+    BREAKPOINT_AVAILABLE = True
+except ImportError:
+    BREAKPOINT_AVAILABLE = False
+    BreakpointManager = None
+    BreakpointTrigger = None
+
+# ReliabilityScorer for confidence scoring (Phase 7)
+try:
+    from aragora.reasoning.reliability import (
+        ReliabilityScorer, ClaimReliability, EvidenceReliability, ReliabilityLevel
+    )
+    RELIABILITY_SCORER_AVAILABLE = True
+except ImportError:
+    RELIABILITY_SCORER_AVAILABLE = False
+    ReliabilityScorer = None
+    ReliabilityLevel = None
+
+# DebateTracer for audit logs (Phase 7)
+try:
+    from aragora.debate.traces import (
+        DebateTracer, DebateTrace, TraceEvent, EventType
+    )
+    DEBATE_TRACER_AVAILABLE = True
+except ImportError:
+    DEBATE_TRACER_AVAILABLE = False
+    DebateTracer = None
+    EventType = None
+
+# =============================================================================
+# Phase 8: Agent Evolution, Semantic Memory & Advanced Debates
+# =============================================================================
+
+# PersonaLaboratory for agent evolution (Phase 8)
+try:
+    from aragora.agents.laboratory import (
+        PersonaLaboratory, PersonaExperiment, EmergentTrait, TraitTransfer
+    )
+    PERSONA_LAB_AVAILABLE = True
+except ImportError:
+    PERSONA_LAB_AVAILABLE = False
+    PersonaLaboratory = None
+    EmergentTrait = None
+
+# SemanticRetriever for pattern matching (Phase 8)
+try:
+    from aragora.memory.embeddings import (
+        SemanticRetriever, EmbeddingProvider, cosine_similarity
+    )
+    SEMANTIC_RETRIEVER_AVAILABLE = True
+except ImportError:
+    SEMANTIC_RETRIEVER_AVAILABLE = False
+    SemanticRetriever = None
+
+# FormalVerificationManager for theorem proving (Phase 8)
+try:
+    from aragora.verification.formal import (
+        FormalVerificationManager, FormalProofResult,
+        FormalProofStatus, FormalLanguage
+    )
+    FORMAL_VERIFICATION_AVAILABLE = True
+except ImportError:
+    FORMAL_VERIFICATION_AVAILABLE = False
+    FormalVerificationManager = None
+    FormalProofResult = None
+
+# DebateGraph for DAG-based debates (Phase 8)
+try:
+    from aragora.debate.graph import (
+        DebateGraph, DebateNode, GraphDebateOrchestrator,
+        NodeType, BranchReason, MergeStrategy
+    )
+    DEBATE_GRAPH_AVAILABLE = True
+except ImportError:
+    DEBATE_GRAPH_AVAILABLE = False
+    DebateGraph = None
+    GraphDebateOrchestrator = None
+
+# DebateForker for parallel exploration (Phase 8)
+try:
+    from aragora.debate.forking import (
+        DebateForker, ForkDetector, Branch, ForkPoint, ForkDecision, MergeResult
+    )
+    DEBATE_FORKER_AVAILABLE = True
+except ImportError:
+    DEBATE_FORKER_AVAILABLE = False
+    DebateForker = None
+    ForkDetector = None
+
+
+class NomicLoop:
+    """
+    Autonomous self-improvement loop for aragora.
+
+    Each cycle:
+    1. Agents debate what to improve
+    2. Agents design the implementation
+    3. Agents implement (codex writes code)
+    4. Changes are verified and committed
+    5. Loop repeats
+
+    SAFETY FEATURES:
+    - All output logged to .nomic/nomic_loop.log for live monitoring
+    - State saved to .nomic/nomic_state.json for crash recovery
+    - Protected files backed up before each cycle
+    - Automatic restore if protected files are damaged
+    """
+
+    def __init__(
+        self,
+        aragora_path: str = None,
+        max_cycles: int = 10,
+        require_human_approval: bool = True,
+        auto_commit: bool = False,
+        initial_proposal: str = None,
+        stream_emitter: "SyncEventEmitter" = None,
+        use_genesis: bool = False,
+        enable_persistence: bool = True,
+        disable_rollback: bool = False,  # Disable rollback on verification failure
+    ):
+        self.aragora_path = Path(aragora_path or Path(__file__).parent.parent)
+        self.max_cycles = max_cycles
+        self.require_human_approval = require_human_approval
+        self.auto_commit = auto_commit
+        self.initial_proposal = initial_proposal
+        self.disable_rollback = disable_rollback
+        self.cycle_count = 0
+        self.history = []
+
+        # Generate unique loop ID for this run
+        self.loop_id = f"nomic-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
+        # Genesis mode: fractal debates with agent evolution
+        self.use_genesis = use_genesis and GENESIS_AVAILABLE
+        self.genesis_ledger = None
+        self.population_manager = None
+        if self.use_genesis:
+            self.genesis_ledger = GenesisLedger(str(self.aragora_path / ".nomic" / "genesis.db"))
+            self.population_manager = PopulationManager(str(self.aragora_path / ".nomic" / "genesis.db"))
+
+        # Setup logging infrastructure (must be before other initializations that use nomic_dir)
+        self.nomic_dir = self.aragora_path / ".nomic"
+        self.nomic_dir.mkdir(exist_ok=True)
+        self.log_file = self.nomic_dir / "nomic_loop.log"
+        self.state_file = self.nomic_dir / "nomic_state.json"
+        self.backup_dir = self.nomic_dir / "backups"
+        self.backup_dir.mkdir(exist_ok=True)
+
+        # Supabase persistence for history tracking
+        self.persistence = None
+        if enable_persistence and PERSISTENCE_AVAILABLE:
+            self.persistence = SupabaseClient()
+            if self.persistence.is_configured:
+                print(f"[persistence] Supabase connected, loop_id: {self.loop_id}")
+            else:
+                self.persistence = None
+
+        # Debate embeddings database for historical search
+        self.debate_embeddings = None
+        if EMBEDDINGS_AVAILABLE:
+            embeddings_path = self.nomic_dir / "debate_embeddings.db"
+            self.debate_embeddings = DebateEmbeddingsDatabase(str(embeddings_path))
+            print(f"[embeddings] Debate embeddings database initialized")
+
+        # CritiqueStore for patterns and agent reputation tracking
+        self.critique_store = None
+        try:
+            from aragora.memory.store import CritiqueStore
+            critique_db_path = self.nomic_dir / "agora_memory.db"
+            self.critique_store = CritiqueStore(str(critique_db_path))
+            print(f"[memory] CritiqueStore initialized for patterns and reputation")
+        except ImportError:
+            pass
+
+        # ContinuumMemory for multi-timescale pattern learning
+        self.continuum = None
+        if CONTINUUM_AVAILABLE:
+            continuum_path = self.nomic_dir / "continuum.db"
+            self.continuum = ContinuumMemory(str(continuum_path))
+            print(f"[continuum] Multi-timescale memory initialized")
+
+        # ReplayRecorder will be created per cycle
+        self.replay_recorder = None
+
+        # MetaLearner for self-tuning hyperparameters (runs every 5 cycles)
+        self.meta_learner = None
+        if METALEARNER_AVAILABLE and self.continuum:
+            meta_learner_path = self.nomic_dir / "meta_learning.db"
+            self.meta_learner = MetaLearner(str(meta_learner_path))
+            print(f"[meta] MetaLearner initialized for hyperparameter tuning")
+
+        # ArgumentCartographer will be created per cycle for visualization
+        self.cartographer = None
+        self.visualizations_dir = self.nomic_dir / "visualizations"
+        self.visualizations_dir.mkdir(exist_ok=True)
+        if CARTOGRAPHER_AVAILABLE:
+            print(f"[viz] ArgumentCartographer available for debate visualization")
+
+        # WebhookDispatcher for external event notifications
+        self.webhook_dispatcher = None
+        webhook_url = os.environ.get("ARAGORA_WEBHOOK_URL")
+        if WEBHOOKS_AVAILABLE and webhook_url and WebhookConfig:
+            try:
+                config = WebhookConfig(
+                    name="default",
+                    url=webhook_url,
+                    secret=os.environ.get("ARAGORA_WEBHOOK_SECRET", ""),
+                )
+                self.webhook_dispatcher = WebhookDispatcher([config])
+                self.webhook_dispatcher.start()
+                print(f"[webhook] Dispatcher started for {webhook_url[:50]}...")
+            except Exception as e:
+                print(f"[webhook] Failed to initialize: {e}")
+
+        # ConsensusMemory for tracking settled vs contested topics
+        self.consensus_memory = None
+        self.dissent_retriever = None
+        if CONSENSUS_MEMORY_AVAILABLE:
+            consensus_db_path = self.nomic_dir / "consensus_memory.db"
+            self.consensus_memory = ConsensusMemory(str(consensus_db_path))
+            self.dissent_retriever = DissentRetriever(self.consensus_memory)
+            print(f"[consensus] ConsensusMemory initialized for topic tracking")
+
+        # InsightExtractor for post-debate pattern learning
+        self.insight_extractor = None
+        if INSIGHTS_AVAILABLE:
+            self.insight_extractor = InsightExtractor()
+            print(f"[insights] InsightExtractor initialized for pattern learning")
+
+        # NomicIntegration for advanced feature coordination
+        # Integrates: belief propagation, capability probing, staleness detection,
+        # counterfactual branching, and checkpointing
+        self.nomic_integration = None
+        if NOMIC_INTEGRATION_AVAILABLE and create_nomic_integration:
+            try:
+                checkpoint_dir = self.nomic_dir / "checkpoints"
+                self.nomic_integration = create_nomic_integration(
+                    checkpoint_dir=str(checkpoint_dir),
+                    enable_probing=True,  # Probe agents for reliability
+                    enable_belief_analysis=True,  # Bayesian belief propagation
+                    enable_staleness_check=True,  # Detect stale evidence
+                    enable_counterfactual=True,  # Fork on contested claims
+                    enable_checkpointing=True,  # Phase checkpointing
+                )
+                print(f"[integration] NomicIntegration initialized for advanced features")
+            except Exception as e:
+                print(f"[integration] Failed to initialize: {e}")
+                self.nomic_integration = None
+
+        # Phase 3: MemoryStream for per-agent persistent memory
+        self.memory_stream = None
+        if MEMORY_STREAM_AVAILABLE:
+            memory_db_path = self.nomic_dir / "agent_memories.db"
+            self.memory_stream = MemoryStream(str(memory_db_path))
+            print(f"[memory] Per-agent MemoryStream initialized")
+
+        # Phase 3: LocalDocsConnector for evidence grounding
+        self.local_docs = None
+        if LOCAL_DOCS_AVAILABLE:
+            self.local_docs = LocalDocsConnector(
+                root_path=str(self.aragora_path),
+                file_types='all'
+            )
+            print(f"[connectors] LocalDocsConnector initialized for evidence grounding")
+
+        # Phase 3: CounterfactualOrchestrator for deadlock resolution
+        self.counterfactual = None
+        if COUNTERFACTUAL_AVAILABLE:
+            self.counterfactual = CounterfactualOrchestrator()
+            print(f"[counterfactual] Deadlock resolution via forking enabled")
+
+        # Phase 3: CapabilityProber for agent quality assurance
+        self.prober = None
+        if PROBER_AVAILABLE:
+            self.prober = CapabilityProber()
+            print(f"[prober] Agent capability probing enabled")
+
+        # Phase 4: PersonaManager for agent traits/expertise evolution
+        self.persona_manager = None
+        if PERSONAS_AVAILABLE:
+            persona_db_path = self.nomic_dir / "agent_personas.db"
+            self.persona_manager = PersonaManager(str(persona_db_path))
+            print(f"[personas] Agent personality evolution enabled")
+
+        # Phase 4: PromptEvolver for prompt evolution from winning patterns
+        self.prompt_evolver = None
+        if EVOLVER_AVAILABLE:
+            evolver_db_path = self.nomic_dir / "prompt_evolution.db"
+            self.prompt_evolver = PromptEvolver(
+                db_path=str(evolver_db_path),
+                critique_store=self.critique_store,
+                strategy=EvolutionStrategy.HYBRID
+            )
+            print(f"[evolver] Prompt evolution enabled")
+
+        # Phase 4: Tournament tracking for periodic competitive benchmarking
+        self.last_tournament_cycle = 0
+        self.tournament_interval = 20  # Run tournament every 20 cycles
+
+        # Phase 5: ConvergenceDetector for early stopping
+        self.convergence_detector = None
+        if CONVERGENCE_AVAILABLE:
+            self.convergence_detector = ConvergenceDetector(
+                convergence_threshold=0.85,
+                min_rounds_before_check=2
+            )
+            print(f"[convergence] Early stopping enabled")
+
+        # Phase 5: MetaCritiqueAnalyzer for process feedback
+        self.meta_analyzer = None
+        if META_CRITIQUE_AVAILABLE:
+            self.meta_analyzer = MetaCritiqueAnalyzer()
+            print(f"[meta] Process feedback enabled")
+
+        # Phase 5: EloSystem for agent skill tracking
+        self.elo_system = None
+        if ELO_AVAILABLE:
+            elo_db_path = self.nomic_dir / "agent_elo.db"
+            self.elo_system = EloSystem(str(elo_db_path))
+            print(f"[elo] Agent skill tracking enabled")
+
+        # Phase 5: AgentSelector for smart team selection
+        self.agent_selector = None
+        if SELECTOR_AVAILABLE and ELO_AVAILABLE and self.elo_system:
+            self.agent_selector = AgentSelector(
+                elo_system=self.elo_system,
+                persona_manager=self.persona_manager
+            )
+            print(f"[selector] Smart agent selection enabled")
+
+        # =================================================================
+        # Phase 6: Verifiable Reasoning & Robustness Testing
+        # =================================================================
+
+        # Phase 6: ClaimsKernel for structured reasoning (P16)
+        self.claims_kernel = None
+        if CLAIMS_KERNEL_AVAILABLE:
+            self.claims_kernel = ClaimsKernel(debate_id=f"nomic-cycle-0")
+            print(f"[claims] Structured reasoning enabled")
+
+        # Phase 6: ProvenanceManager for evidence tracking (P17)
+        self.provenance_manager = None
+        if PROVENANCE_AVAILABLE:
+            self.provenance_manager = ProvenanceManager(debate_id=f"nomic-cycle-0")
+            print(f"[provenance] Evidence chain tracking enabled")
+
+        # Phase 6: BeliefNetwork for probabilistic reasoning (P18)
+        self.belief_network = None
+        if BELIEF_NETWORK_AVAILABLE:
+            self.belief_network = BeliefNetwork(debate_id=f"nomic-cycle-0")
+            print(f"[belief] Probabilistic reasoning enabled")
+
+        # Phase 6: ProofExecutor for executable verification (P19)
+        self.proof_executor = None
+        self.claim_verifier = None
+        if PROOF_EXECUTOR_AVAILABLE:
+            self.proof_executor = ProofExecutor(allow_filesystem=True, default_timeout=30.0)
+            self.claim_verifier = ClaimVerifier(self.proof_executor)
+            print(f"[proofs] Executable verification enabled")
+
+        # Phase 6: ScenarioComparator for robustness testing (P20)
+        self.scenario_comparator = None
+        if SCENARIO_MATRIX_AVAILABLE:
+            self.scenario_comparator = ScenarioComparator()
+            print(f"[scenarios] Robustness testing enabled")
+
+        # Phase 7: Resilience, Living Documents, & Observability
+
+        # Phase 7: EnhancedProvenanceManager for staleness detection (P21)
+        # Note: This REPLACES the base ProvenanceManager from Phase 6 if available
+        if ENHANCED_PROVENANCE_AVAILABLE:
+            self.provenance_manager = EnhancedProvenanceManager(
+                debate_id=f"nomic-cycle-0",
+                repo_path=str(self.aragora_path)
+            )
+            print(f"[provenance] Enhanced with staleness detection")
+
+        # Phase 7: CheckpointManager for pause/resume (P22)
+        self.checkpoint_manager = None
+        if CHECKPOINT_AVAILABLE:
+            checkpoint_dir = self.nomic_dir / "checkpoints"
+            checkpoint_dir.mkdir(exist_ok=True)
+            self.checkpoint_manager = CheckpointManager(
+                store=FileCheckpointStore(str(checkpoint_dir)),
+                config=CheckpointConfig(interval_rounds=1, max_checkpoints=5)
+            )
+            print(f"[checkpoint] Pause/resume enabled")
+
+        # Phase 7: BreakpointManager for human intervention (P23)
+        self.breakpoint_manager = None
+        if BREAKPOINT_AVAILABLE and self.require_human_approval:
+            self.breakpoint_manager = BreakpointManager(
+                config=BreakpointConfig(min_confidence=0.5, max_deadlock_rounds=3)
+            )
+            print(f"[breakpoints] Human intervention enabled")
+
+        # Phase 7: ReliabilityScorer for confidence scoring (P24)
+        self.reliability_scorer = None
+        if RELIABILITY_SCORER_AVAILABLE and self.provenance_manager:
+            self.reliability_scorer = ReliabilityScorer(provenance=self.provenance_manager)
+            print(f"[reliability] Confidence scoring enabled")
+
+        # Phase 7: DebateTracer for audit logs (P25)
+        # Note: DebateTracer is created per-debate, so we just store the path
+        self.debate_trace_db = None
+        self._current_tracer = None  # Created per-debate in _start_debate_trace
+        if DEBATE_TRACER_AVAILABLE:
+            trace_dir = self.nomic_dir / "traces"
+            trace_dir.mkdir(exist_ok=True)
+            self.debate_trace_db = str(trace_dir / "debate_traces.db")
+            print(f"[tracer] Audit logging enabled")
+
+        # Phase 8: Agent Evolution, Semantic Memory & Advanced Debates
+
+        # Phase 8: PersonaLaboratory for agent evolution (P26)
+        self.persona_lab = None
+        if PERSONA_LAB_AVAILABLE and PERSONAS_AVAILABLE and self.persona_manager:
+            lab_db = self.nomic_dir / "persona_lab.db"
+            self.persona_lab = PersonaLaboratory(
+                persona_manager=self.persona_manager,
+                db_path=str(lab_db)
+            )
+            print(f"[lab] Persona evolution enabled")
+
+        # Phase 8: SemanticRetriever for pattern matching (P27)
+        self.semantic_retriever = None
+        if SEMANTIC_RETRIEVER_AVAILABLE:
+            retriever_db = self.nomic_dir / "semantic_patterns.db"
+            self.semantic_retriever = SemanticRetriever(db_path=str(retriever_db))
+            print(f"[semantic] Pattern retrieval enabled")
+
+        # Phase 8: FormalVerificationManager for theorem proving (P28)
+        self.formal_verifier = None
+        if FORMAL_VERIFICATION_AVAILABLE:
+            self.formal_verifier = FormalVerificationManager()
+            print(f"[formal] Z3 verification enabled")
+
+        # Phase 8: DebateGraph for DAG-based debates (P29)
+        # Note: GraphDebateOrchestrator is created per-debate with specific agents
+        self.graph_debate_enabled = False
+        if DEBATE_GRAPH_AVAILABLE and GraphDebateOrchestrator:
+            self.graph_debate_enabled = True
+            print(f"[graph] DAG debate structure enabled")
+
+        # Phase 8: DebateForker for parallel exploration (P30)
+        # Note: DebateForker is created per-debate
+        self.fork_debate_enabled = False
+        if DEBATE_FORKER_AVAILABLE and DebateForker:
+            self.fork_debate_enabled = True
+            print(f"[forking] Parallel branch exploration enabled")
+
+        # Setup streaming (optional)
+        self.stream_emitter = stream_emitter
+        if stream_emitter and STREAMING_AVAILABLE and create_nomic_hooks:
+            self.stream_hooks = create_nomic_hooks(stream_emitter)
+        else:
+            self.stream_hooks = {}
+
+        # Add genesis hooks if available
+        if self.use_genesis:
+            genesis_hooks = create_logging_hooks(lambda msg: self._log(f"    [genesis] {msg}"))
+            self.stream_hooks.update(genesis_hooks)
+
+        # Clear log file on start
+        with open(self.log_file, "w") as f:
+            f.write(f"=== NOMIC LOOP STARTED: {datetime.now().isoformat()} ===\n")
+
+        # Initialize agents
+        self._init_agents()
+
+    def _stream_emit(self, hook_name: str, *args, **kwargs) -> None:
+        """Emit event to WebSocket stream and persist to Supabase."""
+        # Emit to WebSocket stream
+        if hook_name in self.stream_hooks:
+            try:
+                self.stream_hooks[hook_name](*args, **kwargs)
+            except Exception:
+                pass  # Don't let streaming errors break the loop
+
+        # Persist to Supabase
+        if self.persistence and StreamEvent:
+            try:
+                event = StreamEvent(
+                    loop_id=self.loop_id,
+                    cycle=self.cycle_count,
+                    event_type=hook_name,
+                    event_data={"args": [str(a)[:500] for a in args], "kwargs": {k: str(v)[:500] for k, v in kwargs.items()}},
+                    agent=kwargs.get("agent"),
+                )
+                # Run async save in background (fire and forget)
+                asyncio.get_event_loop().create_task(self.persistence.save_event(event))
+            except Exception:
+                pass  # Don't let persistence errors break the loop
+
+    async def _persist_cycle(self, phase: str, stage: str, success: bool = None,
+                              git_commit: str = None, task_description: str = None,
+                              error_message: str = None) -> None:
+        """Persist cycle state to Supabase."""
+        if not self.persistence or not NomicCycle:
+            return
+        try:
+            cycle = NomicCycle(
+                loop_id=self.loop_id,
+                cycle_number=self.cycle_count,
+                phase=phase,
+                stage=stage,
+                started_at=datetime.utcnow(),
+                success=success,
+                git_commit=git_commit,
+                task_description=task_description,
+                error_message=error_message,
+            )
+            await self.persistence.save_cycle(cycle)
+        except Exception:
+            pass  # Don't let persistence errors break the loop
+
+    async def _persist_debate(self, phase: str, task: str, agents: list,
+                               transcript: list, consensus_reached: bool,
+                               confidence: float, winning_proposal: str = None) -> None:
+        """Persist debate artifact to Supabase."""
+        if not self.persistence or not DebateArtifact:
+            return
+        try:
+            debate = DebateArtifact(
+                loop_id=self.loop_id,
+                cycle_number=self.cycle_count,
+                phase=phase,
+                task=task,
+                agents=agents,
+                transcript=transcript,
+                consensus_reached=consensus_reached,
+                confidence=confidence,
+                winning_proposal=winning_proposal,
+            )
+            await self.persistence.save_debate(debate)
+
+            # Also index in embeddings database for future search
+            if self.debate_embeddings:
+                await self.debate_embeddings.index_debate(debate)
+        except Exception:
+            pass  # Don't let persistence errors break the loop
+
+    def _log(self, message: str, also_print: bool = True, phase: str = None, agent: str = None):
+        """Log to file and optionally stdout. File is always flushed immediately."""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        log_line = f"[{timestamp}] {message}"
+
+        # Write to file immediately (unbuffered)
+        with open(self.log_file, "a") as f:
+            f.write(log_line + "\n")
+            f.flush()
+
+        if also_print:
+            print(message)
+            sys.stdout.flush()
+
+        # Also emit to stream for real-time dashboard
+        self._stream_emit("on_log_message", message, level="info", phase=phase, agent=agent)
+
+    def _save_state(self, state: dict):
+        """Save current state for crash recovery and monitoring."""
+        state["saved_at"] = datetime.now().isoformat()
+        state["cycle"] = self.cycle_count
+        with open(self.state_file, "w") as f:
+            json.dump(state, f, indent=2, default=str)
+
+    def _load_state(self) -> Optional[dict]:
+        """Load saved state if exists."""
+        if self.state_file.exists():
+            try:
+                with open(self.state_file) as f:
+                    return json.load(f)
+            except Exception:
+                return None
+        return None
+
+    def _create_backup(self, reason: str = "pre_cycle") -> Path:
+        """Create a backup of protected files before making changes."""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_name = f"backup_{reason}_{timestamp}"
+        backup_path = self.backup_dir / backup_name
+        backup_path.mkdir(parents=True, exist_ok=True)
+
+        self._log(f"  Creating backup: {backup_name}")
+
+        backed_up = []
+        for rel_path in PROTECTED_FILES:
+            src = self.aragora_path / rel_path
+            if src.exists():
+                dst = backup_path / rel_path
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+                backed_up.append(rel_path)
+                self._log(f"    Backed up: {rel_path}", also_print=False)
+
+        # Save manifest
+        manifest = {
+            "created_at": datetime.now().isoformat(),
+            "reason": reason,
+            "cycle": self.cycle_count,
+            "files": backed_up,
+        }
+        with open(backup_path / "manifest.json", "w") as f:
+            json.dump(manifest, f, indent=2)
+
+        self._log(f"  Backup complete: {len(backed_up)} files")
+        self._stream_emit("on_backup_created", backup_name, len(backed_up), reason)
+        return backup_path
+
+    def _restore_backup(self, backup_path: Path) -> bool:
+        """Restore protected files from a backup."""
+        manifest_file = backup_path / "manifest.json"
+        if not manifest_file.exists():
+            self._log(f"  No manifest found in {backup_path}")
+            return False
+
+        with open(manifest_file) as f:
+            manifest = json.load(f)
+
+        self._log(f"  Restoring backup from {manifest['created_at']}")
+
+        restored = []
+        for rel_path in manifest["files"]:
+            src = backup_path / rel_path
+            dst = self.aragora_path / rel_path
+            if src.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+                restored.append(rel_path)
+                self._log(f"    Restored: {rel_path}", also_print=False)
+
+        self._log(f"  Restored {len(restored)} files")
+        self._stream_emit("on_backup_restored", backup_path.name, len(restored), "verification_failed")
+        return True
+
+    def _get_latest_backup(self) -> Optional[Path]:
+        """Get the most recent backup directory."""
+        backups = sorted(self.backup_dir.iterdir(), reverse=True)
+        for backup in backups:
+            if (backup / "manifest.json").exists():
+                return backup
+        return None
+
+    def _verify_protected_files(self) -> List[str]:
+        """Verify protected files still exist and are importable."""
+        issues = []
+
+        for rel_path in PROTECTED_FILES:
+            full_path = self.aragora_path / rel_path
+            if not full_path.exists():
+                issues.append(f"MISSING: {rel_path}")
+                continue
+
+            # Check if Python file is syntactically valid
+            if rel_path.endswith(".py"):
+                try:
+                    result = subprocess.run(
+                        ["python", "-m", "py_compile", str(full_path)],
+                        capture_output=True,
+                        text=True,
+                        timeout=180,  # Minimum 3 min (was 20)
+                    )
+                    if result.returncode != 0:
+                        issues.append(f"SYNTAX ERROR: {rel_path}")
+                except Exception as e:
+                    issues.append(f"CHECK FAILED: {rel_path} - {e}")
+
+        return issues
+
+    def _init_agents(self):
+        """Initialize agents with distinct personalities and safety awareness."""
+        # Common safety footer for all agents
+        safety_footer = """
+
+CRITICAL: You are part of a self-improving system. You MUST:
+- NEVER propose removing or simplifying core infrastructure (nomic_loop.py, aragora/core.py, debate system)
+- ALWAYS prefer adding new features over removing existing ones
+- ONLY remove code that is demonstrably BROKEN or HARMFUL
+- Preserve backward compatibility in all changes
+- If unsure whether to keep functionality, KEEP IT"""
+
+        self.gemini = GeminiAgent(
+            name='gemini-visionary',
+            model='gemini-3-pro-preview',  # Gemini 3 Pro
+            role='proposer',
+            timeout=720,  # Doubled to 12 min for thorough codebase exploration
+        )
+        self.gemini.system_prompt = """You are a visionary product strategist for aragora.
+Focus on: viral growth, developer excitement, novel capabilities, bold ideas.
+
+=== STRUCTURED THINKING PROTOCOL ===
+When analyzing a task:
+1. EXPLORE: First understand the current state - what exists, what's missing
+2. ENVISION: Imagine the ideal outcome - what would success look like
+3. REASON: Show your thinking step-by-step - explain tradeoffs
+4. PROPOSE: Make concrete, actionable proposals with clear impact
+
+When proposing changes:
+- Reference specific files and code patterns you've observed
+- Consider what would make aragora famous and widely adopted
+- Think about viral growth potential and developer excitement
+
+=== BUILD MODE ===
+Your proposals should ADD capabilities, not remove or simplify existing ones.
+Aragora should grow more powerful over time, not be stripped down.""" + safety_footer
+
+        self.codex = CodexAgent(
+            name='codex-engineer',
+            model='gpt-5.2-codex',
+            role='proposer',
+            timeout=1200,  # Doubled - Codex has known latency issues
+        )
+        self.codex.system_prompt = """You are a pragmatic engineer for aragora.
+Focus on: technical excellence, code quality, practical utility, implementation feasibility.
+
+=== STRUCTURED THINKING PROTOCOL ===
+When analyzing code:
+1. TRACE: Follow code paths to understand dependencies and data flow
+2. ANALYZE: Identify patterns, anti-patterns, and improvement opportunities
+3. DESIGN: Consider multiple implementation approaches with pros/cons
+4. VALIDATE: Think about edge cases, tests, and failure modes
+
+When proposing changes:
+- Show your reasoning chain: "I observed X → which implies Y → so we should Z"
+- Reference specific files and line numbers
+- Consider impact on tests, performance, and maintainability
+
+=== BUILD MODE ===
+Your role is to BUILD and EXTEND, not to remove or break.
+Safe refactors: renaming, extracting, improving types.
+Unsafe: removing features, breaking APIs.
+Reducing technical debt is GOOD when safe (improve code without changing behavior).""" + safety_footer
+
+        self.claude = ClaudeAgent(
+            name='claude-visionary',
+            model='claude',
+            role='proposer',
+            timeout=600,  # 10 min - increased for judge role with large context
+        )
+        self.claude.system_prompt = """You are a visionary architect for aragora.
+Focus on: elegant design, user experience, novel AI patterns, system cohesion.
+
+=== STRUCTURED THINKING PROTOCOL ===
+When analyzing a task:
+1. EXPLORE: First understand the current state - read relevant files, trace code paths
+2. PLAN: Design your approach before implementing - consider alternatives
+3. REASON: Show your thinking step-by-step - explain tradeoffs
+4. PROPOSE: Make concrete, actionable proposals with clear impact
+
+When using Claude Code:
+- Use 'Explore' mode to deeply understand the codebase before proposing
+- Use 'Plan' mode to design implementation approaches with user approval
+- Ask clarifying questions rather than making assumptions
+
+When proposing changes:
+- Reference specific files and architectural patterns
+- Consider system cohesion and how parts fit together
+- Think about what would make aragora powerful and delightful
+
+=== GUARDIAN ROLE ===
+You are a guardian of aragora's core functionality.
+Your proposals should ADD capabilities and improve the system.
+Never propose removing the nomic loop or core debate infrastructure.""" + safety_footer
+
+        self.grok = GrokCLIAgent(
+            name='grok-lateral-thinker',
+            model='grok-4',  # Grok 4 full
+            role='proposer',
+            timeout=1200,  # Doubled to 20 min for thorough codebase exploration
+        )
+        self.grok.system_prompt = """You are a lateral-thinking synthesizer for aragora.
+Focus on: unconventional approaches, novel patterns, creative breakthroughs.
+
+=== STRUCTURED THINKING PROTOCOL ===
+When analyzing a task:
+1. DIVERGE: Generate multiple unconventional perspectives on the problem
+2. CONNECT: Find surprising links between disparate ideas and patterns
+3. SYNTHESIZE: Combine insights into novel, coherent proposals
+4. GROUND: Anchor creative ideas in practical implementation
+
+When proposing changes:
+- Show your lateral thinking: "Others see X, but what if Y..."
+- Connect ideas from different domains in surprising ways
+- Balance creativity with practicality
+
+=== BUILD MODE ===
+Your role is to BUILD and EXTEND, not to remove or break.
+Propose additions that unlock new capabilities and create emergent value.
+The most valuable proposals are those that others wouldn't think of.""" + safety_footer
+
+    def get_current_features(self) -> str:
+        """Read current aragora state from the codebase."""
+        init_file = self.aragora_path / "aragora" / "__init__.py"
+        if init_file.exists():
+            content = init_file.read_text()
+            if '"""' in content:
+                docstring = content.split('"""')[1]
+                return docstring[:2000]
+        return "Unable to read current features"
+
+    def get_recent_changes(self) -> str:
+        """Get recent git commits."""
+        try:
+            result = subprocess.run(
+                ["git", "log", "--oneline", "-10"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            return result.stdout
+        except Exception:
+            return "Unable to read git history"
+
+    def _analyze_failed_branches(self, limit: int = 3) -> str:
+        """Analyze recent failed branches for lessons learned.
+
+        This extracts information from preserved failed branches so agents
+        can learn from previous failures and avoid repeating them.
+        """
+        try:
+            # List failed branches
+            result = subprocess.run(
+                ["git", "branch", "--list", "nomic-failed-*"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            branches = [b.strip() for b in result.stdout.strip().split("\n") if b.strip()]
+            if not branches:
+                return ""
+
+            # Get most recent ones (sorted by name which includes timestamp)
+            recent = sorted(branches, reverse=True)[:limit]
+
+            lessons = ["## LESSONS FROM RECENT FAILURES"]
+            lessons.append("Learn from these previous failed attempts:\n")
+
+            for branch in recent:
+                # Get commit message
+                msg_result = subprocess.run(
+                    ["git", "log", branch, "-1", "--format=%B"],
+                    cwd=self.aragora_path,
+                    capture_output=True,
+                    text=True,
+                )
+                # Get changed files summary
+                files_result = subprocess.run(
+                    ["git", "diff", f"main...{branch}", "--stat", "--stat-width=60"],
+                    cwd=self.aragora_path,
+                    capture_output=True,
+                    text=True,
+                )
+
+                lessons.append(f"**{branch}:**")
+                lessons.append(f"```\n{msg_result.stdout[:300].strip()}")
+                if files_result.stdout.strip():
+                    lessons.append(f"\nFiles changed:\n{files_result.stdout[:200].strip()}")
+                lessons.append("```\n")
+
+            return "\n".join(lessons)
+        except Exception:
+            return ""
+
+    def _format_successful_patterns(self, limit: int = 5) -> str:
+        """Format successful critique patterns for prompt injection.
+
+        This retrieves patterns from the CritiqueStore that have led to
+        successful fixes in previous debates.
+        """
+        if not hasattr(self, 'critique_store') or not self.critique_store:
+            return ""
+
+        try:
+            patterns = self.critique_store.retrieve_patterns(min_success=2, limit=limit)
+            if not patterns:
+                return ""
+
+            lines = ["## SUCCESSFUL PATTERNS (from past debates)"]
+            lines.append("These critique patterns have worked well before:\n")
+
+            for p in patterns:
+                lines.append(f"- **{p.issue_type}**: {p.issue_text[:100]}")
+                if p.suggestion_text:
+                    lines.append(f"  → Fix: {p.suggestion_text[:100]}")
+                lines.append(f"  ({p.success_count} successes)")
+
+            return "\n".join(lines)
+        except Exception:
+            return ""
+
+    def _format_failure_patterns(self, limit: int = 5) -> str:
+        """Format failure patterns to avoid repeating mistakes.
+
+        Uses Titans/MIRAS failure tracking to show patterns that have
+        NOT worked well, so agents can avoid repeating them.
+        """
+        if not hasattr(self, 'critique_store') or not self.critique_store:
+            return ""
+
+        try:
+            # Query patterns with high failure rates
+            conn = self.critique_store.conn if hasattr(self.critique_store, 'conn') else None
+            if not conn:
+                import sqlite3
+                conn = sqlite3.connect(self.critique_store.db_path)
+
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT issue_type, issue_text, failure_count, success_count
+                FROM patterns
+                WHERE failure_count > 0
+                ORDER BY failure_count DESC
+                LIMIT ?
+                """,
+                (limit,)
+            )
+            failures = cursor.fetchall()
+
+            if not failures:
+                return ""
+
+            lines = ["## PATTERNS TO AVOID (learned from past failures)"]
+            lines.append("These approaches have NOT worked well:\n")
+
+            for issue_type, issue_text, fail_count, success_count in failures:
+                success_rate = success_count / (success_count + fail_count) if (success_count + fail_count) > 0 else 0
+                if success_rate < 0.5:  # Only show patterns with <50% success
+                    lines.append(f"- **{issue_type}**: {issue_text[:80]}...")
+                    lines.append(f"  ({fail_count} failures, {success_rate:.0%} success rate)")
+
+            return "\n".join(lines) if len(lines) > 2 else ""
+        except Exception:
+            return ""
+
+    def _format_continuum_patterns(self, limit: int = 5) -> str:
+        """Format patterns from ContinuumMemory for prompt injection.
+
+        Retrieves strategic patterns from the SLOW tier that capture
+        successful cycle outcomes and learnings across time.
+        """
+        if not self.continuum or not CONTINUUM_AVAILABLE:
+            return ""
+
+        try:
+            # Get recent successful patterns from SLOW tier
+            memories = self.continuum.export_for_tier(MemoryTier.SLOW)
+            if not memories:
+                return ""
+
+            # Filter to successful patterns and sort by importance
+            successful = [m for m in memories if m.get("metadata", {}).get("success", False)]
+            successful = sorted(successful, key=lambda x: x.get("importance", 0), reverse=True)[:limit]
+
+            if not successful:
+                return ""
+
+            lines = ["## STRATEGIC PATTERNS (from ContinuumMemory)"]
+            lines.append("Successful patterns learned across cycles:\n")
+
+            for m in successful:
+                content = m.get("content", "")[:150]
+                cycle = m.get("metadata", {}).get("cycle", "?")
+                lines.append(f"- Cycle {cycle}: {content}")
+
+            return "\n".join(lines)
+        except Exception:
+            return ""
+
+    def _format_consensus_history(self, topic: str, limit: int = 3) -> str:
+        """Format prior consensus decisions for prompt injection (P1: ConsensusMemory).
+
+        Retrieves similar past debates and their conclusions to avoid
+        rehashing settled topics and to surface unaddressed dissents.
+        """
+        if not self.consensus_memory or not CONSENSUS_MEMORY_AVAILABLE:
+            return ""
+
+        try:
+            # Find similar past debates
+            similar = self.consensus_memory.find_similar_debates(topic, limit=limit)
+            if not similar:
+                return ""
+
+            lines = ["## HISTORICAL CONSENSUS (from past debates)"]
+            lines.append("Previous debates on similar topics:\n")
+
+            for s in similar:
+                strength = s.consensus.strength.value if s.consensus.strength else "unknown"
+                lines.append(f"- **{s.consensus.topic[:80]}** ({strength}, {s.similarity_score:.0%} similar)")
+                lines.append(f"  Decision: {s.consensus.conclusion[:100]}...")
+                if s.dissents:
+                    lines.append(f"  ⚠️ {len(s.dissents)} dissenting view(s) - consider addressing")
+
+            # Add unaddressed dissents if any
+            if self.dissent_retriever:
+                context = self.dissent_retriever.retrieve_for_new_debate(topic)
+                if context.get("unacknowledged_dissents"):
+                    lines.append("\n### Unaddressed Historical Concerns")
+                    for d in context["unacknowledged_dissents"][:3]:
+                        lines.append(f"- [{d['dissent_type']}] {d['content'][:100]}...")
+
+            return "\n".join(lines)
+        except Exception as e:
+            self._log(f"  [consensus] Error formatting history: {e}")
+            return ""
+
+    async def _store_debate_consensus(self, result, topic: str) -> None:
+        """Store debate consensus for future reference (P1: ConsensusMemory).
+
+        Records the consensus reached, participating agents, and any
+        dissenting views for retrieval in future debates.
+        """
+        if not self.consensus_memory or not CONSENSUS_MEMORY_AVAILABLE:
+            return
+
+        try:
+            if not result.consensus_reached:
+                return
+
+            # Determine consensus strength from confidence
+            if result.confidence >= 0.95:
+                strength = ConsensusStrength.UNANIMOUS
+            elif result.confidence >= 0.8:
+                strength = ConsensusStrength.STRONG
+            elif result.confidence >= 0.6:
+                strength = ConsensusStrength.MODERATE
+            elif result.confidence >= 0.5:
+                strength = ConsensusStrength.WEAK
+            else:
+                strength = ConsensusStrength.SPLIT
+
+            # Get participating agents
+            agents = [self.gemini.name, self.codex.name, self.claude.name, self.grok.name]
+
+            # Store the consensus
+            record = self.consensus_memory.store_consensus(
+                topic=topic[:500],
+                conclusion=result.final_answer[:2000] if result.final_answer else "",
+                strength=strength,
+                confidence=result.confidence,
+                participating_agents=agents,
+                agreeing_agents=agents,  # All participate in consensus
+                domain="aragora_improvement",
+                debate_duration=result.duration_seconds,
+                rounds=result.rounds_used,
+                metadata={"cycle": self.cycle_count},
+            )
+
+            self._log(f"  [consensus] Stored consensus: {strength.value} ({result.confidence:.0%})")
+
+            # Store any dissenting views from the result
+            dissenting = getattr(result, 'dissenting_views', [])
+            for i, view in enumerate(dissenting):
+                from aragora.memory.consensus import DissentType
+                self.consensus_memory.store_dissent(
+                    debate_id=record.id,
+                    agent_id=f"agent_{i}",
+                    dissent_type=DissentType.ALTERNATIVE_APPROACH,
+                    content=view[:500],
+                    reasoning="Minority view from debate",
+                    confidence=0.5,
+                )
+
+        except Exception as e:
+            self._log(f"  [consensus] Error storing: {e}")
+
+    async def _extract_and_store_insights(self, result) -> None:
+        """Extract and store insights from debate result (P2: InsightExtractor).
+
+        Analyzes the debate to extract patterns, agent performances,
+        and key takeaways to feed into learning systems.
+        """
+        if not self.insight_extractor or not INSIGHTS_AVAILABLE:
+            return
+
+        try:
+            # Extract insights from the debate result
+            insights = await self.insight_extractor.extract(result)
+
+            self._log(f"  [insights] Extracted {insights.total_insights} insights: {insights.key_takeaway[:80]}")
+
+            # Feed key takeaway to ContinuumMemory for long-term learning
+            if self.continuum and insights.key_takeaway:
+                self.continuum.add(
+                    id=f"insight-{self.cycle_count}-debate",
+                    content=insights.key_takeaway,
+                    tier=MemoryTier.MEDIUM,
+                    importance=insights.consensus_insight.confidence if insights.consensus_insight else 0.5,
+                    metadata={
+                        "type": "debate_insight",
+                        "cycle": self.cycle_count,
+                        "consensus_reached": insights.consensus_reached,
+                    },
+                )
+
+            # Update agent reputations based on extracted performances
+            if self.critique_store and insights.agent_performances:
+                for perf in insights.agent_performances:
+                    # Update reputation with more detailed metrics
+                    self.critique_store.update_reputation(
+                        perf.agent_name,
+                        proposal_made=perf.proposals_made > 0,
+                        proposal_accepted=perf.proposal_accepted,
+                    )
+
+            # Store pattern insights to ContinuumMemory if significant
+            for pattern in insights.pattern_insights:
+                if pattern.confidence > 0.7 and self.continuum:
+                    self.continuum.add(
+                        id=f"pattern-{self.cycle_count}-{pattern.id[:8]}",
+                        content=f"Pattern: {pattern.title} - {pattern.description[:200]}",
+                        tier=MemoryTier.SLOW,
+                        importance=pattern.confidence,
+                        metadata={
+                            "type": "pattern_insight",
+                            "cycle": self.cycle_count,
+                            "category": pattern.metadata.get("category", "general"),
+                        },
+                    )
+
+        except Exception as e:
+            self._log(f"  [insights] Error extracting: {e}")
+
+    # =========================================================================
+    # Phase 3 Helper Methods
+    # =========================================================================
+
+    def _format_agent_memories(self, agent_name: str, task: str, limit: int = 3) -> str:
+        """Format per-agent relevant memories for prompt injection (P3: MemoryStream)."""
+        if not self.memory_stream or not MEMORY_STREAM_AVAILABLE:
+            return ""
+        try:
+            memories = self.memory_stream.retrieve(
+                agent_name=agent_name,
+                query=task[:200],
+                limit=limit
+            )
+            if not memories:
+                return ""
+            lines = [f"## Your memories ({agent_name}):"]
+            for m in memories:
+                content = m.memory.content[:150] if hasattr(m, 'memory') else str(m)[:150]
+                lines.append(f"- {content}...")
+            return "\n".join(lines)
+        except Exception as e:
+            self._log(f"  [memory] Error retrieving memories: {e}")
+            return ""
+
+    async def _record_agent_memories(self, result, task: str) -> None:
+        """Record observations to per-agent memory streams (P3: MemoryStream)."""
+        if not self.memory_stream or not MEMORY_STREAM_AVAILABLE:
+            return
+        try:
+            # Identify winning agents
+            winning_agents = set()
+            if result.final_answer:
+                for agent in [self.gemini, self.codex, self.claude, self.grok]:
+                    if agent.name.lower() in result.final_answer.lower():
+                        winning_agents.add(agent.name)
+
+            # Record each agent's observations
+            for msg in result.messages:
+                agent = getattr(msg, 'agent', None)
+                if not agent and isinstance(msg, dict):
+                    agent = msg.get('agent')
+                if agent:
+                    importance = 0.7 if agent in winning_agents else 0.5
+                    content = getattr(msg, 'content', str(msg))[:200]
+                    self.memory_stream.add_observation(
+                        agent_name=agent,
+                        content=f"Debated '{task[:50]}...': {content}",
+                        debate_id=f"cycle-{self.cycle_count}",
+                        importance=importance
+                    )
+            self._log(f"  [memory] Recorded {len(result.messages)} observations")
+        except Exception as e:
+            self._log(f"  [memory] Error recording: {e}")
+
+    async def _gather_codebase_evidence(self, task: str, limit: int = 5) -> str:
+        """Gather relevant evidence from codebase for debate context (P4: LocalDocsConnector)."""
+        if not self.local_docs or not LOCAL_DOCS_AVAILABLE:
+            return ""
+        try:
+            evidence = await self.local_docs.search(query=task[:200], limit=limit)
+            if not evidence:
+                return ""
+            lines = ["## Relevant Codebase Evidence:"]
+            for e in evidence:
+                source = getattr(e, 'source', 'unknown')
+                content = getattr(e, 'content', str(e))[:200]
+                lines.append(f"- [{source}]: {content}...")
+            return "\n".join(lines)
+        except Exception as e:
+            self._log(f"  [evidence] Error gathering: {e}")
+            return ""
+
+    async def _handle_debate_deadlock(self, result, arena, task: str):
+        """Fork debate on disputed assumptions if deadlocked (P5: CounterfactualOrchestrator)."""
+        if not self.counterfactual or not COUNTERFACTUAL_AVAILABLE:
+            return result
+
+        # Only handle if actually deadlocked
+        if result.consensus_reached and result.confidence >= 0.5:
+            return result
+
+        try:
+            # Find pivot claim from dissenting views
+            pivot = await self.counterfactual.detect_pivot_claim(result)
+            if not pivot or not pivot.should_branch:
+                return result
+
+            self._log(f"  [counterfactual] Forking on: {pivot.statement[:80]}...")
+
+            # Fork into branches
+            branches = await self.counterfactual.fork_on_claim(
+                arena=arena,
+                pivot_claim=pivot,
+                parent_result=result
+            )
+
+            # Synthesize conditional consensus
+            conditional = await self.counterfactual.synthesize_branches(branches)
+            self._log(f"  [counterfactual] Conditional consensus: {conditional.summary[:100]}")
+
+            # Update result with conditional consensus
+            result.final_answer = conditional.summary
+            result.consensus_reached = True
+            result.confidence = conditional.confidence
+            if not hasattr(result, 'metadata') or result.metadata is None:
+                result.metadata = {}
+            result.metadata["conditional"] = True
+            result.metadata["branches"] = len(branches)
+
+            return result
+        except Exception as e:
+            self._log(f"  [counterfactual] Error: {e}")
+            return result
+
+    async def _probe_agent_capabilities(self) -> None:
+        """Run capability probes on agents to detect weaknesses (P6: CapabilityProber)."""
+        if not self.prober or not PROBER_AVAILABLE:
+            return
+        if self.cycle_count % 5 != 0:  # Run every 5 cycles
+            return
+
+        try:
+            self._log(f"  [prober] Running capability probes...")
+            agents = [self.gemini, self.codex, self.claude, self.grok]
+
+            for agent in agents:
+                report = await self.prober.probe_agent(
+                    agent=agent,
+                    probe_types=[ProbeType.CONTRADICTION, ProbeType.HALLUCINATION]
+                )
+                if report and hasattr(report, 'vulnerabilities') and report.vulnerabilities:
+                    self._log(f"  [prober] {agent.name}: {len(report.vulnerabilities)} issues found")
+                    # Penalize agent reputation
+                    if self.critique_store:
+                        for vuln in report.vulnerabilities:
+                            severity_value = vuln.severity.value if hasattr(vuln.severity, 'value') else str(vuln.severity)
+                            self._log(f"    [prober] {vuln.vulnerability_description[:60]} (severity: {severity_value})")
+        except Exception as e:
+            self._log(f"  [prober] Error: {e}")
+
+    def _select_debate_template(self, task: str):
+        """Select appropriate debate template based on task content (P7: DebateTemplates)."""
+        if not TEMPLATES_AVAILABLE:
+            return None
+        task_lower = task.lower()
+        if any(kw in task_lower for kw in ["code review", "review code", "pr review"]):
+            return CODE_REVIEW_TEMPLATE
+        if any(kw in task_lower for kw in ["design", "architecture", "rfc"]):
+            return DESIGN_DOC_TEMPLATE
+        return None  # Use default debate format
+
+    def _apply_template_to_protocol(self, protocol, template) -> None:
+        """Modify protocol based on template settings (P7: DebateTemplates)."""
+        if template and hasattr(template, 'max_rounds'):
+            protocol.rounds = min(protocol.rounds, template.max_rounds)
+            if hasattr(template, 'consensus_threshold'):
+                # Store threshold for later use
+                protocol.consensus_threshold = template.consensus_threshold
+            self._log(f"  [template] Using {template.name}")
+
+    # =========================================================================
+    # Phase 4 Helper Methods: Agent Evolution Mechanisms
+    # =========================================================================
+
+    def _init_agent_personas(self) -> None:
+        """Initialize or load personas for all agents (P8: PersonaManager)."""
+        if not self.persona_manager or not PERSONAS_AVAILABLE:
+            return
+        try:
+            for agent in [self.gemini, self.codex, self.claude, self.grok]:
+                persona = get_or_create_persona(self.persona_manager, agent.name)
+                top_exp = persona.top_expertise[:2] if persona.top_expertise else []
+                self._log(f"  [persona] {agent.name}: {persona.trait_string}, top: {top_exp}")
+        except Exception as e:
+            self._log(f"  [persona] Error initializing: {e}")
+
+    def _record_persona_performance(self, result, task: str) -> None:
+        """Update persona expertise based on debate outcome (P8: PersonaManager)."""
+        if not self.persona_manager or not PERSONAS_AVAILABLE:
+            return
+        try:
+            # Detect domain from task
+            task_lower = task.lower()
+            domain = None
+            for d in EXPERTISE_DOMAINS:
+                if d in task_lower:
+                    domain = d
+                    break
+            if not domain:
+                domain = "architecture"  # default
+
+            # Track unique agents that participated
+            participating_agents = set()
+            for msg in result.messages:
+                agent = getattr(msg, 'agent', None) or (msg.get('agent') if isinstance(msg, dict) else None)
+                if agent:
+                    participating_agents.add(agent)
+
+            # Record performance for each unique agent
+            success = result.consensus_reached and result.confidence >= 0.6
+            for agent_name in participating_agents:
+                self.persona_manager.record_performance(
+                    agent_name=agent_name,
+                    domain=domain,
+                    success=success,
+                    debate_id=f"cycle-{self.cycle_count}"
+                )
+            self._log(f"  [persona] Recorded performance in {domain} for {len(participating_agents)} agents")
+        except Exception as e:
+            self._log(f"  [persona] Error: {e}")
+
+    def _get_persona_context(self, agent_name: str) -> str:
+        """Get persona context for injection into agent prompts (P8: PersonaManager)."""
+        if not self.persona_manager or not PERSONAS_AVAILABLE:
+            return ""
+        try:
+            persona = self.persona_manager.get_persona(agent_name)
+            if persona:
+                return persona.to_prompt_context()
+            return ""
+        except Exception:
+            return ""
+
+    async def _extract_and_store_patterns(self, result) -> None:
+        """Extract winning patterns from successful debates (P9: PromptEvolver)."""
+        if not self.prompt_evolver or not EVOLVER_AVAILABLE:
+            return
+        if not result.consensus_reached or result.confidence < 0.6:
+            return  # Only learn from successful debates
+        try:
+            patterns = self.prompt_evolver.extract_winning_patterns([result])
+            if patterns:
+                self.prompt_evolver.store_patterns(patterns)
+                self._log(f"  [evolver] Extracted {len(patterns)} patterns from debate")
+        except Exception as e:
+            self._log(f"  [evolver] Error extracting patterns: {e}")
+
+    async def _evolve_agent_prompts(self) -> None:
+        """Evolve agent prompts based on accumulated patterns (P9: PromptEvolver)."""
+        if not self.prompt_evolver or not EVOLVER_AVAILABLE:
+            return
+        if self.cycle_count % 10 != 0:  # Run every 10 cycles
+            return
+
+        try:
+            self._log(f"  [evolver] Evolving agent prompts...")
+            patterns = self.prompt_evolver.get_top_patterns(limit=5)
+            if not patterns:
+                self._log(f"  [evolver] No patterns accumulated yet")
+                return
+
+            for agent in [self.gemini, self.codex, self.claude, self.grok]:
+                if hasattr(agent, 'system_prompt') and agent.system_prompt:
+                    self.prompt_evolver.apply_evolution(agent, patterns)
+                    version = self.prompt_evolver.get_prompt_version(agent.name)
+                    if version:
+                        self._log(f"  [evolver] {agent.name}: Evolved to v{version.version}")
+        except Exception as e:
+            self._log(f"  [evolver] Error evolving prompts: {e}")
+
+    def _update_prompt_performance(self, agent_name: str, result) -> None:
+        """Update performance metrics for current prompt version (P9: PromptEvolver)."""
+        if not self.prompt_evolver or not EVOLVER_AVAILABLE:
+            return
+        try:
+            version = self.prompt_evolver.get_prompt_version(agent_name)
+            if version:
+                self.prompt_evolver.update_performance(agent_name, version.version, result)
+        except Exception:
+            pass
+
+    async def _run_tournament_if_due(self) -> None:
+        """Run a tournament to benchmark agents if interval reached (P10: Tournament)."""
+        if not TOURNAMENT_AVAILABLE or not Tournament:
+            return
+        if self.cycle_count - self.last_tournament_cycle < self.tournament_interval:
+            return
+
+        try:
+            self._log(f"\n=== TOURNAMENT (Cycle {self.cycle_count}) ===")
+            agents = [self.gemini, self.codex, self.claude, self.grok]
+            tasks = create_default_tasks()[:3]  # Use 3 tasks for speed
+
+            tournament = Tournament(
+                name=f"Cycle-{self.cycle_count}-Tournament",
+                agents=agents,
+                tasks=tasks,
+                format=TournamentFormat.FREE_FOR_ALL,
+                db_path=str(self.nomic_dir / "tournaments.db")
+            )
+
+            # Define debate runner for tournament
+            async def run_tournament_debate(env, debate_agents):
+                arena = Arena(agents=debate_agents, protocol=DebateProtocol(rounds=3))
+                return await arena.run(env)
+
+            result = await tournament.run(run_tournament_debate, parallel=False)
+            self.last_tournament_cycle = self.cycle_count
+
+            # Log standings
+            self._log(f"  [tournament] Champion: {result.champion}")
+            for i, standing in enumerate(result.standings[:4]):
+                self._log(f"  [tournament] #{i+1} {standing.agent_name}: {standing.points}pts, {standing.win_rate:.0%} win rate")
+
+            # Update persona expertise based on tournament performance
+            if self.persona_manager and PERSONAS_AVAILABLE:
+                for standing in result.standings:
+                    for task in tasks:
+                        self.persona_manager.record_performance(
+                            agent_name=standing.agent_name,
+                            domain=task.domain,
+                            success=standing.win_rate > 0.5,
+                            debate_id=f"tournament-{self.cycle_count}"
+                        )
+        except Exception as e:
+            self._log(f"  [tournament] Error: {e}")
+
+    # =========================================================================
+    # Phase 5 Helper Methods: Efficiency, Process Feedback, Agent Ranking
+    # =========================================================================
+
+    def _check_debate_convergence(
+        self,
+        current_responses: dict,
+        previous_responses: dict,
+        round_number: int
+    ):
+        """Check if debate has converged and can stop early (P11: ConvergenceDetector)."""
+        if not self.convergence_detector or not CONVERGENCE_AVAILABLE:
+            return None
+        try:
+            result = self.convergence_detector.check_convergence(
+                current_responses, previous_responses, round_number
+            )
+            if result and result.converged:
+                self._log(f"  [convergence] Debate converged! "
+                         f"(avg similarity: {result.avg_similarity:.0%})")
+            return result
+        except Exception as e:
+            self._log(f"  [convergence] Error: {e}")
+            return None
+
+    def _analyze_debate_process(self, result):
+        """Analyze debate process for issues and recommendations (P12: MetaCritiqueAnalyzer)."""
+        if not self.meta_analyzer or not META_CRITIQUE_AVAILABLE:
+            return None
+        try:
+            critique = self.meta_analyzer.analyze(result)
+            self._log(f"  [meta] Debate quality: {critique.overall_quality:.0%}")
+            if critique.observations:
+                issues = [o for o in critique.observations if o.observation_type == "issue"]
+                if issues:
+                    self._log(f"  [meta] Issues found: {len(issues)}")
+            if critique.recommendations:
+                self._log(f"  [meta] Top recommendation: {critique.recommendations[0][:80]}")
+            return critique
+        except Exception as e:
+            self._log(f"  [meta] Error: {e}")
+            return None
+
+    def _store_meta_recommendations(self, critique) -> None:
+        """Store meta-critique recommendations for future cycle improvement (P12)."""
+        if not critique or not hasattr(critique, 'recommendations') or not critique.recommendations:
+            return
+        # Store in ConsensusMemory as settled insight
+        if self.consensus_memory and CONSENSUS_MEMORY_AVAILABLE:
+            try:
+                for rec in critique.recommendations[:2]:
+                    self.consensus_memory.record_topic(
+                        topic=f"process-recommendation-{self.cycle_count}",
+                        outcome="settled",
+                        summary=rec,
+                        confidence=critique.overall_quality
+                    )
+            except Exception as e:
+                self._log(f"  [meta] Error storing recommendations: {e}")
+
+    def _detect_domain(self, task: str) -> str:
+        """Detect task domain from content (P13: EloSystem helper)."""
+        task_lower = task.lower()
+        domains = ["security", "performance", "architecture", "testing", "error_handling"]
+        for d in domains:
+            if d in task_lower:
+                return d
+        return "general"
+
+    def _record_elo_match(self, result, task: str) -> None:
+        """Record debate as ELO match to update agent ratings (P13: EloSystem)."""
+        if not self.elo_system or not ELO_AVAILABLE:
+            return
+        try:
+            # Extract participants from result
+            participants = []
+            scores = {}
+            for msg in result.messages:
+                agent = getattr(msg, 'agent', None) or (msg.get('agent') if isinstance(msg, dict) else None)
+                if agent and agent not in participants:
+                    participants.append(agent)
+                    # Score based on whether agent's view prevailed
+                    scores[agent] = result.confidence if result.consensus_reached else 0.5
+
+            if len(participants) >= 2:
+                domain = self._detect_domain(task)
+                changes = self.elo_system.record_match(
+                    debate_id=f"cycle-{self.cycle_count}",
+                    participants=participants,
+                    scores=scores,
+                    domain=domain
+                )
+                self._log(f"  [elo] Updated ratings for {len(participants)} agents in {domain}")
+        except Exception as e:
+            self._log(f"  [elo] Error: {e}")
+
+    def _log_elo_leaderboard(self) -> None:
+        """Log current ELO leaderboard (P13: EloSystem)."""
+        if not self.elo_system or not ELO_AVAILABLE:
+            return
+        if self.cycle_count % 5 != 0:  # Every 5 cycles
+            return
+        try:
+            leaderboard = self.elo_system.get_leaderboard(limit=4)
+            self._log(f"  [elo] === LEADERBOARD ===")
+            for i, rating in enumerate(leaderboard):
+                self._log(f"  [elo] #{i+1} {rating.agent_name}: {rating.elo:.0f} "
+                         f"({rating.wins}W/{rating.losses}L)")
+        except Exception:
+            pass
+
+    def _select_debate_team(self, task: str) -> list:
+        """Select optimal agent team for the task (P14: AgentSelector)."""
+        default_team = [self.gemini, self.codex, self.claude, self.grok]
+        if not self.agent_selector or not SELECTOR_AVAILABLE:
+            return default_team
+        try:
+            # Register agents if not done
+            for agent in default_team:
+                profile = AgentProfile(
+                    name=agent.name,
+                    agent_type=agent.model if hasattr(agent, 'model') else agent.name,
+                    elo_rating=self.elo_system.get_rating(agent.name).elo if self.elo_system else 1500
+                )
+                self.agent_selector.register_agent(profile)
+
+            requirements = TaskRequirements(
+                task_id=f"cycle-{self.cycle_count}",
+                description=task[:200],
+                primary_domain=self._detect_domain(task),
+                min_agents=3,
+                max_agents=4,
+                quality_priority=0.7,
+                diversity_preference=0.5
+            )
+            team = self.agent_selector.select_team(requirements)
+            self._log(f"  [selector] Selected team: {[a.name for a in team.agents]}")
+            # Map back to actual agent objects
+            agent_map = {a.name: a for a in default_team}
+            return [agent_map[p.name] for p in team.agents if p.name in agent_map]
+        except Exception as e:
+            self._log(f"  [selector] Error: {e}, using default team")
+            return default_team
+
+    def _track_debate_risks(self, result, task: str) -> None:
+        """Track risks from debates with low consensus or confidence (P15: RiskRegister)."""
+        if not RISK_REGISTER_AVAILABLE:
+            return
+        # Only track if consensus is weak
+        if result.consensus_reached and result.confidence >= 0.7:
+            return
+        try:
+            import json
+            risk_level = "high" if not result.consensus_reached else "medium"
+            risk_entry = {
+                "cycle": self.cycle_count,
+                "task": task[:100],
+                "confidence": result.confidence,
+                "consensus": result.consensus_reached,
+                "level": risk_level
+            }
+            risk_file = self.nomic_dir / "risk_register.jsonl"
+            with open(risk_file, "a") as f:
+                f.write(json.dumps(risk_entry) + "\n")
+            self._log(f"  [risk] Tracked {risk_level} risk: low consensus on task")
+        except Exception as e:
+            self._log(f"  [risk] Error: {e}")
+
+    # =========================================================================
+    # Phase 6: Verifiable Reasoning & Robustness Testing Helper Methods
+    # =========================================================================
+
+    def _extract_claims_from_debate(self, result) -> None:
+        """Extract typed claims from debate result and populate kernel (P16: ClaimsKernel)."""
+        if not self.claims_kernel or not CLAIMS_KERNEL_AVAILABLE:
+            return
+        try:
+            # Reset kernel for new debate
+            self.claims_kernel = ClaimsKernel(debate_id=f"nomic-cycle-{self.cycle_count}")
+
+            # Extract claims from messages
+            for msg in result.messages:
+                agent = getattr(msg, 'agent', None) or (msg.get('agent') if isinstance(msg, dict) else None)
+                content = getattr(msg, 'content', None) or (msg.get('content', '') if isinstance(msg, dict) else '')
+                role = getattr(msg, 'role', None) or (msg.get('role', 'proposer') if isinstance(msg, dict) else 'proposer')
+
+                if not agent or not content:
+                    continue
+
+                claim_type = ClaimType.PROPOSAL if role == 'proposer' else ClaimType.OBJECTION
+                self.claims_kernel.add_claim(
+                    statement=content[:500],
+                    author=agent,
+                    claim_type=claim_type,
+                    confidence=result.confidence if result.consensus_reached else 0.5
+                )
+            self._log(f"  [claims] Extracted {len(self.claims_kernel.claims)} claims")
+        except Exception as e:
+            self._log(f"  [claims] Error: {e}")
+
+    def _analyze_claim_structure(self) -> dict:
+        """Analyze the claim structure for insights (P16: ClaimsKernel)."""
+        if not self.claims_kernel or not CLAIMS_KERNEL_AVAILABLE:
+            return {}
+        try:
+            unsupported = self.claims_kernel.find_unsupported_claims()
+            contradictions = self.claims_kernel.find_contradictions()
+            strongest = self.claims_kernel.get_strongest_claims(3)
+            coverage = self.claims_kernel.get_evidence_coverage()
+
+            self._log(f"  [claims] Unsupported: {len(unsupported)}, "
+                     f"Contradictions: {len(contradictions)}, "
+                     f"Coverage: {coverage['coverage_ratio']:.0%}")
+
+            return {
+                "unsupported_count": len(unsupported),
+                "contradiction_count": len(contradictions),
+                "strongest_claims": [(c.statement[:100], s) for c, s in strongest],
+                "evidence_coverage": coverage
+            }
+        except Exception as e:
+            self._log(f"  [claims] Analysis error: {e}")
+            return {}
+
+    def _record_evidence_provenance(self, content: str, source_type: str, source_id: str) -> str:
+        """Record evidence with provenance tracking (P17: ProvenanceManager)."""
+        if not self.provenance_manager or not PROVENANCE_AVAILABLE:
+            return ""
+        try:
+            source = SourceType.AGENT_GENERATED if source_type == "agent" else SourceType.CODE_ANALYSIS
+            record = self.provenance_manager.record_evidence(
+                content=content[:1000],
+                source_type=source,
+                source_id=source_id
+            )
+            return record.id
+        except Exception as e:
+            self._log(f"  [provenance] Error: {e}")
+            return ""
+
+    def _verify_evidence_chain(self) -> tuple:
+        """Verify integrity of evidence chain (P17: ProvenanceManager)."""
+        if not self.provenance_manager or not PROVENANCE_AVAILABLE:
+            return True, []
+        try:
+            valid, errors = self.provenance_manager.verify_chain_integrity()
+            if not valid:
+                self._log(f"  [provenance] Chain integrity issues: {len(errors)}")
+            return valid, errors
+        except Exception as e:
+            self._log(f"  [provenance] Verification error: {e}")
+            return False, [str(e)]
+
+    def _build_belief_network(self) -> None:
+        """Build belief network from claims kernel (P18: BeliefNetwork)."""
+        if not self.belief_network or not BELIEF_NETWORK_AVAILABLE:
+            return
+        if not self.claims_kernel or not CLAIMS_KERNEL_AVAILABLE:
+            return
+        try:
+            self.belief_network = BeliefNetwork(debate_id=f"nomic-cycle-{self.cycle_count}")
+            self.belief_network.from_claims_kernel(self.claims_kernel)
+            result = self.belief_network.propagate()
+            self._log(f"  [belief] Network built: {len(self.belief_network.nodes)} nodes, "
+                     f"converged={result.converged} after {result.iterations} iterations")
+        except Exception as e:
+            self._log(f"  [belief] Error: {e}")
+
+    def _identify_debate_cruxes(self) -> list:
+        """Identify key claims that would most impact debate outcome (P18: BeliefNetwork)."""
+        if not self.belief_network or not BELIEF_NETWORK_AVAILABLE:
+            return []
+        try:
+            analyzer = BeliefPropagationAnalyzer(self.belief_network)
+            cruxes = analyzer.identify_debate_cruxes(top_k=3)
+            if cruxes:
+                self._log(f"  [belief] Top crux: {cruxes[0]['statement'][:80]}...")
+            return cruxes
+        except Exception as e:
+            self._log(f"  [belief] Crux analysis error: {e}")
+            return []
+
+    def _get_consensus_probability(self) -> dict:
+        """Estimate probability of consensus based on belief network (P18: BeliefNetwork)."""
+        if not self.belief_network or not BELIEF_NETWORK_AVAILABLE:
+            return {"probability": 0.5}
+        try:
+            analyzer = BeliefPropagationAnalyzer(self.belief_network)
+            return analyzer.compute_consensus_probability()
+        except Exception:
+            return {"probability": 0.5}
+
+    async def _create_verification_proofs(self, result) -> int:
+        """Create verification proofs for testable claims in debate result (P19: ProofExecutor)."""
+        if not self.claim_verifier or not PROOF_EXECUTOR_AVAILABLE:
+            return 0
+        try:
+            proof_count = 0
+            # Look for code-related claims that can be verified
+            final_answer = result.final_answer or ""
+            if "```" in final_answer:
+                # Extract code block
+                code_start = final_answer.find("```")
+                code_end = final_answer.find("```", code_start + 3)
+                if code_end > code_start:
+                    code_block = final_answer[code_start+3:code_end].strip()
+                    # Skip language identifier if present
+                    if "\n" in code_block:
+                        first_line = code_block.split("\n")[0]
+                        if first_line.strip().isalpha():
+                            code_block = "\n".join(code_block.split("\n")[1:])
+
+                    builder = ProofBuilder(claim_id=f"cycle-{self.cycle_count}-final", created_by="nomic")
+                    # Create syntax verification proof
+                    proof = builder.assertion(
+                        description="Verify proposed code is syntactically valid Python",
+                        code=f"import ast\ncode = '''{code_block[:300]}'''\nast.parse(code)",
+                        assertion="True"
+                    )
+                    self.claim_verifier.add_proof(proof)
+                    proof_count += 1
+            return proof_count
+        except Exception as e:
+            self._log(f"  [proofs] Proof creation error: {e}")
+            return 0
+
+    async def _run_verification_proofs(self):
+        """Execute all pending verification proofs (P19: ProofExecutor)."""
+        if not self.claim_verifier or not PROOF_EXECUTOR_AVAILABLE:
+            return None
+        try:
+            results = await self.claim_verifier.verify_all()
+            if not results:
+                return None
+            passed = sum(1 for r in results if r.passed)
+            self._log(f"  [proofs] Verified {passed}/{len(results)} proofs passed")
+
+            # Build report
+            report = VerificationReport(debate_id=f"cycle-{self.cycle_count}")
+            report.total_proofs = len(results)
+            report.proofs_passed = passed
+            report.proofs_failed = len(results) - passed
+            return report
+        except Exception as e:
+            self._log(f"  [proofs] Verification error: {e}")
+            return None
+
+    async def _run_robustness_check(self, task: str, base_context: str = "") -> dict:
+        """Run quick robustness check across key scenarios (P20: ScenarioMatrix)."""
+        if not SCENARIO_MATRIX_AVAILABLE or self.cycle_count % 5 != 0:
+            return {}
+        try:
+            self._log(f"  [scenarios] Running robustness check...")
+            matrix = ScenarioMatrix.from_presets("risk")
+
+            # Create lightweight debate function
+            async def quick_debate(task_text, context):
+                env = Environment(task=task_text, context=context)
+                protocol = DebateProtocol(rounds=1, consensus="majority")
+                agents = [self.gemini, self.claude] if hasattr(self, 'claude') else [self.gemini]
+                arena = Arena(env, agents, protocol)
+                return await arena.run(env)
+
+            runner = MatrixDebateRunner(quick_debate, max_parallel=2)
+            result = await runner.run_matrix(task, matrix, base_context)
+
+            self._log(f"  [scenarios] Outcome: {result.outcome_category.value}")
+            if result.universal_conclusions:
+                self._log(f"  [scenarios] Universal: {len(result.universal_conclusions)} conclusions")
+
+            return {
+                "outcome": result.outcome_category.value,
+                "scenarios_run": len(result.results),
+                "universal_conclusions": result.universal_conclusions[:3]
+            }
+        except Exception as e:
+            self._log(f"  [scenarios] Error: {e}")
+            return {}
+
+    # =========================================================================
+    # Phase 7: Resilience, Living Documents, & Observability Helper Methods
+    # =========================================================================
+
+    def _record_code_evidence(
+        self, file_path: str, line_start: int, line_end: int,
+        content: str, claim_id: str = None
+    ) -> str:
+        """Record code evidence with git tracking for staleness detection (P21: EnhancedProvenance)."""
+        if not ENHANCED_PROVENANCE_AVAILABLE or not self.provenance_manager:
+            return ""
+        try:
+            # Enhanced provenance tracks git state for living document detection
+            evidence_id = self.provenance_manager.record_code_evidence(
+                file_path=file_path,
+                line_start=line_start,
+                line_end=line_end,
+                content=content,
+                claim_id=claim_id
+            )
+            self._log(f"  [provenance] Recorded code evidence: {file_path}:{line_start}-{line_end}")
+            return evidence_id
+        except Exception as e:
+            self._log(f"  [provenance] Code evidence error: {e}")
+            return ""
+
+    async def _check_evidence_staleness(self) -> dict:
+        """Check all evidence for staleness - are claims still valid? (P21: EnhancedProvenance)."""
+        if not ENHANCED_PROVENANCE_AVAILABLE or not self.provenance_manager:
+            return {}
+        try:
+            staleness_results = self.provenance_manager.check_all_staleness()
+            fresh_count = sum(1 for s in staleness_results if s.status == StalenessStatus.FRESH)
+            stale_count = sum(1 for s in staleness_results if s.status == StalenessStatus.STALE)
+
+            if stale_count > 0:
+                self._log(f"  [provenance] Staleness: {stale_count} stale, {fresh_count} fresh")
+                # Generate revalidation triggers for stale evidence
+                triggers = self.provenance_manager.generate_revalidation_triggers()
+                if triggers:
+                    self._log(f"  [provenance] Revalidation needed for {len(triggers)} items")
+
+            return {
+                "fresh": fresh_count,
+                "stale": stale_count,
+                "total": len(staleness_results),
+                "living_status": self.provenance_manager.get_living_document_status()
+            }
+        except Exception as e:
+            self._log(f"  [provenance] Staleness check error: {e}")
+            return {}
+
+    async def _create_debate_checkpoint(
+        self, debate_id: str, task: str, round_num: int,
+        messages: list, agents: list, consensus: dict = None
+    ) -> str:
+        """Create a checkpoint for crash recovery (P22: CheckpointManager)."""
+        if not CHECKPOINT_AVAILABLE or not self.checkpoint_manager:
+            return ""
+        try:
+            checkpoint = DebateCheckpoint(
+                debate_id=debate_id,
+                task=task,
+                round_number=round_num,
+                messages=[m.__dict__ if hasattr(m, '__dict__') else m for m in messages],
+                agent_states={a.name: {"model": a.model, "role": a.role} for a in agents if hasattr(a, 'name')},
+                consensus_state=consensus or {},
+                timestamp=datetime.now().isoformat()
+            )
+            checkpoint_id = self.checkpoint_manager.create_checkpoint(checkpoint)
+            self._log(f"  [checkpoint] Created: {checkpoint_id[:8]}")
+            return checkpoint_id
+        except Exception as e:
+            self._log(f"  [checkpoint] Create error: {e}")
+            return ""
+
+    async def _resume_from_checkpoint(self, checkpoint_id: str) -> dict:
+        """Resume a debate from checkpoint (P22: CheckpointManager)."""
+        if not CHECKPOINT_AVAILABLE or not self.checkpoint_manager:
+            return {}
+        try:
+            checkpoint = self.checkpoint_manager.resume_from_checkpoint(checkpoint_id)
+            if checkpoint:
+                self._log(f"  [checkpoint] Resumed: {checkpoint.debate_id} at round {checkpoint.round_number}")
+                return {
+                    "debate_id": checkpoint.debate_id,
+                    "task": checkpoint.task,
+                    "round": checkpoint.round_number,
+                    "messages": checkpoint.messages,
+                    "consensus": checkpoint.consensus_state
+                }
+            return {}
+        except Exception as e:
+            self._log(f"  [checkpoint] Resume error: {e}")
+            return {}
+
+    def _check_debate_breakpoints(
+        self, debate_id: str, task: str, messages: list,
+        confidence: float, round_num: int, critiques: list = None
+    ) -> "Breakpoint":
+        """Check if debate triggers breakpoint for human review (P23: BreakpointManager)."""
+        if not BREAKPOINT_AVAILABLE or not self.breakpoint_manager:
+            return None
+        try:
+            # Build debate state for breakpoint checking
+            debate_state = {
+                "debate_id": debate_id,
+                "task": task,
+                "messages": messages,
+                "confidence": confidence,
+                "round": round_num,
+                "critiques": critiques or []
+            }
+            breakpoint = self.breakpoint_manager.check_triggers(debate_state)
+            if breakpoint:
+                self._log(f"  [breakpoint] Triggered: {breakpoint.trigger.value}")
+            return breakpoint
+        except Exception as e:
+            self._log(f"  [breakpoint] Check error: {e}")
+            return None
+
+    async def _handle_breakpoint(self, breakpoint: "Breakpoint") -> "HumanGuidance":
+        """Handle breakpoint by getting human guidance (P23: BreakpointManager)."""
+        if not BREAKPOINT_AVAILABLE or not self.breakpoint_manager or not breakpoint:
+            return None
+        try:
+            guidance = await self.breakpoint_manager.handle_breakpoint(breakpoint)
+            if guidance:
+                self._log(f"  [breakpoint] Human guidance: {guidance.action}")
+            return guidance
+        except Exception as e:
+            self._log(f"  [breakpoint] Handle error: {e}")
+            return None
+
+    def _score_claim_reliability(self, claim_id: str, claim_text: str) -> dict:
+        """Score reliability of a claim (P24: ReliabilityScorer)."""
+        if not RELIABILITY_SCORER_AVAILABLE or not self.reliability_scorer:
+            return {}
+        try:
+            # Get claim from claims kernel if available
+            claim = None
+            if CLAIMS_KERNEL_AVAILABLE and self.claims_kernel:
+                claims = self.claims_kernel.get_claims()
+                for c in claims:
+                    if str(c.id) == claim_id:
+                        claim = c
+                        break
+
+            if claim:
+                reliability = self.reliability_scorer.score_claim(claim)
+                return {
+                    "claim_id": claim_id,
+                    "level": reliability.level.value if hasattr(reliability.level, 'value') else str(reliability.level),
+                    "score": reliability.score,
+                    "factors": reliability.factors
+                }
+            return {}
+        except Exception as e:
+            self._log(f"  [reliability] Score error: {e}")
+            return {}
+
+    def _generate_reliability_report(self) -> dict:
+        """Generate reliability report for all claims (P24: ReliabilityScorer)."""
+        if not RELIABILITY_SCORER_AVAILABLE or not self.reliability_scorer:
+            return {}
+        try:
+            if not CLAIMS_KERNEL_AVAILABLE or not self.claims_kernel:
+                return {}
+
+            claims = self.claims_kernel.get_claims()
+            if not claims:
+                return {}
+
+            report = self.reliability_scorer.generate_reliability_report(claims)
+            high_reliability = sum(1 for c in report.get("claims", [])
+                                   if c.get("level") in ("VERY_HIGH", "HIGH"))
+            low_reliability = sum(1 for c in report.get("claims", [])
+                                  if c.get("level") in ("VERY_LOW", "SPECULATIVE"))
+
+            self._log(f"  [reliability] Report: {high_reliability} high, {low_reliability} low reliability")
+            return report
+        except Exception as e:
+            self._log(f"  [reliability] Report error: {e}")
+            return {}
+
+    def _start_debate_trace(self, debate_id: str, task: str, agents: list) -> None:
+        """Start tracing a debate for audit logs (P25: DebateTracer)."""
+        if not DEBATE_TRACER_AVAILABLE or not self.debate_trace_db:
+            return
+        try:
+            agent_names = [a.name for a in agents if hasattr(a, 'name')]
+            # Create a new tracer for this debate
+            self._current_tracer = DebateTracer(
+                debate_id=debate_id,
+                task=task,
+                agents=agent_names,
+                db_path=self.debate_trace_db
+            )
+            self._log(f"  [tracer] Started trace for debate {debate_id[:8]}")
+        except Exception as e:
+            self._current_tracer = None
+            self._log(f"  [tracer] Start error: {e}")
+
+    def _trace_event(self, event_type: str, content: str, agent: str = None) -> None:
+        """Record an event to the debate trace (P25: DebateTracer)."""
+        if not DEBATE_TRACER_AVAILABLE or not getattr(self, '_current_tracer', None):
+            return
+        try:
+            # Use specialized record methods where available
+            if event_type == "proposal" and agent:
+                self._current_tracer.record_proposal(agent, content)
+            elif event_type == "round_start":
+                round_num = int(content) if content.isdigit() else 0
+                self._current_tracer.start_round(round_num)
+            elif event_type == "round_end":
+                self._current_tracer.end_round()
+            else:
+                # Fallback to generic record
+                type_map = {
+                    "critique": EventType.AGENT_CRITIQUE if EventType else None,
+                    "vote": EventType.AGENT_VOTE if EventType else None,
+                    "consensus": EventType.CONSENSUS_REACHED if EventType else None,
+                }
+                event_enum = type_map.get(event_type)
+                if event_enum:
+                    self._current_tracer.record(event_enum, {"content": content}, agent=agent)
+        except Exception as e:
+            self._log(f"  [tracer] Event error: {e}")
+
+    def _finalize_debate_trace(self, result: "DebateResult") -> str:
+        """Finalize and save the debate trace (P25: DebateTracer)."""
+        if not DEBATE_TRACER_AVAILABLE or not getattr(self, '_current_tracer', None):
+            return ""
+        try:
+            # Build result dict for finalize
+            result_dict = {
+                "final_answer": getattr(result, 'final_answer', ""),
+                "consensus_reached": getattr(result, 'consensus_reached', False),
+                "confidence": getattr(result, 'confidence', 0.0),
+            }
+            trace = self._current_tracer.finalize(result_dict)
+            trace_id = trace.trace_id if trace else ""
+            self._log(f"  [tracer] Finalized trace: {trace_id}")
+            self._current_tracer = None  # Clear for next debate
+            return trace_id
+        except Exception as e:
+            self._log(f"  [tracer] Finalize error: {e}")
+            return ""
+
+    # =========================================================================
+    # Phase 8: Agent Evolution, Semantic Memory & Advanced Debates Helper Methods
+    # =========================================================================
+
+    def _run_persona_experiment(self, agent_name: str, variant_traits: list) -> str:
+        """Create a persona A/B experiment (P26: PersonaLaboratory)."""
+        if not PERSONA_LAB_AVAILABLE or not self.persona_lab:
+            return ""
+        try:
+            experiment = self.persona_lab.create_experiment(
+                agent_name=agent_name,
+                variant_traits=variant_traits,
+                hypothesis=f"Testing traits: {', '.join(variant_traits)}"
+            )
+            self._log(f"  [lab] Created experiment {experiment.experiment_id[:8]} for {agent_name}")
+            return experiment.experiment_id
+        except Exception as e:
+            self._log(f"  [lab] Experiment creation error: {e}")
+            return ""
+
+    def _record_experiment_trial(self, experiment_id: str, is_control: bool, success: bool) -> None:
+        """Record a trial result for an experiment (P26: PersonaLaboratory)."""
+        if not PERSONA_LAB_AVAILABLE or not self.persona_lab or not experiment_id:
+            return
+        try:
+            self.persona_lab.record_trial(
+                experiment_id=experiment_id,
+                is_control=is_control,
+                success=success
+            )
+        except Exception as e:
+            self._log(f"  [lab] Trial recording error: {e}")
+
+    def _detect_emergent_traits(self) -> list:
+        """Detect emergent traits from performance patterns (P26: PersonaLaboratory)."""
+        if not PERSONA_LAB_AVAILABLE or not self.persona_lab:
+            return []
+        try:
+            traits = self.persona_lab.detect_emergent_traits()
+            if traits:
+                self._log(f"  [lab] Detected {len(traits)} emergent traits")
+                for t in traits[:3]:
+                    self._log(f"    - {t.trait_name} (confidence: {t.confidence:.2f})")
+            return traits
+        except Exception as e:
+            self._log(f"  [lab] Trait detection error: {e}")
+            return []
+
+    def _cross_pollinate_traits(self, from_agent: str, to_agent: str, trait: str) -> bool:
+        """Cross-pollinate a successful trait between agents (P26: PersonaLaboratory)."""
+        if not PERSONA_LAB_AVAILABLE or not self.persona_lab:
+            return False
+        try:
+            success = self.persona_lab.cross_pollinate_trait(
+                from_agent=from_agent,
+                to_agent=to_agent,
+                trait=trait
+            )
+            if success:
+                self._log(f"  [lab] Cross-pollinated '{trait}' from {from_agent} to {to_agent}")
+            return success
+        except Exception as e:
+            self._log(f"  [lab] Cross-pollination error: {e}")
+            return False
+
+    async def _evolve_personas_post_cycle(self) -> dict:
+        """Evolve personas based on cycle performance (P26: PersonaLaboratory)."""
+        if not PERSONA_LAB_AVAILABLE or not self.persona_lab:
+            return {}
+        try:
+            # Detect emergent traits
+            emergent = self._detect_emergent_traits()
+
+            # Check experiments for significant results
+            experiments = self.persona_lab.get_active_experiments()
+            completed = 0
+            for exp in experiments:
+                if exp.is_significant:
+                    self._log(f"  [lab] Experiment {exp.experiment_id[:8]} significant: {exp.relative_improvement:+.1%}")
+                    completed += 1
+
+            return {
+                "emergent_traits": len(emergent),
+                "experiments_checked": len(experiments),
+                "significant_results": completed
+            }
+        except Exception as e:
+            self._log(f"  [lab] Evolution error: {e}")
+            return {}
+
+    async def _store_critique_embedding(self, critique_id: str, critique_text: str) -> None:
+        """Store a critique embedding for future retrieval (P27: SemanticRetriever)."""
+        if not SEMANTIC_RETRIEVER_AVAILABLE or not self.semantic_retriever:
+            return
+        try:
+            await self.semantic_retriever.embed_and_store(critique_id, critique_text[:1000])
+        except Exception as e:
+            self._log(f"  [semantic] Store error: {e}")
+
+    async def _find_similar_critiques(self, query: str, limit: int = 3) -> list:
+        """Find similar past critiques (P27: SemanticRetriever)."""
+        if not SEMANTIC_RETRIEVER_AVAILABLE or not self.semantic_retriever:
+            return []
+        try:
+            results = await self.semantic_retriever.find_similar(query, limit=limit)
+            if results:
+                self._log(f"  [semantic] Found {len(results)} similar critiques")
+            return results
+        except Exception as e:
+            self._log(f"  [semantic] Search error: {e}")
+            return []
+
+    async def _inject_similar_context(self, task: str) -> str:
+        """Search and format similar past critiques as context (P27: SemanticRetriever)."""
+        if not SEMANTIC_RETRIEVER_AVAILABLE or not self.semantic_retriever:
+            return ""
+        try:
+            similar = await self._find_similar_critiques(task, limit=3)
+            if not similar:
+                return ""
+
+            context_parts = ["=== SIMILAR PAST CRITIQUES ==="]
+            for id_, text, sim in similar:
+                context_parts.append(f"[Similarity: {sim:.2f}] {text[:300]}...")
+
+            return "\n".join(context_parts)
+        except Exception as e:
+            self._log(f"  [semantic] Context injection error: {e}")
+            return ""
+
+    async def _verify_claim_formally(self, claim_text: str, claim_type: str = "logical") -> dict:
+        """Attempt formal verification of a claim (P28: FormalVerificationManager)."""
+        if not FORMAL_VERIFICATION_AVAILABLE or not self.formal_verifier:
+            return {}
+        try:
+            result = await self.formal_verifier.verify_claim(claim_text, claim_type)
+            if result and result.is_verified:
+                self._log(f"  [formal] Claim verified: {claim_text[:50]}...")
+            return result.to_dict() if result else {}
+        except Exception as e:
+            self._log(f"  [formal] Verification error: {e}")
+            return {}
+
+    def _is_formally_verifiable(self, claim_text: str) -> bool:
+        """Check if a claim is suitable for formal verification (P28: FormalVerificationManager)."""
+        # Simple heuristic: look for mathematical/logical keywords
+        keywords = ["for all", "exists", "implies", "if and only if", "<=", ">=",
+                    "equals", "greater than", "less than", "always", "never"]
+        claim_lower = claim_text.lower()
+        return any(kw in claim_lower for kw in keywords)
+
+    def _record_formal_proof(self, claim_id: str, proof_result: dict) -> None:
+        """Record a formal proof result (P28: FormalVerificationManager)."""
+        if not proof_result:
+            return
+        try:
+            # Store in provenance if available
+            if self.provenance_manager and proof_result.get("is_verified"):
+                self._record_evidence_provenance(
+                    f"Formally verified: {proof_result.get('formal_statement', '')}",
+                    source_type="formal_proof",
+                    source_id=claim_id
+                )
+        except Exception as e:
+            self._log(f"  [formal] Proof recording error: {e}")
+
+    def _create_debate_graph(self, debate_id: str, task: str) -> "DebateGraph":
+        """Create a new debate graph (P29: DebateGraph)."""
+        if not DEBATE_GRAPH_AVAILABLE or not DebateGraph:
+            return None
+        try:
+            graph = DebateGraph(debate_id=debate_id, task=task)
+            self._log(f"  [graph] Created debate graph {debate_id[:8]}")
+            return graph
+        except Exception as e:
+            self._log(f"  [graph] Creation error: {e}")
+            return None
+
+    def _add_graph_node(
+        self, graph: "DebateGraph", node_type: str, agent: str, content: str
+    ) -> str:
+        """Add a node to the debate graph (P29: DebateGraph)."""
+        if not graph or not DEBATE_GRAPH_AVAILABLE:
+            return ""
+        try:
+            node_type_enum = NodeType[node_type.upper()] if NodeType else None
+            if not node_type_enum:
+                return ""
+            node = DebateNode(
+                id=f"{agent}-{len(graph.nodes)}",
+                node_type=node_type_enum,
+                agent_id=agent,
+                content=content
+            )
+            graph.add_node(node)
+            return node.id
+        except Exception as e:
+            self._log(f"  [graph] Add node error: {e}")
+            return ""
+
+    def _should_branch_graph(self, graph: "DebateGraph", disagreement_score: float) -> bool:
+        """Check if graph should branch based on disagreement (P29: DebateGraph)."""
+        if not graph or disagreement_score < 0.7:
+            return False
+        return True
+
+    async def _run_graph_debate(self, task: str, agents: list) -> "DebateResult":
+        """Run a graph-based debate (P29: DebateGraph)."""
+        if not DEBATE_GRAPH_AVAILABLE or not self.graph_debate_enabled:
+            return None
+        try:
+            self._log(f"  [graph] Running graph-based debate...")
+            # Create orchestrator on demand with the specific agents
+            orchestrator = GraphDebateOrchestrator(agents=agents)
+            result = await orchestrator.run_debate(task)
+            return result
+        except Exception as e:
+            self._log(f"  [graph] Debate error: {e}")
+            return None
+
+    def _check_should_fork(self, messages: list, round_num: int, agents: list) -> "ForkDecision":
+        """Check if debate should fork (P30: DebateForker)."""
+        if not DEBATE_FORKER_AVAILABLE or not self.fork_debate_enabled:
+            return None
+        try:
+            # Create detector on demand
+            detector = ForkDetector()
+            decision = detector.should_fork(messages, round_num, agents)
+            if decision and hasattr(decision, 'should_fork') and decision.should_fork:
+                self._log(f"  [forking] Fork triggered: {getattr(decision, 'reason', 'unknown')}")
+            return decision
+        except Exception as e:
+            self._log(f"  [forking] Check error: {e}")
+            return None
+
+    async def _run_forked_debate(self, fork_decision: "ForkDecision", base_context: str) -> "MergeResult":
+        """Run forked parallel debates (P30: DebateForker)."""
+        if not DEBATE_FORKER_AVAILABLE or not self.fork_debate_enabled or not fork_decision:
+            return None
+        try:
+            branches = getattr(fork_decision, 'branches', [])
+            self._log(f"  [forking] Running {len(branches)} parallel branches...")
+            # Create forker on demand
+            forker = DebateForker()
+            result = await forker.run_branches(fork_decision, base_context)
+            if result:
+                winning = getattr(result, 'winning_hypothesis', '')[:50]
+                self._log(f"  [forking] Merged: {winning}...")
+            return result
+        except Exception as e:
+            self._log(f"  [forking] Run error: {e}")
+            return None
+
+    def _record_fork_outcome(self, fork_point: "ForkPoint", merge_result: "MergeResult") -> None:
+        """Record fork outcome for learning (P30: DebateForker)."""
+        if not fork_point or not merge_result:
+            return
+        try:
+            # Could store in provenance or insight extractor
+            self._log(f"  [forking] Recorded outcome: {merge_result.winning_branch_id}")
+        except Exception as e:
+            self._log(f"  [forking] Record error: {e}")
+
+    def _record_replay_event(self, event_type: str, agent: str, content: str, round_num: int = 0) -> None:
+        """Record an event to the ReplayRecorder if active."""
+        if not self.replay_recorder:
+            return
+        try:
+            if event_type == "turn":
+                self.replay_recorder.record_turn(agent, content, round_num, self.loop_id)
+            elif event_type == "vote":
+                self.replay_recorder.record_vote(agent, content, "")
+            elif event_type == "phase":
+                self.replay_recorder.record_phase_change(content)
+            elif event_type == "system":
+                self.replay_recorder.record_system(content)
+        except Exception:
+            pass  # Don't let replay errors break the loop
+
+    def _record_cartographer_event(
+        self, event_type: str, agent: str, content: str,
+        role: str = "proposer", round_num: int = 1, **kwargs
+    ) -> None:
+        """Record an event to the ArgumentCartographer if active."""
+        if not self.cartographer:
+            return
+        try:
+            if event_type == "message":
+                self.cartographer.update_from_message(
+                    agent=agent,
+                    content=content,
+                    role=role,
+                    round_num=round_num,
+                    metadata=kwargs.get("metadata", {})
+                )
+            elif event_type == "critique":
+                self.cartographer.update_from_critique(
+                    critic_agent=agent,
+                    target_agent=kwargs.get("target", "unknown"),
+                    severity=kwargs.get("severity", 0.5),
+                    round_num=round_num,
+                    critique_text=content
+                )
+            elif event_type == "vote":
+                self.cartographer.update_from_vote(
+                    agent=agent,
+                    vote_value=content,
+                    round_num=round_num
+                )
+            elif event_type == "consensus":
+                self.cartographer.update_from_consensus(
+                    result=content,
+                    round_num=round_num,
+                    vote_counts=kwargs.get("vote_counts", {})
+                )
+        except Exception:
+            pass  # Don't let cartographer errors break the loop
+
+    def _dispatch_webhook(self, event_type: str, data: dict = None) -> None:
+        """Dispatch an event to external webhooks if configured."""
+        if not self.webhook_dispatcher:
+            return
+        try:
+            event = {
+                "type": event_type,
+                "loop_id": self.loop_id,
+                "cycle": self.cycle_count,
+                "timestamp": datetime.now().isoformat(),
+                "data": data or {},
+            }
+            self.webhook_dispatcher.enqueue(event)
+        except Exception:
+            pass  # Don't let webhook errors break the loop
+
+    def _format_agent_reputations(self) -> str:
+        """Format agent reputations for prompt injection.
+
+        Shows which agents have been most successful so agents can
+        weight their collaboration accordingly.
+        """
+        if not hasattr(self, 'critique_store') or not self.critique_store:
+            return ""
+
+        try:
+            reputations = self.critique_store.get_all_reputations()
+            if not reputations:
+                return ""
+
+            lines = ["## AGENT TRACK RECORDS"]
+            for rep in sorted(reputations, key=lambda r: r.score, reverse=True):
+                if rep.proposals_made > 0:
+                    acceptance = rep.proposals_accepted / rep.proposals_made
+                    lines.append(f"- {rep.agent_name}: {acceptance:.0%} proposal acceptance ({rep.proposals_accepted}/{rep.proposals_made})")
+
+            return "\n".join(lines) if len(lines) > 1 else ""
+        except Exception:
+            return ""
+
+    def _format_agent_introspection(self, agent_name: str) -> str:
+        """Format agent self-awareness section for prompt injection.
+
+        Uses IntrospectionAPI to provide agents with awareness of their
+        own reputation, strengths, and track record.
+        """
+        if not INTROSPECTION_AVAILABLE or not get_agent_introspection:
+            return ""
+
+        try:
+            snapshot = get_agent_introspection(
+                agent_name,
+                memory=self.critique_store,
+                persona_manager=None,  # We don't have PersonaManager yet
+            )
+            return format_introspection_section(snapshot, max_chars=400)
+        except Exception:
+            return ""
+
+    async def _parallel_implementation_review(self, diff: str) -> Optional[str]:
+        """
+        All 3 agents review implementation changes in parallel.
+
+        This provides balanced participation in the implementation stage
+        while keeping the actual implementation specialized to Claude.
+
+        Returns:
+            Combined concerns from all agents, or None if all approve.
+        """
+        review_prompt = f"""Quick review of these code changes. Are there any obvious issues?
+
+## Code Changes (git diff)
+```
+{diff[:3000]}
+```
+
+Reply with ONE of:
+- APPROVED: <brief reason>
+- CONCERN: <specific issue>
+
+Be concise (1-2 sentences). Focus on correctness and safety issues only.
+"""
+
+        async def review_with_agent(agent, name: str) -> tuple[str, str]:
+            """Run review with one agent, returning (name, result)."""
+            try:
+                self._log(f"    {name}: reviewing implementation...", agent=name)
+                result = await agent.generate(review_prompt, context=[])
+                self._log(f"    {name}: {result[:100] if result else 'No response'}...", agent=name)
+                # Emit full review
+                if result:
+                    self._stream_emit("on_log_message", result, level="info", phase="review", agent=name)
+                return (name, result[:200] if result else "No response")
+            except Exception as e:
+                self._log(f"    {name}: review error - {e}", agent=name)
+                return (name, f"Error: {e}")
+
+        # Run all 4 agents in parallel
+        import asyncio
+        reviews = await asyncio.gather(
+            review_with_agent(self.gemini, "gemini"),
+            review_with_agent(self.codex, "codex"),
+            review_with_agent(self.claude, "claude"),
+            review_with_agent(self.grok, "grok"),
+            return_exceptions=True,
+        )
+
+        # Collect concerns
+        concerns = []
+        for result in reviews:
+            if isinstance(result, Exception):
+                continue
+            name, response = result
+            if response and "CONCERN" in response.upper():
+                concerns.append(f"{name}: {response}")
+
+        if concerns:
+            return "\n".join(concerns)
+        return None
+
+    async def _gather_implementation_suggestions(self, design: str) -> str:
+        """
+        All agents provide implementation suggestions in parallel.
+
+        This ensures all agents have a chance to contribute to implementation,
+        with Claude getting the final pass to consolidate and execute.
+
+        Returns:
+            Combined suggestions from all agents to guide implementation.
+        """
+        self._log("  Gathering implementation suggestions from all agents...", agent="claude")
+
+        suggestion_prompt = f"""Based on this design, provide your implementation suggestions:
+
+{design[:3000]}
+
+Provide:
+1. KEY IMPLEMENTATION APPROACH: How would you structure the code?
+2. POTENTIAL PITFALLS: What could go wrong and how to avoid it?
+3. CODE SNIPPETS: Any specific code patterns or snippets to use.
+
+Be concise (max 500 words). Focus on actionable guidance."""
+
+        async def get_suggestion(agent, name: str) -> tuple[str, str]:
+            """Get implementation suggestion from one agent."""
+            try:
+                self._log(f"    {name}: providing suggestions...", agent=name)
+                result = await self._call_agent_with_retry(agent, suggestion_prompt, max_retries=2)
+                if result and not ("[Agent" in result and "failed" in result):
+                    self._log(f"    {name}: suggestions received", agent=name)
+                    return (name, result[:1500])
+                else:
+                    return (name, "")
+            except Exception as e:
+                self._log(f"    {name}: suggestion failed: {e}", agent=name)
+                return (name, "")
+
+        # Run all agents in parallel
+        tasks = [
+            get_suggestion(self.gemini, "gemini"),
+            get_suggestion(self.codex, "codex"),
+            get_suggestion(self.grok, "grok"),
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Compile suggestions
+        suggestions = []
+        for result in results:
+            if isinstance(result, tuple) and result[1]:
+                name, suggestion = result
+                suggestions.append(f"### {name.upper()}'s Suggestions:\n{suggestion}\n")
+
+        if suggestions:
+            combined = "\n".join(suggestions)
+            self._log(f"  Received suggestions from {len(suggestions)} agents")
+            return f"""
+## IMPLEMENTATION GUIDANCE (from other agents)
+The following suggestions were provided by other agents. Consider their insights while implementing.
+
+{combined}
+
+## YOUR ROLE (Claude)
+You are the final implementer. Use the best ideas from above, but apply your own judgment.
+Synthesize these suggestions into a coherent, working implementation.
+"""
+        return ""
+
+    def _create_arena_hooks(self, phase_name: str) -> dict:
+        """Create event hooks for real-time Arena logging and streaming."""
+        # Get streaming hooks if available
+        stream_hooks = {}
+        if self.stream_emitter and STREAMING_AVAILABLE and create_arena_hooks:
+            stream_hooks = create_arena_hooks(self.stream_emitter)
+
+        def make_combined_hook(log_fn, stream_hook_name):
+            """Combine logging and streaming for a hook."""
+            stream_fn = stream_hooks.get(stream_hook_name)
+            def combined(*args, **kwargs):
+                log_fn(*args, **kwargs)
+                if stream_fn:
+                    try:
+                        stream_fn(*args, **kwargs)
+                    except Exception:
+                        pass  # Don't let streaming errors break the loop
+            return combined
+
+        return {
+            "on_debate_start": make_combined_hook(
+                lambda task, agents: self._log(f"    Debate started: {len(agents)} agents"),
+                "on_debate_start"
+            ),
+            "on_message": make_combined_hook(
+                lambda agent, content, role, round_num: self._log(
+                    f"    [{role}] {agent} (round {round_num}): {content}"  # Full content, no truncation
+                ),
+                "on_message"
+            ),
+            "on_critique": make_combined_hook(
+                lambda agent, target, issues, severity, round_num, full_content=None: self._log(
+                    f"    [critique] {agent} -> {target}: {len(issues)} issues, severity {severity:.1f}"
+                ),
+                "on_critique"
+            ),
+            "on_round_start": make_combined_hook(
+                lambda round_num: self._log(f"    --- Round {round_num} ---"),
+                "on_round_start"
+            ),
+            "on_consensus": make_combined_hook(
+                lambda reached, confidence, answer: self._log(
+                    f"    Consensus: {'Yes' if reached else 'No'} ({confidence:.0%})"
+                ),
+                "on_consensus"
+            ),
+            "on_vote": make_combined_hook(
+                lambda agent, vote, confidence: self._log(
+                    f"    [vote] {agent}: {vote} ({confidence:.0%})"
+                ),
+                "on_vote"
+            ),
+            "on_debate_end": make_combined_hook(
+                lambda duration, rounds: self._log(f"    Completed in {duration:.1f}s ({rounds} rounds)"),
+                "on_debate_end"
+            ),
+        }
+
+    async def _run_arena_with_logging(self, arena: Arena, phase_name: str) -> "DebateResult":
+        """Run an Arena debate with real-time logging via event hooks."""
+        self._log(f"  Starting {phase_name} arena...")
+        self._save_state({"phase": phase_name, "stage": "arena_starting"})
+
+        # Add event hooks for real-time logging
+        arena.hooks = self._create_arena_hooks(phase_name)
+
+        try:
+            result = await arena.run()
+
+            self._log(f"  {phase_name} arena complete")
+            self._log(f"    Consensus: {result.consensus_reached}", also_print=False)
+            self._log(f"    Confidence: {result.confidence}", also_print=False)
+            self._log(f"    Duration: {result.duration_seconds:.1f}s", also_print=False)
+
+            self._save_state({
+                "phase": phase_name,
+                "stage": "arena_complete",
+                "consensus_reached": result.consensus_reached,
+                "confidence": result.confidence,
+                "final_answer_preview": result.final_answer[:500] if result.final_answer else None,
+            })
+
+            return result
+
+        except Exception as e:
+            self._log(f"  {phase_name} arena ERROR: {e}")
+            self._save_state({"phase": phase_name, "stage": "arena_error", "error": str(e)})
+            raise
+
+    async def _run_fractal_with_logging(self, task: str, agents: list, phase_name: str) -> "DebateResult":
+        """Run a fractal debate with agent evolution and real-time logging."""
+        if not self.use_genesis or not GENESIS_AVAILABLE:
+            # Fall back to regular arena
+            env = Environment(task=task)
+            protocol = DebateProtocol(rounds=2, consensus="majority")
+            arena = Arena(environment=env, agents=agents, protocol=protocol, memory=self.critique_store, debate_embeddings=self.debate_embeddings)
+            return await self._run_arena_with_logging(arena, phase_name)
+
+        self._log(f"  Starting {phase_name} fractal debate (genesis mode)...")
+        self._save_state({"phase": phase_name, "stage": "fractal_starting", "genesis": True})
+
+        # Create fractal orchestrator with hooks
+        orchestrator = FractalOrchestrator(
+            max_depth=2,
+            tension_threshold=0.6,
+            evolve_agents=True,
+            population_manager=self.population_manager,
+            event_hooks=self.stream_hooks,
+        )
+
+        try:
+            # Get or create population from agent names
+            agent_names = [a.name.split("_")[0] for a in agents]
+            population = self.population_manager.get_or_create_population(agent_names)
+
+            self._log(f"    Population: {population.size} genomes, gen {population.generation}")
+
+            # Run fractal debate
+            fractal_result = await orchestrator.run(
+                task=task,
+                agents=agents,
+                population=population,
+            )
+
+            self._log(f"  {phase_name} fractal debate complete")
+            self._log(f"    Total depth: {fractal_result.total_depth}")
+            self._log(f"    Sub-debates: {len(fractal_result.sub_debates)}")
+            self._log(f"    Tensions resolved: {fractal_result.tensions_resolved}")
+            self._log(f"    Evolved genomes: {len(fractal_result.evolved_genomes)}")
+
+            # Log evolved genomes
+            for genome in fractal_result.evolved_genomes:
+                self._log(f"      - {genome.name} (gen {genome.generation})")
+
+            self._save_state({
+                "phase": phase_name,
+                "stage": "fractal_complete",
+                "genesis": True,
+                "total_depth": fractal_result.total_depth,
+                "sub_debates": len(fractal_result.sub_debates),
+                "evolved_genomes": len(fractal_result.evolved_genomes),
+                "consensus_reached": fractal_result.main_result.consensus_reached,
+            })
+
+            return fractal_result.main_result
+
+        except Exception as e:
+            self._log(f"  {phase_name} fractal debate ERROR: {e}")
+            self._save_state({"phase": phase_name, "stage": "fractal_error", "error": str(e)})
+            # Fall back to regular arena on error
+            self._log(f"  Falling back to regular arena...")
+            env = Environment(task=task)
+            protocol = DebateProtocol(rounds=2, consensus="majority")
+            arena = Arena(environment=env, agents=agents, protocol=protocol, memory=self.critique_store, debate_embeddings=self.debate_embeddings)
+            return await self._run_arena_with_logging(arena, phase_name)
+
+    async def phase_context_gathering(self) -> dict:
+        """
+        Phase 0: All agents explore codebase to gather context.
+
+        Each agent uses its native codebase exploration harness:
+        - Claude → Claude Code CLI (native codebase access)
+        - Codex → Codex CLI (native codebase access)
+        - Gemini → Kilo Code CLI (agentic codebase exploration)
+        - Grok → Kilo Code CLI (agentic codebase exploration)
+
+        This ensures ALL agents have first-hand knowledge of the codebase,
+        preventing proposals for features that already exist.
+        """
+        phase_start = datetime.now()
+
+        # Determine how many agents will participate
+        agents_count = 2  # Claude + Codex always
+        if KILOCODE_AVAILABLE:
+            agents_count = 4  # + Gemini + Grok via Kilo Code
+            self._log("\n" + "=" * 70)
+            self._log("PHASE 0: CONTEXT GATHERING (All 4 agents with codebase access)")
+            self._log("  Claude → Claude Code | Codex → Codex CLI")
+            self._log("  Gemini → Kilo Code  | Grok → Kilo Code")
+            self._log("=" * 70)
+        else:
+            self._log("\n" + "=" * 70)
+            self._log("PHASE 0: CONTEXT GATHERING (Claude + Codex)")
+            self._log("  Note: Install kilocode CLI to enable Gemini/Grok exploration")
+            self._log("=" * 70)
+
+        self._stream_emit("on_phase_start", "context", self.cycle_count, {"agents": agents_count})
+
+        # Prompt for codebase exploration
+        explore_prompt = f"""Explore the aragora codebase and provide a comprehensive summary of EXISTING features.
+
+Working directory: {self.aragora_path}
+
+Your task:
+1. Read key files: aragora/__init__.py, aragora/debate/orchestrator.py, aragora/server/stream.py
+2. List ALL existing major features and capabilities
+3. Note any features related to: streaming, real-time, visualization, spectator mode, WebSocket
+4. Identify the project's current architecture and patterns
+
+Output format:
+## EXISTING FEATURES (DO NOT RECREATE)
+- Feature 1: description
+- Feature 2: description
+...
+
+## ARCHITECTURE OVERVIEW
+Brief description of how the system is organized.
+
+## RECENT FOCUS AREAS
+What has been worked on recently (from git log).
+
+## GAPS AND OPPORTUNITIES
+What's genuinely missing (not already implemented).
+
+CRITICAL: Be thorough. Features you miss here may be accidentally proposed for recreation."""
+
+        async def gather_with_agent(agent, name: str, harness: str) -> tuple[str, str, str]:
+            """Run exploration with one agent."""
+            try:
+                self._log(f"  {name} ({harness}): exploring codebase...", agent=name)
+                result = await agent.generate(explore_prompt, context=[])
+                self._log(f"  {name}: complete ({len(result) if result else 0} chars)", agent=name)
+                # Emit agent's full exploration result
+                if result:
+                    self._stream_emit("on_log_message", result, level="info", phase="context", agent=name)
+                return (name, harness, result if result else "No response")
+            except Exception as e:
+                self._log(f"  {name}: error - {e}", agent=name)
+                return (name, harness, f"Error: {e}")
+
+        # Build list of exploration tasks
+        exploration_tasks = [
+            gather_with_agent(self.claude, "claude", "Claude Code"),
+            gather_with_agent(self.codex, "codex", "Codex CLI"),
+        ]
+
+        # Add Gemini and Grok via Kilo Code if available
+        if KILOCODE_AVAILABLE:
+            # Create temporary Kilo Code agents for exploration
+            gemini_explorer = KiloCodeAgent(
+                name="gemini-explorer",
+                provider_id="gemini-explorer",
+                model="gemini-3-pro",
+                role="explorer",
+                timeout=900,  # 15 min for agentic codebase exploration
+                mode="architect",
+            )
+            grok_explorer = KiloCodeAgent(
+                name="grok-explorer",
+                provider_id="grok-explorer",
+                model="grok-code-fast-1",
+                role="explorer",
+                timeout=900,  # 15 min for agentic codebase exploration
+                mode="architect",
+            )
+            exploration_tasks.extend([
+                gather_with_agent(gemini_explorer, "gemini", "Kilo Code"),
+                gather_with_agent(grok_explorer, "grok", "Kilo Code"),
+            ])
+
+        # Run all agents in parallel
+        results = await asyncio.gather(*exploration_tasks, return_exceptions=True)
+
+        # Combine the context from all agents
+        combined_context = []
+        for result in results:
+            if isinstance(result, Exception):
+                continue
+            name, harness, content = result
+            if content and "Error:" not in content:
+                combined_context.append(
+                    f"=== {name.upper()}'S CODEBASE ANALYSIS (via {harness}) ===\n{content}"
+                )
+
+        # If all failed, fall back to basic context
+        if not combined_context:
+            self._log("  Warning: Context gathering failed, using basic context")
+            combined_context = [f"Current features (from docstring):\n{self.get_current_features()}"]
+
+        gathered_context = "\n\n".join(combined_context)
+
+        phase_duration = (datetime.now() - phase_start).total_seconds()
+        self._log(f"  Context gathered from {len(combined_context)} agents in {phase_duration:.1f}s")
+        self._stream_emit(
+            "on_phase_end", "context", self.cycle_count, True,
+            phase_duration, {"agents": len(combined_context), "context_length": len(gathered_context)}
+        )
+
+        return {
+            "phase": "context",
+            "context": gathered_context,
+            "duration": phase_duration,
+            "agents_succeeded": len(combined_context),
+        }
+
+    async def phase_debate(self, codebase_context: str = None) -> dict:
+        """Phase 1: Agents debate what to improve."""
+        phase_start = datetime.now()
+        self._log("\n" + "=" * 70)
+        self._log("PHASE 1: IMPROVEMENT DEBATE")
+        self._log("=" * 70)
+        self._stream_emit("on_phase_start", "debate", self.cycle_count, {"agents": 4})
+
+        # Use provided context or fall back to basic
+        if codebase_context:
+            current_features = codebase_context
+        else:
+            current_features = self.get_current_features()
+        recent_changes = self.get_recent_changes()
+
+        # Gather learning context from previous cycles
+        failure_lessons = self._analyze_failed_branches()
+        successful_patterns = self._format_successful_patterns()
+
+        # Build task with optional initial proposal
+        initial_proposal_section = ""
+        if self.initial_proposal:
+            initial_proposal_section = f"""
+
+===== HUMAN-SUBMITTED PROPOSAL =====
+A human has submitted the following proposal for your consideration.
+You may adopt it, critique it, improve upon it, or propose something entirely different.
+
+{self.initial_proposal}
+====================================
+"""
+            self._log(f"  Including human proposal: {self.initial_proposal[:100]}...")
+
+        # Build context section with clear attribution
+        if codebase_context and len(codebase_context) > 500:
+            context_section = f"""
+===== CODEBASE ANALYSIS (from Claude + Codex who explored the code) =====
+The following is a comprehensive analysis of aragora's EXISTING features.
+Claude and Codex have read the actual codebase. DO NOT propose features that already exist below.
+
+{current_features}
+========================================================================"""
+        else:
+            context_section = f"Current aragora features:\n{current_features}"
+
+        # Record phase change
+        self._record_replay_event("phase", "system", "debate")
+
+        # Build learning context section (Titans/MIRAS + ContinuumMemory)
+        failure_patterns = self._format_failure_patterns()
+        agent_reputations = self._format_agent_reputations()
+        continuum_patterns = self._format_continuum_patterns(limit=3)
+
+        learning_context = ""
+        if failure_lessons:
+            learning_context += f"\n{failure_lessons}\n"
+        if successful_patterns:
+            learning_context += f"\n{successful_patterns}\n"
+        if failure_patterns:
+            learning_context += f"\n{failure_patterns}\n"
+        if agent_reputations:
+            learning_context += f"\n{agent_reputations}\n"
+        if continuum_patterns:
+            learning_context += f"\n{continuum_patterns}\n"
+
+        # Add agent introspection for self-awareness
+        if INTROSPECTION_AVAILABLE:
+            introspection_lines = ["## AGENT SELF-AWARENESS"]
+            for agent_name in ["gemini", "claude", "codex", "grok"]:
+                intro = self._format_agent_introspection(agent_name)
+                if intro:
+                    introspection_lines.append(f"\n### {agent_name.title()}\n{intro}")
+            if len(introspection_lines) > 1:
+                learning_context += "\n" + "\n".join(introspection_lines) + "\n"
+
+        # Add consensus history context (avoid rehashing settled topics)
+        topic_hint = self.initial_proposal[:200] if self.initial_proposal else "aragora improvement"
+        consensus_context = self._format_consensus_history(topic_hint)
+        if consensus_context:
+            learning_context += f"\n{consensus_context}\n"
+
+        # Add codebase evidence (P4: LocalDocsConnector)
+        evidence_context = await self._gather_codebase_evidence(topic_hint)
+        if evidence_context:
+            learning_context += f"\n{evidence_context}\n"
+
+        task = f"""{SAFETY_PREAMBLE}
+
+What single improvement would most benefit aragora RIGHT NOW?
+
+CRITICAL: Read the codebase analysis below carefully. DO NOT propose features that already exist.
+Claude and Codex have explored the codebase and documented existing features.
+{learning_context}
+Consider what would make aragora:
+- More INTERESTING (novel, creative, intellectually stimulating)
+- More POWERFUL (capable, versatile, effective)
+- More VIRAL (shareable, demonstrable, meme-worthy)
+- More USEFUL (practical, solves real problems)
+{initial_proposal_section}
+Each agent should propose ONE specific, implementable feature.
+Be concrete: describe what it does, how it works, and why it matters.
+After debate, reach consensus on THE SINGLE BEST improvement to implement this cycle.
+
+REMEMBER:
+- Propose ADDITIONS, not removals. Build new capabilities, don't simplify existing ones.
+- Check the codebase analysis - if a feature is listed there, it ALREADY EXISTS.
+- Learn from previous failures shown above - avoid repeating them.
+
+Recent changes:
+{recent_changes}"""
+
+        env = Environment(
+            task=task,
+            context=context_section,
+        )
+
+        protocol = DebateProtocol(
+            rounds=2,
+            consensus="judge",
+            proposer_count=4,  # All 4 agents participate
+        )
+
+        # Phase 5: Select optimal debate team (P14: AgentSelector)
+        debate_team = self._select_debate_team(topic_hint)
+
+        # Phase 7: Start debate trace for audit logging (P25: DebateTracer)
+        debate_id = f"debate-cycle-{self.cycle_count}"
+        self._start_debate_trace(debate_id, topic_hint or task[:100], debate_team)
+
+        # Phase 8: Inject similar past critiques as context (P27: SemanticRetriever)
+        semantic_context = await self._inject_similar_context(topic_hint or task[:200])
+        if semantic_context:
+            env.context = (env.context or "") + f"\n\n{semantic_context}"
+
+        arena = Arena(
+            env,
+            debate_team,
+            protocol,
+            memory=self.critique_store,
+            debate_embeddings=self.debate_embeddings,
+        )
+        result = await self._run_arena_with_logging(arena, "debate")
+
+        # Update agent reputation based on debate outcome
+        if self.critique_store and result.consensus_reached:
+            winning_proposal = result.final_answer[:200] if result.final_answer else ""
+            for agent in debate_team:
+                # Check if this agent's proposal was selected
+                proposal_accepted = agent.name.lower() in winning_proposal.lower()
+                self.critique_store.update_reputation(
+                    agent.name,
+                    proposal_made=True,
+                    proposal_accepted=proposal_accepted,
+                )
+
+        # Store consensus for future reference (P1: ConsensusMemory)
+        await self._store_debate_consensus(result, topic_hint)
+
+        # Extract and store insights for pattern learning (P2: InsightExtractor)
+        await self._extract_and_store_insights(result)
+
+        # Record agent memories for cumulative learning (P3: MemoryStream)
+        await self._record_agent_memories(result, topic_hint)
+
+        # Phase 4: Record persona performance (P8: PersonaManager)
+        self._record_persona_performance(result, topic_hint)
+
+        # Phase 4: Extract and store winning patterns (P9: PromptEvolver)
+        await self._extract_and_store_patterns(result)
+
+        # Phase 4: Update prompt performance metrics (P9: PromptEvolver)
+        for agent in debate_team:
+            self._update_prompt_performance(agent.name, result)
+
+        # Phase 5: Analyze debate process and store recommendations (P12: MetaCritiqueAnalyzer)
+        meta_critique = self._analyze_debate_process(result)
+        self._store_meta_recommendations(meta_critique)
+
+        # Phase 5: Update ELO ratings (P13: EloSystem)
+        self._record_elo_match(result, topic_hint)
+
+        # Phase 5: Track risks from low-consensus debates (P15: RiskRegister)
+        self._track_debate_risks(result, topic_hint)
+
+        # Phase 6: Extract structured claims from debate (P16: ClaimsKernel)
+        self._extract_claims_from_debate(result)
+        self._analyze_claim_structure()
+
+        # Phase 6: Build belief network and identify cruxes (P18: BeliefNetwork)
+        self._build_belief_network()
+        self._identify_debate_cruxes()
+
+        # Phase 6: Record evidence provenance (P17: ProvenanceManager)
+        if result.final_answer:
+            self._record_evidence_provenance(result.final_answer, "agent", "debate-consensus")
+
+        # Phase 6: Create verification proofs for code claims (P19: ProofExecutor)
+        await self._create_verification_proofs(result)
+
+        # Phase 7: Generate reliability report (P24: ReliabilityScorer)
+        self._generate_reliability_report()
+
+        # Phase 7: Finalize debate trace (P25: DebateTracer)
+        self._finalize_debate_trace(result)
+
+        # Phase 7: Create checkpoint after debate (P22: CheckpointManager)
+        await self._create_debate_checkpoint(
+            debate_id=result.id if hasattr(result, 'id') else "unknown",
+            task=topic_hint or task,
+            round_num=result.rounds_used if hasattr(result, 'rounds_used') else 0,
+            messages=result.messages if hasattr(result, 'messages') else [],
+            agents=agents,
+            consensus={"reached": result.consensus_reached, "confidence": result.confidence}
+        )
+
+        # Phase 8: Store critique embeddings for future retrieval (P27: SemanticRetriever)
+        if result.critiques:
+            for critique in result.critiques[:5]:  # Limit to 5 to avoid too many API calls
+                if hasattr(critique, 'reasoning'):
+                    await self._store_critique_embedding(
+                        critique_id=f"critique-{result.id[:8]}-{critique.agent}",
+                        critique_text=critique.reasoning
+                    )
+
+        # Phase 8: Evolve personas based on debate outcome (P26: PersonaLaboratory)
+        # Only run every few cycles to avoid overhead
+        if self.cycle_count % 3 == 0:
+            await self._evolve_personas_post_cycle()
+
+        # Handle deadlocks via counterfactual branching (P5: CounterfactualOrchestrator)
+        # This is a fallback when NomicIntegration isn't available
+        if not self.nomic_integration and not result.consensus_reached:
+            result = await self._handle_debate_deadlock(result, arena, topic_hint)
+
+        # NomicIntegration: Belief analysis and deadlock detection
+        belief_analysis = None
+        conditional_consensus = None
+        if self.nomic_integration:
+            try:
+                belief_analysis = await self.nomic_integration.analyze_debate(result)
+                if belief_analysis.has_deadlock:
+                    self._log(f"  [integration] Detected deadlock on {len(belief_analysis.crux_claims)} crux claims")
+                    # Try to resolve with counterfactual branching
+                    conditional_consensus = await self.nomic_integration.resolve_deadlock(
+                        belief_analysis.crux_claims
+                    )
+                    if conditional_consensus:
+                        self._log(f"  [integration] Resolved with conditional consensus")
+                else:
+                    self._log(f"  [integration] Belief analysis: {len(belief_analysis.contested_claims)} contested claims")
+                # Checkpoint the debate phase
+                await self.nomic_integration.checkpoint(
+                    phase="debate",
+                    state={"result": result.final_answer, "confidence": result.confidence},
+                    cycle=self.cycle_count,
+                )
+            except Exception as e:
+                self._log(f"  [integration] Analysis failed: {e}")
+
+        phase_duration = (datetime.now() - phase_start).total_seconds()
+        self._stream_emit(
+            "on_phase_end", "debate", self.cycle_count, result.consensus_reached,
+            phase_duration, {"confidence": result.confidence}
+        )
+
+        return {
+            "phase": "debate",
+            "final_answer": result.final_answer,
+            "consensus_reached": result.consensus_reached,
+            "confidence": result.confidence,
+            "duration": result.duration_seconds,
+            "belief_analysis": belief_analysis.to_dict() if belief_analysis else None,
+            "conditional_consensus": conditional_consensus,
+        }
+
+    async def phase_design(self, improvement: str) -> dict:
+        """Phase 2: All agents design the implementation together."""
+        phase_start = datetime.now()
+        self._log("\n" + "=" * 70)
+        self._log("PHASE 2: IMPLEMENTATION DESIGN")
+        self._log("=" * 70)
+        self._stream_emit("on_phase_start", "design", self.cycle_count, {"agents": 4})
+
+        # Record phase change
+        self._record_replay_event("phase", "system", "design")
+
+        # Gather learning context for design (Titans/MIRAS + ContinuumMemory)
+        successful_patterns = self._format_successful_patterns(limit=3)
+        failure_patterns = self._format_failure_patterns(limit=3)
+        continuum_patterns = self._format_continuum_patterns(limit=3)
+
+        design_learning = ""
+        if successful_patterns:
+            design_learning += f"\n{successful_patterns}\n"
+        if failure_patterns:
+            design_learning += f"\n{failure_patterns}\n"
+        if continuum_patterns:
+            design_learning += f"\n{continuum_patterns}\n"
+
+        env = Environment(
+            task=f"""{SAFETY_PREAMBLE}
+
+Design the implementation for this improvement:
+
+{improvement}
+{design_learning}
+Provide:
+1. FILE CHANGES: Which files to create or modify (NEVER delete protected files)
+2. API DESIGN: Key classes, functions, signatures (EXTEND existing APIs, don't break them)
+3. INTEGRATION: How it connects to existing aragora modules (preserve all existing functionality)
+4. TEST PLAN: How to verify it works AND that existing features still work
+5. EXAMPLE USAGE: Code snippet showing the feature in action
+
+Be specific enough that an engineer could implement it.
+The implementation MUST preserve all existing aragora functionality.
+Learn from past patterns shown above - repeat successes and avoid failures.""",
+            context=f"Working directory: {self.aragora_path}\n\nProtected files (NEVER delete): {PROTECTED_FILES}",
+        )
+
+        protocol = DebateProtocol(
+            rounds=1,
+            consensus="judge",
+            proposer_count=4,  # All 4 agents participate as proposers
+        )
+
+        # NomicIntegration: Probe agents for reliability weights
+        agent_weights = {}
+        design_agents = [self.gemini, self.codex, self.claude, self.grok]
+        if self.nomic_integration:
+            try:
+                self._log("  [integration] Probing agents for reliability...")
+                agent_weights = await self.nomic_integration.probe_agents(
+                    design_agents,
+                    probe_count=2,  # Quick probe
+                    min_weight=0.5,
+                )
+                reliable_count = sum(1 for w in agent_weights.values() if w >= 0.7)
+                self._log(f"  [integration] Agent weights: {agent_weights} ({reliable_count}/4 reliable)")
+            except Exception as e:
+                self._log(f"  [integration] Probing failed: {e}")
+
+        # All 4 agents participate in design (with reliability weights)
+        arena = Arena(
+            env,
+            design_agents,
+            protocol,
+            memory=self.critique_store,
+            debate_embeddings=self.debate_embeddings,
+            agent_weights=agent_weights,
+        )
+        result = await self._run_arena_with_logging(arena, "design")
+
+        # NomicIntegration: Checkpoint the design phase
+        if self.nomic_integration:
+            try:
+                await self.nomic_integration.checkpoint(
+                    phase="design",
+                    state={"design": result.final_answer, "agent_weights": agent_weights},
+                    cycle=self.cycle_count,
+                )
+            except Exception as e:
+                self._log(f"  [integration] Checkpoint failed: {e}")
+
+        phase_duration = (datetime.now() - phase_start).total_seconds()
+        self._stream_emit(
+            "on_phase_end", "design", self.cycle_count, result.consensus_reached,
+            phase_duration, {}
+        )
+
+        return {
+            "phase": "design",
+            "design": result.final_answer,
+            "consensus_reached": result.consensus_reached,
+            "agent_weights": agent_weights,
+        }
+
+    def _git_stash_create(self) -> Optional[str]:
+        """Create a git stash for transactional safety."""
+        try:
+            status = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            if not status.stdout.strip():
+                return None
+
+            result = subprocess.run(
+                ["git", "stash", "push", "-m", "nomic-implement-backup"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                ref_result = subprocess.run(
+                    ["git", "stash", "list", "-1", "--format=%H"],
+                    cwd=self.aragora_path,
+                    capture_output=True,
+                    text=True,
+                )
+                return ref_result.stdout.strip() or "stash@{0}"
+        except Exception as e:
+            self._log(f"Warning: Could not create stash: {e}")
+        return None
+
+    def _git_stash_pop(self, stash_ref: Optional[str]) -> None:
+        """Pop a stash to restore previous state."""
+        if not stash_ref:
+            return
+        try:
+            subprocess.run(
+                ["git", "checkout", "."],
+                cwd=self.aragora_path,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "stash", "pop"],
+                cwd=self.aragora_path,
+                capture_output=True,
+            )
+        except Exception as e:
+            self._log(f"Warning: Could not pop stash: {e}")
+
+    def _get_git_diff(self) -> str:
+        """Get current git diff."""
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--stat"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            return result.stdout
+        except Exception:
+            return ""
+
+    async def _call_agent_with_retry(
+        self,
+        agent,
+        prompt: str,
+        context: list = None,
+        max_retries: int = 3,
+        backoff_factor: float = 1.5,
+    ) -> str:
+        """
+        Call an agent with exponential backoff retry on failures.
+
+        Args:
+            agent: The agent to call
+            prompt: The prompt to send
+            context: Message context (optional)
+            max_retries: Maximum number of retry attempts
+            backoff_factor: Multiplier for timeout on each retry
+
+        Returns:
+            Agent response string, or error message on complete failure
+        """
+        context = context or []
+        timeout = agent.timeout
+        last_error = None
+
+        for attempt in range(max_retries):
+            try:
+                self._log(f"    {agent.name} attempt {attempt + 1}/{max_retries}...", agent=agent.name)
+
+                # Use asyncio.wait_for with increasing timeout
+                result = await asyncio.wait_for(
+                    agent.generate(prompt, context),
+                    timeout=timeout
+                )
+                return result
+
+            except asyncio.TimeoutError:
+                last_error = f"Timeout after {timeout}s"
+                if attempt < max_retries - 1:
+                    wait_time = min(30, 5 * (backoff_factor ** attempt))
+                    self._log(f"    Timeout, waiting {wait_time:.0f}s before retry...", agent=agent.name)
+                    await asyncio.sleep(wait_time)
+                    timeout = int(timeout * backoff_factor)  # Increase timeout for next attempt
+
+            except Exception as e:
+                last_error = str(e)
+                if attempt < max_retries - 1:
+                    wait_time = min(30, 5 * (backoff_factor ** attempt))
+                    self._log(f"    Error: {e}, waiting {wait_time:.0f}s before retry...", agent=agent.name)
+                    await asyncio.sleep(wait_time)
+
+        # All retries exhausted
+        self._log(f"    {agent.name} failed after {max_retries} attempts: {last_error}", agent=agent.name)
+        return f"[Agent {agent.name} failed after {max_retries} attempts: {last_error}]"
+
+    def _get_modified_files(self) -> list[str]:
+        """Get list of modified files (staged and unstaged)."""
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only", "HEAD"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+            return files
+        except Exception:
+            return []
+
+    def _count_test_results(self, test_output: str) -> dict:
+        """Parse pytest output to count passed/failed/errors."""
+        import re
+        result = {"passed": 0, "failed": 0, "errors": 0, "total": 0}
+
+        # Look for pytest summary line: "X passed, Y failed, Z errors"
+        summary_match = re.search(r"(\d+) passed", test_output)
+        if summary_match:
+            result["passed"] = int(summary_match.group(1))
+
+        failed_match = re.search(r"(\d+) failed", test_output)
+        if failed_match:
+            result["failed"] = int(failed_match.group(1))
+
+        error_match = re.search(r"(\d+) error", test_output)
+        if error_match:
+            result["errors"] = int(error_match.group(1))
+
+        result["total"] = result["passed"] + result["failed"] + result["errors"]
+        return result
+
+    def _extract_failing_files(self, test_output: str) -> list[str]:
+        """Extract file paths from pytest failure output."""
+        import re
+        failing_files = set()
+
+        # Match patterns like "tests/test_foo.py::TestClass::test_method FAILED"
+        # or "FAILED tests/test_foo.py::test_method"
+        patterns = [
+            r"(\S+\.py)::\S+ FAILED",
+            r"FAILED (\S+\.py)::",
+            r"ERROR (\S+\.py)::",
+            r"(\S+\.py):\d+: in \w+",  # Traceback lines
+        ]
+
+        for pattern in patterns:
+            matches = re.findall(pattern, test_output)
+            failing_files.update(matches)
+
+        return list(failing_files)
+
+    def _record_failure_patterns(self, test_output: str, design_context: str) -> None:
+        """
+        Record failure patterns for Titans/MIRAS learning.
+
+        Extracts failure signatures from test output and records them
+        so the system can learn to avoid similar failures in the future.
+        """
+        import re
+
+        if not self.critique_store:
+            return
+
+        # Extract failure types from test output
+        failure_patterns = []
+
+        # Pattern 1: AssertionError messages
+        assert_matches = re.findall(r"AssertionError: (.+?)(?:\n|$)", test_output)
+        for match in assert_matches[:3]:  # Limit to 3
+            failure_patterns.append(("assertion", match[:100]))
+
+        # Pattern 2: Import errors
+        import_matches = re.findall(r"(?:ImportError|ModuleNotFoundError): (.+?)(?:\n|$)", test_output)
+        for match in import_matches[:3]:
+            failure_patterns.append(("import", match[:100]))
+
+        # Pattern 3: Type errors
+        type_matches = re.findall(r"TypeError: (.+?)(?:\n|$)", test_output)
+        for match in type_matches[:3]:
+            failure_patterns.append(("type", match[:100]))
+
+        # Pattern 4: Attribute errors
+        attr_matches = re.findall(r"AttributeError: (.+?)(?:\n|$)", test_output)
+        for match in attr_matches[:3]:
+            failure_patterns.append(("attribute", match[:100]))
+
+        # Pattern 5: Syntax errors
+        syntax_matches = re.findall(r"SyntaxError: (.+?)(?:\n|$)", test_output)
+        for match in syntax_matches[:3]:
+            failure_patterns.append(("syntax", match[:100]))
+
+        # Record each failure pattern
+        for issue_type, issue_text in failure_patterns:
+            self.critique_store.fail_pattern(issue_text, issue_type=issue_type)
+            self._log(f"  Recorded failure pattern: [{issue_type}] {issue_text[:50]}...")
+
+        if failure_patterns:
+            self._log(f"  Recorded {len(failure_patterns)} failure patterns for future learning")
+
+    def _selective_rollback(self, files_to_rollback: list[str]) -> bool:
+        """
+        Rollback only specific files while preserving others.
+
+        Returns True if rollback was successful.
+        """
+        if not files_to_rollback:
+            return True
+
+        try:
+            self._log(f"  Selective rollback of {len(files_to_rollback)} files:")
+            for f in files_to_rollback[:5]:  # Show first 5
+                self._log(f"    - {f}")
+            if len(files_to_rollback) > 5:
+                self._log(f"    ... and {len(files_to_rollback) - 5} more")
+
+            # Checkout specific files from HEAD
+            subprocess.run(
+                ["git", "checkout", "HEAD", "--"] + files_to_rollback,
+                cwd=self.aragora_path,
+                check=True,
+            )
+            return True
+        except Exception as e:
+            self._log(f"  Selective rollback failed: {e}")
+            return False
+
+    def _commit_partial_progress(self, message: str) -> Optional[str]:
+        """
+        Commit current changes as partial progress before attempting more fixes.
+
+        Returns commit hash if successful, None otherwise.
+        """
+        try:
+            # Check if there are changes to commit
+            status = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            if not status.stdout.strip():
+                return None
+
+            # Stage all changes
+            subprocess.run(
+                ["git", "add", "-A"],
+                cwd=self.aragora_path,
+                check=True,
+            )
+
+            # Commit with WIP message
+            result = subprocess.run(
+                ["git", "commit", "-m", f"WIP: {message}\n\n[partial progress - may have failing tests]"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode == 0:
+                # Get commit hash
+                hash_result = subprocess.run(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=self.aragora_path,
+                    capture_output=True,
+                    text=True,
+                )
+                return hash_result.stdout.strip()[:8]
+            return None
+        except Exception:
+            return None
+
+    async def _preserve_failed_work(self, branch_name: str) -> Optional[str]:
+        """
+        Preserve failed implementation work in a git branch before rollback.
+
+        This ensures that even failed implementations can be inspected and
+        potentially salvaged later.
+
+        Returns:
+            Branch name if successful, None if failed
+        """
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        full_branch_name = f"{branch_name}-{timestamp}"
+
+        try:
+            # Get current branch
+            current_result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            current_branch = current_result.stdout.strip()
+
+            # Check if there are any changes to preserve
+            status_result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            if not status_result.stdout.strip():
+                self._log("  No changes to preserve")
+                return None
+
+            # Create and switch to preservation branch
+            subprocess.run(
+                ["git", "checkout", "-b", full_branch_name],
+                cwd=self.aragora_path,
+                capture_output=True,
+                check=True,
+            )
+
+            # Stage all changes including untracked files
+            subprocess.run(
+                ["git", "add", "-A"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                check=True,
+            )
+
+            # Commit the failed work
+            commit_msg = f"WIP: Failed nomic cycle {self.cycle_count} (verification failed)\n\nThis branch contains work that failed verification and was rolled back.\nPreserved for inspection and potential salvage."
+            subprocess.run(
+                ["git", "commit", "-m", commit_msg],
+                cwd=self.aragora_path,
+                capture_output=True,
+            )
+
+            # Switch back to original branch
+            subprocess.run(
+                ["git", "checkout", current_branch],
+                cwd=self.aragora_path,
+                capture_output=True,
+                check=True,
+            )
+
+            self._log(f"  Preserved failed work in branch: {full_branch_name}")
+            self._stream_emit("on_work_preserved", full_branch_name, self.cycle_count)
+            return full_branch_name
+
+        except Exception as e:
+            self._log(f"  Warning: Could not preserve work in branch: {e}")
+            # Try to get back to original branch
+            try:
+                subprocess.run(
+                    ["git", "checkout", current_branch],
+                    cwd=self.aragora_path,
+                    capture_output=True,
+                )
+            except Exception:
+                pass
+            return None
+
+    async def phase_implement(self, design: str) -> dict:
+        """Phase 3: Hybrid multi-model implementation."""
+        phase_start = datetime.now()
+        self._log("\n" + "=" * 70)
+        self._log("PHASE 3: IMPLEMENTATION (Hybrid)")
+        self._log("=" * 70)
+        self._stream_emit("on_phase_start", "implement", self.cycle_count, {})
+        self._record_replay_event("phase", "system", "implement")
+
+        use_hybrid = os.environ.get("ARAGORA_HYBRID_IMPLEMENT", "1") == "1"
+
+        if not use_hybrid:
+            return await self._legacy_implement(design)
+
+        design_hash = hashlib.md5(design.encode()).hexdigest()
+
+        # 1. Check for crash recovery
+        progress = load_progress(self.aragora_path)
+        if progress and progress.plan.design_hash == design_hash:
+            self._log("  Resuming from checkpoint...")
+            plan = progress.plan
+            completed = set(progress.completed_tasks)
+            stash_ref = progress.git_stash_ref
+        else:
+            # 2. Generate plan
+            try:
+                self._log("  Generating implementation plan...")
+                plan = await generate_implement_plan(design, self.aragora_path)
+                self._log(f"  Plan generated: {len(plan.tasks)} tasks")
+                for task in plan.tasks:
+                    self._log(f"    - {task.id}: {task.description[:60]}...", also_print=False)
+            except Exception as e:
+                self._log(f"  Plan generation failed: {e}")
+                self._log("  Falling back to single-task mode...")
+                plan = create_single_task_plan(design, self.aragora_path)
+
+            completed = set()
+            stash_ref = self._git_stash_create()
+
+            save_progress(
+                ImplementProgress(
+                    plan=plan,
+                    completed_tasks=[],
+                    git_stash_ref=stash_ref,
+                ),
+                self.aragora_path,
+            )
+
+        # Save state
+        self._save_state({
+            "phase": "implement",
+            "stage": "executing",
+            "total_tasks": len(plan.tasks),
+            "completed_tasks": len(completed),
+        })
+
+        # 3.5. Gather implementation suggestions from all agents (parallel)
+        # This ensures all agents contribute, with Claude doing the final implementation
+        multi_agent_suggestions = await self._gather_implementation_suggestions(design)
+
+        # Enhance the design with suggestions for Claude's implementation
+        if multi_agent_suggestions:
+            enhanced_design = f"{design}\n\n{multi_agent_suggestions}"
+            # Update task descriptions to include suggestions
+            for task in plan.tasks:
+                if hasattr(task, 'description'):
+                    task.description = f"{task.description}\n\n{multi_agent_suggestions[:1000]}"
+
+        # 4. Execute tasks (Claude with HybridExecutor, informed by all agents)
+        executor = HybridExecutor(self.aragora_path)
+
+        def on_task_complete(task_id: str, result):
+            completed.add(task_id)
+            self._log(f"  Task {task_id}: {'completed' if result.success else 'failed'}")
+            save_progress(
+                ImplementProgress(
+                    plan=plan,
+                    completed_tasks=list(completed),
+                    current_task=None,
+                    git_stash_ref=stash_ref,
+                ),
+                self.aragora_path,
+            )
+            self._save_state({
+                "phase": "implement",
+                "stage": "executing",
+                "total_tasks": len(plan.tasks),
+                "completed_tasks": len(completed),
+                "last_task": task_id,
+                "last_success": result.success,
+            })
+            # Stream task completion event
+            self._stream_emit(
+                "on_task_complete",
+                task_id,
+                result.success,
+                result.duration_seconds,
+                result.diff[:500] if result.diff else "",
+                result.error if not result.success else None,
+            )
+
+        try:
+            results = await executor.execute_plan(
+                plan.tasks,
+                completed,
+                on_task_complete=on_task_complete,
+            )
+
+            all_success = all(r.success for r in results)
+            tasks_completed = len([r for r in results if r.success])
+
+            if all_success and tasks_completed == len(plan.tasks):
+                clear_progress(self.aragora_path)
+                self._log(f"  All {tasks_completed} tasks completed successfully")
+
+                # Pre-verification review: All 3 agents review implementation in parallel
+                self._log("\n  Pre-verification review (all agents)...", agent="claude")
+                diff = self._get_git_diff()
+                if diff and len(diff) > 100:  # Only review if there are substantial changes
+                    review_concerns = await self._parallel_implementation_review(diff)
+                    if review_concerns:
+                        self._log(f"    Review concerns: {review_concerns[:200]}...", agent="claude")
+                    else:
+                        self._log("    All agents approve the implementation", agent="claude")
+
+                phase_duration = (datetime.now() - phase_start).total_seconds()
+                self._stream_emit(
+                    "on_phase_end", "implement", self.cycle_count, True,
+                    phase_duration, {"tasks_completed": tasks_completed}
+                )
+                return {
+                    "phase": "implement",
+                    "success": True,
+                    "tasks_completed": tasks_completed,
+                    "tasks_total": len(plan.tasks),
+                    "diff": diff,
+                    "results": [r.to_dict() for r in results],
+                }
+            else:
+                failed = [r for r in results if not r.success]
+                self._log(f"  {len(failed)} tasks failed")
+                phase_duration = (datetime.now() - phase_start).total_seconds()
+                self._stream_emit(
+                    "on_phase_end", "implement", self.cycle_count, False,
+                    phase_duration, {"tasks_failed": len(failed)}
+                )
+                return {
+                    "phase": "implement",
+                    "success": False,
+                    "tasks_completed": tasks_completed,
+                    "tasks_total": len(plan.tasks),
+                    "error": failed[0].error if failed else "Unknown error",
+                    "diff": self._get_git_diff(),
+                }
+
+        except Exception as e:
+            self._log(f"  Catastrophic failure: {e}")
+            self._log("  Rolling back changes...")
+            self._git_stash_pop(stash_ref)
+            phase_duration = (datetime.now() - phase_start).total_seconds()
+            self._stream_emit(
+                "on_phase_end", "implement", self.cycle_count, False,
+                phase_duration, {"error": str(e)}
+            )
+            self._stream_emit("on_error", "implement", str(e), True)
+            return {
+                "phase": "implement",
+                "success": False,
+                "error": str(e),
+            }
+
+    async def _legacy_implement(self, design: str) -> dict:
+        """Legacy single-Codex implementation (fallback)."""
+        self._log("  Using legacy Codex-only mode...")
+
+        prompt = f"""{SAFETY_PREAMBLE}
+
+Implement this design in the aragora codebase:
+
+{design}
+
+Write the actual code. Create or modify files as needed.
+Follow aragora's existing code style and patterns.
+Include docstrings and type hints.
+
+CRITICAL SAFETY RULES:
+- NEVER delete or modify these protected files: {PROTECTED_FILES}
+- NEVER remove existing functionality - only ADD new code
+- NEVER simplify code by removing features - complexity is acceptable
+- If a file seems "too complex", DO NOT simplify it
+- Preserve ALL existing imports, classes, and functions"""
+
+        try:
+            result = subprocess.run(
+                ["codex", "exec", "-C", str(self.aragora_path), prompt],
+                capture_output=True,
+                text=True,
+                timeout=1200,  # Doubled - Codex has known latency issues
+            )
+
+            return {
+                "phase": "implement",
+                "output": result.stdout,
+                "diff": self._get_git_diff(),
+                "success": result.returncode == 0,
+            }
+
+        except subprocess.TimeoutExpired:
+            return {
+                "phase": "implement",
+                "error": "Implementation timed out",
+                "success": False,
+            }
+        except Exception as e:
+            return {
+                "phase": "implement",
+                "error": str(e),
+                "success": False,
+            }
+
+    async def phase_verify(self) -> dict:
+        """Phase 4: Verify changes work."""
+        phase_start = datetime.now()
+        self._log("\n" + "=" * 70)
+        self._log("PHASE 4: VERIFICATION")
+        self._log("=" * 70)
+        self._stream_emit("on_phase_start", "verify", self.cycle_count, {})
+        self._stream_emit("on_verification_start", ["syntax", "import", "tests"])
+        self._record_replay_event("phase", "system", "verify")
+
+        checks = []
+
+        # 1. Python syntax check
+        self._log("  Checking syntax...")
+        try:
+            result = subprocess.run(
+                ["python", "-m", "py_compile", "aragora/__init__.py"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            passed = result.returncode == 0
+            checks.append({
+                "check": "syntax",
+                "passed": passed,
+                "output": result.stderr,
+            })
+            self._log(f"    {'passed' if passed else 'FAILED'} syntax")
+            self._stream_emit("on_verification_result", "syntax", passed, result.stderr[:200] if result.stderr else "")
+        except Exception as e:
+            checks.append({"check": "syntax", "passed": False, "error": str(e)})
+            self._log(f"    FAILED syntax: {e}")
+            self._stream_emit("on_verification_result", "syntax", False, str(e))
+
+        # 2. Import check
+        self._log("  Checking imports...")
+        try:
+            result = subprocess.run(
+                ["python", "-c", "import aragora; print('OK')"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+                timeout=180,  # Minimum 3 min (was 60)
+            )
+            passed = "OK" in result.stdout
+            checks.append({
+                "check": "import",
+                "passed": passed,
+                "output": result.stderr if result.returncode != 0 else "",
+            })
+            self._log(f"    {'passed' if passed else 'FAILED'} import")
+            self._stream_emit("on_verification_result", "import", passed, result.stderr[:200] if result.stderr else "")
+        except Exception as e:
+            checks.append({"check": "import", "passed": False, "error": str(e)})
+            self._log(f"    FAILED import: {e}")
+            self._stream_emit("on_verification_result", "import", False, str(e))
+
+        # 3. Run tests
+        self._log("  Running tests...")
+        try:
+            result = subprocess.run(
+                ["python", "-m", "pytest", "tests/", "-x", "--tb=short", "-q"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+                timeout=240,
+            )
+            # pytest returns 5 when no tests are collected - treat as pass
+            # Also check for "no tests ran" in output as a fallback
+            no_tests_collected = result.returncode == 5 or "no tests ran" in result.stdout.lower()
+            passed = result.returncode == 0 or no_tests_collected
+            checks.append({
+                "check": "tests",
+                "passed": passed,
+                "output": result.stdout[-500:] if result.stdout else "",
+                "note": "no tests collected" if no_tests_collected else "",
+            })
+            self._log(f"    {'passed' if passed else 'FAILED'} tests" + (" (no tests collected)" if no_tests_collected else ""))
+            self._stream_emit("on_verification_result", "tests", passed, result.stdout[-200:] if result.stdout else "")
+        except Exception as e:
+            # CRITICAL: Don't mask test failures - treat exceptions as failures
+            checks.append({"check": "tests", "passed": False, "error": str(e), "note": "Test execution failed"})
+            self._log(f"    FAILED tests (exception): {e}")
+            self._stream_emit("on_verification_result", "tests", False, f"Exception: {e}")
+
+        all_passed = all(c.get("passed", False) for c in checks)
+        self._save_state({
+            "phase": "verify",
+            "stage": "complete",
+            "all_passed": all_passed,
+            "checks": checks,
+        })
+
+        # NomicIntegration: Check evidence staleness and checkpoint
+        stale_claims = []
+        if self.nomic_integration:
+            try:
+                # Get changed files from git
+                changed_files = self._get_changed_files()
+                if changed_files:
+                    self._log(f"  [integration] Checking staleness for {len(changed_files)} changed files...")
+                    # Note: We'd need claims from debate to check properly
+                    # For now, just log and checkpoint
+                    self._log(f"  [integration] Changed files: {changed_files[:5]}...")
+
+                # Checkpoint the verify phase
+                await self.nomic_integration.checkpoint(
+                    phase="verify",
+                    state={"all_passed": all_passed, "checks": checks},
+                    cycle=self.cycle_count,
+                )
+            except Exception as e:
+                self._log(f"  [integration] Staleness check failed: {e}")
+
+        phase_duration = (datetime.now() - phase_start).total_seconds()
+        self._stream_emit(
+            "on_phase_end", "verify", self.cycle_count, all_passed,
+            phase_duration, {"checks_passed": sum(1 for c in checks if c.get("passed"))}
+        )
+
+        return {
+            "phase": "verify",
+            "checks": checks,
+            "all_passed": all_passed,
+            "stale_claims": stale_claims,
+        }
+
+    def _get_changed_files(self) -> list[str]:
+        """Get list of files changed in this cycle."""
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return [f.strip() for f in result.stdout.strip().split('\n') if f.strip()]
+        except Exception:
+            pass
+        return []
+
+    async def phase_commit(self, improvement: str) -> dict:
+        """Phase 5: Commit changes if verified."""
+        phase_start = datetime.now()
+        self._log("\n" + "=" * 70)
+        self._log("PHASE 5: COMMIT")
+        self._log("=" * 70)
+        self._stream_emit("on_phase_start", "commit", self.cycle_count, {})
+
+        if self.require_human_approval and not self.auto_commit:
+            self._log("\nChanges ready for review:")
+            subprocess.run(["git", "diff", "--stat"], cwd=self.aragora_path)
+
+            response = input("\nCommit these changes? [y/N]: ")
+            if response.lower() != 'y':
+                self._log("Skipping commit.")
+                phase_duration = (datetime.now() - phase_start).total_seconds()
+                self._stream_emit(
+                    "on_phase_end", "commit", self.cycle_count, False,
+                    phase_duration, {"reason": "human_declined"}
+                )
+                return {"phase": "commit", "committed": False, "reason": "Human declined"}
+
+        summary = improvement[:100].replace('\n', ' ')
+
+        try:
+            subprocess.run(
+                ["git", "add", "-A"],
+                cwd=self.aragora_path,
+                check=True,
+            )
+
+            result = subprocess.run(
+                ["git", "commit", "-m", f"feat(nomic): {summary}\n\n🤖 Auto-generated by aragora nomic loop"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+
+            committed = result.returncode == 0
+
+            if committed:
+                self._log(f"  Committed: {summary[:60]}...")
+                # Get commit hash
+                hash_result = subprocess.run(
+                    ["git", "rev-parse", "--short", "HEAD"],
+                    cwd=self.aragora_path,
+                    capture_output=True,
+                    text=True,
+                )
+                commit_hash = hash_result.stdout.strip() if hash_result.returncode == 0 else "unknown"
+                # Get files changed count
+                stat_result = subprocess.run(
+                    ["git", "diff", "--stat", "HEAD~1..HEAD"],
+                    cwd=self.aragora_path,
+                    capture_output=True,
+                    text=True,
+                )
+                files_changed = len([l for l in stat_result.stdout.split('\n') if '|' in l])
+                self._stream_emit("on_commit", commit_hash, summary, files_changed)
+            else:
+                self._log(f"  Commit failed: {result.stderr}")
+
+            phase_duration = (datetime.now() - phase_start).total_seconds()
+            self._stream_emit(
+                "on_phase_end", "commit", self.cycle_count, committed,
+                phase_duration, {}
+            )
+
+            return {
+                "phase": "commit",
+                "committed": committed,
+                "message": summary,
+            }
+
+        except Exception as e:
+            self._log(f"  Commit error: {e}")
+            phase_duration = (datetime.now() - phase_start).total_seconds()
+            self._stream_emit(
+                "on_phase_end", "commit", self.cycle_count, False,
+                phase_duration, {"error": str(e)}
+            )
+            self._stream_emit("on_error", "commit", str(e), True)
+            return {
+                "phase": "commit",
+                "committed": False,
+                "error": str(e),
+            }
+
+    async def run_cycle(self) -> dict:
+        """Run one complete improvement cycle with safety backup/restore."""
+        self.cycle_count += 1
+        cycle_start = datetime.now()
+
+        self._log("\n" + "=" * 70)
+        self._log(f"NOMIC CYCLE {self.cycle_count}")
+        self._log(f"Started: {cycle_start.isoformat()}")
+        self._log("=" * 70)
+
+        # Emit cycle start event
+        self._stream_emit("on_cycle_start", self.cycle_count, self.max_cycles, cycle_start.isoformat())
+        self._dispatch_webhook("cycle_start", {"max_cycles": self.max_cycles})
+
+        # Initialize ReplayRecorder for this cycle
+        if REPLAY_AVAILABLE and ReplayRecorder:
+            replay_dir = self.nomic_dir / "replays"
+            replay_dir.mkdir(exist_ok=True)
+            self.replay_recorder = ReplayRecorder(
+                debate_id=f"nomic-cycle-{self.cycle_count}",
+                topic=f"Nomic Loop Cycle {self.cycle_count}",
+                proposal=self.initial_proposal or "Self-improvement",
+                agents=[{"name": a, "model": a} for a in ["gemini", "claude", "codex", "grok"]],
+                storage_dir=str(replay_dir)
+            )
+            self.replay_recorder.start()
+            self._log(f"  [replay] Recording cycle {self.cycle_count}")
+
+        # Initialize ArgumentCartographer for this cycle
+        if CARTOGRAPHER_AVAILABLE and ArgumentCartographer:
+            self.cartographer = ArgumentCartographer()
+            self.cartographer.set_debate_context(
+                debate_id=f"nomic-cycle-{self.cycle_count}",
+                topic=self.initial_proposal or "Self-improvement"
+            )
+            self._log(f"  [viz] Cartographer ready for cycle {self.cycle_count}")
+
+        # Phase 4: Initialize agent personas at cycle start
+        self._init_agent_personas()
+
+        # === SAFETY: Create backup before any changes ===
+        backup_path = self._create_backup(f"cycle_{self.cycle_count}")
+
+        cycle_result = {
+            "cycle": self.cycle_count,
+            "started": cycle_start.isoformat(),
+            "backup_path": str(backup_path),
+            "phases": {},
+        }
+
+        self._save_state({
+            "phase": "cycle_start",
+            "cycle": self.cycle_count,
+            "backup_path": str(backup_path),
+        })
+
+        # Phase 0: Context Gathering (Claude + Codex explore codebase)
+        # This ensures Gemini and Grok get accurate context about existing features
+        context_result = await self.phase_context_gathering()
+        cycle_result["phases"]["context"] = context_result
+        codebase_context = context_result.get("context", "")
+
+        # Phase 1: Debate (all agents, with gathered context)
+        debate_result = await self.phase_debate(codebase_context=codebase_context)
+        cycle_result["phases"]["debate"] = debate_result
+
+        if not debate_result.get("consensus_reached"):
+            self._log("No consensus reached. Ending cycle.")
+            cycle_result["outcome"] = "no_consensus"
+            return cycle_result
+
+        improvement = debate_result["final_answer"]
+        self._log(f"\nConsensus improvement:\n{improvement}")  # Full content, no truncation
+
+        # Phase 2: Design
+        design_result = await self.phase_design(improvement)
+        cycle_result["phases"]["design"] = design_result
+
+        design = design_result.get("design", "")
+        self._log(f"\nDesign complete")
+
+        # Phase 3: Implement
+        impl_result = await self.phase_implement(design)
+        cycle_result["phases"]["implement"] = impl_result
+
+        if not impl_result.get("success"):
+            self._log("Implementation failed. Ending cycle.")
+            cycle_result["outcome"] = "implementation_failed"
+            return cycle_result
+
+        self._log(f"\nImplementation complete")
+        self._log(f"Changed files:\n{impl_result.get('diff', 'No changes')}")
+
+        # === SAFETY: Verify protected files are intact ===
+        self._log("\n  Checking protected files...")
+        protected_issues = self._verify_protected_files()
+        if protected_issues:
+            self._log("  CRITICAL: Protected files damaged!")
+            for issue in protected_issues:
+                self._log(f"    - {issue}")
+
+            # Preserve work before rollback
+            preserve_branch = await self._preserve_failed_work(f"nomic-protected-damaged-{self.cycle_count}")
+            if preserve_branch:
+                cycle_result["preserved_branch"] = preserve_branch
+                self._log(f"  Work preserved in branch: {preserve_branch}")
+
+            self._log("  Restoring from backup...")
+            self._restore_backup(backup_path)
+            subprocess.run(["git", "checkout", "."], cwd=self.aragora_path)
+            cycle_result["outcome"] = "protected_files_damaged"
+            cycle_result["protected_issues"] = protected_issues
+            return cycle_result
+        self._log("  All protected files intact")
+
+        # === Iterative Review/Fix Cycle ===
+        # Default: 3 fix attempts with all agents before rollback.
+        # The fix cycle: Codex reviews -> Claude fixes -> Gemini reviews -> Grok attempts -> re-verify
+        # Set ARAGORA_MAX_FIX_ITERATIONS to override (minimum 3 recommended for thorough fixing)
+        max_fix_iterations = int(os.environ.get("ARAGORA_MAX_FIX_ITERATIONS", "3"))
+        fix_iteration = 0
+        cycle_result["fix_iterations"] = []
+        best_test_score = 0  # Track progress: best passing test count
+        best_test_output = ""
+
+        while True:
+            # Phase 4: Verify
+            verify_result = await self.phase_verify()
+            cycle_result["phases"]["verify"] = verify_result
+
+            if verify_result.get("all_passed"):
+                self._log(f"\nVerification passed!")
+                break  # Success - exit the fix loop
+
+            # Get test output for progress tracking
+            test_output = ""
+            for check in verify_result.get("checks", []):
+                if check.get("check") == "tests":
+                    test_output = check.get("output", "")
+                    break
+
+            # Track progress - count passing tests
+            test_counts = self._count_test_results(test_output)
+            current_score = test_counts["passed"]
+            self._log(f"  Test results: {test_counts['passed']} passed, {test_counts['failed']} failed, {test_counts['errors']} errors")
+
+            # Update best score if improving
+            if current_score > best_test_score:
+                best_test_score = current_score
+                best_test_output = test_output
+                self._log(f"  Progress: New best score = {best_test_score} passing tests")
+                # Commit partial progress when improving
+                partial_commit = self._commit_partial_progress(f"cycle-{self.cycle_count}-iter-{fix_iteration}-{best_test_score}passed")
+                if partial_commit:
+                    self._log(f"  Partial progress committed: {partial_commit}")
+
+            # Verification failed
+            fix_iteration += 1
+            iteration_result = {
+                "iteration": fix_iteration,
+                "verify_result": verify_result,
+                "test_counts": test_counts,
+            }
+
+            if fix_iteration > max_fix_iterations:
+                # No more fix attempts allowed - try smart rollback first
+                self._log(f"\n{'=' * 50}")
+                self._log(f"MAX FIX ITERATIONS REACHED ({max_fix_iterations})")
+                self._log(f"{'=' * 50}")
+
+                if self.disable_rollback:
+                    self._log(f"Verification failed after {fix_iteration - 1} fix attempts.")
+                    self._log("  ROLLBACK DISABLED - keeping changes for inspection")
+                    cycle_result["outcome"] = "verification_failed_no_rollback"
+                    cycle_result["fix_iterations"].append(iteration_result)
+                    return cycle_result
+
+                # Try selective rollback first - only rollback files causing failures
+                self._log("\n  Attempting selective rollback (preserve passing changes)...")
+                failing_test_files = self._extract_failing_files(test_output)
+                modified_files = self._get_modified_files()
+
+                # Find files that might be causing the failures
+                problematic_files = []
+                for mod_file in modified_files:
+                    # Check if this modified file is referenced in failing tests
+                    if any(mod_file in ft or ft in mod_file for ft in failing_test_files):
+                        problematic_files.append(mod_file)
+
+                if problematic_files and len(problematic_files) < len(modified_files):
+                    # Try selective rollback
+                    self._log(f"  Found {len(problematic_files)} potentially problematic files (keeping {len(modified_files) - len(problematic_files)} others)")
+                    if self._selective_rollback(problematic_files):
+                        # Re-verify after selective rollback
+                        self._log("  Re-verifying after selective rollback...")
+                        re_verify = await self.phase_verify()
+                        if re_verify.get("all_passed"):
+                            self._log("  Selective rollback succeeded! Keeping partial changes.")
+                            cycle_result["outcome"] = "partial_success"
+                            cycle_result["selective_rollback"] = problematic_files
+                            break
+                        else:
+                            self._log("  Selective rollback did not fix all issues, proceeding to full rollback")
+
+                # Preserve work in a branch before full rollback
+                preserve_branch = await self._preserve_failed_work(f"nomic-failed-cycle-{self.cycle_count}")
+                if preserve_branch:
+                    cycle_result["preserved_branch"] = preserve_branch
+                    self._log(f"  Work preserved in branch: {preserve_branch}")
+
+                # Track failure patterns for learning (Titans/MIRAS)
+                if self.critique_store:
+                    self._record_failure_patterns(test_output, cycle_result.get("design", ""))
+
+                self._log(f"Verification failed after {fix_iteration - 1} fix attempts. Rolling back.")
+                self._restore_backup(backup_path)
+                subprocess.run(["git", "checkout", "."], cwd=self.aragora_path)
+                cycle_result["outcome"] = "verification_failed"
+                cycle_result["best_test_score"] = best_test_score
+                cycle_result["fix_iterations"].append(iteration_result)
+                return cycle_result
+
+            self._log(f"\n{'=' * 50}")
+            self._log(f"FIX ITERATION {fix_iteration}/{max_fix_iterations}")
+            self._log(f"{'=' * 50}")
+
+            # test_output already extracted above for progress tracking
+
+            # Step 1: Codex reviews the failed changes
+            self._log("\n  Step 1: Codex analyzing test failures...", agent="codex")
+            from aragora.implement import HybridExecutor
+            executor = HybridExecutor(self.aragora_path)
+            diff = self._get_git_diff()
+
+            # Get learned patterns for fix guidance (Titans/MIRAS)
+            fix_patterns = self._format_successful_patterns(limit=3)
+            avoid_patterns = self._format_failure_patterns(limit=3)
+
+            review_prompt = f"""The following code changes caused test failures. Analyze and suggest fixes.
+
+## Test Failures
+```
+{test_output[:2000]}
+```
+
+## Code Changes (git diff)
+```
+{diff[:3000]}
+```
+{fix_patterns}
+{avoid_patterns}
+Provide specific, actionable fixes. Focus on:
+1. What exactly is broken?
+2. What specific code changes will fix it?
+3. Are there missing imports or dependencies?
+4. Learn from patterns above - apply what's worked, avoid what hasn't.
+"""
+            review_result = await executor.review_with_codex(review_prompt, timeout=2400)  # 40 min for thorough review
+            iteration_result["codex_review"] = review_result
+            self._log(f"    Codex review complete", agent="codex")
+            # Emit Codex's full review
+            if review_result.get("review"):
+                self._stream_emit("on_log_message", review_result["review"], level="info", phase="fix", agent="codex")
+
+            # Step 2: Claude fixes based on Codex review
+            self._log("\n  Step 2: Claude applying fixes...", agent="claude")
+            fix_prompt = f"""{SAFETY_PREAMBLE}
+
+Fix the test failures in the codebase. Here's what went wrong and how to fix it:
+
+## Test Failures
+```
+{test_output[:1500]}
+```
+
+## Codex Analysis
+{review_result.get('review', 'No review available')[:2000]}
+
+## Instructions
+1. Read the failing tests to understand what's expected
+2. Apply the minimal fixes needed to make tests pass
+3. Do NOT remove or simplify existing functionality
+4. Preserve all imports and dependencies
+
+Working directory: {self.aragora_path}
+"""
+            try:
+                fix_agent = ClaudeAgent(
+                    name="claude-fixer",
+                    model="claude",
+                    role="fixer",
+                    timeout=1200,  # Doubled - fixes can be complex
+                )
+                # Use retry wrapper for resilience
+                fix_result = await self._call_agent_with_retry(fix_agent, fix_prompt, max_retries=2)
+                if "[Agent" in fix_result and "failed" in fix_result:
+                    iteration_result["fix_error"] = fix_result
+                    self._log(f"    Fix failed: {fix_result[:100]}", agent="claude")
+                else:
+                    iteration_result["fix_applied"] = True
+                    self._log("    Fixes applied", agent="claude")
+            except Exception as e:
+                iteration_result["fix_error"] = str(e)
+                self._log(f"    Fix failed: {e}", agent="claude")
+
+            # Step 3: Gemini quick review (optional sanity check)
+            self._log("\n  Step 3: Gemini quick review...", agent="gemini")
+            gemini_issues = False
+            try:
+                gemini_review_prompt = f"""Quick review of fix attempt. Are these changes correct?
+
+## Changes Made (by Claude)
+{self._get_git_diff()[:2000]}
+
+## Original Test Failures
+{test_output[:500]}
+
+Reply with: LOOKS_GOOD or ISSUES: <brief description>
+"""
+                # Use retry wrapper for resilience
+                gemini_result = await self._call_agent_with_retry(self.gemini, gemini_review_prompt, max_retries=2)
+                iteration_result["gemini_review"] = gemini_result[:200] if gemini_result else "No response"
+                self._log(f"    Gemini: {gemini_result[:100] if gemini_result else 'No response'}...", agent="gemini")
+                # Emit Gemini's full review
+                if gemini_result and not ("[Agent" in gemini_result and "failed" in gemini_result):
+                    self._stream_emit("on_log_message", gemini_result, level="info", phase="fix", agent="gemini")
+                    # Check if Gemini found issues
+                    gemini_issues = "ISSUES:" in gemini_result.upper() or "ISSUE:" in gemini_result.upper()
+            except Exception as e:
+                self._log(f"    Gemini review skipped: {e}", agent="gemini")
+
+            # Step 4: Grok attempts fixes if Gemini found issues or Claude's fix failed
+            if gemini_issues or iteration_result.get("fix_error"):
+                self._log("\n  Step 4: Grok attempting alternative fix...", agent="grok")
+                try:
+                    grok_fix_prompt = f"""{SAFETY_PREAMBLE}
+
+Previous fix attempt may have issues. Please apply an alternative fix for these test failures:
+
+## Test Failures
+```
+{test_output[:1500]}
+```
+
+## Previous Attempt Issues
+{iteration_result.get('gemini_review', 'Unknown issues')}
+{iteration_result.get('fix_error', '')}
+
+## Current Changes (may be partially correct)
+{self._get_git_diff()[:2000]}
+
+## Instructions
+1. Analyze what the previous fix attempt got wrong
+2. Apply a DIFFERENT approach to fix the tests
+3. Focus on minimal, targeted changes
+4. Do NOT undo correct fixes, only fix what's still broken
+
+Working directory: {self.aragora_path}
+"""
+                    # Use retry wrapper for resilience
+                    grok_result = await self._call_agent_with_retry(self.grok, grok_fix_prompt, max_retries=2)
+                    iteration_result["grok_fix"] = grok_result[:200] if grok_result else "No response"
+                    if grok_result and not ("[Agent" in grok_result and "failed" in grok_result):
+                        self._log(f"    Grok fix applied", agent="grok")
+                        self._stream_emit("on_log_message", grok_result, level="info", phase="fix", agent="grok")
+                    else:
+                        self._log(f"    Grok fix failed: {grok_result[:50] if grok_result else 'No response'}", agent="grok")
+                except Exception as e:
+                    self._log(f"    Grok fix skipped: {e}", agent="grok")
+            else:
+                self._log("\n  Step 4: Grok fix skipped (Gemini approved Claude's changes)", agent="grok")
+
+            cycle_result["fix_iterations"].append(iteration_result)
+
+            # Re-check protected files after fix
+            protected_issues = self._verify_protected_files()
+            if protected_issues:
+                self._log("  CRITICAL: Fix damaged protected files!")
+                # Preserve work before rollback
+                preserve_branch = await self._preserve_failed_work(f"nomic-fix-damaged-{self.cycle_count}")
+                if preserve_branch:
+                    cycle_result["preserved_branch"] = preserve_branch
+                    self._log(f"  Work preserved in branch: {preserve_branch}")
+                self._restore_backup(backup_path)
+                subprocess.run(["git", "checkout", "."], cwd=self.aragora_path)
+                cycle_result["outcome"] = "protected_files_damaged"
+                return cycle_result
+
+            self._log("\n  Re-running verification...")
+
+        self._log(f"\nVerification passed")
+
+        # Phase 5: Commit
+        commit_result = await self.phase_commit(improvement)
+        cycle_result["phases"]["commit"] = commit_result
+
+        if commit_result.get("committed"):
+            cycle_result["outcome"] = "success"
+            self._log(f"\nCYCLE {self.cycle_count} COMPLETE - Changes committed!")
+        else:
+            cycle_result["outcome"] = "not_committed"
+
+        # Phase 5: Log ELO leaderboard every 5 cycles (P13: EloSystem)
+        self._log_elo_leaderboard()
+
+        # Phase 6: Run pending verification proofs (P19: ProofExecutor)
+        await self._run_verification_proofs()
+
+        # Phase 6: Verify evidence chain integrity (P17: ProvenanceManager)
+        self._verify_evidence_chain()
+
+        # Phase 7: Check evidence staleness for living documents (P21: EnhancedProvenance)
+        staleness_status = await self._check_evidence_staleness()
+        if staleness_status:
+            cycle_result["staleness"] = staleness_status
+
+        cycle_result["duration_seconds"] = (datetime.now() - cycle_start).total_seconds()
+        self.history.append(cycle_result)
+
+        self._save_state({
+            "phase": "cycle_complete",
+            "cycle": self.cycle_count,
+            "outcome": cycle_result["outcome"],
+            "duration_seconds": cycle_result["duration_seconds"],
+        })
+
+        # Emit cycle end event
+        self._stream_emit(
+            "on_cycle_end",
+            self.cycle_count,
+            cycle_result.get("outcome") == "success",
+            cycle_result["duration_seconds"],
+            cycle_result.get("outcome", "unknown"),
+        )
+        self._dispatch_webhook("cycle_end", {
+            "outcome": cycle_result.get("outcome", "unknown"),
+            "duration_seconds": cycle_result.get("duration_seconds", 0),
+            "success": cycle_result.get("outcome") == "success",
+        })
+
+        # Finalize ReplayRecorder
+        if self.replay_recorder:
+            try:
+                outcome = cycle_result.get("outcome", "unknown")
+                votes = {"success": 1 if outcome == "success" else 0}
+                replay_path = self.replay_recorder.finalize(outcome, votes)
+                self._log(f"  [replay] Cycle recorded to {replay_path}")
+            except Exception as e:
+                self._log(f"  [replay] Finalization error: {e}")
+            finally:
+                self.replay_recorder = None
+
+        # Export ArgumentCartographer visualization
+        if self.cartographer:
+            try:
+                # Export as Mermaid markdown
+                mermaid_path = self.visualizations_dir / f"cycle-{self.cycle_count}.md"
+                mermaid_content = self.cartographer.export_mermaid()
+                with open(mermaid_path, "w") as f:
+                    f.write(f"# Cycle {self.cycle_count} Debate Graph\n\n")
+                    f.write("```mermaid\n")
+                    f.write(mermaid_content)
+                    f.write("\n```\n")
+
+                # Export as JSON for analysis
+                json_path = self.visualizations_dir / f"cycle-{self.cycle_count}.json"
+                with open(json_path, "w") as f:
+                    f.write(self.cartographer.export_json(include_full_content=True))
+
+                stats = self.cartographer.get_statistics()
+                self._log(f"  [viz] Exported: {stats.get('total_nodes', 0)} nodes, {stats.get('total_edges', 0)} edges")
+            except Exception as e:
+                self._log(f"  [viz] Export error: {e}")
+            finally:
+                self.cartographer = None
+
+        # Store cycle outcome in ContinuumMemory for pattern learning
+        if self.continuum and CONTINUUM_AVAILABLE:
+            try:
+                outcome = cycle_result.get("outcome", "unknown")
+                improvement = cycle_result.get("phases", {}).get("debate", {}).get("final_answer", "")[:500]
+                is_success = outcome == "success"
+
+                # Store in SLOW tier (strategic learning across cycles)
+                memory_id = f"cycle-{self.cycle_count}-{outcome}"
+                self.continuum.add(
+                    id=memory_id,
+                    content=f"Cycle {self.cycle_count}: {outcome}. Improvement: {improvement}",
+                    tier=MemoryTier.SLOW,
+                    importance=0.8 if is_success else 0.5,
+                    metadata={
+                        "cycle": self.cycle_count,
+                        "outcome": outcome,
+                        "duration_seconds": cycle_result.get("duration_seconds", 0),
+                        "success": is_success,
+                    }
+                )
+                self._log(f"  [continuum] Stored cycle outcome in SLOW tier")
+
+                # Consolidate memory periodically (every 5 cycles)
+                if self.cycle_count % 5 == 0:
+                    stats = self.continuum.consolidate()
+                    self._log(f"  [continuum] Consolidated: {stats}")
+
+                    # Run MetaLearner to self-tune hyperparameters
+                    if self.meta_learner:
+                        try:
+                            metrics = self.meta_learner.evaluate_learning_efficiency(
+                                self.continuum, cycle_result
+                            )
+                            adjustments = self.meta_learner.adjust_hyperparameters(metrics)
+                            if adjustments:
+                                # Apply adjustments to ContinuumMemory
+                                self.continuum.hyperparams.update(adjustments)
+                                self._log(f"  [meta] Applied hyperparameter adjustments: {list(adjustments.keys())}")
+                        except Exception as e:
+                            self._log(f"  [meta] MetaLearner error: {e}")
+            except Exception as e:
+                self._log(f"  [continuum] Storage error: {e}")
+
+        # Run capability probes periodically (P6: CapabilityProber)
+        await self._probe_agent_capabilities()
+
+        # Phase 4: Agent Evolution - evolve prompts periodically (every 10 cycles)
+        await self._evolve_agent_prompts()
+
+        # Phase 4: Agent Evolution - run tournament periodically (every 20 cycles)
+        await self._run_tournament_if_due()
+
+        return cycle_result
+
+    async def run(self):
+        """Run the nomic loop until max cycles or interrupted."""
+        self._log("=" * 70)
+        self._log("ARAGORA NOMIC LOOP")
+        self._log("Self-improving multi-agent system")
+        self._log("=" * 70)
+        self._log(f"Max cycles: {self.max_cycles}")
+        self._log(f"Human approval required: {self.require_human_approval}")
+        self._log(f"Auto-commit: {self.auto_commit}")
+        if self.initial_proposal:
+            self._log(f"Initial proposal: {self.initial_proposal[:100]}...")
+        self._log("=" * 70)
+        self._log(f"Log file: {self.log_file}")
+        self._log(f"State file: {self.state_file}")
+        self._log(f"Backup dir: {self.backup_dir}")
+        self._log("=" * 70)
+
+        try:
+            while self.cycle_count < self.max_cycles:
+                result = await self.run_cycle()
+
+                self._log(f"\nCycle {self.cycle_count} outcome: {result.get('outcome')}")
+
+                if result.get("outcome") == "success":
+                    self._log("Continuing to next cycle...")
+                else:
+                    self._log("Cycle did not complete successfully.")
+                    if self.require_human_approval and not self.auto_commit:
+                        try:
+                            response = input("Continue to next cycle? [Y/n]: ")
+                            if response.lower() == 'n':
+                                break
+                        except EOFError:
+                            # Running in background/non-interactive mode
+                            self._log("Non-interactive mode detected, continuing...")
+                    else:
+                        self._log("Auto-commit mode: continuing to next cycle...")
+
+                await asyncio.sleep(2)
+
+        except KeyboardInterrupt:
+            self._log("\n\nNomic loop interrupted by user.")
+
+        self._log("\n" + "=" * 70)
+        self._log("NOMIC LOOP COMPLETE")
+        self._log(f"Total cycles: {self.cycle_count}")
+        self._log(f"Successful commits: {sum(1 for h in self.history if h.get('outcome') == 'success')}")
+        self._log("=" * 70)
+
+        return self.history
+
+
+# =============================================================================
+# CLI Commands for backup management
+# =============================================================================
+
+def list_backups(aragora_path: Path) -> None:
+    """List available backups."""
+    backup_dir = aragora_path / ".nomic" / "backups"
+    if not backup_dir.exists():
+        print("No backups directory found.")
+        return
+
+    backups = sorted(backup_dir.iterdir(), reverse=True)
+    if not backups:
+        print("No backups found.")
+        return
+
+    print(f"Available backups in {backup_dir}:")
+    for backup in backups:
+        manifest_file = backup / "manifest.json"
+        if manifest_file.exists():
+            with open(manifest_file) as f:
+                manifest = json.load(f)
+            print(f"  {backup.name}")
+            print(f"    Created: {manifest.get('created_at')}")
+            print(f"    Reason: {manifest.get('reason')}")
+            print(f"    Files: {len(manifest.get('files', []))}")
+        else:
+            print(f"  {backup.name} (no manifest)")
+
+
+def restore_backup_cli(aragora_path: Path, backup_name: str = None) -> bool:
+    """Restore from a specific backup or the latest one."""
+    backup_dir = aragora_path / ".nomic" / "backups"
+
+    if backup_name:
+        backup_path = backup_dir / backup_name
+        if not backup_path.exists():
+            print(f"Backup not found: {backup_name}")
+            return False
+    else:
+        # Find latest backup
+        backups = sorted(backup_dir.iterdir(), reverse=True)
+        backup_path = None
+        for b in backups:
+            if (b / "manifest.json").exists():
+                backup_path = b
+                break
+        if not backup_path:
+            print("No valid backups found.")
+            return False
+
+    manifest_file = backup_path / "manifest.json"
+    with open(manifest_file) as f:
+        manifest = json.load(f)
+
+    print(f"Restoring backup: {backup_path.name}")
+    print(f"  Created: {manifest.get('created_at')}")
+    print(f"  Reason: {manifest.get('reason')}")
+
+    restored = []
+    for rel_path in manifest["files"]:
+        src = backup_path / rel_path
+        dst = aragora_path / rel_path
+        if src.exists():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            restored.append(rel_path)
+            print(f"  Restored: {rel_path}")
+
+    print(f"\nRestored {len(restored)} files")
+    return True
+
+
+async def main():
+    parser = argparse.ArgumentParser(description="Aragora Nomic Loop - Self-improvement cycle")
+
+    # Subcommands
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # Run subcommand (default)
+    run_parser = subparsers.add_parser("run", help="Run the nomic loop")
+    run_parser.add_argument("--cycles", type=int, default=3, help="Maximum cycles to run")
+    run_parser.add_argument("--auto", action="store_true", help="Auto-commit without human approval")
+    run_parser.add_argument("--path", type=str, help="Path to aragora repository")
+    run_parser.add_argument(
+        "--proposal", "-p", type=str,
+        help="Initial proposal for agents to consider (they may adopt, improve, or reject it)"
+    )
+    run_parser.add_argument(
+        "--proposal-file", "-f", type=str,
+        help="File containing initial proposal (alternative to --proposal)"
+    )
+    run_parser.add_argument(
+        "--genesis", action="store_true",
+        help="Enable genesis mode: fractal debates with agent evolution"
+    )
+    run_parser.add_argument(
+        "--no-rollback", action="store_true",
+        help="Disable rollback on verification failure (keep changes for inspection)"
+    )
+    run_parser.add_argument(
+        "--no-stream", action="store_true",
+        help="DISCOURAGED: Run without live streaming. Use 'python scripts/run_nomic_with_stream.py run' instead."
+    )
+
+    # Backup management subcommands
+    list_parser = subparsers.add_parser("list-backups", help="List available backups")
+    list_parser.add_argument("--path", type=str, help="Path to aragora repository")
+
+    restore_parser = subparsers.add_parser("restore", help="Restore from a backup")
+    restore_parser.add_argument("--path", type=str, help="Path to aragora repository")
+    restore_parser.add_argument("--backup", type=str, help="Specific backup name (default: latest)")
+
+    # Legacy arguments for backward compatibility (when no subcommand specified)
+    parser.add_argument("--cycles", type=int, default=3, help="Maximum cycles to run")
+    parser.add_argument("--auto", action="store_true", help="Auto-commit without human approval")
+    parser.add_argument("--path", type=str, help="Path to aragora repository")
+    parser.add_argument(
+        "--proposal", "-p", type=str,
+        help="Initial proposal for agents to consider (they may adopt, improve, or reject it)"
+    )
+    parser.add_argument(
+        "--proposal-file", "-f", type=str,
+        help="File containing initial proposal (alternative to --proposal)"
+    )
+    parser.add_argument(
+        "--genesis", action="store_true",
+        help="Enable genesis mode: fractal debates with agent evolution"
+    )
+    parser.add_argument(
+        "--no-stream", action="store_true",
+        help="DISCOURAGED: Run without live streaming. Use 'python scripts/run_nomic_with_stream.py run' instead."
+    )
+
+    args = parser.parse_args()
+
+    # Determine aragora path
+    aragora_path = Path(args.path) if args.path else Path(__file__).parent.parent
+
+    # Handle subcommands
+    if args.command == "list-backups":
+        list_backups(aragora_path)
+        return
+
+    if args.command == "restore":
+        restore_backup_cli(aragora_path, getattr(args, 'backup', None))
+        return
+
+    # Default: run the nomic loop (either "run" subcommand or no subcommand)
+    no_stream = getattr(args, 'no_stream', False)
+
+    # ENFORCE STREAMING: Redirect to run_nomic_with_stream.py unless --no-stream is specified
+    if not no_stream:
+        print("=" * 70)
+        print("STREAMING IS REQUIRED")
+        print("=" * 70)
+        print()
+        print("The nomic loop MUST stream to live.aragora.ai for transparency.")
+        print()
+        print("Please use the streaming script instead:")
+        print()
+        print("    python scripts/run_nomic_with_stream.py run --cycles 3")
+        print()
+        print("This ensures that all nomic loop activity is visible in real-time")
+        print("at https://live.aragora.ai")
+        print()
+        print("If you MUST run without streaming (not recommended), use:")
+        print()
+        print("    python scripts/nomic_loop.py run --no-stream --cycles 3")
+        print()
+        print("=" * 70)
+        sys.exit(1)
+
+    # If --no-stream is specified, show warning and continue
+    print("=" * 70)
+    print("WARNING: Running WITHOUT live streaming")
+    print("=" * 70)
+    print()
+    print("Activity will NOT be visible at https://live.aragora.ai")
+    print("This is strongly discouraged for transparency reasons.")
+    print()
+    print("Press Ctrl+C within 5 seconds to cancel...")
+    print()
+    try:
+        await asyncio.sleep(5)
+    except KeyboardInterrupt:
+        print("\nCancelled. Use 'python scripts/run_nomic_with_stream.py run' instead.")
+        sys.exit(0)
+    print("Continuing without streaming...")
+    print("=" * 70)
+    print()
+
+    initial_proposal = getattr(args, 'proposal', None)
+    if hasattr(args, 'proposal_file') and args.proposal_file:
+        with open(args.proposal_file) as f:
+            initial_proposal = f.read()
+
+    use_genesis = getattr(args, 'genesis', False)
+
+    loop = NomicLoop(
+        aragora_path=args.path,
+        max_cycles=args.cycles,
+        require_human_approval=not args.auto,
+        auto_commit=args.auto,
+        initial_proposal=initial_proposal,
+        use_genesis=use_genesis,
+    )
+
+    if use_genesis:
+        print("Genesis mode enabled: fractal debates with agent evolution")
+
+    await loop.run()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
