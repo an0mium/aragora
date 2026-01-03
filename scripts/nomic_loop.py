@@ -887,23 +887,25 @@ class NomicLoop:
 
         # Phase 7: ReliabilityScorer for confidence scoring (P24)
         self.reliability_scorer = None
-        if RELIABILITY_SCORER_AVAILABLE:
-            self.reliability_scorer = ReliabilityScorer()
+        if RELIABILITY_SCORER_AVAILABLE and self.provenance_manager:
+            self.reliability_scorer = ReliabilityScorer(provenance=self.provenance_manager)
             print(f"[reliability] Confidence scoring enabled")
 
         # Phase 7: DebateTracer for audit logs (P25)
-        self.debate_tracer = None
+        # Note: DebateTracer is created per-debate, so we just store the path
+        self.debate_trace_db = None
+        self._current_tracer = None  # Created per-debate in _start_debate_trace
         if DEBATE_TRACER_AVAILABLE:
             trace_dir = self.nomic_dir / "traces"
             trace_dir.mkdir(exist_ok=True)
-            self.debate_tracer = DebateTracer(storage_path=str(trace_dir))
+            self.debate_trace_db = str(trace_dir / "debate_traces.db")
             print(f"[tracer] Audit logging enabled")
 
         # Phase 8: Agent Evolution, Semantic Memory & Advanced Debates
 
         # Phase 8: PersonaLaboratory for agent evolution (P26)
         self.persona_lab = None
-        if PERSONA_LAB_AVAILABLE and PERSONA_MANAGER_AVAILABLE and self.persona_manager:
+        if PERSONA_LAB_AVAILABLE and PERSONAS_AVAILABLE and self.persona_manager:
             lab_db = self.nomic_dir / "persona_lab.db"
             self.persona_lab = PersonaLaboratory(
                 persona_manager=self.persona_manager,
@@ -925,17 +927,17 @@ class NomicLoop:
             print(f"[formal] Z3 verification enabled")
 
         # Phase 8: DebateGraph for DAG-based debates (P29)
-        self.graph_orchestrator = None
+        # Note: GraphDebateOrchestrator is created per-debate with specific agents
+        self.graph_debate_enabled = False
         if DEBATE_GRAPH_AVAILABLE and GraphDebateOrchestrator:
-            self.graph_orchestrator = GraphDebateOrchestrator()
+            self.graph_debate_enabled = True
             print(f"[graph] DAG debate structure enabled")
 
         # Phase 8: DebateForker for parallel exploration (P30)
-        self.fork_detector = None
-        self.debate_forker = None
-        if DEBATE_FORKER_AVAILABLE:
-            self.fork_detector = ForkDetector()
-            self.debate_forker = DebateForker()
+        # Note: DebateForker is created per-debate
+        self.fork_debate_enabled = False
+        if DEBATE_FORKER_AVAILABLE and DebateForker:
+            self.fork_debate_enabled = True
             print(f"[forking] Parallel branch exploration enabled")
 
         # Setup streaming (optional)
@@ -2441,50 +2443,63 @@ Propose additions that unlock new capabilities and create emergent value.""" + s
 
     def _start_debate_trace(self, debate_id: str, task: str, agents: list) -> None:
         """Start tracing a debate for audit logs (P25: DebateTracer)."""
-        if not DEBATE_TRACER_AVAILABLE or not self.debate_tracer:
+        if not DEBATE_TRACER_AVAILABLE or not self.debate_trace_db:
             return
         try:
             agent_names = [a.name for a in agents if hasattr(a, 'name')]
-            self.debate_tracer.start_trace(
+            # Create a new tracer for this debate
+            self._current_tracer = DebateTracer(
                 debate_id=debate_id,
                 task=task,
-                agents=agent_names
+                agents=agent_names,
+                db_path=self.debate_trace_db
             )
             self._log(f"  [tracer] Started trace for debate {debate_id[:8]}")
         except Exception as e:
+            self._current_tracer = None
             self._log(f"  [tracer] Start error: {e}")
 
     def _trace_event(self, event_type: str, content: str, agent: str = None) -> None:
         """Record an event to the debate trace (P25: DebateTracer)."""
-        if not DEBATE_TRACER_AVAILABLE or not self.debate_tracer:
+        if not DEBATE_TRACER_AVAILABLE or not getattr(self, '_current_tracer', None):
             return
         try:
-            # Map string event types to EventType enum
-            type_map = {
-                "proposal": EventType.AGENT_PROPOSAL if EventType else None,
-                "critique": EventType.AGENT_CRITIQUE if EventType else None,
-                "vote": EventType.AGENT_VOTE if EventType else None,
-                "round_start": EventType.ROUND_START if EventType else None,
-                "round_end": EventType.ROUND_END if EventType else None,
-                "consensus": EventType.CONSENSUS_REACHED if EventType else None,
-            }
-            event_enum = type_map.get(event_type)
-            if event_enum:
-                self.debate_tracer.record(event_enum, content, agent=agent)
+            # Use specialized record methods where available
+            if event_type == "proposal" and agent:
+                self._current_tracer.record_proposal(agent, content)
+            elif event_type == "round_start":
+                round_num = int(content) if content.isdigit() else 0
+                self._current_tracer.start_round(round_num)
+            elif event_type == "round_end":
+                self._current_tracer.end_round()
+            else:
+                # Fallback to generic record
+                type_map = {
+                    "critique": EventType.AGENT_CRITIQUE if EventType else None,
+                    "vote": EventType.AGENT_VOTE if EventType else None,
+                    "consensus": EventType.CONSENSUS_REACHED if EventType else None,
+                }
+                event_enum = type_map.get(event_type)
+                if event_enum:
+                    self._current_tracer.record(event_enum, {"content": content}, agent=agent)
         except Exception as e:
             self._log(f"  [tracer] Event error: {e}")
 
     def _finalize_debate_trace(self, result: "DebateResult") -> str:
         """Finalize and save the debate trace (P25: DebateTracer)."""
-        if not DEBATE_TRACER_AVAILABLE or not self.debate_tracer:
+        if not DEBATE_TRACER_AVAILABLE or not getattr(self, '_current_tracer', None):
             return ""
         try:
-            trace_id = self.debate_tracer.finalize(
-                final_answer=result.final_answer if hasattr(result, 'final_answer') else "",
-                consensus_reached=result.consensus_reached if hasattr(result, 'consensus_reached') else False,
-                confidence=result.confidence if hasattr(result, 'confidence') else 0.0
-            )
+            # Build result dict for finalize
+            result_dict = {
+                "final_answer": getattr(result, 'final_answer', ""),
+                "consensus_reached": getattr(result, 'consensus_reached', False),
+                "confidence": getattr(result, 'confidence', 0.0),
+            }
+            trace = self._current_tracer.finalize(result_dict)
+            trace_id = trace.trace_id if trace else ""
             self._log(f"  [tracer] Finalized trace: {trace_id}")
+            self._current_tracer = None  # Clear for next debate
             return trace_id
         except Exception as e:
             self._log(f"  [tracer] Finalize error: {e}")
@@ -2698,11 +2713,13 @@ Propose additions that unlock new capabilities and create emergent value.""" + s
 
     async def _run_graph_debate(self, task: str, agents: list) -> "DebateResult":
         """Run a graph-based debate (P29: DebateGraph)."""
-        if not DEBATE_GRAPH_AVAILABLE or not self.graph_orchestrator:
+        if not DEBATE_GRAPH_AVAILABLE or not self.graph_debate_enabled:
             return None
         try:
             self._log(f"  [graph] Running graph-based debate...")
-            result = await self.graph_orchestrator.run_debate(task, agents)
+            # Create orchestrator on demand with the specific agents
+            orchestrator = GraphDebateOrchestrator(agents=agents)
+            result = await orchestrator.run_debate(task)
             return result
         except Exception as e:
             self._log(f"  [graph] Debate error: {e}")
@@ -2710,12 +2727,14 @@ Propose additions that unlock new capabilities and create emergent value.""" + s
 
     def _check_should_fork(self, messages: list, round_num: int, agents: list) -> "ForkDecision":
         """Check if debate should fork (P30: DebateForker)."""
-        if not DEBATE_FORKER_AVAILABLE or not self.fork_detector:
+        if not DEBATE_FORKER_AVAILABLE or not self.fork_debate_enabled:
             return None
         try:
-            decision = self.fork_detector.should_fork(messages, round_num, agents)
-            if decision and decision.should_fork:
-                self._log(f"  [forking] Fork triggered: {decision.reason}")
+            # Create detector on demand
+            detector = ForkDetector()
+            decision = detector.should_fork(messages, round_num, agents)
+            if decision and hasattr(decision, 'should_fork') and decision.should_fork:
+                self._log(f"  [forking] Fork triggered: {getattr(decision, 'reason', 'unknown')}")
             return decision
         except Exception as e:
             self._log(f"  [forking] Check error: {e}")
@@ -2723,13 +2742,17 @@ Propose additions that unlock new capabilities and create emergent value.""" + s
 
     async def _run_forked_debate(self, fork_decision: "ForkDecision", base_context: str) -> "MergeResult":
         """Run forked parallel debates (P30: DebateForker)."""
-        if not DEBATE_FORKER_AVAILABLE or not self.debate_forker or not fork_decision:
+        if not DEBATE_FORKER_AVAILABLE or not self.fork_debate_enabled or not fork_decision:
             return None
         try:
-            self._log(f"  [forking] Running {len(fork_decision.branches)} parallel branches...")
-            result = await self.debate_forker.run_branches(fork_decision, base_context)
+            branches = getattr(fork_decision, 'branches', [])
+            self._log(f"  [forking] Running {len(branches)} parallel branches...")
+            # Create forker on demand
+            forker = DebateForker()
+            result = await forker.run_branches(fork_decision, base_context)
             if result:
-                self._log(f"  [forking] Merged: {result.winning_hypothesis[:50]}...")
+                winning = getattr(result, 'winning_hypothesis', '')[:50]
+                self._log(f"  [forking] Merged: {winning}...")
             return result
         except Exception as e:
             self._log(f"  [forking] Run error: {e}")
