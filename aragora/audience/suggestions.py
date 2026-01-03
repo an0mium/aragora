@@ -1,5 +1,6 @@
 """Audience suggestion aggregation and sanitization."""
 
+import html
 import re
 from dataclasses import dataclass
 from aragora.debate.convergence import get_similarity_backend
@@ -21,9 +22,12 @@ class SuggestionCluster:
     user_ids: list[str]  # Contributing users (truncated)
 
 def sanitize_suggestion(text: str, max_length: int = 200) -> str:
-    """Strip unsafe content and truncate."""
+    """Strip unsafe content, escape HTML entities, and truncate."""
+    # Strip unsafe patterns first
     for pattern in UNSAFE_PATTERNS:
         text = re.sub(pattern, "", text)
+    # Escape HTML/XML entities for safe prompt injection
+    text = html.escape(text)
     return text[:max_length].strip()
 
 def cluster_suggestions(
@@ -42,7 +46,9 @@ def cluster_suggestions(
     clusters: list[SuggestionCluster] = []
     
     for suggestion in suggestions[:50]:  # Cap at 50 for performance
-        content = sanitize_suggestion(suggestion.get("content", ""))
+        # Handle both "suggestion" (from frontend) and "content" (legacy) keys
+        raw_text = suggestion.get("suggestion") or suggestion.get("content") or ""
+        content = sanitize_suggestion(raw_text)
         if not content:
             continue
         

@@ -27,11 +27,18 @@ class TestSanitization:
 
     def test_strips_html_tags(self):
         """Test that HTML/XML tags are stripped."""
-        html = "<script>alert('xss')</script>Hello"
-        result = sanitize_suggestion(html)
+        html_input = "<script>alert('xss')</script>Hello"
+        result = sanitize_suggestion(html_input)
         assert "<script>" not in result
         assert "</script>" not in result
         assert "Hello" in result
+
+    def test_escapes_html_entities(self):
+        """Test that HTML entities are escaped."""
+        text = "Use <foo> & <bar>"
+        result = sanitize_suggestion(text)
+        assert "&lt;" in result or "<" not in result
+        assert "&amp;" in result or "&" not in result
 
     def test_strips_control_chars(self):
         """Test that control characters are stripped."""
@@ -61,13 +68,21 @@ class TestClustering:
         result = cluster_suggestions([])
         assert result == []
 
-    def test_single_suggestion(self):
-        """Test clustering with one suggestion."""
+    def test_single_suggestion_with_content_key(self):
+        """Test clustering with one suggestion using 'content' key."""
         suggestions = [{"content": "Add feature X", "user_id": "user1"}]
         result = cluster_suggestions(suggestions)
         assert len(result) == 1
         assert result[0].count == 1
         assert "Add feature X" in result[0].representative
+
+    def test_single_suggestion_with_suggestion_key(self):
+        """Test clustering with one suggestion using 'suggestion' key (frontend format)."""
+        suggestions = [{"suggestion": "Add feature Y", "user_id": "user1"}]
+        result = cluster_suggestions(suggestions)
+        assert len(result) == 1
+        assert result[0].count == 1
+        assert "Add feature Y" in result[0].representative
 
     def test_identical_suggestions_cluster(self):
         """Test that identical suggestions are clustered together."""
