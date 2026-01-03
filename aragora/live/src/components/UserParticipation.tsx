@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import type { StreamEvent } from '@/types/events';
+import { useState, useEffect, useMemo } from 'react';
+import type { StreamEvent, AudienceSummaryData } from '@/types/events';
 
 interface UserParticipationProps {
   events: StreamEvent[];
@@ -20,6 +20,14 @@ export function UserParticipation({ events, onVote, onSuggest, onAck, onError }:
   const [voteState, setVoteState] = useState<SubmissionState>('idle');
   const [suggestionState, setSuggestionState] = useState<SubmissionState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Get the latest audience summary from events
+  const audienceSummary = useMemo(() => {
+    const summaryEvents = events.filter(e => e.type === 'audience_summary');
+    if (summaryEvents.length === 0) return null;
+    const latest = summaryEvents[summaryEvents.length - 1];
+    return latest.data as unknown as AudienceSummaryData;
+  }, [events]);
 
   // Handle acknowledgments
   useEffect(() => {
@@ -187,6 +195,36 @@ export function UserParticipation({ events, onVote, onSuggest, onAck, onError }:
           <p className="text-xs text-warning mt-1">Rate limited. Please wait before submitting again.</p>
         )}
       </div>
+
+      {/* Audience Pulse Section - shows clustered suggestions */}
+      {audienceSummary && audienceSummary.clusters.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-border">
+          <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+            <span className="inline-block w-2 h-2 bg-accent rounded-full animate-pulse" />
+            Audience Pulse
+            <span className="text-xs text-text-muted font-normal">
+              ({audienceSummary.total} suggestions)
+            </span>
+          </h3>
+          <div className="space-y-2">
+            {audienceSummary.clusters.slice(0, 3).map((cluster, index) => (
+              <div
+                key={index}
+                className="text-sm p-2 bg-surface rounded border border-border"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-text-muted flex-1">
+                    &ldquo;{cluster.representative}&rdquo;
+                  </span>
+                  <span className="text-xs bg-accent/20 text-accent px-1.5 py-0.5 rounded whitespace-nowrap">
+                    {cluster.count}x
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

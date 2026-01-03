@@ -30,6 +30,7 @@ export type StreamEventType =
   // Audience participation events
   | 'user_vote'
   | 'user_suggestion'
+  | 'audience_summary'
   | 'ack';
 
 export interface StreamEvent {
@@ -96,4 +97,14 @@ export interface LoopInstance {
 export interface LoopListData {
   loops: LoopInstance[];
   count: number;
+}
+
+// Audience summary data from clustered suggestions
+export interface AudienceSummaryData {
+  clusters: Array<{
+    representative: string;
+    count: number;
+  }>;
+  total: number;
+  mode: 'summary' | 'inject';
 }
