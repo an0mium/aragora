@@ -3574,7 +3574,7 @@ Recent changes:
             task=topic_hint or task,
             round_num=result.rounds_used if hasattr(result, 'rounds_used') else 0,
             messages=result.messages if hasattr(result, 'messages') else [],
-            agents=agents,
+            agents=debate_team,
             consensus={"reached": result.consensus_reached, "confidence": result.confidence}
         )
 
