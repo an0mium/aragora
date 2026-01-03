@@ -198,57 +198,6 @@ except ImportError:
     EMBEDDINGS_AVAILABLE = False
     DebateEmbeddingsDatabase = None
 
-# ContinuumMemory for multi-timescale learning
-try:
-    from aragora.memory.continuum import ContinuumMemory, MemoryTier
-    CONTINUUM_AVAILABLE = True
-except ImportError:
-    CONTINUUM_AVAILABLE = False
-    ContinuumMemory = None
-    MemoryTier = None
-
-# ReplayRecorder for cycle event recording
-try:
-    from aragora.replay.recorder import ReplayRecorder
-    REPLAY_AVAILABLE = True
-except ImportError:
-    REPLAY_AVAILABLE = False
-    ReplayRecorder = None
-
-# MetaLearner for self-tuning hyperparameters
-try:
-    from aragora.learning.meta import MetaLearner
-    METALEARNER_AVAILABLE = True
-except ImportError:
-    METALEARNER_AVAILABLE = False
-    MetaLearner = None
-
-# IntrospectionAPI for agent self-awareness
-try:
-    from aragora.introspection.api import get_agent_introspection, format_introspection_section
-    INTROSPECTION_AVAILABLE = True
-except ImportError:
-    INTROSPECTION_AVAILABLE = False
-    get_agent_introspection = None
-    format_introspection_section = None
-
-# ArgumentCartographer for debate visualization
-try:
-    from aragora.visualization.mapper import ArgumentCartographer
-    CARTOGRAPHER_AVAILABLE = True
-except ImportError:
-    CARTOGRAPHER_AVAILABLE = False
-    ArgumentCartographer = None
-
-# WebhookDispatcher for external event notifications
-try:
-    from aragora.integrations.webhooks import WebhookDispatcher, WebhookConfig
-    WEBHOOKS_AVAILABLE = True
-except ImportError:
-    WEBHOOKS_AVAILABLE = False
-    WebhookDispatcher = None
-    WebhookConfig = None
-
 
 class NomicLoop:
     """
@@ -333,46 +282,6 @@ class NomicLoop:
             print(f"[memory] CritiqueStore initialized for patterns and reputation")
         except ImportError:
             pass
-
-        # ContinuumMemory for multi-timescale pattern learning
-        self.continuum = None
-        if CONTINUUM_AVAILABLE:
-            continuum_path = self.nomic_dir / "continuum.db"
-            self.continuum = ContinuumMemory(str(continuum_path))
-            print(f"[continuum] Multi-timescale memory initialized")
-
-        # ReplayRecorder will be created per cycle
-        self.replay_recorder = None
-
-        # MetaLearner for self-tuning hyperparameters (runs every 5 cycles)
-        self.meta_learner = None
-        if METALEARNER_AVAILABLE and self.continuum:
-            meta_learner_path = self.nomic_dir / "meta_learning.db"
-            self.meta_learner = MetaLearner(str(meta_learner_path))
-            print(f"[meta] MetaLearner initialized for hyperparameter tuning")
-
-        # ArgumentCartographer will be created per cycle for visualization
-        self.cartographer = None
-        self.visualizations_dir = self.nomic_dir / "visualizations"
-        self.visualizations_dir.mkdir(exist_ok=True)
-        if CARTOGRAPHER_AVAILABLE:
-            print(f"[viz] ArgumentCartographer available for debate visualization")
-
-        # WebhookDispatcher for external event notifications
-        self.webhook_dispatcher = None
-        webhook_url = os.environ.get("ARAGORA_WEBHOOK_URL")
-        if WEBHOOKS_AVAILABLE and webhook_url and WebhookConfig:
-            try:
-                config = WebhookConfig(
-                    name="default",
-                    url=webhook_url,
-                    secret=os.environ.get("ARAGORA_WEBHOOK_SECRET", ""),
-                )
-                self.webhook_dispatcher = WebhookDispatcher([config])
-                self.webhook_dispatcher.start()
-                print(f"[webhook] Dispatcher started for {webhook_url[:50]}...")
-            except Exception as e:
-                print(f"[webhook] Failed to initialize: {e}")
 
         # Setup streaming (optional)
         self.stream_emitter = stream_emitter
@@ -804,111 +713,6 @@ Propose additions that unlock new capabilities and create emergent value.""" + s
         except Exception:
             return ""
 
-    def _format_continuum_patterns(self, limit: int = 5) -> str:
-        """Format patterns from ContinuumMemory for prompt injection.
-
-        Retrieves strategic patterns from the SLOW tier that capture
-        successful cycle outcomes and learnings across time.
-        """
-        if not self.continuum or not CONTINUUM_AVAILABLE:
-            return ""
-
-        try:
-            # Get recent successful patterns from SLOW tier
-            memories = self.continuum.export_for_tier(MemoryTier.SLOW)
-            if not memories:
-                return ""
-
-            # Filter to successful patterns and sort by importance
-            successful = [m for m in memories if m.get("metadata", {}).get("success", False)]
-            successful = sorted(successful, key=lambda x: x.get("importance", 0), reverse=True)[:limit]
-
-            if not successful:
-                return ""
-
-            lines = ["## STRATEGIC PATTERNS (from ContinuumMemory)"]
-            lines.append("Successful patterns learned across cycles:\n")
-
-            for m in successful:
-                content = m.get("content", "")[:150]
-                cycle = m.get("metadata", {}).get("cycle", "?")
-                lines.append(f"- Cycle {cycle}: {content}")
-
-            return "\n".join(lines)
-        except Exception:
-            return ""
-
-    def _record_replay_event(self, event_type: str, agent: str, content: str, round_num: int = 0) -> None:
-        """Record an event to the ReplayRecorder if active."""
-        if not self.replay_recorder:
-            return
-        try:
-            if event_type == "turn":
-                self.replay_recorder.record_turn(agent, content, round_num, self.loop_id)
-            elif event_type == "vote":
-                self.replay_recorder.record_vote(agent, content, "")
-            elif event_type == "phase":
-                self.replay_recorder.record_phase_change(content)
-            elif event_type == "system":
-                self.replay_recorder.record_system(content)
-        except Exception:
-            pass  # Don't let replay errors break the loop
-
-    def _record_cartographer_event(
-        self, event_type: str, agent: str, content: str,
-        role: str = "proposer", round_num: int = 1, **kwargs
-    ) -> None:
-        """Record an event to the ArgumentCartographer if active."""
-        if not self.cartographer:
-            return
-        try:
-            if event_type == "message":
-                self.cartographer.update_from_message(
-                    agent=agent,
-                    content=content,
-                    role=role,
-                    round_num=round_num,
-                    metadata=kwargs.get("metadata", {})
-                )
-            elif event_type == "critique":
-                self.cartographer.update_from_critique(
-                    critic_agent=agent,
-                    target_agent=kwargs.get("target", "unknown"),
-                    severity=kwargs.get("severity", 0.5),
-                    round_num=round_num,
-                    critique_text=content
-                )
-            elif event_type == "vote":
-                self.cartographer.update_from_vote(
-                    agent=agent,
-                    vote_value=content,
-                    round_num=round_num
-                )
-            elif event_type == "consensus":
-                self.cartographer.update_from_consensus(
-                    result=content,
-                    round_num=round_num,
-                    vote_counts=kwargs.get("vote_counts", {})
-                )
-        except Exception:
-            pass  # Don't let cartographer errors break the loop
-
-    def _dispatch_webhook(self, event_type: str, data: dict = None) -> None:
-        """Dispatch an event to external webhooks if configured."""
-        if not self.webhook_dispatcher:
-            return
-        try:
-            event = {
-                "type": event_type,
-                "loop_id": self.loop_id,
-                "cycle": self.cycle_count,
-                "timestamp": datetime.now().isoformat(),
-                "data": data or {},
-            }
-            self.webhook_dispatcher.enqueue(event)
-        except Exception:
-            pass  # Don't let webhook errors break the loop
-
     def _format_agent_reputations(self) -> str:
         """Format agent reputations for prompt injection.
 
@@ -930,25 +734,6 @@ Propose additions that unlock new capabilities and create emergent value.""" + s
                     lines.append(f"- {rep.agent_name}: {acceptance:.0%} proposal acceptance ({rep.proposals_accepted}/{rep.proposals_made})")
 
             return "\n".join(lines) if len(lines) > 1 else ""
-        except Exception:
-            return ""
-
-    def _format_agent_introspection(self, agent_name: str) -> str:
-        """Format agent self-awareness section for prompt injection.
-
-        Uses IntrospectionAPI to provide agents with awareness of their
-        own reputation, strengths, and track record.
-        """
-        if not INTROSPECTION_AVAILABLE or not get_agent_introspection:
-            return ""
-
-        try:
-            snapshot = get_agent_introspection(
-                agent_name,
-                memory=self.critique_store,
-                persona_manager=None,  # We don't have PersonaManager yet
-            )
-            return format_introspection_section(snapshot, max_chars=400)
         except Exception:
             return ""
 
@@ -1421,13 +1206,9 @@ Claude and Codex have read the actual codebase. DO NOT propose features that alr
         else:
             context_section = f"Current aragora features:\n{current_features}"
 
-        # Record phase change
-        self._record_replay_event("phase", "system", "debate")
-
-        # Build learning context section (Titans/MIRAS + ContinuumMemory)
+        # Build learning context section (Titans/MIRAS knowledge accumulation)
         failure_patterns = self._format_failure_patterns()
         agent_reputations = self._format_agent_reputations()
-        continuum_patterns = self._format_continuum_patterns(limit=3)
 
         learning_context = ""
         if failure_lessons:
@@ -1438,18 +1219,6 @@ Claude and Codex have read the actual codebase. DO NOT propose features that alr
             learning_context += f"\n{failure_patterns}\n"
         if agent_reputations:
             learning_context += f"\n{agent_reputations}\n"
-        if continuum_patterns:
-            learning_context += f"\n{continuum_patterns}\n"
-
-        # Add agent introspection for self-awareness
-        if INTROSPECTION_AVAILABLE:
-            introspection_lines = ["## AGENT SELF-AWARENESS"]
-            for agent_name in ["gemini", "claude", "codex", "grok"]:
-                intro = self._format_agent_introspection(agent_name)
-                if intro:
-                    introspection_lines.append(f"\n### {agent_name.title()}\n{intro}")
-            if len(introspection_lines) > 1:
-                learning_context += "\n" + "\n".join(introspection_lines) + "\n"
 
         task = f"""{SAFETY_PREAMBLE}
 
@@ -1530,21 +1299,15 @@ Recent changes:
         self._log("=" * 70)
         self._stream_emit("on_phase_start", "design", self.cycle_count, {"agents": 4})
 
-        # Record phase change
-        self._record_replay_event("phase", "system", "design")
-
-        # Gather learning context for design (Titans/MIRAS + ContinuumMemory)
+        # Gather learning context for design (Titans/MIRAS)
         successful_patterns = self._format_successful_patterns(limit=3)
         failure_patterns = self._format_failure_patterns(limit=3)
-        continuum_patterns = self._format_continuum_patterns(limit=3)
 
         design_learning = ""
         if successful_patterns:
             design_learning += f"\n{successful_patterns}\n"
         if failure_patterns:
             design_learning += f"\n{failure_patterns}\n"
-        if continuum_patterns:
-            design_learning += f"\n{continuum_patterns}\n"
 
         env = Environment(
             task=f"""{SAFETY_PREAMBLE}
@@ -1969,7 +1732,6 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
         self._log("PHASE 3: IMPLEMENTATION (Hybrid)")
         self._log("=" * 70)
         self._stream_emit("on_phase_start", "implement", self.cycle_count, {})
-        self._record_replay_event("phase", "system", "implement")
 
         use_hybrid = os.environ.get("ARAGORA_HYBRID_IMPLEMENT", "1") == "1"
 
@@ -2190,7 +1952,6 @@ CRITICAL SAFETY RULES:
         self._log("=" * 70)
         self._stream_emit("on_phase_start", "verify", self.cycle_count, {})
         self._stream_emit("on_verification_start", ["syntax", "import", "tests"])
-        self._record_replay_event("phase", "system", "verify")
 
         checks = []
 
@@ -2387,30 +2148,6 @@ CRITICAL SAFETY RULES:
 
         # Emit cycle start event
         self._stream_emit("on_cycle_start", self.cycle_count, self.max_cycles, cycle_start.isoformat())
-        self._dispatch_webhook("cycle_start", {"max_cycles": self.max_cycles})
-
-        # Initialize ReplayRecorder for this cycle
-        if REPLAY_AVAILABLE and ReplayRecorder:
-            replay_dir = self.nomic_dir / "replays"
-            replay_dir.mkdir(exist_ok=True)
-            self.replay_recorder = ReplayRecorder(
-                debate_id=f"nomic-cycle-{self.cycle_count}",
-                topic=f"Nomic Loop Cycle {self.cycle_count}",
-                proposal=self.initial_proposal or "Self-improvement",
-                agents=[{"name": a, "model": a} for a in ["gemini", "claude", "codex", "grok"]],
-                storage_dir=str(replay_dir)
-            )
-            self.replay_recorder.start()
-            self._log(f"  [replay] Recording cycle {self.cycle_count}")
-
-        # Initialize ArgumentCartographer for this cycle
-        if CARTOGRAPHER_AVAILABLE and ArgumentCartographer:
-            self.cartographer = ArgumentCartographer()
-            self.cartographer.set_debate_context(
-                debate_id=f"nomic-cycle-{self.cycle_count}",
-                topic=self.initial_proposal or "Self-improvement"
-            )
-            self._log(f"  [viz] Cartographer ready for cycle {self.cycle_count}")
 
         # === SAFETY: Create backup before any changes ===
         backup_path = self._create_backup(f"cycle_{self.cycle_count}")
@@ -2792,91 +2529,6 @@ Working directory: {self.aragora_path}
             cycle_result["duration_seconds"],
             cycle_result.get("outcome", "unknown"),
         )
-        self._dispatch_webhook("cycle_end", {
-            "outcome": cycle_result.get("outcome", "unknown"),
-            "duration_seconds": cycle_result.get("duration_seconds", 0),
-            "success": cycle_result.get("outcome") == "success",
-        })
-
-        # Finalize ReplayRecorder
-        if self.replay_recorder:
-            try:
-                outcome = cycle_result.get("outcome", "unknown")
-                votes = {"success": 1 if outcome == "success" else 0}
-                replay_path = self.replay_recorder.finalize(outcome, votes)
-                self._log(f"  [replay] Cycle recorded to {replay_path}")
-            except Exception as e:
-                self._log(f"  [replay] Finalization error: {e}")
-            finally:
-                self.replay_recorder = None
-
-        # Export ArgumentCartographer visualization
-        if self.cartographer:
-            try:
-                # Export as Mermaid markdown
-                mermaid_path = self.visualizations_dir / f"cycle-{self.cycle_count}.md"
-                mermaid_content = self.cartographer.export_mermaid()
-                with open(mermaid_path, "w") as f:
-                    f.write(f"# Cycle {self.cycle_count} Debate Graph\n\n")
-                    f.write("```mermaid\n")
-                    f.write(mermaid_content)
-                    f.write("\n```\n")
-
-                # Export as JSON for analysis
-                json_path = self.visualizations_dir / f"cycle-{self.cycle_count}.json"
-                with open(json_path, "w") as f:
-                    f.write(self.cartographer.export_json(include_full_content=True))
-
-                stats = self.cartographer.get_statistics()
-                self._log(f"  [viz] Exported: {stats.get('total_nodes', 0)} nodes, {stats.get('total_edges', 0)} edges")
-            except Exception as e:
-                self._log(f"  [viz] Export error: {e}")
-            finally:
-                self.cartographer = None
-
-        # Store cycle outcome in ContinuumMemory for pattern learning
-        if self.continuum and CONTINUUM_AVAILABLE:
-            try:
-                outcome = cycle_result.get("outcome", "unknown")
-                improvement = cycle_result.get("phases", {}).get("debate", {}).get("final_answer", "")[:500]
-                is_success = outcome == "success"
-
-                # Store in SLOW tier (strategic learning across cycles)
-                memory_id = f"cycle-{self.cycle_count}-{outcome}"
-                self.continuum.add(
-                    id=memory_id,
-                    content=f"Cycle {self.cycle_count}: {outcome}. Improvement: {improvement}",
-                    tier=MemoryTier.SLOW,
-                    importance=0.8 if is_success else 0.5,
-                    metadata={
-                        "cycle": self.cycle_count,
-                        "outcome": outcome,
-                        "duration_seconds": cycle_result.get("duration_seconds", 0),
-                        "success": is_success,
-                    }
-                )
-                self._log(f"  [continuum] Stored cycle outcome in SLOW tier")
-
-                # Consolidate memory periodically (every 5 cycles)
-                if self.cycle_count % 5 == 0:
-                    stats = self.continuum.consolidate()
-                    self._log(f"  [continuum] Consolidated: {stats}")
-
-                    # Run MetaLearner to self-tune hyperparameters
-                    if self.meta_learner:
-                        try:
-                            metrics = self.meta_learner.evaluate_learning_efficiency(
-                                self.continuum, cycle_result
-                            )
-                            adjustments = self.meta_learner.adjust_hyperparameters(metrics)
-                            if adjustments:
-                                # Apply adjustments to ContinuumMemory
-                                self.continuum.hyperparams.update(adjustments)
-                                self._log(f"  [meta] Applied hyperparameter adjustments: {list(adjustments.keys())}")
-                        except Exception as e:
-                            self._log(f"  [meta] MetaLearner error: {e}")
-            except Exception as e:
-                self._log(f"  [continuum] Storage error: {e}")
 
         return cycle_result
 

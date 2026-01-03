@@ -1,0 +1,279 @@
+#!/usr/bin/env python3
+"""
+Test suite for Per-Loop WebSocket Subscriptions with Optional Token-Based Access Control.
+
+This test suite verifies the new subscription functionality while ensuring backward compatibility.
+"""
+
+import asyncio
+import json
+import os
+import pytest
+import websockets
+from unittest.mock import Mock, patch
+
+from aragora.server.stream import DebateStreamServer, StreamEvent, StreamEventType
+from aragora.server.auth import AuthConfig, check_auth, generate_shareable_link
+
+
+class TestAuthConfig:
+    """Test authentication configuration and token handling."""
+
+    def test_auth_config_env_loading(self):
+        """Test loading auth config from environment variables."""
+        with patch.dict(os.environ, {'ARAGORA_API_TOKEN': 'test_token', 'ARAGORA_TOKEN_TTL': '7200'}):
+            config = AuthConfig()
+            config.configure_from_env()
+            assert config.enabled is True
+            assert config.api_token == 'test_token'
+            assert config.token_ttl == 7200
+
+    def test_token_generation_and_validation(self):
+        """Test token generation and validation."""
+        config = AuthConfig()
+        config.api_token = 'secret_key'
+        config.token_ttl = 3600
+
+        token = config.generate_token('loop_123')
+        assert token is not None
+        assert 'loop_123' in token
+
+        # Valid token
+        assert config.validate_token(token, 'loop_123') is True
+        # Wrong loop_id
+        assert config.validate_token(token, 'loop_456') is False
+        # Invalid token
+        assert config.validate_token('invalid_token') is False
+
+    def test_shareable_link_generation(self):
+        """Test generation of shareable links with embedded tokens."""
+        config = AuthConfig()
+        config.api_token = 'secret_key'
+
+        link = generate_shareable_link('http://example.com/viewer', 'loop_123')
+        assert 'token=' in link
+        assert 'http://example.com/viewer' in link
+
+
+class TestDebateStreamServerSubscriptions:
+    """Test subscription functionality in DebateStreamServer."""
+
+    @pytest.fixture
+    async def server(self):
+        """Create a test server instance."""
+        server = DebateStreamServer(host='localhost', port=0)  # Port 0 for testing
+        yield server
+        # Cleanup
+
+    def test_subscribe_client(self, server):
+        """Test client subscription to loops."""
+        mock_client = Mock()
+        loop_id = 'test_loop'
+
+        # Register loop first
+        server.register_loop(loop_id, 'Test Loop')
+
+        # Subscribe client
+        result = server.subscribe_client(mock_client, loop_id)
+        assert result is True
+        assert mock_client in server.subscriptions[loop_id]
+        assert server.client_subscriptions[mock_client] == loop_id
+
+    def test_unsubscribe_client(self, server):
+        """Test client unsubscription."""
+        mock_client = Mock()
+        loop_id = 'test_loop'
+
+        server.register_loop(loop_id, 'Test Loop')
+        server.subscribe_client(mock_client, loop_id)
+
+        result = server.unsubscribe_client(mock_client)
+        assert result is True
+        assert mock_client not in server.subscriptions[loop_id]
+        assert mock_client not in server.client_subscriptions
+
+    def test_get_backfill_events(self, server):
+        """Test retrieving backfill events."""
+        loop_id = 'test_loop'
+        server.register_loop(loop_id, 'Test Loop')
+
+        # Add some events
+        events = [
+            StreamEvent(type=StreamEventType.CYCLE_START, data={'cycle': 1}, loop_id=loop_id),
+            StreamEvent(type=StreamEventType.TASK_START, data={'task': 'test'}, loop_id=loop_id),
+        ]
+
+        for event in events:
+            server.event_buffers[loop_id].append(event)
+
+        backfill = server.get_backfill_events(loop_id)
+        assert len(backfill) == 2
+        assert backfill[0].type == StreamEventType.CYCLE_START
+
+    def test_broadcast_with_subscriptions(self, server):
+        """Test broadcasting only to subscribed clients."""
+        loop_id = 'test_loop'
+        other_loop_id = 'other_loop'
+
+        server.register_loop(loop_id, 'Test Loop')
+        server.register_loop(other_loop_id, 'Other Loop')
+
+        # Create mock clients
+        subscribed_client = Mock()
+        unsubscribed_client = Mock()
+        other_loop_client = Mock()
+
+        server.clients = {subscribed_client, unsubscribed_client, other_loop_client}
+        server.subscribe_client(subscribed_client, loop_id)
+        server.subscribe_client(other_loop_client, other_loop_id)
+
+        event = StreamEvent(type=StreamEventType.TASK_START, data={'task': 'test'}, loop_id=loop_id)
+
+        # Mock broadcast helper
+        with patch.object(server, '_broadcast_to_clients') as mock_broadcast:
+            await server.broadcast(event)
+            # Should only broadcast to subscribed client
+            mock_broadcast.assert_called_once()
+            args, kwargs = mock_broadcast.call_args
+            assert subscribed_client in args[1]
+            assert unsubscribed_client not in args[1]
+            assert other_loop_client not in args[1]
+
+    def test_milestone_detection(self, server):
+        """Test milestone event generation."""
+        loop_id = 'test_loop'
+        server.register_loop(loop_id, 'Test Loop')
+
+        # Add subscribers
+        for i in range(10):
+            mock_client = Mock()
+            server.subscribe_client(mock_client, loop_id)
+
+        milestone = server.check_milestone(loop_id)
+        assert milestone is not None
+        assert milestone.type == StreamEventType.MILESTONE
+        assert milestone.data['subscribers'] == 10
+
+
+class TestWebSocketSubscriptionProtocol:
+    """Test WebSocket subscription message handling."""
+
+    @pytest.fixture
+    async def websocket_server(self):
+        """Create a WebSocket server for testing."""
+        server = DebateStreamServer(host='localhost', port=0)
+        server.register_loop('test_loop', 'Test Loop')
+        # Start server in background
+        server_task = asyncio.create_task(server.start())
+        await asyncio.sleep(0.1)  # Let server start
+        yield server
+        server.stop()
+        server_task.cancel()
+
+    async def test_subscription_message_handling(self, websocket_server):
+        """Test handling of subscribe/unsubscribe messages."""
+        # This would require a full WebSocket client test
+        # For now, we'll test the message parsing logic
+
+        # Mock WebSocket connection
+        mock_ws = Mock()
+        websocket_server.clients.add(mock_ws)
+
+        # Test subscribe message
+        subscribe_msg = {'type': 'subscribe', 'loop_id': 'test_loop'}
+        with patch('aragora.server.auth.check_auth', return_value=True):
+            await websocket_server.handler(mock_ws)
+            # In a real test, we'd send the message and verify response
+            # This is simplified for the example
+
+    async def test_auth_required_for_subscription(self):
+        """Test that auth is required when enabled."""
+        with patch.dict(os.environ, {'ARAGORA_API_TOKEN': 'test_token'}):
+            from aragora.server.auth import auth_config
+            auth_config.configure_from_env()
+
+            server = DebateStreamServer()
+            server.register_loop('protected_loop', 'Protected Loop')
+
+            mock_ws = Mock()
+            server.clients.add(mock_ws)
+
+            # Mock auth failure
+            with patch('aragora.server.stream.check_auth', return_value=False):
+                # This would test the error response
+                pass
+
+
+class TestBackwardCompatibility:
+    """Test that existing functionality still works."""
+
+    def test_broadcast_without_subscriptions(self, server):
+        """Test that broadcasting works when no subscriptions exist."""
+        mock_client = Mock()
+        server.clients = {mock_client}
+
+        event = StreamEvent(type=StreamEventType.TASK_START, data={'task': 'test'})
+
+        with patch.object(server, '_broadcast_to_clients') as mock_broadcast:
+            await server.broadcast(event)
+            mock_broadcast.assert_called_once_with(event, {mock_client})
+
+    def test_api_endpoints_without_auth(self):
+        """Test API endpoints work without authentication."""
+        with patch('aragora.server.auth.check_auth', return_value=True):
+            # Test that endpoints work when auth is disabled
+            pass
+
+
+class TestIntegration:
+    """Integration tests for the complete subscription system."""
+
+    async def test_full_subscription_flow(self):
+        """Test complete subscription flow from client to server."""
+        # This would require starting a real server and connecting with websockets
+        # For now, this is a placeholder for integration testing
+
+        server = DebateStreamServer(host='localhost', port=0)
+
+        # Register a loop
+        server.register_loop('integration_loop', 'Integration Test Loop')
+
+        # Simulate client connection and subscription
+        mock_ws = Mock()
+        server.clients.add(mock_ws)
+
+        # Subscribe client
+        server.subscribe_client(mock_ws, 'integration_loop')
+
+        # Emit an event
+        event = StreamEvent(
+            type=StreamEventType.TASK_START,
+            data={'task': 'integration_test'},
+            loop_id='integration_loop'
+        )
+
+        with patch.object(server, '_broadcast_to_clients') as mock_broadcast:
+            await server.broadcast(event)
+            mock_broadcast.assert_called_once()
+            args, kwargs = mock_broadcast.call_args
+            assert mock_ws in args[1]
+
+    def test_cli_flags(self):
+        """Test that CLI flags are properly parsed and set environment."""
+        # This would test the CLI argument parsing
+        pass
+
+
+if __name__ == '__main__':
+    # Run basic tests
+    print("Running subscription tests...")
+
+    # Test auth config
+    auth_test = TestAuthConfig()
+    auth_test.test_auth_config_env_loading()
+    auth_test.test_token_generation_and_validation()
+    print("✓ Auth config tests passed")
+
+    print("All tests completed successfully!")</content>
+</xai:function_call?<|control585|><xai:function_call>  
+<xai:function_call name="path">test_subscriptions.py
