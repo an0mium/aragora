@@ -92,16 +92,16 @@ export default function Home() {
   const handleUserVote = (choice: string) => {
     sendMessage({
       type: 'user_vote',
-      user_id: 'anonymous', // Could be enhanced with user auth
-      data: { choice }
+      loop_id: selectedLoopId || '',
+      payload: { choice }
     });
   };
 
   const handleUserSuggestion = (suggestion: string) => {
     sendMessage({
       type: 'user_suggestion',
-      user_id: 'anonymous',
-      data: { suggestion }
+      loop_id: selectedLoopId || '',
+      payload: { suggestion }
     });
   };
 

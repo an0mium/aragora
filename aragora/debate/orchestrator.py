@@ -1002,6 +1002,26 @@ your own reasoned perspective."""
 proposals and work toward collaborative synthesis. Prioritize finding agreement
 and building on others' ideas."""
 
+    def _format_successful_patterns(self, limit: int = 3) -> str:
+        """Format successful critique patterns for prompt injection."""
+        if not self.memory:
+            return ""
+        try:
+            patterns = self.memory.retrieve_patterns(min_success=2, limit=limit)
+            if not patterns:
+                return ""
+
+            lines = ["## SUCCESSFUL PATTERNS (from past debates)"]
+            for p in patterns:
+                issue_preview = p.issue_text[:100] + "..." if len(p.issue_text) > 100 else p.issue_text
+                fix_preview = p.suggestion_text[:80] + "..." if len(p.suggestion_text) > 80 else p.suggestion_text
+                lines.append(f"- **{p.issue_type}**: {issue_preview}")
+                if fix_preview:
+                    lines.append(f"  Fix: {fix_preview} ({p.success_count} successes)")
+            return "\n".join(lines)
+        except Exception:
+            return ""
+
     def _build_proposal_prompt(self, agent: Agent) -> str:
         """Build the initial proposal prompt."""
         context_str = f"\n\nContext: {self.env.context}" if self.env.context else ""
@@ -1014,8 +1034,14 @@ and building on others' ideas."""
             historical = self._historical_context_cache[:800]
             historical_section = f"\n\n{historical}"
 
+        # Include successful patterns from past debates
+        patterns_section = ""
+        patterns = self._format_successful_patterns(limit=3)
+        if patterns:
+            patterns_section = f"\n\n{patterns}"
+
         return f"""You are acting as a {agent.role} in a multi-agent debate.{stance_section}
-{historical_section}
+{historical_section}{patterns_section}
 Task: {self.env.task}{context_str}
 
 Please provide your best proposal to address this task. Be thorough and specific.
@@ -1030,9 +1056,15 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         stance_str = self._get_stance_guidance(agent)
         stance_section = f"\n\n{stance_str}" if stance_str else ""
 
+        # Include successful patterns that may help address critiques
+        patterns_section = ""
+        patterns = self._format_successful_patterns(limit=2)
+        if patterns:
+            patterns_section = f"\n\n{patterns}"
+
         return f"""You are revising your proposal based on critiques from other agents.
 
-{intensity_guidance}{stance_section}
+{intensity_guidance}{stance_section}{patterns_section}
 
 Original Task: {self.env.task}
 
