@@ -1,7 +1,7 @@
 {
   "phase": "verify",
   "stage": "complete",
-  "all_passed": true,
+  "all_passed": false,
   "checks": [
     {
       "check": "syntax",
@@ -15,11 +15,11 @@
     },
     {
       "check": "tests",
-      "passed": true,
-      "output": "le/metadata.py:551: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.12/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.\n    def construct_refs(cls, table_metadata: TableMetadata) -> TableMetadata:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n41 passed, 2 skipped, 9 warnings in 0.92s\n",
+      "passed": false,
+      "output": ". Deprecated in Pydantic V2.12 to be removed in V3.0.\n    def construct_refs(cls, table_metadata: TableMetadata) -> TableMetadata:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED tests/integrations/test_webhooks.py::TestWebhookDelivery::test_handles_set_in_payload\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 23 passed, 9 warnings in 2.48s\n",
       "note": ""
     }
   ],
-  "saved_at": "2026-01-03T00:51:49.780589",
+  "saved_at": "2026-01-03T07:06:19.953490",
   "cycle": 1
 }
