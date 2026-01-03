@@ -19,13 +19,16 @@ from aragora.debate.convergence import (
     get_similarity_backend,
 )
 from aragora.spectate.stream import SpectatorStream
+from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 
 
 @dataclass
 class DebateProtocol:
     """Configuration for how debates are conducted."""
 
-    topology: Literal["all-to-all", "sparse", "round-robin"] = "round-robin"
+    topology: Literal["all-to-all", "sparse", "round-robin", "ring", "star", "random-graph"] = "round-robin"
+    topology_sparsity: float = 0.5  # fraction of possible critique connections (for sparse/random-graph)
+    topology_hub_agent: Optional[str] = None  # for star topology, which agent is the hub
     rounds: int = 3
     consensus: Literal["majority", "unanimous", "judge", "none"] = "majority"
     consensus_threshold: float = 0.6  # fraction needed for majority
@@ -75,6 +78,9 @@ class DebateProtocol:
 
     # Human participation settings
     user_vote_weight: float = 0.5  # Weight of user votes relative to agent votes (0.5 = half weight)
+
+    # Audience suggestion injection
+    audience_injection: Literal["off", "summary", "inject"] = "off"
 
 
 class Arena:
@@ -141,6 +147,68 @@ class Arena:
 
         # Cache for historical context (computed once per debate)
         self._historical_context_cache: str = ""
+
+    def _select_critics_for_proposal(self, proposal_agent: str, all_critics: list[Agent]) -> list[Agent]:
+        """Select which critics should critique the given proposal based on topology."""
+        if self.protocol.topology == "all-to-all":
+            # All critics except self
+            return [c for c in all_critics if c.name != proposal_agent]
+
+        elif self.protocol.topology == "round-robin":
+            # Simple round-robin: each critic critiques the next one in alphabetical order
+            agent_names = sorted([a.name for a in all_critics] + [proposal_agent])
+            agent_names.remove(proposal_agent)  # critics only
+            if not agent_names:
+                return []
+            # Each proposal gets critiqued by the "next" critic
+            proposal_index = hash(proposal_agent) % len(agent_names)
+            return [all_critics[agent_names.index(agent_names[proposal_index])]]
+
+        elif self.protocol.topology == "ring":
+            # Ring topology: each agent critiques its "neighbors"
+            agent_names = sorted([a.name for a in all_critics] + [proposal_agent])
+            agent_names.remove(proposal_agent)
+            if not agent_names:
+                return []
+            # Find position of proposal_agent in the ring
+            all_names = sorted([a.name for a in self.agents])
+            if proposal_agent not in all_names:
+                return all_critics  # fallback
+            idx = all_names.index(proposal_agent)
+            # Critique by left and right neighbors in the ring
+            left = all_names[(idx - 1) % len(all_names)]
+            right = all_names[(idx + 1) % len(all_names)]
+            return [c for c in all_critics if c.name in (left, right)]
+
+        elif self.protocol.topology == "star":
+            # Star topology: hub agent critiques everyone, or everyone critiques hub
+            if self.protocol.topology_hub_agent:
+                hub = self.protocol.topology_hub_agent
+            else:
+                # Default hub is first agent
+                hub = self.agents[0].name
+            if proposal_agent == hub:
+                # Hub's proposal gets critiqued by all others
+                return [c for c in all_critics if c.name != hub]
+            else:
+                # Others' proposals get critiqued only by hub (if hub is a critic)
+                return [c for c in all_critics if c.name == hub]
+
+        elif self.protocol.topology in ("sparse", "random-graph"):
+            # Random subset based on sparsity
+            available_critics = [c for c in all_critics if c.name != proposal_agent]
+            if not available_critics:
+                return []
+            num_to_select = max(1, int(len(available_critics) * self.protocol.topology_sparsity))
+            # Deterministic random based on proposal_agent for reproducibility
+            random.seed(hash(proposal_agent))
+            selected = random.sample(available_critics, min(num_to_select, len(available_critics)))
+            random.seed()  # Reset seed
+            return selected
+
+        else:
+            # Default to all-to-all
+            return [c for c in all_critics if c.name != proposal_agent]
 
     def _handle_user_event(self, event) -> None:
         """Handle incoming user participation events."""
@@ -392,14 +460,14 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 except Exception as e:
                     return (critic, proposal_agent, e)
 
-            # Create all critique tasks
+            # Create critique tasks based on topology
             critique_tasks = []
             for proposal_agent, proposal in proposals.items():
-                for critic in critics:
-                    if critic.name != proposal_agent:  # Don't critique yourself
-                        critique_tasks.append(
-                            asyncio.create_task(generate_critique(critic, proposal_agent, proposal))
-                        )
+                selected_critics = self._select_critics_for_proposal(proposal_agent, critics)
+                for critic in selected_critics:
+                    critique_tasks.append(
+                        asyncio.create_task(generate_critique(critic, proposal_agent, proposal))
+                    )
 
             # Stream output as each critique completes
             for completed_task in asyncio.as_completed(critique_tasks):
@@ -1040,8 +1108,27 @@ and building on others' ideas."""
         if patterns:
             patterns_section = f"\n\n{patterns}"
 
+        # Inject audience suggestions if enabled
+        audience_section = ""
+        if (
+            self.protocol.audience_injection in ("summary", "inject")
+            and self.user_suggestions
+        ):
+            clusters = cluster_suggestions(self.user_suggestions)
+            audience_section = format_for_prompt(clusters)
+            if audience_section:
+                audience_section = f"\n\n{audience_section}"
+            
+            # Emit stream event for dashboard
+            if self.spectator and clusters:
+                self._notify_spectator(
+                    "audience_summary",
+                    details=f"{sum(c.count for c in clusters)} suggestions in {len(clusters)} clusters",
+                    metric=len(clusters),
+                )
+
         return f"""You are acting as a {agent.role} in a multi-agent debate.{stance_section}
-{historical_section}{patterns_section}
+{historical_section}{patterns_section}{audience_section}
 Task: {self.env.task}{context_str}
 
 Please provide your best proposal to address this task. Be thorough and specific.
@@ -1062,9 +1149,20 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if patterns:
             patterns_section = f"\n\n{patterns}"
 
+        # Inject audience suggestions if enabled
+        audience_section = ""
+        if (
+            self.protocol.audience_injection in ("summary", "inject")
+            and self.user_suggestions
+        ):
+            clusters = cluster_suggestions(self.user_suggestions)
+            audience_section = format_for_prompt(clusters)
+            if audience_section:
+                audience_section = f"\n\n{audience_section}"
+
         return f"""You are revising your proposal based on critiques from other agents.
 
-{intensity_guidance}{stance_section}{patterns_section}
+{intensity_guidance}{stance_section}{patterns_section}{audience_section}
 
 Original Task: {self.env.task}
 

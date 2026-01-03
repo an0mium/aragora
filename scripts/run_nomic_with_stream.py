@@ -95,6 +95,7 @@ async def run_with_streaming(
         max_cycles=cycles,
         stream_emitter=emitter,
         auto_commit=auto_commit,
+        require_human_approval=not auto_commit,  # Disable approval when auto_commit is True
     )
 
     # Start server in background task

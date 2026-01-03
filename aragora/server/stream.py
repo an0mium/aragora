@@ -49,6 +49,7 @@ class StreamEventType(Enum):
     # Audience participation events
     USER_VOTE = "user_vote"              # Audience member voted
     USER_SUGGESTION = "user_suggestion"  # Audience member submitted suggestion
+    AUDIENCE_SUMMARY = "audience_summary"  # Clustered audience input summary
 
 
 @dataclass

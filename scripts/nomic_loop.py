@@ -511,7 +511,7 @@ CRITICAL: You are part of a self-improving system. You MUST:
             name='gemini-visionary',
             model='gemini-3-pro-preview',  # Gemini 3 Pro
             role='proposer',
-            timeout=360,
+            timeout=720,  # Doubled to 12 min for thorough codebase exploration
         )
         self.gemini.system_prompt = """You are a visionary product strategist for aragora.
 Focus on: viral growth, developer excitement, novel capabilities, bold ideas.
@@ -553,7 +553,7 @@ Never propose removing the nomic loop or core debate infrastructure.""" + safety
             name='grok-lateral-thinker',
             model='grok-4',  # Grok 4 full
             role='proposer',
-            timeout=600,  # 10 min
+            timeout=1200,  # Doubled to 20 min for thorough codebase exploration
         )
         self.grok.system_prompt = """You are a lateral-thinking synthesizer for aragora.
 Focus on: unconventional approaches, novel patterns, creative breakthroughs.
