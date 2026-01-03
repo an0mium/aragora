@@ -109,6 +109,9 @@ from aragora.debate.scenarios import (
     OutcomeCategory,
 )
 
+# Broadcast
+from aragora.broadcast import generate_script, ScriptSegment, generate_audio, VOICE_MAP, mix_audio
+
 # Memory
 from aragora.memory.store import CritiqueStore
 from aragora.memory.embeddings import SemanticRetriever
@@ -288,6 +291,12 @@ __all__ = [
     "TournamentStanding",
     "TournamentResult",
     "create_default_tasks",
+    # Broadcast
+    "generate_script",
+    "ScriptSegment",
+    "generate_audio",
+    "VOICE_MAP",
+    "mix_audio",
     # Reasoning
     "ClaimsKernel",
     "TypedClaim",
