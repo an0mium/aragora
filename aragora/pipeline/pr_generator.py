@@ -237,6 +237,12 @@ class PRGenerator:
         # Build rationale from trace events
         rationale = self._build_rationale()
 
+        # Extract dissenting views from consensus proof and high-severity critiques
+        dissenting_views = self._extract_dissenting_views(consensus)
+
+        # Extract open questions from unresolved critique issues
+        open_questions = self._extract_open_questions(consensus)
+
         return DecisionMemo(
             debate_id=self.artifact.debate_id,
             title=self._extract_title(self.artifact.task),
@@ -244,8 +250,8 @@ class PRGenerator:
             key_decisions=key_decisions,
             rationale=rationale,
             supporting_evidence=evidence,
-            dissenting_views=[],  # TODO: Extract from critiques
-            open_questions=[],    # TODO: Extract from unresolved critiques
+            dissenting_views=dissenting_views,
+            open_questions=open_questions,
             consensus_confidence=consensus.confidence if consensus else 0,
             rounds_used=self.artifact.rounds,
             agent_count=len(self.artifact.agents),
@@ -388,6 +394,56 @@ class PRGenerator:
             return content.get("content", "")[:500]
 
         return "Consensus reached through structured multi-agent debate."
+
+    def _extract_dissenting_views(self, consensus) -> list[str]:
+        """Extract dissenting views from consensus proof and high-severity critiques."""
+        dissenting = []
+
+        # Get explicit dissenting views from consensus proof
+        if consensus and hasattr(consensus, 'dissenting_views'):
+            dissenting.extend(consensus.dissenting_views)
+
+        # Extract high-severity critique issues as potential dissent
+        if consensus and hasattr(consensus, 'critiques'):
+            for critique in consensus.critiques:
+                if critique.severity >= 0.7:  # High severity = significant disagreement
+                    for issue in critique.issues[:2]:  # Top 2 issues per critique
+                        dissent_text = f"[{critique.agent}] {issue}"
+                        if dissent_text not in dissenting:
+                            dissenting.append(dissent_text)
+
+        return dissenting[:5]  # Limit to top 5 dissenting views
+
+    def _extract_open_questions(self, consensus) -> list[str]:
+        """Extract open questions from unresolved or recurring critique issues."""
+        questions = []
+
+        if not consensus or not hasattr(consensus, 'critiques'):
+            return questions
+
+        # Track issue frequency across critiques
+        issue_counts: dict[str, int] = {}
+        for critique in consensus.critiques:
+            for issue in critique.issues:
+                # Normalize issue text for comparison
+                key = issue[:100].lower().strip()
+                issue_counts[key] = issue_counts.get(key, 0) + 1
+
+        # Issues raised by multiple agents are likely unresolved questions
+        for issue_key, count in issue_counts.items():
+            if count >= 2:  # Raised by 2+ agents
+                # Find the original full text
+                for critique in consensus.critiques:
+                    for issue in critique.issues:
+                        if issue[:100].lower().strip() == issue_key:
+                            questions.append(issue)
+                            break
+                    if len(questions) >= 3:
+                        break
+            if len(questions) >= 3:
+                break
+
+        return questions[:3]  # Limit to top 3 open questions
 
     def _estimate_complexity(self) -> str:
         """Estimate implementation complexity."""
