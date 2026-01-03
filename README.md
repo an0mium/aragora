@@ -47,11 +47,33 @@ The **nomic loop** (self-modifying rules) mirrors Hegel's concept of Spirit deve
 
 ## Key Features
 
-- **Heterogeneous Agents**: Mix Claude, GPT/Codex, Gemini, and local models in the same debate
+### Core Capabilities
+- **Heterogeneous Agents**: Mix Claude, GPT/Codex, Gemini, Grok, and local models in the same debate
 - **Structured Debate Protocol**: Propose → Critique → Revise loop with configurable rounds
 - **Multiple Consensus Mechanisms**: Majority voting, unanimous, judge-based, or none
 - **Self-Improvement**: SQLite-based pattern store learns from successful critiques
 - **CLI Interface**: One command, multiple agents working behind the scenes
+
+### Nomic Loop (Self-Improving System)
+The **Nomic Loop** is aragora's autonomous self-improvement system—a society of AI agents that debates and implements improvements to its own codebase:
+
+- **Multi-Phase Debate**: Context gathering → Proposal → Critique → Voting → Implementation
+- **4 Specialized Agents**: Claude (visionary), Codex (engineer), Gemini (architect), Grok (lateral thinker)
+- **Auto-Implementation**: Consensus proposals are automatically implemented and tested
+- **Crash Recovery**: Checkpoint/resume system survives interruptions
+- **Live Streaming**: Watch debates in real-time at [live.aragora.ai](https://live.aragora.ai)
+
+```bash
+# Run the nomic loop
+python scripts/run_nomic_with_stream.py run --cycles 24 --auto
+```
+
+### Live Dashboard
+Real-time debate visualization at **[live.aragora.ai](https://live.aragora.ai)**:
+- WebSocket streaming of agent proposals and critiques
+- Argument graph visualization
+- Late-joiner state sync
+- Multi-loop support
 
 ## Quick Start
 
@@ -236,13 +258,84 @@ for pattern in security_patterns:
     print(f"Success rate: {pattern.success_rate:.0%}")
 ```
 
+## Implemented Features (30+ Components)
+
+Aragora has evolved through 8 phases of self-improvement, with the nomic loop debating and implementing each feature:
+
+### Phase 1: Foundation
+| Feature | Description |
+|---------|-------------|
+| **ContinuumMemory** | Multi-timescale learning (fast/medium/slow tiers) |
+| **ReplayRecorder** | Cycle event recording for analysis |
+| **MetaLearner** | Self-tuning hyperparameters |
+| **IntrospectionAPI** | Agent self-awareness and reflection |
+| **ArgumentCartographer** | Real-time debate graph visualization |
+| **WebhookDispatcher** | External event notifications |
+
+### Phase 2: Learning
+| Feature | Description |
+|---------|-------------|
+| **ConsensusMemory** | Track settled vs contested topics across debates |
+| **InsightExtractor** | Post-debate pattern learning and extraction |
+
+### Phase 3: Evidence & Resilience
+| Feature | Description |
+|---------|-------------|
+| **MemoryStream** | Per-agent persistent memory |
+| **LocalDocsConnector** | Evidence grounding from codebase |
+| **CounterfactualOrchestrator** | Deadlock resolution via forking |
+| **CapabilityProber** | Agent quality assurance testing |
+| **DebateTemplates** | Structured debate formats |
+
+### Phase 4: Agent Evolution
+| Feature | Description |
+|---------|-------------|
+| **PersonaManager** | Agent traits and expertise evolution |
+| **PromptEvolver** | Prompt evolution from winning patterns |
+| **Tournament** | Periodic competitive benchmarking |
+
+### Phase 5: Intelligence
+| Feature | Description |
+|---------|-------------|
+| **ConvergenceDetector** | Early stopping via semantic convergence |
+| **MetaCritiqueAnalyzer** | Debate process feedback and recommendations |
+| **EloSystem** | Persistent agent skill tracking |
+| **AgentSelector** | Smart agent team selection |
+| **RiskRegister** | Low-consensus risk tracking |
+
+### Phase 6: Formal Reasoning
+| Feature | Description |
+|---------|-------------|
+| **ClaimsKernel** | Structured typed claims with evidence tracking |
+| **ProvenanceManager** | Cryptographic evidence chain integrity |
+| **BeliefNetwork** | Probabilistic reasoning over uncertain claims |
+| **ProofExecutor** | Executable verification of claims |
+| **ScenarioMatrix** | Robustness testing across scenarios |
+
+### Phase 7: Reliability & Audit
+| Feature | Description |
+|---------|-------------|
+| **EnhancedProvenanceManager** | Staleness detection for living documents |
+| **CheckpointManager** | Pause/resume and crash recovery |
+| **BreakpointManager** | Human intervention breakpoints |
+| **ReliabilityScorer** | Claim confidence scoring |
+| **DebateTracer** | Audit logs and deterministic replay |
+
+### Phase 8: Advanced Debates
+| Feature | Description |
+|---------|-------------|
+| **PersonaLaboratory** | A/B testing, emergent traits, cross-pollination |
+| **SemanticRetriever** | Pattern matching for similar critiques |
+| **FormalVerificationManager** | Z3 theorem proving for logical claims |
+| **DebateGraph** | DAG-based debates for complex disagreements |
+| **DebateForker** | Parallel branch exploration |
+
 ## Roadmap
 
-- [x] **Phase 1**: Core debate loop (current)
-- [ ] **Phase 2**: Semantic retrieval for pattern matching
-- [ ] **Phase 3**: Prompt evolution based on success patterns
-- [ ] **Phase 4**: Meta-critique (agents critique the debate process)
-- [ ] **Phase 5**: Emergent society simulation (ala Project Sid)
+- [x] **Phase 1-8**: Core framework with 30+ integrated features ✓
+- [ ] **Phase 9**: LeanBackend for Lean 4 theorem proving
+- [ ] **Phase 10**: Emergent society simulation (ala Project Sid)
+- [ ] **Phase 11**: Multi-codebase coordination
 
 ## Contributing
 
