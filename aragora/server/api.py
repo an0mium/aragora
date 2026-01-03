@@ -5,6 +5,7 @@ Provides REST endpoints for fetching debates and serves the viewer HTML.
 """
 
 import json
+import uuid
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Optional
@@ -12,6 +13,7 @@ from urllib.parse import urlparse, parse_qs
 
 from aragora.server.storage import DebateStorage
 from aragora.replay.storage import ReplayStorage
+from aragora.replay.reader import ReplayReader
 
 
 class DebateAPIHandler(BaseHTTPRequestHandler):
@@ -58,6 +60,18 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self._add_cors_headers()
         self.end_headers()
+
+    def do_POST(self) -> None:
+        """Handle POST requests."""
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        # Fork replay endpoint
+        if path.startswith('/api/replays/') and path.endswith('/fork'):
+            debate_id = path.split('/')[-3]  # /api/replays/{id}/fork
+            self._fork_replay(debate_id)
+        else:
+            self.send_error(404, f"Not found: {path}")
 
     def _get_debate(self, slug: str) -> None:
         """Get a single debate by slug."""
@@ -126,6 +140,77 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
                 "meta": meta,
                 "events": events
             })
+        except (OSError, json.JSONDecodeError) as e:
+            self.send_error(500, f"Error reading replay: {e}")
+
+    def _fork_replay(self, debate_id: str) -> None:
+        """Fork a replay at a specific event into a new live debate."""
+        if not self.replay_storage:
+            self.send_error(500, "Replay storage not configured")
+            return
+
+        # Read POST data
+        content_length = int(self.headers.get('Content-Length', 0))
+        if content_length == 0:
+            self.send_error(400, "Missing request body")
+            return
+
+        try:
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            self.send_error(400, "Invalid JSON")
+            return
+
+        event_id = data.get("event_id")
+        config_overrides = data.get("config", {})
+
+        if not event_id:
+            self.send_error(400, "Missing event_id")
+            return
+
+        # Load replay
+        session_dir = self.replay_storage.storage_dir / debate_id
+        meta_path = session_dir / "meta.json"
+        events_path = session_dir / "events.jsonl"
+
+        if not meta_path.exists() or not events_path.exists():
+            self.send_error(404, f"Replay not found: {debate_id}")
+            return
+
+        try:
+            # Read metadata
+            with open(meta_path, 'r', encoding='utf-8') as f:
+                meta = json.load(f)
+
+            # Read events up to the fork point
+            events = []
+            with open(events_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    event = json.loads(line.strip())
+                    events.append(event)
+                    if event.get("event_id") == event_id:
+                        break
+
+            # Generate new debate ID
+            fork_id = f"{debate_id}-fork-{uuid.uuid4().hex[:8]}"
+
+            # Return fork information
+            fork_data = {
+                "fork_id": fork_id,
+                "parent_id": debate_id,
+                "fork_point": event_id,
+                "status": "ready",
+                "meta": meta,
+                "events": events,
+                "config_overrides": config_overrides,
+                "message": "Fork created. Use this fork_id to start a new debate via WebSocket."
+            }
+
+            self._send_json(fork_data)
+
+        except Exception as e:
+            self.send_error(500, f"Fork failed: {str(e)}")
         except Exception as e:
             self.send_error(500, f"Error reading replay: {str(e)}")
 
@@ -182,7 +267,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
     def _add_cors_headers(self) -> None:
         """Add CORS headers for cross-origin requests."""
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
 
     def log_message(self, format: str, *args) -> None:
