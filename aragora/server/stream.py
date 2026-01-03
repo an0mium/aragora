@@ -46,6 +46,10 @@ class StreamEventType(Enum):
     LOOP_UNREGISTER = "loop_unregister"  # Loop instance ended
     LOOP_LIST = "loop_list"              # List of active loops (sent on connect)
 
+    # Audience participation events
+    USER_VOTE = "user_vote"              # Audience member voted
+    USER_SUGGESTION = "user_suggestion"  # Audience member submitted suggestion
+
 
 @dataclass
 class StreamEvent:
@@ -71,6 +75,111 @@ class StreamEvent:
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict())
+
+
+@dataclass
+class AudienceMessage:
+    """A message from an audience member (vote or suggestion)."""
+    type: str  # "vote" or "suggestion"
+    loop_id: str  # Associated nomic loop
+    payload: dict  # Message content (e.g., {"choice": "option1"} for votes)
+    timestamp: float = field(default_factory=time.time)
+    user_id: str = ""  # Optional user identifier
+
+
+class TokenBucket:
+    """
+    Token bucket rate limiter for audience message throttling.
+
+    Allows burst traffic up to burst_size, then limits to rate_per_minute.
+    Thread-safe for concurrent access.
+    """
+
+    def __init__(self, rate_per_minute: float, burst_size: int):
+        """
+        Initialize token bucket.
+
+        Args:
+            rate_per_minute: Token refill rate (tokens per minute)
+            burst_size: Maximum tokens (bucket capacity)
+        """
+        self.rate_per_minute = rate_per_minute
+        self.burst_size = burst_size
+        self.tokens = float(burst_size)  # Start full
+        self.last_refill = time.monotonic()
+        self._lock = __import__('threading').Lock()
+
+    def consume(self, tokens: int = 1) -> bool:
+        """
+        Attempt to consume tokens from the bucket.
+
+        Args:
+            tokens: Number of tokens to consume
+
+        Returns:
+            True if tokens were available and consumed, False otherwise
+        """
+        with self._lock:
+            # Refill tokens based on elapsed time
+            now = time.monotonic()
+            elapsed_minutes = (now - self.last_refill) / 60.0
+            refill_amount = elapsed_minutes * self.rate_per_minute
+            self.tokens = min(self.burst_size, self.tokens + refill_amount)
+            self.last_refill = now
+
+            # Try to consume
+            if self.tokens >= tokens:
+                self.tokens -= tokens
+                return True
+            return False
+
+
+class AudienceInbox:
+    """
+    Thread-safe queue for audience messages.
+
+    Collects votes and suggestions from WebSocket clients for processing
+    by the debate arena.
+    """
+
+    def __init__(self):
+        self._messages: list[AudienceMessage] = []
+        self._lock = __import__('threading').Lock()
+
+    def put(self, message: AudienceMessage) -> None:
+        """Add a message to the inbox (thread-safe)."""
+        with self._lock:
+            self._messages.append(message)
+
+    def get_all(self) -> list[AudienceMessage]:
+        """
+        Drain all messages from the inbox (thread-safe).
+
+        Returns:
+            List of all queued messages, emptying the inbox
+        """
+        with self._lock:
+            messages = self._messages.copy()
+            self._messages.clear()
+            return messages
+
+    def get_summary(self) -> dict:
+        """
+        Get a summary of current inbox state without draining.
+
+        Returns:
+            Dict with vote counts and suggestion count
+        """
+        with self._lock:
+            votes = {}
+            suggestions = 0
+            for msg in self._messages:
+                if msg.type == "vote":
+                    choice = msg.payload.get("choice", "unknown")
+                    votes[choice] = votes.get(choice, 0) + 1
+                elif msg.type == "suggestion":
+                    suggestions += 1
+            return {"votes": votes, "suggestions": suggestions, "total": len(self._messages)}
 
 
 class SyncEventEmitter:
@@ -153,6 +262,9 @@ class DebateStreamServer:
         self._running = False
         # Multi-loop tracking
         self.active_loops: dict[str, LoopInstance] = {}  # loop_id -> LoopInstance
+        # Audience participation
+        self.audience_inbox = AudienceInbox()
+        self._rate_limiters: dict[str, TokenBucket] = {}  # client_id -> TokenBucket
 
     @property
     def emitter(self) -> SyncEventEmitter:
@@ -263,7 +375,9 @@ class DebateStreamServer:
                 # Handle client requests (e.g., switch active loop view)
                 try:
                     data = json.loads(message)
-                    if data.get("type") == "get_loops":
+                    msg_type = data.get("type")
+
+                    if msg_type == "get_loops":
                         await websocket.send(json.dumps({
                             "type": "loop_list",
                             "data": {
@@ -271,6 +385,50 @@ class DebateStreamServer:
                                 "count": len(self.active_loops),
                             }
                         }))
+
+                    elif msg_type in ("user_vote", "user_suggestion"):
+                        # Handle audience participation
+                        client_id = str(id(websocket))
+                        loop_id = data.get("loop_id", "")
+
+                        # Get or create rate limiter for this client
+                        if client_id not in self._rate_limiters:
+                            self._rate_limiters[client_id] = TokenBucket(
+                                rate_per_minute=10.0,  # 10 messages per minute
+                                burst_size=5  # Allow burst of 5
+                            )
+
+                        # Check rate limit
+                        if not self._rate_limiters[client_id].consume(1):
+                            await websocket.send(json.dumps({
+                                "type": "error",
+                                "data": {"message": "Rate limited. Please wait before submitting again."}
+                            }))
+                            continue
+
+                        # Create and queue the message
+                        audience_msg = AudienceMessage(
+                            type="vote" if msg_type == "user_vote" else "suggestion",
+                            loop_id=loop_id,
+                            payload=data.get("payload", {}),
+                            user_id=client_id,
+                        )
+                        self.audience_inbox.put(audience_msg)
+
+                        # Emit event for dashboard visibility
+                        event_type = StreamEventType.USER_VOTE if msg_type == "user_vote" else StreamEventType.USER_SUGGESTION
+                        self._emitter.emit(StreamEvent(
+                            type=event_type,
+                            data=audience_msg.payload,
+                            loop_id=loop_id,
+                        ))
+
+                        # Send acknowledgment
+                        await websocket.send(json.dumps({
+                            "type": "ack",
+                            "data": {"message": "Message received", "msg_type": msg_type}
+                        }))
+
                 except json.JSONDecodeError:
                     pass
         except Exception:
