@@ -635,6 +635,17 @@ except ImportError:
     CitationExtractor = None
     GroundedVerdict = None
 
+# =============================================================================
+# Broadcast Module (Post-Debate Summaries)
+# =============================================================================
+
+try:
+    from aragora.broadcast.script_gen import DebateSummaryGenerator
+    BROADCAST_AVAILABLE = True
+except ImportError:
+    BROADCAST_AVAILABLE = False
+    DebateSummaryGenerator = None
+
 
 class NomicLoop:
     """
@@ -835,6 +846,12 @@ class NomicLoop:
             self.citation_store = CitationStore()
             self.citation_extractor = CitationExtractor()
             print(f"[citations] Citation grounding enabled for evidence-backed verdicts")
+
+        # Broadcast: Generate post-debate summaries
+        self.summary_generator = None
+        if BROADCAST_AVAILABLE:
+            self.summary_generator = DebateSummaryGenerator()
+            print(f"[broadcast] Debate summary generation enabled")
 
         # Phase 3: CapabilityProber for agent quality assurance
         self.prober = None
@@ -2113,6 +2130,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                         ),
                     ),
                     position_tracker=self.position_tracker,
+                    event_hooks=self._create_arena_hooks("tournament"),  # Enable streaming
                 )
                 return await arena.run(env)
 
@@ -2809,6 +2827,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                 arena = Arena(
                     env, agents, protocol,
                     position_tracker=self.position_tracker,
+                    event_hooks=self._create_arena_hooks("scenario"),  # Enable streaming
                 )
                 return await arena.run(env)
 
@@ -3162,6 +3181,26 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
             # Detect emergent traits
             emergent = self._detect_emergent_traits()
 
+            # Proactively create experiments for low-performing agents (every 10 cycles)
+            experiments_created = 0
+            if self.cycle_count % 10 == 0 and self.elo_system:
+                for agent_name in ["gemini", "claude", "codex", "grok"]:
+                    try:
+                        rating = self.elo_system.get_rating(agent_name)
+                        if rating and rating.elo < 1450:
+                            candidate_traits = ["analytical", "concise", "thorough", "skeptical"]
+                            current = self.persona_lab.get_persona(agent_name) if hasattr(self.persona_lab, 'get_persona') else None
+                            current_traits = getattr(current, 'traits', []) if current else []
+                            new_traits = [t for t in candidate_traits if t not in current_traits][:2]
+                            if new_traits:
+                                exp_id = self._run_persona_experiment(agent_name, new_traits)
+                                if exp_id:
+                                    experiments_created += 1
+                    except Exception:
+                        pass
+                if experiments_created > 0:
+                    self._log(f"  [lab] Created {experiments_created} experiments for underperformers")
+
             # Check experiments for significant results and apply mutations
             experiments = self.persona_lab.get_running_experiments()
             completed = 0
@@ -3169,7 +3208,6 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
             for exp in experiments:
                 if exp.is_significant:
                     self._log(f"  [lab] Experiment {exp.experiment_id[:8]} significant: {exp.relative_improvement:+.1%}")
-                    # Conclude the experiment - this applies the winning variant if better
                     concluded = self.persona_lab.conclude_experiment(exp.experiment_id)
                     if concluded:
                         completed += 1
@@ -3177,11 +3215,33 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                             self._log(f"  [lab] Applied variant traits to {exp.agent_name}: {concluded.variant_persona.traits}")
                             applied += 1
 
+            # Cross-pollinate successful traits between agents (every 20 cycles)
+            traits_shared = 0
+            if self.cycle_count % 20 == 0 and self.elo_system:
+                try:
+                    ratings = [(a, self.elo_system.get_rating(a)) for a in ["gemini", "claude", "codex", "grok"]]
+                    ratings = [(a, r.elo) for a, r in ratings if r]
+                    if len(ratings) >= 2:
+                        ratings.sort(key=lambda x: x[1], reverse=True)
+                        best_agent, best_elo = ratings[0]
+                        worst_agent, worst_elo = ratings[-1]
+                        if best_elo - worst_elo > 100:
+                            best_persona = self.persona_lab.get_persona(best_agent) if hasattr(self.persona_lab, 'get_persona') else None
+                            if best_persona and getattr(best_persona, 'traits', []):
+                                trait_to_share = best_persona.traits[0]
+                                if self._cross_pollinate_traits(best_agent, worst_agent, trait_to_share):
+                                    traits_shared += 1
+                                    self._log(f"  [lab] Shared '{trait_to_share}' from {best_agent} to {worst_agent}")
+                except Exception as e:
+                    self._log(f"  [lab] Cross-pollination error: {e}")
+
             return {
                 "emergent_traits": len(emergent),
+                "experiments_created": experiments_created,
                 "experiments_checked": len(experiments),
                 "significant_results": completed,
-                "mutations_applied": applied
+                "mutations_applied": applied,
+                "traits_shared": traits_shared
             }
         except Exception as e:
             self._log(f"  [lab] Evolution error: {e}")
@@ -4461,7 +4521,13 @@ Recent changes:
             ),
             asymmetric_stances=asymmetric_enabled,
             rotate_stances=asymmetric_enabled,
+            audience_injection="summary",  # Enable user suggestions in prompts
         )
+
+        # Select and apply debate template based on task type (P7: DebateTemplates)
+        template = self._select_debate_template(topic_hint)
+        if template:
+            self._apply_template_to_protocol(protocol, template)
 
         # Phase 5: Select optimal debate team (P14: AgentSelector)
         debate_team = self._select_debate_team(topic_hint)
@@ -4505,8 +4571,21 @@ Recent changes:
             position_tracker=self.position_tracker,
             position_ledger=self.position_ledger,
             elo_system=self.elo_system,
+            event_hooks=self._create_arena_hooks("debate"),  # Enable real-time streaming
         )
-        result = await self._run_arena_with_logging(arena, "debate")
+
+        # P1-Phase2: Use graph-based debate for complex multi-agent reasoning if available
+        # DebateGraph provides DAG-based parallel argument exploration and automatic convergence
+        result = None
+        if self.graph_debate_enabled and DEBATE_GRAPH_AVAILABLE and len(debate_team) >= 3:
+            graph_result = await self._run_graph_debate(task, debate_team)
+            if graph_result:
+                self._log("  [graph] Using graph-based debate result")
+                result = graph_result
+
+        # Fall back to traditional arena if graph debate unavailable or failed
+        if result is None:
+            result = await self._run_arena_with_logging(arena, "debate")
 
         # Update agent reputation based on debate outcome
         if self.critique_store and result.consensus_reached:
@@ -4796,25 +4875,31 @@ Recent changes:
         if not self.nomic_integration and not result.consensus_reached:
             result = await self._handle_debate_deadlock(result, arena, topic_hint)
 
-        # NomicIntegration: Belief analysis and deadlock detection
+        # NomicIntegration: Unified post-debate analysis
         belief_analysis = None
         conditional_consensus = None
         if self.nomic_integration:
             try:
-                belief_analysis = await self.nomic_integration.analyze_debate(result)
-                # Always log belief network analysis results
-                self._log(f"  [belief] Network: {len(belief_analysis.contested_claims)} contested, "
-                          f"{len(belief_analysis.crux_claims)} crux claims, "
-                          f"converged={belief_analysis.convergence_achieved}")
-                if belief_analysis.has_deadlock:
-                    self._log(f"  [belief] Deadlock detected - attempting counterfactual resolution")
-                    # Try to resolve with counterfactual branching (pass arena for branch execution)
-                    conditional_consensus = await self.nomic_integration.resolve_deadlock(
-                        belief_analysis.crux_claims,
-                        arena=arena  # Enable actual branch execution
-                    )
+                # Use unified post-debate analysis for belief analysis + deadlock resolution
+                post_analysis = await self.nomic_integration.full_post_debate_analysis(
+                    result=result,
+                    arena=arena,  # Enable counterfactual branch execution
+                    claims_kernel=self.claims_kernel,
+                    changed_files=None,  # Staleness checked after implementation
+                )
+                belief_analysis = post_analysis.get("belief")
+                conditional_consensus = post_analysis.get("conditional")
+                summary = post_analysis.get("summary", {})
+
+                # Log belief network analysis results
+                self._log(f"  [belief] Network: {summary.get('contested_count', 0)} contested, "
+                          f"{summary.get('crux_count', 0)} crux claims, "
+                          f"converged={belief_analysis.convergence_achieved if belief_analysis else False}")
+                if summary.get("has_deadlock"):
+                    self._log(f"  [belief] Deadlock detected - counterfactual resolution attempted")
                     if conditional_consensus:
                         self._log(f"  [belief] Resolved with conditional consensus")
+
                 # Checkpoint the debate phase
                 await self.nomic_integration.checkpoint(
                     phase="debate",
@@ -4822,13 +4907,26 @@ Recent changes:
                     cycle=self.cycle_count,
                 )
             except Exception as e:
-                self._log(f"  [integration] Analysis failed: {e}")
+                self._log(f"  [integration] Post-debate analysis failed: {e}")
 
         phase_duration = (datetime.now() - phase_start).total_seconds()
         self._stream_emit(
             "on_phase_end", "debate", self.cycle_count, result.consensus_reached,
             phase_duration, {"confidence": result.confidence}
         )
+
+        # Generate debate summary for broadcast (every 5 cycles)
+        broadcast_summary = None
+        if self.summary_generator and self.cycle_count % 5 == 0:
+            try:
+                broadcast_summary = self.summary_generator.generate_summary(
+                    debate_result=result,
+                    agents=[a.name for a in agents] if agents else []
+                )
+                if broadcast_summary:
+                    self._log(f"  [broadcast] Generated summary ({len(broadcast_summary)} chars)")
+            except Exception as e:
+                self._log(f"  [broadcast] Summary generation error: {e}")
 
         return {
             "phase": "debate",
@@ -4838,6 +4936,7 @@ Recent changes:
             "duration": result.duration_seconds,
             "belief_analysis": belief_analysis.to_dict() if belief_analysis else None,
             "conditional_consensus": conditional_consensus,
+            "broadcast_summary": broadcast_summary,
         }
 
     async def phase_design(self, improvement: str) -> dict:
@@ -4925,6 +5024,7 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
                 ],
                 synthesizer_final_round=True,
             ),
+            audience_injection="summary",  # Enable user suggestions in prompts
         )
 
         # NomicIntegration: Probe agents for reliability weights
@@ -4958,6 +5058,7 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
             position_tracker=self.position_tracker,
             position_ledger=self.position_ledger,
             elo_system=self.elo_system,
+            event_hooks=self._create_arena_hooks("design"),  # Enable real-time streaming
         )
         result = await self._run_arena_with_logging(arena, "design")
 
