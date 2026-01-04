@@ -5390,8 +5390,13 @@ Recent changes:
             "broadcast_summary": broadcast_summary,
         }
 
-    async def phase_design(self, improvement: str) -> dict:
-        """Phase 2: All agents design the implementation together."""
+    async def phase_design(self, improvement: str, belief_analysis: dict = None) -> dict:
+        """Phase 2: All agents design the implementation together.
+
+        Args:
+            improvement: The improvement proposal from debate phase
+            belief_analysis: Optional belief analysis from debate (contested/crux claims)
+        """
         phase_start = datetime.now()
         self._log("\n" + "=" * 70)
         self._log("PHASE 2: IMPLEMENTATION DESIGN")
@@ -5430,6 +5435,31 @@ Recent changes:
             design_learning += f"\n{failure_patterns}\n"
         if continuum_patterns:
             design_learning += f"\n{continuum_patterns}\n"
+
+        # Add belief analysis context from debate phase (contested/crux claims)
+        belief_context = ""
+        if belief_analysis:
+            contested_count = belief_analysis.get("contested_count", 0)
+            crux_count = belief_analysis.get("crux_count", 0)
+            if contested_count > 0 or crux_count > 0:
+                belief_context = "\n## UNCERTAINTY FROM DEBATE\n"
+                belief_context += f"The debate identified {contested_count} contested claims "
+                belief_context += f"and {crux_count} crux (high-impact disputed) claims.\n"
+                if crux_count > 0:
+                    belief_context += "Your design MUST address these disputed points explicitly.\n"
+                posteriors = belief_analysis.get("posteriors", {})
+                if posteriors:
+                    belief_context += "Key uncertainty areas:\n"
+                    for claim_id, dist in list(posteriors.items())[:3]:
+                        if isinstance(dist, dict) and dist.get("entropy", 0) > 0.5:
+                            belief_context += f"  - {claim_id}: entropy={dist.get('entropy', 0):.2f}\n"
+            if belief_analysis.get("convergence_achieved"):
+                design_learning += "\n[Belief network converged - good consensus foundation]\n"
+            else:
+                design_learning += "\n[Belief network did NOT converge - proceed with caution]\n"
+        if belief_context:
+            design_learning += belief_context
+            self._log(f"  [belief] Injected {len(belief_context)} chars of belief context into design")
 
         # Build citation guidance if available
         citation_guidance = ""
@@ -6555,8 +6585,9 @@ Be concise - this is a quality gate, not a full review."""
         improvement = debate_result["final_answer"]
         self._log(f"\nConsensus improvement:\n{improvement}")  # Full content, no truncation
 
-        # Phase 2: Design
-        design_result = await self.phase_design(improvement)
+        # Phase 2: Design (with belief analysis from debate)
+        belief_analysis = debate_result.get("belief_analysis")
+        design_result = await self.phase_design(improvement, belief_analysis=belief_analysis)
         cycle_result["phases"]["design"] = design_result
 
         design = design_result.get("design", "")
@@ -6587,16 +6618,17 @@ Be concise - this is a quality gate, not a full review."""
                         self._log(f"  [staleness] {len(staleness.stale_claims)} claims have stale evidence")
                         for claim in staleness.stale_claims[:3]:  # Log first 3
                             self._log(f"    - {claim.statement[:60]}...")
-                    if staleness.needs_redebate:
-                        self._log(f"  [staleness] WARNING: High-severity stale evidence detected!")
-                        cycle_result["needs_redebate"] = True
-                        cycle_result["stale_claims"] = [c.claim_id for c in staleness.stale_claims]
 
-                        # Queue stale claims for next cycle's debate agenda
+                        # Queue ALL stale claims for next cycle's debate agenda
                         if not hasattr(self, '_pending_redebate_claims'):
                             self._pending_redebate_claims = []
                         self._pending_redebate_claims.extend(staleness.stale_claims)
                         self._log(f"  [staleness] Queued {len(staleness.stale_claims)} claims for re-debate in next cycle")
+
+                    if staleness.needs_redebate:
+                        self._log(f"  [staleness] WARNING: High-severity stale evidence detected!")
+                        cycle_result["needs_redebate"] = True
+                        cycle_result["stale_claims"] = [c.claim_id for c in staleness.stale_claims]
             except Exception as e:
                 self._log(f"  [staleness] Check failed: {e}")
 

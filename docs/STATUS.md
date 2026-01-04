@@ -63,10 +63,15 @@
 - **NEW**: Added record_redteam_result() to EloSystem (Red Team → ELO feedback loop)
 - **NEW**: Added pattern injection to debate prompts (learned patterns from InsightStore)
 - **NEW**: Added 5 UI components: DebateExportModal, OperationalModesPanel, AgentNetworkPanel, RedTeamAnalysisPanel, CapabilityProbePanel
+- **NEW**: Fixed security: sanitized error messages in unified_server.py (prevents info disclosure)
+- **NEW**: Fixed security: added slug length validation in storage.py (DoS prevention)
+- **NEW**: Fixed security: added GitHub connector input validation (repo format + query length)
+- **NEW**: Added belief analysis → design phase context (contested/crux claims guide design)
+- **NEW**: Fixed stale claims injection to queue ALL stale claims (not just high-severity)
 
 ## Feature Integration Status
 
-### Fully Integrated (16)
+### Fully Integrated (18)
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
@@ -82,6 +87,8 @@
 | Relationship Metrics | Active | `aragora/ranking/elo.py` |
 | Red Team → ELO | Active | `aragora/ranking/elo.py:record_redteam_result()` |
 | Pattern Injection | Active | `aragora/debate/orchestrator.py:_format_patterns_for_prompt()` |
+| Belief → Design Context | Active | `scripts/nomic_loop.py:phase_design()` (contested/crux claims) |
+| Stale Claims Feedback | Active | `scripts/nomic_loop.py:run_cycle()` → `phase_debate()` |
 | Belief Network | Exported | `aragora/reasoning/belief.py` (exported in __init__.py) |
 | Reliability Scoring | Exported | `aragora/reasoning/reliability.py` (exported in __init__.py) |
 | Webhook Integration | Exported | `aragora/integrations/webhooks.py` (exported in __init__.py) |

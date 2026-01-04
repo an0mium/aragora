@@ -13,6 +13,7 @@ Searches:
 
 import asyncio
 import json
+import re
 import subprocess
 from typing import Optional
 from datetime import datetime
@@ -20,6 +21,12 @@ import hashlib
 
 from aragora.reasoning.provenance import SourceType
 from aragora.connectors.base import BaseConnector, Evidence
+
+# Regex for valid GitHub repo format: owner/repo (alphanumeric, dash, underscore, dot)
+VALID_REPO_PATTERN = re.compile(r'^[\w.-]+/[\w.-]+$')
+
+# Maximum query length to prevent abuse
+MAX_QUERY_LENGTH = 500
 
 
 class GitHubConnector(BaseConnector):
@@ -38,6 +45,9 @@ class GitHubConnector(BaseConnector):
         token: Optional[str] = None,
     ):
         super().__init__(provenance=provenance, default_confidence=0.7)
+        # Validate repo format to prevent command injection
+        if repo and not VALID_REPO_PATTERN.match(repo):
+            raise ValueError(f"Invalid repo format: {repo}. Expected 'owner/repo'")
         self.repo = repo
         self.use_gh_cli = use_gh_cli
         self.token = token
@@ -111,6 +121,12 @@ class GitHubConnector(BaseConnector):
         Returns:
             List of Evidence objects
         """
+        # Validate query to prevent abuse
+        if not query or len(query) < 2:
+            return []  # Query too short
+        if len(query) > MAX_QUERY_LENGTH:
+            return []  # Query too long, prevent DoS
+
         if not self.repo and search_type != "code":
             return []  # Need repo for issues/prs
 

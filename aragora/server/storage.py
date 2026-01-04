@@ -218,6 +218,10 @@ class DebateStorage:
         Returns:
             Debate artifact dict or None if not found
         """
+        # Validate slug to prevent abuse (DoS via extremely long slugs)
+        if not slug or len(slug) > 500:
+            return None
+
         with self._get_connection() as conn:
             cursor = conn.execute(
                 "SELECT artifact_json FROM debates WHERE slug = ?",

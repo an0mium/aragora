@@ -1367,17 +1367,18 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
             except Exception as e:
                 import traceback
-                error_msg = str(e)
+                # Use safe error message for client, keep full trace server-side
+                safe_msg = _safe_error_message(e, "debate_execution")
                 error_trace = traceback.format_exc()
                 with _active_debates_lock:
                     _active_debates[debate_id]["status"] = "error"
-                    _active_debates[debate_id]["error"] = error_msg
+                    _active_debates[debate_id]["error"] = safe_msg
                 # Log full traceback so thread failures aren't silent
-                logger.error(f"[debate] Thread error in {debate_id}: {error_msg}\n{error_trace}")
-                # Emit error event
+                logger.error(f"[debate] Thread error in {debate_id}: {str(e)}\n{error_trace}")
+                # Emit sanitized error event to client
                 self.stream_emitter.emit(StreamEvent(
                     type=StreamEventType.ERROR,
-                    data={"error": error_msg, "debate_id": debate_id},
+                    data={"error": safe_msg, "debate_id": debate_id},
                 ))
 
         # Use thread pool to prevent unbounded thread creation
