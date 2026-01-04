@@ -324,7 +324,8 @@ class TestAuthIntegration:
         """Auth should be disabled when no token is configured."""
         config = AuthConfig()
         assert config.enabled is False
-        assert check_auth({}, "") is True  # Should allow when disabled
+        authenticated, _ = check_auth({}, "")
+        assert authenticated is True  # Should allow when disabled
 
     def test_auth_config_enables_with_token(self):
         """Auth should enable when token is set."""

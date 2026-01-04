@@ -141,7 +141,7 @@ class DebateProtocol:
     # Cognitive role rotation (Heavy3-inspired)
     # Assigns different cognitive roles (Analyst, Skeptic, Lateral Thinker, Synthesizer)
     # to each agent per round, ensuring diverse perspectives
-    role_rotation: bool = False  # Enable role rotation
+    role_rotation: bool = True  # Enable role rotation (cognitive diversity)
     role_rotation_config: Optional[RoleRotationConfig] = None  # Custom role config
 
 

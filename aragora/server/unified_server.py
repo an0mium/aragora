@@ -23,6 +23,13 @@ from .documents import DocumentStore, parse_document, get_supported_formats, SUP
 import threading
 import uuid
 
+# Valid agent types (allowlist for security)
+ALLOWED_AGENT_TYPES = frozenset({
+    "codex", "claude", "openai", "gemini-cli", "grok-cli",
+    "qwen-cli", "deepseek-cli", "gemini", "ollama",
+    "anthropic-api", "openai-api"
+})
+
 # Optional Supabase persistence
 try:
     from aragora.persistence import SupabaseClient
@@ -410,6 +417,9 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     else:
                         agent_type = spec
                         role = None
+                    # Validate agent type against allowlist
+                    if agent_type.lower() not in ALLOWED_AGENT_TYPES:
+                        raise ValueError(f"Invalid agent type: {agent_type}. Allowed: {', '.join(sorted(ALLOWED_AGENT_TYPES))}")
                     agent_specs.append((agent_type, role))
 
                 # Create agents
