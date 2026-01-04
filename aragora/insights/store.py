@@ -16,6 +16,15 @@ from typing import Optional
 from aragora.insights.extractor import Insight, InsightType, DebateInsights
 
 
+def _escape_like_pattern(value: str) -> str:
+    """Escape special characters in SQL LIKE patterns to prevent injection.
+
+    SQLite LIKE uses % and _ as wildcards. This escapes them using backslash.
+    """
+    # Escape backslash first, then LIKE special characters
+    return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+
 class InsightStore:
     """
     SQLite-based storage for debate insights.
@@ -273,16 +282,20 @@ class InsightStore:
             params = []
 
             if query:
-                sql += " AND (title LIKE ? OR description LIKE ?)"
-                params.extend([f"%{query}%", f"%{query}%"])
+                # Escape LIKE special characters to prevent SQL injection
+                escaped_query = _escape_like_pattern(query)
+                sql += " AND (title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\')"
+                params.extend([f"%{escaped_query}%", f"%{escaped_query}%"])
 
             if insight_type:
                 sql += " AND type = ?"
                 params.append(insight_type.value)
 
             if agent:
-                sql += " AND agents_involved LIKE ?"
-                params.append(f'%"{agent}"%')
+                # Escape LIKE special characters to prevent SQL injection
+                escaped_agent = _escape_like_pattern(agent)
+                sql += " AND agents_involved LIKE ? ESCAPE '\\'"
+                params.append(f'%"{escaped_agent}"%')
 
             sql += " ORDER BY created_at DESC LIMIT ?"
             params.append(limit)

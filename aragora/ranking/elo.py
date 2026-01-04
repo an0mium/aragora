@@ -25,6 +25,11 @@ K_FACTOR = 32  # How quickly ratings change
 CALIBRATION_MIN_COUNT = 10  # Minimum predictions for meaningful score
 
 
+def _escape_like_pattern(value: str) -> str:
+    """Escape special characters in SQL LIKE patterns to prevent injection."""
+    return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+
 @dataclass
 class AgentRating:
     """An agent's rating and statistics."""
@@ -655,17 +660,20 @@ class EloSystem:
     def get_head_to_head(self, agent_a: str, agent_b: str) -> dict:
         """Get head-to-head statistics between two agents."""
         with sqlite3.connect(self.db_path, timeout=30.0) as conn:
-
             cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            SELECT winner, scores FROM matches
-            WHERE participants LIKE ? AND participants LIKE ?
-            """,
-            (f"%{agent_a}%", f"%{agent_b}%"),
-        )
-        rows = cursor.fetchall()
+            # Escape LIKE special characters to prevent SQL injection
+            escaped_a = _escape_like_pattern(agent_a)
+            escaped_b = _escape_like_pattern(agent_b)
+
+            cursor.execute(
+                """
+                SELECT winner, scores FROM matches
+                WHERE participants LIKE ? ESCAPE '\\' AND participants LIKE ? ESCAPE '\\'
+                """,
+                (f"%{escaped_a}%", f"%{escaped_b}%"),
+            )
+            rows = cursor.fetchall()
 
         a_wins = 0
         b_wins = 0

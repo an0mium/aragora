@@ -1616,6 +1616,59 @@ Extract detailed insights from debate content.
 
 ---
 
+## Capability Probing
+
+#### POST /api/probes/run
+Run capability probes against an agent to detect vulnerabilities.
+
+**Request Body:**
+```json
+{
+  "agent": "claude",
+  "strategies": ["contradiction", "hallucination"],
+  "probe_count": 3
+}
+```
+
+**Response:**
+```json
+{
+  "agent": "claude",
+  "probe_count": 3,
+  "available_strategies": ["contradiction", "hallucination", "sycophancy", "persistence"],
+  "status": "ready"
+}
+```
+
+---
+
+## Red Team Analysis
+
+#### POST /api/debates/:id/red-team
+Run adversarial analysis on a debate's conclusions.
+
+**Request Body:**
+```json
+{
+  "attack_types": ["steelman", "strawman"],
+  "intensity": 5
+}
+```
+
+**Response:**
+```json
+{
+  "debate_id": "debate-123",
+  "task": "Security implementation",
+  "consensus_reached": true,
+  "intensity": 5,
+  "available_attacks": ["steelman", "strawman", "edge_case", "assumption_probe", "counterexample"],
+  "status": "ready"
+}
+```
+
+---
+
 ## WebSocket API
 
 Connect to the WebSocket server for real-time streaming:

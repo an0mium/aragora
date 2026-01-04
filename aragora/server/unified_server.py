@@ -188,6 +188,14 @@ except ImportError:
     RELATIONSHIP_TRACKER_AVAILABLE = False
     RelationshipTracker = None
 
+# Optional PositionLedger for truth-grounded personas
+try:
+    from aragora.agents.grounded import PositionLedger
+    POSITION_LEDGER_AVAILABLE = True
+except ImportError:
+    POSITION_LEDGER_AVAILABLE = False
+    PositionLedger = None
+
 # Optional CritiqueStore for pattern retrieval
 try:
     from aragora.memory.store import CritiqueStore
@@ -206,6 +214,22 @@ except ImportError:
     CSVExporter = None
     DOTExporter = None
     StaticHTMLExporter = None
+
+# Optional CapabilityProber for vulnerability detection
+try:
+    from aragora.modes.prober import CapabilityProber
+    PROBER_AVAILABLE = True
+except ImportError:
+    PROBER_AVAILABLE = False
+    CapabilityProber = None
+
+# Optional RedTeamMode for adversarial testing
+try:
+    from aragora.modes.redteam import RedTeamMode
+    REDTEAM_AVAILABLE = True
+except ImportError:
+    REDTEAM_AVAILABLE = False
+    RedTeamMode = None
 
 # Optional PersonaLaboratory for emergent traits
 try:
@@ -906,6 +930,12 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._formal_verify_claim()
         elif path == '/api/insights/extract-detailed':
             self._extract_detailed_insights()
+        elif path == '/api/probes/run':
+            self._run_capability_probe()
+        elif path.startswith('/api/debates/') and path.endswith('/red-team'):
+            debate_id = self._extract_path_segment(path, 3, "debate_id")
+            if debate_id:
+                self._run_red_team_analysis(debate_id)
         else:
             self.send_error(404, f"Unknown POST endpoint: {path}")
 
@@ -977,11 +1007,20 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     elif file_data.endswith(b'\r\n'):
                         file_data = file_data[:-2]
 
-                    # Extract filename from headers
+                    # Extract filename from headers with path traversal protection
                     if 'filename="' in headers_raw:
                         start = headers_raw.index('filename="') + 10
                         end = headers_raw.index('"', start)
-                        filename = headers_raw[start:end]
+                        raw_filename = headers_raw[start:end]
+                        # Sanitize: extract basename only, reject path traversal attempts
+                        import os
+                        filename = os.path.basename(raw_filename)
+                        # Reject null bytes, control chars, and suspicious patterns
+                        if not filename or '\x00' in filename or '..' in filename:
+                            continue
+                        # Reject filenames that are just dots or whitespace
+                        if filename.strip('.').strip() == '':
+                            continue
                         file_content = file_data
                         break
                 except (ValueError, IndexError):
@@ -3701,6 +3740,15 @@ class UnifiedServer:
                 personas_path = nomic_dir / "personas.db"
                 UnifiedHandler.persona_manager = PersonaManager(str(personas_path))
                 print("[server] PersonaManager loaded for agent specialization")
+
+            # Initialize PositionLedger for truth-grounded personas
+            if POSITION_LEDGER_AVAILABLE:
+                ledger_path = nomic_dir / "position_ledger.db"
+                try:
+                    UnifiedHandler.position_ledger = PositionLedger(db_path=str(ledger_path))
+                    print("[server] PositionLedger loaded for truth-grounded personas")
+                except Exception as e:
+                    print(f"[server] PositionLedger initialization failed: {e}")
 
             # Initialize DebateEmbeddingsDatabase for historical memory
             if EMBEDDINGS_AVAILABLE:
