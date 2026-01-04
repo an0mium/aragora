@@ -125,6 +125,13 @@ class DebateProtocol:
     # Human participation settings
     user_vote_weight: float = 0.5  # Weight of user votes relative to agent votes (0.5 = half weight)
 
+    # Conviction-weighted voting (intensity 1-10 scale)
+    # User votes with high conviction (8-10) count more than low conviction (1-3)
+    user_vote_intensity_scale: int = 10  # Max intensity value
+    user_vote_intensity_neutral: int = 5  # Neutral intensity (multiplier = 1.0)
+    user_vote_intensity_min_multiplier: float = 0.5  # Multiplier at intensity=1
+    user_vote_intensity_max_multiplier: float = 2.0  # Multiplier at intensity=10
+
     # Audience suggestion injection
     audience_injection: Literal["off", "summary", "inject"] = "off"
 
@@ -136,6 +143,39 @@ class DebateProtocol:
     # to each agent per round, ensuring diverse perspectives
     role_rotation: bool = False  # Enable role rotation
     role_rotation_config: Optional[RoleRotationConfig] = None  # Custom role config
+
+
+def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
+    """
+    Calculate conviction-weighted vote multiplier based on intensity.
+
+    Args:
+        intensity: User's conviction level (1-10)
+        protocol: DebateProtocol with intensity scaling parameters
+
+    Returns:
+        Bounded weight multiplier between min_multiplier and max_multiplier
+    """
+    # Normalize intensity to 1-10 range
+    intensity = max(1, min(protocol.user_vote_intensity_scale, intensity))
+
+    # Calculate position relative to neutral (0 = neutral, negative = low, positive = high)
+    neutral = protocol.user_vote_intensity_neutral
+    scale = protocol.user_vote_intensity_scale
+
+    if intensity == neutral:
+        return 1.0
+
+    if intensity < neutral:
+        # Below neutral: interpolate between min_multiplier and 1.0
+        # intensity=1 -> min_multiplier, intensity=neutral -> 1.0
+        ratio = (intensity - 1) / (neutral - 1) if neutral > 1 else 0
+        return protocol.user_vote_intensity_min_multiplier + (1.0 - protocol.user_vote_intensity_min_multiplier) * ratio
+    else:
+        # Above neutral: interpolate between 1.0 and max_multiplier
+        # intensity=neutral -> 1.0, intensity=scale -> max_multiplier
+        ratio = (intensity - neutral) / (scale - neutral) if scale > neutral else 0
+        return 1.0 + (protocol.user_vote_intensity_max_multiplier - 1.0) * ratio
 
 
 class Arena:
@@ -1128,15 +1168,19 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     vote_counts[canonical] += vote_weight
                     total_weighted_votes += vote_weight
 
-            # Include user votes with configurable weight
-            user_vote_weight = getattr(self.protocol, 'user_vote_weight', 0.5)  # Default: users count as half an agent
+            # Include user votes with configurable weight and conviction-based intensity multiplier
+            base_user_weight = getattr(self.protocol, 'user_vote_weight', 0.5)  # Default: users count as half an agent
             for user_vote in self.user_votes:
                 choice = user_vote.get("choice", "")
                 if choice:
                     canonical = choice_mapping.get(choice, choice)
-                    vote_counts[canonical] += user_vote_weight
-                    total_weighted_votes += user_vote_weight
-                    print(f"  User {user_vote.get('user_id', 'anonymous')} votes: {choice}")
+                    # Apply conviction-weighted intensity multiplier
+                    intensity = user_vote.get("intensity", 5)  # Default neutral intensity
+                    intensity_multiplier = user_vote_multiplier(intensity, self.protocol)
+                    final_weight = base_user_weight * intensity_multiplier
+                    vote_counts[canonical] += final_weight
+                    total_weighted_votes += final_weight
+                    print(f"  User {user_vote.get('user_id', 'anonymous')} votes: {choice} (intensity: {intensity}, weight: {final_weight:.2f})")
 
             total_votes = total_weighted_votes
 

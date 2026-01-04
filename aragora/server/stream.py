@@ -50,6 +50,7 @@ class StreamEventType(Enum):
     USER_VOTE = "user_vote"              # Audience member voted
     USER_SUGGESTION = "user_suggestion"  # Audience member submitted suggestion
     AUDIENCE_SUMMARY = "audience_summary"  # Clustered audience input summary
+    AUDIENCE_METRICS = "audience_metrics"  # Vote counts, histograms, conviction distribution
 
     # Memory/learning events
     MEMORY_RECALL = "memory_recall"      # Historical context retrieved from memory
@@ -143,6 +144,30 @@ class TokenBucket:
             return False
 
 
+def normalize_intensity(value: any, default: int = 5, min_val: int = 1, max_val: int = 10) -> int:
+    """
+    Safely normalize vote intensity to a clamped integer.
+
+    Args:
+        value: Raw intensity value from user input (may be string, float, None, etc.)
+        default: Default intensity if value is invalid
+        min_val: Minimum allowed intensity
+        max_val: Maximum allowed intensity
+
+    Returns:
+        Clamped integer intensity between min_val and max_val
+    """
+    if value is None:
+        return default
+
+    try:
+        intensity = int(float(value))
+    except (ValueError, TypeError):
+        return default
+
+    return max(min_val, min(max_val, intensity))
+
+
 class AudienceInbox:
     """
     Thread-safe queue for audience messages.
@@ -172,23 +197,64 @@ class AudienceInbox:
             self._messages.clear()
             return messages
 
-    def get_summary(self) -> dict:
+    def get_summary(self, loop_id: str = None) -> dict:
         """
         Get a summary of current inbox state without draining.
 
+        Args:
+            loop_id: Optional loop ID to filter messages by (multi-tenant support)
+
         Returns:
-            Dict with vote counts and suggestion count
+            Dict with vote counts, suggestions, histograms, and conviction distribution
         """
         with self._lock:
             votes = {}
             suggestions = 0
+            # Per-choice intensity histograms: {choice: {intensity: count}}
+            histograms = {}
+            # Global conviction distribution: {intensity: count}
+            conviction_distribution = {i: 0 for i in range(1, 11)}
+
             for msg in self._messages:
+                # Filter by loop_id if provided
+                if loop_id and msg.loop_id != loop_id:
+                    continue
+
                 if msg.type == "vote":
                     choice = msg.payload.get("choice", "unknown")
+                    intensity = normalize_intensity(msg.payload.get("intensity"))
+
+                    # Basic vote count
                     votes[choice] = votes.get(choice, 0) + 1
+
+                    # Per-choice histogram
+                    if choice not in histograms:
+                        histograms[choice] = {i: 0 for i in range(1, 11)}
+                    histograms[choice][intensity] = histograms[choice].get(intensity, 0) + 1
+
+                    # Global conviction distribution
+                    conviction_distribution[intensity] = conviction_distribution.get(intensity, 0) + 1
+
                 elif msg.type == "suggestion":
                     suggestions += 1
-            return {"votes": votes, "suggestions": suggestions, "total": len(self._messages)}
+
+            # Calculate weighted votes using intensity
+            weighted_votes = {}
+            for choice, histogram in histograms.items():
+                weighted_sum = sum(
+                    count * (0.5 + (intensity - 1) * 0.1667)  # Linear scale: 1->0.5, 10->2.0
+                    for intensity, count in histogram.items()
+                )
+                weighted_votes[choice] = round(weighted_sum, 2)
+
+            return {
+                "votes": votes,
+                "weighted_votes": weighted_votes,
+                "suggestions": suggestions,
+                "total": len(self._messages) if not loop_id else sum(votes.values()) + suggestions,
+                "histograms": histograms,
+                "conviction_distribution": conviction_distribution,
+            }
 
 
 class SyncEventEmitter:
@@ -488,6 +554,15 @@ class DebateStreamServer:
                             data=audience_msg.payload,
                             loop_id=loop_id,
                         ))
+
+                        # Emit updated audience metrics after each vote (with loop_id filter)
+                        if msg_type == "user_vote":
+                            metrics = self.audience_inbox.get_summary(loop_id=loop_id)
+                            self._emitter.emit(StreamEvent(
+                                type=StreamEventType.AUDIENCE_METRICS,
+                                data=metrics,
+                                loop_id=loop_id,
+                            ))
 
                         # Send acknowledgment
                         await websocket.send(json.dumps({

@@ -6,6 +6,8 @@ export type StreamEventType =
   | 'critique'
   | 'vote'
   | 'consensus'
+  | 'verdict'
+  | 'grounded_verdict'
   | 'debate_end'
   // Nomic loop events
   | 'cycle_start'
@@ -107,4 +109,18 @@ export interface AudienceSummaryData {
   }>;
   total: number;
   mode: 'summary' | 'inject';
+}
+
+// Conviction-weighted voting data
+export interface ConvictionHistogram {
+  [intensity: number]: number;  // intensity (1-10) -> count
+}
+
+export interface AudienceMetricsData {
+  votes: Record<string, number>;  // choice -> raw count
+  weighted_votes?: Record<string, number>;  // choice -> conviction-weighted count
+  suggestions: number;
+  total: number;
+  histograms?: Record<string, ConvictionHistogram>;  // choice -> intensity histogram
+  conviction_distribution?: ConvictionHistogram;  // global intensity distribution
 }

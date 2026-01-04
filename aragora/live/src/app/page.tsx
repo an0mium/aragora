@@ -132,7 +132,7 @@ export default function Home() {
   };
 
   // User participation handlers (use effectiveLoopId to auto-select single active loop)
-  const handleUserVote = (choice: string) => {
+  const handleUserVote = (choice: string, intensity?: number) => {
     if (!effectiveLoopId) {
       setError('No active debate loop selected. Please wait for a debate to start.');
       return;
@@ -140,7 +140,7 @@ export default function Home() {
     sendMessage({
       type: 'user_vote',
       loop_id: effectiveLoopId,
-      payload: { choice }
+      payload: { choice, intensity: intensity ?? 5 }  // Default to neutral intensity
     });
   };
 

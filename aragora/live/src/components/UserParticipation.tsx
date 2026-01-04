@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import type { StreamEvent, AudienceSummaryData } from '@/types/events';
+import type { StreamEvent, AudienceSummaryData, AudienceMetricsData } from '@/types/events';
 
 interface UserParticipationProps {
   events: StreamEvent[];
-  onVote: (choice: string) => void;
+  onVote: (choice: string, intensity?: number) => void;
   onSuggest: (suggestion: string) => void;
   onAck?: (callback: (msgType: string) => void) => () => void;
   onError?: (callback: (message: string) => void) => () => void;
@@ -20,6 +20,16 @@ export function UserParticipation({ events, onVote, onSuggest, onAck, onError }:
   const [voteState, setVoteState] = useState<SubmissionState>('idle');
   const [suggestionState, setSuggestionState] = useState<SubmissionState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [intensity, setIntensity] = useState(5); // Conviction intensity 1-10, default neutral
+
+  // Conviction labels for the intensity slider
+  const getConvictionLabel = (value: number): string => {
+    if (value <= 2) return 'Low confidence';
+    if (value <= 4) return 'Slight preference';
+    if (value <= 6) return 'Neutral';
+    if (value <= 8) return 'Confident';
+    return 'Strong conviction';
+  };
 
   // Get the latest audience summary from events
   const audienceSummary = useMemo(() => {
@@ -27,6 +37,14 @@ export function UserParticipation({ events, onVote, onSuggest, onAck, onError }:
     if (summaryEvents.length === 0) return null;
     const latest = summaryEvents[summaryEvents.length - 1];
     return latest.data as unknown as AudienceSummaryData;
+  }, [events]);
+
+  // Get the latest audience metrics (for conviction heatmap)
+  const audienceMetrics = useMemo(() => {
+    const metricsEvents = events.filter(e => e.type === 'audience_metrics');
+    if (metricsEvents.length === 0) return null;
+    const latest = metricsEvents[metricsEvents.length - 1];
+    return latest.data as unknown as AudienceMetricsData;
   }, [events]);
 
   // Handle acknowledgments
@@ -85,7 +103,7 @@ export function UserParticipation({ events, onVote, onSuggest, onAck, onError }:
   const handleVote = () => {
     if (voteChoice && !hasVoted && voteState === 'idle') {
       setVoteState('pending');
-      onVote(voteChoice);
+      onVote(voteChoice, intensity);
       setHasVoted(true);
       setVoteChoice('');
     }
@@ -130,6 +148,35 @@ export function UserParticipation({ events, onVote, onSuggest, onAck, onError }:
           </div>
         ) : (
           <p className="text-text-muted text-sm mb-3">Waiting for proposals...</p>
+        )}
+
+        {/* Conviction Intensity Slider */}
+        {voteChoice && !hasVoted && (
+          <div className="mb-3 p-3 bg-surface rounded border border-border">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm text-text-muted">Your conviction level</label>
+              <span className={`text-xs px-2 py-0.5 rounded ${
+                intensity <= 3 ? 'bg-yellow-500/20 text-yellow-400' :
+                intensity <= 7 ? 'bg-blue-500/20 text-blue-400' :
+                'bg-green-500/20 text-green-400'
+              }`}>
+                {getConvictionLabel(intensity)}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={intensity}
+              onChange={(e) => setIntensity(parseInt(e.target.value))}
+              className="w-full h-2 bg-border rounded-lg appearance-none cursor-pointer accent-accent"
+            />
+            <div className="flex justify-between text-xs text-text-muted mt-1">
+              <span>1 - Unsure</span>
+              <span className="font-mono">{intensity}</span>
+              <span>10 - Certain</span>
+            </div>
+          </div>
         )}
 
         <button
@@ -223,6 +270,92 @@ export function UserParticipation({ events, onVote, onSuggest, onAck, onError }:
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Conviction Heatmap - shows vote intensity distribution */}
+      {audienceMetrics && audienceMetrics.conviction_distribution && (
+        <div className="mt-4 pt-4 border-t border-border">
+          <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+            <span className="inline-block w-2 h-2 bg-purple-500 rounded-full" />
+            Conviction Heatmap
+            <span className="text-xs text-text-muted font-normal">
+              ({audienceMetrics.total} votes)
+            </span>
+          </h3>
+
+          {/* Global conviction distribution */}
+          <div className="mb-3">
+            <div className="text-xs text-text-muted mb-1">Overall conviction</div>
+            <div className="flex gap-0.5 h-8">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => {
+                const count = audienceMetrics.conviction_distribution?.[level] || 0;
+                const maxCount = Math.max(1, ...Object.values(audienceMetrics.conviction_distribution || {}));
+                const height = count > 0 ? Math.max(20, (count / maxCount) * 100) : 0;
+                const opacity = count > 0 ? 0.4 + (count / maxCount) * 0.6 : 0.1;
+                const bgColor = level <= 3 ? 'bg-yellow-500' : level <= 7 ? 'bg-blue-500' : 'bg-green-500';
+
+                return (
+                  <div
+                    key={level}
+                    className="flex-1 flex flex-col items-center justify-end"
+                    title={`Intensity ${level}: ${count} votes`}
+                  >
+                    <div
+                      className={`w-full ${bgColor} rounded-t transition-all duration-300`}
+                      style={{ height: `${height}%`, opacity }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-between text-xs text-text-muted mt-0.5">
+              <span>Unsure</span>
+              <span>Certain</span>
+            </div>
+          </div>
+
+          {/* Per-choice histograms */}
+          {audienceMetrics.histograms && Object.keys(audienceMetrics.histograms).length > 0 && (
+            <div className="space-y-2">
+              {Object.entries(audienceMetrics.histograms).slice(0, 4).map(([choice, histogram]) => {
+                const totalVotes = Object.values(histogram).reduce((a, b) => a + b, 0);
+                const weightedVote = audienceMetrics.weighted_votes?.[choice] || 0;
+
+                return (
+                  <div key={choice} className="p-2 bg-surface rounded border border-border">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium truncate max-w-[60%]">{choice}</span>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-text-muted">{totalVotes} votes</span>
+                        <span className="text-accent font-mono">{weightedVote.toFixed(1)}w</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-px h-4">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => {
+                        const count = histogram[level] || 0;
+                        const maxCount = Math.max(1, ...Object.values(histogram));
+                        const width = totalVotes > 0 ? (count / totalVotes) * 100 : 0;
+                        const bgColor = level <= 3 ? 'bg-yellow-500' : level <= 7 ? 'bg-blue-500' : 'bg-green-500';
+
+                        return (
+                          <div
+                            key={level}
+                            className={`${bgColor} rounded-sm transition-all duration-300`}
+                            style={{
+                              width: `${Math.max(width, count > 0 ? 5 : 0)}%`,
+                              opacity: count > 0 ? 0.5 + (count / maxCount) * 0.5 : 0.1,
+                            }}
+                            title={`Intensity ${level}: ${count}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
