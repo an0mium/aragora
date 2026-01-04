@@ -28,6 +28,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Optional
 from enum import Enum
+
+# Git-safe ID pattern: alphanumeric, dash, underscore only (no path traversal or special chars)
+SAFE_CHECKPOINT_ID = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$')
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -462,6 +465,10 @@ class GitCheckpointStore(CheckpointStore):
             return False, str(e)
 
     async def save(self, checkpoint: DebateCheckpoint) -> str:
+        # Validate checkpoint ID for git safety
+        if not SAFE_CHECKPOINT_ID.match(checkpoint.checkpoint_id):
+            raise ValueError(f"Invalid checkpoint ID format: {checkpoint.checkpoint_id}")
+
         # Save to file
         path = self.checkpoint_dir / f"{checkpoint.checkpoint_id}.json"
         path.write_text(json.dumps(checkpoint.to_dict(), indent=2))
@@ -476,6 +483,11 @@ class GitCheckpointStore(CheckpointStore):
         return f"git:{branch_name}"
 
     async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+        # Validate checkpoint ID for git safety
+        if not SAFE_CHECKPOINT_ID.match(checkpoint_id):
+            logger.warning(f"Invalid checkpoint ID format rejected: {checkpoint_id[:50]}")
+            return None
+
         path = self.checkpoint_dir / f"{checkpoint_id}.json"
 
         if path.exists():

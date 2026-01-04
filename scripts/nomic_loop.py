@@ -4666,6 +4666,22 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
         self._log("=" * 70)
         self._stream_emit("on_phase_start", "debate", self.cycle_count, {"agents": 4})
 
+        # Load belief network from previous cycle if available (cross-cycle learning)
+        if self.nomic_integration and self.cycle_count > 1:
+            try:
+                prev_cycle = self.cycle_count - 1
+                checkpoints = await self.nomic_integration.list_checkpoints()
+                # Find previous debate checkpoint
+                for cp in checkpoints:
+                    if f"cycle_{prev_cycle}_debate" in str(cp):
+                        self._log(f"  [belief] Loading belief network from cycle {prev_cycle}")
+                        restored = await self.nomic_integration.resume_from_checkpoint(cp.get("checkpoint_id", ""))
+                        if restored:
+                            self._log(f"  [belief] Restored belief network with {len(self.nomic_integration._agent_weights)} agent weights")
+                        break
+            except Exception as e:
+                self._log(f"  [belief] Failed to load previous cycle belief network: {e}")
+
         # Use provided context or fall back to basic
         if codebase_context:
             current_features = codebase_context

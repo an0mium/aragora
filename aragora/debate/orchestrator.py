@@ -1837,6 +1837,18 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 if critique.severity < 0.5:  # Low severity = successful pattern
                     self.memory.store_pattern(critique, result.final_answer)
 
+        # === Track failed patterns (Titans/MIRAS balanced learning) ===
+        if self.memory and not result.consensus_reached:
+            for critique in result.critiques:
+                if critique.severity >= 0.5:  # High severity critiques that didn't help
+                    try:
+                        self.memory.fail_pattern(
+                            issue_text=critique.content[:200],
+                            issue_type=getattr(critique, 'category', 'general'),
+                        )
+                    except Exception as e:
+                        logger.debug(f"Failed to record pattern failure: {e}")
+
         result.duration_seconds = time.time() - start_time
 
         # Emit consensus event
@@ -2008,6 +2020,10 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         # 6. Store debate outcome in ContinuumMemory for future learning
         if self.continuum_memory and result.final_answer:
             self._store_debate_outcome_as_memory(result)
+
+        # 7. Update retrieved memories based on debate outcome (surprise-based learning)
+        if self.continuum_memory:
+            self._update_continuum_memory_outcomes(result)
 
         return result
 

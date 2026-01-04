@@ -68,10 +68,15 @@
 - **NEW**: Fixed security: added GitHub connector input validation (repo format + query length)
 - **NEW**: Added belief analysis → design phase context (contested/crux claims guide design)
 - **NEW**: Fixed stale claims injection to queue ALL stale claims (not just high-severity)
+- **NEW**: Fixed security: checkpoint ID validation for git branch names (command injection prevention)
+- **NEW**: Fixed security: path segment validation in api.py (400 error on invalid IDs)
+- **NEW**: Connected ContinuumMemory.update_outcome() after debates (surprise-based learning)
+- **NEW**: Added CritiqueStore.fail_pattern() tracking for failed debates (balanced learning)
+- **NEW**: Added belief network persistence across nomic cycles (cross-cycle learning)
 
 ## Feature Integration Status
 
-### Fully Integrated (18)
+### Fully Integrated (21)
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
@@ -89,6 +94,9 @@
 | Pattern Injection | Active | `aragora/debate/orchestrator.py:_format_patterns_for_prompt()` |
 | Belief → Design Context | Active | `scripts/nomic_loop.py:phase_design()` (contested/crux claims) |
 | Stale Claims Feedback | Active | `scripts/nomic_loop.py:run_cycle()` → `phase_debate()` |
+| ContinuumMemory Outcomes | Active | `aragora/debate/orchestrator.py:_update_continuum_memory_outcomes()` |
+| Failed Pattern Tracking | Active | `aragora/debate/orchestrator.py` (calls CritiqueStore.fail_pattern) |
+| Cross-Cycle Beliefs | Active | `scripts/nomic_loop.py:phase_debate()` (loads prev cycle beliefs) |
 | Belief Network | Exported | `aragora/reasoning/belief.py` (exported in __init__.py) |
 | Reliability Scoring | Exported | `aragora/reasoning/reliability.py` (exported in __init__.py) |
 | Webhook Integration | Exported | `aragora/integrations/webhooks.py` (exported in __init__.py) |
