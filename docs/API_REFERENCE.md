@@ -652,6 +652,23 @@ Upload a document for processing.
 
 **Max size:** 10MB
 
+#### GET /api/documents/formats
+Get supported document formats and metadata.
+
+**Response:**
+```json
+{
+  "formats": {
+    ".pdf": {"name": "PDF", "mime": "application/pdf"},
+    ".md": {"name": "Markdown", "mime": "text/markdown"},
+    ".py": {"name": "Python", "mime": "text/x-python"},
+    ".js": {"name": "JavaScript", "mime": "text/javascript"},
+    ".ts": {"name": "TypeScript", "mime": "text/typescript"},
+    ".ipynb": {"name": "Jupyter Notebook", "mime": "application/x-ipynb+json"}
+  }
+}
+```
+
 ---
 
 ### Debate Analytics
@@ -1171,6 +1188,38 @@ Get meta-level analysis of a debate including repetition, circular arguments, an
 
 ---
 
+### Agent Personas
+
+Agent persona definitions and customizations.
+
+#### GET /api/personas
+Get all agent personas.
+
+**Response:**
+```json
+{
+  "personas": [
+    {
+      "agent_name": "claude",
+      "description": "Analytical reasoner focused on logical consistency",
+      "traits": ["analytical", "precise", "evidence-focused"],
+      "expertise": ["security", "architecture"],
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "agent_name": "grok",
+      "description": "Creative problem-solver with lateral thinking",
+      "traits": ["creative", "unconventional", "synthesis-focused"],
+      "expertise": ["innovation", "edge-cases"],
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "count": 2
+}
+```
+
+---
+
 ### Persona Laboratory
 
 Experimental framework for evolving agent personas and detecting emergent traits.
@@ -1462,6 +1511,38 @@ Get comprehensive calibration summary for an agent.
 }
 ```
 
+#### GET /api/calibration/leaderboard
+Get agents ranked by calibration quality (accuracy vs confidence).
+
+**Parameters:**
+- `limit` (int, default=10, max=50): Maximum agents to return
+- `domain` (string, optional): Filter by domain
+
+**Response:**
+```json
+{
+  "agents": [
+    {
+      "name": "claude",
+      "elo": 1542,
+      "calibration_score": 0.92,
+      "brier_score": 0.08,
+      "accuracy": 0.89,
+      "games": 45
+    },
+    {
+      "name": "grok",
+      "elo": 1518,
+      "calibration_score": 0.88,
+      "brier_score": 0.11,
+      "accuracy": 0.85,
+      "games": 38
+    }
+  ],
+  "count": 2
+}
+```
+
 ---
 
 ### Continuum Memory
@@ -1684,15 +1765,69 @@ ws.onmessage = (event) => {
 
 ### Event Types
 
-| Event Type | Description |
-|------------|-------------|
-| `phase_start` | A nomic phase has started |
-| `phase_end` | A nomic phase has completed |
-| `agent_message` | An agent has sent a message |
-| `debate_round` | A debate round has completed |
-| `consensus` | Consensus has been reached |
-| `elo_update` | ELO ratings have been updated |
-| `flip_detected` | A position flip was detected |
+#### Debate Events
+| Event Type | Description | Payload |
+|------------|-------------|---------|
+| `debate_start` | A new debate has started | `{debate_id, question, agents, rounds}` |
+| `round_start` | A debate round has begun | `{debate_id, round, total_rounds}` |
+| `agent_message` | An agent sent a message | `{agent, role, content, debate_id}` |
+| `critique` | An agent critiqued another | `{critic, target, critique, debate_id}` |
+| `vote` | An agent voted | `{agent, vote, reasoning, debate_id}` |
+| `consensus` | Consensus reached | `{verdict, confidence, supporters, debate_id}` |
+| `debate_end` | Debate completed | `{debate_id, verdict, duration}` |
+
+#### Token Streaming Events (Real-time Response Display)
+| Event Type | Description | Payload |
+|------------|-------------|---------|
+| `token_start` | Agent begins generating response | `{agent, debate_id}` |
+| `token_delta` | Incremental token(s) received | `{agent, delta, debate_id}` |
+| `token_end` | Agent finished generating | `{agent, debate_id, total_tokens}` |
+
+#### Nomic Loop Events
+| Event Type | Description | Payload |
+|------------|-------------|---------|
+| `cycle_start` | New nomic cycle began | `{cycle, loop_id}` |
+| `cycle_end` | Nomic cycle completed | `{cycle, success, loop_id}` |
+| `phase_start` | Phase started (debate/vote/implement) | `{phase, cycle, loop_id}` |
+| `phase_end` | Phase completed | `{phase, cycle, result, loop_id}` |
+| `task_start` | Implementation task started | `{task_id, description, loop_id}` |
+| `task_complete` | Task completed | `{task_id, success, duration, loop_id}` |
+| `task_retry` | Task being retried | `{task_id, attempt, reason, loop_id}` |
+| `verification_start` | Verification phase started | `{loop_id}` |
+| `verification_result` | Verification completed | `{success, tests_passed, loop_id}` |
+| `commit` | Changes committed to repo | `{commit_hash, message, loop_id}` |
+| `backup_created` | State backup created | `{backup_id, loop_id}` |
+| `backup_restored` | State restored from backup | `{backup_id, reason, loop_id}` |
+| `error` | Error occurred | `{error, context, loop_id}` |
+| `log_message` | Log message from loop | `{level, message, loop_id}` |
+
+#### Multi-Loop Management
+| Event Type | Description | Payload |
+|------------|-------------|---------|
+| `loop_register` | New loop instance started | `{loop_id, name, started_at}` |
+| `loop_unregister` | Loop instance ended | `{loop_id, reason}` |
+| `loop_list` | List of active loops (on connect) | `{loops: [{loop_id, name, cycle, phase}]}` |
+
+#### Audience Participation Events
+| Event Type | Description | Payload |
+|------------|-------------|---------|
+| `user_vote` | Audience member voted | `{choice, intensity, user_id, loop_id}` |
+| `user_suggestion` | Suggestion submitted | `{suggestion, user_id, loop_id}` |
+| `audience_summary` | Clustered audience input | `{clusters, total_votes, loop_id}` |
+| `audience_metrics` | Vote counts & histograms | `{vote_counts, conviction_dist, loop_id}` |
+
+#### Memory & Learning Events
+| Event Type | Description | Payload |
+|------------|-------------|---------|
+| `memory_recall` | Historical context retrieved | `{memories, relevance_scores, debate_id}` |
+| `insight_extracted` | New insight from debate | `{insight, confidence, debate_id}` |
+
+#### Ranking & Leaderboard Events
+| Event Type | Description | Payload |
+|------------|-------------|---------|
+| `match_recorded` | ELO match recorded | `{debate_id, winner, elo_changes, domain}` |
+| `leaderboard_update` | Periodic leaderboard snapshot | `{rankings, timestamp}` |
+| `flip_detected` | Position flip detected | `{agent, old_position, new_position, debate_id}` |
 
 ### Event Format
 

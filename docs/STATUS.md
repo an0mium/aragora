@@ -75,6 +75,9 @@
 - Input validation on all POST endpoints
 - Agent type allowlist prevents injection
 - **IP-based rate limiting** (120 req/min per IP, DoS protection without auth)
+- **Path traversal prevention** (SAFE_ID_PATTERN validation on replay_id, tournament_id)
+- **Thread pool for debates** (max 10 concurrent, prevents resource exhaustion)
+- **Rate limiter memory bounds** (LRU eviction when >10k entries)
 
 ### Remaining Considerations
 - Token revocation mechanism not implemented
