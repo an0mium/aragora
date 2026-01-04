@@ -143,7 +143,7 @@ class GeminiAgent(APIAgent):
             "contents": [{"parts": [{"text": full_prompt}]}],
             "generationConfig": {
                 "temperature": 0.7,
-                "maxOutputTokens": 16384,
+                "maxOutputTokens": 65536,  # Gemini 2.5 supports up to 65k output tokens
             },
         }
 
@@ -169,10 +169,16 @@ class GeminiAgent(APIAgent):
                     parts = content.get("parts", [])
                     text = parts[0].get("text", "") if parts else ""
 
+                    # Handle truncation: if we have partial text, use it with a warning
+                    if finish_reason == "MAX_TOKENS" and text.strip():
+                        # Got partial content - use it but log warning
+                        print(f"  [gemini] Warning: Response truncated at {len(text)} chars, using partial content")
+                        return text
+
                     if not text.strip():
                         if finish_reason == "MAX_TOKENS":
                             raise RuntimeError(
-                                f"Gemini response truncated (MAX_TOKENS): output limit reached. "
+                                f"Gemini response truncated (MAX_TOKENS): output limit reached with no content. "
                                 f"Consider reducing prompt length or increasing maxOutputTokens."
                             )
                         elif finish_reason == "SAFETY":
