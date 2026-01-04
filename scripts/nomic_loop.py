@@ -2242,6 +2242,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
             # Define debate runner for tournament
             async def run_tournament_debate(env, debate_agents):
                 arena = Arena(
+                    environment=env,  # Required first parameter
                     agents=debate_agents,
                     protocol=DebateProtocol(
                         rounds=3,
@@ -2252,10 +2253,10 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                         ),
                     ),
                     position_tracker=self.position_tracker,
-                    event_hooks=self._create_arena_hooks("tournament"),  # Enable streaming
+                    event_hooks=self._create_arena_hooks("tournament"),
                     persona_manager=self.persona_manager,
                 )
-                return await arena.run(env)
+                return await arena.run()  # run() takes no arguments
 
             result = await tournament.run(run_tournament_debate, parallel=False)
             self.last_tournament_cycle = self.cycle_count
@@ -3022,10 +3023,10 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                 arena = Arena(
                     env, agents, protocol,
                     position_tracker=self.position_tracker,
-                    event_hooks=self._create_arena_hooks("scenario"),  # Enable streaming
+                    event_hooks=self._create_arena_hooks("scenario"),
                     persona_manager=self.persona_manager,
                 )
-                return await arena.run(env)
+                return await arena.run()  # run() takes no arguments
 
             runner = MatrixDebateRunner(quick_debate, max_parallel=2)
             result = await runner.run_matrix(task, matrix, base_context)
