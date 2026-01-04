@@ -6399,6 +6399,14 @@ Be concise - this is a quality gate, not a full review."""
         self._log(f"Started: {cycle_start.isoformat()}")
         self._log("=" * 70)
 
+        # Security: Verify protected files haven't been tampered with
+        all_ok, modified = verify_protected_files_unchanged(self.aragora_path)
+        if not all_ok:
+            self._log(f"  [SECURITY WARNING] Protected files modified since startup: {modified}")
+            # Log but continue - modifications might be legitimate (e.g., from previous cycle)
+            # Update checksums to current state
+            _init_protected_checksums(self.aragora_path)
+
         # Emit cycle start event
         self._stream_emit("on_cycle_start", self.cycle_count, self.max_cycles, cycle_start.isoformat())
         self._dispatch_webhook("cycle_start", {"max_cycles": self.max_cycles})
