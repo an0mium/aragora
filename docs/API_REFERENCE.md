@@ -748,6 +748,95 @@ Get position history for an agent.
 
 ---
 
+### System Statistics
+
+System-wide metrics and health monitoring.
+
+#### GET /api/ranking/stats
+Get ELO ranking system statistics.
+
+**Response:**
+```json
+{
+  "total_agents": 8,
+  "total_matches": 245,
+  "avg_rating": 1523,
+  "rating_spread": 312,
+  "domains": ["general", "architecture", "security"],
+  "active_last_24h": 5
+}
+```
+
+#### GET /api/memory/stats
+Get memory tier statistics from continuum memory system.
+
+**Response:**
+```json
+{
+  "tiers": {
+    "fast": {"count": 50, "avg_importance": 0.85},
+    "slow": {"count": 200, "avg_importance": 0.65},
+    "glacial": {"count": 1000, "avg_importance": 0.35}
+  },
+  "total_entries": 1250,
+  "last_consolidation": "2026-01-04T12:00:00Z"
+}
+```
+
+#### GET /api/critiques/patterns
+Get successful critique patterns for learning.
+
+**Parameters:**
+- `limit` (int, default=10, max=50): Maximum patterns to return
+- `min_success` (float, default=0.5): Minimum success rate filter
+
+**Response:**
+```json
+{
+  "patterns": [
+    {
+      "issue_type": "edge_case",
+      "pattern": "Consider boundary conditions for...",
+      "success_rate": 0.85,
+      "usage_count": 23
+    }
+  ],
+  "count": 5,
+  "stats": {"total_patterns": 150, "avg_success_rate": 0.72}
+}
+```
+
+---
+
+### Agent Comparison
+
+Compare agents head-to-head.
+
+#### GET /api/agent/compare
+Get head-to-head comparison between two agents.
+
+**Parameters:**
+- `agent_a` (string, required): First agent name
+- `agent_b` (string, required): Second agent name
+
+**Response:**
+```json
+{
+  "agent_a": "claude",
+  "agent_b": "gemini",
+  "matches": 15,
+  "agent_a_wins": 9,
+  "agent_b_wins": 6,
+  "win_rate_a": 0.6,
+  "domains": {
+    "architecture": {"a_wins": 5, "b_wins": 2},
+    "security": {"a_wins": 4, "b_wins": 4}
+  }
+}
+```
+
+---
+
 ## WebSocket API
 
 Connect to the WebSocket server for real-time streaming:

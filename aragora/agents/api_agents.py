@@ -649,6 +649,78 @@ class OpenAIAPIAgent(APIAgent):
                 except (KeyError, IndexError):
                     raise RuntimeError(f"Unexpected OpenAI response format: {data}")
 
+    async def generate_stream(self, prompt: str, context: list[Message] = None):
+        """Stream tokens from OpenAI API.
+
+        Yields chunks of text as they arrive from the API using SSE.
+        """
+        if not self.api_key:
+            raise ValueError("OPENAI_API_KEY environment variable required")
+
+        full_prompt = prompt
+        if context:
+            full_prompt = self._build_context_prompt(context) + prompt
+
+        url = f"{self.base_url}/chat/completions"
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        messages = [{"role": "user", "content": full_prompt}]
+        if self.system_prompt:
+            messages.insert(0, {"role": "system", "content": self.system_prompt})
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": 4096,
+            "stream": True,
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=self.timeout),
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    sanitized = _sanitize_error_message(error_text)
+                    raise RuntimeError(f"OpenAI streaming API error {response.status}: {sanitized}")
+
+                # OpenAI uses SSE format: data: {...}\n\n
+                buffer = ""
+                async for chunk in response.content.iter_any():
+                    buffer += chunk.decode('utf-8', errors='ignore')
+
+                    # Process complete SSE lines
+                    while '\n' in buffer:
+                        line, buffer = buffer.split('\n', 1)
+                        line = line.strip()
+
+                        if not line or not line.startswith('data: '):
+                            continue
+
+                        data_str = line[6:]  # Remove 'data: ' prefix
+
+                        if data_str == '[DONE]':
+                            return
+
+                        try:
+                            event = json.loads(data_str)
+                            choices = event.get('choices', [])
+                            if choices:
+                                delta = choices[0].get('delta', {})
+                                content = delta.get('content', '')
+                                if content:
+                                    yield content
+
+                        except json.JSONDecodeError:
+                            continue
+
     async def critique(self, proposal: str, task: str, context: list[Message] = None) -> Critique:
         """Critique a proposal using OpenAI API."""
         critique_prompt = f"""Critically analyze this proposal:
