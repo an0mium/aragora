@@ -233,21 +233,20 @@ class EloSystem:
 
     def get_rating(self, agent_name: str) -> AgentRating:
         """Get or create rating for an agent."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            SELECT agent_name, elo, domain_elos, wins, losses, draws,
-                   debates_count, critiques_accepted, critiques_total,
-                   calibration_correct, calibration_total, calibration_brier_sum,
-                   updated_at
-            FROM ratings WHERE agent_name = ?
-            """,
-            (agent_name,),
-        )
-        row = cursor.fetchone()
-        conn.close()
+            cursor.execute(
+                """
+                SELECT agent_name, elo, domain_elos, wins, losses, draws,
+                       debates_count, critiques_accepted, critiques_total,
+                       calibration_correct, calibration_total, calibration_brier_sum,
+                       updated_at
+                FROM ratings WHERE agent_name = ?
+                """,
+                (agent_name,),
+            )
+            row = cursor.fetchone()
 
         if not row:
             return AgentRating(agent_name=agent_name)
@@ -270,49 +269,47 @@ class EloSystem:
 
     def _save_rating(self, rating: AgentRating):
         """Save rating to database."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            INSERT INTO ratings (agent_name, elo, domain_elos, wins, losses, draws,
-                                debates_count, critiques_accepted, critiques_total,
-                                calibration_correct, calibration_total, calibration_brier_sum,
-                                updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(agent_name) DO UPDATE SET
-                elo = excluded.elo,
-                domain_elos = excluded.domain_elos,
-                wins = excluded.wins,
-                losses = excluded.losses,
-                draws = excluded.draws,
-                debates_count = excluded.debates_count,
-                critiques_accepted = excluded.critiques_accepted,
-                critiques_total = excluded.critiques_total,
-                calibration_correct = excluded.calibration_correct,
-                calibration_total = excluded.calibration_total,
-                calibration_brier_sum = excluded.calibration_brier_sum,
-                updated_at = excluded.updated_at
-            """,
-            (
-                rating.agent_name,
-                rating.elo,
-                json.dumps(rating.domain_elos),
-                rating.wins,
-                rating.losses,
-                rating.draws,
-                rating.debates_count,
-                rating.critiques_accepted,
-                rating.critiques_total,
-                rating.calibration_correct,
-                rating.calibration_total,
-                rating.calibration_brier_sum,
-                rating.updated_at,
-            ),
-        )
-
-        conn.commit()
-        conn.close()
+            cursor.execute(
+                """
+                INSERT INTO ratings (agent_name, elo, domain_elos, wins, losses, draws,
+                                    debates_count, critiques_accepted, critiques_total,
+                                    calibration_correct, calibration_total, calibration_brier_sum,
+                                    updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(agent_name) DO UPDATE SET
+                    elo = excluded.elo,
+                    domain_elos = excluded.domain_elos,
+                    wins = excluded.wins,
+                    losses = excluded.losses,
+                    draws = excluded.draws,
+                    debates_count = excluded.debates_count,
+                    critiques_accepted = excluded.critiques_accepted,
+                    critiques_total = excluded.critiques_total,
+                    calibration_correct = excluded.calibration_correct,
+                    calibration_total = excluded.calibration_total,
+                    calibration_brier_sum = excluded.calibration_brier_sum,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    rating.agent_name,
+                    rating.elo,
+                    json.dumps(rating.domain_elos),
+                    rating.wins,
+                    rating.losses,
+                    rating.draws,
+                    rating.debates_count,
+                    rating.critiques_accepted,
+                    rating.critiques_total,
+                    rating.calibration_correct,
+                    rating.calibration_total,
+                    rating.calibration_brier_sum,
+                    rating.updated_at,
+                ),
+            )
+            conn.commit()
 
     def _expected_score(self, elo_a: float, elo_b: float) -> float:
         """Calculate expected score for player A against player B."""

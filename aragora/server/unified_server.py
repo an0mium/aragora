@@ -220,6 +220,17 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             return None
         return value
 
+    def _extract_path_segment(self, path: str, index: int, segment_name: str = "id") -> Optional[str]:
+        """Safely extract path segment with bounds checking.
+
+        Returns None and sends 400 error if segment is missing.
+        """
+        parts = path.split('/')
+        if len(parts) <= index or not parts[index]:
+            self._send_json({"error": f"Missing {segment_name} in path"}, status=400)
+            return None
+        return parts[index]
+
     def _check_rate_limit(self) -> bool:
         """Check auth and rate limit. Returns True if allowed, False if blocked.
 
@@ -314,7 +325,9 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             loop_id = query.get('loop_id', [None])[0]
             self._get_recent_matches(limit, loop_id)
         elif path.startswith('/api/agent/') and path.endswith('/history'):
-            agent = path.split('/')[3]
+            agent = self._extract_path_segment(path, 3, "agent")
+            if agent is None:
+                return
             limit = self._safe_int(query, 'limit', 30, 100)
             self._get_agent_history(agent, limit)
 
