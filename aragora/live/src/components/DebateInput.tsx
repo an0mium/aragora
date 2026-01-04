@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 interface DebateInputProps {
   apiBase: string;
@@ -8,7 +8,34 @@ interface DebateInputProps {
   onError?: (error: string) => void;
 }
 
+interface AgentRecommendation {
+  agent: string;
+  suitability: number;
+  domain_match: boolean;
+}
+
 type ApiStatus = 'checking' | 'online' | 'offline';
+
+// Simple domain detection from question text
+function detectDomain(text: string): string {
+  const lower = text.toLowerCase();
+  if (/\b(code|programming|api|software|bug|function|class|typescript|javascript|python)\b/.test(lower)) {
+    return 'technical';
+  }
+  if (/\b(security|auth|encryption|vulnerability|attack|password|token)\b/.test(lower)) {
+    return 'security';
+  }
+  if (/\b(ethics|moral|right|wrong|should|fair|justice|harm)\b/.test(lower)) {
+    return 'ethics';
+  }
+  if (/\b(ai|machine learning|model|neural|llm|gpt|claude|reasoning)\b/.test(lower)) {
+    return 'ai';
+  }
+  if (/\b(architecture|design|pattern|microservice|monolith|scale|database)\b/.test(lower)) {
+    return 'architecture';
+  }
+  return 'general';
+}
 
 export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputProps) {
   const [question, setQuestion] = useState('');
@@ -17,6 +44,9 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
   const [agents, setAgents] = useState('grok,anthropic-api,openai-api,deepseek-r1');
   const [rounds, setRounds] = useState(3);
   const [apiStatus, setApiStatus] = useState<ApiStatus>('checking');
+  const [recommendations, setRecommendations] = useState<AgentRecommendation[]>([]);
+  const [detectedDomain, setDetectedDomain] = useState<string>('general');
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Combined question pool: AI philosophy + Multi-agent debate + Technical architecture
   const allQuestions = [
@@ -72,6 +102,58 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
     const interval = setInterval(checkHealth, 30000);
     return () => clearInterval(interval);
   }, [apiBase]);
+
+  // Detect domain and fetch routing recommendations when question changes
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    if (!question.trim() || apiStatus !== 'online') {
+      setRecommendations([]);
+      setDetectedDomain('general');
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      const domain = detectDomain(question);
+      setDetectedDomain(domain);
+
+      // Only fetch recommendations for non-general domains
+      if (domain !== 'general') {
+        try {
+          const response = await fetch(`${apiBase}/api/routing/recommendations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              primary_domain: domain,
+              limit: 4,
+            }),
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setRecommendations(data.recommendations || []);
+          }
+        } catch {
+          // Silently fail - recommendations are optional
+        }
+      }
+    }, 500); // Debounce 500ms
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [question, apiBase, apiStatus]);
+
+  // Apply recommended agents
+  const applyRecommendations = useCallback(() => {
+    if (recommendations.length > 0) {
+      const recAgents = recommendations.map(r => r.agent).join(',');
+      setAgents(recAgents);
+    }
+  }, [recommendations]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,6 +242,34 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
             {question.length === 0 && 'Cmd+Enter to debate this question'}
           </div>
         </div>
+
+        {/* Agent Routing Hints */}
+        {detectedDomain !== 'general' && recommendations.length > 0 && (
+          <div className="flex items-center gap-2 p-2 bg-surface/50 border border-acid-cyan/30 rounded">
+            <span className="text-xs font-mono text-acid-cyan">
+              [{detectedDomain.toUpperCase()}]
+            </span>
+            <span className="text-xs text-text-muted">Suggested agents:</span>
+            <div className="flex gap-1 flex-wrap">
+              {recommendations.slice(0, 3).map((rec) => (
+                <span
+                  key={rec.agent}
+                  className="px-1.5 py-0.5 text-xs font-mono bg-bg rounded text-text"
+                  title={`Suitability: ${(rec.suitability * 100).toFixed(0)}%`}
+                >
+                  {rec.agent}
+                </span>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={applyRecommendations}
+              className="ml-auto text-xs font-mono text-acid-green hover:text-acid-green/80 transition-colors"
+            >
+              [USE]
+            </button>
+          </div>
+        )}
 
         {/* Advanced Options Toggle */}
         <div className="flex items-center justify-between">

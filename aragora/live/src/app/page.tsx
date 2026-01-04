@@ -15,6 +15,7 @@ import { ReplayBrowser } from '@/components/ReplayBrowser';
 import { DebateBrowser } from '@/components/DebateBrowser';
 import { InsightsPanel } from '@/components/InsightsPanel';
 import { LeaderboardPanel } from '@/components/LeaderboardPanel';
+import { TournamentPanel } from '@/components/TournamentPanel';
 import { CitationsPanel } from '@/components/CitationsPanel';
 import { VerdictCard } from '@/components/VerdictCard';
 import { CompareView, CompareButton } from '@/components/CompareView';
@@ -351,6 +352,7 @@ export default function Home() {
             <CitationsPanel events={events} />
             <HistoryPanel />
             <LeaderboardPanel wsMessages={events} loopId={effectiveLoopId} apiBase={API_URL} />
+            <TournamentPanel apiBase={API_URL} />
             <DebateBrowser />
             <InsightsPanel wsMessages={events} />
             <ReplayBrowser />
