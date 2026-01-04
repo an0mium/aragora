@@ -110,7 +110,7 @@ export function AsciiBannerCompact({ connected = false }: { connected?: boolean 
 /_/   \\_\\_| \\_\\`}
       </pre>
       <div className="flex flex-col">
-        <span className="text-xl font-bold text-acid-green glow-text-subtle">ARAGORA</span>
+        <span className="text-xl font-bold text-acid-green glow-text-subtle">AGORA</span>
         <span className="text-xs text-acid-cyan tracking-widest">LIVE</span>
       </div>
       <span

@@ -1508,17 +1508,16 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 self._send_json({"patterns": [], "count": 0})
                 return
 
-            conn = sqlite3.connect(str(db_path))
-            conn.row_factory = sqlite3.Row
+            with sqlite3.connect(str(db_path), timeout=30.0) as conn:
+                conn.row_factory = sqlite3.Row
 
-            # Get recent patterns
-            cursor = conn.execute("""
-                SELECT * FROM meta_patterns
-                ORDER BY created_at DESC
-                LIMIT 20
-            """)
-            patterns = [dict(row) for row in cursor.fetchall()]
-            conn.close()
+                # Get recent patterns
+                cursor = conn.execute("""
+                    SELECT * FROM meta_patterns
+                    ORDER BY created_at DESC
+                    LIMIT 20
+                """)
+                patterns = [dict(row) for row in cursor.fetchall()]
 
             self._send_json({
                 "patterns": patterns,
@@ -1774,17 +1773,16 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             memory = ConsensusMemory()
             # Query for high-confidence topics
             import sqlite3
-            conn = sqlite3.connect(memory.db_path)
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT topic, conclusion, confidence, strength, timestamp
-                FROM consensus
-                WHERE confidence >= ?
-                ORDER BY confidence DESC, timestamp DESC
-                LIMIT ?
-            """, (min_confidence, limit))
-            rows = cursor.fetchall()
-            conn.close()
+            with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT topic, conclusion, confidence, strength, timestamp
+                    FROM consensus
+                    WHERE confidence >= ?
+                    ORDER BY confidence DESC, timestamp DESC
+                    LIMIT ?
+                """, (min_confidence, limit))
+                rows = cursor.fetchall()
 
             self._send_json({
                 "min_confidence": min_confidence,

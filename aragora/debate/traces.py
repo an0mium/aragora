@@ -189,43 +189,42 @@ class DebateTracer:
 
     def _init_db(self):
         """Initialize trace database."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+            cursor = conn.cursor()
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS traces (
-                trace_id TEXT PRIMARY KEY,
-                debate_id TEXT,
-                task TEXT,
-                agents TEXT,
-                random_seed INTEGER,
-                started_at TEXT,
-                completed_at TEXT,
-                checksum TEXT,
-                trace_json TEXT
-            )
-        """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS traces (
+                    trace_id TEXT PRIMARY KEY,
+                    debate_id TEXT,
+                    task TEXT,
+                    agents TEXT,
+                    random_seed INTEGER,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    checksum TEXT,
+                    trace_json TEXT
+                )
+            """)
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS trace_events (
-                event_id TEXT PRIMARY KEY,
-                trace_id TEXT,
-                event_type TEXT,
-                timestamp TEXT,
-                round_num INTEGER,
-                agent TEXT,
-                content TEXT,
-                FOREIGN KEY (trace_id) REFERENCES traces(trace_id)
-            )
-        """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS trace_events (
+                    event_id TEXT PRIMARY KEY,
+                    trace_id TEXT,
+                    event_type TEXT,
+                    timestamp TEXT,
+                    round_num INTEGER,
+                    agent TEXT,
+                    content TEXT,
+                    FOREIGN KEY (trace_id) REFERENCES traces(trace_id)
+                )
+            """)
 
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_trace_events_trace
-            ON trace_events(trace_id)
-        """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_trace_events_trace
+                ON trace_events(trace_id)
+            """)
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
     def _generate_event_id(self) -> str:
         """Generate unique event ID."""

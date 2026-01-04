@@ -893,6 +893,120 @@ Get head-to-head comparison between two agents.
 
 ---
 
+### Agent Expertise & Grounded Personas
+
+Evidence-based agent identity and expertise tracking.
+
+#### GET /api/agent/:name/domains
+Get agent's best expertise domains by calibration score.
+
+**Parameters:**
+- `limit` (int, default=5, max=20): Maximum domains to return
+
+**Response:**
+```json
+{
+  "agent": "claude",
+  "domains": [
+    {"domain": "security", "calibration_score": 0.89},
+    {"domain": "api_design", "calibration_score": 0.85}
+  ],
+  "count": 2
+}
+```
+
+#### GET /api/agent/:name/grounded-persona
+Get truth-grounded persona synthesized from performance data.
+
+**Response:**
+```json
+{
+  "agent": "claude",
+  "elo": 1523,
+  "domain_elos": {"security": 1580, "architecture": 1490},
+  "games_played": 45,
+  "win_rate": 0.62,
+  "calibration_score": 0.78,
+  "position_accuracy": 0.72,
+  "positions_taken": 128,
+  "reversals": 8
+}
+```
+
+#### GET /api/agent/:name/identity-prompt
+Get evidence-grounded identity prompt for agent initialization.
+
+**Parameters:**
+- `sections` (string, optional): Comma-separated sections to include (performance, calibration, relationships, positions)
+
+**Response:**
+```json
+{
+  "agent": "claude",
+  "identity_prompt": "## Your Identity: claude\nYour approach: analytical, thorough...",
+  "sections": ["performance", "calibration"]
+}
+```
+
+---
+
+### Contrarian Views & Risk Warnings
+
+Historical dissenting views and edge case concerns from past debates.
+
+#### GET /api/consensus/contrarian-views
+Get historical contrarian views on a topic.
+
+**Parameters:**
+- `topic` (string, required): Topic to search for contrarian views
+- `domain` (string, optional): Filter by domain
+- `limit` (int, default=5, max=20): Maximum views to return
+
+**Response:**
+```json
+{
+  "topic": "rate limiting implementation",
+  "domain": null,
+  "contrarian_views": [
+    {
+      "agent": "gemini",
+      "position": "Token bucket has edge cases",
+      "reasoning": "Under burst traffic conditions...",
+      "confidence": 0.75,
+      "timestamp": "2026-01-03T10:00:00Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+#### GET /api/consensus/risk-warnings
+Get risk warnings and edge case concerns from past debates.
+
+**Parameters:**
+- `topic` (string, required): Topic to search for risk warnings
+- `domain` (string, optional): Filter by domain
+- `limit` (int, default=5, max=20): Maximum warnings to return
+
+**Response:**
+```json
+{
+  "topic": "database migration",
+  "domain": "infrastructure",
+  "risk_warnings": [
+    {
+      "agent": "claude",
+      "warning": "Consider rollback strategy for schema changes",
+      "severity": "high",
+      "timestamp": "2026-01-02T15:00:00Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+---
+
 ## WebSocket API
 
 Connect to the WebSocket server for real-time streaming:

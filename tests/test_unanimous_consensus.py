@@ -62,6 +62,7 @@ class TestUnanimousThreshold:
             consensus="unanimous",
             rounds=1,
             convergence_detection=False,
+            agreement_intensity=None,
         )
 
         env = Environment(task="Test task")
@@ -84,6 +85,7 @@ class TestUnanimousThreshold:
             consensus="unanimous",
             rounds=1,
             convergence_detection=False,
+            agreement_intensity=None,
         )
 
         env = Environment(task="Test task")

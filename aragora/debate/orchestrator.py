@@ -1942,6 +1942,9 @@ Vote by stating ONLY the agent's name. You cannot vote for yourself."""
         """
         intensity = self.protocol.agreement_intensity
 
+        if intensity is None:
+            return ""  # No agreement intensity guidance when not set
+
         if intensity <= 1:
             return """IMPORTANT: You strongly disagree with other agents. Challenge every assumption,
 find flaws in every argument, and maintain your original position unless presented
