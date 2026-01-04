@@ -72,7 +72,7 @@ Inspired by:
 """
 
 # Core
-from aragora.core import Agent, Critique, DebateResult, Environment
+from aragora.core import Agent, Critique, DebateResult, Environment, DisagreementReport
 
 # Debate Orchestration
 from aragora.debate.orchestrator import Arena, DebateProtocol
@@ -208,6 +208,7 @@ __all__ = [
     "Agent",
     "Critique",
     "DebateResult",
+    "DisagreementReport",
     "Environment",
     # Debate Orchestration
     "Arena",

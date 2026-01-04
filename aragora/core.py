@@ -56,6 +56,54 @@ class Vote:
 
 
 @dataclass
+class DisagreementReport:
+    """
+    Surfaces explicit agreement/disagreement patterns from debates.
+
+    Inspired by Heavy3.ai's insight: "When all models agree your argument is weak—fix it.
+    When they disagree, you see the risk before you commit."
+    """
+    # Issues all agents unanimously agree on - high confidence problems
+    unanimous_critiques: list[str] = field(default_factory=list)
+
+    # Topics where agents split - each tuple is (topic, [agreeing_agents], [disagreeing_agents])
+    split_opinions: list[tuple[str, list[str], list[str]]] = field(default_factory=list)
+
+    # Risk areas identified from divergence patterns
+    risk_areas: list[str] = field(default_factory=list)
+
+    # Agreement score: 1.0 = complete unanimity, 0.0 = complete disagreement
+    agreement_score: float = 0.0
+
+    # Per-agent alignment with final consensus
+    agent_alignment: dict[str, float] = field(default_factory=dict)
+
+    def summary(self) -> str:
+        """Human-readable disagreement summary."""
+        lines = ["=== Disagreement Report ==="]
+
+        if self.unanimous_critiques:
+            lines.append(f"\n🚨 UNANIMOUS ISSUES ({len(self.unanimous_critiques)}) - Address these:")
+            for critique in self.unanimous_critiques[:5]:
+                lines.append(f"  • {critique[:200]}")
+
+        if self.split_opinions:
+            lines.append(f"\n⚠️ SPLIT OPINIONS ({len(self.split_opinions)}) - Risks to consider:")
+            for topic, agree, disagree in self.split_opinions[:5]:
+                lines.append(f"  • {topic[:100]}")
+                lines.append(f"    Agree: {', '.join(agree)} | Disagree: {', '.join(disagree)}")
+
+        if self.risk_areas:
+            lines.append(f"\n🔍 RISK AREAS ({len(self.risk_areas)}):")
+            for risk in self.risk_areas[:5]:
+                lines.append(f"  • {risk[:200]}")
+
+        lines.append(f"\nAgreement Score: {self.agreement_score:.0%}")
+
+        return "\n".join(lines)
+
+
+@dataclass
 class DebateResult:
     """The result of a multi-agent debate."""
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -77,10 +125,12 @@ class DebateResult:
     # Consensus strength: "strong" (var < 1), "medium" (var < 2), "weak" (var >= 2)
     consensus_strength: str = ""
     consensus_variance: float = 0.0
+    # Disagreement surfacing (Heavy3-inspired)
+    disagreement_report: Optional["DisagreementReport"] = None
 
     def summary(self) -> str:
         """Human-readable summary of the debate."""
-        return f"""Debate Result ({self.id[:8]}):
+        base = f"""Debate Result ({self.id[:8]}):
 Task: {self.task[:100]}...
 Rounds: {self.rounds_used}
 Consensus: {'Yes' if self.consensus_reached else 'No'} (confidence: {self.confidence:.1%})
@@ -90,6 +140,11 @@ Duration: {self.duration_seconds:.1f}s
 
 Final Answer:
 {self.final_answer}"""
+
+        if self.disagreement_report:
+            base += f"\n\n{self.disagreement_report.summary()}"
+
+        return base
 
 
 @dataclass

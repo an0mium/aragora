@@ -181,6 +181,53 @@ class EloSystem:
         if "calibration_brier_sum" not in columns:
             cursor.execute("ALTER TABLE ratings ADD COLUMN calibration_brier_sum REAL DEFAULT 0.0")
 
+        # Domain-specific calibration tracking (for grounded personas)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS domain_calibration (
+                agent_name TEXT NOT NULL,
+                domain TEXT NOT NULL,
+                total_predictions INTEGER DEFAULT 0,
+                total_correct INTEGER DEFAULT 0,
+                brier_sum REAL DEFAULT 0.0,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (agent_name, domain)
+            )
+        """)
+
+        # Calibration by confidence bucket (for calibration curves)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS calibration_buckets (
+                agent_name TEXT NOT NULL,
+                domain TEXT NOT NULL,
+                bucket_key TEXT NOT NULL,
+                predictions INTEGER DEFAULT 0,
+                correct INTEGER DEFAULT 0,
+                brier_sum REAL DEFAULT 0.0,
+                PRIMARY KEY (agent_name, domain, bucket_key)
+            )
+        """)
+
+        # Agent relationships tracking (for grounded personas)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS agent_relationships (
+                agent_a TEXT NOT NULL,
+                agent_b TEXT NOT NULL,
+                debate_count INTEGER DEFAULT 0,
+                agreement_count INTEGER DEFAULT 0,
+                critique_count_a_to_b INTEGER DEFAULT 0,
+                critique_count_b_to_a INTEGER DEFAULT 0,
+                critique_accepted_a_to_b INTEGER DEFAULT 0,
+                critique_accepted_b_to_a INTEGER DEFAULT 0,
+                position_changes_a_after_b INTEGER DEFAULT 0,
+                position_changes_b_after_a INTEGER DEFAULT 0,
+                a_wins_over_b INTEGER DEFAULT 0,
+                b_wins_over_a INTEGER DEFAULT 0,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (agent_a, agent_b),
+                CHECK (agent_a < agent_b)
+            )
+        """)
+
         conn.commit()
         conn.close()
 
@@ -827,4 +874,287 @@ class EloSystem:
                 "created_at": row[3],
             }
             for row in rows
+        ]
+
+    # =========================================================================
+    # Domain-Specific Calibration Tracking (Grounded Personas)
+    # =========================================================================
+
+    def _get_bucket_key(self, confidence: float) -> str:
+        """Convert confidence to bucket key (0.0-0.1 -> '0.0-0.1')."""
+        bucket_start = math.floor(confidence * 10) / 10
+        bucket_end = min(1.0, bucket_start + 0.1)
+        return f"{bucket_start:.1f}-{bucket_end:.1f}"
+
+    def record_domain_prediction(
+        self,
+        agent_name: str,
+        domain: str,
+        confidence: float,
+        correct: bool,
+    ):
+        """
+        Record a domain-specific prediction for calibration tracking.
+
+        Args:
+            agent_name: Agent making the prediction
+            domain: Domain/topic area (e.g., "ethics", "code_review", "economics")
+            confidence: Confidence level (0.0 to 1.0)
+            correct: Whether the prediction was correct
+        """
+        confidence = min(1.0, max(0.0, confidence))
+        brier = (confidence - (1.0 if correct else 0.0)) ** 2
+        bucket_key = self._get_bucket_key(confidence)
+
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # Update domain calibration
+        cursor.execute(
+            """
+            INSERT INTO domain_calibration (agent_name, domain, total_predictions, total_correct, brier_sum, updated_at)
+            VALUES (?, ?, 1, ?, ?, ?)
+            ON CONFLICT(agent_name, domain) DO UPDATE SET
+                total_predictions = total_predictions + 1,
+                total_correct = total_correct + ?,
+                brier_sum = brier_sum + ?,
+                updated_at = ?
+            """,
+            (
+                agent_name, domain, 1 if correct else 0, brier, datetime.now().isoformat(),
+                1 if correct else 0, brier, datetime.now().isoformat(),
+            ),
+        )
+
+        # Update calibration bucket
+        cursor.execute(
+            """
+            INSERT INTO calibration_buckets (agent_name, domain, bucket_key, predictions, correct, brier_sum)
+            VALUES (?, ?, ?, 1, ?, ?)
+            ON CONFLICT(agent_name, domain, bucket_key) DO UPDATE SET
+                predictions = predictions + 1,
+                correct = correct + ?,
+                brier_sum = brier_sum + ?
+            """,
+            (agent_name, domain, bucket_key, 1 if correct else 0, brier, 1 if correct else 0, brier),
+        )
+
+        # Also update overall calibration stats
+        rating = self.get_rating(agent_name)
+        rating.calibration_total += 1
+        if correct:
+            rating.calibration_correct += 1
+        rating.calibration_brier_sum += brier
+        rating.updated_at = datetime.now().isoformat()
+
+        conn.commit()
+        conn.close()
+        self._save_rating(rating)
+
+    def get_domain_calibration(self, agent_name: str, domain: Optional[str] = None) -> dict:
+        """Get calibration statistics for an agent, optionally filtered by domain."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        if domain:
+            cursor.execute(
+                "SELECT domain, total_predictions, total_correct, brier_sum FROM domain_calibration WHERE agent_name = ? AND domain = ?",
+                (agent_name, domain),
+            )
+        else:
+            cursor.execute(
+                "SELECT domain, total_predictions, total_correct, brier_sum FROM domain_calibration WHERE agent_name = ? ORDER BY total_predictions DESC",
+                (agent_name,),
+            )
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        if not rows:
+            return {"total": 0, "correct": 0, "accuracy": 0.0, "brier_score": 1.0, "domains": {}}
+
+        domains = {}
+        total_predictions = 0
+        total_correct = 0
+        total_brier = 0.0
+
+        for row in rows:
+            domain_name, predictions, correct, brier = row
+            domains[domain_name] = {
+                "predictions": predictions,
+                "correct": correct,
+                "accuracy": correct / predictions if predictions > 0 else 0.0,
+                "brier_score": brier / predictions if predictions > 0 else 1.0,
+            }
+            total_predictions += predictions
+            total_correct += correct
+            total_brier += brier
+
+        return {
+            "total": total_predictions,
+            "correct": total_correct,
+            "accuracy": total_correct / total_predictions if total_predictions > 0 else 0.0,
+            "brier_score": total_brier / total_predictions if total_predictions > 0 else 1.0,
+            "domains": domains,
+        }
+
+    def get_calibration_by_bucket(self, agent_name: str, domain: Optional[str] = None) -> list[dict]:
+        """Get calibration broken down by confidence bucket for calibration curves."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        if domain:
+            cursor.execute(
+                "SELECT bucket_key, SUM(predictions), SUM(correct), SUM(brier_sum) FROM calibration_buckets WHERE agent_name = ? AND domain = ? GROUP BY bucket_key ORDER BY bucket_key",
+                (agent_name, domain),
+            )
+        else:
+            cursor.execute(
+                "SELECT bucket_key, SUM(predictions), SUM(correct), SUM(brier_sum) FROM calibration_buckets WHERE agent_name = ? GROUP BY bucket_key ORDER BY bucket_key",
+                (agent_name,),
+            )
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        buckets = []
+        for row in rows:
+            bucket_key, predictions, correct, brier = row
+            parts = bucket_key.split("-")
+            bucket_start = float(parts[0])
+            bucket_end = float(parts[1])
+            expected = (bucket_start + bucket_end) / 2
+
+            buckets.append({
+                "bucket_key": bucket_key,
+                "bucket_start": bucket_start,
+                "bucket_end": bucket_end,
+                "predictions": predictions,
+                "correct": correct,
+                "accuracy": correct / predictions if predictions > 0 else 0.0,
+                "expected_accuracy": expected,
+                "brier_score": brier / predictions if predictions > 0 else 1.0,
+            })
+        return buckets
+
+    def get_expected_calibration_error(self, agent_name: str) -> float:
+        """Calculate Expected Calibration Error (ECE) - lower is better (0 = perfect)."""
+        buckets = self.get_calibration_by_bucket(agent_name)
+        if not buckets:
+            return 1.0
+        total_predictions = sum(b["predictions"] for b in buckets)
+        if total_predictions == 0:
+            return 1.0
+        ece = 0.0
+        for bucket in buckets:
+            weight = bucket["predictions"] / total_predictions
+            calibration_error = abs(bucket["accuracy"] - bucket["expected_accuracy"])
+            ece += weight * calibration_error
+        return ece
+
+    def get_best_domains(self, agent_name: str, limit: int = 5) -> list[tuple[str, float]]:
+        """Get domains where agent is best calibrated."""
+        calibration = self.get_domain_calibration(agent_name)
+        domains = calibration.get("domains", {})
+        scored = []
+        for domain, stats in domains.items():
+            if stats["predictions"] < 5:
+                continue
+            confidence = min(1.0, 0.5 + 0.5 * (stats["predictions"] - 5) / 20)
+            score = (1 - stats["brier_score"]) * confidence
+            scored.append((domain, score))
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[:limit]
+
+    # =========================================================================
+    # Agent Relationship Tracking (Grounded Personas)
+    # =========================================================================
+
+    def update_relationship(
+        self,
+        agent_a: str,
+        agent_b: str,
+        debate_increment: int = 0,
+        agreement_increment: int = 0,
+        critique_a_to_b: int = 0,
+        critique_b_to_a: int = 0,
+        critique_accepted_a_to_b: int = 0,
+        critique_accepted_b_to_a: int = 0,
+        position_change_a_after_b: int = 0,
+        position_change_b_after_a: int = 0,
+        a_win: int = 0,
+        b_win: int = 0,
+    ):
+        """Update relationship stats between two agents (maintains canonical a < b ordering)."""
+        if agent_a > agent_b:
+            agent_a, agent_b = agent_b, agent_a
+            critique_a_to_b, critique_b_to_a = critique_b_to_a, critique_a_to_b
+            critique_accepted_a_to_b, critique_accepted_b_to_a = critique_accepted_b_to_a, critique_accepted_a_to_b
+            position_change_a_after_b, position_change_b_after_a = position_change_b_after_a, position_change_a_after_b
+            a_win, b_win = b_win, a_win
+
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO agent_relationships (agent_a, agent_b, debate_count, agreement_count,
+                critique_count_a_to_b, critique_count_b_to_a, critique_accepted_a_to_b, critique_accepted_b_to_a,
+                position_changes_a_after_b, position_changes_b_after_a, a_wins_over_b, b_wins_over_a, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(agent_a, agent_b) DO UPDATE SET
+                debate_count = debate_count + ?, agreement_count = agreement_count + ?,
+                critique_count_a_to_b = critique_count_a_to_b + ?, critique_count_b_to_a = critique_count_b_to_a + ?,
+                critique_accepted_a_to_b = critique_accepted_a_to_b + ?, critique_accepted_b_to_a = critique_accepted_b_to_a + ?,
+                position_changes_a_after_b = position_changes_a_after_b + ?, position_changes_b_after_a = position_changes_b_after_a + ?,
+                a_wins_over_b = a_wins_over_b + ?, b_wins_over_a = b_wins_over_a + ?, updated_at = ?
+            """,
+            (agent_a, agent_b, debate_increment, agreement_increment, critique_a_to_b, critique_b_to_a,
+             critique_accepted_a_to_b, critique_accepted_b_to_a, position_change_a_after_b, position_change_b_after_a,
+             a_win, b_win, datetime.now().isoformat(),
+             debate_increment, agreement_increment, critique_a_to_b, critique_b_to_a,
+             critique_accepted_a_to_b, critique_accepted_b_to_a, position_change_a_after_b, position_change_b_after_a,
+             a_win, b_win, datetime.now().isoformat()),
+        )
+        conn.commit()
+        conn.close()
+
+    def get_relationship_raw(self, agent_a: str, agent_b: str) -> Optional[dict]:
+        """Get raw relationship data between two agents."""
+        if agent_a > agent_b:
+            agent_a, agent_b = agent_b, agent_a
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT debate_count, agreement_count, critique_count_a_to_b, critique_count_b_to_a, critique_accepted_a_to_b, critique_accepted_b_to_a, position_changes_a_after_b, position_changes_b_after_a, a_wins_over_b, b_wins_over_a FROM agent_relationships WHERE agent_a = ? AND agent_b = ?",
+            (agent_a, agent_b),
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        return {
+            "agent_a": agent_a, "agent_b": agent_b, "debate_count": row[0], "agreement_count": row[1],
+            "critique_count_a_to_b": row[2], "critique_count_b_to_a": row[3],
+            "critique_accepted_a_to_b": row[4], "critique_accepted_b_to_a": row[5],
+            "position_changes_a_after_b": row[6], "position_changes_b_after_a": row[7],
+            "a_wins_over_b": row[8], "b_wins_over_a": row[9],
+        }
+
+    def get_all_relationships_for_agent(self, agent_name: str) -> list[dict]:
+        """Get all relationships involving an agent."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT agent_a, agent_b, debate_count, agreement_count, critique_count_a_to_b, critique_count_b_to_a, critique_accepted_a_to_b, critique_accepted_b_to_a, position_changes_a_after_b, position_changes_b_after_a, a_wins_over_b, b_wins_over_a FROM agent_relationships WHERE agent_a = ? OR agent_b = ? ORDER BY debate_count DESC",
+            (agent_name, agent_name),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [
+            {"agent_a": r[0], "agent_b": r[1], "debate_count": r[2], "agreement_count": r[3],
+             "critique_count_a_to_b": r[4], "critique_count_b_to_a": r[5],
+             "critique_accepted_a_to_b": r[6], "critique_accepted_b_to_a": r[7],
+             "position_changes_a_after_b": r[8], "position_changes_b_after_a": r[9],
+             "a_wins_over_b": r[10], "b_wins_over_a": r[11]}
+            for r in rows
         ]

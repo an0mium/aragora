@@ -578,6 +578,35 @@ except ImportError:
     DebateForker = None
     ForkDetector = None
 
+# =============================================================================
+# Phase 9: Grounded Personas & Truth-Based Identity
+# =============================================================================
+
+# PositionTracker for truth-grounded personas (Phase 9)
+try:
+    from aragora.agents.truth_grounding import (
+        PositionTracker, Position, TruthGroundedPersona, TruthGroundedLaboratory
+    )
+    POSITION_TRACKER_AVAILABLE = True
+except ImportError:
+    POSITION_TRACKER_AVAILABLE = False
+    PositionTracker = None
+    TruthGroundedLaboratory = None
+
+# GroundedPersonas for evidence-based identity (Phase 9)
+try:
+    from aragora.agents.grounded import (
+        PositionLedger, RelationshipTracker, PersonaSynthesizer,
+        GroundedPersona, Position as GroundedPosition
+    )
+    GROUNDED_PERSONAS_AVAILABLE = True
+except ImportError:
+    GROUNDED_PERSONAS_AVAILABLE = False
+    PositionLedger = None
+    RelationshipTracker = None
+    PersonaSynthesizer = None
+    GroundedPersona = None
+
 
 class NomicLoop:
     """
@@ -829,6 +858,41 @@ class NomicLoop:
                 persona_manager=self.persona_manager
             )
             print(f"[selector] Smart agent selection enabled")
+
+        # =================================================================
+        # Phase 9: Grounded Personas & Truth-Based Identity
+        # =================================================================
+
+        # Phase 9: PositionTracker for truth-grounded personas
+        self.position_tracker = None
+        if POSITION_TRACKER_AVAILABLE:
+            position_db_path = self.nomic_dir / "aragora_positions.db"
+            self.position_tracker = PositionTracker(str(position_db_path))
+            print(f"[positions] Truth-grounded position tracking enabled")
+
+        # Phase 9: PositionLedger for evidence-based identity
+        self.position_ledger = None
+        if GROUNDED_PERSONAS_AVAILABLE and PositionLedger:
+            ledger_db_path = self.nomic_dir / "grounded_positions.db"
+            self.position_ledger = PositionLedger(str(ledger_db_path))
+            print(f"[ledger] Evidence-based position ledger enabled")
+
+        # Phase 9: RelationshipTracker for inter-agent dynamics
+        self.relationship_tracker = None
+        if GROUNDED_PERSONAS_AVAILABLE and RelationshipTracker:
+            relationship_db_path = self.nomic_dir / "agent_relationships.db"
+            self.relationship_tracker = RelationshipTracker(str(relationship_db_path))
+            print(f"[relationships] Agent relationship tracking enabled")
+
+        # Phase 9: PersonaSynthesizer for grounded identity prompts
+        self.persona_synthesizer = None
+        if GROUNDED_PERSONAS_AVAILABLE and PersonaSynthesizer:
+            self.persona_synthesizer = PersonaSynthesizer(
+                position_ledger=self.position_ledger,
+                relationship_tracker=self.relationship_tracker,
+                elo_system=self.elo_system,
+            )
+            print(f"[synthesizer] Grounded persona synthesis enabled")
 
         # =================================================================
         # Phase 6: Verifiable Reasoning & Robustness Testing
@@ -1934,7 +1998,11 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
 
             # Define debate runner for tournament
             async def run_tournament_debate(env, debate_agents):
-                arena = Arena(agents=debate_agents, protocol=DebateProtocol(rounds=3))
+                arena = Arena(
+                    agents=debate_agents,
+                    protocol=DebateProtocol(rounds=3),
+                    position_tracker=self.position_tracker,
+                )
                 return await arena.run(env)
 
             result = await tournament.run(run_tournament_debate, parallel=False)
@@ -2030,6 +2098,20 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                 return d
         return "general"
 
+    def _agent_in_consensus(self, agent_name: str, result) -> bool:
+        """Check if agent's position was part of winning consensus."""
+        if not result.consensus_reached:
+            return False
+        # Check if agent voted for winning choice
+        if hasattr(result, 'votes'):
+            for vote in result.votes:
+                vote_agent = getattr(vote, 'agent', None) or (vote.get('agent') if isinstance(vote, dict) else None)
+                vote_choice = getattr(vote, 'choice', None) or (vote.get('choice') if isinstance(vote, dict) else None)
+                if vote_agent == agent_name:
+                    if vote_choice and result.final_answer and vote_choice in result.final_answer:
+                        return True
+        return False
+
     def _record_elo_match(self, result, task: str) -> None:
         """Record debate as ELO match to update agent ratings (P13: EloSystem)."""
         if not self.elo_system or not ELO_AVAILABLE:
@@ -2087,10 +2169,33 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
     def _select_debate_team(self, task: str) -> list:
         """Select optimal agent team for the task (P14: AgentSelector)."""
         default_team = [self.gemini, self.codex, self.claude, self.grok]
+        detected_domain = self._detect_domain(task)
+
+        # If ELO available, sort by domain expertise first
+        if self.elo_system and ELO_AVAILABLE:
+            try:
+                # Score agents by domain-specific performance
+                domain_scores = []
+                for agent in default_team:
+                    best_domains = self.elo_system.get_best_domains(agent.name, limit=10)
+                    domain_score = 0.0
+                    for domain, score in best_domains:
+                        if domain == detected_domain:
+                            domain_score = score
+                            break
+                    overall_elo = self.elo_system.get_rating(agent.name).elo
+                    # Combined score: 60% domain expertise + 40% overall ELO normalized
+                    combined = (domain_score * 0.6) + ((overall_elo - 1400) / 200 * 0.4)
+                    domain_scores.append((agent, combined))
+                domain_scores.sort(key=lambda x: x[1], reverse=True)
+                self._log(f"  [elo] Domain '{detected_domain}' scores: {[(a.name, f'{s:.2f}') for a, s in domain_scores]}")
+            except Exception as e:
+                self._log(f"  [elo] Domain scoring failed: {e}")
+
         if not self.agent_selector or not SELECTOR_AVAILABLE:
             return default_team
         try:
-            # Register agents if not done
+            # Register agents with ELO ratings
             for agent in default_team:
                 profile = AgentProfile(
                     name=agent.name,
@@ -2102,7 +2207,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
             requirements = TaskRequirements(
                 task_id=f"cycle-{self.cycle_count}",
                 description=task[:200],
-                primary_domain=self._detect_domain(task),
+                primary_domain=detected_domain,
                 min_agents=3,
                 max_agents=4,
                 quality_priority=0.7,
@@ -2116,6 +2221,102 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
         except Exception as e:
             self._log(f"  [selector] Error: {e}, using default team")
             return default_team
+
+    def _inject_grounded_personas(self, agents: list) -> None:
+        """Inject grounded identity prompts into agent system prompts (Phase 9: PersonaSynthesizer)."""
+        if not self.persona_synthesizer or not GROUNDED_PERSONAS_AVAILABLE:
+            return
+
+        for agent in agents:
+            try:
+                # Get opponent names (other agents in the debate)
+                opponent_names = [a.name for a in agents if a.name != agent.name]
+
+                # Synthesize grounded identity prompt
+                identity = self.persona_synthesizer.synthesize_identity_prompt(
+                    agent_name=agent.name,
+                    opponent_names=opponent_names,
+                    include_sections=["performance", "calibration", "relationships"],
+                )
+
+                # Add opponent briefings for tactical intelligence
+                briefings = []
+                for opponent in opponent_names:
+                    try:
+                        briefing = self.persona_synthesizer.get_opponent_briefing(agent.name, opponent)
+                        if briefing:
+                            briefings.append(briefing)
+                    except Exception:
+                        pass  # Skip if briefing generation fails
+
+                if identity or briefings:
+                    # Combine identity and briefings
+                    full_prompt = identity or ""
+                    if briefings:
+                        full_prompt += "\n\n## Opponent Intelligence\n" + "\n\n".join(briefings)
+
+                    # Prepend identity to system prompt
+                    original_prompt = getattr(agent, 'system_prompt', '') or ''
+                    agent.system_prompt = f"{full_prompt}\n\n{original_prompt}"
+                    self._log(f"  [personas] Injected grounded identity for {agent.name} with {len(briefings)} opponent briefings")
+            except Exception as e:
+                self._log(f"  [personas] Error injecting persona for {agent.name}: {e}")
+                # Don't break debate on persona injection failure
+
+    def _log_persona_insights(self) -> None:
+        """Log grounded persona insights for visibility (Phase 9: PersonaSynthesizer)."""
+        if not self.persona_synthesizer or not GROUNDED_PERSONAS_AVAILABLE:
+            return
+
+        self._log("  [personas] Agent insights:")
+        agents = [self.gemini, self.claude, self.codex, self.grok]
+        for agent in agents:
+            try:
+                persona = self.persona_synthesizer.get_grounded_persona(agent.name)
+                if persona:
+                    self._log(f"    {agent.name}: {persona.overall_calibration:.0%} calibration, "
+                             f"{persona.position_accuracy:.0%} accuracy, "
+                             f"{len(persona.rivals)} rivals")
+            except Exception:
+                pass
+
+    def _log_grounded_persona_stats(self) -> None:
+        """Log grounded persona data completeness for observability."""
+        self._log("  [grounded] Data completeness:")
+
+        # Position Ledger stats
+        if self.position_ledger:
+            try:
+                stats = self.position_ledger.get_all_stats()
+                total = stats.get('total', 0)
+                agents = len(stats.get('by_agent', {}))
+                self._log(f"    PositionLedger: {total} positions from {agents} agents")
+            except Exception:
+                self._log("    PositionLedger: unavailable")
+        else:
+            self._log("    PositionLedger: not initialized")
+
+        # Relationship Tracker stats
+        if self.relationship_tracker:
+            try:
+                count = self.relationship_tracker.get_relationship_count()
+                self._log(f"    RelationshipTracker: {count} agent pairs tracked")
+            except Exception:
+                self._log("    RelationshipTracker: unavailable")
+        else:
+            self._log("    RelationshipTracker: not initialized")
+
+        # ELO domain calibration stats
+        if self.elo_system:
+            try:
+                agents = [self.gemini, self.claude, self.codex, self.grok]
+                for agent in agents:
+                    cal = self.elo_system.get_domain_calibration(agent.name)
+                    if cal and cal.get('total', 0) > 0:
+                        self._log(f"    {agent.name} calibration: {cal['total']} predictions, "
+                                 f"{cal['accuracy']:.0%} accuracy")
+            except Exception:
+                pass
 
     def _track_debate_risks(self, result, task: str) -> None:
         """Track risks from debates with low consensus or confidence (P15: RiskRegister)."""
@@ -2334,7 +2535,10 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                 env = Environment(task=task_text, context=context)
                 protocol = DebateProtocol(rounds=1, consensus="majority")
                 agents = [self.gemini, self.claude] if hasattr(self, 'claude') else [self.gemini]
-                arena = Arena(env, agents, protocol)
+                arena = Arena(
+                    env, agents, protocol,
+                    position_tracker=self.position_tracker,
+                )
                 return await arena.run(env)
 
             runner = MatrixDebateRunner(quick_debate, max_parallel=2)
@@ -2687,18 +2891,26 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
             # Detect emergent traits
             emergent = self._detect_emergent_traits()
 
-            # Check experiments for significant results
+            # Check experiments for significant results and apply mutations
             experiments = self.persona_lab.get_running_experiments()
             completed = 0
+            applied = 0
             for exp in experiments:
                 if exp.is_significant:
                     self._log(f"  [lab] Experiment {exp.experiment_id[:8]} significant: {exp.relative_improvement:+.1%}")
-                    completed += 1
+                    # Conclude the experiment - this applies the winning variant if better
+                    concluded = self.persona_lab.conclude_experiment(exp.experiment_id)
+                    if concluded:
+                        completed += 1
+                        if concluded.variant_rate > concluded.control_rate:
+                            self._log(f"  [lab] Applied variant traits to {exp.agent_name}: {concluded.variant_persona.traits}")
+                            applied += 1
 
             return {
                 "emergent_traits": len(emergent),
                 "experiments_checked": len(experiments),
-                "significant_results": completed
+                "significant_results": completed,
+                "mutations_applied": applied
             }
         except Exception as e:
             self._log(f"  [lab] Evolution error: {e}")
@@ -3217,7 +3429,12 @@ Synthesize these suggestions into a coherent, working implementation.
             # Fall back to regular arena
             env = Environment(task=task)
             protocol = DebateProtocol(rounds=2, consensus="majority")
-            arena = Arena(environment=env, agents=agents, protocol=protocol, memory=self.critique_store, debate_embeddings=self.debate_embeddings, insight_store=self.insight_store)
+            arena = Arena(
+                environment=env, agents=agents, protocol=protocol,
+                memory=self.critique_store, debate_embeddings=self.debate_embeddings,
+                insight_store=self.insight_store, position_tracker=self.position_tracker,
+                position_ledger=self.position_ledger, elo_system=self.elo_system,
+            )
             return await self._run_arena_with_logging(arena, phase_name)
 
         self._log(f"  Starting {phase_name} fractal debate (genesis mode)...")
@@ -3275,7 +3492,12 @@ Synthesize these suggestions into a coherent, working implementation.
             self._log(f"  Falling back to regular arena...")
             env = Environment(task=task)
             protocol = DebateProtocol(rounds=2, consensus="majority")
-            arena = Arena(environment=env, agents=agents, protocol=protocol, memory=self.critique_store, debate_embeddings=self.debate_embeddings, insight_store=self.insight_store)
+            arena = Arena(
+                environment=env, agents=agents, protocol=protocol,
+                memory=self.critique_store, debate_embeddings=self.debate_embeddings,
+                insight_store=self.insight_store, position_tracker=self.position_tracker,
+                position_ledger=self.position_ledger, elo_system=self.elo_system,
+            )
             return await self._run_arena_with_logging(arena, phase_name)
 
     async def phase_context_gathering(self) -> dict:
@@ -3542,6 +3764,25 @@ Recent changes:
         # Phase 5: Select optimal debate team (P14: AgentSelector)
         debate_team = self._select_debate_team(topic_hint)
 
+        # Probe agents for reliability weights before debate
+        agent_weights = {}
+        if self.nomic_integration:
+            try:
+                self._log("  [integration] Probing debate agents for reliability...")
+                agent_weights = await self.nomic_integration.probe_agents(
+                    debate_team,
+                    probe_count=2,  # Quick probe to minimize latency
+                    min_weight=0.5,
+                )
+                reliable_count = sum(1 for w in agent_weights.values() if w >= 0.7)
+                self._log(f"  [integration] Agent weights: {reliable_count}/{len(debate_team)} reliable")
+            except Exception as e:
+                self._log(f"  [integration] Probing failed: {e}")
+
+        # Phase 9: Inject grounded personas into agent system prompts
+        self._inject_grounded_personas(debate_team)
+        self._log_grounded_persona_stats()
+
         # Phase 7: Start debate trace for audit logging (P25: DebateTracer)
         debate_id = f"debate-cycle-{self.cycle_count}"
         self._start_debate_trace(debate_id, topic_hint or task[:100], debate_team)
@@ -3558,6 +3799,10 @@ Recent changes:
             memory=self.critique_store,
             debate_embeddings=self.debate_embeddings,
             insight_store=self.insight_store,
+            agent_weights=agent_weights,  # Use probed reliability weights for vote weighting
+            position_tracker=self.position_tracker,
+            position_ledger=self.position_ledger,
+            elo_system=self.elo_system,
         )
         result = await self._run_arena_with_logging(arena, "debate")
 
@@ -3598,6 +3843,45 @@ Recent changes:
 
         # Phase 5: Update ELO ratings (P13: EloSystem)
         self._record_elo_match(result, topic_hint)
+
+        # Phase 9: Record positions to ledger for grounded personas
+        if self.position_ledger and hasattr(result, 'messages'):
+            try:
+                debate_id = f"cycle-{self.cycle_count}"
+                for msg in result.messages:
+                    if hasattr(msg, 'agent') and hasattr(msg, 'content') and msg.content:
+                        self.position_ledger.record_position(
+                            agent_name=msg.agent,
+                            claim=msg.content[:1000],
+                            confidence=0.7,
+                            debate_id=debate_id,
+                            round_num=getattr(msg, 'round', 0),
+                        )
+                self._log(f"  [grounded] Recorded {len(result.messages)} positions to ledger")
+            except Exception as e:
+                self._log(f"  [grounded] Position recording failed: {e}")
+
+        # Phase 9: Update agent relationships for grounded personas
+        if self.relationship_tracker and result:
+            try:
+                participants = [a.name for a in debate_team]
+                winner = None
+                if hasattr(result, 'votes') and result.votes:
+                    vote_tally = {}
+                    for v in result.votes:
+                        if hasattr(v, 'choice'):
+                            vote_tally[v.choice] = vote_tally.get(v.choice, 0) + 1
+                    if vote_tally:
+                        winner = max(vote_tally.items(), key=lambda x: x[1])[0]
+                self.relationship_tracker.update_from_debate(
+                    debate_id=f"cycle-{self.cycle_count}",
+                    participants=participants,
+                    winner=winner,
+                    votes=result.votes if hasattr(result, 'votes') else [],
+                )
+                self._log(f"  [grounded] Updated relationships for {len(participants)} agents")
+            except Exception as e:
+                self._log(f"  [grounded] Relationship update failed: {e}")
 
         # Phase 5: Track risks from low-consensus debates (P15: RiskRegister)
         self._track_debate_risks(result, topic_hint)
@@ -3658,16 +3942,19 @@ Recent changes:
         if self.nomic_integration:
             try:
                 belief_analysis = await self.nomic_integration.analyze_debate(result)
+                # Always log belief network analysis results
+                self._log(f"  [belief] Network: {len(belief_analysis.contested_claims)} contested, "
+                          f"{len(belief_analysis.crux_claims)} crux claims, "
+                          f"converged={belief_analysis.convergence_achieved}")
                 if belief_analysis.has_deadlock:
-                    self._log(f"  [integration] Detected deadlock on {len(belief_analysis.crux_claims)} crux claims")
-                    # Try to resolve with counterfactual branching
+                    self._log(f"  [belief] Deadlock detected - attempting counterfactual resolution")
+                    # Try to resolve with counterfactual branching (pass arena for branch execution)
                     conditional_consensus = await self.nomic_integration.resolve_deadlock(
-                        belief_analysis.crux_claims
+                        belief_analysis.crux_claims,
+                        arena=arena  # Enable actual branch execution
                     )
                     if conditional_consensus:
-                        self._log(f"  [integration] Resolved with conditional consensus")
-                else:
-                    self._log(f"  [integration] Belief analysis: {len(belief_analysis.contested_claims)} contested claims")
+                        self._log(f"  [belief] Resolved with conditional consensus")
                 # Checkpoint the debate phase
                 await self.nomic_integration.checkpoint(
                     phase="debate",
@@ -3759,6 +4046,9 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
             except Exception as e:
                 self._log(f"  [integration] Probing failed: {e}")
 
+        # Phase 9: Inject grounded personas into design agents
+        self._inject_grounded_personas(design_agents)
+
         # All 4 agents participate in design (with reliability weights)
         arena = Arena(
             env,
@@ -3768,6 +4058,9 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
             debate_embeddings=self.debate_embeddings,
             insight_store=self.insight_store,
             agent_weights=agent_weights,
+            position_tracker=self.position_tracker,
+            position_ledger=self.position_ledger,
+            elo_system=self.elo_system,
         )
         result = await self._run_arena_with_logging(arena, "design")
 
@@ -3855,6 +4148,20 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
             return result.stdout
         except Exception:
             return ""
+
+    def _get_git_changed_files(self) -> list[str]:
+        """Get list of changed files from git."""
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            files = [f.strip() for f in result.stdout.split("\n") if f.strip()]
+            return files
+        except Exception:
+            return []
 
     async def _call_agent_with_retry(
         self,
@@ -4712,6 +5019,26 @@ CRITICAL SAFETY RULES:
         self._log(f"\nImplementation complete")
         self._log(f"Changed files:\n{impl_result.get('diff', 'No changes')}")
 
+        # === Check evidence staleness after implementation ===
+        if self.nomic_integration and self.claims_kernel:
+            try:
+                changed_files = self._get_git_changed_files()
+                if changed_files:
+                    staleness = await self.nomic_integration.check_staleness(
+                        list(self.claims_kernel.claims.values()),
+                        changed_files
+                    )
+                    if staleness.stale_claims:
+                        self._log(f"  [staleness] {len(staleness.stale_claims)} claims have stale evidence")
+                        for claim in staleness.stale_claims[:3]:  # Log first 3
+                            self._log(f"    - {claim.statement[:60]}...")
+                    if staleness.needs_redebate:
+                        self._log(f"  [staleness] WARNING: High-severity stale evidence detected!")
+                        cycle_result["needs_redebate"] = True
+                        cycle_result["stale_claims"] = [c.claim_id for c in staleness.stale_claims]
+            except Exception as e:
+                self._log(f"  [staleness] Check failed: {e}")
+
         # === SAFETY: Verify protected files are intact ===
         self._log("\n  Checking protected files...")
         protected_issues = self._verify_protected_files()
@@ -5023,6 +5350,10 @@ Working directory: {self.aragora_path}
 
         # Phase 5: Log ELO leaderboard every 5 cycles (P13: EloSystem)
         self._log_elo_leaderboard()
+
+        # Phase 9: Log grounded persona insights every 2 cycles
+        if self.cycle_count % 2 == 0:
+            self._log_persona_insights()
 
         # Phase 6: Run pending verification proofs (P19: ProofExecutor)
         await self._run_verification_proofs()

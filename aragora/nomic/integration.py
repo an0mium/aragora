@@ -564,6 +564,65 @@ class NomicIntegration:
 
         return None
 
+    async def full_post_debate_analysis(
+        self,
+        result: DebateResult,
+        arena=None,
+        claims_kernel=None,
+        changed_files: list[str] = None,
+    ) -> dict[str, Any]:
+        """
+        Run all post-debate analyses in one unified call.
+
+        This is the primary entry point for nomic loop post-debate processing.
+        Runs belief analysis, deadlock resolution, and staleness checking
+        in proper order with dependencies handled.
+
+        Args:
+            result: The DebateResult from Arena.run()
+            arena: Optional Arena instance for running counterfactual branches
+            claims_kernel: Optional ClaimsKernel with extracted claims
+            changed_files: Optional list of files that changed (for staleness)
+
+        Returns:
+            Dict with keys: 'belief', 'conditional', 'staleness', 'summary'
+        """
+        analysis = {
+            "belief": None,
+            "conditional": None,
+            "staleness": None,
+            "summary": {
+                "has_deadlock": False,
+                "needs_redebate": False,
+                "contested_count": 0,
+                "crux_count": 0,
+                "stale_count": 0,
+            }
+        }
+
+        # 1. Belief analysis (always run)
+        analysis["belief"] = await self.analyze_debate(result, claims_kernel)
+        analysis["summary"]["contested_count"] = len(analysis["belief"].contested_claims)
+        analysis["summary"]["crux_count"] = len(analysis["belief"].crux_claims)
+        analysis["summary"]["has_deadlock"] = analysis["belief"].has_deadlock
+
+        # 2. Deadlock resolution (if needed and arena provided)
+        if analysis["belief"].has_deadlock:
+            analysis["conditional"] = await self.resolve_deadlock(
+                analysis["belief"].crux_claims,
+                arena=arena
+            )
+
+        # 3. Staleness check (if files changed and claims available)
+        if changed_files and claims_kernel:
+            claims_list = list(claims_kernel.claims.values()) if hasattr(claims_kernel, 'claims') else []
+            if claims_list:
+                analysis["staleness"] = await self.check_staleness(claims_list, changed_files)
+                analysis["summary"]["stale_count"] = len(analysis["staleness"].stale_claims)
+                analysis["summary"]["needs_redebate"] = analysis["staleness"].needs_redebate
+
+        return analysis
+
     async def checkpoint(
         self,
         phase: str,

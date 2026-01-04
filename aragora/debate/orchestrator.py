@@ -12,11 +12,18 @@ from dataclasses import dataclass, field
 from typing import Literal, Optional
 from collections import Counter
 
-from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
+from aragora.core import Agent, Critique, DebateResult, DisagreementReport, Environment, Message, Vote
 from aragora.debate.convergence import (
     ConvergenceDetector,
     ConvergenceResult,
     get_similarity_backend,
+)
+from aragora.debate.roles import (
+    CognitiveRole,
+    RoleAssignment,
+    RoleRotationConfig,
+    RoleRotator,
+    inject_role_into_prompt,
 )
 from aragora.spectate.stream import SpectatorStream
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
@@ -112,6 +119,12 @@ class DebateProtocol:
     # Pre-debate web research
     enable_research: bool = False  # Enable web research before debates
 
+    # Cognitive role rotation (Heavy3-inspired)
+    # Assigns different cognitive roles (Analyst, Skeptic, Lateral Thinker, Synthesizer)
+    # to each agent per round, ensuring diverse perspectives
+    role_rotation: bool = False  # Enable role rotation
+    role_rotation_config: Optional[RoleRotationConfig] = None  # Custom role config
+
 
 class Arena:
     """
@@ -139,6 +152,8 @@ class Arena:
         recorder=None,  # Optional ReplayRecorder for debate recording
         agent_weights: dict[str, float] = None,  # Optional reliability weights from capability probing
         position_tracker=None,  # Optional PositionTracker for truth-grounded personas
+        position_ledger=None,  # Optional PositionLedger for grounded personas
+        elo_system=None,  # Optional EloSystem for relationship tracking
     ):
         self.env = environment
         self.agents = agents
@@ -152,10 +167,19 @@ class Arena:
         self.recorder = recorder
         self.agent_weights = agent_weights or {}  # Reliability weights from capability probing
         self.position_tracker = position_tracker  # Truth-grounded persona tracking
+        self.position_ledger = position_ledger  # Grounded persona position ledger
+        self.elo_system = elo_system  # For relationship tracking
 
         # User participation tracking
         self.user_votes: list[dict] = []  # List of user vote events
         self.user_suggestions: list[dict] = []  # List of user suggestion events
+
+        # Cognitive role rotation (Heavy3-inspired)
+        self.role_rotator: Optional[RoleRotator] = None
+        self.current_role_assignments: dict[str, RoleAssignment] = {}
+        if self.protocol.role_rotation:
+            config = self.protocol.role_rotation_config or RoleRotationConfig()
+            self.role_rotator = RoleRotator(config)
 
         # Subscribe to user participation events if emitter provided
         if event_emitter:
@@ -266,6 +290,139 @@ class Arena:
         """Helper method to emit spectator events."""
         if self.spectator:
             self.spectator.emit(event_type, **kwargs)
+
+    def _record_grounded_position(
+        self, agent_name: str, content: str, debate_id: str, round_num: int,
+        confidence: float = 0.7, domain: Optional[str] = None,
+    ):
+        """Record a position to the grounded persona ledger."""
+        if not self.position_ledger:
+            return
+        try:
+            self.position_ledger.record_position(
+                agent_name=agent_name, claim=content[:1000], confidence=confidence,
+                debate_id=debate_id, round_num=round_num, domain=domain,
+            )
+        except Exception:
+            pass  # Don't break debate on ledger errors
+
+    def _update_agent_relationships(self, debate_id: str, participants: list[str], winner: Optional[str], votes: list):
+        """Update agent relationships after debate completion."""
+        if not self.elo_system:
+            return
+        try:
+            vote_choices = {v.agent: v.choice for v in votes if hasattr(v, 'agent') and hasattr(v, 'choice')}
+            for i, agent_a in enumerate(participants):
+                for agent_b in participants[i + 1:]:
+                    agreed = agent_a in vote_choices and agent_b in vote_choices and vote_choices[agent_a] == vote_choices[agent_b]
+                    a_win = 1 if winner == agent_a else 0
+                    b_win = 1 if winner == agent_b else 0
+                    self.elo_system.update_relationship(
+                        agent_a=agent_a, agent_b=agent_b, debate_increment=1,
+                        agreement_increment=1 if agreed else 0, a_win=a_win, b_win=b_win,
+                    )
+        except Exception:
+            pass  # Don't break debate on relationship update errors
+
+    def _generate_disagreement_report(
+        self,
+        votes: list[Vote],
+        critiques: list[Critique],
+        winner: Optional[str] = None,
+    ) -> DisagreementReport:
+        """
+        Generate a DisagreementReport from debate votes and critiques.
+
+        Inspired by Heavy3.ai: surfaces unanimous critiques (high confidence issues)
+        and split opinions (risk areas requiring attention).
+        """
+        report = DisagreementReport()
+
+        if not votes and not critiques:
+            return report
+
+        # 1. Analyze vote alignment
+        agent_names = list(set(v.agent for v in votes))
+        vote_choices = {v.agent: v.choice for v in votes}
+
+        # Calculate agreement score
+        if len(vote_choices) > 1:
+            choice_counts = Counter(vote_choices.values())
+            most_common_count = choice_counts.most_common(1)[0][1] if choice_counts else 0
+            report.agreement_score = most_common_count / len(vote_choices)
+
+        # Calculate per-agent alignment with winner
+        if winner:
+            for agent, choice in vote_choices.items():
+                report.agent_alignment[agent] = 1.0 if choice == winner else 0.0
+
+        # 2. Find unanimous critiques (all critics agree on an issue)
+        issue_agents: dict[str, set[str]] = {}  # issue text -> set of agents who raised it
+        for critique in critiques:
+            for issue in critique.issues:
+                issue_key = issue.lower().strip()[:100]  # Normalize for matching
+                if issue_key not in issue_agents:
+                    issue_agents[issue_key] = set()
+                issue_agents[issue_key].add(critique.agent)
+
+        # Unanimous = raised by all critics
+        critic_agents = set(c.agent for c in critiques)
+        if len(critic_agents) > 1:
+            for issue, agents in issue_agents.items():
+                if agents == critic_agents:
+                    # Find the original full issue text
+                    for critique in critiques:
+                        for orig_issue in critique.issues:
+                            if orig_issue.lower().strip()[:100] == issue:
+                                report.unanimous_critiques.append(orig_issue)
+                                break
+                        if issue in [uc.lower().strip()[:100] for uc in report.unanimous_critiques]:
+                            break
+
+        # 3. Find split opinions from votes
+        if len(vote_choices) > 1:
+            unique_choices = set(vote_choices.values())
+            if len(unique_choices) > 1:
+                # Group agents by their choice
+                choice_to_agents: dict[str, list[str]] = {}
+                for agent, choice in vote_choices.items():
+                    if choice not in choice_to_agents:
+                        choice_to_agents[choice] = []
+                    choice_to_agents[choice].append(agent)
+
+                # Create split opinion entries
+                sorted_choices = sorted(choice_to_agents.items(), key=lambda x: -len(x[1]))
+                if len(sorted_choices) >= 2:
+                    majority_choice, majority_agents = sorted_choices[0]
+                    for minority_choice, minority_agents in sorted_choices[1:]:
+                        report.split_opinions.append((
+                            f"Vote split: '{majority_choice[:50]}...' vs '{minority_choice[:50]}...'",
+                            majority_agents,
+                            minority_agents,
+                        ))
+
+        # 4. Identify risk areas from low-confidence votes
+        low_confidence_topics = []
+        for vote in votes:
+            if vote.confidence < 0.6:
+                low_confidence_topics.append(
+                    f"{vote.agent} has low confidence ({vote.confidence:.0%}) in '{vote.choice[:50]}...'"
+                )
+        report.risk_areas.extend(low_confidence_topics[:5])
+
+        # 5. Add risk areas from high-severity critiques that weren't addressed
+        severe_unaddressed = []
+        for critique in critiques:
+            if critique.severity >= 0.7:
+                # Check if the critique target won (meaning issues may remain)
+                if winner and critique.target_agent == winner:
+                    severe_unaddressed.append(
+                        f"High-severity ({critique.severity:.0%}) critique of winner {critique.target_agent}: "
+                        f"{critique.issues[0][:100] if critique.issues else 'various issues'}"
+                    )
+        report.risk_areas.extend(severe_unaddressed[:3])
+
+        return report
 
     async def _fetch_historical_context(self, task: str, limit: int = 3) -> str:
         """Fetch similar past debates for historical context.
@@ -480,6 +637,9 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         if not proposers:
             proposers = [self.agents[0]]  # Default to first agent
 
+        # Update cognitive role assignments for round 0
+        self._update_role_assignments(round_num=0)
+
         print(f"\n{'='*60}")
         print(f"DEBATE: {self.env.task[:80]}...")
         print(f"Agents: {', '.join(a.name for a in self.agents)}")
@@ -539,6 +699,10 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     except Exception:
                         pass  # Position tracking failure shouldn't break debate
 
+                # Record position for grounded personas (new ledger system)
+                debate_id = result.id if hasattr(result, 'id') else self.env.task[:50]
+                self._record_grounded_position(agent.name, result_or_error, debate_id, 0, 0.7)
+
             msg = Message(
                 role="proposer",
                 agent=agent.name,
@@ -568,6 +732,9 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         for round_num in range(1, self.protocol.rounds + 1):
             print(f"\nRound {round_num}: Critique & Revise")
             print("-" * 40)
+
+            # Update cognitive role assignments for this round
+            self._update_role_assignments(round_num=round_num)
 
             # Notify spectator of round start
             self._notify_spectator("round", details=f"Starting Round {round_num}", agent="system")
@@ -715,6 +882,10 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                                 self.recorder.record_turn(agent.name, revised, round_num)
                             except Exception:
                                 pass
+
+                        # Record revised position for grounded personas
+                        debate_id = result.id if hasattr(result, 'id') else self.env.task[:50]
+                        self._record_grounded_position(agent.name, revised, debate_id, round_num, 0.75)
                     except Exception as e:
                         print(f"  {agent.name} revision ERROR: {e}")
 
@@ -1127,6 +1298,25 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             except Exception as e:
                 print(f"  Insight extraction failed: {e}")
 
+        # === Update agent relationships for grounded personas ===
+        winner_agent = max(vote_tally.items(), key=lambda x: x[1])[0] if vote_tally else None
+        self._update_agent_relationships(
+            debate_id=result.id if hasattr(result, 'id') else self.env.task[:50],
+            participants=[a.name for a in self.agents],
+            winner=winner_agent, votes=result.votes,
+        )
+
+        # === Generate disagreement report (Heavy3-inspired) ===
+        result.disagreement_report = self._generate_disagreement_report(
+            votes=result.votes,
+            critiques=result.critiques,
+            winner=winner_agent,
+        )
+        if result.disagreement_report.unanimous_critiques:
+            print(f"  [disagreement] {len(result.disagreement_report.unanimous_critiques)} unanimous critiques found")
+        if result.disagreement_report.split_opinions:
+            print(f"  [disagreement] {len(result.disagreement_report.split_opinions)} split opinions detected")
+
         print(f"\n{'='*60}")
         print(f"DEBATE COMPLETE in {result.duration_seconds:.1f}s")
         print(f"Consensus: {'Yes' if result.consensus_reached else 'No'} ({result.confidence:.0%})")
@@ -1432,11 +1622,41 @@ and building on others' ideas."""
         except Exception:
             return ""
 
+    def _update_role_assignments(self, round_num: int) -> None:
+        """Update cognitive role assignments for the current round."""
+        if not self.role_rotator:
+            return
+
+        agent_names = [a.name for a in self.agents]
+        self.current_role_assignments = self.role_rotator.get_assignments(
+            agent_names, round_num, self.protocol.rounds
+        )
+
+        if self.current_role_assignments:
+            roles_str = ", ".join(
+                f"{name}: {assign.role.value}"
+                for name, assign in self.current_role_assignments.items()
+            )
+            print(f"  [roles] Round {round_num}: {roles_str}")
+
+    def _get_role_context(self, agent: Agent) -> str:
+        """Get cognitive role context for an agent in the current round."""
+        if not self.role_rotator or agent.name not in self.current_role_assignments:
+            return ""
+
+        assignment = self.current_role_assignments[agent.name]
+        return self.role_rotator.format_role_context(assignment)
+
     def _build_proposal_prompt(self, agent: Agent) -> str:
         """Build the initial proposal prompt."""
         context_str = f"\n\nContext: {self.env.context}" if self.env.context else ""
         stance_str = self._get_stance_guidance(agent)
         stance_section = f"\n\n{stance_str}" if stance_str else ""
+
+        # Include cognitive role context if role rotation enabled
+        role_section = self._get_role_context(agent)
+        if role_section:
+            role_section = f"\n\n{role_section}"
 
         # Include historical context if available (capped at 800 chars to prevent bloat)
         historical_section = ""
@@ -1460,7 +1680,7 @@ and building on others' ideas."""
             audience_section = format_for_prompt(clusters)
             if audience_section:
                 audience_section = f"\n\n{audience_section}"
-            
+
             # Emit stream event for dashboard
             if self.spectator and clusters:
                 self._notify_spectator(
@@ -1469,7 +1689,7 @@ and building on others' ideas."""
                     metric=len(clusters),
                 )
 
-        return f"""You are acting as a {agent.role} in a multi-agent debate.{stance_section}
+        return f"""You are acting as a {agent.role} in a multi-agent debate.{stance_section}{role_section}
 {historical_section}{patterns_section}{audience_section}
 Task: {self.env.task}{context_str}
 
