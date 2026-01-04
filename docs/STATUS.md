@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 4, 2026 (17:50 UTC)*
+*Last updated: January 4, 2026 (19:30 UTC)*
 
 ## Current State
 
@@ -78,10 +78,13 @@
 - **NEW**: Fixed CORS header fallback behavior (don't send Allow-Origin for unauthorized origins)
 - **NEW**: Added agent introspection API endpoints (/api/introspection/*)
 - **NEW**: Added formal verification integration for decidable claims (Z3 backend)
+- **NEW**: Added plugins API endpoints (/api/plugins, /api/plugins/{name}, /api/plugins/{name}/run)
+- **NEW**: Added genesis API endpoints (/api/genesis/stats, /api/genesis/events, /api/genesis/lineage/*, /api/genesis/tree/*)
+- **NEW**: Connected Z3 SMT solver to post-debate claim verification (auto-verifies decidable claims)
 
 ## Feature Integration Status
 
-### Fully Integrated (21)
+### Fully Integrated (25)
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
@@ -105,11 +108,10 @@
 | Belief Network | Exported | `aragora/reasoning/belief.py` (exported in __init__.py) |
 | Reliability Scoring | Exported | `aragora/reasoning/reliability.py` (exported in __init__.py) |
 | Webhook Integration | Exported | `aragora/integrations/webhooks.py` (exported in __init__.py) |
-
-### Implemented but Underutilized (1)
-| Feature | Issue | Location |
-|---------|-------|----------|
-| Formal Verification | Lean backend not connected | `aragora/verification/formal.py` |
+| Z3 Formal Verification | Active | `aragora/debate/orchestrator.py:_verify_claims_formally()` |
+| Introspection API | Active | `aragora/server/unified_server.py` (/api/introspection/*) |
+| Plugins API | Active | `aragora/server/unified_server.py` (/api/plugins/*) |
+| Genesis API | Active | `aragora/server/unified_server.py` (/api/genesis/*) |
 
 ### Recently Surfaced (6)
 | Feature | Status | Location |
@@ -121,10 +123,11 @@
 | Persona Laboratory | LaboratoryPanel added | `aragora/live/src/components/LaboratoryPanel.tsx` |
 | Prompt Evolution | LLM refinement implemented | `aragora/evolution/evolver.py` |
 
-### Server Endpoints (54 total)
-- **Used by Frontend**: ~10%
-- **Available but Unused**: 52 endpoints
+### Server Endpoints (64+ total)
+- **Used by Frontend**: ~15%
+- **Available but Unused**: ~50 endpoints
 - **Key Gap**: Frontend uses WebSocket events, bypasses most REST endpoints
+- **New APIs**: Introspection (3), Plugins (3), Genesis (4)
 
 ## Security Status
 
@@ -161,9 +164,16 @@
 
 ## Architecture Notes
 
-The codebase is **feature-rich but under-exposed**:
-- 54 API endpoints, ~10% used by frontend
-- Many sophisticated features implemented but not surfaced
-- WebSocket-first architecture means REST endpoints underutilized
+The codebase is **feature-rich with improving exposure**:
+- 64+ API endpoints, ~15% used by frontend
+- Many sophisticated features now surfaced via new APIs
+- WebSocket-first architecture for real-time, REST for data access
 
-**Key Insight**: Enabling more optional features by default would significantly increase system capability without new code.
+**Recent Progress**:
+- Z3 formal verification now active in post-debate flow
+- Plugins API enables sandboxed evidence gathering
+- Genesis API exposes evolution/lineage tracking
+- Introspection API enables agent self-awareness
+- Surprise-based ContinuumMemory learning now connected
+
+**Key Insight**: Continuing to expose hidden features via REST APIs increases system utility without new core logic.

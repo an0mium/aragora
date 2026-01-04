@@ -1075,6 +1075,36 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         elif path == '/api/verification/status':
             self._formal_verification_status()
 
+        # Plugins API
+        elif path == '/api/plugins':
+            self._list_plugins()
+        elif path.startswith('/api/plugins/') and not path.endswith('/run'):
+            plugin_name = path.split('/')[-1]
+            if not plugin_name or not SAFE_ID_PATTERN.match(plugin_name):
+                self._send_json({"error": "Invalid plugin name"}, status=400)
+            else:
+                self._get_plugin(plugin_name)
+
+        # Genesis API (Evolution Visibility)
+        elif path == '/api/genesis/stats':
+            self._get_genesis_stats()
+        elif path == '/api/genesis/events':
+            limit = self._safe_int(query, 'limit', 20, 100)
+            event_type = query.get('event_type', [None])[0]
+            self._get_genesis_events(limit, event_type)
+        elif path.startswith('/api/genesis/lineage/'):
+            genome_id = path.split('/')[-1]
+            if not genome_id or not SAFE_ID_PATTERN.match(genome_id):
+                self._send_json({"error": "Invalid genome ID"}, status=400)
+            else:
+                self._get_genome_lineage(genome_id)
+        elif path.startswith('/api/genesis/tree/'):
+            debate_id = path.split('/')[-1]
+            if not debate_id or not SAFE_ID_PATTERN.match(debate_id):
+                self._send_json({"error": "Invalid debate ID"}, status=400)
+            else:
+                self._get_debate_tree(debate_id)
+
         # Static file serving
         elif path in ('/', '/index.html'):
             self._serve_file('index.html')
@@ -1120,6 +1150,17 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             debate_id = self._extract_path_segment(path, 3, "debate_id")
             if debate_id:
                 self._run_red_team_analysis(debate_id)
+        elif path.startswith('/api/plugins/') and path.endswith('/run'):
+            # Pattern: /api/plugins/{name}/run
+            parts = path.split('/')
+            if len(parts) >= 4:
+                plugin_name = parts[3]
+                if not SAFE_ID_PATTERN.match(plugin_name):
+                    self._send_json({"error": "Invalid plugin name"}, status=400)
+                else:
+                    self._run_plugin(plugin_name)
+            else:
+                self._send_json({"error": "Invalid path format"}, status=400)
         else:
             self.send_error(404, f"Unknown POST endpoint: {path}")
 
@@ -3078,6 +3119,273 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             })
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "introspection_leaderboard")}, status=500)
+
+    # === Plugins API Implementation ===
+
+    def _list_plugins(self) -> None:
+        """List all available plugins."""
+        if not self._check_rate_limit():
+            return
+
+        try:
+            from aragora.plugins.runner import get_registry
+            registry = get_registry()
+            plugins = registry.list_plugins()
+            self._send_json({
+                "plugins": [p.to_dict() for p in plugins],
+                "count": len(plugins),
+            })
+        except ImportError:
+            self._send_json({"error": "Plugins module not available"}, status=503)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "list_plugins")}, status=500)
+
+    def _get_plugin(self, plugin_name: str) -> None:
+        """Get details for a specific plugin."""
+        if not self._check_rate_limit():
+            return
+
+        try:
+            from aragora.plugins.runner import get_registry
+            registry = get_registry()
+            manifest = registry.get(plugin_name)
+            if manifest:
+                # Also check if requirements are satisfied
+                runner = registry.get_runner(plugin_name)
+                if runner:
+                    valid, missing = runner._validate_requirements()
+                    self._send_json({
+                        **manifest.to_dict(),
+                        "requirements_satisfied": valid,
+                        "missing_requirements": missing,
+                    })
+                else:
+                    self._send_json(manifest.to_dict())
+            else:
+                self._send_json({"error": f"Plugin not found: {plugin_name}"}, status=404)
+        except ImportError:
+            self._send_json({"error": "Plugins module not available"}, status=503)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "get_plugin")}, status=500)
+
+    def _run_plugin(self, plugin_name: str) -> None:
+        """Run a plugin with provided input."""
+        if not self._check_rate_limit():
+            return
+
+        # Rate limit plugin execution more strictly
+        if not self._check_upload_rate_limit():
+            return
+
+        body = self._read_json_body()
+        if body is None:
+            return
+
+        input_data = body.get("input", {})
+        config = body.get("config", {})
+        working_dir = body.get("working_dir", ".")
+
+        # Validate working_dir (must be under current directory for security)
+        try:
+            from pathlib import Path
+            cwd = Path.cwd().resolve()
+            work_path = Path(working_dir).resolve()
+            if not str(work_path).startswith(str(cwd)):
+                self._send_json({"error": "Working directory must be under current directory"}, status=400)
+                return
+        except Exception:
+            self._send_json({"error": "Invalid working directory"}, status=400)
+            return
+
+        try:
+            from aragora.plugins.runner import get_registry
+            import asyncio
+
+            registry = get_registry()
+            manifest = registry.get(plugin_name)
+            if not manifest:
+                self._send_json({"error": f"Plugin not found: {plugin_name}"}, status=404)
+                return
+
+            # Run plugin with timeout
+            loop = asyncio.new_event_loop()
+            try:
+                result = loop.run_until_complete(
+                    registry.run_plugin(plugin_name, input_data, config, working_dir)
+                )
+                self._send_json(result.to_dict())
+            finally:
+                loop.close()
+
+        except ImportError:
+            self._send_json({"error": "Plugins module not available"}, status=503)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "run_plugin")}, status=500)
+
+    # === Genesis API Implementation ===
+
+    def _get_genesis_stats(self) -> None:
+        """Get overall genesis statistics for evolution visibility."""
+        if not self._check_rate_limit():
+            return
+
+        try:
+            from aragora.genesis.ledger import GenesisLedger, GenesisEventType
+
+            ledger_path = ".nomic/genesis.db"
+            if self.nomic_dir:
+                ledger_path = str(self.nomic_dir / "genesis.db")
+
+            ledger = GenesisLedger(ledger_path)
+
+            # Count events by type
+            event_counts = {}
+            for event_type in GenesisEventType:
+                events = ledger.get_events_by_type(event_type)
+                event_counts[event_type.value] = len(events)
+
+            # Get recent births and deaths
+            births = ledger.get_events_by_type(GenesisEventType.AGENT_BIRTH)
+            deaths = ledger.get_events_by_type(GenesisEventType.AGENT_DEATH)
+
+            # Get fitness updates for trend
+            fitness_updates = ledger.get_events_by_type(GenesisEventType.FITNESS_UPDATE)
+            avg_fitness_change = 0.0
+            if fitness_updates:
+                changes = [e.data.get("change", 0) for e in fitness_updates[-50:]]
+                avg_fitness_change = sum(changes) / len(changes) if changes else 0.0
+
+            self._send_json({
+                "event_counts": event_counts,
+                "total_events": sum(event_counts.values()),
+                "total_births": len(births),
+                "total_deaths": len(deaths),
+                "net_population_change": len(births) - len(deaths),
+                "avg_fitness_change_recent": round(avg_fitness_change, 4),
+                "integrity_verified": ledger.verify_integrity(),
+                "merkle_root": ledger.get_merkle_root()[:32] + "...",
+            })
+        except ImportError:
+            self._send_json({"error": "Genesis module not available"}, status=503)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "genesis_stats")}, status=500)
+
+    def _get_genesis_events(self, limit: int, event_type: str = None) -> None:
+        """Get recent genesis events."""
+        if not self._check_rate_limit():
+            return
+
+        try:
+            from aragora.genesis.ledger import GenesisLedger, GenesisEventType
+            import sqlite3
+            import json
+
+            ledger_path = ".nomic/genesis.db"
+            if self.nomic_dir:
+                ledger_path = str(self.nomic_dir / "genesis.db")
+
+            # Filter by type if specified
+            if event_type:
+                try:
+                    etype = GenesisEventType(event_type)
+                    ledger = GenesisLedger(ledger_path)
+                    events = ledger.get_events_by_type(etype)[-limit:]
+                    self._send_json({
+                        "events": [e.to_dict() for e in events],
+                        "count": len(events),
+                        "filter": event_type,
+                    })
+                    return
+                except ValueError:
+                    self._send_json({"error": f"Unknown event type: {event_type}"}, status=400)
+                    return
+
+            # Get all recent events
+            conn = sqlite3.connect(ledger_path)
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT event_id, event_type, timestamp, parent_event_id, content_hash, data
+                FROM genesis_events
+                ORDER BY timestamp DESC
+                LIMIT ?
+            """, (limit,))
+
+            events = []
+            for row in cursor.fetchall():
+                events.append({
+                    "event_id": row[0],
+                    "event_type": row[1],
+                    "timestamp": row[2],
+                    "parent_event_id": row[3],
+                    "content_hash": row[4][:16] + "...",
+                    "data": json.loads(row[5]) if row[5] else {},
+                })
+
+            conn.close()
+
+            self._send_json({
+                "events": events,
+                "count": len(events),
+            })
+        except ImportError:
+            self._send_json({"error": "Genesis module not available"}, status=503)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "genesis_events")}, status=500)
+
+    def _get_genome_lineage(self, genome_id: str) -> None:
+        """Get the lineage (ancestry) of a genome."""
+        if not self._check_rate_limit():
+            return
+
+        try:
+            from aragora.genesis.ledger import GenesisLedger
+
+            ledger_path = ".nomic/genesis.db"
+            if self.nomic_dir:
+                ledger_path = str(self.nomic_dir / "genesis.db")
+
+            ledger = GenesisLedger(ledger_path)
+            lineage = ledger.get_lineage(genome_id)
+
+            if lineage:
+                self._send_json({
+                    "genome_id": genome_id,
+                    "lineage": lineage,
+                    "generations": len(lineage),
+                })
+            else:
+                self._send_json({"error": f"Genome not found: {genome_id}"}, status=404)
+
+        except ImportError:
+            self._send_json({"error": "Genesis module not available"}, status=503)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "genome_lineage")}, status=500)
+
+    def _get_debate_tree(self, debate_id: str) -> None:
+        """Get the fractal tree structure for a debate."""
+        if not self._check_rate_limit():
+            return
+
+        try:
+            from aragora.genesis.ledger import GenesisLedger
+
+            ledger_path = ".nomic/genesis.db"
+            if self.nomic_dir:
+                ledger_path = str(self.nomic_dir / "genesis.db")
+
+            ledger = GenesisLedger(ledger_path)
+            tree = ledger.get_debate_tree(debate_id)
+
+            self._send_json({
+                "debate_id": debate_id,
+                "tree": tree.to_dict(),
+                "total_nodes": len(tree.nodes),
+            })
+
+        except ImportError:
+            self._send_json({"error": "Genesis module not available"}, status=503)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "debate_tree")}, status=500)
 
     def _get_ranking_stats(self) -> None:
         """Get ELO ranking system statistics."""
