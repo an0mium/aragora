@@ -87,11 +87,22 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
   }, [question, agents, rounds, apiBase, isSubmitting, onDebateStarted, onError]);
 
   const placeholders = [
-    'What are the tradeoffs between microservices and monoliths?',
-    'Should we use TypeScript or JavaScript for this project?',
-    'How should we implement rate limiting?',
-    'What authentication strategy should we use?',
-    'Is GraphQL or REST better for our API?',
+    // Philosophy & AI Ethics
+    'Can AI systems develop genuine understanding, or only simulate it?',
+    'Should autonomous AI agents have the right to refuse unethical requests?',
+    'Is Hegelian dialectics the optimal framework for AI reasoning?',
+    // Technical Debates
+    'Is consensus among AI agents more reliable than a single powerful model?',
+    'When should a multi-agent system override human judgment?',
+    'Can adversarial debate eliminate AI hallucinations?',
+    // Provocative Questions
+    'Will AI agents eventually form their own societies and cultures?',
+    'Is truth something AI can discover, or only approximate?',
+    'Should AI critics be more aggressive or more diplomatic?',
+    // Meta Questions
+    'What makes a good debate question for AI agents?',
+    'How would you redesign democracy using multi-agent systems?',
+    'Can competing AI perspectives reach genuine synthesis?',
   ];
 
   const [placeholder] = useState(() =>
