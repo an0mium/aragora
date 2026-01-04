@@ -192,6 +192,40 @@ except ImportError:
     DOTExporter = None
     StaticHTMLExporter = None
 
+# Optional PersonaLaboratory for emergent traits
+try:
+    from aragora.agents.laboratory import PersonaLaboratory
+    LABORATORY_AVAILABLE = True
+except ImportError:
+    LABORATORY_AVAILABLE = False
+    PersonaLaboratory = None
+
+# Optional BeliefNetwork for debate cruxes
+try:
+    from aragora.reasoning.belief import BeliefNetwork, DebateCruxAnalyzer
+    BELIEF_NETWORK_AVAILABLE = True
+except ImportError:
+    BELIEF_NETWORK_AVAILABLE = False
+    BeliefNetwork = None
+    DebateCruxAnalyzer = None
+
+# Optional ProvenanceTracker for claim support
+try:
+    from aragora.reasoning.provenance import ProvenanceTracker
+    PROVENANCE_AVAILABLE = True
+except ImportError:
+    PROVENANCE_AVAILABLE = False
+    ProvenanceTracker = None
+
+# Optional AgentSelector for routing recommendations
+try:
+    from aragora.routing.selection import AgentSelector, TaskRequirements
+    ROUTING_AVAILABLE = True
+except ImportError:
+    ROUTING_AVAILABLE = False
+    AgentSelector = None
+    TaskRequirements = None
+
 # Track active ad-hoc debates
 _active_debates: dict[str, dict] = {}
 _active_debates_lock = threading.Lock()  # Thread-safe access to _active_debates
@@ -715,6 +749,31 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 return
             self._get_meta_critique(debate_id)
 
+        # Laboratory API - Emergent Traits
+        elif path == '/api/laboratory/emergent-traits':
+            min_confidence = self._safe_float(query, 'min_confidence', 0.5, 0.0, 1.0)
+            limit = self._safe_int(query, 'limit', 10, 50)
+            self._get_emergent_traits(min_confidence, limit)
+
+        # Belief Network API - Debate Cruxes
+        elif path.startswith('/api/belief-network/') and path.endswith('/cruxes'):
+            debate_id = self._extract_path_segment(path, 3, "debate_id")
+            if debate_id is None:
+                return
+            top_k = self._safe_int(query, 'top_k', 3, 10)
+            self._get_debate_cruxes(debate_id, top_k)
+
+        # Provenance API - Claim Support
+        elif '/claims/' in path and path.endswith('/support'):
+            # Pattern: /api/provenance/:debate_id/claims/:claim_id/support
+            parts = path.split('/')
+            if len(parts) >= 6:
+                debate_id = parts[3]
+                claim_id = parts[5]
+                self._get_claim_support(debate_id, claim_id)
+            else:
+                self._send_json({"error": "Invalid path format"}, status=400)
+
         # Static file serving
         elif path in ('/', '/index.html'):
             self._serve_file('index.html')
@@ -744,6 +803,10 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             if debate_id is None:
                 return
             self._generate_broadcast(debate_id)
+        elif path == '/api/laboratory/cross-pollinations/suggest':
+            self._suggest_cross_pollinations()
+        elif path == '/api/routing/recommendations':
+            self._get_routing_recommendations()
         else:
             self.send_error(404, f"Unknown POST endpoint: {path}")
 
@@ -2698,6 +2761,200 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             })
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "meta_critique")}, status=500)
+
+    def _get_emergent_traits(self, min_confidence: float, limit: int) -> None:
+        """Get emergent traits detected from agent performance patterns."""
+        if not self._check_rate_limit():
+            return
+
+        if not LABORATORY_AVAILABLE:
+            self._send_json({"error": "Persona laboratory not available"}, status=503)
+            return
+
+        try:
+            lab = PersonaLaboratory(
+                db_path=str(self.nomic_dir / "laboratory.db") if self.nomic_dir else None,
+                persona_manager=self.persona_manager,
+            )
+            traits = lab.detect_emergent_traits()
+            # Filter by confidence and limit
+            filtered = [t for t in traits if t.confidence >= min_confidence][:limit]
+            self._send_json({
+                "emergent_traits": [
+                    {
+                        "agent": t.agent_name,
+                        "trait": t.trait_name,
+                        "domain": t.domain,
+                        "confidence": t.confidence,
+                        "evidence": t.evidence,
+                        "detected_at": t.detected_at,
+                    }
+                    for t in filtered
+                ],
+                "count": len(filtered),
+                "min_confidence": min_confidence,
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "emergent_traits")}, status=500)
+
+    def _suggest_cross_pollinations(self) -> None:
+        """Suggest beneficial trait transfers for a target agent (POST)."""
+        if not self._check_rate_limit():
+            return
+
+        if not LABORATORY_AVAILABLE:
+            self._send_json({"error": "Persona laboratory not available"}, status=503)
+            return
+
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body) if body else {}
+
+            target_agent = data.get('target_agent')
+            if not target_agent:
+                self._send_json({"error": "target_agent required"}, status=400)
+                return
+
+            lab = PersonaLaboratory(
+                db_path=str(self.nomic_dir / "laboratory.db") if self.nomic_dir else None,
+                persona_manager=self.persona_manager,
+            )
+            suggestions = lab.suggest_cross_pollinations(target_agent)
+            self._send_json({
+                "target_agent": target_agent,
+                "suggestions": [
+                    {
+                        "source_agent": s[0],
+                        "trait_or_domain": s[1],
+                        "reason": s[2],
+                    }
+                    for s in suggestions
+                ],
+                "count": len(suggestions),
+            })
+        except json.JSONDecodeError:
+            self._send_json({"error": "Invalid JSON body"}, status=400)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "cross_pollinations")}, status=500)
+
+    def _get_debate_cruxes(self, debate_id: str, top_k: int) -> None:
+        """Get key claims that would most impact the debate outcome."""
+        if not self._check_rate_limit():
+            return
+
+        if not BELIEF_NETWORK_AVAILABLE:
+            self._send_json({"error": "Belief network not available"}, status=503)
+            return
+
+        try:
+            from aragora.debate.traces import DebateTrace
+
+            if not self.nomic_dir:
+                self._send_json({"error": "Nomic directory not configured"}, status=503)
+                return
+
+            trace_path = self.nomic_dir / "traces" / f"{debate_id}.json"
+            if not trace_path.exists():
+                self._send_json({"error": "Debate trace not found"}, status=404)
+                return
+
+            trace = DebateTrace.load(trace_path)
+            result = trace.to_debate_result()
+
+            # Build belief network from debate
+            network = BeliefNetwork(debate_id=debate_id)
+            for msg in result.messages:
+                network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
+
+            analyzer = DebateCruxAnalyzer(network)
+            cruxes = analyzer.identify_debate_cruxes(top_k=top_k)
+
+            self._send_json({
+                "debate_id": debate_id,
+                "cruxes": cruxes,
+                "count": len(cruxes),
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "debate_cruxes")}, status=500)
+
+    def _get_claim_support(self, debate_id: str, claim_id: str) -> None:
+        """Get verification status of all evidence supporting a claim."""
+        if not self._check_rate_limit():
+            return
+
+        if not PROVENANCE_AVAILABLE:
+            self._send_json({"error": "Provenance tracker not available"}, status=503)
+            return
+
+        try:
+            if not self.nomic_dir:
+                self._send_json({"error": "Nomic directory not configured"}, status=503)
+                return
+
+            provenance_path = self.nomic_dir / "provenance" / f"{debate_id}.json"
+            if not provenance_path.exists():
+                self._send_json({
+                    "debate_id": debate_id,
+                    "claim_id": claim_id,
+                    "support": None,
+                    "message": "No provenance data for this debate"
+                })
+                return
+
+            tracker = ProvenanceTracker.load(provenance_path)
+            support = tracker.get_claim_support(claim_id)
+
+            self._send_json({
+                "debate_id": debate_id,
+                "claim_id": claim_id,
+                "support": support,
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "claim_support")}, status=500)
+
+    def _get_routing_recommendations(self) -> None:
+        """Get agent recommendations for a task (POST)."""
+        if not self._check_rate_limit():
+            return
+
+        if not ROUTING_AVAILABLE:
+            self._send_json({"error": "Agent selector not available"}, status=503)
+            return
+
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body) if body else {}
+
+            primary_domain = data.get('primary_domain', 'general')
+            secondary_domains = data.get('secondary_domains', [])
+            required_traits = data.get('required_traits', [])
+            limit = min(data.get('limit', 5), 20)
+
+            requirements = TaskRequirements(
+                task_id=data.get('task_id', 'ad-hoc'),
+                primary_domain=primary_domain,
+                secondary_domains=secondary_domains,
+                required_traits=required_traits,
+            )
+
+            selector = AgentSelector(
+                elo_system=self.elo_system,
+                persona_manager=self.persona_manager,
+            )
+            recommendations = selector.get_recommendations(requirements, limit=limit)
+
+            self._send_json({
+                "task_id": requirements.task_id,
+                "primary_domain": primary_domain,
+                "recommendations": recommendations,
+                "count": len(recommendations),
+            })
+        except json.JSONDecodeError:
+            self._send_json({"error": "Invalid JSON body"}, status=400)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "routing_recommendations")}, status=500)
 
     def _serve_file(self, filename: str) -> None:
         """Serve a static file with path traversal protection."""
