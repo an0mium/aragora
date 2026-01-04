@@ -11,6 +11,7 @@ import { RoundProgress } from '@/components/RoundProgress';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { UserParticipation } from '@/components/UserParticipation';
 import { ReplayBrowser } from '@/components/ReplayBrowser';
+import { DebateBrowser } from '@/components/DebateBrowser';
 import { InsightsPanel } from '@/components/InsightsPanel';
 import { LeaderboardPanel } from '@/components/LeaderboardPanel';
 import { CitationsPanel } from '@/components/CitationsPanel';
@@ -306,6 +307,7 @@ export default function Home() {
             <CitationsPanel events={events} />
             <HistoryPanel />
             <LeaderboardPanel wsMessages={events} loopId={effectiveLoopId} apiBase={API_URL} />
+            <DebateBrowser />
             <InsightsPanel wsMessages={events} />
             <ReplayBrowser />
           </div>

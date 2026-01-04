@@ -1,0 +1,237 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
+import { AsciiBannerCompact } from '@/components/AsciiBanner';
+import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { ThemeToggle } from '@/components/ThemeToggle';
+
+// Agent color schemes
+const AGENT_COLORS: Record<string, { bg: string; text: string }> = {
+  gemini: { bg: 'bg-purple/10', text: 'text-purple' },
+  codex: { bg: 'bg-gold/10', text: 'text-gold' },
+  claude: { bg: 'bg-acid-cyan/10', text: 'text-acid-cyan' },
+  grok: { bg: 'bg-crimson/10', text: 'text-crimson' },
+  default: { bg: 'bg-acid-green/10', text: 'text-acid-green' },
+};
+
+function getAgentColors(agentName: string) {
+  const name = agentName.toLowerCase();
+  if (name.startsWith('gemini')) return AGENT_COLORS.gemini;
+  if (name.startsWith('codex')) return AGENT_COLORS.codex;
+  if (name.startsWith('claude')) return AGENT_COLORS.claude;
+  if (name.startsWith('grok')) return AGENT_COLORS.grok;
+  return AGENT_COLORS.default;
+}
+
+export default function DebatesPage() {
+  const [debates, setDebates] = useState<DebateArtifact[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadDebates() {
+      try {
+        const data = await fetchRecentDebates(100);
+        setDebates(data);
+      } catch (e) {
+        console.error('Failed to load debates:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDebates();
+  }, []);
+
+  const handleCopyLink = async (debateId: string) => {
+    const url = `${window.location.origin}/debate/${debateId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(debateId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = url;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopiedId(debateId);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
+
+  const formatDate = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString();
+  };
+
+  // Group debates by date
+  const groupedDebates = debates.reduce((acc, debate) => {
+    const date = new Date(debate.created_at).toLocaleDateString();
+    if (!acc[date]) acc[date] = [];
+    acc[date].push(debate);
+    return acc;
+  }, {} as Record<string, DebateArtifact[]>);
+
+  return (
+    <>
+      <Scanlines opacity={0.02} />
+      <CRTVignette />
+
+      <main className="min-h-screen bg-bg text-text relative z-10">
+        {/* Header */}
+        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+            <Link href="/">
+              <AsciiBannerCompact connected={true} />
+            </Link>
+
+            <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [BACK TO LIVE]
+              </Link>
+              <ThemeToggle />
+            </div>
+          </div>
+        </header>
+
+        <div className="container mx-auto px-4 py-6">
+          {/* Page Title */}
+          <div className="mb-6">
+            <h1 className="text-xl font-mono text-acid-green mb-2">
+              {'>'} DEBATE ARCHIVE
+            </h1>
+            <p className="text-xs text-text-muted font-mono">
+              Browse and share past debates with permalinks
+            </p>
+          </div>
+
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-acid-green font-mono animate-pulse">
+                {'>'} LOADING DEBATES...
+              </div>
+            </div>
+          )}
+
+          {!loading && debates.length === 0 && (
+            <div className="bg-surface border border-acid-green/30 p-6 text-center">
+              <div className="text-text-muted text-sm font-mono">
+                No debates archived yet. Run the nomic loop to generate debates.
+              </div>
+            </div>
+          )}
+
+          {/* Debates by Date */}
+          <div className="space-y-6">
+            {Object.entries(groupedDebates).map(([date, dateDebates]) => (
+              <div key={date}>
+                <div className="text-xs font-mono text-text-muted mb-2 flex items-center gap-2">
+                  <span className="text-acid-green">{'>'}</span>
+                  {date}
+                  <span className="text-text-muted/50">({dateDebates.length} debates)</span>
+                </div>
+
+                <div className="space-y-2">
+                  {dateDebates.map((debate) => (
+                    <div
+                      key={debate.id}
+                      className="bg-surface border border-acid-green/30 p-4 hover:border-acid-green/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <Link
+                            href={`/debate/${debate.id}`}
+                            className="text-sm font-mono text-acid-green hover:text-acid-cyan transition-colors block mb-2"
+                          >
+                            {debate.task}
+                          </Link>
+
+                          <div className="flex flex-wrap items-center gap-3 text-xs">
+                            {/* Agents */}
+                            <div className="flex items-center gap-1">
+                              {debate.agents.map((agent, i) => {
+                                const colors = getAgentColors(agent);
+                                return (
+                                  <span
+                                    key={i}
+                                    className={`px-1.5 py-0.5 ${colors.bg} ${colors.text} font-mono`}
+                                    title={agent}
+                                  >
+                                    {agent.split('-')[0].toUpperCase()}
+                                  </span>
+                                );
+                              })}
+                            </div>
+
+                            {/* Status */}
+                            <div className="flex items-center gap-2 text-text-muted">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  debate.consensus_reached ? 'bg-green-400' : 'bg-yellow-400'
+                                }`}
+                              />
+                              <span>
+                                {debate.consensus_reached ? 'Consensus' : 'No consensus'}
+                              </span>
+                              <span className="text-text-muted/50">|</span>
+                              <span>{Math.round(debate.confidence * 100)}% conf</span>
+                            </div>
+
+                            {/* Phase and Cycle */}
+                            <div className="text-text-muted">
+                              C{debate.cycle_number} / {debate.phase}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => handleCopyLink(debate.id)}
+                            className="px-2 py-1 text-xs font-mono bg-acid-green/10 text-acid-green border border-acid-green/30 hover:bg-acid-green hover:text-bg transition-colors"
+                          >
+                            {copiedId === debate.id ? 'COPIED!' : 'SHARE'}
+                          </button>
+                          <span className="text-[10px] text-text-muted font-mono">
+                            {formatDate(debate.created_at).split(',')[1]}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
+          <div className="text-acid-green/50 mb-2">
+            {'═'.repeat(40)}
+          </div>
+          <p className="text-text-muted">
+            {'>'} ARAGORA DEBATE ARCHIVE // {debates.length} DEBATES
+          </p>
+          <p className="text-acid-cyan mt-2">
+            <Link
+              href="/"
+              className="hover:text-acid-green transition-colors"
+            >
+              [ RETURN TO LIVE ]
+            </Link>
+          </p>
+          <div className="text-acid-green/50 mt-4">
+            {'═'.repeat(40)}
+          </div>
+        </footer>
+      </main>
+    </>
+  );
+}
