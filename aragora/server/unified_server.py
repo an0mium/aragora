@@ -155,6 +155,16 @@ except ImportError:
     PulseManager = None
     TrendingTopic = None
 
+# Optional Broadcast module for podcast generation
+try:
+    from aragora.broadcast import broadcast_debate
+    from aragora.debate.traces import DebateTrace
+    BROADCAST_AVAILABLE = True
+except ImportError:
+    BROADCAST_AVAILABLE = False
+    broadcast_debate = None
+    DebateTrace = None
+
 # Track active ad-hoc debates
 _active_debates: dict[str, dict] = {}
 _active_debates_lock = threading.Lock()  # Thread-safe access to _active_debates
@@ -473,6 +483,11 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._upload_document()
         elif path == '/api/debate':
             self._start_debate()
+        elif path.startswith('/api/debates/') and path.endswith('/broadcast'):
+            debate_id = self._extract_path_segment(path, 3, "debate_id")
+            if debate_id is None:
+                return
+            self._generate_broadcast(debate_id)
         else:
             self.send_error(404, f"Unknown POST endpoint: {path}")
 
