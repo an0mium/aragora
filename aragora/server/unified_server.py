@@ -588,9 +588,9 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 }
             })
         except ImportError as e:
-            self._send_json({"error": str(e)}, status=400)
+            self._send_json({"error": _safe_error_message(e, "document_import")}, status=400)
         except Exception as e:
-            self._send_json({"error": f"Failed to parse document: {str(e)}"}, status=500)
+            self._send_json({"error": _safe_error_message(e, "document_parsing")}, status=500)
 
     def _start_debate(self) -> None:
         """Start an ad-hoc debate with specified question.
@@ -1383,7 +1383,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 "count": len(similar),
             })
         except Exception as e:
-            self._send_json({"error": str(e)}, status=500)
+            self._send_json({"error": _safe_error_message(e, "similar_topics")}, status=500)
 
     def _get_settled_topics(self, min_confidence: float, limit: int) -> None:
         """Get high-confidence settled topics."""
@@ -1422,7 +1422,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 "count": len(rows),
             })
         except Exception as e:
-            self._send_json({"error": str(e)}, status=500)
+            self._send_json({"error": _safe_error_message(e, "settled_topics")}, status=500)
 
     def _get_consensus_stats(self) -> None:
         """Get consensus memory statistics."""
@@ -1435,7 +1435,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             stats = memory.get_statistics()
             self._send_json(stats)
         except Exception as e:
-            self._send_json({"error": str(e)}, status=500)
+            self._send_json({"error": _safe_error_message(e, "consensus_stats")}, status=500)
 
     def _get_domain_history(self, domain: str, limit: int) -> None:
         """Get consensus history for a domain."""
@@ -1452,7 +1452,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 "count": len(records),
             })
         except Exception as e:
-            self._send_json({"error": str(e)}, status=500)
+            self._send_json({"error": _safe_error_message(e, "domain_history")}, status=500)
 
     def _get_agent_full_profile(self, agent: str) -> None:
         """Get combined profile for an agent (ELO + Persona + Flips + Calibration)."""
