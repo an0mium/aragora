@@ -847,6 +847,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "Invalid path format"}, status=400)
 
         # Tournament API
+        elif path == '/api/tournaments':
+            self._list_tournaments()
         elif path.startswith('/api/tournaments/') and path.endswith('/standings'):
             tournament_id = self._extract_path_segment(path, 3, "tournament_id")
             if tournament_id is None:
@@ -3360,6 +3362,46 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             })
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "tournament_standings")}, status=500)
+
+    def _list_tournaments(self) -> None:
+        """List all available tournaments."""
+        if not self._check_rate_limit():
+            return
+
+        if not TOURNAMENT_AVAILABLE:
+            self._send_json({"error": "Tournament system not available"}, status=503)
+            return
+
+        try:
+            if not self.nomic_dir:
+                self._send_json({"error": "Nomic directory not configured"}, status=503)
+                return
+
+            tournaments_dir = self.nomic_dir / "tournaments"
+            tournaments = []
+
+            if tournaments_dir.exists():
+                for db_file in tournaments_dir.glob("*.db"):
+                    tournament_id = db_file.stem
+                    try:
+                        manager = TournamentManager(db_path=str(db_file))
+                        standings = manager.get_current_standings()
+                        tournaments.append({
+                            "tournament_id": tournament_id,
+                            "participants": len(standings),
+                            "total_matches": sum(s.wins + s.losses + s.draws for s in standings) // 2,
+                            "top_agent": standings[0].agent if standings else None,
+                        })
+                    except Exception:
+                        # Skip corrupted or invalid tournament files
+                        continue
+
+            self._send_json({
+                "tournaments": tournaments,
+                "count": len(tournaments),
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "list_tournaments")}, status=500)
 
     def _get_best_team_combinations(self, min_debates: int, limit: int) -> None:
         """Get best-performing team combinations from history."""

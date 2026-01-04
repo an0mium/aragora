@@ -259,6 +259,11 @@ class Arena:
         self.loop_id = loop_id  # Loop ID for scoping events
         self.strict_loop_scoping = strict_loop_scoping  # Enforce loop_id on all events
 
+        # Auto-upgrade to ELO-ranked judge selection when elo_system is available
+        # Only upgrade from default "random" - don't override explicit user choice
+        if self.elo_system and self.protocol.judge_selection == "random":
+            self.protocol.judge_selection = "elo_ranked"
+
         # User participation tracking (thread-safe mailbox pattern)
         self._user_event_queue: queue.Queue = queue.Queue()
         self.user_votes: list[dict] = []  # Populated via _drain_user_events()
@@ -1305,6 +1310,18 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     # Apply reliability weight from capability probing (0.0-1.0 multiplier)
                     if self.agent_weights and v.agent in self.agent_weights:
                         vote_weight *= self.agent_weights[v.agent]
+
+                    # Apply consistency weight from FlipDetector (0.5-1.0 multiplier)
+                    # Agents with many contradictions get down-weighted
+                    if self.flip_detector:
+                        try:
+                            consistency = self.flip_detector.get_agent_consistency(v.agent)
+                            # Scale consistency_score (0-1) to weight (0.5-1.0)
+                            # Fully consistent = 1.0x, fully inconsistent = 0.5x
+                            consistency_weight = 0.5 + (consistency.consistency_score * 0.5)
+                            vote_weight *= consistency_weight
+                        except Exception:
+                            pass  # Skip if consistency check fails
 
                     vote_counts[canonical] += vote_weight
                     total_weighted_votes += vote_weight
