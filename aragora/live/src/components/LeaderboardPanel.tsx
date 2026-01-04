@@ -168,7 +168,7 @@ export function LeaderboardPanel({ wsMessages = [] }: LeaderboardPanelProps) {
               {/* Agent Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-text truncate">
+                  <span className="text-sm font-medium text-text">
                     {agent.name}
                   </span>
                   <span className={`text-sm font-mono font-bold ${getEloColor(agent.elo)}`}>

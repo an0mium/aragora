@@ -164,7 +164,7 @@ export function InsightsPanel({ wsMessages = [] }: InsightsPanelProps) {
 
               <h4 className="text-sm font-medium text-text mt-2">{insight.title}</h4>
 
-              <p className="text-xs text-text-muted mt-1 line-clamp-2">
+              <p className="text-xs text-text-muted mt-1">
                 {insight.description}
               </p>
 
@@ -208,14 +208,14 @@ export function InsightsPanel({ wsMessages = [] }: InsightsPanelProps) {
                 </span>
               </div>
 
-              <p className="text-sm text-text-muted mb-2 line-clamp-1">
+              <p className="text-sm text-text-muted mb-2">
                 Query: {recall.query}
               </p>
 
               <div className="space-y-1">
                 {recall.hits?.map((hit, i) => (
                   <div key={i} className="flex justify-between text-xs">
-                    <span className="text-text truncate flex-1 mr-2">{hit.topic}</span>
+                    <span className="text-text flex-1 mr-2">{hit.topic}</span>
                     <span className="text-text-muted font-mono">
                       {(hit.similarity * 100).toFixed(0)}%
                     </span>

@@ -202,8 +202,8 @@ export function HistoryPanel() {
                       : 'No consensus'}
                   </span>
                 </div>
-                <div className="text-gray-500 truncate" title={debate.task}>
-                  {debate.task.slice(0, 80)}...
+                <div className="text-gray-500" title={debate.task}>
+                  {debate.task}
                 </div>
                 <div className="text-gray-600 mt-1">
                   Agents: {debate.agents.join(', ')}

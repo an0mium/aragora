@@ -298,7 +298,7 @@ function EventCard({ id, event, isExpanded, onToggle }: EventCardProps) {
       </button>
       {isExpanded && (
         <div className="px-3 pb-3 pt-0">
-          <div className="bg-bg/50 rounded-lg p-3 text-sm whitespace-pre-wrap break-words overflow-y-auto max-h-[500px]">
+          <div className="bg-bg/50 rounded-lg p-3 text-sm whitespace-pre-wrap break-words">
             {content}
           </div>
         </div>
