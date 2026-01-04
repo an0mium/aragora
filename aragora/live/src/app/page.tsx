@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNomicStream } from '@/hooks/useNomicStream';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { MetricsCards } from '@/components/MetricsCards';
@@ -19,6 +19,10 @@ import { CompareView, CompareButton } from '@/components/CompareView';
 import { DeepAuditView, DeepAuditToggle } from '@/components/DeepAuditView';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { DocumentUpload } from '@/components/DocumentUpload';
+import { AsciiBannerCompact } from '@/components/AsciiBanner';
+import { StatusBar, StatusPill } from '@/components/StatusBar';
+import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { BootSequence } from '@/components/BootSequence';
 import type { NomicState } from '@/types/events';
 
 // WebSocket URL - can be overridden via environment variable
@@ -33,6 +37,22 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('tabs');
   const [showCompare, setShowCompare] = useState(false);
+  const [showBoot, setShowBoot] = useState(true);
+  const [skipBoot, setSkipBoot] = useState(false);
+
+  // Check if boot was shown before (session storage)
+  useEffect(() => {
+    const bootShown = sessionStorage.getItem('aragora-boot-shown');
+    if (bootShown === 'true') {
+      setSkipBoot(true);
+      setShowBoot(false);
+    }
+  }, []);
+
+  const handleBootComplete = useCallback(() => {
+    setShowBoot(false);
+    sessionStorage.setItem('aragora-boot-shown', 'true');
+  }, []);
 
   // Compute effective loop ID - auto-select if only one loop active (fixes race condition)
   const effectiveLoopId = selectedLoopId || (activeLoops.length === 1 ? activeLoops[0].loop_id : null);
@@ -137,85 +157,92 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-bg text-text">
-      {/* Compare Modal */}
-      {showCompare && (
-        <CompareView events={events} onClose={() => setShowCompare(false)} />
-      )}
+    <>
+      {/* Boot Sequence */}
+      {showBoot && <BootSequence onComplete={handleBootComplete} skip={skipBoot} />}
 
-      {/* Header */}
-      <header className="border-b border-border">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">
-              <span className="text-accent">aragora</span>
-              <span className="text-text-muted font-normal ml-2">live</span>
-            </h1>
-          </div>
-          <div className="flex items-center gap-4">
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 bg-surface border border-border rounded p-0.5">
-              <button
-                onClick={() => setViewMode('tabs')}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
-                  viewMode === 'tabs'
-                    ? 'bg-accent text-white'
-                    : 'text-text-muted hover:text-text'
-                }`}
-              >
-                Tabs
-              </button>
-              <button
-                onClick={() => setViewMode('stream')}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
-                  viewMode === 'stream'
-                    ? 'bg-accent text-white'
-                    : 'text-text-muted hover:text-text'
-                }`}
-              >
-                Stream
-              </button>
-            </div>
+      {/* CRT Effects */}
+      <Scanlines opacity={0.02} />
+      <CRTVignette />
 
-            {/* Deep Audit Toggle */}
-            <DeepAuditToggle
-              isActive={viewMode === 'deep-audit'}
-              onToggle={() => setViewMode(viewMode === 'deep-audit' ? 'tabs' : 'deep-audit')}
-            />
+      <main className="min-h-screen bg-bg text-text relative z-10">
+        {/* Compare Modal */}
+        {showCompare && (
+          <CompareView events={events} onClose={() => setShowCompare(false)} />
+        )}
 
-            {/* Compare Button */}
-            <CompareButton onClick={() => setShowCompare(true)} />
+        {/* Header */}
+        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+            {/* ASCII Logo */}
+            <AsciiBannerCompact connected={connected} />
 
-            {/* Theme Toggle */}
-            <ThemeToggle />
-
-            {/* Loop Selector - Only show if multiple loops */}
-            {activeLoops.length > 1 && (
-              <div className="flex items-center gap-2">
-                <span className="text-text-muted text-sm">{activeLoops.length} loops active</span>
-                <select
-                  value={selectedLoopId || ''}
-                  onChange={(e) => selectLoop(e.target.value)}
-                  className="bg-surface border border-border rounded px-2 py-1 text-sm text-text"
+            <div className="flex items-center gap-3">
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-0.5 bg-bg border border-acid-green/30 p-0.5 font-mono text-xs">
+                <button
+                  onClick={() => setViewMode('tabs')}
+                  className={`px-2 py-1 transition-colors ${
+                    viewMode === 'tabs'
+                      ? 'bg-acid-green text-bg'
+                      : 'text-text-muted hover:text-acid-green'
+                  }`}
                 >
-                  {activeLoops.map((loop) => (
-                    <option key={loop.loop_id} value={loop.loop_id}>
-                      {loop.name} (cycle {loop.cycle}, {formatRelativeTime(loop.started_at)})
-                    </option>
-                  ))}
-                </select>
+                  [TABS]
+                </button>
+                <button
+                  onClick={() => setViewMode('stream')}
+                  className={`px-2 py-1 transition-colors ${
+                    viewMode === 'stream'
+                      ? 'bg-acid-green text-bg'
+                      : 'text-text-muted hover:text-acid-green'
+                  }`}
+                >
+                  [STREAM]
+                </button>
               </div>
-            )}
-            {/* Single loop indicator */}
-            {activeLoops.length === 1 && (
-              <span className="text-text-muted text-sm">
-                {activeLoops[0].name}
-              </span>
-            )}
-            <ConnectionStatus connected={connected} />
+
+              {/* Deep Audit Toggle */}
+              <DeepAuditToggle
+                isActive={viewMode === 'deep-audit'}
+                onToggle={() => setViewMode(viewMode === 'deep-audit' ? 'tabs' : 'deep-audit')}
+              />
+
+              {/* Compare Button */}
+              <CompareButton onClick={() => setShowCompare(true)} />
+
+              {/* Status Pill */}
+              <StatusPill connected={connected} phase={currentPhase} />
+
+              {/* Theme Toggle */}
+              <ThemeToggle />
+
+              {/* Loop Selector - Only show if multiple loops */}
+              {activeLoops.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-text-muted text-xs font-mono">{activeLoops.length} LOOPS</span>
+                  <select
+                    value={selectedLoopId || ''}
+                    onChange={(e) => selectLoop(e.target.value)}
+                    className="bg-bg border border-acid-green/30 px-2 py-1 text-xs font-mono text-acid-green"
+                  >
+                    {activeLoops.map((loop) => (
+                      <option key={loop.loop_id} value={loop.loop_id}>
+                        {loop.name} (C{loop.cycle}, {formatRelativeTime(loop.started_at)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {/* Single loop indicator */}
+              {activeLoops.length === 1 && (
+                <span className="text-acid-cyan text-xs font-mono">
+                  {activeLoops[0].name}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6 space-y-6">
@@ -285,30 +312,45 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-text-muted text-sm py-8 border-t border-border">
-          <p>
-            Watching aragora's self-improving nomic loop in real-time.
-            <br />
+        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
+          <div className="text-acid-green/50 mb-2">
+            {'═'.repeat(40)}
+          </div>
+          <p className="text-text-muted">
+            {'>'} ARAGORA NOMIC LOOP // REAL-TIME MONITORING
+          </p>
+          <p className="text-acid-cyan mt-2">
             <a
               href="https://aragora.ai"
-              className="text-accent hover:underline"
+              className="hover:text-acid-green transition-colors"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Learn more about aragora →
+              [ ARAGORA.AI ]
             </a>
           </p>
-          <p className="mt-4 text-xs">
-            Built on ideas from{' '}
-            <a href="https://github.com/AI-Counsel/ai-counsel" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">ai-counsel</a>,{' '}
-            <a href="https://github.com/Tsinghua-MARS-Lab/DebateLLM" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">DebateLLM</a>,{' '}
-            <a href="https://github.com/camel-ai/camel" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">CAMEL-AI</a>,{' '}
-            <a href="https://github.com/joonspk-research/generative_agents" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">Generative Agents</a>,{' '}
-            <a href="https://github.com/composable-models/llm_multiagent_debate" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">LLM Multi-Agent Debate</a>, and{' '}
-            <a href="https://heavy3.ai" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">Heavy3.ai</a>.
-          </p>
+          <div className="mt-4 text-text-muted/50 text-[10px] max-w-2xl mx-auto">
+            Built on{' '}
+            <a href="https://github.com/AI-Counsel/ai-counsel" className="text-acid-green/50 hover:text-acid-green" target="_blank" rel="noopener noreferrer">ai-counsel</a>{' | '}
+            <a href="https://github.com/Tsinghua-MARS-Lab/DebateLLM" className="text-acid-green/50 hover:text-acid-green" target="_blank" rel="noopener noreferrer">DebateLLM</a>{' | '}
+            <a href="https://github.com/camel-ai/camel" className="text-acid-green/50 hover:text-acid-green" target="_blank" rel="noopener noreferrer">CAMEL-AI</a>{' | '}
+            <a href="https://github.com/joonspk-research/generative_agents" className="text-acid-green/50 hover:text-acid-green" target="_blank" rel="noopener noreferrer">Generative Agents</a>{' | '}
+            <a href="https://heavy3.ai" className="text-acid-green/50 hover:text-acid-green" target="_blank" rel="noopener noreferrer">Heavy3.ai</a>
+          </div>
+          <div className="text-acid-green/50 mt-4">
+            {'═'.repeat(40)}
+          </div>
         </footer>
       </div>
+
+      {/* Status Bar */}
+      <StatusBar
+        connected={connected}
+        events={events}
+        cycle={nomicState?.cycle || 0}
+        phase={currentPhase}
+      />
     </main>
+    </>
   );
 }
