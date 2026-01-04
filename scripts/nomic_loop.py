@@ -5257,10 +5257,12 @@ Recent changes:
             try:
                 # Detect flips for all debate participants
                 total_flips_detected = 0
+                all_flips = []
                 consistency_warnings = []
                 for agent in debate_team:
                     flips = self.flip_detector.detect_flips_for_agent(agent.name, lookback_positions=20)
                     total_flips_detected += len(flips)
+                    all_flips.extend(flips)
 
                     # Check consistency and flag concerning agents
                     consistency = self.flip_detector.get_agent_consistency(agent.name)
@@ -5272,6 +5274,24 @@ Recent changes:
 
                 if total_flips_detected > 0:
                     self._log(f"  [flip] Detected {total_flips_detected} new position flips")
+
+                    # Emit flip events to WebSocket stream for real-time UI updates
+                    if self.stream_emitter:
+                        for flip in all_flips:
+                            self._stream_emit(
+                                "flip_detected",
+                                flip.agent_name,
+                                self.cycle_count,
+                                True,
+                                0.0,
+                                {
+                                    "flip_type": flip.flip_type,
+                                    "original_claim": flip.original_claim[:100] if flip.original_claim else "",
+                                    "new_claim": flip.new_claim[:100] if flip.new_claim else "",
+                                    "similarity": flip.similarity_score,
+                                    "domain": flip.domain,
+                                }
+                            )
 
                 if consistency_warnings:
                     for warning in consistency_warnings:

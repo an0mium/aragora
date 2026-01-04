@@ -10,6 +10,8 @@ interface AgentRanking {
   draws: number;
   win_rate: number;
   games: number;
+  consistency?: number;  // 0-1 consistency score from FlipDetector
+  consistency_class?: string;  // "high" | "medium" | "low"
 }
 
 interface Match {
@@ -63,7 +65,30 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
 
       if (leaderboardRes.ok) {
         const data = await leaderboardRes.json();
-        setAgents(data.agents || []);
+        const agentsList: AgentRanking[] = data.agents || [];
+
+        // Fetch consistency scores for each agent in parallel
+        const consistencyPromises = agentsList.map(agent =>
+          fetch(`${apiBase}/api/agent/${agent.name}/consistency`)
+            .then(res => res.ok ? res.json() : null)
+            .catch(() => null)
+        );
+        const consistencies = await Promise.all(consistencyPromises);
+
+        // Merge consistency data into agents
+        const agentsWithConsistency = agentsList.map((agent, idx) => {
+          const consistencyData = consistencies[idx];
+          if (consistencyData && typeof consistencyData.consistency === 'number') {
+            return {
+              ...agent,
+              consistency: consistencyData.consistency,
+              consistency_class: consistencyData.consistency_class,
+            };
+          }
+          return agent;
+        });
+
+        setAgents(agentsWithConsistency);
         // Extract unique domains from matches for the domain filter
         if (data.domains) {
           setAvailableDomains(data.domains);
@@ -131,6 +156,18 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
     if (elo >= 1500) return 'text-yellow-400';
     if (elo >= 1400) return 'text-orange-400';
     return 'text-red-400';
+  };
+
+  const getConsistencyColor = (consistency: number): string => {
+    if (consistency >= 0.8) return 'text-green-400';
+    if (consistency >= 0.6) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const getConsistencyClass = (consistency: number): string => {
+    if (consistency >= 0.8) return 'high';
+    if (consistency >= 0.6) return 'medium';
+    return 'low';
   };
 
   const getRankBadge = (rank: number): string => {
@@ -238,6 +275,14 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
                   <span className={`text-sm font-mono font-bold ${getEloColor(agent.elo)}`}>
                     {agent.elo}
                   </span>
+                  {agent.consistency !== undefined && (
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded ${getConsistencyColor(agent.consistency)} bg-surface`}
+                      title={`Consistency: ${(agent.consistency * 100).toFixed(0)}%`}
+                    >
+                      {(agent.consistency * 100).toFixed(0)}%
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-text-muted">
                   {agent.wins}W-{agent.losses}L-{agent.draws}D ({agent.win_rate}%)

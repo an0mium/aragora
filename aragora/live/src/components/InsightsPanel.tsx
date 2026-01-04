@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { LearningEvolution } from './LearningEvolution';
 
 interface Insight {
   id: string;
@@ -52,7 +53,7 @@ export function InsightsPanel({ wsMessages = [], apiBase = DEFAULT_API_BASE }: I
   const [flipSummary, setFlipSummary] = useState<FlipSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'insights' | 'memory' | 'flips'>('insights');
+  const [activeTab, setActiveTab] = useState<'insights' | 'memory' | 'flips' | 'learning'>('insights');
 
   const fetchInsights = useCallback(async () => {
     try {
@@ -193,6 +194,16 @@ export function InsightsPanel({ wsMessages = [], apiBase = DEFAULT_API_BASE }: I
           }`}
         >
           Flips ({flips.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('learning')}
+          className={`px-3 py-1 rounded text-sm transition-colors flex-1 ${
+            activeTab === 'learning'
+              ? 'bg-accent text-bg font-medium'
+              : 'text-text-muted hover:text-text'
+          }`}
+        >
+          Learning
         </button>
       </div>
 
@@ -395,6 +406,13 @@ export function InsightsPanel({ wsMessages = [], apiBase = DEFAULT_API_BASE }: I
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Learning Tab */}
+      {activeTab === 'learning' && (
+        <div className="max-h-[500px] overflow-y-auto">
+          <LearningEvolution />
         </div>
       )}
     </div>

@@ -144,6 +144,11 @@ class DebateProtocol:
     role_rotation: bool = True  # Enable role rotation (cognitive diversity)
     role_rotation_config: Optional[RoleRotationConfig] = None  # Custom role config
 
+    # Debate timeout (seconds) - prevents runaway debates
+    # 0 = no timeout (default for backward compatibility)
+    timeout_seconds: int = 0  # Max time for entire debate (0 = unlimited)
+    round_timeout_seconds: int = 120  # Max time per round (2 minutes per round)
+
 
 def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
     """
@@ -726,9 +731,35 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
 - Judge on merit, not position"""
 
     async def run(self) -> DebateResult:
-        """Run the full debate and return results."""
+        """Run the full debate and return results.
+
+        If timeout_seconds is set in protocol, the debate will be terminated
+        after the specified time with partial results.
+        """
+        if self.protocol.timeout_seconds > 0:
+            try:
+                async with asyncio.timeout(self.protocol.timeout_seconds):
+                    return await self._run_inner()
+            except asyncio.TimeoutError:
+                print(f"\n[TIMEOUT] Debate exceeded {self.protocol.timeout_seconds}s limit")
+                # Return partial result with timeout indicator
+                return DebateResult(
+                    task=self.env.task,
+                    messages=getattr(self, '_partial_messages', []),
+                    critiques=getattr(self, '_partial_critiques', []),
+                    votes=[],
+                    dissenting_views=[],
+                    metadata={"timed_out": True, "timeout_seconds": self.protocol.timeout_seconds},
+                )
+        return await self._run_inner()
+
+    async def _run_inner(self) -> DebateResult:
+        """Internal debate execution (called by run() with optional timeout wrapper)."""
         start_time = time.time()
         vote_tally = {}
+        # Initialize partial results for timeout recovery
+        self._partial_messages = []
+        self._partial_critiques = []
 
         # Start recording if recorder is provided
         if self.recorder:
@@ -851,6 +882,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             )
             context.append(msg)
             result.messages.append(msg)
+            self._partial_messages.append(msg)  # Track for timeout recovery
 
             # Emit message event
             if "on_message" in self.hooks:
@@ -933,6 +965,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     print(f"  {critic.name} -> {proposal_agent}: ERROR - {crit_result}")
                 else:
                     result.critiques.append(crit_result)
+                    self._partial_critiques.append(crit_result)  # Track for timeout recovery
                     print(
                         f"  {critic.name} -> {proposal_agent}: "
                         f"{len(crit_result.issues)} issues, "
@@ -981,6 +1014,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     )
                     context.append(msg)
                     result.messages.append(msg)
+                    self._partial_messages.append(msg)  # Track for timeout recovery
 
             # === Revision Phase ===
             # Get critiques for each proposer and let them revise
@@ -1009,6 +1043,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                         )
                         context.append(msg)
                         result.messages.append(msg)
+                        self._partial_messages.append(msg)  # Track for timeout recovery
 
                         # Emit message event for revision
                         if "on_message" in self.hooks:
