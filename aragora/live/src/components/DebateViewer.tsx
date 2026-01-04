@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { fetchDebateById, type DebateArtifact } from '@/utils/supabase';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
+
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai';
 
 // Agent color schemes
 const AGENT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -43,23 +45,113 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    async function loadDebate() {
-      try {
-        const data = await fetchDebateById(debateId);
-        if (data) {
-          setDebate(data);
-        } else {
-          setError('Debate not found');
-        }
-      } catch (e) {
-        setError('Failed to load debate');
-      } finally {
-        setLoading(false);
-      }
-    }
+  // Live debate state
+  const [isLive, setIsLive] = useState(false);
+  const [liveMessages, setLiveMessages] = useState<TranscriptMessage[]>([]);
+  const [liveTask, setLiveTask] = useState<string>('');
+  const [liveAgents, setLiveAgents] = useState<string[]>([]);
+  const [liveStatus, setLiveStatus] = useState<'connecting' | 'streaming' | 'complete' | 'error'>('connecting');
+  const wsRef = useRef<WebSocket | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    loadDebate();
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [liveMessages]);
+
+  useEffect(() => {
+    // Check if this is a live/adhoc debate
+    const isAdhocDebate = debateId.startsWith('adhoc_');
+
+    if (isAdhocDebate) {
+      // Connect to WebSocket for live streaming
+      setIsLive(true);
+      setLoading(false);
+
+      const ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('WebSocket connected for debate:', debateId);
+        setLiveStatus('streaming');
+        // Subscribe to this specific debate
+        ws.send(JSON.stringify({ type: 'subscribe', debate_id: debateId }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          // Handle different event types
+          if (data.type === 'debate_start' && data.data?.debate_id === debateId) {
+            setLiveTask(data.data.task || 'Debate in progress...');
+            setLiveAgents(data.data.agents || []);
+          } else if (data.type === 'debate_message' && data.data?.debate_id === debateId) {
+            const msg: TranscriptMessage = {
+              agent: data.data.agent || 'unknown',
+              role: data.data.role,
+              content: data.data.content || '',
+              round: data.data.round,
+              timestamp: data.data.timestamp || Date.now() / 1000,
+            };
+            setLiveMessages(prev => [...prev, msg]);
+            if (data.data.agent && !liveAgents.includes(data.data.agent)) {
+              setLiveAgents(prev => [...prev, data.data.agent]);
+            }
+          } else if (data.type === 'agent_response') {
+            // Also handle agent_response events for backwards compatibility
+            const msg: TranscriptMessage = {
+              agent: data.data?.agent || 'unknown',
+              role: data.data?.role,
+              content: data.data?.content || data.data?.response || '',
+              round: data.data?.round,
+              timestamp: Date.now() / 1000,
+            };
+            if (msg.content) {
+              setLiveMessages(prev => [...prev, msg]);
+            }
+          } else if (data.type === 'debate_end' && data.data?.debate_id === debateId) {
+            setLiveStatus('complete');
+          }
+        } catch (e) {
+          console.error('Failed to parse WebSocket message:', e);
+        }
+      };
+
+      ws.onerror = () => {
+        setLiveStatus('error');
+        setError('WebSocket connection error');
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket closed');
+        if (liveStatus === 'streaming') {
+          setLiveStatus('complete');
+        }
+      };
+
+      return () => {
+        ws.close();
+      };
+    } else {
+      // Fetch completed debate from Supabase
+      async function loadDebate() {
+        try {
+          const data = await fetchDebateById(debateId);
+          if (data) {
+            setDebate(data);
+          } else {
+            setError('Debate not found');
+          }
+        } catch (e) {
+          setError('Failed to load debate');
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      loadDebate();
+    }
   }, [debateId]);
 
   const handleShare = async () => {
@@ -115,7 +207,7 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
             </div>
           )}
 
-          {error && (
+          {error && !isLive && (
             <div className="bg-warning/10 border border-warning/30 rounded-lg p-6 text-center">
               <div className="text-warning text-2xl mb-2">{'>'} ERROR</div>
               <div className="text-text-muted">{error}</div>
@@ -125,6 +217,119 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
               >
                 [RETURN HOME]
               </Link>
+            </div>
+          )}
+
+          {/* Live Debate View */}
+          {isLive && (
+            <div className="space-y-6">
+              {/* Live Debate Header */}
+              <div className="bg-surface border border-acid-green/30 p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 text-xs font-mono mb-2">
+                      <span className={`w-2 h-2 rounded-full ${
+                        liveStatus === 'streaming' ? 'bg-green-400 animate-pulse' :
+                        liveStatus === 'complete' ? 'bg-blue-400' :
+                        liveStatus === 'error' ? 'bg-red-400' : 'bg-yellow-400'
+                      }`} />
+                      <span className="text-text-muted uppercase">
+                        {liveStatus === 'streaming' ? 'LIVE DEBATE' :
+                         liveStatus === 'complete' ? 'DEBATE COMPLETE' :
+                         liveStatus === 'error' ? 'CONNECTION ERROR' : 'CONNECTING...'}
+                      </span>
+                    </div>
+                    <h1 className="text-lg font-mono text-acid-green mb-4">
+                      {liveTask || 'Waiting for debate to start...'}
+                    </h1>
+                    <div className="flex flex-wrap gap-2">
+                      {liveAgents.map((agent) => {
+                        const colors = getAgentColors(agent);
+                        return (
+                          <span
+                            key={agent}
+                            className={`px-2 py-1 text-xs font-mono ${colors.bg} ${colors.text} ${colors.border} border`}
+                          >
+                            {agent}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2">
+                    <button
+                      onClick={handleShare}
+                      className="px-3 py-1 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+                    >
+                      {copied ? '[COPIED!]' : '[SHARE LINK]'}
+                    </button>
+                    <div className="text-xs text-text-muted font-mono">
+                      ID: {debateId}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Transcript */}
+              <div className="bg-surface border border-acid-green/30">
+                <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
+                  <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+                    {'>'} LIVE TRANSCRIPT
+                  </span>
+                  <span className="text-xs font-mono text-text-muted">
+                    {liveMessages.length} messages
+                  </span>
+                </div>
+                <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+                  {liveMessages.length === 0 && liveStatus === 'streaming' && (
+                    <div className="text-center py-8 text-text-muted font-mono">
+                      <div className="animate-pulse">Waiting for agents to respond...</div>
+                    </div>
+                  )}
+                  {liveMessages.map((msg, idx) => {
+                    const colors = getAgentColors(msg.agent || 'system');
+                    return (
+                      <div
+                        key={idx}
+                        className={`${colors.bg} border ${colors.border} p-4`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`font-mono font-bold text-sm ${colors.text}`}>
+                              {(msg.agent || 'SYSTEM').toUpperCase()}
+                            </span>
+                            {msg.role && (
+                              <span className="text-xs text-text-muted border border-text-muted/30 px-1">
+                                {msg.role}
+                              </span>
+                            )}
+                            {msg.round !== undefined && msg.round > 0 && (
+                              <span className="text-xs text-text-muted">
+                                R{msg.round}
+                              </span>
+                            )}
+                          </div>
+                          {msg.timestamp && (
+                            <span className="text-[10px] text-text-muted font-mono">
+                              {new Date(msg.timestamp * 1000).toLocaleTimeString()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-text whitespace-pre-wrap">
+                          {msg.content}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+
+              {/* Metadata */}
+              <div className="text-center text-xs font-mono text-text-muted py-4 border-t border-acid-green/20">
+                <div>DEBATE ID: {debateId}</div>
+              </div>
             </div>
           )}
 
