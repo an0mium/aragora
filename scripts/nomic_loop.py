@@ -2502,6 +2502,23 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                     except Exception:
                         pass  # Don't break on position history injection failure
 
+                    # Inject flip detection warnings (P9: FlipDetector integration)
+                    try:
+                        if FLIP_DETECTOR_AVAILABLE and self.nomic_dir:
+                            from aragora.insights.flip_detector import FlipDetector
+                            flip_detector = FlipDetector(str(self.nomic_dir / "aragora_personas.db"))
+                            consistency = flip_detector.get_agent_consistency(agent.name)
+                            if consistency.total_flips > 0:
+                                flip_warning = f"\n\n## Consistency Warning\n"
+                                flip_warning += f"You have changed your position {consistency.total_flips} times.\n"
+                                flip_warning += f"- Contradictions: {consistency.contradictions}\n"
+                                flip_warning += f"- Retractions: {consistency.retractions}\n"
+                                flip_warning += f"Consistency score: {consistency.consistency_score:.0%}\n"
+                                flip_warning += f"Be mindful of intellectual consistency. Acknowledge past positions when changing."
+                                full_prompt += flip_warning
+                    except Exception:
+                        pass  # Don't break on flip detection failure
+
                     # Prepend identity to system prompt
                     original_prompt = getattr(agent, 'system_prompt', '') or ''
                     agent.system_prompt = f"{full_prompt}\n\n{original_prompt}"
@@ -3465,6 +3482,11 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
             # Create orchestrator on demand with the specific agents
             orchestrator = GraphDebateOrchestrator(agents=agents)
             result = await orchestrator.run_debate(task)
+            # Verify result has required DebateResult interface (consensus_reached, confidence)
+            # GraphDebateOrchestrator is a placeholder - returns DebateGraph not DebateResult
+            if not hasattr(result, 'consensus_reached') or not hasattr(result, 'confidence'):
+                self._log(f"  [graph] Incomplete result - falling back to arena")
+                return None
             return result
         except Exception as e:
             self._log(f"  [graph] Debate error: {e}")
@@ -4808,6 +4830,20 @@ Recent changes:
                     position_changes=position_changes,
                 )
                 self._log(f"  [grounded] Updated relationships for {len(participants)} agents")
+
+                # Also update ELO system relationship tracking for detailed stats
+                if self.elo_system and ELO_AVAILABLE:
+                    for i, agent_a in enumerate(participants):
+                        for agent_b in participants[i+1:]:
+                            self.elo_system.update_relationship(
+                                agent_a=agent_a,
+                                agent_b=agent_b,
+                                debate_increment=1,
+                                agreement_increment=1 if winner else 0,
+                                a_win=1 if winner == agent_a else 0,
+                                b_win=1 if winner == agent_b else 0,
+                            )
+                    self._log(f"  [elo] Updated relationship stats for {len(participants)} agent pairs")
             except Exception as e:
                 self._log(f"  [grounded] Relationship update failed: {e}")
 
@@ -4972,8 +5008,8 @@ Recent changes:
                     )
 
         # Phase 8: Evolve personas based on debate outcome (P26: PersonaLaboratory)
-        # Only run every few cycles to avoid overhead
-        if self.cycle_count % 3 == 0:
+        # Run every 2 cycles for faster agent evolution
+        if self.cycle_count % 2 == 0:
             await self._evolve_personas_post_cycle()
 
         # Handle deadlocks via counterfactual branching (P5: CounterfactualOrchestrator)
@@ -5021,9 +5057,9 @@ Recent changes:
             phase_duration, {"confidence": result.confidence}
         )
 
-        # Generate debate summary for broadcast (every 5 cycles)
+        # Generate debate summary for broadcast (every cycle for better documentation)
         broadcast_summary = None
-        if self.summary_generator and self.cycle_count % 5 == 0:
+        if self.summary_generator:
             try:
                 broadcast_summary = self.summary_generator.generate_summary(
                     debate_result=result,
@@ -6581,24 +6617,24 @@ Working directory: {self.aragora_path}
                 )
                 self._log(f"  [continuum] Stored cycle outcome in SLOW tier")
 
-                # Consolidate memory periodically (every 5 cycles)
-                if self.cycle_count % 5 == 0:
+                # Consolidate memory periodically (every 3 cycles for faster learning)
+                if self.cycle_count % 3 == 0:
                     stats = self.continuum.consolidate()
                     self._log(f"  [continuum] Consolidated: {stats}")
 
-                    # Run MetaLearner to self-tune hyperparameters
-                    if self.meta_learner:
-                        try:
-                            metrics = self.meta_learner.evaluate_learning_efficiency(
-                                self.continuum, cycle_result
-                            )
-                            adjustments = self.meta_learner.adjust_hyperparameters(metrics)
-                            if adjustments:
-                                # Apply adjustments to ContinuumMemory
-                                self.continuum.hyperparams.update(adjustments)
-                                self._log(f"  [meta] Applied hyperparameter adjustments: {list(adjustments.keys())}")
-                        except Exception as e:
-                            self._log(f"  [meta] MetaLearner error: {e}")
+                # Run MetaLearner to self-tune hyperparameters (every 2 cycles)
+                if self.meta_learner and self.cycle_count % 2 == 0:
+                    try:
+                        metrics = self.meta_learner.evaluate_learning_efficiency(
+                            self.continuum, cycle_result
+                        )
+                        adjustments = self.meta_learner.adjust_hyperparameters(metrics)
+                        if adjustments:
+                            # Apply adjustments to ContinuumMemory
+                            self.continuum.hyperparams.update(adjustments)
+                            self._log(f"  [meta] Applied hyperparameter adjustments: {list(adjustments.keys())}")
+                    except Exception as e:
+                        self._log(f"  [meta] MetaLearner error: {e}")
             except Exception as e:
                 self._log(f"  [continuum] Storage error: {e}")
 
