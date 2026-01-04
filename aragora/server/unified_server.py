@@ -18,6 +18,7 @@ from urllib.parse import urlparse, parse_qs
 from .stream import DebateStreamServer, SyncEventEmitter, StreamEvent, StreamEventType, create_arena_hooks
 from .storage import DebateStorage
 from .documents import DocumentStore, parse_document, get_supported_formats, SUPPORTED_EXTENSIONS
+from .auth import auth_config, check_auth
 
 # For ad-hoc debates
 import threading
@@ -166,6 +167,43 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             return min(max(val, min_val), max_val)
         except (ValueError, IndexError, TypeError):
             return default
+
+    def _check_rate_limit(self) -> bool:
+        """Check auth and rate limit. Returns True if allowed, False if blocked.
+
+        Sends appropriate error response if blocked.
+        """
+        if not auth_config.enabled:
+            return True
+
+        # Convert headers to dict
+        headers = {k: v for k, v in self.headers.items()}
+        parsed = urlparse(self.path)
+
+        authenticated, remaining = check_auth(headers, parsed.query)
+
+        if not authenticated:
+            if remaining == 0:
+                # Rate limited
+                self._send_json(
+                    {"error": "Rate limit exceeded. Try again later."},
+                    status=429
+                )
+            else:
+                # Auth failed
+                self._send_json(
+                    {"error": "Authentication required"},
+                    status=401
+                )
+            return False
+
+        # Add rate limit headers
+        if remaining >= 0:
+            self.send_response(200)
+            self.send_header("X-RateLimit-Remaining", str(remaining))
+            self.send_header("X-RateLimit-Limit", str(auth_config.rate_limit_per_minute))
+
+        return True
 
     def do_GET(self) -> None:
         """Handle GET requests."""
@@ -330,7 +368,11 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self.send_error(404, f"Unknown POST endpoint: {path}")
 
     def _upload_document(self) -> None:
-        """Handle document upload."""
+        """Handle document upload. Rate limited when auth enabled."""
+        # Rate limit uploads
+        if not self._check_rate_limit():
+            return
+
         if not self.document_store:
             self._send_json({"error": "Document storage not configured"}, status=500)
             return
@@ -449,8 +491,14 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             agents: Comma-separated agent list (optional, default: "claude,openai")
             rounds: Number of debate rounds (optional, default: 3)
             consensus: Consensus method (optional, default: "majority")
+
+        Rate limited: requires auth when enabled.
         """
         global _active_debates
+
+        # Rate limit expensive debate creation
+        if not self._check_rate_limit():
+            return
 
         if not DEBATE_AVAILABLE:
             self._send_json({"error": "Debate orchestrator not available"}, status=500)
