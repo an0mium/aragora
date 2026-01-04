@@ -289,7 +289,8 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(content)
         except Exception as e:
-            self.send_error(500, str(e))
+            logger.error(f"File serving error: {type(e).__name__}: {e}")
+            self.send_error(500, "Failed to read file")
 
     def _send_json(self, data) -> None:
         """Send JSON response."""

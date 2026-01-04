@@ -7,12 +7,17 @@ Stores successful critique patterns so future debates can learn from past succes
 import sqlite3
 import json
 import hashlib
+from contextlib import contextmanager
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Generator
 
 from aragora.core import Critique, DebateResult
+
+
+# Database connection timeout in seconds
+DB_TIMEOUT = 30.0
 
 
 @dataclass
@@ -93,240 +98,250 @@ class CritiqueStore:
         self.db_path = Path(db_path)
         self._init_db()
 
+    @contextmanager
+    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
+        """Get a database connection as a context manager.
+
+        Ensures connections are properly closed even if exceptions occur.
+        """
+        conn = sqlite3.connect(self.db_path, timeout=DB_TIMEOUT)
+        conn.execute(f"PRAGMA busy_timeout = {int(DB_TIMEOUT * 1000)}")
+        try:
+            yield conn
+        finally:
+            conn.close()
+
     def _init_db(self):
         """Initialize the database schema."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        # Debates table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS debates (
-                id TEXT PRIMARY KEY,
-                task TEXT NOT NULL,
-                final_answer TEXT,
-                consensus_reached INTEGER,
-                confidence REAL,
-                rounds_used INTEGER,
-                duration_seconds REAL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            # Debates table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS debates (
+                    id TEXT PRIMARY KEY,
+                    task TEXT NOT NULL,
+                    final_answer TEXT,
+                    consensus_reached INTEGER,
+                    confidence REAL,
+                    rounds_used INTEGER,
+                    duration_seconds REAL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # Critiques table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS critiques (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    debate_id TEXT,
+                    agent TEXT NOT NULL,
+                    target_agent TEXT,
+                    issues TEXT,  -- JSON array
+                    suggestions TEXT,  -- JSON array
+                    severity REAL,
+                    reasoning TEXT,
+                    led_to_improvement INTEGER DEFAULT 0,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (debate_id) REFERENCES debates(id)
+                )
+            """)
+
+            # Patterns table - aggregated successful patterns
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS patterns (
+                    id TEXT PRIMARY KEY,
+                    issue_type TEXT NOT NULL,
+                    issue_text TEXT NOT NULL,
+                    suggestion_text TEXT,
+                    success_count INTEGER DEFAULT 0,
+                    failure_count INTEGER DEFAULT 0,
+                    avg_severity REAL DEFAULT 0.5,
+                    example_task TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # Pattern embeddings for semantic search (optional, for future)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS pattern_embeddings (
+                    pattern_id TEXT PRIMARY KEY,
+                    embedding BLOB,
+                    FOREIGN KEY (pattern_id) REFERENCES patterns(id)
+                )
+            """)
+
+            # Agent reputation tracking for weighted voting
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS agent_reputation (
+                    agent_name TEXT PRIMARY KEY,
+                    proposals_made INTEGER DEFAULT 0,
+                    proposals_accepted INTEGER DEFAULT 0,
+                    critiques_given INTEGER DEFAULT 0,
+                    critiques_valuable INTEGER DEFAULT 0,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # Create indexes
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_critiques_debate ON critiques(debate_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_patterns_type ON patterns(issue_type)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_patterns_success ON patterns(success_count DESC)"
             )
-        """)
-
-        # Critiques table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS critiques (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                debate_id TEXT,
-                agent TEXT NOT NULL,
-                target_agent TEXT,
-                issues TEXT,  -- JSON array
-                suggestions TEXT,  -- JSON array
-                severity REAL,
-                reasoning TEXT,
-                led_to_improvement INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (debate_id) REFERENCES debates(id)
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_reputation_score ON agent_reputation(proposals_accepted DESC)"
             )
-        """)
 
-        # Patterns table - aggregated successful patterns
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS patterns (
-                id TEXT PRIMARY KEY,
-                issue_type TEXT NOT NULL,
-                issue_text TEXT NOT NULL,
-                suggestion_text TEXT,
-                success_count INTEGER DEFAULT 0,
-                failure_count INTEGER DEFAULT 0,
-                avg_severity REAL DEFAULT 0.5,
-                example_task TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+            # === Titans/MIRAS Migrations ===
+            # Add new columns for surprise-based learning and prediction tracking
+            # These use try/except to be idempotent (safe to run multiple times)
 
-        # Pattern embeddings for semantic search (optional, for future)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS pattern_embeddings (
-                pattern_id TEXT PRIMARY KEY,
-                embedding BLOB,
-                FOREIGN KEY (pattern_id) REFERENCES patterns(id)
-            )
-        """)
+            # Patterns table: Add surprise scoring columns
+            for col_def in [
+                "surprise_score REAL DEFAULT 0.0",
+                "base_rate REAL DEFAULT 0.5",
+                "avg_prediction_error REAL DEFAULT 0.0",
+                "prediction_count INTEGER DEFAULT 0",
+            ]:
+                try:
+                    cursor.execute(f"ALTER TABLE patterns ADD COLUMN {col_def}")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
 
-        # Agent reputation tracking for weighted voting
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS agent_reputation (
-                agent_name TEXT PRIMARY KEY,
-                proposals_made INTEGER DEFAULT 0,
-                proposals_accepted INTEGER DEFAULT 0,
-                critiques_given INTEGER DEFAULT 0,
-                critiques_valuable INTEGER DEFAULT 0,
-                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+            # Critiques table: Add prediction tracking columns
+            for col_def in [
+                "expected_usefulness REAL DEFAULT 0.5",
+                "actual_usefulness REAL",
+                "prediction_error REAL",
+            ]:
+                try:
+                    cursor.execute(f"ALTER TABLE critiques ADD COLUMN {col_def}")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
 
-        # Create indexes
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_critiques_debate ON critiques(debate_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_patterns_type ON patterns(issue_type)")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_patterns_success ON patterns(success_count DESC)"
-        )
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_reputation_score ON agent_reputation(proposals_accepted DESC)"
-        )
+            # Agent reputation table: Add calibration scoring columns
+            for col_def in [
+                "total_predictions INTEGER DEFAULT 0",
+                "total_prediction_error REAL DEFAULT 0.0",
+                "calibration_score REAL DEFAULT 0.5",
+            ]:
+                try:
+                    cursor.execute(f"ALTER TABLE agent_reputation ADD COLUMN {col_def}")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
 
-        # === Titans/MIRAS Migrations ===
-        # Add new columns for surprise-based learning and prediction tracking
-        # These use try/except to be idempotent (safe to run multiple times)
+            # Create patterns_archive table for adaptive forgetting
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS patterns_archive (
+                    id TEXT,
+                    issue_type TEXT,
+                    issue_text TEXT,
+                    suggestion_text TEXT,
+                    success_count INTEGER,
+                    failure_count INTEGER,
+                    avg_severity REAL,
+                    surprise_score REAL,
+                    example_task TEXT,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    archived_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
-        # Patterns table: Add surprise scoring columns
-        for col_def in [
-            "surprise_score REAL DEFAULT 0.0",
-            "base_rate REAL DEFAULT 0.5",
-            "avg_prediction_error REAL DEFAULT 0.0",
-            "prediction_count INTEGER DEFAULT 0",
-        ]:
-            try:
-                cursor.execute(f"ALTER TABLE patterns ADD COLUMN {col_def}")
-            except sqlite3.OperationalError:
-                pass  # Column already exists
-
-        # Critiques table: Add prediction tracking columns
-        for col_def in [
-            "expected_usefulness REAL DEFAULT 0.5",
-            "actual_usefulness REAL",
-            "prediction_error REAL",
-        ]:
-            try:
-                cursor.execute(f"ALTER TABLE critiques ADD COLUMN {col_def}")
-            except sqlite3.OperationalError:
-                pass  # Column already exists
-
-        # Agent reputation table: Add calibration scoring columns
-        for col_def in [
-            "total_predictions INTEGER DEFAULT 0",
-            "total_prediction_error REAL DEFAULT 0.0",
-            "calibration_score REAL DEFAULT 0.5",
-        ]:
-            try:
-                cursor.execute(f"ALTER TABLE agent_reputation ADD COLUMN {col_def}")
-            except sqlite3.OperationalError:
-                pass  # Column already exists
-
-        # Create patterns_archive table for adaptive forgetting
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS patterns_archive (
-                id TEXT,
-                issue_type TEXT,
-                issue_text TEXT,
-                suggestion_text TEXT,
-                success_count INTEGER,
-                failure_count INTEGER,
-                avg_severity REAL,
-                surprise_score REAL,
-                example_task TEXT,
-                created_at TEXT,
-                updated_at TEXT,
-                archived_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        conn.commit()
-        conn.close()
+            conn.commit()
 
     def store_debate(self, result: DebateResult):
         """Store a complete debate result."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        # Store debate
-        cursor.execute(
-            """
-            INSERT OR REPLACE INTO debates
-            (id, task, final_answer, consensus_reached, confidence, rounds_used, duration_seconds)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-            (
-                result.id,
-                result.task,
-                result.final_answer,
-                1 if result.consensus_reached else 0,
-                result.confidence,
-                result.rounds_used,
-                result.duration_seconds,
-            ),
-        )
-
-        # Store critiques
-        for critique in result.critiques:
+            # Store debate
             cursor.execute(
                 """
-                INSERT INTO critiques
-                (debate_id, agent, target_agent, issues, suggestions, severity, reasoning)
+                INSERT OR REPLACE INTO debates
+                (id, task, final_answer, consensus_reached, confidence, rounds_used, duration_seconds)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     result.id,
-                    critique.agent,
-                    critique.target_agent,
-                    json.dumps(critique.issues),
-                    json.dumps(critique.suggestions),
-                    critique.severity,
-                    critique.reasoning,
+                    result.task,
+                    result.final_answer,
+                    1 if result.consensus_reached else 0,
+                    result.confidence,
+                    result.rounds_used,
+                    result.duration_seconds,
                 ),
             )
 
-        conn.commit()
-        conn.close()
+            # Store critiques
+            for critique in result.critiques:
+                cursor.execute(
+                    """
+                    INSERT INTO critiques
+                    (debate_id, agent, target_agent, issues, suggestions, severity, reasoning)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        result.id,
+                        critique.agent,
+                        critique.target_agent,
+                        json.dumps(critique.issues),
+                        json.dumps(critique.suggestions),
+                        critique.severity,
+                        critique.reasoning,
+                    ),
+                )
+
+            conn.commit()
 
     def store_pattern(self, critique: Critique, successful_fix: str):
         """Store a successful critique pattern."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        for issue in critique.issues:
-            # Create pattern ID from issue hash
-            pattern_id = hashlib.md5(issue.lower().encode()).hexdigest()[:12]
+            for issue in critique.issues:
+                # Create pattern ID from issue hash
+                pattern_id = hashlib.md5(issue.lower().encode()).hexdigest()[:12]
 
-            # Categorize issue type (simple heuristic)
-            issue_type = self._categorize_issue(issue)
+                # Categorize issue type (simple heuristic)
+                issue_type = self._categorize_issue(issue)
 
-            # Get matching suggestion
-            suggestion = critique.suggestions[0] if critique.suggestions else ""
+                # Get matching suggestion
+                suggestion = critique.suggestions[0] if critique.suggestions else ""
 
-            # Check if pattern exists
-            cursor.execute("SELECT success_count, avg_severity FROM patterns WHERE id = ?", (pattern_id,))
-            existing = cursor.fetchone()
+                # Check if pattern exists
+                cursor.execute("SELECT success_count, avg_severity FROM patterns WHERE id = ?", (pattern_id,))
+                existing = cursor.fetchone()
 
-            if existing:
-                # Update existing pattern
-                new_count = existing[0] + 1
-                new_avg = (existing[1] * existing[0] + critique.severity) / new_count
-                cursor.execute(
-                    """
-                    UPDATE patterns
-                    SET success_count = ?, avg_severity = ?, updated_at = ?
-                    WHERE id = ?
-                """,
-                    (new_count, new_avg, datetime.now().isoformat(), pattern_id),
-                )
-            else:
-                # Insert new pattern
-                cursor.execute(
-                    """
-                    INSERT INTO patterns
-                    (id, issue_type, issue_text, suggestion_text, success_count, avg_severity, example_task)
-                    VALUES (?, ?, ?, ?, 1, ?, ?)
-                """,
-                    (pattern_id, issue_type, issue, suggestion, critique.severity, successful_fix[:500]),
-                )
+                if existing:
+                    # Update existing pattern
+                    new_count = existing[0] + 1
+                    new_avg = (existing[1] * existing[0] + critique.severity) / new_count
+                    cursor.execute(
+                        """
+                        UPDATE patterns
+                        SET success_count = ?, avg_severity = ?, updated_at = ?
+                        WHERE id = ?
+                    """,
+                        (new_count, new_avg, datetime.now().isoformat(), pattern_id),
+                    )
+                else:
+                    # Insert new pattern
+                    cursor.execute(
+                        """
+                        INSERT INTO patterns
+                        (id, issue_type, issue_text, suggestion_text, success_count, avg_severity, example_task)
+                        VALUES (?, ?, ?, ?, 1, ?, ?)
+                    """,
+                        (pattern_id, issue_type, issue, suggestion, critique.severity, successful_fix[:500]),
+                    )
 
-            # Update surprise score (Titans/MIRAS: track unexpected successes)
-            self._update_surprise_score(cursor, pattern_id, is_success=True)
+                # Update surprise score (Titans/MIRAS: track unexpected successes)
+                self._update_surprise_score(cursor, pattern_id, is_success=True)
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
     def _categorize_issue(self, issue: str) -> str:
         """Simple issue categorization."""
@@ -356,29 +371,28 @@ class CritiqueStore:
         with matching issue text did NOT lead to improvement.
         Implements Titans/MIRAS failure tracking for balanced learning.
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        # Create pattern ID from issue hash (same as store_pattern)
-        pattern_id = hashlib.md5(issue_text.lower().encode()).hexdigest()[:12]
+            # Create pattern ID from issue hash (same as store_pattern)
+            pattern_id = hashlib.md5(issue_text.lower().encode()).hexdigest()[:12]
 
-        # Increment failure count if pattern exists
-        cursor.execute(
-            """
-            UPDATE patterns
-            SET failure_count = failure_count + 1,
-                updated_at = ?
-            WHERE id = ?
-            """,
-            (datetime.now().isoformat(), pattern_id),
-        )
+            # Increment failure count if pattern exists
+            cursor.execute(
+                """
+                UPDATE patterns
+                SET failure_count = failure_count + 1,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (datetime.now().isoformat(), pattern_id),
+            )
 
-        # Update surprise score based on unexpected failure
-        if cursor.rowcount > 0:
-            self._update_surprise_score(cursor, pattern_id, is_success=False)
+            # Update surprise score based on unexpected failure
+            if cursor.rowcount > 0:
+                self._update_surprise_score(cursor, pattern_id, is_success=False)
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
     def update_prediction_outcome(
         self,
@@ -400,43 +414,41 @@ class CritiqueStore:
         Returns:
             Prediction error (|expected - actual|)
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        # Get expected usefulness
-        cursor.execute(
-            "SELECT expected_usefulness, agent FROM critiques WHERE id = ?",
-            (critique_id,),
-        )
-        row = cursor.fetchone()
-        if not row:
-            conn.close()
-            return 0.0
+            # Get expected usefulness
+            cursor.execute(
+                "SELECT expected_usefulness, agent FROM critiques WHERE id = ?",
+                (critique_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return 0.0
 
-        expected = row[0] if row[0] is not None else 0.5
-        agent = agent_name or row[1]
+            expected = row[0] if row[0] is not None else 0.5
+            agent = agent_name or row[1]
 
-        # Calculate prediction error
-        prediction_error = abs(expected - actual_usefulness)
+            # Calculate prediction error
+            prediction_error = abs(expected - actual_usefulness)
 
-        # Update critique with outcome
-        cursor.execute(
-            """
-            UPDATE critiques
-            SET actual_usefulness = ?,
-                prediction_error = ?
-            WHERE id = ?
-            """,
-            (actual_usefulness, prediction_error, critique_id),
-        )
+            # Update critique with outcome
+            cursor.execute(
+                """
+                UPDATE critiques
+                SET actual_usefulness = ?,
+                    prediction_error = ?
+                WHERE id = ?
+                """,
+                (actual_usefulness, prediction_error, critique_id),
+            )
 
-        # Update agent's calibration score if agent provided
-        if agent:
-            self._update_agent_calibration(cursor, agent, prediction_error)
+            # Update agent's calibration score if agent provided
+            if agent:
+                self._update_agent_calibration(cursor, agent, prediction_error)
 
-        conn.commit()
-        conn.close()
-        return prediction_error
+            conn.commit()
+            return prediction_error
 
     def _update_agent_calibration(
         self,
@@ -554,107 +566,104 @@ class CritiqueStore:
         - More surprising patterns (unexpected successes)
         - Recent patterns (time-decay)
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        # Build query with Titans/MIRAS-inspired ranking
-        base_sql = """
-            SELECT id, issue_type, issue_text, suggestion_text, success_count,
-                   failure_count, avg_severity, example_task, created_at, updated_at,
-                   (success_count * (1 + COALESCE(surprise_score, 0))) /
-                   (1 + (julianday('now') - julianday(updated_at)) / ?) as decay_score
-            FROM patterns
-            WHERE success_count >= ?
-        """
-        params = [decay_halflife_days, min_success]
+            # Build query with Titans/MIRAS-inspired ranking
+            base_sql = """
+                SELECT id, issue_type, issue_text, suggestion_text, success_count,
+                       failure_count, avg_severity, example_task, created_at, updated_at,
+                       (success_count * (1 + COALESCE(surprise_score, 0))) /
+                       (1 + (julianday('now') - julianday(updated_at)) / ?) as decay_score
+                FROM patterns
+                WHERE success_count >= ?
+            """
+            params = [decay_halflife_days, min_success]
 
-        if issue_type:
-            base_sql += " AND issue_type = ?"
-            params.append(issue_type)
+            if issue_type:
+                base_sql += " AND issue_type = ?"
+                params.append(issue_type)
 
-        base_sql += " ORDER BY decay_score DESC LIMIT ?"
-        params.append(limit)
+            base_sql += " ORDER BY decay_score DESC LIMIT ?"
+            params.append(limit)
 
-        cursor.execute(base_sql, params)
+            cursor.execute(base_sql, params)
 
-        patterns = [
-            Pattern(
-                id=row[0],
-                issue_type=row[1],
-                issue_text=row[2],
-                suggestion_text=row[3],
-                success_count=row[4],
-                failure_count=row[5],
-                avg_severity=row[6],
-                example_task=row[7],
-                created_at=row[8],
-                updated_at=row[9],
-            )
-            for row in cursor.fetchall()
-        ]
+            patterns = [
+                Pattern(
+                    id=row[0],
+                    issue_type=row[1],
+                    issue_text=row[2],
+                    suggestion_text=row[3],
+                    success_count=row[4],
+                    failure_count=row[5],
+                    avg_severity=row[6],
+                    example_task=row[7],
+                    created_at=row[8],
+                    updated_at=row[9],
+                )
+                for row in cursor.fetchall()
+            ]
 
-        conn.close()
-        return patterns
+            return patterns
 
     def get_stats(self) -> dict:
         """Get statistics about stored patterns and debates."""
         # Ensure tables exist
         self._init_db()
 
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        stats = {}
+            stats = {}
 
-        cursor.execute("SELECT COUNT(*) FROM debates")
-        stats["total_debates"] = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM debates")
+            stats["total_debates"] = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM debates WHERE consensus_reached = 1")
-        stats["consensus_debates"] = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM debates WHERE consensus_reached = 1")
+            stats["consensus_debates"] = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM critiques")
-        stats["total_critiques"] = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM critiques")
+            stats["total_critiques"] = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM patterns")
-        stats["total_patterns"] = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM patterns")
+            stats["total_patterns"] = cursor.fetchone()[0]
 
-        cursor.execute("SELECT issue_type, COUNT(*) FROM patterns GROUP BY issue_type")
-        stats["patterns_by_type"] = dict(cursor.fetchall())
+            cursor.execute("SELECT issue_type, COUNT(*) FROM patterns GROUP BY issue_type")
+            stats["patterns_by_type"] = dict(cursor.fetchall())
 
-        cursor.execute("SELECT AVG(confidence) FROM debates WHERE consensus_reached = 1")
-        avg_conf = cursor.fetchone()[0]
-        stats["avg_consensus_confidence"] = avg_conf if avg_conf else 0.0
+            cursor.execute("SELECT AVG(confidence) FROM debates WHERE consensus_reached = 1")
+            avg_conf = cursor.fetchone()[0]
+            stats["avg_consensus_confidence"] = avg_conf if avg_conf else 0.0
 
-        conn.close()
-        return stats
+            return stats
 
     def export_for_training(self) -> list[dict]:
         """Export successful patterns for potential fine-tuning."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
+            cursor.execute(
+                """
+                SELECT d.task, c.issues, c.suggestions, d.final_answer, d.consensus_reached
+                FROM critiques c
+                JOIN debates d ON c.debate_id = d.id
+                WHERE d.consensus_reached = 1
             """
-            SELECT d.task, c.issues, c.suggestions, d.final_answer, d.consensus_reached
-            FROM critiques c
-            JOIN debates d ON c.debate_id = d.id
-            WHERE d.consensus_reached = 1
-        """
-        )
-
-        training_data = []
-        for row in cursor.fetchall():
-            training_data.append(
-                {
-                    "task": row[0],
-                    "issues": json.loads(row[1]) if row[1] else [],
-                    "suggestions": json.loads(row[2]) if row[2] else [],
-                    "successful_answer": row[3],
-                }
             )
 
-        conn.close()
-        return training_data
+            training_data = []
+            for row in cursor.fetchall():
+                training_data.append(
+                    {
+                        "task": row[0],
+                        "issues": json.loads(row[1]) if row[1] else [],
+                        "suggestions": json.loads(row[2]) if row[2] else [],
+                        "successful_answer": row[3],
+                    }
+                )
+
+            return training_data
 
     # =========================================================================
     # Agent Reputation Tracking
@@ -662,38 +671,37 @@ class CritiqueStore:
 
     def get_reputation(self, agent_name: str) -> Optional[AgentReputation]:
         """Get reputation for an agent."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            SELECT agent_name, proposals_made, proposals_accepted,
-                   critiques_given, critiques_valuable, updated_at,
-                   COALESCE(total_predictions, 0),
-                   COALESCE(total_prediction_error, 0.0),
-                   COALESCE(calibration_score, 0.5)
-            FROM agent_reputation
-            WHERE agent_name = ?
-        """,
-            (agent_name,),
-        )
-        row = cursor.fetchone()
-        conn.close()
+            cursor.execute(
+                """
+                SELECT agent_name, proposals_made, proposals_accepted,
+                       critiques_given, critiques_valuable, updated_at,
+                       COALESCE(total_predictions, 0),
+                       COALESCE(total_prediction_error, 0.0),
+                       COALESCE(calibration_score, 0.5)
+                FROM agent_reputation
+                WHERE agent_name = ?
+            """,
+                (agent_name,),
+            )
+            row = cursor.fetchone()
 
-        if not row:
-            return None
+            if not row:
+                return None
 
-        return AgentReputation(
-            agent_name=row[0],
-            proposals_made=row[1],
-            proposals_accepted=row[2],
-            critiques_given=row[3],
-            critiques_valuable=row[4],
-            updated_at=row[5],
-            total_predictions=row[6],
-            total_prediction_error=row[7],
-            calibration_score=row[8],
-        )
+            return AgentReputation(
+                agent_name=row[0],
+                proposals_made=row[1],
+                proposals_accepted=row[2],
+                critiques_given=row[3],
+                critiques_valuable=row[4],
+                updated_at=row[5],
+                total_predictions=row[6],
+                total_prediction_error=row[7],
+                calibration_score=row[8],
+            )
 
     def get_vote_weight(self, agent_name: str) -> float:
         """Get vote weight for an agent (0.5-1.5 range based on reputation)."""

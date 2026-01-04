@@ -101,11 +101,13 @@ class GeminiEmbedding(EmbeddingProvider):
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY required for Gemini embeddings")
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:embedContent?key={self.api_key}"
+        # Use header-based auth instead of URL parameter (security best practice)
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:embedContent"
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 url,
+                headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
                 json={"content": {"parts": [{"text": text}]}},
             ) as response:
                 if response.status != 200:

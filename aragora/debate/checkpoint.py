@@ -18,6 +18,7 @@ import asyncio
 import json
 import gzip
 import hashlib
+import logging
 import os
 import shutil
 from abc import ABC, abstractmethod
@@ -27,6 +28,8 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 from enum import Enum
 import uuid
+
+logger = logging.getLogger(__name__)
 
 from aragora.core import Message, Vote, DebateResult, Critique
 
@@ -304,7 +307,8 @@ class FileCheckpointStore(CheckpointStore):
                         "created_at": cp.created_at,
                         "status": cp.status.value,
                     })
-            except:
+            except Exception as e:
+                logger.debug(f"Skipping invalid checkpoint file {path}: {e}")
                 continue
 
         return checkpoints
@@ -409,7 +413,8 @@ class S3CheckpointStore(CheckpointStore):
             key = self._get_key(checkpoint_id)
             client.delete_object(Bucket=self.bucket, Key=key)
             return True
-        except:
+        except Exception as e:
+            logger.warning(f"Failed to delete S3 checkpoint {checkpoint_id}: {e}")
             return False
 
 
@@ -824,8 +829,8 @@ class CheckpointWebhook:
                     json={"event": event, "data": data},
                     timeout=aiohttp.ClientTimeout(total=10),
                 )
-        except:
-            pass
+        except Exception as e:
+            logger.debug(f"Webhook notification failed: {e}")
 
 
 # Convenience function for quick checkpointing

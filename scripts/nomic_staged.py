@@ -17,7 +17,10 @@ Each phase saves output to .nomic/ directory for the next phase.
 import asyncio
 import argparse
 import json
+import logging
 import subprocess
+
+logger = logging.getLogger(__name__)
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -74,7 +77,8 @@ def get_recent_changes() -> str:
             text=True,
         )
         return result.stdout
-    except:
+    except Exception as e:
+        logger.warning(f"Failed to read git history: {e}")
         return "Unable to read git history"
 
 
@@ -359,7 +363,8 @@ async def phase_commit():
     try:
         debate_data = load_phase("debate")
         improvement = debate_data.get("final_answer", "Nomic improvement")[:100]
-    except:
+    except Exception as e:
+        logger.warning(f"Failed to load debate phase data: {e}")
         improvement = "Nomic improvement"
 
     # Check for changes

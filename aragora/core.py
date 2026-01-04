@@ -220,8 +220,8 @@ REASONING: <brief explanation>"""
             elif line.startswith("CONFIDENCE:"):
                 try:
                     confidence = float(line.replace("CONFIDENCE:", "").strip())
-                except:
-                    confidence = 0.5
+                except (ValueError, TypeError):
+                    confidence = 0.5  # Default confidence on parse error
             elif line.startswith("CONTINUE:"):
                 cont_val = line.replace("CONTINUE:", "").strip().lower()
                 continue_debate = cont_val not in ("no", "false", "0", "n")

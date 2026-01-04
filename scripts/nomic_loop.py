@@ -1349,7 +1349,7 @@ class NomicLoop:
                         ["python", "-m", "py_compile", str(full_path)],
                         capture_output=True,
                         text=True,
-                        timeout=180,  # Minimum 3 min (was 20)
+                        timeout=30,  # 30s is plenty for syntax check
                     )
                     if result.returncode != 0:
                         issues.append(f"SYNTAX ERROR: {rel_path}")

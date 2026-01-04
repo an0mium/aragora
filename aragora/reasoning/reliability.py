@@ -354,8 +354,8 @@ class ReliabilityScorer:
                 return 0.5
             else:
                 return 0.3
-        except:
-            return 0.5
+        except (ValueError, TypeError):
+            return 0.5  # Default score on date parsing error
 
     def generate_reliability_report(
         self,

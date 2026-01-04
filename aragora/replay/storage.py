@@ -1,7 +1,10 @@
+import json
+import logging
+import os
 from pathlib import Path
 from typing import List, Dict, Any
-import json
-import os
+
+logger = logging.getLogger(__name__)
 
 class ReplayStorage:
     """Manages replay storage and indexing."""
@@ -26,8 +29,8 @@ class ReplayStorage:
                             "event_count": meta.get("event_count"),
                             "started_at": meta.get("started_at")
                         })
-                    except:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Skipping invalid replay metadata {meta_path}: {e}")
         recordings.sort(key=lambda x: x.get("started_at", ""), reverse=True)
         return recordings[:limit]
     

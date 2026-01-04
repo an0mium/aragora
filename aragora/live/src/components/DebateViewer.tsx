@@ -135,7 +135,7 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
       };
     } else {
       // Fetch completed debate from Supabase
-      async function loadDebate() {
+      const loadDebate = async () => {
         try {
           const data = await fetchDebateById(debateId);
           if (data) {
@@ -143,12 +143,12 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
           } else {
             setError('Debate not found');
           }
-        } catch (e) {
+        } catch {
           setError('Failed to load debate');
         } finally {
           setLoading(false);
         }
-      }
+      };
 
       loadDebate();
     }

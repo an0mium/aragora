@@ -140,7 +140,7 @@ except ImportError:
 
 # Optional CalibrationTracker for agent calibration
 try:
-    from aragora.memory.calibration import CalibrationTracker
+    from aragora.agents.calibration import CalibrationTracker
     CALIBRATION_AVAILABLE = True
 except ImportError:
     CALIBRATION_AVAILABLE = False
@@ -426,6 +426,11 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         # Consensus Memory API (expose underutilized databases)
         elif path == '/api/consensus/similar':
             topic = query.get('topic', [''])[0]
+            # Validate topic parameter
+            if not topic or len(topic) > 500:
+                self._send_json({"error": "Topic required (max 500 chars)"}, status=400)
+                return
+            topic = topic.strip()[:500]  # Sanitize
             limit = self._safe_int(query, 'limit', 5, 20)
             self._get_similar_debates(topic, limit)
         elif path == '/api/consensus/settled':
@@ -434,6 +439,13 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._get_settled_topics(min_confidence, limit)
         elif path == '/api/consensus/stats':
             self._get_consensus_stats()
+        elif path == '/api/consensus/dissents':
+            topic = query.get('topic', [''])[0]
+            if not topic or len(topic) > 500:
+                self._send_json({"error": "Topic required (max 500 chars)"}, status=400)
+                return
+            domain = query.get('domain', [None])[0]
+            self._get_dissents_for_topic(topic.strip()[:500], domain)
         elif path.startswith('/api/consensus/domain/'):
             domain = self._extract_path_segment(path, 4, "domain")
             if domain is None:
@@ -905,11 +917,20 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             return
 
         try:
+            # Security: limit file read to prevent memory exhaustion
+            MAX_LOG_BYTES = 100 * 1024  # 100KB max
             with open(log_file) as f:
+                f.seek(0, 2)  # Seek to end
+                file_size = f.tell()
+                start_pos = max(0, file_size - MAX_LOG_BYTES)
+                f.seek(start_pos)
+                if start_pos > 0:
+                    f.readline()  # Skip partial line
                 all_lines = f.readlines()
             self._send_json({"lines": all_lines[-lines:]})
         except Exception as e:
-            self._send_json({"lines": [], "error": str(e)})
+            logger.error(f"Log read error: {type(e).__name__}: {e}")
+            self._send_json({"lines": []})
 
     def _get_history_cycles(self, loop_id: Optional[str], limit: int) -> None:
         """Get nomic cycles from Supabase."""
@@ -1519,6 +1540,26 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._send_json(stats)
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "consensus_stats")}, status=500)
+
+    def _get_dissents_for_topic(self, topic: str, domain: Optional[str] = None) -> None:
+        """Get dissenting views relevant to a topic."""
+        if not CONSENSUS_MEMORY_AVAILABLE or DissentRetriever is None:
+            self._send_json({"error": "Dissent retriever not available"}, status=503)
+            return
+
+        try:
+            memory = ConsensusMemory()
+            retriever = DissentRetriever(memory)
+            context = retriever.retrieve_for_new_debate(topic, domain=domain)
+            self._send_json({
+                "topic": topic,
+                "domain": domain,
+                "similar_debates": context.get("similar_debates", []),
+                "dissents_by_type": context.get("dissent_by_type", {}),
+                "unacknowledged_dissents": len(context.get("unacknowledged", [])),
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "dissent_retrieval")}, status=500)
 
     def _get_domain_history(self, domain: str, limit: int) -> None:
         """Get consensus history for a domain."""

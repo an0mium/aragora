@@ -6,11 +6,14 @@ providing confidence calibration and disagreement analysis.
 """
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Tuple
 from collections import Counter
 from datetime import datetime
 import math
+
+logger = logging.getLogger(__name__)
 
 from aragora.core import Agent, Message, Vote, DebateResult
 
@@ -124,8 +127,9 @@ class ConfidenceEstimator:
                 value=vote.confidence,
                 reasoning=f"Based on voting confidence: {vote.reasoning}"
             )
-        except:
+        except Exception as e:
             # Fallback to default confidence
+            logger.warning(f"Failed to get confidence from {agent.name}: {e}")
             return ConfidenceScore(agent.name, 0.5, "Default confidence")
 
     def _store_confidence(self, agent_name: str, confidence: ConfidenceScore):
