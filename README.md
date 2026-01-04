@@ -350,6 +350,8 @@ Aragora implements several security measures:
 - **Path Traversal Protection**: Static file serving validates paths against base directory
 - **CORS Validation**: Origin allowlist prevents unauthorized cross-origin requests
 - **Generic Error Messages**: Internal errors don't leak stack traces to clients
+- **Process Cleanup**: CLI agents properly kill and await zombie processes on exceptions
+- **Backpressure Control**: Stream event queues are capped to prevent memory exhaustion
 
 Configure security via environment variables:
 ```bash
