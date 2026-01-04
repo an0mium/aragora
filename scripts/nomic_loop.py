@@ -3358,14 +3358,16 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
         if not PERSONA_LAB_AVAILABLE or not self.persona_lab:
             return False
         try:
-            success = self.persona_lab.cross_pollinate_trait(
+            # cross_pollinate returns TraitTransfer or None
+            transfer = self.persona_lab.cross_pollinate(
                 from_agent=from_agent,
                 to_agent=to_agent,
                 trait=trait
             )
-            if success:
+            if transfer:
                 self._log(f"  [lab] Cross-pollinated '{trait}' from {from_agent} to {to_agent}")
-            return success
+                return True
+            return False
         except Exception as e:
             self._log(f"  [lab] Cross-pollination error: {e}")
             return False

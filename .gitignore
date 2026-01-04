@@ -84,3 +84,4 @@ aragora/live/.next/
 aragora/live/out/
 .nomic/backups/
 tsconfig.tsbuildinfo
+.env.production
