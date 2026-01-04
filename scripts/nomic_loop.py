@@ -6976,8 +6976,8 @@ Working directory: {self.aragora_path}
                     stats = self.continuum.consolidate()
                     self._log(f"  [continuum] Consolidated: {stats}")
 
-                # Run MetaLearner to self-tune hyperparameters (every 2 cycles)
-                if self.meta_learner and self.cycle_count % 2 == 0:
+                # Run MetaLearner to self-tune hyperparameters (every cycle)
+                if self.meta_learner:
                     try:
                         metrics = self.meta_learner.evaluate_learning_efficiency(
                             self.continuum, cycle_result
