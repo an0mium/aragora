@@ -1595,8 +1595,8 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     else:
                         scores[agent_name] = 0.0
                 self.elo_system.record_match(debate_id, participants, scores, domain=domain)
-            except Exception:
-                pass  # ELO update failure shouldn't break debate
+            except Exception as e:
+                logger.debug("ELO update failed: %s", e)
 
         # 2. Update PersonaManager with performance feedback
         if self.persona_manager:
@@ -1611,8 +1611,8 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                         domain=domain,
                         success=success,
                     )
-            except Exception:
-                pass  # Persona update failure shouldn't break debate
+            except Exception as e:
+                logger.debug("Persona update failed: %s", e)
 
         # 3. Resolve positions in PositionLedger
         if self.position_ledger and result.final_answer:
@@ -1628,8 +1628,8 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                                 outcome=outcome,
                                 resolution_source=f"debate:{debate_id}",
                             )
-            except Exception:
-                pass  # Position resolution failure shouldn't break debate
+            except Exception as e:
+                logger.debug("Position resolution failed: %s", e)
 
         # 4. Index debate in embeddings for historical retrieval
         if self.debate_embeddings:
@@ -1645,8 +1645,8 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     'agents': [a.name for a in self.agents],
                 }
                 asyncio.create_task(self._index_debate_async(artifact))
-            except Exception:
-                pass  # Embedding indexing failure shouldn't break debate
+            except Exception as e:
+                logger.debug("Embedding indexing failed: %s", e)
 
         # 5. Detect position flips for all participating agents
         if self.flip_detector:
@@ -1654,9 +1654,9 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 for agent in self.agents:
                     flips = self.flip_detector.detect_flips_for_agent(agent.name)
                     if flips:
-                        print(f"  [flip] Detected {len(flips)} position changes for {agent.name}")
-            except Exception:
-                pass  # Flip detection failure shouldn't break debate
+                        logger.info("[flip] Detected %d position changes for %s", len(flips), agent.name)
+            except Exception as e:
+                logger.debug("Flip detection failed: %s", e)
 
         return result
 
@@ -1665,8 +1665,8 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         try:
             if self.debate_embeddings:
                 await self.debate_embeddings.index_debate(artifact)
-        except Exception:
-            pass  # Silent failure for async indexing
+        except Exception as e:
+            logger.debug("Async debate indexing failed: %s", e)
 
     async def _generate_with_agent(
         self, agent: Agent, prompt: str, context: list[Message]
