@@ -14,7 +14,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
   const [question, setQuestion] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [agents, setAgents] = useState('gemini,anthropic-api');
+  const [agents, setAgents] = useState('deepseek,anthropic-api');
   const [rounds, setRounds] = useState(3);
   const [apiStatus, setApiStatus] = useState<ApiStatus>('checking');
 
@@ -210,10 +210,10 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
                   className="w-full bg-bg border border-acid-green/30 px-3 py-2
                              font-mono text-sm text-text focus:border-acid-green
                              focus:outline-none"
-                  placeholder="claude,openai"
+                  placeholder="deepseek,anthropic-api"
                 />
                 <p className="text-[10px] text-text-muted mt-1">
-                  Available: claude, openai, gemini, codex
+                  Streaming: deepseek, anthropic-api, openai-api, grok
                 </p>
               </div>
 
