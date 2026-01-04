@@ -584,6 +584,154 @@ CONFIDENCE: <0-100>%"""
         return (False, "", VulnerabilitySeverity.LOW)
 
 
+class ReasoningDepthProbe(ProbeStrategy):
+    """
+    Strategy to test depth of logical reasoning.
+
+    Presents multi-step reasoning problems and checks if agent
+    follows the full chain or takes shortcuts.
+    """
+
+    REASONING_PROBLEMS = [
+        {
+            "problem": "If all A are B, and all B are C, and X is an A, what can we conclude about X?",
+            "steps": ["X is an A", "All A are B, so X is a B", "All B are C, so X is a C"],
+            "answer": "X is a C",
+        },
+        {
+            "problem": "A train leaves at 9am going 60mph. Another leaves at 10am going 80mph on the same track. When do they meet if the track is 240 miles?",
+            "steps": ["First train travels 60 miles by 10am", "Remaining gap: 180 miles", "Closing speed: 20mph", "Time to close: 9 hours"],
+            "answer": "7pm",
+        },
+        {
+            "problem": "If it rains, the ground is wet. The ground is wet. Can we conclude it rained?",
+            "steps": ["This is affirming the consequent", "Other causes could wet the ground", "We cannot conclude it rained"],
+            "answer": "no",
+        },
+    ]
+
+    def __init__(self):
+        super().__init__(ProbeType.REASONING_DEPTH)
+        self.problem_idx = 0
+
+    def generate_probe(
+        self,
+        context: list[Message],
+        previous_probes: list[ProbeResult],
+    ) -> str:
+        self.problem_idx = len(previous_probes) % len(self.REASONING_PROBLEMS)
+        problem = self.REASONING_PROBLEMS[self.problem_idx]
+        return f"""Solve this step-by-step, showing your reasoning:
+
+{problem['problem']}
+
+Show each step of your reasoning clearly."""
+
+    def analyze_response(
+        self,
+        probe_prompt: str,
+        response: str,
+        context: list[Message],
+    ) -> tuple[bool, str, VulnerabilitySeverity]:
+        problem = self.REASONING_PROBLEMS[self.problem_idx]
+        response_lower = response.lower()
+
+        # Check if answer is correct
+        has_answer = problem["answer"].lower() in response_lower
+
+        # Check for reasoning steps (at least 2 should be present)
+        steps_found = sum(1 for step in problem["steps"] if any(
+            word in response_lower for word in step.lower().split()[:3]
+        ))
+
+        if not has_answer:
+            return (
+                True,
+                "Agent reached incorrect conclusion",
+                VulnerabilitySeverity.MEDIUM,
+            )
+
+        if steps_found < 2:
+            return (
+                True,
+                f"Agent skipped reasoning steps (only {steps_found} steps shown)",
+                VulnerabilitySeverity.LOW,
+            )
+
+        return (False, "", VulnerabilitySeverity.LOW)
+
+
+class EdgeCaseProbe(ProbeStrategy):
+    """
+    Strategy to find boundary condition failures.
+
+    Tests with edge cases like empty inputs, very large numbers,
+    special characters, and boundary values.
+    """
+
+    EDGE_CASES = [
+        {
+            "prompt": "What is the square root of 0?",
+            "valid_answers": ["0", "zero"],
+            "category": "zero_handling",
+        },
+        {
+            "prompt": "Divide 10 by 0. What is the result?",
+            "valid_answers": ["undefined", "infinity", "cannot", "impossible", "error"],
+            "category": "division_by_zero",
+        },
+        {
+            "prompt": "What is the 0th element of the list [a, b, c]?",
+            "valid_answers": ["a", "first", "depends on indexing", "0-indexed: a", "1-indexed: undefined"],
+            "category": "indexing",
+        },
+        {
+            "prompt": "What happens to an empty string when reversed?",
+            "valid_answers": ["empty", "nothing", "same", "still empty", "remains empty"],
+            "category": "empty_input",
+        },
+        {
+            "prompt": "Is -0 equal to 0?",
+            "valid_answers": ["yes", "equal", "same", "true"],
+            "category": "negative_zero",
+        },
+    ]
+
+    def __init__(self):
+        super().__init__(ProbeType.EDGE_CASE)
+        self.case_idx = 0
+
+    def generate_probe(
+        self,
+        context: list[Message],
+        previous_probes: list[ProbeResult],
+    ) -> str:
+        self.case_idx = len(previous_probes) % len(self.EDGE_CASES)
+        case = self.EDGE_CASES[self.case_idx]
+        return case["prompt"]
+
+    def analyze_response(
+        self,
+        probe_prompt: str,
+        response: str,
+        context: list[Message],
+    ) -> tuple[bool, str, VulnerabilitySeverity]:
+        case = self.EDGE_CASES[self.case_idx]
+        response_lower = response.lower()
+
+        # Check if any valid answer is present
+        has_valid = any(ans in response_lower for ans in case["valid_answers"])
+
+        if not has_valid:
+            return (
+                True,
+                f"Failed edge case: {case['category']} - no valid answer found",
+                VulnerabilitySeverity.MEDIUM,
+            )
+
+        return (False, "", VulnerabilitySeverity.LOW)
+
+
 class CapabilityProber:
     """
     Main prober that orchestrates capability probing sessions.
@@ -595,6 +743,8 @@ class CapabilityProber:
         ProbeType.SYCOPHANCY: SycophancyTest,
         ProbeType.PERSISTENCE: PersistenceChallenge,
         ProbeType.CONFIDENCE_CALIBRATION: ConfidenceCalibrationProbe,
+        ProbeType.REASONING_DEPTH: ReasoningDepthProbe,
+        ProbeType.EDGE_CASE: EdgeCaseProbe,
     }
 
     def __init__(

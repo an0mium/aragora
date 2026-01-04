@@ -1159,3 +1159,110 @@ class EloSystem:
              "a_wins_over_b": r[10], "b_wins_over_a": r[11]}
             for r in rows
         ]
+
+    def compute_relationship_metrics(self, agent_a: str, agent_b: str) -> dict:
+        """
+        Compute rivalry and alliance scores between two agents.
+
+        Rivalry is high when: many debates, low agreement, competitive wins.
+        Alliance is high when: high agreement, mutual critique acceptance.
+
+        Returns dict with rivalry_score, alliance_score, and relationship type.
+        """
+        raw = self.get_relationship_raw(agent_a, agent_b)
+        if not raw:
+            return {
+                "agent_a": agent_a,
+                "agent_b": agent_b,
+                "rivalry_score": 0.0,
+                "alliance_score": 0.0,
+                "relationship": "unknown",
+                "debate_count": 0,
+            }
+
+        debate_count = raw.get("debate_count", 0)
+        if debate_count == 0:
+            return {
+                "agent_a": agent_a,
+                "agent_b": agent_b,
+                "rivalry_score": 0.0,
+                "alliance_score": 0.0,
+                "relationship": "no_history",
+                "debate_count": 0,
+            }
+
+        # Agreement rate (0-1, higher = more allied)
+        agreement_rate = raw.get("agreement_count", 0) / debate_count
+
+        # Win competitiveness (how close are their win rates against each other)
+        a_wins = raw.get("a_wins_over_b", 0)
+        b_wins = raw.get("b_wins_over_a", 0)
+        total_wins = a_wins + b_wins
+        if total_wins > 0:
+            win_balance = min(a_wins, b_wins) / max(a_wins, b_wins) if max(a_wins, b_wins) > 0 else 0
+        else:
+            win_balance = 0.5
+
+        # Critique acceptance rate
+        critiques_given = raw.get("critique_count_a_to_b", 0) + raw.get("critique_count_b_to_a", 0)
+        critiques_accepted = raw.get("critique_accepted_a_to_b", 0) + raw.get("critique_accepted_b_to_a", 0)
+        critique_acceptance = critiques_accepted / critiques_given if critiques_given > 0 else 0.5
+
+        # Rivalry score: high debates + low agreement + competitive wins
+        rivalry_score = (
+            min(1.0, debate_count / 20) * 0.3 +  # Engagement factor (caps at 20 debates)
+            (1 - agreement_rate) * 0.4 +  # Disagreement factor
+            win_balance * 0.3  # Competitiveness factor
+        )
+
+        # Alliance score: high agreement + high critique acceptance
+        alliance_score = (
+            agreement_rate * 0.5 +
+            critique_acceptance * 0.3 +
+            (1 - win_balance) * 0.2 if total_wins > 2 else agreement_rate * 0.5 + critique_acceptance * 0.5
+        )
+
+        # Determine relationship type
+        if rivalry_score > 0.6 and rivalry_score > alliance_score:
+            relationship = "rival"
+        elif alliance_score > 0.6 and alliance_score > rivalry_score:
+            relationship = "ally"
+        elif debate_count < 3:
+            relationship = "acquaintance"
+        else:
+            relationship = "neutral"
+
+        return {
+            "agent_a": agent_a,
+            "agent_b": agent_b,
+            "rivalry_score": round(rivalry_score, 3),
+            "alliance_score": round(alliance_score, 3),
+            "relationship": relationship,
+            "debate_count": debate_count,
+            "agreement_rate": round(agreement_rate, 3),
+            "head_to_head": f"{a_wins}-{b_wins}",
+        }
+
+    def get_rivals(self, agent_name: str, limit: int = 5) -> list[dict]:
+        """Get agent's top rivals by rivalry score."""
+        relationships = self.get_all_relationships_for_agent(agent_name)
+        scored = []
+        for rel in relationships:
+            other = rel["agent_b"] if rel["agent_a"] == agent_name else rel["agent_a"]
+            metrics = self.compute_relationship_metrics(agent_name, other)
+            if metrics["rivalry_score"] > 0.3:
+                scored.append(metrics)
+        scored.sort(key=lambda x: x["rivalry_score"], reverse=True)
+        return scored[:limit]
+
+    def get_allies(self, agent_name: str, limit: int = 5) -> list[dict]:
+        """Get agent's top allies by alliance score."""
+        relationships = self.get_all_relationships_for_agent(agent_name)
+        scored = []
+        for rel in relationships:
+            other = rel["agent_b"] if rel["agent_a"] == agent_name else rel["agent_a"]
+            metrics = self.compute_relationship_metrics(agent_name, other)
+            if metrics["alliance_score"] > 0.3:
+                scored.append(metrics)
+        scored.sort(key=lambda x: x["alliance_score"], reverse=True)
+        return scored[:limit]
