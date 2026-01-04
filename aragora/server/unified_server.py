@@ -180,6 +180,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     flip_detector: Optional["FlipDetector"] = None  # FlipDetector for position reversals
     persona_manager: Optional["PersonaManager"] = None  # PersonaManager for agent specialization
     debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None  # Historical memory
+    position_tracker: Optional["PositionTracker"] = None  # PositionTracker for truth-grounded personas
+    position_ledger: Optional["PositionLedger"] = None  # PositionLedger for grounded positions
 
     def _safe_int(self, query: dict, key: str, default: int, max_val: int = 100) -> int:
         """Safely parse integer query param with bounds checking."""
@@ -660,7 +662,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 env = Environment(task=question, context="", max_rounds=rounds)
                 protocol = DebateProtocol(rounds=rounds, consensus=consensus)
 
-                # Create arena with hooks and optional context systems
+                # Create arena with hooks and all available context systems
                 hooks = create_arena_hooks(self.stream_emitter)
                 arena = Arena(
                     env, agents, protocol,
@@ -668,12 +670,17 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     event_emitter=self.stream_emitter,
                     persona_manager=self.persona_manager,
                     debate_embeddings=self.debate_embeddings,
+                    elo_system=self.elo_system,
+                    position_tracker=self.position_tracker,
+                    position_ledger=self.position_ledger,
                     loop_id=debate_id,
                 )
 
-                # Run debate
+                # Run debate with timeout protection (10 minutes max)
                 _active_debates[debate_id]["status"] = "running"
-                result = _asyncio.run(arena.run())
+                async def run_with_timeout():
+                    return await _asyncio.wait_for(arena.run(), timeout=600)
+                result = _asyncio.run(run_with_timeout())
                 _active_debates[debate_id]["status"] = "completed"
                 _active_debates[debate_id]["result"] = {
                     "final_answer": result.final_answer,
