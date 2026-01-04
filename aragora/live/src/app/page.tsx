@@ -18,6 +18,7 @@ import { LeaderboardPanel } from '@/components/LeaderboardPanel';
 import { TournamentPanel } from '@/components/TournamentPanel';
 import { CruxPanel } from '@/components/CruxPanel';
 import { MemoryInspector } from '@/components/MemoryInspector';
+import { LaboratoryPanel } from '@/components/LaboratoryPanel';
 import { CitationsPanel } from '@/components/CitationsPanel';
 import { VerdictCard } from '@/components/VerdictCard';
 import { CompareView, CompareButton } from '@/components/CompareView';
@@ -359,6 +360,7 @@ export default function Home() {
             <InsightsPanel wsMessages={events} />
             <CruxPanel apiBase={API_URL} />
             <MemoryInspector apiBase={API_URL} />
+            <LaboratoryPanel apiBase={API_URL} />
             <ReplayBrowser />
           </div>
         </div>
