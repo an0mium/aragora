@@ -638,27 +638,26 @@ class DebateReplayer:
 
 def list_traces(db_path: str = "aragora_traces.db", limit: int = 20) -> list[dict]:
     """List recent traces from database."""
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+    with sqlite3.connect(db_path, timeout=30.0) as conn:
+        cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT trace_id, debate_id, task, agents, started_at, completed_at, checksum
-        FROM traces
-        ORDER BY started_at DESC
-        LIMIT ?
-    """, (limit,))
+        cursor.execute("""
+            SELECT trace_id, debate_id, task, agents, started_at, completed_at, checksum
+            FROM traces
+            ORDER BY started_at DESC
+            LIMIT ?
+        """, (limit,))
 
-    traces = []
-    for row in cursor.fetchall():
-        traces.append({
-            "trace_id": row[0],
-            "debate_id": row[1],
-            "task": row[2][:100],
-            "agents": json.loads(row[3]),
-            "started_at": row[4],
-            "completed_at": row[5],
-            "checksum": row[6],
-        })
+        traces = []
+        for row in cursor.fetchall():
+            traces.append({
+                "trace_id": row[0],
+                "debate_id": row[1],
+                "task": row[2][:100],
+                "agents": json.loads(row[3]),
+                "started_at": row[4],
+                "completed_at": row[5],
+                "checksum": row[6],
+            })
 
-    conn.close()
     return traces

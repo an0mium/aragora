@@ -114,11 +114,11 @@ class EloSystem:
 
     def _init_db(self):
         """Initialize database schema."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+            cursor = conn.cursor()
 
-        # Agent ratings
-        cursor.execute("""
+            # Agent ratings
+            cursor.execute("""
             CREATE TABLE IF NOT EXISTS ratings (
                 agent_name TEXT PRIMARY KEY,
                 elo REAL DEFAULT 1500,
