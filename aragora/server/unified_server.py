@@ -131,7 +131,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         elif path == '/api/nomic/state':
             self._get_nomic_state()
         elif path == '/api/nomic/log':
-            lines = int(query.get('lines', [100])[0])
+            lines = self._safe_int(query, 'lines', 100, 1000)
             self._get_nomic_log(lines)
 
         # History API (Supabase)
