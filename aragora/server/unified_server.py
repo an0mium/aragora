@@ -43,6 +43,18 @@ except ImportError:
     RANKING_AVAILABLE = False
     EloSystem = None
 
+# Optional FlipDetector for position reversal detection
+try:
+    from aragora.insights.flip_detector import (
+        FlipDetector,
+        format_flip_for_ui,
+        format_consistency_for_ui,
+    )
+    FLIP_DETECTOR_AVAILABLE = True
+except ImportError:
+    FLIP_DETECTOR_AVAILABLE = False
+    FlipDetector = None
+
 
 class UnifiedHandler(BaseHTTPRequestHandler):
     """HTTP handler with API endpoints and static file serving."""
@@ -55,6 +67,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     insight_store: Optional["InsightStore"] = None  # InsightStore for debate insights
     elo_system: Optional["EloSystem"] = None  # EloSystem for agent rankings
     document_store: Optional[DocumentStore] = None  # Document store for uploads
+    flip_detector: Optional["FlipDetector"] = None  # FlipDetector for position reversals
 
     def do_GET(self) -> None:
         """Handle GET requests."""
@@ -121,6 +134,20 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         elif path.startswith('/api/documents/'):
             doc_id = path.split('/')[-1]
             self._get_document(doc_id)
+
+        # Flip Detection API
+        elif path == '/api/flips/recent':
+            limit = int(query.get('limit', [20])[0])
+            self._get_recent_flips(limit)
+        elif path == '/api/flips/summary':
+            self._get_flip_summary()
+        elif path.startswith('/api/agent/') and path.endswith('/consistency'):
+            agent = path.split('/')[3]
+            self._get_agent_consistency(agent)
+        elif path.startswith('/api/agent/') and path.endswith('/flips'):
+            agent = path.split('/')[3]
+            limit = int(query.get('limit', [20])[0])
+            self._get_agent_flips(agent, limit)
 
         # Static file serving
         elif path in ('/', '/index.html'):
