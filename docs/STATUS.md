@@ -58,16 +58,21 @@
 - **NEW**: Added __init__.py for evidence, pulse, uncertainty modules
 - **NEW**: Implemented MomentDetector for significant debate events (Emergent Persona Lab v2)
 - **NEW**: Exported 24+ new classes from main __init__.py (grounded personas, evidence, pulse, uncertainty)
+- **NEW**: Created .env.example template for secure API key management
+- **NEW**: Exported BeliefNetwork, ReliabilityScorer, WebhookDispatcher in main __init__.py
+- **NEW**: Added record_redteam_result() to EloSystem (Red Team → ELO feedback loop)
+- **NEW**: Added pattern injection to debate prompts (learned patterns from InsightStore)
+- **NEW**: Added 5 UI components: DebateExportModal, OperationalModesPanel, AgentNetworkPanel, RedTeamAnalysisPanel, CapabilityProbePanel
 
 ## Feature Integration Status
 
-### Fully Integrated (11)
+### Fully Integrated (16)
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
 | Token Streaming | Active | `aragora/agents/api_agents.py` |
 | ELO Rankings | Active | `aragora/ranking/elo.py` |
-| FlipDetector | Active | `aragora/insights/flip_detector.py` |
+| FlipDetector + Vote Weight | Active | `aragora/insights/flip_detector.py` (→ orchestrator.py:1423-1433) |
 | Position Ledger | Active | `aragora/agents/grounded.py` |
 | Calibration Tracking | Active | `aragora/agents/calibration.py` |
 | Convergence Detection | Active | `aragora/debate/convergence.py` |
@@ -75,6 +80,11 @@
 | PersonaSynthesizer | Active | `aragora/agents/grounded.py` |
 | MomentDetector | Active | `aragora/agents/grounded.py` |
 | Relationship Metrics | Active | `aragora/ranking/elo.py` |
+| Red Team → ELO | Active | `aragora/ranking/elo.py:record_redteam_result()` |
+| Pattern Injection | Active | `aragora/debate/orchestrator.py:_format_patterns_for_prompt()` |
+| Belief Network | Exported | `aragora/reasoning/belief.py` (exported in __init__.py) |
+| Reliability Scoring | Exported | `aragora/reasoning/reliability.py` (exported in __init__.py) |
+| Webhook Integration | Exported | `aragora/integrations/webhooks.py` (exported in __init__.py) |
 
 ### Implemented but Underutilized (1)
 | Feature | Issue | Location |

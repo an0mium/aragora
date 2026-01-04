@@ -769,6 +769,42 @@ class Arena:
         except Exception:
             return ""
 
+    def _format_patterns_for_prompt(self, patterns: list[dict]) -> str:
+        """Format learned patterns as prompt context for agents.
+
+        This enables pattern-based learning: agents are warned about
+        recurring issues from past debates before they make the same mistakes.
+
+        Args:
+            patterns: List of pattern dicts with 'category', 'pattern', 'occurrences'
+
+        Returns:
+            Formatted string to inject into debate context
+        """
+        if not patterns:
+            return ""
+
+        lines = ["## LEARNED PATTERNS (From Previous Debates)"]
+        lines.append("Be especially careful about these recurring issues:\n")
+
+        for p in patterns[:5]:  # Limit to top 5 patterns
+            category = p.get("category", "general")
+            pattern = p.get("pattern", "")
+            occurrences = p.get("occurrences", 0)
+            severity = p.get("avg_severity", 0)
+
+            severity_label = ""
+            if severity >= 0.7:
+                severity_label = " [HIGH SEVERITY]"
+            elif severity >= 0.4:
+                severity_label = " [MEDIUM]"
+
+            lines.append(f"- **{category.upper()}**{severity_label}: {pattern}")
+            lines.append(f"  (Occurred in {occurrences} past debates)")
+
+        lines.append("\nAddress these proactively to improve debate quality.")
+        return "\n".join(lines)
+
     async def _perform_research(self, task: str) -> str:
         """Perform web research for the debate topic and return formatted context.
 
@@ -935,6 +971,21 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 )
             except Exception:
                 self._historical_context_cache = ""
+
+        # Inject learned patterns from past debates (pattern-based prompting)
+        if self.insight_store:
+            try:
+                patterns = await self.insight_store.get_common_patterns(
+                    min_occurrences=2, limit=5
+                )
+                if patterns:
+                    pattern_context = self._format_patterns_for_prompt(patterns)
+                    if self.env.context:
+                        self.env.context += "\n\n" + pattern_context
+                    else:
+                        self.env.context = pattern_context
+            except Exception:
+                pass  # Pattern injection failure shouldn't break debate
 
         # Pre-debate research phase
         if self.protocol.enable_research:

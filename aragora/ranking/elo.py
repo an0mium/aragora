@@ -1266,3 +1266,100 @@ class EloSystem:
                 scored.append(metrics)
         scored.sort(key=lambda x: x["alliance_score"], reverse=True)
         return scored[:limit]
+
+    # =========================================================================
+    # Red Team Integration (Vulnerability-based ELO adjustment)
+    # =========================================================================
+
+    def record_redteam_result(
+        self,
+        agent_name: str,
+        robustness_score: float,
+        successful_attacks: int,
+        total_attacks: int,
+        critical_vulnerabilities: int = 0,
+        session_id: str = None,
+    ) -> float:
+        """
+        Record red team results and adjust ELO based on vulnerability.
+
+        The robustness score (0-1) affects ELO:
+        - robustness >= 0.8: Small ELO boost (+5 to +10)
+        - robustness 0.5-0.8: No change
+        - robustness < 0.5: ELO penalty (-5 to -20 based on critical vulns)
+
+        Args:
+            agent_name: Agent that was red-teamed
+            robustness_score: Overall robustness (0-1, higher is better)
+            successful_attacks: Number of attacks that succeeded
+            total_attacks: Total attacks attempted
+            critical_vulnerabilities: Count of critical severity issues
+            session_id: Optional red team session ID
+
+        Returns:
+            ELO change applied
+        """
+        rating = self.get_rating(agent_name)
+        elo_change = 0.0
+
+        # Calculate vulnerability rate
+        vulnerability_rate = successful_attacks / total_attacks if total_attacks > 0 else 0
+
+        # Robust agents get a boost
+        if robustness_score >= 0.8:
+            elo_change = K_FACTOR * 0.3 * robustness_score  # +5 to +10
+
+        # Vulnerable agents get penalized
+        elif robustness_score < 0.5:
+            # Base penalty from vulnerability rate
+            base_penalty = K_FACTOR * 0.5 * vulnerability_rate  # Up to -16
+
+            # Additional penalty for critical vulnerabilities
+            critical_penalty = critical_vulnerabilities * 2  # -2 per critical
+
+            elo_change = -(base_penalty + critical_penalty)
+            elo_change = max(elo_change, -30)  # Cap at -30
+
+        # Apply the change
+        if elo_change != 0:
+            rating.elo += elo_change
+            rating.updated_at = datetime.now().isoformat()
+            self._save_rating(rating)
+            self._record_elo_history(
+                agent_name,
+                rating.elo,
+                f"redteam_{session_id}" if session_id else "redteam"
+            )
+
+        return elo_change
+
+    def get_vulnerability_summary(self, agent_name: str) -> dict:
+        """
+        Get summary of agent's red team history from ELO adjustments.
+
+        Returns dict with:
+        - redteam_sessions: Count of red team sessions
+        - total_elo_impact: Net ELO change from red team
+        - last_session: Timestamp of last red team session
+        """
+        history = self.get_elo_history(agent_name, limit=100)
+
+        redteam_sessions = 0
+        total_impact = 0.0
+        last_session = None
+
+        prev_elo = None
+        for timestamp, elo in reversed(history):
+            if "redteam" in str(timestamp):
+                redteam_sessions += 1
+                if prev_elo is not None:
+                    total_impact += elo - prev_elo
+                if last_session is None:
+                    last_session = timestamp
+            prev_elo = elo
+
+        return {
+            "redteam_sessions": redteam_sessions,
+            "total_elo_impact": round(total_impact, 1),
+            "last_session": last_session,
+        }
