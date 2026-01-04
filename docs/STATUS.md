@@ -6,76 +6,92 @@
 
 ### Nomic Loop
 - **Cycle**: 1
-- **Phase**: Implement
-- **Progress**: 6/9 tasks completed (67%)
-- **Feature**: Flip Detection (position reversal tracking)
+- **Phase**: cycle_start (ready for next iteration)
+- **Last Proposal**: Claude's "Persona Laboratory v2" (won 2/3 consensus)
+- **Implementation**: Failed on verification (timeout issues)
+- **Position Ledger**: Implemented in `aragora/agents/grounded.py`
 
-### Pending Tasks
-1. `task-7`: Add tests for /api/insights/flips endpoint
-2. `task-8`: Implement 'Flips' tab in InsightsPanel UI
-3. `task-9`: Add frontend tests for Flips tab
+### Active Agents (4 default, 12+ total)
+| Agent | Model | API |
+|-------|-------|-----|
+| `grok` | Grok 4 | xAI |
+| `anthropic-api` | Claude Opus 4.5 | Anthropic |
+| `openai-api` | GPT 5.2 | OpenAI |
+| `deepseek-r1` | DeepSeek V3.2 | OpenRouter |
+
+### Recent Changes (2026-01-04)
+- Added OpenRouter support (DeepSeek, Llama, Mistral)
+- Added GrokAgent for xAI API
+- Updated default agents to streaming-capable models
+- Fixed security: removed API keys from .env.example
+- Fixed security: restricted exec() builtins in proofs.py
+- Exported KiloCodeAgent for codebase exploration
+- Improved debate scrolling (calc(100vh-280px))
 
 ## Feature Integration Status
 
-### Fully Integrated (6)
+### Fully Integrated (8)
 | Feature | Status | Location |
 |---------|--------|----------|
-| FlipDetector | Active | `aragora/insights/flip_detector.py` |
+| Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
+| Token Streaming | Active | `aragora/agents/api_agents.py` |
 | ELO Rankings | Active | `aragora/ranking/elo.py` |
-| Insight Extraction | Active | `aragora/insights/extractor.py` |
-| Citation Tracking | Active | `aragora/reasoning/citations.py` |
+| FlipDetector | Active | `aragora/insights/flip_detector.py` |
+| Position Ledger | Active | `aragora/agents/grounded.py` |
+| Calibration Tracking | Active | `aragora/agents/calibration.py` |
 | Convergence Detection | Active | `aragora/debate/convergence.py` |
-| Audience Participation | Active | `aragora/audience/suggestions.py` |
+| Role Rotation | Active | `aragora/debate/roles.py` |
 
-### Implemented but Underutilized (4)
-| Feature | Issue | Quick Fix |
-|---------|-------|-----------|
-| Persona System | Not injected into prompts | Add persona context to `_build_proposal_prompt()` |
-| Historical Memory | Never initialized | Initialize `debate_embeddings` in API handlers |
-| Relationship Tracking | Not exposed in API/UI | Add `/api/agent/{name}/relationships` endpoint |
-| Role Rotation | Now enabled by default | *(Fixed in commit 272c347)* |
+### Implemented but Underutilized (6)
+| Feature | Issue | Location |
+|---------|-------|----------|
+| Tournament System | No UI | `aragora/tournaments/tournament.py` |
+| Agent Routing | No UI | `aragora/routing/selection.py` |
+| Continuum Memory | Endpoints exist, not used | `aragora/memory/continuum.py` |
+| Belief Network | Endpoints exist, not used | `aragora/reasoning/belief.py` |
+| Persona Laboratory | Endpoints exist, not used | `aragora/agents/laboratory.py` |
+| Prompt Evolution | 3 TODO items | `aragora/evolution/evolver.py` |
 
-### Missing UI/API (2)
-| Feature | Issue |
-|---------|-------|
-| Audience Inbox | No dedicated UI component for browsing suggestions |
-| Research Phase | `enable_research` defaults to False |
+### Server Endpoints (54 total)
+- **Used by Frontend**: ~10%
+- **Available but Unused**: 52 endpoints
+- **Key Gap**: Frontend uses WebSocket events, bypasses most REST endpoints
 
-## Recent Improvements
+## Security Status
 
-### Commit 272c347 (2026-01-04)
-- Enabled cognitive role rotation by default for diverse perspectives
-- Added `ALLOWED_AGENT_TYPES` allowlist for security
-- Fixed test signature mismatch in auth tests
+### Fixed (2026-01-04)
+- Removed real API keys from `.env.local.example`
+- Replaced full `__builtins__` with `SAFE_BUILTINS` in proofs.py
+- Input validation on all POST endpoints
+- Agent type allowlist prevents injection
 
-### Security Enhancements
-- Agent type validation prevents arbitrary agent injection
-- Prompt injection filtering in audience suggestions
-- Safe integer parsing with bounds checking
+### Remaining Considerations
+- Rate limiting only active when auth enabled
+- Consider adding per-IP rate limits
+- Token revocation mechanism not implemented
 
 ## Recommendations
 
 ### High Priority
-1. **Complete Flip Detection** - 3 tasks remaining, unblocks personas
-2. **Add Persona Context** - Inject persona into debate prompts for agent specialization
-3. **Initialize Historical Memory** - Enable learning from past debates by default
+1. **Activate Position Ledger by default** - Initialize in Arena constructor
+2. **Surface Tournament UI** - Backend complete, needs frontend component
+3. **Enable Belief Network visualization** - Crux analysis available but hidden
 
 ### Medium Priority
-1. Create Audience Inbox Panel - Display clustered suggestions with voting
-2. Add agent consistency metrics to leaderboard
-3. Track verification failures for design feedback loop
+1. Create Agent Routing UI - Show suitability recommendations
+2. Implement Continuum Memory inspector
+3. Add emergent traits browser from PersonaLaboratory
 
 ### Nomic Loop Improvements
-1. **Verification Feedback**: Store failure patterns to inform next design phase
-2. **Dissent Tracking**: Weight agents by historical dissent accuracy
-3. **Staged Rollout**: For low-consensus designs, commit to branch first
-4. **Test Coverage Gates**: Require minimum coverage for new code
+1. **Better Task Splitting**: Decompose large tasks to avoid timeouts
+2. **Pattern-based Agent Selection**: Route tasks to agents with best track record
+3. **Cross-cycle Learning**: Persist insights between cycles via continuum.db
 
 ## Architecture Notes
 
-The codebase is well-structured with optional features using lazy loading:
-- Optional parameters prevent circular imports
-- Feature flags in `DebateProtocol` enable/disable features cleanly
-- Server gracefully handles missing databases
+The codebase is **feature-rich but under-exposed**:
+- 54 API endpoints, ~10% used by frontend
+- Many sophisticated features implemented but not surfaced
+- WebSocket-first architecture means REST endpoints underutilized
 
-Key insight: Many powerful features are "sleeping" - implemented but not activated. Enabling opt-in features by default would immediately increase system capability.
+**Key Insight**: Enabling more optional features by default would significantly increase system capability without new code.

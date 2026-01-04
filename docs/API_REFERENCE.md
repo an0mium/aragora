@@ -97,9 +97,26 @@ Start an ad-hoc debate. **Rate limited**.
 
 **Parameters:**
 - `question` (string, required): Topic/question to debate
-- `agents` (string, default="claude,openai"): Comma-separated agent list (max 10)
+- `agents` (string, default="grok,anthropic-api,openai-api,deepseek-r1"): Comma-separated agent list (max 10)
 - `rounds` (int, default=3): Number of debate rounds
 - `consensus` (string, default="majority"): Consensus method
+
+**Available Agent Types:**
+
+| Type | Model | Notes |
+|------|-------|-------|
+| `grok` | Grok 4 | xAI API, streaming |
+| `anthropic-api` | Claude Opus 4.5 | Anthropic API, streaming |
+| `openai-api` | GPT 5.2 | OpenAI API, streaming |
+| `deepseek` | DeepSeek V3 | OpenRouter, streaming |
+| `deepseek-r1` | DeepSeek V3.2 | OpenRouter, reasoning model |
+| `llama` | Llama 3.3 70B | OpenRouter |
+| `mistral` | Mistral Large | OpenRouter |
+| `gemini` | Gemini 3 Pro | Google API |
+| `ollama` | Local models | Requires local Ollama |
+| `claude` | Claude Sonnet 4 | CLI-based |
+| `codex` | GPT 5.2 Codex | CLI-based |
+| `kilocode` | Custom | Codebase exploration agent |
 
 **Response:**
 ```json
