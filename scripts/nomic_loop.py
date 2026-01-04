@@ -4552,6 +4552,18 @@ Claude and Codex have read the actual codebase. DO NOT propose features that alr
             learning_context += f"\n{successful_patterns}\n"
         if failure_patterns:
             learning_context += f"\n{failure_patterns}\n"
+
+        # Add stale claims that need re-debate
+        if hasattr(self, '_pending_redebate_claims') and self._pending_redebate_claims:
+            stale_claims_text = "\n=== STALE CLAIMS REQUIRING RE-DEBATE ===\n"
+            stale_claims_text += "The following claims from previous debates have become stale due to code changes:\n"
+            for claim in self._pending_redebate_claims[:5]:
+                stale_claims_text += f"- {claim.statement[:100]}...\n"
+            stale_claims_text += "\nPrioritize addressing these stale claims or explicitly acknowledge if they're no longer relevant.\n"
+            learning_context += stale_claims_text
+            self._log(f"  [staleness] Injecting {len(self._pending_redebate_claims)} stale claims into debate context")
+            # Clear after injection
+            self._pending_redebate_claims = []
         if agent_reputations:
             learning_context += f"\n{agent_reputations}\n"
         if continuum_patterns:
@@ -6293,6 +6305,12 @@ Be concise - this is a quality gate, not a full review."""
                         self._log(f"  [staleness] WARNING: High-severity stale evidence detected!")
                         cycle_result["needs_redebate"] = True
                         cycle_result["stale_claims"] = [c.claim_id for c in staleness.stale_claims]
+
+                        # Queue stale claims for next cycle's debate agenda
+                        if not hasattr(self, '_pending_redebate_claims'):
+                            self._pending_redebate_claims = []
+                        self._pending_redebate_claims.extend(staleness.stale_claims)
+                        self._log(f"  [staleness] Queued {len(staleness.stale_claims)} claims for re-debate in next cycle")
             except Exception as e:
                 self._log(f"  [staleness] Check failed: {e}")
 
