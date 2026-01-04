@@ -1,0 +1,224 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import type { StreamEvent } from '@/types/events';
+
+interface VerdictCardProps {
+  events: StreamEvent[];
+}
+
+interface Verdict {
+  recommendation: string;
+  confidence: number;
+  grounding: number;
+  unanimousIssues: string[];
+  splitOpinions: string[];
+  riskAreas: string[];
+  citationCount: number;
+  crossExamination?: string;
+  timestamp: number;
+}
+
+export function VerdictCard({ events }: VerdictCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Extract verdict from consensus/verdict events
+  const verdict = useMemo<Verdict | null>(() => {
+    // Look for verdict or consensus events (prefer most recent)
+    const verdictEvents = events.filter(
+      (e) => e.type === 'grounded_verdict' || e.type === 'verdict' || e.type === 'consensus'
+    );
+
+    if (verdictEvents.length === 0) return null;
+
+    const latest = verdictEvents[verdictEvents.length - 1];
+    const data = latest.data;
+
+    return {
+      recommendation: (data.recommendation || data.answer || data.content || '') as string,
+      confidence: (data.confidence ?? 0.5) as number,
+      grounding: (data.grounding_score ?? data.evidence_grounding ?? 0) as number,
+      unanimousIssues: (data.unanimous_issues || []) as string[],
+      splitOpinions: (data.split_opinions || []) as string[],
+      riskAreas: (data.risk_areas || []) as string[],
+      citationCount: (data.all_citations?.length || data.citation_count || 0) as number,
+      crossExamination: data.cross_examination_notes as string | undefined,
+      timestamp: latest.timestamp,
+    };
+  }, [events]);
+
+  if (!verdict) {
+    return null;
+  }
+
+  const confidenceColor =
+    verdict.confidence >= 0.8
+      ? 'text-green-400'
+      : verdict.confidence >= 0.6
+      ? 'text-yellow-400'
+      : 'text-red-400';
+
+  const groundingColor =
+    verdict.grounding >= 0.7
+      ? 'text-green-400'
+      : verdict.grounding >= 0.5
+      ? 'text-yellow-400'
+      : 'text-orange-400';
+
+  return (
+    <div className="bg-gradient-to-br from-accent/10 to-purple-500/10 border-2 border-accent/50 rounded-lg overflow-hidden">
+      {/* Header */}
+      <div className="bg-accent/20 px-4 py-3 border-b border-accent/30">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⚖️</span>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-accent">
+              Debate Verdict
+            </h3>
+          </div>
+          <span className="text-xs text-text-muted">
+            {new Date(verdict.timestamp * 1000).toLocaleTimeString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-4">
+        {/* Recommendation */}
+        <div className="mb-4">
+          <p className="text-sm text-text leading-relaxed">
+            {isExpanded
+              ? verdict.recommendation
+              : verdict.recommendation.slice(0, 300) + (verdict.recommendation.length > 300 ? '...' : '')}
+          </p>
+          {verdict.recommendation.length > 300 && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-xs text-accent hover:underline mt-1"
+            >
+              {isExpanded ? 'Show less' : 'Show more'}
+            </button>
+          )}
+        </div>
+
+        {/* Metrics Row */}
+        <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-muted">Confidence:</span>
+            <span className={`text-sm font-mono font-bold ${confidenceColor}`}>
+              {Math.round(verdict.confidence * 100)}%
+            </span>
+          </div>
+          {verdict.grounding > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-muted">Evidence:</span>
+              <span className={`text-sm font-mono font-bold ${groundingColor}`}>
+                {Math.round(verdict.grounding * 100)}%
+              </span>
+            </div>
+          )}
+          {verdict.citationCount > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-muted">📚</span>
+              <span className="text-sm font-mono text-text">
+                {verdict.citationCount}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Issues Summary */}
+        <div className="space-y-2">
+          {/* Unanimous Issues */}
+          {verdict.unanimousIssues.length > 0 && (
+            <div className="flex items-start gap-2">
+              <span className="text-green-400 flex-shrink-0">✓</span>
+              <div>
+                <span className="text-xs font-medium text-green-400">
+                  {verdict.unanimousIssues.length} Unanimous Issue{verdict.unanimousIssues.length !== 1 ? 's' : ''}
+                </span>
+                <ul className="text-xs text-text-muted mt-0.5">
+                  {verdict.unanimousIssues.slice(0, 2).map((issue, i) => (
+                    <li key={i} className="truncate">• {issue}</li>
+                  ))}
+                  {verdict.unanimousIssues.length > 2 && (
+                    <li className="text-text-muted">+{verdict.unanimousIssues.length - 2} more</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Split Opinions */}
+          {verdict.splitOpinions.length > 0 && (
+            <div className="flex items-start gap-2">
+              <span className="text-yellow-400 flex-shrink-0">⚠</span>
+              <div>
+                <span className="text-xs font-medium text-yellow-400">
+                  {verdict.splitOpinions.length} Split Opinion{verdict.splitOpinions.length !== 1 ? 's' : ''}
+                </span>
+                <ul className="text-xs text-text-muted mt-0.5">
+                  {verdict.splitOpinions.slice(0, 2).map((opinion, i) => (
+                    <li key={i} className="truncate">• {opinion}</li>
+                  ))}
+                  {verdict.splitOpinions.length > 2 && (
+                    <li className="text-text-muted">+{verdict.splitOpinions.length - 2} more</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Risk Areas */}
+          {verdict.riskAreas.length > 0 && (
+            <div className="flex items-start gap-2">
+              <span className="text-red-400 flex-shrink-0">!</span>
+              <div>
+                <span className="text-xs font-medium text-red-400">
+                  {verdict.riskAreas.length} Risk Area{verdict.riskAreas.length !== 1 ? 's' : ''}
+                </span>
+                <ul className="text-xs text-text-muted mt-0.5">
+                  {verdict.riskAreas.slice(0, 2).map((risk, i) => (
+                    <li key={i} className="truncate">• {risk}</li>
+                  ))}
+                  {verdict.riskAreas.length > 2 && (
+                    <li className="text-text-muted">+{verdict.riskAreas.length - 2} more</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Cross-Examination Notes */}
+        {verdict.crossExamination && (
+          <details className="mt-4">
+            <summary className="text-xs text-text-muted cursor-pointer hover:text-text">
+              Cross-Examination Notes
+            </summary>
+            <div className="mt-2 p-2 bg-bg rounded text-xs text-text-muted whitespace-pre-wrap">
+              {verdict.crossExamination.slice(0, 500)}
+              {verdict.crossExamination.length > 500 && '...'}
+            </div>
+          </details>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Mini verdict badge for use in headers/lists
+export function VerdictBadge({ confidence }: { confidence: number }) {
+  const color =
+    confidence >= 0.8
+      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+      : confidence >= 0.6
+      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+      : 'bg-red-500/20 text-red-400 border-red-500/30';
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded border ${color}`}>
+      ⚖️ {Math.round(confidence * 100)}%
+    </span>
+  );
+}

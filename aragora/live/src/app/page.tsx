@@ -6,21 +6,31 @@ import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { MetricsCards } from '@/components/MetricsCards';
 import { PhaseProgress } from '@/components/PhaseProgress';
 import { AgentPanel } from '@/components/AgentPanel';
+import { AgentTabs } from '@/components/AgentTabs';
+import { RoundProgress } from '@/components/RoundProgress';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { UserParticipation } from '@/components/UserParticipation';
 import { ReplayBrowser } from '@/components/ReplayBrowser';
 import { InsightsPanel } from '@/components/InsightsPanel';
 import { LeaderboardPanel } from '@/components/LeaderboardPanel';
+import { CitationsPanel } from '@/components/CitationsPanel';
+import { VerdictCard } from '@/components/VerdictCard';
+import { CompareView, CompareButton } from '@/components/CompareView';
+import { DeepAuditView, DeepAuditToggle } from '@/components/DeepAuditView';
 import type { NomicState } from '@/types/events';
 
 // WebSocket URL - can be overridden via environment variable
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
+type ViewMode = 'tabs' | 'stream' | 'deep-audit';
+
 export default function Home() {
   const { events, connected, activeLoops, selectedLoopId, selectLoop, sendMessage, onAck, onError } = useNomicStream(WS_URL);
   const [nomicState, setNomicState] = useState<NomicState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('tabs');
+  const [showCompare, setShowCompare] = useState(false);
 
   // Compute effective loop ID - auto-select if only one loop active (fixes race condition)
   const effectiveLoopId = selectedLoopId || (activeLoops.length === 1 ? activeLoops[0].loop_id : null);
@@ -86,6 +96,11 @@ export default function Home() {
   // Derive current phase from state or latest phase event
   const currentPhase = nomicState?.phase || 'idle';
 
+  // Check if we have a verdict
+  const hasVerdict = events.some(
+    (e) => e.type === 'grounded_verdict' || e.type === 'verdict' || e.type === 'consensus'
+  );
+
   // Format timestamp as relative time
   const formatRelativeTime = (timestamp: number) => {
     const seconds = Math.floor((Date.now() / 1000) - timestamp);
@@ -121,6 +136,11 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-bg text-text">
+      {/* Compare Modal */}
+      {showCompare && (
+        <CompareView events={events} onClose={() => setShowCompare(false)} />
+      )}
+
       {/* Header */}
       <header className="border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -131,6 +151,39 @@ export default function Home() {
             </h1>
           </div>
           <div className="flex items-center gap-4">
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 bg-surface border border-border rounded p-0.5">
+              <button
+                onClick={() => setViewMode('tabs')}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  viewMode === 'tabs'
+                    ? 'bg-accent text-white'
+                    : 'text-text-muted hover:text-text'
+                }`}
+              >
+                Tabs
+              </button>
+              <button
+                onClick={() => setViewMode('stream')}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  viewMode === 'stream'
+                    ? 'bg-accent text-white'
+                    : 'text-text-muted hover:text-text'
+                }`}
+              >
+                Stream
+              </button>
+            </div>
+
+            {/* Deep Audit Toggle */}
+            <DeepAuditToggle
+              isActive={viewMode === 'deep-audit'}
+              onToggle={() => setViewMode(viewMode === 'deep-audit' ? 'tabs' : 'deep-audit')}
+            />
+
+            {/* Compare Button */}
+            <CompareButton onClick={() => setShowCompare(true)} />
+
             {/* Loop Selector - Only show if multiple loops */}
             {activeLoops.length > 1 && (
               <div className="flex items-center gap-2">
@@ -180,14 +233,32 @@ export default function Home() {
         {/* Phase Progress */}
         <PhaseProgress events={events} currentPhase={currentPhase} />
 
+        {/* Round Progress (new - Heavy3-inspired) */}
+        {currentPhase === 'debate' && (
+          <RoundProgress events={events} />
+        )}
+
         {/* Metrics */}
         <MetricsCards nomicState={nomicState} events={events} />
 
+        {/* Verdict Card (when available) */}
+        {hasVerdict && <VerdictCard events={events} />}
+
         {/* Main Panels */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Agent Activity */}
+          {/* Agent Activity - Switch based on view mode */}
           <div className="lg:col-span-2 min-h-[500px]">
-            <AgentPanel events={events} />
+            {viewMode === 'deep-audit' ? (
+              <DeepAuditView
+                events={events}
+                isActive={true}
+                onToggle={() => setViewMode('tabs')}
+              />
+            ) : viewMode === 'tabs' ? (
+              <AgentTabs events={events} />
+            ) : (
+              <AgentPanel events={events} />
+            )}
           </div>
 
           {/* Side Panel */}
@@ -199,6 +270,7 @@ export default function Home() {
               onAck={onAck}
               onError={onError}
             />
+            <CitationsPanel events={events} />
             <HistoryPanel />
             <LeaderboardPanel wsMessages={events} loopId={effectiveLoopId} apiBase={API_URL} />
             <InsightsPanel wsMessages={events} />
@@ -225,8 +297,9 @@ export default function Home() {
             <a href="https://github.com/AI-Counsel/ai-counsel" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">ai-counsel</a>,{' '}
             <a href="https://github.com/Tsinghua-MARS-Lab/DebateLLM" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">DebateLLM</a>,{' '}
             <a href="https://github.com/camel-ai/camel" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">CAMEL-AI</a>,{' '}
-            <a href="https://github.com/joonspk-research/generative_agents" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">Generative Agents</a>, and{' '}
-            <a href="https://github.com/composable-models/llm_multiagent_debate" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">LLM Multi-Agent Debate</a>.
+            <a href="https://github.com/joonspk-research/generative_agents" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">Generative Agents</a>,{' '}
+            <a href="https://github.com/composable-models/llm_multiagent_debate" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">LLM Multi-Agent Debate</a>, and{' '}
+            <a href="https://heavy3.ai" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">Heavy3.ai</a>.
           </p>
         </footer>
       </div>

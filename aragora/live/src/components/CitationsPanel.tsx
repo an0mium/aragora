@@ -1,0 +1,280 @@
+'use client';
+
+import { useState, useMemo } from 'react';
+import type { StreamEvent } from '@/types/events';
+
+interface CitationsPanelProps {
+  events: StreamEvent[];
+}
+
+interface Citation {
+  id: string;
+  type: CitationType;
+  title: string;
+  authors: string[];
+  year?: number;
+  url?: string;
+  excerpt: string;
+  quality: CitationQuality;
+  relevance: number;
+  claimId?: string;
+}
+
+type CitationType =
+  | 'academic_paper'
+  | 'book'
+  | 'conference'
+  | 'preprint'
+  | 'documentation'
+  | 'official_source'
+  | 'code_repository'
+  | 'web_page'
+  | 'internal_debate'
+  | 'unknown';
+
+type CitationQuality =
+  | 'peer_reviewed'
+  | 'authoritative'
+  | 'reputable'
+  | 'mixed'
+  | 'unverified'
+  | 'questionable';
+
+const TYPE_CONFIG: Record<CitationType, { icon: string; label: string; color: string }> = {
+  academic_paper: { icon: '📄', label: 'Paper', color: 'text-blue-400' },
+  book: { icon: '📚', label: 'Book', color: 'text-purple-400' },
+  conference: { icon: '🎤', label: 'Conference', color: 'text-indigo-400' },
+  preprint: { icon: '📝', label: 'Preprint', color: 'text-yellow-400' },
+  documentation: { icon: '📖', label: 'Docs', color: 'text-cyan-400' },
+  official_source: { icon: '🏛️', label: 'Official', color: 'text-green-400' },
+  code_repository: { icon: '💻', label: 'Code', color: 'text-orange-400' },
+  web_page: { icon: '🌐', label: 'Web', color: 'text-gray-400' },
+  internal_debate: { icon: '💬', label: 'Debate', color: 'text-accent' },
+  unknown: { icon: '❓', label: 'Unknown', color: 'text-text-muted' },
+};
+
+const QUALITY_CONFIG: Record<CitationQuality, { icon: string; label: string; color: string }> = {
+  peer_reviewed: { icon: '✓✓', label: 'Peer Reviewed', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
+  authoritative: { icon: '✓', label: 'Authoritative', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  reputable: { icon: '○', label: 'Reputable', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
+  mixed: { icon: '~', label: 'Mixed', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+  unverified: { icon: '?', label: 'Unverified', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
+  questionable: { icon: '!', label: 'Questionable', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+};
+
+export function CitationsPanel({ events }: CitationsPanelProps) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<CitationType | 'all'>('all');
+
+  // Extract citations from events
+  const citations = useMemo(() => {
+    const citationList: Citation[] = [];
+    const seen = new Set<string>();
+
+    events.forEach((event) => {
+      // Look for citation data in various event types
+      const citationsData = event.data?.citations as any[] | undefined;
+
+      if (citationsData && Array.isArray(citationsData)) {
+        citationsData.forEach((c) => {
+          const id = c.id || `${c.title}-${c.year}`;
+          if (!seen.has(id)) {
+            seen.add(id);
+            citationList.push({
+              id,
+              type: (c.citation_type || c.type || 'unknown') as CitationType,
+              title: c.title || 'Untitled',
+              authors: c.authors || [],
+              year: c.year,
+              url: c.url,
+              excerpt: c.excerpt || '',
+              quality: (c.quality || 'unverified') as CitationQuality,
+              relevance: c.relevance_score || c.relevance || 0.5,
+              claimId: c.claim_id,
+            });
+          }
+        });
+      }
+
+      // Also check for grounded_verdict events
+      if (event.type === 'grounded_verdict' || event.type === 'verdict') {
+        const allCitations = event.data?.all_citations as any[] | undefined;
+        if (allCitations && Array.isArray(allCitations)) {
+          allCitations.forEach((c) => {
+            const id = c.id || `${c.title}-${c.year}`;
+            if (!seen.has(id)) {
+              seen.add(id);
+              citationList.push({
+                id,
+                type: (c.citation_type || c.type || 'unknown') as CitationType,
+                title: c.title || 'Untitled',
+                authors: c.authors || [],
+                year: c.year,
+                url: c.url,
+                excerpt: c.excerpt || '',
+                quality: (c.quality || 'unverified') as CitationQuality,
+                relevance: c.relevance_score || c.relevance || 0.5,
+                claimId: c.claim_id,
+              });
+            }
+          });
+        }
+      }
+    });
+
+    return citationList.sort((a, b) => b.relevance - a.relevance);
+  }, [events]);
+
+  const filteredCitations = filter === 'all' ? citations : citations.filter((c) => c.type === filter);
+
+  // Get unique types for filter
+  const availableTypes = useMemo(() => {
+    const types = new Set(citations.map((c) => c.type));
+    return Array.from(types);
+  }, [citations]);
+
+  if (citations.length === 0) {
+    return (
+      <div className="bg-surface border border-border rounded-lg p-4">
+        <h3 className="text-sm font-medium text-text-muted uppercase tracking-wider mb-3">
+          📚 Citations
+        </h3>
+        <div className="text-center text-text-muted py-4 text-sm">
+          No citations yet. References will appear as agents cite sources.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-surface border border-border rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium text-text-muted uppercase tracking-wider">
+          📚 Citations ({citations.length})
+        </h3>
+      </div>
+
+      {/* Type Filter */}
+      {availableTypes.length > 1 && (
+        <div className="flex flex-wrap gap-1 mb-3">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-2 py-0.5 text-xs rounded transition-colors ${
+              filter === 'all'
+                ? 'bg-accent text-white'
+                : 'bg-bg text-text-muted hover:text-text border border-border'
+            }`}
+          >
+            All
+          </button>
+          {availableTypes.map((type) => {
+            const config = TYPE_CONFIG[type];
+            return (
+              <button
+                key={type}
+                onClick={() => setFilter(type)}
+                className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                  filter === type
+                    ? 'bg-accent text-white'
+                    : 'bg-bg text-text-muted hover:text-text border border-border'
+                }`}
+              >
+                {config.icon} {config.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Citations List */}
+      <div className="space-y-2 max-h-80 overflow-y-auto">
+        {filteredCitations.map((citation, index) => {
+          const typeConfig = TYPE_CONFIG[citation.type];
+          const qualityConfig = QUALITY_CONFIG[citation.quality];
+          const isExpanded = expandedId === citation.id;
+
+          return (
+            <div
+              key={citation.id}
+              className="p-2 bg-bg border border-border rounded-lg hover:border-accent/30 transition-colors"
+            >
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : citation.id)}
+                className="w-full text-left"
+              >
+                <div className="flex items-start gap-2">
+                  <span className="text-sm flex-shrink-0">[{index + 1}]</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-sm ${typeConfig.color}`} title={typeConfig.label}>
+                        {typeConfig.icon}
+                      </span>
+                      <span className="text-sm font-medium text-text truncate flex-1">
+                        {citation.title}
+                      </span>
+                      <span
+                        className={`px-1.5 py-0.5 text-xs rounded border ${qualityConfig.color}`}
+                        title={qualityConfig.label}
+                      >
+                        {qualityConfig.icon}
+                      </span>
+                    </div>
+                    <div className="text-xs text-text-muted mt-0.5">
+                      {citation.authors.length > 0 && (
+                        <span>
+                          {citation.authors.slice(0, 2).join(', ')}
+                          {citation.authors.length > 2 && ' et al.'}
+                        </span>
+                      )}
+                      {citation.year && <span> ({citation.year})</span>}
+                    </div>
+                  </div>
+                  <span className="text-text-muted text-xs flex-shrink-0">
+                    {isExpanded ? '▼' : '▶'}
+                  </span>
+                </div>
+              </button>
+
+              {isExpanded && (
+                <div className="mt-2 pt-2 border-t border-border">
+                  {citation.excerpt && (
+                    <p className="text-xs text-text-muted italic mb-2">
+                      "{citation.excerpt}"
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-text-muted">
+                      Relevance: {Math.round(citation.relevance * 100)}%
+                    </span>
+                    {citation.url && (
+                      <a
+                        href={citation.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-accent hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View Source →
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Inline citation badge for use in other components
+export function CitationBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded">
+      📚 {count}
+    </span>
+  );
+}
