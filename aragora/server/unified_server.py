@@ -148,6 +148,7 @@ except ImportError:
 
 # Track active ad-hoc debates
 _active_debates: dict[str, dict] = {}
+_active_debates_lock = threading.Lock()  # Thread-safe access to _active_debates
 
 
 def _run_async(coro):
@@ -631,14 +632,15 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         # Generate debate ID
         debate_id = f"adhoc_{uuid.uuid4().hex[:8]}"
 
-        # Track this debate
-        _active_debates[debate_id] = {
-            "id": debate_id,
-            "question": question,
-            "status": "starting",
-            "agents": agents_str,
-            "rounds": rounds,
-        }
+        # Track this debate (thread-safe)
+        with _active_debates_lock:
+            _active_debates[debate_id] = {
+                "id": debate_id,
+                "question": question,
+                "status": "starting",
+                "agents": agents_str,
+                "rounds": rounds,
+            }
 
         # Set loop_id on emitter so events are tagged
         self.stream_emitter.set_loop_id(debate_id)
@@ -651,12 +653,14 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 # Parse agents with bounds check
                 agent_list = [s.strip() for s in agents_str.split(",") if s.strip()]
                 if len(agent_list) > MAX_AGENTS_PER_DEBATE:
-                    _active_debates[debate_id]["status"] = "error"
-                    _active_debates[debate_id]["error"] = f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
+                    with _active_debates_lock:
+                        _active_debates[debate_id]["status"] = "error"
+                        _active_debates[debate_id]["error"] = f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
                     return
                 if len(agent_list) < 2:
-                    _active_debates[debate_id]["status"] = "error"
-                    _active_debates[debate_id]["error"] = "At least 2 agents required for a debate"
+                    with _active_debates_lock:
+                        _active_debates[debate_id]["status"] = "error"
+                        _active_debates[debate_id]["error"] = "At least 2 agents required for a debate"
                     return
 
                 agent_specs = []
@@ -708,23 +712,31 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 )
 
                 # Run debate with timeout protection (10 minutes max)
-                _active_debates[debate_id]["status"] = "running"
+                with _active_debates_lock:
+                    _active_debates[debate_id]["status"] = "running"
                 async def run_with_timeout():
                     return await _asyncio.wait_for(arena.run(), timeout=600)
                 result = _asyncio.run(run_with_timeout())
-                _active_debates[debate_id]["status"] = "completed"
-                _active_debates[debate_id]["result"] = {
-                    "final_answer": result.final_answer,
-                    "consensus_reached": result.consensus_reached,
-                    "confidence": result.confidence,
-                }
+                with _active_debates_lock:
+                    _active_debates[debate_id]["status"] = "completed"
+                    _active_debates[debate_id]["result"] = {
+                        "final_answer": result.final_answer,
+                        "consensus_reached": result.consensus_reached,
+                        "confidence": result.confidence,
+                    }
             except Exception as e:
-                _active_debates[debate_id]["status"] = "error"
-                _active_debates[debate_id]["error"] = str(e)
+                import traceback
+                error_msg = str(e)
+                error_trace = traceback.format_exc()
+                with _active_debates_lock:
+                    _active_debates[debate_id]["status"] = "error"
+                    _active_debates[debate_id]["error"] = error_msg
+                # Log full traceback so thread failures aren't silent
+                logger.error(f"[debate] Thread error in {debate_id}: {error_msg}\n{error_trace}")
                 # Emit error event
                 self.stream_emitter.emit(StreamEvent(
                     type=StreamEventType.ERROR,
-                    data={"error": str(e), "debate_id": debate_id},
+                    data={"error": error_msg, "debate_id": debate_id},
                 ))
 
         debate_thread = threading.Thread(target=run_debate, daemon=True)
@@ -773,7 +785,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "Debate not found"}, status=404)
             return
 
-        # Return structured metadata for frontend lookup
+        # Return structured metadata for frontend lookup (including consensus metrics)
         self._send_json({
             "slug": slug,
             "debate_id": debate.get("id", slug),
@@ -781,6 +793,10 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             "agents": debate.get("agents", []),
             "consensus_reached": debate.get("consensus_reached", False),
             "confidence": debate.get("confidence", 0.0),
+            "consensus_strength": debate.get("consensus_strength", "none"),
+            "consensus_variance": debate.get("consensus_variance"),
+            "convergence_status": debate.get("convergence_status"),
+            "winner": debate.get("winner"),
             "created_at": debate.get("created_at", ""),
         })
 
