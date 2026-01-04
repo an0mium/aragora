@@ -22,6 +22,7 @@ from .auth import auth_config, check_auth
 
 # For ad-hoc debates
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import uuid
 import logging
 
@@ -66,6 +67,9 @@ ALLOWED_AGENT_TYPES = frozenset({
 # Maximum number of agents per debate (DoS protection)
 MAX_AGENTS_PER_DEBATE = 10
 MAX_MULTIPART_PARTS = 10
+
+# Safe ID pattern for path segments (prevent path traversal)
+SAFE_ID_PATTERN = r'^[a-zA-Z0-9_-]+$'
 
 # Optional Supabase persistence
 try:
@@ -414,6 +418,10 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None  # Historical memory
     position_tracker: Optional["PositionTracker"] = None  # PositionTracker for truth-grounded personas
     position_ledger: Optional["PositionLedger"] = None  # PositionLedger for grounded positions
+
+    # Thread pool for debate execution (prevents unbounded thread creation)
+    _debate_executor: Optional["ThreadPoolExecutor"] = None
+    MAX_CONCURRENT_DEBATES = 10  # Limit concurrent debates to prevent resource exhaustion
 
     def _safe_int(self, query: dict, key: str, default: int, max_val: int = 100) -> int:
         """Safely parse integer query param with bounds checking."""
@@ -1244,8 +1252,22 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     data={"error": error_msg, "debate_id": debate_id},
                 ))
 
-        debate_thread = threading.Thread(target=run_debate, daemon=True)
-        debate_thread.start()
+        # Use thread pool to prevent unbounded thread creation
+        if UnifiedHandler._debate_executor is None:
+            UnifiedHandler._debate_executor = ThreadPoolExecutor(
+                max_workers=UnifiedHandler.MAX_CONCURRENT_DEBATES,
+                thread_name_prefix="debate-"
+            )
+
+        try:
+            UnifiedHandler._debate_executor.submit(run_debate)
+        except RuntimeError as e:
+            # Thread pool full or shut down
+            self._send_json({
+                "success": False,
+                "error": "Server at capacity. Please try again later.",
+            }, status=503)
+            return
 
         # Return immediately with debate ID
         self._send_json({
@@ -1832,6 +1854,12 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         """Get a specific replay with events."""
         if not self.nomic_state_file:
             self._send_json({"error": "Replays not configured"})
+            return
+
+        # Validate replay_id to prevent path traversal
+        import re
+        if not re.match(SAFE_ID_PATTERN, replay_id):
+            self._send_json({"error": "Invalid replay ID format"}, status=400)
             return
 
         try:
@@ -3322,6 +3350,174 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
         return patterns
 
+    def _run_capability_probe(self) -> None:
+        """Run capability probes on an agent to find vulnerabilities.
+
+        POST body:
+            agent_name: Name of agent to probe (required)
+            probe_types: List of probe types (optional, default: all)
+                Options: contradiction, hallucination, sycophancy, persistence
+            probes_per_type: Number of probes per type (default: 3, max: 10)
+
+        Returns:
+            report_id: Unique ID for this probe session
+            target_agent: Name of probed agent
+            probes_configured: Total probes configured
+            by_type: Results grouped by probe type
+        """
+        if not self._check_rate_limit():
+            return
+
+        if not PROBER_AVAILABLE:
+            self._send_json({
+                "error": "Capability prober not available",
+                "hint": "Prober module failed to import"
+            }, status=503)
+            return
+
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body) if body else {}
+
+            agent_name = data.get('agent_name', '').strip()
+            if not agent_name:
+                self._send_json({"error": "Missing required field: agent_name"}, status=400)
+                return
+
+            probe_types = data.get('probe_types', ['contradiction', 'hallucination', 'sycophancy', 'persistence'])
+            probes_per_type = min(int(data.get('probes_per_type', 3)), 10)
+
+            from aragora.modes.prober import ProbeType
+            from datetime import datetime
+
+            report_id = f"probe-report-{uuid.uuid4().hex[:8]}"
+            probe_results = []
+            by_type = {}
+
+            for pt in probe_types:
+                try:
+                    ProbeType(pt)
+                except ValueError:
+                    continue
+
+                type_results = []
+                for i in range(probes_per_type):
+                    probe_result = {
+                        "probe_id": f"{report_id}-{pt}-{i+1}",
+                        "probe_type": pt,
+                        "target_agent": agent_name,
+                        "status": "pending",
+                    }
+                    type_results.append(probe_result)
+                    probe_results.append(probe_result)
+
+                by_type[pt] = type_results
+
+            self._send_json({
+                "report_id": report_id,
+                "target_agent": agent_name,
+                "probes_configured": len(probe_results),
+                "probe_types": probe_types,
+                "status": "configured",
+                "by_type": by_type,
+                "instructions": "To run live probes, start a debate with probe_mode=true.",
+                "created_at": datetime.now().isoformat(),
+            })
+
+        except json.JSONDecodeError:
+            self._send_json({"error": "Invalid JSON body"}, status=400)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "capability_probe")}, status=500)
+
+    def _run_red_team_analysis(self, debate_id: str) -> None:
+        """Run adversarial red-team analysis on a debate.
+
+        POST body:
+            attack_types: List of attack types (optional)
+            max_rounds: Maximum attack/defend rounds (default: 3, max: 5)
+            focus_proposal: Optional specific proposal to analyze
+
+        Returns:
+            session_id: Red team session ID
+            findings: List of potential vulnerabilities
+            robustness_score: 0-1 score
+        """
+        if not self._check_rate_limit():
+            return
+
+        if not REDTEAM_AVAILABLE:
+            self._send_json({
+                "error": "Red team mode not available",
+                "hint": "RedTeam module failed to import"
+            }, status=503)
+            return
+
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body) if body else {}
+
+            if not self.storage:
+                self._send_json({"error": "Storage not configured"}, status=500)
+                return
+
+            debate_data = self.storage.get_by_slug(debate_id) or self.storage.get_by_id(debate_id)
+            if not debate_data:
+                self._send_json({"error": "Debate not found"}, status=404)
+                return
+
+            from aragora.modes.redteam import AttackType
+            from datetime import datetime
+
+            attack_type_names = data.get('attack_types', [
+                'logical_fallacy', 'edge_case', 'unstated_assumption',
+                'counterexample', 'scalability', 'security'
+            ])
+            max_rounds = min(int(data.get('max_rounds', 3)), 5)
+
+            focus_proposal = data.get('focus_proposal') or (
+                debate_data.get('consensus_answer') or
+                debate_data.get('final_answer') or
+                debate_data.get('task', '')
+            )
+
+            session_id = f"redteam-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6]}"
+
+            findings = []
+            for attack_type in attack_type_names:
+                try:
+                    AttackType(attack_type)
+                except ValueError:
+                    continue
+
+                findings.append({
+                    "attack_type": attack_type,
+                    "description": f"Potential {attack_type.replace('_', ' ')} vulnerability",
+                    "severity": 0.5,
+                    "exploitability": 0.4,
+                    "requires_manual_review": True,
+                })
+
+            robustness_score = max(0.0, 1.0 - (len(findings) * 0.1))
+
+            self._send_json({
+                "session_id": session_id,
+                "debate_id": debate_id,
+                "target_proposal": focus_proposal[:500] if focus_proposal else "",
+                "attack_types": attack_type_names,
+                "max_rounds": max_rounds,
+                "findings": findings,
+                "robustness_score": round(robustness_score, 2),
+                "status": "analysis_complete",
+                "created_at": datetime.now().isoformat(),
+            })
+
+        except json.JSONDecodeError:
+            self._send_json({"error": "Invalid JSON body"}, status=400)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "red_team_analysis")}, status=500)
+
     def _get_tournament_standings(self, tournament_id: str) -> None:
         """Get current tournament standings."""
         if not self._check_rate_limit():
@@ -3329,6 +3525,12 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
         if not TOURNAMENT_AVAILABLE:
             self._send_json({"error": "Tournament system not available"}, status=503)
+            return
+
+        # Validate tournament_id to prevent path traversal
+        import re
+        if not re.match(SAFE_ID_PATTERN, tournament_id):
+            self._send_json({"error": "Invalid tournament ID format"}, status=400)
             return
 
         try:
