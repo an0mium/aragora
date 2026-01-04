@@ -50,8 +50,12 @@ persistence = [
     "supabase>=2.0",
     "sqlalchemy>=2.0.40",
 ]
+documents = [
+    "pypdf>=3.0",
+    "python-docx>=0.8",
+]
 all = [
-    "aragora[dev,persistence]",
+    "aragora[dev,persistence,documents]",
 ]
 
 [project.scripts]

@@ -132,6 +132,7 @@ load_dotenv(_env_file)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from aragora.debate.orchestrator import Arena, DebateProtocol
+from aragora.debate.roles import RoleRotationConfig, CognitiveRole
 from aragora.core import Environment
 from aragora.agents.api_agents import GeminiAgent
 from aragora.agents.cli_agents import CodexAgent, ClaudeAgent, GrokCLIAgent, KiloCodeAgent
@@ -308,6 +309,16 @@ except ImportError:
     PROBER_AVAILABLE = False
     CapabilityProber = None
     ProbeType = None
+
+# DeepAuditMode for intensive review of protected file changes (Heavy3-inspired)
+try:
+    from aragora.modes.deep_audit import run_deep_audit, CODE_ARCHITECTURE_AUDIT, DeepAuditConfig
+    DEEP_AUDIT_AVAILABLE = True
+except ImportError:
+    DEEP_AUDIT_AVAILABLE = False
+    run_deep_audit = None
+    CODE_ARCHITECTURE_AUDIT = None
+    DeepAuditConfig = None
 
 # DebateTemplates for structured debate formats (Phase 3)
 try:
@@ -1729,6 +1740,74 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
             self._log(f"  [memory] Error retrieving memories: {e}")
             return ""
 
+    async def _retrieve_relevant_insights(self, topic: str, limit: int = 5) -> str:
+        """Retrieve relevant past insights for debate context (P2: InsightStore)."""
+        if not self.insight_store or not INSIGHTS_AVAILABLE:
+            return ""
+        try:
+            lines = ["## Learnings from Past Debates"]
+
+            # Get common patterns that recur across debates
+            if hasattr(self.insight_store, 'get_common_patterns'):
+                patterns = await self.insight_store.get_common_patterns(min_occurrences=2, limit=3)
+                if patterns:
+                    lines.append("\n### Recurring Patterns:")
+                    for p in patterns:
+                        lines.append(f"- {p.get('pattern', '')} (seen {p.get('occurrences', 0)}x)")
+
+            # Get recent insights
+            if hasattr(self.insight_store, 'get_recent_insights'):
+                recent = await self.insight_store.get_recent_insights(limit=limit)
+                if recent:
+                    lines.append("\n### Recent Insights:")
+                    for insight in recent[:3]:
+                        insight_type = getattr(insight, 'type', None)
+                        type_str = insight_type.value if hasattr(insight_type, 'value') else str(insight_type or 'insight')
+                        title = getattr(insight, 'title', '')
+                        desc = getattr(insight, 'description', '')[:100]
+                        lines.append(f"- [{type_str}] {title}: {desc}...")
+
+            if len(lines) > 1:
+                return "\n".join(lines)
+            return ""
+        except Exception as e:
+            self._log(f"  [insights] Retrieval error: {e}")
+            return ""
+
+    async def _retrieve_similar_debates(self, topic: str, limit: int = 3) -> str:
+        """Retrieve similar past debates for historical context."""
+        if not self.debate_embeddings or not EMBEDDINGS_AVAILABLE:
+            return ""
+        try:
+            if not hasattr(self.debate_embeddings, 'find_similar_debates'):
+                return ""
+
+            similar = await self.debate_embeddings.find_similar_debates(
+                query=topic[:200],
+                limit=limit,
+                min_similarity=0.7
+            )
+            if not similar:
+                return ""
+
+            lines = ["## Similar Past Debates"]
+            for item in similar:
+                if isinstance(item, dict):
+                    debate_id = item.get('debate_id', 'unknown')
+                    excerpt = item.get('excerpt', '')[:300]
+                    similarity = item.get('similarity', 0)
+                elif isinstance(item, tuple) and len(item) >= 3:
+                    debate_id, excerpt, similarity = item[0], item[1][:300], item[2]
+                else:
+                    continue
+                lines.append(f"\n### {debate_id} (similarity: {similarity:.0%})")
+                lines.append(excerpt + "..." if len(excerpt) >= 300 else excerpt)
+
+            return "\n".join(lines) if len(lines) > 1 else ""
+        except Exception as e:
+            self._log(f"  [embeddings] Similar debate retrieval error: {e}")
+            return ""
+
     async def _record_agent_memories(self, result, task: str) -> None:
         """Record observations to per-agent memory streams (P3: MemoryStream)."""
         if not self.memory_stream or not MEMORY_STREAM_AVAILABLE:
@@ -2000,7 +2079,14 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
             async def run_tournament_debate(env, debate_agents):
                 arena = Arena(
                     agents=debate_agents,
-                    protocol=DebateProtocol(rounds=3),
+                    protocol=DebateProtocol(
+                        rounds=3,
+                        role_rotation=True,
+                        role_rotation_config=RoleRotationConfig(
+                            enabled=True,
+                            roles=[CognitiveRole.ANALYST, CognitiveRole.SKEPTIC, CognitiveRole.ADVOCATE],
+                        ),
+                    ),
                     position_tracker=self.position_tracker,
                 )
                 return await arena.run(env)
@@ -2112,6 +2198,41 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                         return True
         return False
 
+    def _extract_position_changes(self, result) -> dict[str, list[str]]:
+        """Extract position changes from debate messages.
+
+        Detects when an agent changes their position after another agent's message.
+        Returns: {agent_who_changed: [agents_who_influenced_them]}
+        """
+        position_changes: dict[str, list[str]] = {}
+        if not hasattr(result, 'messages') or not result.messages:
+            return position_changes
+
+        try:
+            last_speaker = None
+            change_indicators = [
+                "i agree with", "you're right", "that's a good point",
+                "i've reconsidered", "on reflection", "you've convinced me",
+                "changing my position", "i now think", "fair point",
+            ]
+
+            for msg in result.messages:
+                agent = getattr(msg, 'agent', None) or (msg.get('agent') if isinstance(msg, dict) else None)
+                if not agent:
+                    continue
+                content = getattr(msg, 'content', str(msg))[:500].lower()
+
+                if any(ind in content for ind in change_indicators):
+                    if last_speaker and last_speaker != agent:
+                        if agent not in position_changes:
+                            position_changes[agent] = []
+                        if last_speaker not in position_changes[agent]:
+                            position_changes[agent].append(last_speaker)
+                last_speaker = agent
+        except Exception:
+            pass
+        return position_changes
+
     def _record_elo_match(self, result, task: str) -> None:
         """Record debate as ELO match to update agent ratings (P13: EloSystem)."""
         if not self.elo_system or not ELO_AVAILABLE:
@@ -2184,11 +2305,12 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                             domain_score = score
                             break
                     overall_elo = self.elo_system.get_rating(agent.name).elo
-                    # Combined score: 60% domain expertise + 40% overall ELO normalized
-                    combined = (domain_score * 0.6) + ((overall_elo - 1400) / 200 * 0.4)
+                    # Enhanced: 70% domain expertise + 30% ELO when agent has proven domain knowledge
+                    domain_weight = 0.7 if domain_score > 0.5 else 0.6
+                    combined = (domain_score * domain_weight) + ((overall_elo - 1400) / 200 * (1 - domain_weight))
                     domain_scores.append((agent, combined))
                 domain_scores.sort(key=lambda x: x[1], reverse=True)
-                self._log(f"  [elo] Domain '{detected_domain}' scores: {[(a.name, f'{s:.2f}') for a, s in domain_scores]}")
+                self._log(f"  [routing] Domain '{detected_domain}' scores: {[(a.name, f'{s:.2f}') for a, s in domain_scores]}")
             except Exception as e:
                 self._log(f"  [elo] Domain scoring failed: {e}")
 
@@ -2254,6 +2376,15 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                     full_prompt = identity or ""
                     if briefings:
                         full_prompt += "\n\n## Opponent Intelligence\n" + "\n\n".join(briefings)
+
+                    # Inject agent-specific memories (P3: MemoryStream)
+                    try:
+                        topic_hint = getattr(self, 'initial_proposal', '') or 'aragora improvement'
+                        agent_memories = self._format_agent_memories(agent.name, topic_hint[:200], limit=3)
+                        if agent_memories:
+                            full_prompt += f"\n\n{agent_memories}"
+                    except Exception:
+                        pass  # Don't break on memory injection failure
 
                     # Prepend identity to system prompt
                     original_prompt = getattr(agent, 'system_prompt', '') or ''
@@ -2533,7 +2664,15 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
             # Create lightweight debate function
             async def quick_debate(task_text, context):
                 env = Environment(task=task_text, context=context)
-                protocol = DebateProtocol(rounds=1, consensus="majority")
+                protocol = DebateProtocol(
+                    rounds=1,
+                    consensus="majority",
+                    role_rotation=True,
+                    role_rotation_config=RoleRotationConfig(
+                        enabled=True,
+                        roles=[CognitiveRole.ANALYST, CognitiveRole.SKEPTIC],
+                    ),
+                )
                 agents = [self.gemini, self.claude] if hasattr(self, 'claude') else [self.gemini]
                 arena = Arena(
                     env, agents, protocol,
@@ -3184,6 +3323,64 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
         except Exception:
             return ""
 
+    def _format_relationship_network(self, limit: int = 3) -> str:
+        """Format agent relationship dynamics for debate context."""
+        if not self.relationship_tracker or not GROUNDED_PERSONAS_AVAILABLE:
+            return ""
+        try:
+            lines = ["## Inter-Agent Dynamics"]
+
+            # Get influence network
+            if hasattr(self.relationship_tracker, 'get_influence_network'):
+                network = self.relationship_tracker.get_influence_network()
+                if network:
+                    lines.append("\n### Influence Patterns:")
+                    sorted_influence = sorted(network.items(), key=lambda x: x[1], reverse=True)[:limit]
+                    for agent, score in sorted_influence:
+                        lines.append(f"- {agent}: influence score {score:.2f}")
+
+            # Get rivals and allies for each agent
+            agents = ["gemini", "claude", "codex", "grok"]
+            dynamics_found = False
+            for agent in agents:
+                if hasattr(self.relationship_tracker, 'get_rivals'):
+                    rivals = self.relationship_tracker.get_rivals(agent, limit=2)
+                    allies = self.relationship_tracker.get_allies(agent, limit=2) if hasattr(self.relationship_tracker, 'get_allies') else []
+                    if rivals or allies:
+                        dynamics_found = True
+                        rival_names = [r[0] for r in rivals] if rivals else []
+                        ally_names = [a[0] for a in allies] if allies else []
+                        lines.append(f"- {agent}: rivals={rival_names}, allies={ally_names}")
+
+            return "\n".join(lines) if len(lines) > 1 and dynamics_found else ""
+        except Exception as e:
+            self._log(f"  [relationships] Formatting error: {e}")
+            return ""
+
+    def _audit_agent_calibration(self) -> str:
+        """Audit agent calibration and flag poorly calibrated agents."""
+        if not self.elo_system or not ELO_AVAILABLE:
+            return ""
+        try:
+            lines = ["## Calibration Health Check"]
+            flagged = []
+
+            for agent_name in ["gemini", "claude", "codex", "grok"]:
+                if hasattr(self.elo_system, 'get_expected_calibration_error'):
+                    ece = self.elo_system.get_expected_calibration_error(agent_name)
+                    if ece and ece > 0.2:  # Poorly calibrated
+                        flagged.append((agent_name, ece))
+                        lines.append(f"- WARNING: {agent_name} has high calibration error ({ece:.2f})")
+                        lines.append(f"  Consider weighing their opinions lower on uncertain topics")
+
+            if flagged:
+                self._log(f"  [calibration] Flagged {len(flagged)} poorly calibrated agents")
+                return "\n".join(lines)
+            return ""
+        except Exception as e:
+            self._log(f"  [calibration] Audit error: {e}")
+            return ""
+
     def _format_agent_introspection(self, agent_name: str) -> str:
         """Format agent self-awareness section for prompt injection.
 
@@ -3263,6 +3460,99 @@ Be concise (1-2 sentences). Focus on correctness and safety issues only.
         if concerns:
             return "\n".join(concerns)
         return None
+
+    def _diff_touches_protected_files(self, diff: str) -> list[str]:
+        """Check if a diff touches any protected files.
+
+        Returns list of protected files that were modified.
+        """
+        touched_protected = []
+        for protected_file in PROTECTED_FILES:
+            # Check various diff patterns that indicate file modification
+            patterns = [
+                f"diff --git a/{protected_file}",
+                f"--- a/{protected_file}",
+                f"+++ b/{protected_file}",
+                f"diff --git a/aragora/{protected_file.replace('aragora/', '')}",
+            ]
+            for pattern in patterns:
+                if pattern in diff:
+                    touched_protected.append(protected_file)
+                    break
+        return touched_protected
+
+    async def _run_deep_audit_for_protected_files(
+        self, diff: str, touched_files: list[str]
+    ) -> tuple[bool, Optional[str]]:
+        """Run Deep Audit Mode for changes to protected files.
+
+        Heavy3-inspired: 6-round intensive review with cross-examination
+        for high-stakes changes.
+
+        Returns:
+            (approved: bool, issues: Optional[str])
+        """
+        if not DEEP_AUDIT_AVAILABLE or not run_deep_audit:
+            self._log("    [deep-audit] Not available, falling back to regular review")
+            return True, None
+
+        self._log(f"    [deep-audit] Starting intensive review for protected files: {touched_files}")
+        self._log("    [deep-audit] Running 5-round CODE_ARCHITECTURE_AUDIT with cross-examination...")
+
+        try:
+            # Create agents list for deep audit
+            audit_agents = [self.gemini, self.codex, self.claude, self.grok]
+
+            # Run deep audit
+            verdict = await run_deep_audit(
+                task=f"""CRITICAL: Review changes to protected files.
+
+These files are essential to aragora's functionality and must be reviewed with maximum scrutiny.
+
+## Protected Files Being Modified
+{', '.join(touched_files)}
+
+## Changes (git diff)
+```
+{diff[:15000]}
+```
+
+## Your Task
+1. Analyze each change for correctness and safety
+2. Identify any breaking changes or regressions
+3. Check for security vulnerabilities
+4. Verify backward compatibility is preserved
+5. Flag any unanimous issues that must be addressed before merge
+
+Be rigorous. These files are protected for a reason.""",
+                agents=audit_agents,
+                config=CODE_ARCHITECTURE_AUDIT,
+            )
+
+            # Log verdict summary
+            self._log(f"    [deep-audit] Confidence: {verdict.confidence:.0%}")
+            self._log(f"    [deep-audit] Unanimous issues: {len(verdict.unanimous_issues)}")
+            self._log(f"    [deep-audit] Split opinions: {len(verdict.split_opinions)}")
+            self._log(f"    [deep-audit] Risk areas: {len(verdict.risk_areas)}")
+
+            # If there are unanimous issues, reject the changes
+            if verdict.unanimous_issues:
+                self._log("    [deep-audit] REJECTED - Unanimous issues found:")
+                for issue in verdict.unanimous_issues[:5]:
+                    self._log(f"      - {issue[:200]}")
+                return False, "\n".join(verdict.unanimous_issues)
+
+            # If low confidence and many split opinions, warn but allow
+            if verdict.confidence < 0.5 and len(verdict.split_opinions) > 2:
+                self._log("    [deep-audit] WARNING - Low confidence, proceed with caution")
+
+            self._log("    [deep-audit] APPROVED - No unanimous blocking issues")
+            return True, None
+
+        except Exception as e:
+            self._log(f"    [deep-audit] ERROR: {e}")
+            self._log("    [deep-audit] Falling back to regular review due to error")
+            return True, None
 
     async def _gather_implementation_suggestions(self, design: str) -> str:
         """
@@ -3392,6 +3682,57 @@ Synthesize these suggestions into a coherent, working implementation.
             ),
         }
 
+    def _handle_disagreement_influence(
+        self, report: "DisagreementReport", phase_name: str, result: "DebateResult"
+    ) -> None:
+        """Handle disagreement patterns to influence decisions.
+
+        Heavy3-inspired: Make disagreement data actionable.
+        """
+        # Track critical disagreement patterns
+        critical_warning = False
+
+        # If many unanimous issues, flag for extra scrutiny
+        if len(report.unanimous_critiques) >= 3:
+            self._log(f"    [disagreement] WARNING: {len(report.unanimous_critiques)} unanimous issues - extra scrutiny needed")
+            critical_warning = True
+
+        # If very low agreement, the proposal may need rework
+        if report.agreement_score < 0.4:
+            self._log(f"    [disagreement] WARNING: Low agreement ({report.agreement_score:.0%}) - consider revising proposal")
+            critical_warning = True
+
+        # If high-stakes phase (design/implement) and significant disagreement, log prominently
+        if phase_name in ("design", "implement") and (
+            len(report.unanimous_critiques) >= 2 or report.agreement_score < 0.5
+        ):
+            self._log(f"    [disagreement] ATTENTION: High-stakes phase '{phase_name}' has significant disagreement")
+            # Store for later review
+            if not hasattr(self, '_critical_disagreements'):
+                self._critical_disagreements = []
+            self._critical_disagreements.append({
+                "phase": phase_name,
+                "cycle": self.cycle_count,
+                "unanimous_critiques": report.unanimous_critiques,
+                "agreement_score": report.agreement_score,
+                "timestamp": datetime.now().isoformat(),
+            })
+
+        # If many risk areas identified, log them prominently
+        if len(report.risk_areas) >= 2:
+            self._log(f"    [disagreement] {len(report.risk_areas)} RISK AREAS to monitor:")
+            for risk in report.risk_areas[:3]:
+                self._log(f"      ⚠ {risk[:100]}")
+
+        # Stream critical warnings for dashboard visibility
+        if critical_warning:
+            self._stream_emit(
+                "on_log_message",
+                f"Disagreement alert in {phase_name}: {len(report.unanimous_critiques)} unanimous issues, {report.agreement_score:.0%} agreement",
+                level="warning",
+                phase=phase_name,
+            )
+
     async def _run_arena_with_logging(self, arena: Arena, phase_name: str) -> "DebateResult":
         """Run an Arena debate with real-time logging via event hooks."""
         self._log(f"  Starting {phase_name} arena...")
@@ -3408,12 +3749,34 @@ Synthesize these suggestions into a coherent, working implementation.
             self._log(f"    Confidence: {result.confidence}", also_print=False)
             self._log(f"    Duration: {result.duration_seconds:.1f}s", also_print=False)
 
+            # Log and act on DisagreementReport (Heavy3-inspired unanimous issues/split opinions)
+            if result.disagreement_report:
+                report = result.disagreement_report
+                self._log(f"    [disagreement] Agreement Score: {report.agreement_score:.1%}", also_print=False)
+                if report.unanimous_critiques:
+                    self._log(f"    [disagreement] {len(report.unanimous_critiques)} UNANIMOUS ISSUES (high priority):")
+                    for issue in report.unanimous_critiques[:3]:
+                        self._log(f"      - {issue[:100]}...")
+                if report.split_opinions:
+                    self._log(f"    [disagreement] {len(report.split_opinions)} split opinions (review carefully)", also_print=False)
+                if report.risk_areas:
+                    self._log(f"    [disagreement] {len(report.risk_areas)} risk areas identified", also_print=False)
+
+                # Heavy3-inspired decision influence based on disagreement patterns
+                self._handle_disagreement_influence(report, phase_name, result)
+
             self._save_state({
                 "phase": phase_name,
                 "stage": "arena_complete",
                 "consensus_reached": result.consensus_reached,
                 "confidence": result.confidence,
                 "final_answer_preview": result.final_answer if result.final_answer else None,
+                # Include disagreement report summary
+                "disagreement_report": {
+                    "unanimous_critiques": result.disagreement_report.unanimous_critiques if result.disagreement_report else [],
+                    "split_opinions_count": len(result.disagreement_report.split_opinions) if result.disagreement_report else 0,
+                    "agreement_score": result.disagreement_report.agreement_score if result.disagreement_report else None,
+                } if result.disagreement_report else None,
             })
 
             return result
@@ -3428,7 +3791,15 @@ Synthesize these suggestions into a coherent, working implementation.
         if not self.use_genesis or not GENESIS_AVAILABLE:
             # Fall back to regular arena
             env = Environment(task=task)
-            protocol = DebateProtocol(rounds=2, consensus="majority")
+            protocol = DebateProtocol(
+                rounds=2,
+                consensus="majority",
+                role_rotation=True,
+                role_rotation_config=RoleRotationConfig(
+                    enabled=True,
+                    roles=[CognitiveRole.ANALYST, CognitiveRole.SKEPTIC, CognitiveRole.LATERAL_THINKER],
+                ),
+            )
             arena = Arena(
                 environment=env, agents=agents, protocol=protocol,
                 memory=self.critique_store, debate_embeddings=self.debate_embeddings,
@@ -3491,7 +3862,15 @@ Synthesize these suggestions into a coherent, working implementation.
             # Fall back to regular arena on error
             self._log(f"  Falling back to regular arena...")
             env = Environment(task=task)
-            protocol = DebateProtocol(rounds=2, consensus="majority")
+            protocol = DebateProtocol(
+                rounds=2,
+                consensus="majority",
+                role_rotation=True,
+                role_rotation_config=RoleRotationConfig(
+                    enabled=True,
+                    roles=[CognitiveRole.ANALYST, CognitiveRole.SKEPTIC, CognitiveRole.LATERAL_THINKER],
+                ),
+            )
             arena = Arena(
                 environment=env, agents=agents, protocol=protocol,
                 memory=self.critique_store, debate_embeddings=self.debate_embeddings,
@@ -3725,6 +4104,28 @@ Claude and Codex have read the actual codebase. DO NOT propose features that alr
         if evidence_context:
             learning_context += f"\n{evidence_context}\n"
 
+        # Retrieve insights from past debates (P2: InsightStore)
+        insight_context = await self._retrieve_relevant_insights(topic_hint)
+        if insight_context:
+            learning_context += f"\n{insight_context}\n"
+            self._log(f"  [insights] Injected past debate learnings")
+
+        # Retrieve similar past debates for historical context
+        similar_debates = await self._retrieve_similar_debates(topic_hint)
+        if similar_debates:
+            learning_context += f"\n{similar_debates}\n"
+            self._log(f"  [embeddings] Injected similar debate context")
+
+        # Add inter-agent dynamics
+        relationship_context = self._format_relationship_network()
+        if relationship_context:
+            learning_context += f"\n{relationship_context}\n"
+
+        # Audit agent calibration before critical debates
+        calibration_context = self._audit_agent_calibration()
+        if calibration_context:
+            learning_context += f"\n{calibration_context}\n"
+
         task = f"""{SAFETY_PREAMBLE}
 
 What single improvement would most benefit aragora RIGHT NOW?
@@ -3755,10 +4156,28 @@ Recent changes:
             context=context_section,
         )
 
+        # Enable asymmetric stances periodically for stress-testing
+        asymmetric_enabled = self.cycle_count % 15 == 0
+        if asymmetric_enabled:
+            self._log(f"  [stances] Devil's advocate mode enabled for stress-testing")
+
         protocol = DebateProtocol(
             rounds=2,
             consensus="judge",
             proposer_count=4,  # All 4 agents participate
+            role_rotation=True,  # Heavy3-inspired cognitive role rotation
+            role_rotation_config=RoleRotationConfig(
+                enabled=True,
+                roles=[
+                    CognitiveRole.ANALYST,
+                    CognitiveRole.SKEPTIC,
+                    CognitiveRole.LATERAL_THINKER,
+                    CognitiveRole.ADVOCATE,
+                ],
+                synthesizer_final_round=True,
+            ),
+            asymmetric_stances=asymmetric_enabled,
+            rotate_stances=asymmetric_enabled,
         )
 
         # Phase 5: Select optimal debate team (P14: AgentSelector)
@@ -3907,11 +4326,18 @@ Recent changes:
                             vote_tally[v.choice] = vote_tally.get(v.choice, 0) + 1
                     if vote_tally:
                         winner = max(vote_tally.items(), key=lambda x: x[1])[0]
+
+                # Extract position changes for influence tracking
+                position_changes = self._extract_position_changes(result)
+                if position_changes:
+                    self._log(f"  [grounded] Detected position changes: {position_changes}")
+
                 self.relationship_tracker.update_from_debate(
                     debate_id=f"cycle-{self.cycle_count}",
                     participants=participants,
                     winner=winner,
                     votes=result.votes if hasattr(result, 'votes') else [],
+                    position_changes=position_changes,
                 )
                 self._log(f"  [grounded] Updated relationships for {len(participants)} agents")
             except Exception as e:
@@ -3961,6 +4387,43 @@ Recent changes:
             except Exception as e:
                 self._log(f"  [patterns] Storage failed: {e}")
 
+        # Phase 10: Update prediction outcomes for Titans/MIRAS calibration
+        if self.critique_store and hasattr(result, 'critiques') and result.critiques:
+            try:
+                import sqlite3
+                updated_count = 0
+                for critique in result.critiques:
+                    # Determine actual usefulness based on consensus and suggestion incorporation
+                    actual_usefulness = 0.5 if result.consensus_reached else 0.2
+                    if result.consensus_reached and result.final_answer:
+                        for suggestion in getattr(critique, 'suggestions', []):
+                            if suggestion and suggestion.lower()[:50] in result.final_answer.lower():
+                                actual_usefulness = 0.8
+                                break
+
+                    agent_name = getattr(critique, 'agent', None)
+                    if agent_name and hasattr(self.critique_store, 'db_path'):
+                        conn = sqlite3.connect(self.critique_store.db_path)
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "SELECT id FROM critiques WHERE agent = ? ORDER BY id DESC LIMIT 1",
+                            (agent_name,)
+                        )
+                        row = cursor.fetchone()
+                        conn.close()
+
+                        if row:
+                            self.critique_store.update_prediction_outcome(
+                                critique_id=row[0],
+                                actual_usefulness=actual_usefulness,
+                                agent_name=agent_name,
+                            )
+                            updated_count += 1
+                if updated_count > 0:
+                    self._log(f"  [calibration] Updated prediction outcomes for {updated_count} critiques")
+            except Exception as e:
+                self._log(f"  [calibration] Prediction update failed: {e}")
+
         # Phase 5: Track risks from low-consensus debates (P15: RiskRegister)
         self._track_debate_risks(result, topic_hint)
 
@@ -3984,6 +4447,17 @@ Recent changes:
 
         # Phase 7: Finalize debate trace (P25: DebateTracer)
         self._finalize_debate_trace(result)
+
+        # Phase 10: Analyze team selection patterns (every 5 cycles)
+        if self.agent_selector and self.cycle_count % 5 == 0:
+            try:
+                best_teams = self.agent_selector.get_best_team_combinations(min_debates=2)
+                if best_teams:
+                    self._log(f"  [selector] Best team combinations:")
+                    for team in best_teams[:3]:
+                        self._log(f"    {team['agents']}: {team['success_rate']:.0%} ({team['wins']}/{team['total_debates']})")
+            except Exception as e:
+                self._log(f"  [selector] Team analysis failed: {e}")
 
         # Phase 7: Create checkpoint after debate (P22: CheckpointManager)
         await self._create_debate_checkpoint(
@@ -4106,6 +4580,16 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
             rounds=1,
             consensus="judge",
             proposer_count=4,  # All 4 agents participate as proposers
+            role_rotation=True,  # Heavy3-inspired cognitive role rotation
+            role_rotation_config=RoleRotationConfig(
+                enabled=True,
+                roles=[
+                    CognitiveRole.ANALYST,
+                    CognitiveRole.SKEPTIC,
+                    CognitiveRole.DEVIL_ADVOCATE,
+                ],
+                synthesizer_final_round=True,
+            ),
         )
 
         # NomicIntegration: Probe agents for reliability weights
@@ -4669,15 +5153,42 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
                 clear_progress(self.aragora_path)
                 self._log(f"  All {tasks_completed} tasks completed successfully")
 
-                # Pre-verification review: All 3 agents review implementation in parallel
-                self._log("\n  Pre-verification review (all agents)...", agent="claude")
+                # Pre-verification review: All agents review implementation
+                self._log("\n  Pre-verification review...", agent="claude")
                 diff = self._get_git_diff()
                 if diff and len(diff) > 100:  # Only review if there are substantial changes
-                    review_concerns = await self._parallel_implementation_review(diff)
-                    if review_concerns:
-                        self._log(f"    Review concerns: {review_concerns[:1000]}...", agent="claude")
+                    # Check if protected files were modified
+                    touched_protected = self._diff_touches_protected_files(diff)
+
+                    if touched_protected:
+                        # Use Deep Audit for protected files (Heavy3-inspired intensive review)
+                        self._log(f"    Protected files modified: {touched_protected}")
+                        approved, issues = await self._run_deep_audit_for_protected_files(diff, touched_protected)
+
+                        if not approved:
+                            self._log("    BLOCKING: Deep Audit rejected changes to protected files")
+                            self._log("    Rolling back changes...")
+                            self._git_stash_pop(stash_ref)
+                            phase_duration = (datetime.now() - phase_start).total_seconds()
+                            self._stream_emit(
+                                "on_phase_end", "implement", self.cycle_count, False,
+                                phase_duration, {"deep_audit_rejected": True, "issues": issues}
+                            )
+                            return {
+                                "phase": "implement",
+                                "success": False,
+                                "tasks_completed": tasks_completed,
+                                "tasks_total": len(plan.tasks),
+                                "error": f"Deep Audit rejected protected file changes: {issues[:500]}",
+                                "deep_audit_rejected": True,
+                            }
                     else:
-                        self._log("    All agents approve the implementation", agent="claude")
+                        # Regular parallel review for non-protected files
+                        review_concerns = await self._parallel_implementation_review(diff)
+                        if review_concerns:
+                            self._log(f"    Review concerns: {review_concerns[:1000]}...", agent="claude")
+                        else:
+                            self._log("    All agents approve the implementation", agent="claude")
 
                 phase_duration = (datetime.now() - phase_start).total_seconds()
                 self._stream_emit(
@@ -5547,6 +6058,61 @@ Working directory: {self.aragora_path}
                             self._log(f"  [meta] MetaLearner error: {e}")
             except Exception as e:
                 self._log(f"  [continuum] Storage error: {e}")
+
+        # Prune stale patterns periodically (every 10 cycles)
+        if self.critique_store and self.cycle_count % 10 == 0:
+            try:
+                if hasattr(self.critique_store, 'prune_stale_patterns'):
+                    pruned = self.critique_store.prune_stale_patterns(
+                        max_age_days=90,
+                        min_success_rate=0.3,
+                        archive=True
+                    )
+                    if pruned > 0:
+                        self._log(f"  [memory] Pruned {pruned} stale patterns (archived)")
+            except Exception as e:
+                self._log(f"  [memory] Pattern pruning error: {e}")
+
+        # Run robustness check on debate conclusions periodically
+        if self.scenario_comparator and self.cycle_count % 5 == 0:
+            try:
+                debate_answer = cycle_result.get("phases", {}).get("debate", {}).get("final_answer", "")
+                if debate_answer:
+                    robustness = await self._run_robustness_check(
+                        task=debate_answer[:500],
+                        base_context=""
+                    )
+                    if robustness:
+                        cycle_result["robustness"] = robustness
+                        vuln_score = robustness.get("vulnerability_score", 0)
+                        if vuln_score > 0.5:
+                            self._log(f"  [robustness] Warning: high vulnerability score {vuln_score:.2f}")
+            except Exception as e:
+                self._log(f"  [robustness] Check failed: {e}")
+
+        # Manage agent bench based on calibration (every 25 cycles)
+        if self.agent_selector and self.elo_system and self.cycle_count % 25 == 0:
+            try:
+                for agent_name in ["gemini", "claude", "codex", "grok"]:
+                    if hasattr(self.elo_system, 'get_expected_calibration_error'):
+                        ece = self.elo_system.get_expected_calibration_error(agent_name)
+                        if ece is None:
+                            continue
+
+                        bench_list = getattr(self.agent_selector, 'bench', [])
+                        if ece > 0.25 and agent_name not in bench_list:
+                            if hasattr(self.agent_selector, 'move_to_bench'):
+                                self.agent_selector.move_to_bench(agent_name)
+                                self._log(f"  [bench] Moved {agent_name} to probation (ECE: {ece:.2f})")
+
+                        elif agent_name in bench_list:
+                            rating = self.elo_system.get_rating(agent_name)
+                            if ece < 0.15 and rating.elo > 1550:
+                                if hasattr(self.agent_selector, 'promote_from_bench'):
+                                    self.agent_selector.promote_from_bench(agent_name)
+                                    self._log(f"  [bench] Promoted {agent_name} back to active")
+            except Exception as e:
+                self._log(f"  [bench] Management error: {e}")
 
         # Run capability probes periodically (P6: CapabilityProber)
         await self._probe_agent_capabilities()

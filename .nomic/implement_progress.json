@@ -1,0 +1,146 @@
+{
+  "plan": {
+    "design_hash": "be31eddc6cb85262c98aec9b26b16358",
+    "tasks": [
+      {
+        "id": "py-protocol-dataclass",
+        "description": "Extend the `DebateProtocol` dataclass in `orchestrator.py` to include parameters for conviction intensity scaling: `user_vote_intensity_scale`, `user_vote_intensity_neutral`, `user_vote_intensity_min_multiplier`, and `user_vote_intensity_max_multiplier`.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH\n\nWe will implement **\"Conviction-Weighted Consensus\"**\u2014transforming the audience from a passive counter into a dynamic sentiment engine. This is a three-layer additive upgrade:\n\n1.  **The Contract Layer (Types & UI):** We will formalize the \"Intensity\" parameter. Currently, it's a ghost variable; we will make it a first-class citizen in `UserParticipation` props and the `AudienceMetricsData` type. This enables the frontend to render \"Heatmaps\" (distributions) rather than just averages.\n2.  **The Stream Layer (Isolation & Aggregation):** We will upgrade `AudienceInbox` to be multi-tenant aware. By tagging votes with `loop_id` and filtering `get_summary(loop_id)`, we prevent cross-debate contamination. We will also add a `distribution` map to the metrics payload, enabling granular",
+        "files": [
+          "aragora/debate/orchestrator.py"
+        ],
+        "complexity": "simple",
+        "dependencies": []
+      },
+      {
+        "id": "py-intensity-normalization",
+        "description": "Create the `normalize_intensity` helper function in `stream.py` to safely convert vote intensity values to a clamped integer between 1 and 10, with a configurable default.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH\n\nWe will implement **\"Conviction-Weighted Consensus\"**\u2014transforming the audience from a passive counter into a dynamic sentiment engine. This is a three-layer additive upgrade:\n\n1.  **The Contract Layer (Types & UI):** We will formalize the \"Intensity\" parameter. Currently, it's a ghost variable; we will make it a first-class citizen in `UserParticipation` props and the `AudienceMetricsData` type. This enables the frontend to render \"Heatmaps\" (distributions) rather than just averages.\n2.  **The Stream Layer (Isolation & Aggregation):** We will upgrade `AudienceInbox` to be multi-tenant aware. By tagging votes with `loop_id` and filtering `get_summary(loop_id)`, we prevent cross-debate contamination. We will also add a `distribution` map to the metrics payload, enabling granular",
+        "files": [
+          "aragora/server/stream.py"
+        ],
+        "complexity": "simple",
+        "dependencies": []
+      },
+      {
+        "id": "ts-types-update",
+        "description": "Extend the `AudienceMetricsData` interface in `events.ts` to include optional fields for `histogram` (per-choice) and `conviction_distribution` (global) to support richer UI visualizations.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH\n\nWe will implement **\"Conviction-Weighted Consensus\"**\u2014transforming the audience from a passive counter into a dynamic sentiment engine. This is a three-layer additive upgrade:\n\n1.  **The Contract Layer (Types & UI):** We will formalize the \"Intensity\" parameter. Currently, it's a ghost variable; we will make it a first-class citizen in `UserParticipation` props and the `AudienceMetricsData` type. This enables the frontend to render \"Heatmaps\" (distributions) rather than just averages.\n2.  **The Stream Layer (Isolation & Aggregation):** We will upgrade `AudienceInbox` to be multi-tenant aware. By tagging votes with `loop_id` and filtering `get_summary(loop_id)`, we prevent cross-debate contamination. We will also add a `distribution` map to the metrics payload, enabling granular",
+        "files": [
+          "aragora/live/src/types/events.ts"
+        ],
+        "complexity": "simple",
+        "dependencies": []
+      },
+      {
+        "id": "ts-props-update",
+        "description": "Update the `onVote` prop signature in `UserParticipationProps` within `UserParticipation.tsx` to accept an optional `intensity` number, changing it from `(choice: string)` to `(choice: string, intensity?: number)`.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH\n\nWe will implement **\"Conviction-Weighted Consensus\"**\u2014transforming the audience from a passive counter into a dynamic sentiment engine. This is a three-layer additive upgrade:\n\n1.  **The Contract Layer (Types & UI):** We will formalize the \"Intensity\" parameter. Currently, it's a ghost variable; we will make it a first-class citizen in `UserParticipation` props and the `AudienceMetricsData` type. This enables the frontend to render \"Heatmaps\" (distributions) rather than just averages.\n2.  **The Stream Layer (Isolation & Aggregation):** We will upgrade `AudienceInbox` to be multi-tenant aware. By tagging votes with `loop_id` and filtering `get_summary(loop_id)`, we prevent cross-debate contamination. We will also add a `distribution` map to the metrics payload, enabling granular",
+        "files": [
+          "aragora/live/src/components/UserParticipation.tsx"
+        ],
+        "complexity": "simple",
+        "dependencies": []
+      },
+      {
+        "id": "py-multiplier-function",
+        "description": "Implement the `user_vote_multiplier` function in `orchestrator.py`. This function will calculate a bounded vote weight multiplier based on intensity, using the new parameters from `DebateProtocol`.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH\n\nWe will implement **\"Conviction-Weighted Consensus\"**\u2014transforming the audience from a passive counter into a dynamic sentiment engine. This is a three-layer additive upgrade:\n\n1.  **The Contract Layer (Types & UI):** We will formalize the \"Intensity\" parameter. Currently, it's a ghost variable; we will make it a first-class citizen in `UserParticipation` props and the `AudienceMetricsData` type. This enables the frontend to render \"Heatmaps\" (distributions) rather than just averages.\n2.  **The Stream Layer (Isolation & Aggregation):** We will upgrade `AudienceInbox` to be multi-tenant aware. By tagging votes with `loop_id` and filtering `get_summary(loop_id)`, we prevent cross-debate contamination. We will also add a `distribution` map to the metrics payload, enabling granular",
+        "files": [
+          "aragora/debate/orchestrator.py"
+        ],
+        "complexity": "simple",
+        "dependencies": [
+          "py-protocol-dataclass"
+        ]
+      },
+      {
+        "id": "py-summary-enhancement",
+        "description": "Enhance `AudienceInbox.get_summary` in `stream.py` to support an optional `loop_id` filter. It will also use `normalize_intensity` and compute new metrics: per-choice histograms and a global conviction distribution.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH\n\nWe will implement **\"Conviction-Weighted Consensus\"**\u2014transforming the audience from a passive counter into a dynamic sentiment engine. This is a three-layer additive upgrade:\n\n1.  **The Contract Layer (Types & UI):** We will formalize the \"Intensity\" parameter. Currently, it's a ghost variable; we will make it a first-class citizen in `UserParticipation` props and the `AudienceMetricsData` type. This enables the frontend to render \"Heatmaps\" (distributions) rather than just averages.\n2.  **The Stream Layer (Isolation & Aggregation):** We will upgrade `AudienceInbox` to be multi-tenant aware. By tagging votes with `loop_id` and filtering `get_summary(loop_id)`, we prevent cross-debate contamination. We will also add a `distribution` map to the metrics payload, enabling granular",
+        "files": [
+          "aragora/server/stream.py"
+        ],
+        "complexity": "complex",
+        "dependencies": [
+          "py-intensity-normalization"
+        ]
+      },
+      {
+        "id": "ts-vote-handler-update",
+        "description": "Update the `handleUserVote` function in `page.tsx` to align with the new `onVote` signature, ensuring it correctly passes the user's selected intensity value to the server.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH\n\nWe will implement **\"Conviction-Weighted Consensus\"**\u2014transforming the audience from a passive counter into a dynamic sentiment engine. This is a three-layer additive upgrade:\n\n1.  **The Contract Layer (Types & UI):** We will formalize the \"Intensity\" parameter. Currently, it's a ghost variable; we will make it a first-class citizen in `UserParticipation` props and the `AudienceMetricsData` type. This enables the frontend to render \"Heatmaps\" (distributions) rather than just averages.\n2.  **The Stream Layer (Isolation & Aggregation):** We will upgrade `AudienceInbox` to be multi-tenant aware. By tagging votes with `loop_id` and filtering `get_summary(loop_id)`, we prevent cross-debate contamination. We will also add a `distribution` map to the metrics payload, enabling granular",
+        "files": [
+          "aragora/live/src/app/page.tsx"
+        ],
+        "complexity": "simple",
+        "dependencies": [
+          "ts-props-update"
+        ]
+      },
+      {
+        "id": "py-consensus-update",
+        "description": "Modify the majority consensus logic in `orchestrator.py` to apply the bounded intensity multiplier calculated by `user_vote_multiplier` to user votes, effectively implementing confidence-weighted voting.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH\n\nWe will implement **\"Conviction-Weighted Consensus\"**\u2014transforming the audience from a passive counter into a dynamic sentiment engine. This is a three-layer additive upgrade:\n\n1.  **The Contract Layer (Types & UI):** We will formalize the \"Intensity\" parameter. Currently, it's a ghost variable; we will make it a first-class citizen in `UserParticipation` props and the `AudienceMetricsData` type. This enables the frontend to render \"Heatmaps\" (distributions) rather than just averages.\n2.  **The Stream Layer (Isolation & Aggregation):** We will upgrade `AudienceInbox` to be multi-tenant aware. By tagging votes with `loop_id` and filtering `get_summary(loop_id)`, we prevent cross-debate contamination. We will also add a `distribution` map to the metrics payload, enabling granular",
+        "files": [
+          "aragora/debate/orchestrator.py"
+        ],
+        "complexity": "moderate",
+        "dependencies": [
+          "py-multiplier-function"
+        ]
+      },
+      {
+        "id": "py-metrics-emission",
+        "description": "Update the `AUDIENCE_METRICS` emission logic in `stream.py` to call `get_summary` with the active `loop_id`, ensuring that metrics are not contaminated across different, concurrent debate loops.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH\n\nWe will implement **\"Conviction-Weighted Consensus\"**\u2014transforming the audience from a passive counter into a dynamic sentiment engine. This is a three-layer additive upgrade:\n\n1.  **The Contract Layer (Types & UI):** We will formalize the \"Intensity\" parameter. Currently, it's a ghost variable; we will make it a first-class citizen in `UserParticipation` props and the `AudienceMetricsData` type. This enables the frontend to render \"Heatmaps\" (distributions) rather than just averages.\n2.  **The Stream Layer (Isolation & Aggregation):** We will upgrade `AudienceInbox` to be multi-tenant aware. By tagging votes with `loop_id` and filtering `get_summary(loop_id)`, we prevent cross-debate contamination. We will also add a `distribution` map to the metrics payload, enabling granular",
+        "files": [
+          "aragora/server/stream.py"
+        ],
+        "complexity": "simple",
+        "dependencies": [
+          "py-summary-enhancement"
+        ]
+      },
+      {
+        "id": "ts-ui-rendering",
+        "description": "Update the `UserParticipation.tsx` component to render a conviction heatmap or distribution bars when the new `histogram` data is present in the `AudienceMetricsData` payload, falling back to the existing average bar for backward compatibility.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH\n\nWe will implement **\"Conviction-Weighted Consensus\"**\u2014transforming the audience from a passive counter into a dynamic sentiment engine. This is a three-layer additive upgrade:\n\n1.  **The Contract Layer (Types & UI):** We will formalize the \"Intensity\" parameter. Currently, it's a ghost variable; we will make it a first-class citizen in `UserParticipation` props and the `AudienceMetricsData` type. This enables the frontend to render \"Heatmaps\" (distributions) rather than just averages.\n2.  **The Stream Layer (Isolation & Aggregation):** We will upgrade `AudienceInbox` to be multi-tenant aware. By tagging votes with `loop_id` and filtering `get_summary(loop_id)`, we prevent cross-debate contamination. We will also add a `distribution` map to the metrics payload, enabling granular",
+        "files": [
+          "aragora/live/src/components/UserParticipation.tsx"
+        ],
+        "complexity": "moderate",
+        "dependencies": [
+          "ts-types-update",
+          "ts-props-update"
+        ]
+      },
+      {
+        "id": "py-backend-tests",
+        "description": "Add and update tests for the backend changes. This includes testing the `user_vote_multiplier` logic, `get_summary` loop filtering, intensity normalization, new histogram metrics, and ensuring orchestrator outcomes change correctly with intensity scaling.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH\n\nWe will implement **\"Conviction-Weighted Consensus\"**\u2014transforming the audience from a passive counter into a dynamic sentiment engine. This is a three-layer additive upgrade:\n\n1.  **The Contract Layer (Types & UI):** We will formalize the \"Intensity\" parameter. Currently, it's a ghost variable; we will make it a first-class citizen in `UserParticipation` props and the `AudienceMetricsData` type. This enables the frontend to render \"Heatmaps\" (distributions) rather than just averages.\n2.  **The Stream Layer (Isolation & Aggregation):** We will upgrade `AudienceInbox` to be multi-tenant aware. By tagging votes with `loop_id` and filtering `get_summary(loop_id)`, we prevent cross-debate contamination. We will also add a `distribution` map to the metrics payload, enabling granular",
+        "files": [
+          "aragora/server/test_audience_inbox.py",
+          "tests/test_stream_auth.py",
+          "tests/test_debate.py"
+        ],
+        "complexity": "moderate",
+        "dependencies": [
+          "py-consensus-update",
+          "py-metrics-emission"
+        ]
+      },
+      {
+        "id": "ts-frontend-tests",
+        "description": "Update frontend tests in `UserParticipation.test.tsx` to reflect the new `onVote` signature, ensuring it is called with both the choice and intensity. Add tests for the new conditional rendering of the conviction heatmap.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH\n\nWe will implement **\"Conviction-Weighted Consensus\"**\u2014transforming the audience from a passive counter into a dynamic sentiment engine. This is a three-layer additive upgrade:\n\n1.  **The Contract Layer (Types & UI):** We will formalize the \"Intensity\" parameter. Currently, it's a ghost variable; we will make it a first-class citizen in `UserParticipation` props and the `AudienceMetricsData` type. This enables the frontend to render \"Heatmaps\" (distributions) rather than just averages.\n2.  **The Stream Layer (Isolation & Aggregation):** We will upgrade `AudienceInbox` to be multi-tenant aware. By tagging votes with `loop_id` and filtering `get_summary(loop_id)`, we prevent cross-debate contamination. We will also add a `distribution` map to the metrics payload, enabling granular",
+        "files": [
+          "aragora/live/__tests__/UserParticipation.test.tsx"
+        ],
+        "complexity": "simple",
+        "dependencies": [
+          "ts-vote-handler-update",
+          "ts-ui-rendering"
+        ]
+      }
+    ],
+    "created_at": "2026-01-03T21:45:29.171606"
+  },
+  "completed_tasks": [
+    "py-protocol-dataclass",
+    "ts-types-update",
+    "ts-props-update",
+    "py-intensity-normalization"
+  ],
+  "current_task": null,
+  "git_stash_ref": "f018c0013c2eaf73907fde6feff26be321aec1a7",
+  "results": []
+}

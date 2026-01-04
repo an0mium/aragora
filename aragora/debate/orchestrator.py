@@ -45,6 +45,18 @@ def _get_position_tracker():
 # Lazy import to avoid circular dependencies
 InsightExtractor = None
 InsightStore = None
+CitationExtractor = None
+
+def _get_citation_extractor():
+    """Lazy-load CitationExtractor to avoid circular imports."""
+    global CitationExtractor
+    if CitationExtractor is None:
+        try:
+            from aragora.reasoning.citations import CitationExtractor as _CE
+            CitationExtractor = _CE
+        except ImportError:
+            pass
+    return CitationExtractor
 
 def _get_insight_classes():
     """Lazy-load insight classes to avoid circular imports."""
@@ -212,6 +224,32 @@ class Arena:
 
         # Cache for research context (computed once per debate)
         self._research_context_cache: Optional[str] = None
+
+        # Citation extraction (Heavy3-inspired evidence grounding)
+        self.citation_extractor = None
+        ExtractorClass = _get_citation_extractor()
+        if ExtractorClass:
+            self.citation_extractor = ExtractorClass()
+
+    def _extract_citation_needs(self, proposals: dict[str, str]) -> dict[str, list[dict]]:
+        """Extract claims that need citations from all proposals.
+
+        Heavy3-inspired: Identifies statements that should be backed by evidence.
+        """
+        if not self.citation_extractor:
+            return {}
+
+        citation_needs = {}
+        for agent_name, proposal in proposals.items():
+            needs = self.citation_extractor.identify_citation_needs(proposal)
+            if needs:
+                citation_needs[agent_name] = needs
+                # Log high-priority citation needs
+                high_priority = [n for n in needs if n["priority"] == "high"]
+                if high_priority:
+                    print(f"  [citations] {agent_name}: {len(high_priority)} claims need evidence")
+
+        return citation_needs
 
     def _select_critics_for_proposal(self, proposal_agent: str, all_critics: list[Agent]) -> list[Agent]:
         """Select which critics should critique the given proposal based on topology."""
@@ -423,6 +461,57 @@ class Arena:
         report.risk_areas.extend(severe_unaddressed[:3])
 
         return report
+
+    def _create_grounded_verdict(self, result: "DebateResult"):
+        """Create a GroundedVerdict for the final answer.
+
+        Heavy3-inspired: Wrap final answers with evidence grounding analysis.
+        Identifies claims that should be backed by evidence and calculates grounding score.
+        """
+        if not self.citation_extractor or not result.final_answer:
+            return None
+
+        try:
+            # Lazy import to avoid circular dependencies
+            from aragora.reasoning.citations import GroundedVerdict, CitedClaim
+
+            # Extract claims from the final answer
+            claims_text = self.citation_extractor.extract_claims(result.final_answer)
+
+            if not claims_text:
+                # No claims needing citations - return minimal grounded verdict
+                return GroundedVerdict(
+                    verdict=result.final_answer,
+                    confidence=result.confidence,
+                    grounding_score=1.0,  # No claims = fully grounded (nothing to cite)
+                )
+
+            # Create CitedClaim objects (without actual citations for now)
+            cited_claims = []
+            for claim_text in claims_text:
+                claim = CitedClaim(
+                    claim_text=claim_text,
+                    confidence=result.confidence,
+                    grounding_score=0.0,  # No citations found
+                )
+                cited_claims.append(claim)
+
+            # Calculate grounding score based on claim density
+            # Higher claim count = lower grounding (more unsubstantiated claims)
+            answer_words = len(result.final_answer.split())
+            claim_density = len(claims_text) / max(answer_words / 100, 1)  # Claims per 100 words
+            grounding_score = max(0.0, 1.0 - (claim_density * 0.2))  # Penalize high claim density
+
+            return GroundedVerdict(
+                verdict=result.final_answer,
+                confidence=result.confidence,
+                claims=cited_claims,
+                grounding_score=grounding_score,
+            )
+
+        except Exception as e:
+            print(f"  [grounding] Error creating grounded verdict: {e}")
+            return None
 
     async def _fetch_historical_context(self, task: str, limit: int = 3) -> str:
         """Fetch similar past debates for historical context.
@@ -727,6 +816,9 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     self.recorder.record_turn(agent.name, proposals[agent.name], 0)
                 except Exception:
                     pass
+
+        # Extract citation needs from initial proposals (Heavy3-inspired)
+        self._extract_citation_needs(proposals)
 
         # === DEBATE ROUNDS ===
         for round_num in range(1, self.protocol.rounds + 1):
@@ -1317,6 +1409,13 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         if result.disagreement_report.split_opinions:
             print(f"  [disagreement] {len(result.disagreement_report.split_opinions)} split opinions detected")
 
+        # === Generate grounded verdict (Heavy3-inspired evidence grounding) ===
+        result.grounded_verdict = self._create_grounded_verdict(result)
+        if result.grounded_verdict:
+            print(f"  [grounding] Evidence grounding score: {result.grounded_verdict.grounding_score:.0%}")
+            if result.grounded_verdict.claims:
+                print(f"  [grounding] {len(result.grounded_verdict.claims)} claims analyzed")
+
         print(f"\n{'='*60}")
         print(f"DEBATE COMPLETE in {result.duration_seconds:.1f}s")
         print(f"Consensus: {'Yes' if result.consensus_reached else 'No'} ({result.confidence:.0%})")
@@ -1705,6 +1804,11 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         stance_str = self._get_stance_guidance(agent)
         stance_section = f"\n\n{stance_str}" if stance_str else ""
 
+        # Include cognitive role context if role rotation enabled
+        role_section = self._get_role_context(agent)
+        if role_section:
+            role_section = f"\n\n{role_section}"
+
         # Include successful patterns that may help address critiques
         patterns_section = ""
         patterns = self._format_successful_patterns(limit=2)
@@ -1722,7 +1826,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
             if audience_section:
                 audience_section = f"\n\n{audience_section}"
 
-        return f"""You are revising your proposal based on critiques from other agents.
+        return f"""You are revising your proposal based on critiques from other agents.{role_section}
 
 {intensity_guidance}{stance_section}{patterns_section}{audience_section}
 

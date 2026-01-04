@@ -18,6 +18,7 @@ import { VerdictCard } from '@/components/VerdictCard';
 import { CompareView, CompareButton } from '@/components/CompareView';
 import { DeepAuditView, DeepAuditToggle } from '@/components/DeepAuditView';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { DocumentUpload } from '@/components/DocumentUpload';
 import type { NomicState } from '@/types/events';
 
 // WebSocket URL - can be overridden via environment variable
@@ -267,6 +268,7 @@ export default function Home() {
 
           {/* Side Panel */}
           <div className="lg:col-span-1 space-y-4">
+            <DocumentUpload apiBase={API_URL} />
             <UserParticipation
               events={events}
               onVote={handleUserVote}

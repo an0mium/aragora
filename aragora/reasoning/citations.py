@@ -309,7 +309,7 @@ class CitationExtractor:
         elif any(word in claim_lower for word in ["law", "regulation", "standard"]):
             return [CitationType.OFFICIAL_SOURCE, CitationType.DOCUMENTATION]
         else:
-            return [CitationType.ACADEMIC_PAPER, CitationType.AUTHORITATIVE]
+            return [CitationType.ACADEMIC_PAPER, CitationType.OFFICIAL_SOURCE]
 
 
 class CitationStore:

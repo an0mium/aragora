@@ -17,6 +17,7 @@ from urllib.parse import urlparse, parse_qs
 
 from .stream import DebateStreamServer, SyncEventEmitter
 from .storage import DebateStorage
+from .documents import DocumentStore, parse_document, get_supported_formats, SUPPORTED_EXTENSIONS
 
 # Optional Supabase persistence
 try:
@@ -53,6 +54,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     persistence: Optional["SupabaseClient"] = None  # Supabase client for history
     insight_store: Optional["InsightStore"] = None  # InsightStore for debate insights
     elo_system: Optional["EloSystem"] = None  # EloSystem for agent rankings
+    document_store: Optional[DocumentStore] = None  # Document store for uploads
 
     def do_GET(self) -> None:
         """Handle GET requests."""
@@ -111,6 +113,15 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             limit = int(query.get('limit', [30])[0])
             self._get_agent_history(agent, limit)
 
+        # Document API
+        elif path == '/api/documents':
+            self._list_documents()
+        elif path == '/api/documents/formats':
+            self._send_json(get_supported_formats())
+        elif path.startswith('/api/documents/'):
+            doc_id = path.split('/')[-1]
+            self._get_document(doc_id)
+
         # Static file serving
         elif path in ('/', '/index.html'):
             self._serve_file('index.html')
@@ -125,6 +136,144 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self._add_cors_headers()
         self.end_headers()
+
+    def do_POST(self) -> None:
+        """Handle POST requests."""
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        if path == '/api/documents/upload':
+            self._upload_document()
+        else:
+            self.send_error(404, f"Unknown POST endpoint: {path}")
+
+    def _upload_document(self) -> None:
+        """Handle document upload."""
+        if not self.document_store:
+            self._send_json({"error": "Document storage not configured"}, status=500)
+            return
+
+        # Get content length
+        content_length = int(self.headers.get('Content-Length', 0))
+        if content_length == 0:
+            self._send_json({"error": "No content provided"}, status=400)
+            return
+
+        # Check max size (10MB)
+        max_size = 10 * 1024 * 1024
+        if content_length > max_size:
+            self._send_json({"error": f"File too large. Max size: 10MB"}, status=400)
+            return
+
+        content_type = self.headers.get('Content-Type', '')
+
+        # Handle multipart form data
+        if 'multipart/form-data' in content_type:
+            # Parse boundary
+            boundary = None
+            for part in content_type.split(';'):
+                if 'boundary=' in part:
+                    boundary = part.split('=')[1].strip()
+                    break
+
+            if not boundary:
+                self._send_json({"error": "No boundary in multipart data"}, status=400)
+                return
+
+            # Read body
+            body = self.rfile.read(content_length)
+
+            # Parse multipart - simple implementation
+            boundary_bytes = f'--{boundary}'.encode()
+            parts = body.split(boundary_bytes)
+
+            file_content = None
+            filename = None
+
+            for part in parts:
+                if b'Content-Disposition' not in part:
+                    continue
+
+                # Extract filename
+                try:
+                    header_end = part.index(b'\r\n\r\n')
+                    headers_raw = part[:header_end].decode('utf-8', errors='ignore')
+                    file_data = part[header_end + 4:]
+
+                    # Remove trailing boundary markers
+                    if file_data.endswith(b'--\r\n'):
+                        file_data = file_data[:-4]
+                    elif file_data.endswith(b'\r\n'):
+                        file_data = file_data[:-2]
+
+                    # Extract filename from headers
+                    if 'filename="' in headers_raw:
+                        start = headers_raw.index('filename="') + 10
+                        end = headers_raw.index('"', start)
+                        filename = headers_raw[start:end]
+                        file_content = file_data
+                        break
+                except (ValueError, IndexError):
+                    continue
+
+            if not file_content or not filename:
+                self._send_json({"error": "No file found in upload"}, status=400)
+                return
+
+        else:
+            # Raw file upload - get filename from header
+            filename = self.headers.get('X-Filename', 'document.txt')
+            file_content = self.rfile.read(content_length)
+
+        # Validate file extension
+        ext = '.' + filename.split('.')[-1].lower() if '.' in filename else ''
+        if ext not in SUPPORTED_EXTENSIONS:
+            self._send_json({
+                "error": f"Unsupported file type: {ext}",
+                "supported": list(SUPPORTED_EXTENSIONS)
+            }, status=400)
+            return
+
+        # Parse document
+        try:
+            doc = parse_document(file_content, filename)
+            doc_id = self.document_store.add(doc)
+
+            self._send_json({
+                "success": True,
+                "document": {
+                    "id": doc_id,
+                    "filename": doc.filename,
+                    "word_count": doc.word_count,
+                    "page_count": doc.page_count,
+                    "preview": doc.preview,
+                }
+            })
+        except ImportError as e:
+            self._send_json({"error": str(e)}, status=400)
+        except Exception as e:
+            self._send_json({"error": f"Failed to parse document: {str(e)}"}, status=500)
+
+    def _list_documents(self) -> None:
+        """List all uploaded documents."""
+        if not self.document_store:
+            self._send_json({"documents": [], "error": "Document storage not configured"})
+            return
+
+        docs = self.document_store.list_all()
+        self._send_json({"documents": docs, "count": len(docs)})
+
+    def _get_document(self, doc_id: str) -> None:
+        """Get a document by ID."""
+        if not self.document_store:
+            self.send_error(500, "Document storage not configured")
+            return
+
+        doc = self.document_store.get(doc_id)
+        if doc:
+            self._send_json(doc.to_dict())
+        else:
+            self.send_error(404, f"Document not found: {doc_id}")
 
     def _get_debate(self, slug: str) -> None:
         """Get a single debate by slug."""
@@ -404,10 +553,10 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_error(500, str(e))
 
-    def _send_json(self, data) -> None:
+    def _send_json(self, data, status: int = 200) -> None:
         """Send JSON response."""
         content = json.dumps(data).encode()
-        self.send_response(200)
+        self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', len(content))
         self._add_cors_headers()
@@ -417,8 +566,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     def _add_cors_headers(self) -> None:
         """Add CORS headers for cross-origin requests."""
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Filename')
 
     def log_message(self, format: str, *args) -> None:
         """Suppress default logging."""
@@ -489,6 +638,11 @@ class UnifiedServer:
                 if elo_path.exists():
                     UnifiedHandler.elo_system = EloSystem(str(elo_path))
                     print("[server] EloSystem loaded for leaderboard API")
+
+            # Initialize DocumentStore for file uploads
+            doc_dir = nomic_dir / "documents"
+            UnifiedHandler.document_store = DocumentStore(doc_dir)
+            print(f"[server] DocumentStore initialized at {doc_dir}")
 
     @property
     def emitter(self) -> SyncEventEmitter:

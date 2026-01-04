@@ -163,9 +163,30 @@ from aragora.reasoning import (
     CitationGraph,
     SourceType,
 )
+# Scholarly Citations
+from aragora.reasoning import (
+    ScholarlyEvidence,
+    CitationType,
+    CitationQuality,
+    CitedClaim,
+    GroundedVerdict,
+    CitationExtractor,
+    CitationStore,
+    create_citation_from_url,
+)
 
 # Modes
 from aragora.modes import RedTeamMode, RedTeamResult, Attack, AttackType
+from aragora.modes import (
+    DeepAuditOrchestrator,
+    DeepAuditConfig,
+    DeepAuditVerdict,
+    AuditFinding,
+    run_deep_audit,
+    STRATEGY_AUDIT,
+    CONTRACT_AUDIT,
+    CODE_ARCHITECTURE_AUDIT,
+)
 
 # Tools
 from aragora.tools import CodeReader, CodeWriter, SelfImprover, CodeProposal
@@ -309,11 +330,29 @@ __all__ = [
     "ProvenanceRecord",
     "CitationGraph",
     "SourceType",
+    # Scholarly Citations (Heavy3-inspired)
+    "ScholarlyEvidence",
+    "CitationType",
+    "CitationQuality",
+    "CitedClaim",
+    "GroundedVerdict",
+    "CitationExtractor",
+    "CitationStore",
+    "create_citation_from_url",
     # Modes
     "RedTeamMode",
     "RedTeamResult",
     "Attack",
     "AttackType",
+    # Deep Audit Mode (Heavy3-inspired)
+    "DeepAuditOrchestrator",
+    "DeepAuditConfig",
+    "DeepAuditVerdict",
+    "AuditFinding",
+    "run_deep_audit",
+    "STRATEGY_AUDIT",
+    "CONTRACT_AUDIT",
+    "CODE_ARCHITECTURE_AUDIT",
     # Tools
     "CodeReader",
     "CodeWriter",

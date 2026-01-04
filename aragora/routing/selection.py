@@ -400,9 +400,46 @@ class AgentSelector:
         # Record to history
         self._selection_history.append({
             "task_id": team.task_id,
+            "selected": [a.name for a in team.agents],
             "result": "success" if getattr(result, "consensus_reached", False) else "no_consensus",
             "confidence": getattr(result, "confidence", 0),
+            "timestamp": __import__('datetime').datetime.now().isoformat(),
         })
+
+    def get_selection_history(self, limit: Optional[int] = None) -> list[dict]:
+        """Retrieve selection history for meta-analysis."""
+        history = self._selection_history.copy()
+        history.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        if limit:
+            history = history[:limit]
+        return history
+
+    def get_best_team_combinations(self, min_debates: int = 3) -> list[dict]:
+        """Analyze history to find best-performing team combinations."""
+        from collections import defaultdict
+        team_stats: dict[frozenset, dict] = defaultdict(lambda: {"wins": 0, "total": 0, "agents": []})
+
+        for entry in self._selection_history:
+            selected = entry.get('selected', [])
+            if not selected:
+                continue
+            team_key = frozenset(selected)
+            team_stats[team_key]["agents"] = sorted(selected)
+            team_stats[team_key]["total"] += 1
+            if entry.get('result') == 'success':
+                team_stats[team_key]["wins"] += 1
+
+        results = []
+        for team_key, stats in team_stats.items():
+            if stats["total"] >= min_debates:
+                results.append({
+                    "agents": stats["agents"],
+                    "success_rate": stats["wins"] / stats["total"],
+                    "total_debates": stats["total"],
+                    "wins": stats["wins"],
+                })
+        results.sort(key=lambda x: x["success_rate"], reverse=True)
+        return results
 
     def get_leaderboard(self, domain: Optional[str] = None, limit: int = 10) -> list[dict]:
         """Get agent leaderboard."""

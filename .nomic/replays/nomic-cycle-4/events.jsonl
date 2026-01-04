@@ -1,0 +1,3 @@
+{"event_id": "3d280472", "timestamp": 1767495336.129866, "offset_ms": 1803999, "event_type": "phase_change", "source": "system", "content": "debate", "metadata": {}}
+{"event_id": "cbf04692", "timestamp": 1767496600.547529, "offset_ms": 3068417, "event_type": "phase_change", "source": "system", "content": "design", "metadata": {}}
+{"event_id": "72800947", "timestamp": 1767498299.310107, "offset_ms": 4767180, "event_type": "phase_change", "source": "system", "content": "implement", "metadata": {}}

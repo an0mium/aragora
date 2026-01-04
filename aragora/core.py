@@ -4,7 +4,7 @@ Core abstractions for the Agora multi-agent debate framework.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Callable, Literal, Optional
+from typing import Any, Callable, Literal, Optional
 from datetime import datetime
 import uuid
 
@@ -127,6 +127,8 @@ class DebateResult:
     consensus_variance: float = 0.0
     # Disagreement surfacing (Heavy3-inspired)
     disagreement_report: Optional["DisagreementReport"] = None
+    # Evidence grounding (Heavy3-inspired)
+    grounded_verdict: Optional[Any] = None  # GroundedVerdict from aragora.reasoning.citations
 
     def summary(self) -> str:
         """Human-readable summary of the debate."""
@@ -144,6 +146,11 @@ Final Answer:
         if self.disagreement_report:
             base += f"\n\n{self.disagreement_report.summary()}"
 
+        if self.grounded_verdict:
+            base += f"\n\nGrounding Score: {self.grounded_verdict.grounding_score:.0%}"
+            if hasattr(self.grounded_verdict, 'all_citations'):
+                base += f" ({len(self.grounded_verdict.all_citations)} citations)"
+
         return base
 
 
@@ -157,6 +164,8 @@ class Environment:
     max_rounds: int = 3
     require_consensus: bool = False
     consensus_threshold: float = 0.7  # fraction of agents that must agree
+    # Document IDs attached to this debate (Heavy3-inspired)
+    documents: list[str] = field(default_factory=list)
 
 
 class Agent(ABC):

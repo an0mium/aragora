@@ -5,35 +5,57 @@
 @tailwind utilities;
 
 :root {
-  /* Dark theme (default) */
-  --bg: #0a0a0f;
-  --surface: #12121a;
-  --border: #2a2a3a;
-  --text: #e4e4eb;
-  --text-muted: #8888a0;
-  --accent: #6366f1;
-  --accent-glow: rgba(99, 102, 241, 0.3);
-  --success: #22c55e;
-  --warning: #f97316;
-  --purple: #a78bfa;
-  --gold: #fbbf24;
-  --crimson: #ef4444;
+  /* Hacker/Demoscene Dark theme (default) */
+  --bg: #0a0a0a;
+  --surface: #0d0d0d;
+  --surface-elevated: #141414;
+  --border: #1a1a1a;
+  --border-glow: #39ff1440;
+  --text: #e0e0e0;
+  --text-muted: #666666;
+
+  /* Acid/Demoscene accent colors */
+  --acid-green: #39ff14;
+  --acid-cyan: #00ffff;
+  --acid-magenta: #ff00ff;
+  --acid-yellow: #ffff00;
+  --matrix-green: #00ff41;
+  --terminal-green: #33ff33;
+
+  /* Agent colors (neon variants) */
+  --accent: #39ff14;
+  --accent-glow: rgba(57, 255, 20, 0.3);
+  --success: #39ff14;
+  --warning: #ffff00;
+  --purple: #bf00ff;
+  --gold: #ffd700;
+  --crimson: #ff0040;
+  --cyan: #00ffff;
+
+  /* Terminal effects */
+  --terminal-glow: 0 0 10px var(--acid-green), 0 0 20px var(--acid-green);
+  --scanline: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15),
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 2px
+  );
 }
 
-/* Light theme (Heavy3-inspired clean interface) */
+/* Light theme - clean but still techy */
 [data-theme="light"] {
-  --bg: #ffffff;
-  --surface: #f8f9fa;
-  --border: #e5e7eb;
-  --text: #1f2937;
-  --text-muted: #6b7280;
-  --accent: #4f46e5;
-  --accent-glow: rgba(79, 70, 229, 0.15);
-  --success: #059669;
-  --warning: #d97706;
-  --purple: #7c3aed;
-  --gold: #b45309;
-  --crimson: #dc2626;
+  --bg: #f0f0f0;
+  --surface: #ffffff;
+  --surface-elevated: #f8f8f8;
+  --border: #d0d0d0;
+  --border-glow: #00800040;
+  --text: #1a1a1a;
+  --text-muted: #666666;
+  --acid-green: #00aa00;
+  --acid-cyan: #0088aa;
+  --accent: #00aa00;
+  --accent-glow: rgba(0, 170, 0, 0.2);
 }
 
 * {
@@ -52,28 +74,116 @@ body {
   font-feature-settings: 'liga' 1, 'calt' 1;
 }
 
-/* Scrollbar styling */
+/* CRT scanline overlay effect */
+.crt-overlay::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--scanline);
+  pointer-events: none;
+  opacity: 0.03;
+  z-index: 9999;
+}
+
+/* Subtle CRT flicker */
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.95; }
+  94% { opacity: 1; }
+}
+
+.crt-flicker {
+  animation: flicker 8s infinite;
+}
+
+/* Glowing text effect */
+.glow-text {
+  text-shadow:
+    0 0 5px currentColor,
+    0 0 10px currentColor,
+    0 0 20px currentColor;
+}
+
+.glow-text-subtle {
+  text-shadow: 0 0 10px currentColor;
+}
+
+/* Acid gradient text animation */
+.acid-gradient {
+  background: linear-gradient(90deg, #39ff14, #00ffff, #ff00ff, #39ff14);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: acid-shift 4s ease infinite;
+}
+
+@keyframes acid-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Matrix rain animation */
+@keyframes matrix-fall {
+  0% { transform: translateY(-100%); opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+.matrix-rain {
+  animation: matrix-fall linear infinite;
+}
+
+/* Cursor blink */
+@keyframes cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.cursor-blink {
+  animation: cursor-blink 1s step-end infinite;
+}
+
+/* Pulse glow */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--acid-green), 0 0 10px var(--acid-green);
+    border-color: var(--acid-green);
+  }
+  50% {
+    box-shadow: 0 0 10px var(--acid-green), 0 0 20px var(--acid-green), 0 0 30px var(--acid-green);
+    border-color: var(--terminal-green);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Scrollbar styling - acid theme */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--surface);
+  background: var(--bg);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
+  background: var(--acid-green);
+  opacity: 0.3;
+  border-radius: 0;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--terminal-green);
 }
 
 /* Utility classes */
 .gradient-text {
-  background: linear-gradient(135deg, var(--accent), var(--purple));
+  background: linear-gradient(135deg, var(--acid-green), var(--acid-cyan));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -83,14 +193,28 @@ body {
   box-shadow: 0 0 20px var(--accent-glow);
 }
 
+.glow-border {
+  border: 1px solid var(--acid-green);
+  box-shadow: 0 0 10px var(--accent-glow), inset 0 0 10px var(--accent-glow);
+}
+
+/* Card with terminal aesthetic */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-radius: 0;
+}
+
+.card-terminal {
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid var(--acid-green);
+  border-radius: 0;
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .card-hover:hover {
-  border-color: var(--accent);
+  border-color: var(--acid-green);
+  box-shadow: 0 0 15px var(--accent-glow);
 }
 
 /* Terminal-style content for agent output and code */
@@ -99,7 +223,7 @@ body {
   font-size: 0.875rem;
   line-height: 1.7;
   letter-spacing: -0.01em;
-  font-feature-settings: 'liga' 1, 'calt' 1; /* Enable ligatures */
+  font-feature-settings: 'liga' 1, 'calt' 1;
 }
 
 /* Agent output styling */
@@ -114,4 +238,108 @@ body {
 .user-input {
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Monaco, Consolas, monospace;
   font-size: 0.875rem;
+}
+
+/* ASCII box drawing styles */
+.ascii-box {
+  border: 1px solid var(--acid-green);
+  position: relative;
+}
+
+.ascii-box::before {
+  content: '┌' attr(data-title) '┐';
+  position: absolute;
+  top: -0.7em;
+  left: 1em;
+  background: var(--bg);
+  padding: 0 0.5em;
+  color: var(--acid-green);
+  font-size: 0.75rem;
+}
+
+/* Agent-specific colors */
+.agent-claude { color: var(--acid-cyan); }
+.agent-gemini { color: var(--purple); }
+.agent-codex { color: var(--gold); }
+.agent-grok { color: var(--crimson); }
+
+/* Status indicators */
+.status-online { color: var(--acid-green); }
+.status-offline { color: var(--crimson); }
+.status-pending { color: var(--acid-yellow); }
+
+/* Typewriter effect */
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+.typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  animation: typewriter 2s steps(40) forwards;
+}
+
+/* Boot sequence fade in */
+@keyframes boot-line {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.boot-line {
+  animation: boot-line 0.3s ease forwards;
+}
+
+/* Selection styling */
+::selection {
+  background: var(--acid-green);
+  color: var(--bg);
+}
+
+/* Focus styling */
+:focus-visible {
+  outline: 2px solid var(--acid-green);
+  outline-offset: 2px;
+}
+
+/* Link styling */
+a {
+  color: var(--acid-cyan);
+  text-decoration: none;
+}
+
+a:hover {
+  text-shadow: 0 0 10px var(--acid-cyan);
+}
+
+/* Button base */
+.btn-terminal {
+  background: transparent;
+  border: 1px solid var(--acid-green);
+  color: var(--acid-green);
+  padding: 0.5em 1em;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-terminal:hover {
+  background: var(--acid-green);
+  color: var(--bg);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+/* Input styling */
+input, textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  padding: 0.5em;
+}
+
+input:focus, textarea:focus {
+  border-color: var(--acid-green);
+  box-shadow: 0 0 10px var(--accent-glow);
+  outline: none;
 }
