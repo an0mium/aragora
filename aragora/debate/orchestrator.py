@@ -46,6 +46,21 @@ def _get_position_tracker():
             pass
     return PositionTracker
 
+
+# Optional calibration tracking for prediction accuracy
+CalibrationTracker = None
+
+def _get_calibration_tracker():
+    """Lazy-load CalibrationTracker to avoid circular imports."""
+    global CalibrationTracker
+    if CalibrationTracker is None:
+        try:
+            from aragora.agents.calibration import CalibrationTracker as _CT
+            CalibrationTracker = _CT
+        except ImportError:
+            pass
+    return CalibrationTracker
+
 # Lazy import to avoid circular dependencies
 InsightExtractor = None
 InsightStore = None
@@ -219,6 +234,7 @@ class Arena:
         persona_manager=None,  # Optional PersonaManager for agent specialization
         dissent_retriever=None,  # Optional DissentRetriever for historical minority views
         flip_detector=None,  # Optional FlipDetector for position reversal detection
+        calibration_tracker=None,  # Optional CalibrationTracker for prediction accuracy
         loop_id: str = "",  # Loop ID for multi-loop scoping
         strict_loop_scoping: bool = False,  # Drop events without loop_id when True
     ):
@@ -239,6 +255,7 @@ class Arena:
         self.persona_manager = persona_manager  # For agent specialization context
         self.dissent_retriever = dissent_retriever  # For historical minority views in debates
         self.flip_detector = flip_detector  # For detecting position reversals
+        self.calibration_tracker = calibration_tracker  # For prediction accuracy tracking
         self.loop_id = loop_id  # Loop ID for scoping events
         self.strict_loop_scoping = strict_loop_scoping  # Enforce loop_id on all events
 

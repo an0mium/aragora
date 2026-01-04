@@ -431,7 +431,7 @@ class AnthropicAPIAgent(APIAgent):
     def __init__(
         self,
         name: str = "claude-api",
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-opus-4-5-20251101",
         role: str = "proposer",
         timeout: int = 120,
         api_key: str = None,
@@ -590,7 +590,7 @@ class OpenAIAPIAgent(APIAgent):
     def __init__(
         self,
         name: str = "openai-api",
-        model: str = "gpt-4o",
+        model: str = "gpt-5.2",
         role: str = "proposer",
         timeout: int = 120,
         api_key: str = None,
@@ -753,7 +753,7 @@ class GrokAgent(APIAgent):
     def __init__(
         self,
         name: str = "grok",
-        model: str = "grok-3",
+        model: str = "grok-4",
         role: str = "proposer",
         timeout: int = 120,
         api_key: str = None,
@@ -1097,13 +1097,13 @@ class DeepSeekAgent(OpenRouterAgent):
 
 
 class DeepSeekReasonerAgent(OpenRouterAgent):
-    """DeepSeek R1 via OpenRouter - chain-of-thought reasoning model."""
+    """DeepSeek V3.2 via OpenRouter - latest reasoning model with integrated thinking and tool-use."""
 
     def __init__(self, name: str = "deepseek-r1", role: str = "analyst", system_prompt: str = None):
         super().__init__(
             name=name,
             role=role,
-            model="deepseek/deepseek-reasoner",
+            model="deepseek/deepseek-v3.2",  # Latest V3.2 with reasoning + tool-use
             system_prompt=system_prompt,
         )
 

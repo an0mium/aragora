@@ -365,7 +365,7 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
                     )}
                   </span>
                 </div>
-                <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+                <div className="p-4 space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto">
                   {liveMessages.length === 0 && streamingMessages.size === 0 && liveStatus === 'streaming' && (
                     <div className="text-center py-8 text-text-muted font-mono">
                       <div className="animate-pulse">Waiting for agents to respond...</div>
@@ -438,10 +438,12 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
                 </div>
               </div>
 
-              {/* Metadata */}
-              <div className="text-center text-xs font-mono text-text-muted py-4 border-t border-acid-green/20">
-                <div>DEBATE ID: {debateId}</div>
-              </div>
+              {/* Minimal footer - only show when complete */}
+              {liveStatus === 'complete' && (
+                <div className="text-center text-xs font-mono text-text-muted py-2 border-t border-acid-green/20">
+                  ID: {debateId}
+                </div>
+              )}
             </div>
           )}
 
