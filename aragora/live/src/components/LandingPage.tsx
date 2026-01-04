@@ -59,10 +59,9 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
 
         {/* Hero Section */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
-          {/* ASCII Art Title */}
-          <pre className="text-acid-green text-xs sm:text-sm font-mono text-center mb-8 hidden sm:block">
-{`
-    ▄▄▄       ██▀███   ▄▄▄        ▄████  ▒█████   ██▀███   ▄▄▄
+          {/* ASCII Art Title - compact size */}
+          <pre className="text-acid-green text-[6px] sm:text-[7px] font-mono text-center mb-6 hidden sm:block leading-tight">
+{`    ▄▄▄       ██▀███   ▄▄▄        ▄████  ▒█████   ██▀███   ▄▄▄
    ▒████▄    ▓██ ▒ ██▒▒████▄     ██▒ ▀█▒▒██▒  ██▒▓██ ▒ ██▒▒████▄
    ▒██  ▀█▄  ▓██ ░▄█ ▒▒██  ▀█▄  ▒██░▄▄▄░▒██░  ██▒▓██ ░▄█ ▒▒██  ▀█▄
    ░██▄▄▄▄██ ▒██▀▀█▄  ░██▄▄▄▄██ ░▓█  ██▓▒██   ██░▒██▀▀█▄  ░██▄▄▄▄██
@@ -70,8 +69,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
     ▒▒   ▓▒█░░ ▒▓ ░▒▓░ ▒▒   ▓▒█░ ░▒   ▒ ░ ▒░▒░▒░ ░ ▒▓ ░▒▓░ ▒▒   ▓▒█░
      ▒   ▒▒ ░  ░▒ ░ ▒░  ▒   ▒▒ ░  ░   ░   ░ ▒ ▒░   ░▒ ░ ▒░  ▒   ▒▒ ░
      ░   ▒     ░░   ░   ░   ▒   ░ ░   ░ ░ ░ ░ ▒    ░░   ░   ░   ▒
-         ░  ░   ░           ░  ░      ░     ░ ░     ░           ░  ░
-`}
+         ░  ░   ░           ░  ░      ░     ░ ░     ░           ░  ░`}
           </pre>
 
           {/* Tagline */}
