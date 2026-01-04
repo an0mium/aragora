@@ -23,6 +23,35 @@ from .auth import auth_config, check_auth
 # For ad-hoc debates
 import threading
 import uuid
+import logging
+
+# Configure module logger
+logger = logging.getLogger(__name__)
+
+
+def _safe_error_message(e: Exception, context: str = "") -> str:
+    """Return a sanitized error message for client responses.
+
+    Logs the full error server-side while returning a generic message to clients.
+    This prevents information disclosure of internal details like file paths,
+    stack traces, or sensitive configuration.
+    """
+    # Log full details server-side for debugging
+    logger.error(f"Error in {context}: {type(e).__name__}: {e}", exc_info=True)
+
+    # Map common exceptions to user-friendly messages
+    error_type = type(e).__name__
+    if error_type in ("FileNotFoundError", "OSError"):
+        return "Resource not found"
+    elif error_type in ("json.JSONDecodeError", "ValueError"):
+        return "Invalid data format"
+    elif error_type in ("PermissionError",):
+        return "Access denied"
+    elif error_type in ("TimeoutError", "asyncio.TimeoutError"):
+        return "Operation timed out"
+    else:
+        return "An error occurred"
+
 
 # Valid agent types (allowlist for security)
 ALLOWED_AGENT_TYPES = frozenset({
@@ -167,6 +196,27 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             return min(max(val, min_val), max_val)
         except (ValueError, IndexError, TypeError):
             return default
+
+    def _safe_string(self, value: str, max_len: int = 500, pattern: Optional[str] = None) -> Optional[str]:
+        """Safely validate string parameter with length and pattern checks.
+
+        Args:
+            value: The string to validate
+            max_len: Maximum allowed length (default 500)
+            pattern: Optional regex pattern to match (e.g., r'^[a-zA-Z0-9_-]+$')
+
+        Returns:
+            Validated string or None if invalid
+        """
+        import re
+        if not value or not isinstance(value, str):
+            return None
+        # Truncate to max length
+        value = value[:max_len]
+        # Validate pattern if provided
+        if pattern and not re.match(pattern, value):
+            return None
+        return value
 
     def _check_rate_limit(self) -> bool:
         """Check auth and rate limit. Returns True if allowed, False if blocked.
@@ -531,10 +581,13 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "Invalid JSON"}, status=400)
             return
 
-        # Validate required fields
+        # Validate required fields with length limits
         question = data.get('question', '').strip()
         if not question:
             self._send_json({"error": "question field is required"}, status=400)
+            return
+        if len(question) > 10000:
+            self._send_json({"error": "question must be under 10,000 characters"}, status=400)
             return
 
         # Parse optional fields

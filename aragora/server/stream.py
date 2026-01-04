@@ -284,10 +284,14 @@ class SyncEventEmitter:
     This pattern avoids needing to rewrite Arena to be fully async.
     """
 
+    # Maximum queue size to prevent memory exhaustion (DoS protection)
+    MAX_QUEUE_SIZE = 10000
+
     def __init__(self, loop_id: str = ""):
         self._queue: queue.Queue[StreamEvent] = queue.Queue()
         self._subscribers: list[Callable[[StreamEvent], None]] = []
         self._loop_id = loop_id  # Default loop_id for all events
+        self._overflow_count = 0  # Track dropped events for monitoring
 
     def set_loop_id(self, loop_id: str) -> None:
         """Set the loop_id to attach to all emitted events."""
@@ -298,6 +302,16 @@ class SyncEventEmitter:
         # Add loop_id to event if not already set
         if self._loop_id and not event.loop_id:
             event.loop_id = self._loop_id
+
+        # Enforce queue size limit to prevent memory exhaustion
+        if self._queue.qsize() >= self.MAX_QUEUE_SIZE:
+            # Drop oldest event to make room (backpressure)
+            try:
+                self._queue.get_nowait()
+                self._overflow_count += 1
+            except queue.Empty:
+                pass
+
         self._queue.put(event)
         for sub in self._subscribers:
             try:

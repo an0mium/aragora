@@ -1569,7 +1569,87 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             except Exception:
                 pass  # Recording finalization failure shouldn't affect result
 
+        # === FEEDBACK LOOPS: Update systems with debate outcome ===
+        debate_id = getattr(result, 'id', None) or self.env.task[:50]
+        domain = getattr(self.env, 'domain', 'general')
+
+        # 1. Record ELO match results
+        if self.elo_system and result.winner:
+            try:
+                # Build participant scores from votes
+                participants = [agent.name for agent in self.agents]
+                scores = {}
+                for agent_name in participants:
+                    if agent_name == result.winner:
+                        scores[agent_name] = 1.0
+                    elif result.consensus_reached:
+                        scores[agent_name] = 0.5  # Draw for non-winners in consensus
+                    else:
+                        scores[agent_name] = 0.0
+                self.elo_system.record_match(debate_id, participants, scores, domain=domain)
+            except Exception:
+                pass  # ELO update failure shouldn't break debate
+
+        # 2. Update PersonaManager with performance feedback
+        if self.persona_manager:
+            try:
+                for agent in self.agents:
+                    # Determine success based on winner or consensus participation
+                    success = (agent.name == result.winner) or (
+                        result.consensus_reached and result.confidence > 0.7
+                    )
+                    self.persona_manager.record_performance(
+                        agent_name=agent.name,
+                        domain=domain,
+                        success=success,
+                    )
+            except Exception:
+                pass  # Persona update failure shouldn't break debate
+
+        # 3. Resolve positions in PositionLedger
+        if self.position_ledger and result.final_answer:
+            try:
+                # Mark positions as resolved based on whether they align with final answer
+                for agent in self.agents:
+                    positions = self.position_ledger.get_agent_positions(agent.name)
+                    for pos in positions[-5:]:  # Last 5 positions from this debate
+                        if pos.get('debate_id') == debate_id:
+                            outcome = "correct" if agent.name == result.winner else "contested"
+                            self.position_ledger.resolve_position(
+                                position_id=pos.get('id'),
+                                outcome=outcome,
+                                resolution_source=f"debate:{debate_id}",
+                            )
+            except Exception:
+                pass  # Position resolution failure shouldn't break debate
+
+        # 4. Index debate in embeddings for historical retrieval
+        if self.debate_embeddings:
+            try:
+                import asyncio
+                # Create minimal debate artifact for indexing
+                artifact = {
+                    'id': debate_id,
+                    'task': self.env.task,
+                    'domain': domain,
+                    'winner': result.winner,
+                    'final_answer': result.final_answer,
+                    'confidence': result.confidence,
+                    'agents': [a.name for a in self.agents],
+                }
+                asyncio.create_task(self._index_debate_async(artifact))
+            except Exception:
+                pass  # Embedding indexing failure shouldn't break debate
+
         return result
+
+    async def _index_debate_async(self, artifact: dict) -> None:
+        """Index debate asynchronously to avoid blocking."""
+        try:
+            if self.debate_embeddings:
+                await self.debate_embeddings.index_debate(artifact)
+        except Exception:
+            pass  # Silent failure for async indexing
 
     async def _generate_with_agent(
         self, agent: Agent, prompt: str, context: list[Message]

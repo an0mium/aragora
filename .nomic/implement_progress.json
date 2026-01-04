@@ -67,12 +67,11 @@
     "created_at": "2026-01-04T01:09:40.958564"
   },
   "completed_tasks": [
-    "task-3",
-    "task-2",
-    "task-1",
     "task-4",
+    "task-2",
     "task-5",
-    "task-6"
+    "task-3",
+    "task-1"
   ],
   "current_task": null,
   "git_stash_ref": "adfd7dd5282060905efbcb50bac5d587a16b389e",
