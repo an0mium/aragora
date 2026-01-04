@@ -187,6 +187,11 @@ try:
 except Exception:
     pass
 
+# Skip KiloCode agents during context gathering phase (agentic codebase exploration)
+# KiloCode's agentic exploration consistently times out (>30 min for Gemini/Grok)
+# Gemini/Grok still participate in debates via direct API calls
+SKIP_KILOCODE_CONTEXT_GATHERING = True
+
 # Genesis module for fractal debates with agent evolution
 GENESIS_AVAILABLE = False
 try:
@@ -4496,8 +4501,10 @@ Synthesize these suggestions into a coherent, working implementation.
         phase_start = datetime.now()
 
         # Determine how many agents will participate
+        # Check if KiloCode should be used for context gathering
+        use_kilocode = KILOCODE_AVAILABLE and not SKIP_KILOCODE_CONTEXT_GATHERING
         agents_count = 2  # Claude + Codex always
-        if KILOCODE_AVAILABLE:
+        if use_kilocode:
             agents_count = 4  # + Gemini + Grok via Kilo Code
             self._log("\n" + "=" * 70)
             self._log("PHASE 0: CONTEXT GATHERING (All 4 agents with codebase access)")
@@ -4507,7 +4514,10 @@ Synthesize these suggestions into a coherent, working implementation.
         else:
             self._log("\n" + "=" * 70)
             self._log("PHASE 0: CONTEXT GATHERING (Claude + Codex)")
-            self._log("  Note: Install kilocode CLI to enable Gemini/Grok exploration")
+            if KILOCODE_AVAILABLE and SKIP_KILOCODE_CONTEXT_GATHERING:
+                self._log("  Note: KiloCode skipped (timeouts); Gemini/Grok join in debates")
+            else:
+                self._log("  Note: Install kilocode CLI to enable Gemini/Grok exploration")
             self._log("=" * 70)
 
         self._stream_emit("on_phase_start", "context", self.cycle_count, {"agents": agents_count})
@@ -4560,8 +4570,8 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
             gather_with_agent(self.codex, "codex", "Codex CLI"),
         ]
 
-        # Add Gemini and Grok via Kilo Code if available
-        if KILOCODE_AVAILABLE:
+        # Add Gemini and Grok via Kilo Code if available (and not skipped)
+        if use_kilocode:
             # Create temporary Kilo Code agents for exploration
             gemini_explorer = KiloCodeAgent(
                 name="gemini-explorer",

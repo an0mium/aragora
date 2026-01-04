@@ -245,6 +245,23 @@ except ImportError:
     EVOLUTION_AVAILABLE = False
     PromptEvolver = None
 
+# Optional ContinuumMemory for multi-timescale memory
+try:
+    from aragora.memory.continuum import ContinuumMemory, MemoryTier
+    CONTINUUM_AVAILABLE = True
+except ImportError:
+    CONTINUUM_AVAILABLE = False
+    ContinuumMemory = None
+    MemoryTier = None
+
+# Optional InsightExtractor for debate insights
+try:
+    from aragora.insights.extractor import InsightExtractor
+    INSIGHT_EXTRACTOR_AVAILABLE = True
+except ImportError:
+    INSIGHT_EXTRACTOR_AVAILABLE = False
+    InsightExtractor = None
+
 # Track active ad-hoc debates
 _active_debates: dict[str, dict] = {}
 _active_debates_lock = threading.Lock()  # Thread-safe access to _active_debates
@@ -830,6 +847,16 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             domain = query.get('domain', [None])[0]
             self._get_calibration_summary(agent, domain)
 
+        # Continuum Memory API
+        elif path == '/api/memory/continuum/retrieve':
+            query_str = query.get('query', [''])[0]
+            tiers = query.get('tiers', ['fast,medium'])[0]
+            limit = self._safe_int(query, 'limit', 10, 50)
+            min_importance = self._safe_float(query, 'min_importance', 0.0, 0.0, 1.0)
+            self._get_continuum_memories(query_str, tiers, limit, min_importance)
+        elif path == '/api/memory/continuum/consolidate':
+            self._get_continuum_consolidation()
+
         # Static file serving
         elif path in ('/', '/index.html'):
             self._serve_file('index.html')
@@ -1039,9 +1066,12 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "question must be under 10,000 characters"}, status=400)
             return
 
-        # Parse optional fields
+        # Parse optional fields with validation
         agents_str = data.get('agents', 'gemini,anthropic-api')
-        rounds = min(max(int(data.get('rounds', 3)), 1), 10)  # Clamp to 1-10
+        try:
+            rounds = min(max(int(data.get('rounds', 3)), 1), 10)  # Clamp to 1-10
+        except (ValueError, TypeError):
+            rounds = 3  # Default on invalid input
         consensus = data.get('consensus', 'majority')
 
         # Generate debate ID
@@ -3175,6 +3205,88 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             })
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "calibration_summary")}, status=500)
+
+    def _get_continuum_memories(self, query: str, tiers_str: str, limit: int, min_importance: float) -> None:
+        """Retrieve memories from the continuum memory system."""
+        if not self._check_rate_limit():
+            return
+
+        if not CONTINUUM_AVAILABLE:
+            self._send_json({"error": "Continuum memory not available"}, status=503)
+            return
+
+        try:
+            if not self.nomic_dir:
+                self._send_json({"error": "Nomic directory not configured"}, status=503)
+                return
+
+            memory = ContinuumMemory(db_path=str(self.nomic_dir / "continuum.db"))
+
+            # Parse tier filter
+            tier_names = [t.strip().upper() for t in tiers_str.split(',') if t.strip()]
+            tiers = []
+            for name in tier_names:
+                try:
+                    tiers.append(MemoryTier[name])
+                except KeyError:
+                    pass  # Ignore invalid tier names
+
+            if not tiers:
+                tiers = [MemoryTier.FAST, MemoryTier.MEDIUM]  # Default
+
+            entries = memory.retrieve(
+                query=query if query else None,
+                tiers=tiers,
+                limit=limit,
+                min_importance=min_importance,
+            )
+
+            self._send_json({
+                "query": query,
+                "tiers": [t.name for t in tiers],
+                "memories": [
+                    {
+                        "id": e.id,
+                        "tier": e.tier.name,
+                        "content": e.content,
+                        "importance": e.importance,
+                        "surprise_score": e.surprise_score,
+                        "consolidation_score": e.consolidation_score,
+                        "success_rate": e.success_rate,
+                        "update_count": e.update_count,
+                        "created_at": e.created_at,
+                        "updated_at": e.updated_at,
+                    }
+                    for e in entries
+                ],
+                "count": len(entries),
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "continuum_memories")}, status=500)
+
+    def _get_continuum_consolidation(self) -> None:
+        """Get memory consolidation status and run consolidation."""
+        if not self._check_rate_limit():
+            return
+
+        if not CONTINUUM_AVAILABLE:
+            self._send_json({"error": "Continuum memory not available"}, status=503)
+            return
+
+        try:
+            if not self.nomic_dir:
+                self._send_json({"error": "Nomic directory not configured"}, status=503)
+                return
+
+            memory = ContinuumMemory(db_path=str(self.nomic_dir / "continuum.db"))
+            stats = memory.consolidate()
+
+            self._send_json({
+                "consolidation": stats,
+                "message": "Memory consolidation complete",
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "continuum_consolidation")}, status=500)
 
     def _serve_file(self, filename: str) -> None:
         """Serve a static file with path traversal protection."""

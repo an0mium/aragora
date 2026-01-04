@@ -90,23 +90,31 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
         try {
           const data = JSON.parse(event.data);
 
+          // Check if event belongs to this debate (supports both loop_id and debate_id)
+          const eventDebateId = data.loop_id || data.data?.debate_id || data.data?.loop_id;
+          const isOurDebate = !eventDebateId || eventDebateId === debateId;
+
           // Handle different event types
-          if (data.type === 'debate_start' && data.data?.debate_id === debateId) {
+          if (data.type === 'debate_start' && isOurDebate) {
             setLiveTask(data.data.task || 'Debate in progress...');
             setLiveAgents(data.data.agents || []);
-          } else if (data.type === 'debate_message' && data.data?.debate_id === debateId) {
+          } else if ((data.type === 'debate_message' || data.type === 'agent_message') && isOurDebate) {
+            // Handle both debate_message and agent_message event types
             const msg: TranscriptMessage = {
-              agent: data.data.agent || 'unknown',
-              role: data.data.role,
-              content: data.data.content || '',
-              round: data.data.round,
-              timestamp: data.data.timestamp || Date.now() / 1000,
+              agent: data.agent || data.data?.agent || 'unknown',
+              role: data.data?.role,
+              content: data.data?.content || '',
+              round: data.round || data.data?.round,
+              timestamp: data.timestamp || data.data?.timestamp || Date.now() / 1000,
             };
-            setLiveMessages(prev => [...prev, msg]);
-            if (data.data.agent && !liveAgents.includes(data.data.agent)) {
-              setLiveAgents(prev => [...prev, data.data.agent]);
+            if (msg.content) {
+              setLiveMessages(prev => [...prev, msg]);
+              const agentName = msg.agent;
+              if (agentName && !liveAgents.includes(agentName)) {
+                setLiveAgents(prev => prev.includes(agentName) ? prev : [...prev, agentName]);
+              }
             }
-          } else if (data.type === 'agent_response') {
+          } else if (data.type === 'agent_response' && isOurDebate) {
             // Also handle agent_response events for backwards compatibility
             const msg: TranscriptMessage = {
               agent: data.data?.agent || 'unknown',
@@ -118,11 +126,11 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
             if (msg.content) {
               setLiveMessages(prev => [...prev, msg]);
             }
-          } else if (data.type === 'debate_end' && data.data?.debate_id === debateId) {
+          } else if (data.type === 'debate_end' && isOurDebate) {
             setLiveStatus('complete');
           }
-          // Token streaming events
-          else if (data.type === 'token_start') {
+          // Token streaming events (also check isOurDebate)
+          else if (data.type === 'token_start' && isOurDebate) {
             const agent = data.agent || data.data?.agent;
             if (agent) {
               setStreamingMessages(prev => {
@@ -140,7 +148,7 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
                 setLiveAgents(prev => prev.includes(agent) ? prev : [...prev, agent]);
               }
             }
-          } else if (data.type === 'token_delta') {
+          } else if (data.type === 'token_delta' && isOurDebate) {
             const agent = data.agent || data.data?.agent;
             const token = data.data?.token || '';
             if (agent && token) {
@@ -164,7 +172,7 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
                 return updated;
               });
             }
-          } else if (data.type === 'token_end') {
+          } else if (data.type === 'token_end' && isOurDebate) {
             const agent = data.agent || data.data?.agent;
             if (agent) {
               setStreamingMessages(prev => {

@@ -1447,6 +1447,59 @@ Get comprehensive calibration summary for an agent.
 
 ---
 
+### Continuum Memory
+
+Multi-timescale memory system with surprise-weighted importance scoring.
+
+#### GET /api/memory/continuum/retrieve
+Retrieve memories from the continuum memory system.
+
+**Parameters:**
+- `query` (string, optional): Search query for memory content
+- `tiers` (string, default="fast,medium"): Comma-separated tier names (fast, medium, slow, glacial)
+- `limit` (int, default=10, max=50): Maximum memories to return
+- `min_importance` (float, default=0.0): Minimum importance threshold (0.0-1.0)
+
+**Response:**
+```json
+{
+  "query": "error patterns",
+  "tiers": ["FAST", "MEDIUM"],
+  "memories": [
+    {
+      "id": "mem-123",
+      "tier": "FAST",
+      "content": "TypeError pattern in agent responses",
+      "importance": 0.85,
+      "surprise_score": 0.3,
+      "consolidation_score": 0.7,
+      "success_rate": 0.92,
+      "update_count": 15,
+      "created_at": "2026-01-03T10:00:00Z",
+      "updated_at": "2026-01-04T08:00:00Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+#### GET /api/memory/continuum/consolidate
+Run memory consolidation and get tier transition statistics.
+
+**Response:**
+```json
+{
+  "consolidation": {
+    "promoted": 5,
+    "demoted": 2,
+    "pruned": 1
+  },
+  "message": "Memory consolidation complete"
+}
+```
+
+---
+
 ## WebSocket API
 
 Connect to the WebSocket server for real-time streaming:

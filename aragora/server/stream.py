@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import queue
+import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -377,14 +378,17 @@ class DebateStreamServer:
         self.current_debate: Optional[dict] = None
         self._emitter = SyncEventEmitter()
         self._running = False
-        # Multi-loop tracking
+        # Multi-loop tracking with thread safety
         self.active_loops: dict[str, LoopInstance] = {}  # loop_id -> LoopInstance
+        self._active_loops_lock = threading.Lock()
         # Debate state caching for late joiner sync
         self.debate_states: dict[str, dict] = {}  # loop_id -> debate state
+        self._debate_states_lock = threading.Lock()
         # Audience participation
         self.audience_inbox = AudienceInbox()
         self._rate_limiters: dict[str, TokenBucket] = {}  # client_id -> TokenBucket
         self._rate_limiter_last_access: dict[str, float] = {}  # client_id -> last access time
+        self._rate_limiters_lock = threading.Lock()
         self._rate_limiter_cleanup_counter = 0  # Counter for periodic cleanup
         self._RATE_LIMITER_TTL = 3600  # 1 hour TTL for rate limiters
         self._CLEANUP_INTERVAL = 100  # Cleanup every N accesses
@@ -400,59 +404,61 @@ class DebateStreamServer:
     def _cleanup_stale_rate_limiters(self) -> None:
         """Remove rate limiters not accessed within TTL period."""
         now = time.time()
-        stale_keys = [
-            k for k, v in self._rate_limiter_last_access.items()
-            if now - v > self._RATE_LIMITER_TTL
-        ]
-        for k in stale_keys:
-            self._rate_limiters.pop(k, None)
-            self._rate_limiter_last_access.pop(k, None)
+        with self._rate_limiters_lock:
+            stale_keys = [
+                k for k, v in self._rate_limiter_last_access.items()
+                if now - v > self._RATE_LIMITER_TTL
+            ]
+            for k in stale_keys:
+                self._rate_limiters.pop(k, None)
+                self._rate_limiter_last_access.pop(k, None)
         if stale_keys:
             print(f"[stream] Cleaned up {len(stale_keys)} stale rate limiters")
 
     def _update_debate_state(self, event: StreamEvent) -> None:
         """Update cached debate state based on emitted events."""
         loop_id = event.loop_id
-        if event.type == StreamEventType.DEBATE_START:
-            self.debate_states[loop_id] = {
-                "id": loop_id,
-                "task": event.data["task"],
-                "agents": event.data["agents"],
-                "messages": [],
-                "consensus_reached": False,
-                "consensus_confidence": 0.0,
-                "consensus_answer": "",
-                "started_at": event.timestamp,
-                "rounds": 0,
-                "ended": False,
-                "duration": 0.0,
-            }
-        elif event.type == StreamEventType.AGENT_MESSAGE:
-            if loop_id in self.debate_states:
-                state = self.debate_states[loop_id]
-                state["messages"].append({
-                    "agent": event.agent,
-                    "role": event.data["role"],
-                    "round": event.round,
-                    "content": event.data["content"],
-                })
-                # Cap at last 1000 messages to allow full debate history without truncation
-                if len(state["messages"]) > 1000:
-                    state["messages"] = state["messages"][-1000:]
-        elif event.type == StreamEventType.CONSENSUS:
-            if loop_id in self.debate_states:
-                state = self.debate_states[loop_id]
-                state["consensus_reached"] = event.data["reached"]
-                state["consensus_confidence"] = event.data["confidence"]
-                state["consensus_answer"] = event.data["answer"]
-        elif event.type == StreamEventType.DEBATE_END:
-            if loop_id in self.debate_states:
-                state = self.debate_states[loop_id]
-                state["ended"] = True
-                state["duration"] = event.data["duration"]
-                state["rounds"] = event.data["rounds"]
-        elif event.type == StreamEventType.LOOP_UNREGISTER:
-            self.debate_states.pop(loop_id, None)
+        with self._debate_states_lock:
+            if event.type == StreamEventType.DEBATE_START:
+                self.debate_states[loop_id] = {
+                    "id": loop_id,
+                    "task": event.data["task"],
+                    "agents": event.data["agents"],
+                    "messages": [],
+                    "consensus_reached": False,
+                    "consensus_confidence": 0.0,
+                    "consensus_answer": "",
+                    "started_at": event.timestamp,
+                    "rounds": 0,
+                    "ended": False,
+                    "duration": 0.0,
+                }
+            elif event.type == StreamEventType.AGENT_MESSAGE:
+                if loop_id in self.debate_states:
+                    state = self.debate_states[loop_id]
+                    state["messages"].append({
+                        "agent": event.agent,
+                        "role": event.data["role"],
+                        "round": event.round,
+                        "content": event.data["content"],
+                    })
+                    # Cap at last 1000 messages to allow full debate history without truncation
+                    if len(state["messages"]) > 1000:
+                        state["messages"] = state["messages"][-1000:]
+            elif event.type == StreamEventType.CONSENSUS:
+                if loop_id in self.debate_states:
+                    state = self.debate_states[loop_id]
+                    state["consensus_reached"] = event.data["reached"]
+                    state["consensus_confidence"] = event.data["confidence"]
+                    state["consensus_answer"] = event.data["answer"]
+            elif event.type == StreamEventType.DEBATE_END:
+                if loop_id in self.debate_states:
+                    state = self.debate_states[loop_id]
+                    state["ended"] = True
+                    state["duration"] = event.data["duration"]
+                    state["rounds"] = event.data["rounds"]
+            elif event.type == StreamEventType.LOOP_UNREGISTER:
+                self.debate_states.pop(loop_id, None)
 
     async def broadcast(self, event: StreamEvent) -> None:
         """Send event to all connected clients."""
@@ -485,7 +491,9 @@ class DebateStreamServer:
             started_at=time.time(),
             path=path,
         )
-        self.active_loops[loop_id] = instance
+        with self._active_loops_lock:
+            self.active_loops[loop_id] = instance
+            loop_count = len(self.active_loops)
         # Emit registration event
         self._emitter.emit(StreamEvent(
             type=StreamEventType.LOOP_REGISTER,
@@ -494,44 +502,50 @@ class DebateStreamServer:
                 "name": name,
                 "started_at": instance.started_at,
                 "path": path,
-                "active_loops": len(self.active_loops),
+                "active_loops": loop_count,
             },
         ))
 
     def unregister_loop(self, loop_id: str) -> None:
         """Unregister a nomic loop instance."""
-        if loop_id in self.active_loops:
-            del self.active_loops[loop_id]
-            # Emit unregistration event
-            self._emitter.emit(StreamEvent(
-                type=StreamEventType.LOOP_UNREGISTER,
-                data={
-                    "loop_id": loop_id,
-                    "active_loops": len(self.active_loops),
-                },
-            ))
+        with self._active_loops_lock:
+            if loop_id in self.active_loops:
+                del self.active_loops[loop_id]
+                loop_count = len(self.active_loops)
+            else:
+                return  # Loop not found, nothing to unregister
+        # Emit unregistration event
+        self._emitter.emit(StreamEvent(
+            type=StreamEventType.LOOP_UNREGISTER,
+            data={
+                "loop_id": loop_id,
+                "active_loops": loop_count,
+            },
+        ))
 
     def update_loop_state(self, loop_id: str, cycle: int = None, phase: str = None) -> None:
         """Update the state of an active loop instance."""
-        if loop_id in self.active_loops:
-            if cycle is not None:
-                self.active_loops[loop_id].cycle = cycle
-            if phase is not None:
-                self.active_loops[loop_id].phase = phase
+        with self._active_loops_lock:
+            if loop_id in self.active_loops:
+                if cycle is not None:
+                    self.active_loops[loop_id].cycle = cycle
+                if phase is not None:
+                    self.active_loops[loop_id].phase = phase
 
     def get_loop_list(self) -> list[dict]:
         """Get list of active loops for client sync."""
-        return [
-            {
-                "loop_id": loop.loop_id,
-                "name": loop.name,
-                "started_at": loop.started_at,
-                "cycle": loop.cycle,
-                "phase": loop.phase,
-                "path": loop.path,
-            }
-            for loop in self.active_loops.values()
-        ]
+        with self._active_loops_lock:
+            return [
+                {
+                    "loop_id": loop.loop_id,
+                    "name": loop.name,
+                    "started_at": loop.started_at,
+                    "cycle": loop.cycle,
+                    "phase": loop.phase,
+                    "path": loop.path,
+                }
+                for loop in self.active_loops.values()
+            ]
 
     async def handler(self, websocket) -> None:
         """Handle a WebSocket connection with origin validation."""
