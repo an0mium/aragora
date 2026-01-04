@@ -127,7 +127,11 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query)
 
         # API routes
-        if path.startswith('/api/debates/'):
+        if path.startswith('/api/debates/slug/'):
+            # Slug-based lookup for permalinks (bridges SQLite storage to frontend)
+            slug = path.split('/')[-1]
+            self._get_debate_by_slug(slug)
+        elif path.startswith('/api/debates/'):
             slug = path.split('/')[-1]
             self._get_debate(slug)
         elif path == '/api/debates':
@@ -499,6 +503,28 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._send_json(doc.to_dict())
         else:
             self.send_error(404, f"Document not found: {doc_id}")
+
+    def _get_debate_by_slug(self, slug: str) -> None:
+        """Get debate metadata by human-readable slug for permalinks."""
+        if not self.storage:
+            self._send_json({"error": "Storage not configured"}, status=500)
+            return
+
+        debate = self.storage.get_by_slug(slug)
+        if not debate:
+            self._send_json({"error": "Debate not found"}, status=404)
+            return
+
+        # Return structured metadata for frontend lookup
+        self._send_json({
+            "slug": slug,
+            "debate_id": debate.get("id", slug),
+            "task": debate.get("task", ""),
+            "agents": debate.get("agents", []),
+            "consensus_reached": debate.get("consensus_reached", False),
+            "confidence": debate.get("confidence", 0.0),
+            "created_at": debate.get("created_at", ""),
+        })
 
     def _get_debate(self, slug: str) -> None:
         """Get a single debate by slug."""
@@ -952,6 +978,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             'http://127.0.0.1:8080',
             'https://aragora.ai',
             'https://www.aragora.ai',
+            'https://live.aragora.ai',
+            'https://api.aragora.ai',
         }
         request_origin = self.headers.get('Origin', '')
 

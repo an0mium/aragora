@@ -230,3 +230,222 @@ class TestAPIBackwardCompatibility:
             if output:
                 data = json.loads(output.decode('utf-8'))
                 assert isinstance(data, dict)
+
+
+class TestFlipsAPI:
+    """Test the /api/flips/* endpoints."""
+
+    def test_recent_flips_default(self):
+        """Test recent flips with default parameters."""
+        from aragora.server.unified_server import UnifiedHandler
+
+        with patch.object(UnifiedHandler, '__init__', lambda x: None):
+            handler = UnifiedHandler()
+            handler.path = '/api/flips/recent'
+            handler.command = 'GET'
+            handler.request_version = 'HTTP/1.1'
+            handler.headers = {}
+            handler.wfile = BytesIO()
+            handler.flip_detector = Mock()
+            handler.flip_detector.get_recent_flips.return_value = []
+
+            handler.send_response = Mock()
+            handler._add_cors_headers = Mock()
+            handler.send_header = Mock()
+            handler.end_headers = Mock()
+            handler._send_json = Mock()
+
+            handler._get_recent_flips(limit=20)
+
+            handler.flip_detector.get_recent_flips.assert_called_once_with(limit=20)
+
+    def test_recent_flips_custom_limit(self):
+        """Test recent flips with custom limit."""
+        from aragora.server.unified_server import UnifiedHandler
+
+        with patch.object(UnifiedHandler, '__init__', lambda x: None):
+            handler = UnifiedHandler()
+            handler.path = '/api/flips/recent?limit=10'
+            handler.command = 'GET'
+            handler.request_version = 'HTTP/1.1'
+            handler.headers = {}
+            handler.wfile = BytesIO()
+            handler.flip_detector = Mock()
+            handler.flip_detector.get_recent_flips.return_value = []
+
+            handler.send_response = Mock()
+            handler._add_cors_headers = Mock()
+            handler.send_header = Mock()
+            handler.end_headers = Mock()
+            handler._send_json = Mock()
+
+            handler._get_recent_flips(limit=10)
+
+            handler.flip_detector.get_recent_flips.assert_called_once_with(limit=10)
+
+    def test_recent_flips_no_detector(self):
+        """Test recent flips when flip detector is not configured."""
+        from aragora.server.unified_server import UnifiedHandler
+
+        with patch.object(UnifiedHandler, '__init__', lambda x: None):
+            handler = UnifiedHandler()
+            handler.path = '/api/flips/recent'
+            handler.command = 'GET'
+            handler.request_version = 'HTTP/1.1'
+            handler.headers = {}
+            handler.wfile = BytesIO()
+            handler.flip_detector = None
+
+            handler.send_response = Mock()
+            handler._add_cors_headers = Mock()
+            handler.send_header = Mock()
+            handler.end_headers = Mock()
+            json_response = {}
+
+            def capture_json(data):
+                json_response.update(data)
+
+            handler._send_json = capture_json
+
+            handler._get_recent_flips(limit=20)
+
+            assert "error" in json_response
+            assert "flips" in json_response
+            assert json_response["flips"] == []
+
+    def test_flip_summary(self):
+        """Test flip summary endpoint."""
+        from aragora.server.unified_server import UnifiedHandler
+
+        mock_summary = {
+            "total_flips": 5,
+            "by_type": {"contradiction": 2, "refinement": 3},
+            "by_agent": {"claude": 3, "gemini": 2},
+            "recent_24h": 2,
+        }
+
+        with patch.object(UnifiedHandler, '__init__', lambda x: None):
+            handler = UnifiedHandler()
+            handler.path = '/api/flips/summary'
+            handler.command = 'GET'
+            handler.request_version = 'HTTP/1.1'
+            handler.headers = {}
+            handler.wfile = BytesIO()
+            handler.flip_detector = Mock()
+            handler.flip_detector.get_flip_summary.return_value = mock_summary
+
+            handler.send_response = Mock()
+            handler._add_cors_headers = Mock()
+            handler.send_header = Mock()
+            handler.end_headers = Mock()
+            json_response = {}
+
+            def capture_json(data):
+                json_response.update(data)
+
+            handler._send_json = capture_json
+
+            handler._get_flip_summary()
+
+            handler.flip_detector.get_flip_summary.assert_called_once()
+            assert "summary" in json_response
+            assert json_response["summary"]["total_flips"] == 5
+
+    def test_flip_summary_no_detector(self):
+        """Test flip summary when detector is not configured."""
+        from aragora.server.unified_server import UnifiedHandler
+
+        with patch.object(UnifiedHandler, '__init__', lambda x: None):
+            handler = UnifiedHandler()
+            handler.path = '/api/flips/summary'
+            handler.command = 'GET'
+            handler.request_version = 'HTTP/1.1'
+            handler.headers = {}
+            handler.wfile = BytesIO()
+            handler.flip_detector = None
+
+            handler.send_response = Mock()
+            handler._add_cors_headers = Mock()
+            handler.send_header = Mock()
+            handler.end_headers = Mock()
+            json_response = {}
+
+            def capture_json(data):
+                json_response.update(data)
+
+            handler._send_json = capture_json
+
+            handler._get_flip_summary()
+
+            assert "error" in json_response
+            assert "summary" in json_response
+
+
+class TestAgentConsistencyAPI:
+    """Test the /api/agent/{name}/consistency endpoint."""
+
+    def test_agent_consistency(self):
+        """Test agent consistency endpoint."""
+        from aragora.server.unified_server import UnifiedHandler
+
+        mock_score = Mock()
+        mock_score.agent_name = "claude"
+        mock_score.consistency_score = 0.85
+        mock_score.total_positions = 10
+        mock_score.flip_rate = 0.15
+        mock_score.contradictions = 1
+        mock_score.retractions = 0
+        mock_score.qualifications = 1
+        mock_score.refinements = 2
+
+        with patch.object(UnifiedHandler, '__init__', lambda x: None):
+            handler = UnifiedHandler()
+            handler.path = '/api/agent/claude/consistency'
+            handler.command = 'GET'
+            handler.request_version = 'HTTP/1.1'
+            handler.headers = {}
+            handler.wfile = BytesIO()
+            handler.flip_detector = Mock()
+            handler.flip_detector.get_agent_consistency.return_value = mock_score
+
+            handler.send_response = Mock()
+            handler._add_cors_headers = Mock()
+            handler.send_header = Mock()
+            handler.end_headers = Mock()
+            handler._send_json = Mock()
+
+            handler._get_agent_consistency(agent="claude")
+
+            handler.flip_detector.get_agent_consistency.assert_called_once_with("claude")
+
+    def test_agent_flips(self):
+        """Test agent-specific flips endpoint."""
+        from aragora.server.unified_server import UnifiedHandler
+
+        with patch.object(UnifiedHandler, '__init__', lambda x: None):
+            handler = UnifiedHandler()
+            handler.path = '/api/agent/claude/flips?limit=10'
+            handler.command = 'GET'
+            handler.request_version = 'HTTP/1.1'
+            handler.headers = {}
+            handler.wfile = BytesIO()
+            handler.flip_detector = Mock()
+            handler.flip_detector.detect_flips_for_agent.return_value = []
+
+            handler.send_response = Mock()
+            handler._add_cors_headers = Mock()
+            handler.send_header = Mock()
+            handler.end_headers = Mock()
+            json_response = {}
+
+            def capture_json(data):
+                json_response.update(data)
+
+            handler._send_json = capture_json
+
+            handler._get_agent_flips(agent="claude", limit=10)
+
+            handler.flip_detector.detect_flips_for_agent.assert_called_once_with("claude", lookback_positions=10)
+            assert "agent" in json_response
+            assert json_response["agent"] == "claude"
+            assert "flips" in json_response

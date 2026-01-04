@@ -26,6 +26,9 @@ if not WS_ALLOWED_ORIGINS or WS_ALLOWED_ORIGINS == [""]:
         "https://www.aragora.ai",
     ]
 
+# Maximum WebSocket message size (64KB) - prevents memory exhaustion attacks
+WS_MAX_MESSAGE_SIZE = int(os.getenv("ARAGORA_WS_MAX_SIZE", 65536))
+
 
 class StreamEventType(Enum):
     """Types of events emitted during debates and nomic loop execution."""
@@ -72,6 +75,9 @@ class StreamEventType(Enum):
     # Ranking/leaderboard events (debate consensus feature)
     MATCH_RECORDED = "match_recorded"    # ELO match recorded, leaderboard updated
     LEADERBOARD_UPDATE = "leaderboard_update"  # Periodic leaderboard snapshot
+
+    # Position tracking events
+    FLIP_DETECTED = "flip_detected"      # Agent position reversal detected
 
 
 @dataclass
@@ -610,8 +616,15 @@ class DebateStreamServer:
         self._running = True
         asyncio.create_task(self._drain_loop())
 
-        async with websockets.serve(self.handler, self.host, self.port):
-            print(f"WebSocket server: ws://{self.host}:{self.port}")
+        async with websockets.serve(
+            self.handler,
+            self.host,
+            self.port,
+            max_size=WS_MAX_MESSAGE_SIZE,
+            ping_interval=30,  # Send ping every 30s
+            ping_timeout=10,   # Close connection if no pong within 10s
+        ):
+            print(f"WebSocket server: ws://{self.host}:{self.port} (max message size: {WS_MAX_MESSAGE_SIZE} bytes)")
             await asyncio.Future()  # Run forever
 
     def stop(self) -> None:
