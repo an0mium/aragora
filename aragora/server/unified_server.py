@@ -333,30 +333,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            import sqlite3
-            conn = sqlite3.connect(self.elo_system.db_path)
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT debate_id, winner, participants, domain, elo_changes, created_at
-                FROM matches
-                ORDER BY created_at DESC
-                LIMIT ?
-            """, (limit,))
-            rows = cursor.fetchall()
-            conn.close()
-
-            matches = []
-            for row in rows:
-                elo_changes = json.loads(row[4]) if row[4] else {}
-                participants = json.loads(row[2]) if row[2] else []
-                matches.append({
-                    "debate_id": row[0],
-                    "winner": row[1],
-                    "participants": participants,
-                    "domain": row[3],
-                    "elo_changes": elo_changes,
-                    "created_at": row[5],
-                })
+            # Use EloSystem's encapsulated method instead of raw SQL
+            matches = self.elo_system.get_recent_matches(limit=limit)
             self._send_json({"matches": matches, "count": len(matches)})
         except Exception as e:
             self._send_json({"error": str(e), "matches": []})

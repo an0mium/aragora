@@ -480,6 +480,41 @@ class EloSystem:
 
         return [(row[0], row[1]) for row in rows]
 
+    def get_recent_matches(self, limit: int = 10) -> list[dict]:
+        """Get recent match results with ELO changes.
+
+        Returns list of dicts with: debate_id, winner, participants, domain,
+        elo_changes, created_at
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT debate_id, winner, participants, domain, elo_changes, created_at
+            FROM matches
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+
+        matches = []
+        for row in rows:
+            elo_changes = json.loads(row[4]) if row[4] else {}
+            participants = json.loads(row[2]) if row[2] else []
+            matches.append({
+                "debate_id": row[0],
+                "winner": row[1],
+                "participants": participants,
+                "domain": row[3],
+                "elo_changes": elo_changes,
+                "created_at": row[5],
+            })
+        return matches
+
     def get_head_to_head(self, agent_a: str, agent_b: str) -> dict:
         """Get head-to-head statistics between two agents."""
         conn = sqlite3.connect(self.db_path)
