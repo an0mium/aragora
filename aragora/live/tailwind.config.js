@@ -5,6 +5,22 @@ module.exports = {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  // Safelist agent color classes that are dynamically constructed
+  // This ensures Tailwind includes them even when not statically detectable
+  safelist: [
+    // Grok/crimson colors
+    'bg-crimson/5', 'text-crimson', 'border-crimson/40',
+    // Gemini/purple colors
+    'bg-purple/5', 'text-purple', 'border-purple/40',
+    // Codex/gold colors
+    'bg-gold/5', 'text-gold', 'border-gold/40',
+    // Claude/cyan colors
+    'bg-acid-cyan/5', 'text-acid-cyan', 'border-acid-cyan/40',
+    // Default/acid-green colors
+    'bg-acid-green/5', 'text-acid-green', 'border-acid-green/30',
+    // Line clamp utilities
+    'line-clamp-2', 'line-clamp-3', 'line-clamp-4', 'line-clamp-5',
+  ],
   theme: {
     extend: {
       fontFamily: {

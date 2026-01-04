@@ -33,6 +33,7 @@ export type StreamEventType =
   | 'user_vote'
   | 'user_suggestion'
   | 'audience_summary'
+  | 'audience_metrics'
   | 'ack';
 
 export interface StreamEvent {

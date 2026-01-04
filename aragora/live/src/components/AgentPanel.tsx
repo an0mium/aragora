@@ -57,8 +57,9 @@ export function AgentPanel({ events }: AgentPanelProps) {
       .filter((e) => e.type === 'agent_message')
       .map((e) => {
         const content = (e.data?.content as string) || '';
-        // Normalize: first 500 chars, lowercase, trimmed for better deduplication accuracy
-        return content.slice(0, 500).toLowerCase().trim();
+        // Normalize: first 2000 chars, lowercase, trimmed for better deduplication accuracy
+        // Increased from 500 to prevent false positive deduplication of long messages
+        return content.slice(0, 2000).toLowerCase().trim();
       })
   );
 
@@ -100,8 +101,8 @@ export function AgentPanel({ events }: AgentPanelProps) {
         return false;
       }
       // Skip agent-attributed log messages that duplicate agent_message content
-      // Check if content matches any agent_message (first 500 chars for accuracy)
-      const normalizedMsg = msg.slice(0, 500).toLowerCase().trim();
+      // Check if content matches any agent_message (first 2000 chars for accuracy)
+      const normalizedMsg = msg.slice(0, 2000).toLowerCase().trim();
       if (agentMessageContents.has(normalizedMsg)) {
         return false;
       }
@@ -296,7 +297,7 @@ function EventCard({ id, event, isExpanded, onToggle }: EventCardProps) {
             )}
             <span className="text-[10px] text-text-muted/70 ml-auto font-mono">{timestamp}</span>
           </div>
-          <p className="agent-output text-text-muted text-xs whitespace-pre-wrap break-words line-clamp-2">{preview}</p>
+          <p className="agent-output text-text-muted text-xs whitespace-pre-wrap break-words line-clamp-4">{preview}</p>
         </div>
         <span className={`text-xs flex-shrink-0 ${colors.text}`}>
           {isExpanded ? '[-]' : '[+]'}
