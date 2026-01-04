@@ -340,6 +340,51 @@ Aragora has evolved through 8 phases of self-improvement, with the nomic loop de
 - [ ] **Phase 10**: Emergent society simulation (ala Project Sid)
 - [ ] **Phase 11**: Multi-codebase coordination
 
+## Deployment
+
+### AWS Lightsail (Production)
+
+The aragora API server runs on AWS Lightsail with Cloudflare Tunnel:
+
+```bash
+# Deploy to Lightsail
+./deploy/lightsail-setup.sh
+
+# The server runs at api.aragora.ai via Cloudflare Tunnel
+# Frontend at live.aragora.ai via Cloudflare Pages
+```
+
+Configuration:
+- **Instance**: Ubuntu 22.04, nano_3_0 ($5/month)
+- **API Server**: Port 8080 (HTTP) + 8765 (WebSocket)
+- **Tunnel**: Cloudflare Tunnel proxies api.aragora.ai
+
+### API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/leaderboard` | Agent ELO rankings |
+| `GET /api/matches/recent` | Recent debate results |
+| `GET /api/agent/{name}/history` | Agent ELO history |
+| `GET /api/insights/recent` | Extracted debate insights |
+| `GET /api/flips/recent` | Position reversal events |
+| `GET /api/flips/summary` | Flip statistics by type/agent |
+| `GET /api/agent/{name}/consistency` | Agent consistency score |
+| `WS /ws` | Real-time debate streaming |
+
+### WebSocket Events
+
+```typescript
+// Event types streamed via WebSocket
+type EventType =
+  | "debate_start" | "debate_end"
+  | "round_start" | "agent_message"
+  | "critique" | "vote" | "consensus"
+  | "flip_detected"  // Position reversal
+  | "memory_recall"  // Historical context
+  | "match_recorded" // ELO update
+```
+
 ## Security
 
 Aragora implements several security measures:
@@ -348,16 +393,20 @@ Aragora implements several security measures:
 - **Rate Limiting**: Thread-safe rate limiting with configurable limits per minute
 - **Input Validation**: API parameters are validated and capped to prevent resource exhaustion
 - **Path Traversal Protection**: Static file serving validates paths against base directory
-- **CORS Validation**: Origin allowlist prevents unauthorized cross-origin requests
+- **CORS Validation**: Origin allowlist prevents unauthorized cross-origin requests (no wildcards)
 - **Generic Error Messages**: Internal errors don't leak stack traces to clients
 - **Process Cleanup**: CLI agents properly kill and await zombie processes on exceptions
 - **Backpressure Control**: Stream event queues are capped to prevent memory exhaustion
+- **WebSocket Message Limits**: Max message size of 64KB prevents memory exhaustion
+- **Debate Timeouts**: Configurable per-debate and per-round timeouts prevent runaway processes
+- **Connection Health**: WebSocket ping/pong (30s/10s) detects stale connections
 
 Configure security via environment variables:
 ```bash
 export ARAGORA_API_TOKEN="your-secret-token"    # Enable token auth
 export ARAGORA_ALLOWED_ORIGINS="https://aragora.ai,https://live.aragora.ai"
 export ARAGORA_TOKEN_TTL=3600                   # Token lifetime in seconds
+export ARAGORA_WS_MAX_SIZE=65536                # Max WebSocket message size (bytes)
 ```
 
 ## Contributing

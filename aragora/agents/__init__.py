@@ -31,6 +31,11 @@ from aragora.agents.laboratory import (
     EmergentTrait,
     TraitTransfer,
 )
+from aragora.agents.calibration import (
+    CalibrationTracker,
+    CalibrationBucket,
+    CalibrationSummary,
+)
 
 __all__ = [
     # CLI-based
@@ -58,4 +63,8 @@ __all__ = [
     "PersonaExperiment",
     "EmergentTrait",
     "TraitTransfer",
+    # Calibration
+    "CalibrationTracker",
+    "CalibrationBucket",
+    "CalibrationSummary",
 ]

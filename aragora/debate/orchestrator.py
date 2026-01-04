@@ -86,7 +86,8 @@ class DebateProtocol:
     critic_count: int = -1  # -1 means all non-proposers critique
 
     # Judge selection (for consensus="judge" mode)
-    judge_selection: Literal["random", "voted", "last"] = "random"
+    # "elo_ranked" selects highest ELO-rated agent from EloSystem (requires elo_system param)
+    judge_selection: Literal["random", "voted", "last", "elo_ranked"] = "random"
 
     # Agreement intensity (0-10): Controls how much agents agree vs disagree
     # 0 = strongly disagree 100% of the time (adversarial)
@@ -211,6 +212,7 @@ class Arena:
         position_tracker=None,  # Optional PositionTracker for truth-grounded personas
         position_ledger=None,  # Optional PositionLedger for grounded personas
         elo_system=None,  # Optional EloSystem for relationship tracking
+        persona_manager=None,  # Optional PersonaManager for agent specialization
         loop_id: str = "",  # Loop ID for multi-loop scoping
     ):
         self.env = environment
@@ -227,6 +229,7 @@ class Arena:
         self.position_tracker = position_tracker  # Truth-grounded persona tracking
         self.position_ledger = position_ledger  # Grounded persona position ledger
         self.elo_system = elo_system  # For relationship tracking
+        self.persona_manager = persona_manager  # For agent specialization context
         self.loop_id = loop_id  # Loop ID for scoping events
 
         # User participation tracking
@@ -1712,6 +1715,33 @@ Respond with only: CONTINUE or STOP
             # Agents vote on who should judge
             return await self._vote_for_judge(proposals, context)
 
+        elif self.protocol.judge_selection == "elo_ranked":
+            # Select highest ELO-rated agent as judge
+            if not self.elo_system:
+                print("  [Warning] elo_ranked judge selection requires elo_system; falling back to random")
+                return random.choice(self.agents)
+
+            # Get agent names participating in this debate
+            agent_names = [a.name for a in self.agents]
+
+            # Query ELO rankings for these agents
+            try:
+                leaderboard = self.elo_system.get_leaderboard(limit=len(agent_names))
+                # Filter to agents in this debate and find highest rated
+                for entry in leaderboard:
+                    if entry.get("agent") in agent_names:
+                        top_agent_name = entry["agent"]
+                        top_elo = entry.get("elo", 1500)
+                        judge = next((a for a in self.agents if a.name == top_agent_name), None)
+                        if judge:
+                            print(f"  [ELO] Selected {top_agent_name} (ELO: {top_elo}) as judge")
+                            return judge
+            except Exception as e:
+                print(f"  [Warning] ELO query failed: {e}; falling back to random")
+
+            # Fallback if no ELO data
+            return random.choice(self.agents)
+
         # Default fallback
         return random.choice(self.agents)
 
@@ -1836,6 +1866,32 @@ and building on others' ideas."""
         assignment = self.current_role_assignments[agent.name]
         return self.role_rotator.format_role_context(assignment)
 
+    def _get_persona_context(self, agent: Agent) -> str:
+        """Get persona context for agent specialization."""
+        if not self.persona_manager:
+            return ""
+
+        # Try to get persona from database
+        persona = self.persona_manager.get_persona(agent.name)
+        if not persona:
+            # Try default persona based on agent type (e.g., "claude_proposer" -> "claude")
+            agent_type = agent.name.split("_")[0].lower()
+            from aragora.agents.personas import DEFAULT_PERSONAS
+            if agent_type in DEFAULT_PERSONAS:
+                default_persona_data = DEFAULT_PERSONAS[agent_type]
+                # Create a temporary Persona object from the default
+                from aragora.agents.personas import Persona
+                persona = Persona(
+                    agent_name=agent.name,
+                    description=default_persona_data.get("description", ""),
+                    traits=default_persona_data.get("traits", []),
+                    expertise=default_persona_data.get("expertise", {}),
+                )
+            else:
+                return ""
+
+        return persona.to_prompt_context()
+
     def _build_proposal_prompt(self, agent: Agent) -> str:
         """Build the initial proposal prompt."""
         context_str = f"\n\nContext: {self.env.context}" if self.env.context else ""
@@ -1846,6 +1902,12 @@ and building on others' ideas."""
         role_section = self._get_role_context(agent)
         if role_section:
             role_section = f"\n\n{role_section}"
+
+        # Include persona context for agent specialization
+        persona_section = ""
+        persona_context = self._get_persona_context(agent)
+        if persona_context:
+            persona_section = f"\n\n{persona_context}"
 
         # Include historical context if available (capped at 800 chars to prevent bloat)
         historical_section = ""
@@ -1878,7 +1940,7 @@ and building on others' ideas."""
                     metric=len(clusters),
                 )
 
-        return f"""You are acting as a {agent.role} in a multi-agent debate.{stance_section}{role_section}
+        return f"""You are acting as a {agent.role} in a multi-agent debate.{stance_section}{role_section}{persona_section}
 {historical_section}{patterns_section}{audience_section}
 Task: {self.env.task}{context_str}
 
@@ -1899,6 +1961,12 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if role_section:
             role_section = f"\n\n{role_section}"
 
+        # Include persona context for agent specialization
+        persona_section = ""
+        persona_context = self._get_persona_context(agent)
+        if persona_context:
+            persona_section = f"\n\n{persona_context}"
+
         # Include successful patterns that may help address critiques
         patterns_section = ""
         patterns = self._format_successful_patterns(limit=2)
@@ -1916,7 +1984,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
             if audience_section:
                 audience_section = f"\n\n{audience_section}"
 
-        return f"""You are revising your proposal based on critiques from other agents.{role_section}
+        return f"""You are revising your proposal based on critiques from other agents.{role_section}{persona_section}
 
 {intensity_guidance}{stance_section}{patterns_section}{audience_section}
 
