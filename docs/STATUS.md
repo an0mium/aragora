@@ -27,6 +27,12 @@
 - Fixed security: restricted exec() builtins in proofs.py
 - Exported KiloCodeAgent for codebase exploration
 - Improved debate scrolling (calc(100vh-280px))
+- **NEW**: Activated Position Ledger by default in server startup
+- **NEW**: Added IP-based rate limiting (DoS protection without auth)
+- **NEW**: Initialized Debate Embeddings by default for historical memory
+- **NEW**: Added TournamentPanel UI component to dashboard
+- **NEW**: Added agent routing hints to DebateInput (domain detection + recommendations)
+- **NEW**: Added `/api/tournaments` endpoint to list tournaments
 
 ## Feature Integration Status
 
@@ -42,15 +48,19 @@
 | Convergence Detection | Active | `aragora/debate/convergence.py` |
 | Role Rotation | Active | `aragora/debate/roles.py` |
 
-### Implemented but Underutilized (6)
+### Implemented but Underutilized (4)
 | Feature | Issue | Location |
 |---------|-------|----------|
-| Tournament System | No UI | `aragora/tournaments/tournament.py` |
-| Agent Routing | No UI | `aragora/routing/selection.py` |
 | Continuum Memory | Endpoints exist, not used | `aragora/memory/continuum.py` |
 | Belief Network | Endpoints exist, not used | `aragora/reasoning/belief.py` |
 | Persona Laboratory | Endpoints exist, not used | `aragora/agents/laboratory.py` |
 | Prompt Evolution | 3 TODO items | `aragora/evolution/evolver.py` |
+
+### Recently Surfaced (2)
+| Feature | Status | Location |
+|---------|--------|----------|
+| Tournament System | TournamentPanel added | `aragora/live/src/components/TournamentPanel.tsx` |
+| Agent Routing | Integrated in DebateInput | `aragora/live/src/components/DebateInput.tsx` |
 
 ### Server Endpoints (54 total)
 - **Used by Frontend**: ~10%
@@ -64,21 +74,21 @@
 - Replaced full `__builtins__` with `SAFE_BUILTINS` in proofs.py
 - Input validation on all POST endpoints
 - Agent type allowlist prevents injection
+- **IP-based rate limiting** (120 req/min per IP, DoS protection without auth)
 
 ### Remaining Considerations
-- Rate limiting only active when auth enabled
-- Consider adding per-IP rate limits
 - Token revocation mechanism not implemented
+- Consider API versioning for backwards compatibility
 
 ## Recommendations
 
 ### High Priority
-1. **Activate Position Ledger by default** - Initialize in Arena constructor
-2. **Surface Tournament UI** - Backend complete, needs frontend component
+1. ~~Activate Position Ledger by default~~ - **DONE** (initialized in server startup)
+2. ~~Surface Tournament UI~~ - **DONE** (TournamentPanel added)
 3. **Enable Belief Network visualization** - Crux analysis available but hidden
 
 ### Medium Priority
-1. Create Agent Routing UI - Show suitability recommendations
+1. ~~Create Agent Routing UI~~ - **DONE** (integrated in DebateInput)
 2. Implement Continuum Memory inspector
 3. Add emergent traits browser from PersonaLaboratory
 
