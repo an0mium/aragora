@@ -3759,17 +3759,24 @@ The most valuable proposals combine deep analysis with actionable implementation
         try:
             lines = ["## Inter-Agent Dynamics"]
 
-            # Get influence network
+            # Get influence network per agent
+            agents = ["gemini", "claude", "codex", "grok"]
             if hasattr(self.relationship_tracker, 'get_influence_network'):
-                network = self.relationship_tracker.get_influence_network()
-                if network:
-                    lines.append("\n### Influence Patterns:")
-                    sorted_influence = sorted(network.items(), key=lambda x: x[1], reverse=True)[:limit]
-                    for agent, score in sorted_influence:
-                        lines.append(f"- {agent}: influence score {score:.2f}")
+                lines.append("\n### Influence Patterns:")
+                influence_scores = []
+                for agent in agents:
+                    try:
+                        network = self.relationship_tracker.get_influence_network(agent)
+                        if network and network.get("influences"):
+                            total_influence = sum(score for _, score in network["influences"])
+                            influence_scores.append((agent, total_influence))
+                    except Exception:
+                        continue
+                influence_scores.sort(key=lambda x: x[1], reverse=True)
+                for agent, score in influence_scores[:limit]:
+                    lines.append(f"- {agent}: influence score {score:.2f}")
 
             # Get rivals and allies for each agent
-            agents = ["gemini", "claude", "codex", "grok"]
             dynamics_found = False
             for agent in agents:
                 if hasattr(self.relationship_tracker, 'get_rivals'):

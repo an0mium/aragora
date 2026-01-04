@@ -6,9 +6,13 @@
 
 ### Nomic Loop
 - **Cycle**: 1
-- **Phase**: cycle_start (ready for next iteration)
+- **Phase**: debate (arena_starting - was blocked, now fixed)
 - **Last Proposal**: Claude's "Persona Laboratory v2" (won 2/3 consensus)
 - **Implementation**: Failed on verification (timeout issues)
+- **Blocking Issues FIXED**:
+  - Missing `agent_type` attribute in GeminiAgent (now added to all API agents)
+  - RelationshipTracker.get_influence_network() parameter mismatch (fixed)
+  - OpenRouterAgent broken super().__init__() call (fixed)
 - **Position Ledger**: Implemented in `aragora/agents/grounded.py`
 
 ### Active Agents (4 default, 12+ total)
@@ -43,6 +47,9 @@
 - **NEW**: Fixed security: unvalidated float parameter in /api/critiques/patterns
 - **NEW**: Fixed security: path traversal in raw document upload
 - **NEW**: Improved error handling in DocumentStore.list_all()
+- **NEW**: Added `agent_type` attribute to all API agents (fixes nomic loop blocking issue)
+- **NEW**: Fixed OpenRouterAgent broken super().__init__() call
+- **NEW**: Fixed RelationshipTracker.get_influence_network() parameter issue in nomic_loop.py
 
 ## Feature Integration Status
 
