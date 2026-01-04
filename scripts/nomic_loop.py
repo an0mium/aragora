@@ -2063,7 +2063,8 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                     participants=participants,
                     elo_changes=changes,
                     domain=domain,
-                    winner=winner
+                    winner=winner,
+                    loop_id=self.loop_id,
                 )
         except Exception as e:
             self._log(f"  [elo] Error: {e}")

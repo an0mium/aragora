@@ -23,32 +23,61 @@ interface Match {
 
 interface LeaderboardPanelProps {
   wsMessages?: any[];
+  loopId?: string | null;
+  apiBase?: string;
 }
 
-export function LeaderboardPanel({ wsMessages = [] }: LeaderboardPanelProps) {
+const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+
+export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_API_BASE }: LeaderboardPanelProps) {
   const [agents, setAgents] = useState<AgentRanking[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'rankings' | 'matches'>('rankings');
   const [lastEventId, setLastEventId] = useState<string | null>(null);
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const [availableDomains, setAvailableDomains] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+
+      // Build query params with loop_id and domain filtering
+      const leaderboardParams = new URLSearchParams({ limit: '10' });
+      const matchesParams = new URLSearchParams({ limit: '5' });
+
+      if (loopId) {
+        leaderboardParams.set('loop_id', loopId);
+        matchesParams.set('loop_id', loopId);
+      }
+      if (selectedDomain) {
+        leaderboardParams.set('domain', selectedDomain);
+        matchesParams.set('domain', selectedDomain);
+      }
+
       const [leaderboardRes, matchesRes] = await Promise.all([
-        fetch('/api/leaderboard?limit=10'),
-        fetch('/api/matches/recent?limit=5'),
+        fetch(`${apiBase}/api/leaderboard?${leaderboardParams}`),
+        fetch(`${apiBase}/api/matches/recent?${matchesParams}`),
       ]);
 
       if (leaderboardRes.ok) {
         const data = await leaderboardRes.json();
         setAgents(data.agents || []);
+        // Extract unique domains from matches for the domain filter
+        if (data.domains) {
+          setAvailableDomains(data.domains);
+        }
       }
 
       if (matchesRes.ok) {
         const data = await matchesRes.json();
         setMatches(data.matches || []);
+        // Also extract domains from recent matches
+        const matchDomains = [...new Set(data.matches?.map((m: Match) => m.domain).filter(Boolean) || [])];
+        if (matchDomains.length > 0) {
+          setAvailableDomains(prev => [...new Set([...prev, ...matchDomains])]);
+        }
       }
 
       setError(null);
@@ -57,7 +86,7 @@ export function LeaderboardPanel({ wsMessages = [] }: LeaderboardPanelProps) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiBase, loopId, selectedDomain]);
 
   useEffect(() => {
     fetchData();
@@ -68,7 +97,13 @@ export function LeaderboardPanel({ wsMessages = [] }: LeaderboardPanelProps) {
 
   // Listen for match_recorded WebSocket events for real-time updates (debate consensus feature)
   useEffect(() => {
-    const matchEvents = wsMessages.filter((msg) => msg.type === 'match_recorded');
+    const matchEvents = wsMessages.filter((msg) => {
+      if (msg.type !== 'match_recorded') return false;
+      // Filter by loopId if specified (multi-loop support)
+      if (loopId && msg.data?.loop_id && msg.data.loop_id !== loopId) return false;
+      return true;
+    });
+
     if (matchEvents.length > 0) {
       const latestEvent = matchEvents[matchEvents.length - 1];
       const eventId = latestEvent.data?.debate_id;
@@ -77,9 +112,15 @@ export function LeaderboardPanel({ wsMessages = [] }: LeaderboardPanelProps) {
       if (eventId && eventId !== lastEventId) {
         setLastEventId(eventId);
         fetchData(); // Refresh leaderboard when a match is recorded
+
+        // Track new domains from match events
+        const eventDomain = latestEvent.data?.domain;
+        if (eventDomain && !availableDomains.includes(eventDomain)) {
+          setAvailableDomains(prev => [...prev, eventDomain]);
+        }
       }
     }
-  }, [wsMessages, lastEventId, fetchData]);
+  }, [wsMessages, lastEventId, fetchData, loopId, availableDomains]);
 
   const getEloColor = (elo: number): string => {
     if (elo >= 1600) return 'text-green-400';
@@ -111,6 +152,25 @@ export function LeaderboardPanel({ wsMessages = [] }: LeaderboardPanelProps) {
           Refresh
         </button>
       </div>
+
+      {/* Domain Filter */}
+      {availableDomains.length > 0 && (
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs text-text-muted">Domain:</span>
+          <select
+            value={selectedDomain || ''}
+            onChange={(e) => setSelectedDomain(e.target.value || null)}
+            className="flex-1 bg-bg border border-border rounded px-2 py-1 text-sm text-text"
+          >
+            <option value="">All Domains</option>
+            {availableDomains.map((domain) => (
+              <option key={domain} value={domain}>
+                {domain}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Tab Navigation */}
       <div className="flex space-x-1 bg-bg border border-border rounded p-1 mb-4">

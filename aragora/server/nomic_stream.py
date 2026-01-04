@@ -245,6 +245,7 @@ def create_nomic_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
         elo_changes: dict[str, float],
         domain: Optional[str] = None,
         winner: Optional[str] = None,
+        loop_id: Optional[str] = None,
     ) -> None:
         """Emit when an ELO match is recorded (debate consensus feature)."""
         emitter.emit(StreamEvent(
@@ -255,6 +256,7 @@ def create_nomic_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
                 "elo_changes": elo_changes,
                 "domain": domain,
                 "winner": winner,
+                "loop_id": loop_id,
             },
         ))
 
