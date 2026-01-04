@@ -48,6 +48,18 @@ from aragora.reasoning.provenance_enhanced import (
     ProvenanceValidator,
 )
 
+# Scholarly Citation Grounding (Heavy3-inspired evidence-backed verdicts)
+from aragora.reasoning.citations import (
+    ScholarlyEvidence,
+    CitationType,
+    CitationQuality,
+    CitedClaim,
+    GroundedVerdict,
+    CitationExtractor,
+    CitationStore,
+    create_citation_from_url,
+)
+
 __all__ = [
     # Claims
     "ClaimsKernel",
@@ -87,4 +99,13 @@ __all__ = [
     "StalenessStatus",
     "RevalidationTrigger",
     "ProvenanceValidator",
+    # Scholarly Citations
+    "ScholarlyEvidence",
+    "CitationType",
+    "CitationQuality",
+    "CitedClaim",
+    "GroundedVerdict",
+    "CitationExtractor",
+    "CitationStore",
+    "create_citation_from_url",
 ]

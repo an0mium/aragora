@@ -3844,6 +3844,23 @@ Recent changes:
         # Phase 5: Update ELO ratings (P13: EloSystem)
         self._record_elo_match(result, topic_hint)
 
+        # Phase 9: Record domain calibration for grounded personas
+        if self.elo_system and result and ELO_AVAILABLE:
+            try:
+                domain = self._detect_domain(topic_hint or task)
+                for agent in debate_team:
+                    agent_correct = self._agent_in_consensus(agent.name, result)
+                    confidence = result.confidence if hasattr(result, 'confidence') else 0.7
+                    self.elo_system.record_domain_prediction(
+                        agent_name=agent.name,
+                        domain=domain,
+                        confidence=confidence,
+                        correct=agent_correct,
+                    )
+                self._log(f"  [calibration] Recorded domain predictions for {len(debate_team)} agents in '{domain}'")
+            except Exception as e:
+                self._log(f"  [calibration] Recording failed: {e}")
+
         # Phase 9: Record positions to ledger for grounded personas
         if self.position_ledger and hasattr(result, 'messages'):
             try:
@@ -3860,6 +3877,23 @@ Recent changes:
                 self._log(f"  [grounded] Recorded {len(result.messages)} positions to ledger")
             except Exception as e:
                 self._log(f"  [grounded] Position recording failed: {e}")
+
+        # Phase 9: Resolve positions based on debate outcome
+        if self.position_ledger and result:
+            try:
+                debate_id = f"cycle-{self.cycle_count}"
+                outcome = "correct" if result.consensus_reached else "unresolved"
+                for agent in debate_team:
+                    positions = self.position_ledger.get_agent_positions(
+                        agent_name=agent.name,
+                        debate_id=debate_id,
+                    )
+                    for pos in positions:
+                        agent_outcome = "correct" if self._agent_in_consensus(agent.name, result) else "incorrect"
+                        self.position_ledger.resolve_position(pos.id, agent_outcome)
+                self._log(f"  [grounded] Resolved positions for debate {debate_id}")
+            except Exception as e:
+                self._log(f"  [grounded] Position resolution failed: {e}")
 
         # Phase 9: Update agent relationships for grounded personas
         if self.relationship_tracker and result:
@@ -3882,6 +3916,50 @@ Recent changes:
                 self._log(f"  [grounded] Updated relationships for {len(participants)} agents")
             except Exception as e:
                 self._log(f"  [grounded] Relationship update failed: {e}")
+
+        # Phase 9: Update AgentSelector with debate results
+        if self.agent_selector and result:
+            try:
+                from aragora.routing.selection import TeamComposition, AgentProfile
+                # Create minimal TeamComposition for update
+                agent_profiles = []
+                for a in debate_team:
+                    # Get or create agent profile from selector pool
+                    if hasattr(self.agent_selector, 'agent_pool') and a.name in self.agent_selector.agent_pool:
+                        agent_profiles.append(self.agent_selector.agent_pool[a.name])
+                    else:
+                        # Create minimal profile
+                        agent_profiles.append(AgentProfile(
+                            name=a.name,
+                            provider=getattr(a, 'provider', 'unknown'),
+                        ))
+                team = TeamComposition(
+                    team_id=f"cycle-{self.cycle_count}",
+                    task_id=topic_hint or task[:100],
+                    agents=agent_profiles,
+                    roles={a.name: "debater" for a in debate_team},
+                    expected_quality=0.7,
+                    expected_cost=0.0,
+                    diversity_score=0.5,
+                    rationale="nomic debate team",
+                )
+                self.agent_selector.update_from_result(team=team, result=result)
+                self._log(f"  [selector] Updated agent profiles from debate outcome")
+            except Exception as e:
+                self._log(f"  [selector] Update failed: {e}")
+
+        # Phase 9: Store successful critique patterns for learning
+        if self.critique_store and result.consensus_reached and hasattr(result, 'critiques') and result.critiques:
+            try:
+                successful_fix = result.final_answer[:500] if result.final_answer else ""
+                for critique in result.critiques:
+                    self.critique_store.store_pattern(
+                        critique=critique,
+                        successful_fix=successful_fix,
+                    )
+                self._log(f"  [patterns] Stored {len(result.critiques)} critique patterns")
+            except Exception as e:
+                self._log(f"  [patterns] Storage failed: {e}")
 
         # Phase 5: Track risks from low-consensus debates (P15: RiskRegister)
         self._track_debate_risks(result, topic_hint)

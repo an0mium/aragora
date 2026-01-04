@@ -56,6 +56,19 @@ from aragora.modes.prober import (
     generate_probe_report_markdown,
 )
 
+# Deep Audit Mode (Heavy3-inspired intensive debate protocol)
+from aragora.modes.deep_audit import (
+    DeepAuditOrchestrator,
+    DeepAuditConfig,
+    DeepAuditVerdict,
+    AuditFinding,
+    run_deep_audit,
+    # Pre-configured protocols
+    STRATEGY_AUDIT,
+    CONTRACT_AUDIT,
+    CODE_ARCHITECTURE_AUDIT,
+)
+
 __all__ = [
     # Operational Mode System
     "ToolGroup",
@@ -97,4 +110,13 @@ __all__ = [
     "VulnerabilitySeverity",
     "ProbeBeforePromote",
     "generate_probe_report_markdown",
+    # Deep Audit Mode
+    "DeepAuditOrchestrator",
+    "DeepAuditConfig",
+    "DeepAuditVerdict",
+    "AuditFinding",
+    "run_deep_audit",
+    "STRATEGY_AUDIT",
+    "CONTRACT_AUDIT",
+    "CODE_ARCHITECTURE_AUDIT",
 ]
