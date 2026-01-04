@@ -311,9 +311,9 @@ class DebateStreamServer:
                     "round": event.round,
                     "content": event.data["content"],
                 })
-                # Cap at last 200 messages to allow full debate history
-                if len(state["messages"]) > 200:
-                    state["messages"] = state["messages"][-200:]
+                # Cap at last 1000 messages to allow full debate history without truncation
+                if len(state["messages"]) > 1000:
+                    state["messages"] = state["messages"][-1000:]
         elif event.type == StreamEventType.CONSENSUS:
             if loop_id in self.debate_states:
                 state = self.debate_states[loop_id]

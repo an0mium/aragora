@@ -118,7 +118,7 @@ def create_nomic_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
                 "task_id": task_id,
                 "success": success,
                 "duration_seconds": duration_seconds,
-                "diff_preview": diff_preview[:500],  # Truncate for streaming
+                "diff_preview": diff_preview[:5000],  # Allow full diff preview for dashboard
                 "error": error,
             },
         ))
@@ -158,7 +158,7 @@ def create_nomic_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
             data={
                 "check": check_name,
                 "passed": passed,
-                "message": message[:500],
+                "message": message[:2000],
             },
         ))
 

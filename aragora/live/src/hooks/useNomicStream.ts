@@ -5,7 +5,7 @@ import type { StreamEvent, NomicState, LoopInstance } from '@/types/events';
 
 const DEFAULT_WS_URL = 'ws://localhost:8765';
 const RECONNECT_INTERVAL = 3000;
-const MAX_EVENTS = 1000;
+const MAX_EVENTS = 5000;
 
 export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
   const [events, setEvents] = useState<StreamEvent[]>([]);

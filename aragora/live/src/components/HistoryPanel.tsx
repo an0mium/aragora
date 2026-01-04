@@ -157,7 +157,7 @@ export function HistoryPanel() {
             Recent Events ({events.length})
           </h4>
           <div className="space-y-1 max-h-40 overflow-y-auto text-xs font-mono">
-            {events.slice(-20).map((event) => (
+            {events.slice(-100).map((event) => (
               <div
                 key={event.id}
                 className="text-gray-400 truncate"

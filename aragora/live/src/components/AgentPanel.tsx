@@ -56,8 +56,8 @@ export function AgentPanel({ events }: AgentPanelProps) {
       .filter((e) => e.type === 'agent_message')
       .map((e) => {
         const content = (e.data?.content as string) || '';
-        // Normalize: first 100 chars, lowercase, trimmed
-        return content.slice(0, 100).toLowerCase().trim();
+        // Normalize: first 500 chars, lowercase, trimmed for better deduplication accuracy
+        return content.slice(0, 500).toLowerCase().trim();
       })
   );
 
@@ -99,8 +99,8 @@ export function AgentPanel({ events }: AgentPanelProps) {
         return false;
       }
       // Skip agent-attributed log messages that duplicate agent_message content
-      // Check if content matches any agent_message (first 100 chars)
-      const normalizedMsg = msg.slice(0, 100).toLowerCase().trim();
+      // Check if content matches any agent_message (first 500 chars for accuracy)
+      const normalizedMsg = msg.slice(0, 500).toLowerCase().trim();
       if (agentMessageContents.has(normalizedMsg)) {
         return false;
       }

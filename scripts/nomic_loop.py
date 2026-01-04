@@ -1354,9 +1354,9 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                 )
 
                 lessons.append(f"**{branch}:**")
-                lessons.append(f"```\n{msg_result.stdout[:300].strip()}")
+                lessons.append(f"```\n{msg_result.stdout[:1000].strip()}")
                 if files_result.stdout.strip():
-                    lessons.append(f"\nFiles changed:\n{files_result.stdout[:200].strip()}")
+                    lessons.append(f"\nFiles changed:\n{files_result.stdout[:1000].strip()}")
                 lessons.append("```\n")
 
             return "\n".join(lessons)
@@ -1489,8 +1489,8 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
 
             for s in similar:
                 strength = s.consensus.strength.value if s.consensus.strength else "unknown"
-                lines.append(f"- **{s.consensus.topic[:80]}** ({strength}, {s.similarity_score:.0%} similar)")
-                lines.append(f"  Decision: {s.consensus.conclusion[:100]}...")
+                lines.append(f"- **{s.consensus.topic[:300]}** ({strength}, {s.similarity_score:.0%} similar)")
+                lines.append(f"  Decision: {s.consensus.conclusion[:500]}...")
                 if s.dissents:
                     lines.append(f"  ⚠️ {len(s.dissents)} dissenting view(s) - consider addressing")
 
@@ -1500,7 +1500,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                 if context.get("unacknowledged_dissents"):
                     lines.append("\n### Unaddressed Historical Concerns")
                     for d in context["unacknowledged_dissents"][:3]:
-                        lines.append(f"- [{d['dissent_type']}] {d['content'][:100]}...")
+                        lines.append(f"- [{d['dissent_type']}] {d['content'][:500]}...")
 
             return "\n".join(lines)
         except Exception as e:
@@ -1580,7 +1580,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
             # Extract insights from the debate result
             insights = await self.insight_extractor.extract(result)
 
-            self._log(f"  [insights] Extracted {insights.total_insights} insights: {insights.key_takeaway[:80]}")
+            self._log(f"  [insights] Extracted {insights.total_insights} insights: {insights.key_takeaway[:500]}")
 
             # Persist insights to InsightStore database (debate consensus feature)
             if self.insight_store and insights:
@@ -1619,7 +1619,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                 if pattern.confidence > 0.7 and self.continuum:
                     self.continuum.add(
                         id=f"pattern-{self.cycle_count}-{pattern.id[:8]}",
-                        content=f"Pattern: {pattern.title} - {pattern.description[:200]}",
+                        content=f"Pattern: {pattern.title} - {pattern.description[:1000]}",
                         tier=MemoryTier.SLOW,
                         importance=pattern.confidence,
                         metadata={
@@ -1658,7 +1658,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                 return ""
             lines = [f"## Your memories ({agent_name}):"]
             for m in memories:
-                content = m.memory.content[:150] if hasattr(m, 'memory') else str(m)[:150]
+                content = m.memory.content[:500] if hasattr(m, 'memory') else str(m)[:500]
                 lines.append(f"- {content}...")
             return "\n".join(lines)
         except Exception as e:
@@ -1777,7 +1777,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                     if self.critique_store:
                         for vuln in report.vulnerabilities:
                             severity_value = vuln.severity.value if hasattr(vuln.severity, 'value') else str(vuln.severity)
-                            self._log(f"    [prober] {vuln.vulnerability_description[:60]} (severity: {severity_value})")
+                            self._log(f"    [prober] {vuln.vulnerability_description[:300]} (severity: {severity_value})")
         except Exception as e:
             self._log(f"  [prober] Error: {e}")
 
@@ -3001,7 +3001,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
 
 ## Code Changes (git diff)
 ```
-{diff[:3000]}
+{diff[:10000]}
 ```
 
 Reply with ONE of:
@@ -3016,11 +3016,11 @@ Be concise (1-2 sentences). Focus on correctness and safety issues only.
             try:
                 self._log(f"    {name}: reviewing implementation...", agent=name)
                 result = await agent.generate(review_prompt, context=[])
-                self._log(f"    {name}: {result[:100] if result else 'No response'}...", agent=name)
+                self._log(f"    {name}: {result[:1000] if result else 'No response'}...", agent=name)
                 # Emit full review
                 if result:
                     self._stream_emit("on_log_message", result, level="info", phase="review", agent=name)
-                return (name, result[:200] if result else "No response")
+                return (name, result[:2000] if result else "No response")
             except Exception as e:
                 self._log(f"    {name}: review error - {e}", agent=name)
                 return (name, f"Error: {e}")
@@ -3195,7 +3195,7 @@ Synthesize these suggestions into a coherent, working implementation.
                 "stage": "arena_complete",
                 "consensus_reached": result.consensus_reached,
                 "confidence": result.confidence,
-                "final_answer_preview": result.final_answer[:500] if result.final_answer else None,
+                "final_answer_preview": result.final_answer[:2000] if result.final_answer else None,
             })
 
             return result
@@ -3557,7 +3557,7 @@ Recent changes:
 
         # Update agent reputation based on debate outcome
         if self.critique_store and result.consensus_reached:
-            winning_proposal = result.final_answer[:200] if result.final_answer else ""
+            winning_proposal = result.final_answer[:1000] if result.final_answer else ""
             for agent in debate_team:
                 # Check if this agent's proposal was selected
                 proposal_accepted = agent.name.lower() in winning_proposal.lower()
@@ -4193,7 +4193,7 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
                 plan = await generate_implement_plan(design, self.aragora_path)
                 self._log(f"  Plan generated: {len(plan.tasks)} tasks")
                 for task in plan.tasks:
-                    self._log(f"    - {task.id}: {task.description[:60]}...", also_print=False)
+                    self._log(f"    - {task.id}: {task.description[:300]}...", also_print=False)
             except Exception as e:
                 self._log(f"  Plan generation failed: {e}")
                 self._log("  Falling back to single-task mode...")
@@ -4284,7 +4284,7 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
                 if diff and len(diff) > 100:  # Only review if there are substantial changes
                     review_concerns = await self._parallel_implementation_review(diff)
                     if review_concerns:
-                        self._log(f"    Review concerns: {review_concerns[:200]}...", agent="claude")
+                        self._log(f"    Review concerns: {review_concerns[:1000]}...", agent="claude")
                     else:
                         self._log("    All agents approve the implementation", agent="claude")
 
@@ -4547,7 +4547,7 @@ CRITICAL SAFETY RULES:
                 )
                 return {"phase": "commit", "committed": False, "reason": "Human declined"}
 
-        summary = improvement[:100].replace('\n', ' ')
+        summary = improvement[:500].replace('\n', ' ')
 
         try:
             subprocess.run(
@@ -4566,7 +4566,7 @@ CRITICAL SAFETY RULES:
             committed = result.returncode == 0
 
             if committed:
-                self._log(f"  Committed: {summary[:60]}...")
+                self._log(f"  Committed: {summary[:300]}...")
                 # Get commit hash
                 hash_result = subprocess.run(
                     ["git", "rev-parse", "--short", "HEAD"],
@@ -4860,7 +4860,7 @@ CRITICAL SAFETY RULES:
 
 ## Code Changes (git diff)
 ```
-{diff[:3000]}
+{diff[:10000]}
 ```
 {fix_patterns}
 {avoid_patterns}
@@ -4910,7 +4910,7 @@ Working directory: {self.aragora_path}
                 fix_result = await self._call_agent_with_retry(fix_agent, fix_prompt, max_retries=2)
                 if "[Agent" in fix_result and "failed" in fix_result:
                     iteration_result["fix_error"] = fix_result
-                    self._log(f"    Fix failed: {fix_result[:100]}", agent="claude")
+                    self._log(f"    Fix failed: {fix_result[:500]}", agent="claude")
                 else:
                     iteration_result["fix_applied"] = True
                     self._log("    Fixes applied", agent="claude")
@@ -4934,8 +4934,8 @@ Reply with: LOOKS_GOOD or ISSUES: <brief description>
 """
                 # Use retry wrapper for resilience
                 gemini_result = await self._call_agent_with_retry(self.gemini, gemini_review_prompt, max_retries=2)
-                iteration_result["gemini_review"] = gemini_result[:200] if gemini_result else "No response"
-                self._log(f"    Gemini: {gemini_result[:100] if gemini_result else 'No response'}...", agent="gemini")
+                iteration_result["gemini_review"] = gemini_result[:1000] if gemini_result else "No response"
+                self._log(f"    Gemini: {gemini_result[:500] if gemini_result else 'No response'}...", agent="gemini")
                 # Emit Gemini's full review
                 if gemini_result and not ("[Agent" in gemini_result and "failed" in gemini_result):
                     self._stream_emit("on_log_message", gemini_result, level="info", phase="fix", agent="gemini")
@@ -4974,12 +4974,12 @@ Working directory: {self.aragora_path}
 """
                     # Use retry wrapper for resilience
                     grok_result = await self._call_agent_with_retry(self.grok, grok_fix_prompt, max_retries=2)
-                    iteration_result["grok_fix"] = grok_result[:200] if grok_result else "No response"
+                    iteration_result["grok_fix"] = grok_result[:1000] if grok_result else "No response"
                     if grok_result and not ("[Agent" in grok_result and "failed" in grok_result):
                         self._log(f"    Grok fix applied", agent="grok")
                         self._stream_emit("on_log_message", grok_result, level="info", phase="fix", agent="grok")
                     else:
-                        self._log(f"    Grok fix failed: {grok_result[:50] if grok_result else 'No response'}", agent="grok")
+                        self._log(f"    Grok fix failed: {grok_result[:500] if grok_result else 'No response'}", agent="grok")
                 except Exception as e:
                     self._log(f"    Grok fix skipped: {e}", agent="grok")
             else:
@@ -5093,7 +5093,7 @@ Working directory: {self.aragora_path}
         if self.continuum and CONTINUUM_AVAILABLE:
             try:
                 outcome = cycle_result.get("outcome", "unknown")
-                improvement = cycle_result.get("phases", {}).get("debate", {}).get("final_answer", "")[:500]
+                improvement = cycle_result.get("phases", {}).get("debate", {}).get("final_answer", "")[:2000]
                 is_success = outcome == "success"
 
                 # Store in SLOW tier (strategic learning across cycles)
