@@ -55,6 +55,10 @@ class StreamEventType(Enum):
     MEMORY_RECALL = "memory_recall"      # Historical context retrieved from memory
     INSIGHT_EXTRACTED = "insight_extracted"  # New insight extracted from debate
 
+    # Ranking/leaderboard events (debate consensus feature)
+    MATCH_RECORDED = "match_recorded"    # ELO match recorded, leaderboard updated
+    LEADERBOARD_UPDATE = "leaderboard_update"  # Periodic leaderboard snapshot
+
 
 @dataclass
 class StreamEvent:

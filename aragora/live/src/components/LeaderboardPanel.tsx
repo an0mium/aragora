@@ -21,12 +21,17 @@ interface Match {
   created_at: string;
 }
 
-export function LeaderboardPanel() {
+interface LeaderboardPanelProps {
+  wsMessages?: any[];
+}
+
+export function LeaderboardPanel({ wsMessages = [] }: LeaderboardPanelProps) {
   const [agents, setAgents] = useState<AgentRanking[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'rankings' | 'matches'>('rankings');
+  const [lastEventId, setLastEventId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -60,6 +65,21 @@ export function LeaderboardPanel() {
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  // Listen for match_recorded WebSocket events for real-time updates (debate consensus feature)
+  useEffect(() => {
+    const matchEvents = wsMessages.filter((msg) => msg.type === 'match_recorded');
+    if (matchEvents.length > 0) {
+      const latestEvent = matchEvents[matchEvents.length - 1];
+      const eventId = latestEvent.data?.debate_id;
+
+      // Only refresh if this is a new match event
+      if (eventId && eventId !== lastEventId) {
+        setLastEventId(eventId);
+        fetchData(); // Refresh leaderboard when a match is recorded
+      }
+    }
+  }, [wsMessages, lastEventId, fetchData]);
 
   const getEloColor = (elo: number): string => {
     if (elo >= 1600) return 'text-green-400';

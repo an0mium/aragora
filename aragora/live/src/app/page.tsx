@@ -197,7 +197,7 @@ export default function Home() {
               onError={onError}
             />
             <HistoryPanel />
-            <LeaderboardPanel />
+            <LeaderboardPanel wsMessages={events} />
             <InsightsPanel wsMessages={events} />
             <ReplayBrowser />
           </div>

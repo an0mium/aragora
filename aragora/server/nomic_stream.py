@@ -239,6 +239,25 @@ def create_nomic_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
             agent=agent or "",
         ))
 
+    def on_match_recorded(
+        debate_id: str,
+        participants: list[str],
+        elo_changes: dict[str, float],
+        domain: Optional[str] = None,
+        winner: Optional[str] = None,
+    ) -> None:
+        """Emit when an ELO match is recorded (debate consensus feature)."""
+        emitter.emit(StreamEvent(
+            type=StreamEventType.MATCH_RECORDED,
+            data={
+                "debate_id": debate_id,
+                "participants": participants,
+                "elo_changes": elo_changes,
+                "domain": domain,
+                "winner": winner,
+            },
+        ))
+
     return {
         "on_cycle_start": on_cycle_start,
         "on_cycle_end": on_cycle_end,
@@ -254,4 +273,5 @@ def create_nomic_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
         "on_backup_restored": on_backup_restored,
         "on_error": on_error,
         "on_log_message": on_log_message,
+        "on_match_recorded": on_match_recorded,
     }

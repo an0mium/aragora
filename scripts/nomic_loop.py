@@ -2054,6 +2054,17 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                     domain=domain
                 )
                 self._log(f"  [elo] Updated ratings for {len(participants)} agents in {domain}")
+
+                # Emit match_recorded event for real-time leaderboard updates (debate consensus feature)
+                winner = max(changes, key=changes.get) if changes else None
+                self._stream_emit(
+                    "on_match_recorded",
+                    debate_id=f"cycle-{self.cycle_count}",
+                    participants=participants,
+                    elo_changes=changes,
+                    domain=domain,
+                    winner=winner
+                )
         except Exception as e:
             self._log(f"  [elo] Error: {e}")
 
