@@ -272,32 +272,30 @@ class PersonaLaboratory:
         success: bool,
     ):
         """Record a trial result for an experiment."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
 
-        if is_variant:
-            cursor.execute(
-                """
-                UPDATE experiments SET
-                    variant_trials = variant_trials + 1,
-                    variant_successes = variant_successes + ?
-                WHERE experiment_id = ?
-                """,
-                (1 if success else 0, experiment_id),
-            )
-        else:
-            cursor.execute(
-                """
-                UPDATE experiments SET
-                    control_trials = control_trials + 1,
-                    control_successes = control_successes + ?
-                WHERE experiment_id = ?
-                """,
-                (1 if success else 0, experiment_id),
-            )
-
-        conn.commit()
-        conn.close()
+            if is_variant:
+                cursor.execute(
+                    """
+                    UPDATE experiments SET
+                        variant_trials = variant_trials + 1,
+                        variant_successes = variant_successes + ?
+                    WHERE experiment_id = ?
+                    """,
+                    (1 if success else 0, experiment_id),
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE experiments SET
+                        control_trials = control_trials + 1,
+                        control_successes = control_successes + ?
+                    WHERE experiment_id = ?
+                    """,
+                    (1 if success else 0, experiment_id),
+                )
+            conn.commit()
 
     def conclude_experiment(self, experiment_id: str) -> Optional[PersonaExperiment]:
         """

@@ -3329,9 +3329,10 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
         if not PERSONA_LAB_AVAILABLE or not self.persona_lab or not experiment_id:
             return
         try:
-            self.persona_lab.record_trial(
+            # Note: PersonaLaboratory uses is_variant (inverse of is_control)
+            self.persona_lab.record_experiment_result(
                 experiment_id=experiment_id,
-                is_control=is_control,
+                is_variant=not is_control,  # Invert: is_control -> is_variant
                 success=success
             )
         except Exception as e:

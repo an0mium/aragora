@@ -422,39 +422,35 @@ class EloSystem:
         elo_changes: dict[str, float],
     ):
         """Save match to history."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            INSERT OR REPLACE INTO matches (debate_id, winner, participants, domain, scores, elo_changes)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                debate_id,
-                winner,
-                json.dumps(participants),
-                domain,
-                json.dumps(scores),
-                json.dumps(elo_changes),
-            ),
-        )
-
-        conn.commit()
-        conn.close()
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO matches (debate_id, winner, participants, domain, scores, elo_changes)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    debate_id,
+                    winner,
+                    json.dumps(participants),
+                    domain,
+                    json.dumps(scores),
+                    json.dumps(elo_changes),
+                ),
+            )
+            conn.commit()
 
     def _record_elo_history(self, agent_name: str, elo: float, debate_id: str = None):
         """Record ELO at a point in time."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            "INSERT INTO elo_history (agent_name, elo, debate_id) VALUES (?, ?, ?)",
-            (agent_name, elo, debate_id),
-        )
-
-        conn.commit()
-        conn.close()
+            cursor.execute(
+                "INSERT INTO elo_history (agent_name, elo, debate_id) VALUES (?, ?, ?)",
+                (agent_name, elo, debate_id),
+            )
+            conn.commit()
 
     def _write_snapshot(self) -> None:
         """Write JSON snapshot for fast reads.
