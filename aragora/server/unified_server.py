@@ -1152,7 +1152,75 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 "count": len(topics),
             })
         except Exception as e:
-            self._send_json({"error": str(e), "topics": []})
+            self._send_json({"error": _safe_error_message(e, "trending_topics"), "topics": []})
+
+    def _generate_broadcast(self, debate_id: str) -> None:
+        """Generate podcast audio from a debate trace.
+
+        POST /api/debates/:id/broadcast
+
+        Rate limited. Returns path to generated MP3 or error.
+        """
+        if not self._check_rate_limit():
+            return
+
+        if not BROADCAST_AVAILABLE:
+            self._send_json({"error": "Broadcast module not available"}, status=503)
+            return
+
+        if not self.storage:
+            self._send_json({"error": "Storage not configured"}, status=500)
+            return
+
+        try:
+            # Load debate from storage
+            debate_data = self.storage.get_by_slug(debate_id) or self.storage.get_by_id(debate_id)
+            if not debate_data:
+                self._send_json({"error": "Debate not found"}, status=404)
+                return
+
+            # Convert to DebateTrace format
+            # Try to extract trace data from artifact_json
+            trace_data = debate_data.get("trace") or debate_data
+            trace = DebateTrace(
+                trace_id=debate_id,
+                debate_id=debate_data.get("id", debate_id),
+                task=debate_data.get("task", ""),
+                agents=debate_data.get("agents", []),
+                random_seed=debate_data.get("random_seed", 0),
+                events=[],  # Events will be extracted from messages
+                metadata={"source": "storage"},
+            )
+
+            # Extract messages as trace events if available
+            messages = debate_data.get("messages", [])
+            if messages:
+                from aragora.debate.traces import TraceEvent, EventType
+                for i, msg in enumerate(messages):
+                    trace.events.append(TraceEvent(
+                        event_type=EventType.MESSAGE,
+                        timestamp=msg.get("timestamp", ""),
+                        agent=msg.get("agent", "unknown"),
+                        round_num=msg.get("round", i // 3),
+                        data={"content": msg.get("content", "")},
+                    ))
+
+            # Generate broadcast asynchronously
+            from pathlib import Path
+            output_path = _run_async(broadcast_debate(trace))
+
+            if output_path:
+                self._send_json({
+                    "success": True,
+                    "debate_id": debate_id,
+                    "audio_path": str(output_path),
+                    "format": "mp3",
+                })
+            else:
+                self._send_json({"error": "Failed to generate audio"}, status=500)
+
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "broadcast_generation")}, status=500)
 
     def _list_replays(self) -> None:
         """List available replay directories."""
