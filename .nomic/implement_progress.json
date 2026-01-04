@@ -1,119 +1,77 @@
 {
   "plan": {
-    "design_hash": "a8099485c946f64f809065b23bf125c4",
+    "design_hash": "6071ca0ef9e49d68abf80952394d5088",
     "tasks": [
       {
         "id": "task-1",
-        "description": "Enhance PositionLedger in aragora/agents/grounded.py with schema migration and queries for position reversals.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH: \"The Narrative Ledger\"\n\nWe aren't just logging data; we are capturing the **intellectual evolution** of our agents. This feature transforms Aragora from a static debate platform into a dynamic learning system.\n\n*   **Database as the Source of Truth:** Treat `PositionLedger` as an append-only log of intellectual history. The `reversed_at` column is the anchor for time-series analysis.\n*   **The \"Flip\" Event:** In `nomic_loop.py`, treat a reversal as a high-value event. Don't just log it; prepare it for the `FlipDetector` to broadcast immediately via WebSocket. This creates \"Breaking News\" moments in the UI.\n*   **Viral Metrics:** The `get_agent_flip_stats` method is the crown jewel. It calculates an \"Open-Mindedness Score\" (or Consistency Score). This is the metric developers wi",
+        "description": "In `aragora/debate/orchestrator.py`, implement the core thread-safe mailbox. Add a `queue.Queue` named `_user_event_queue` to `Arena`, modify `_handle_user_event` to enqueue events, and create a new `_drain_user_events` method to process the queue into `user_votes` and `user_suggestions`.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n## Identity: gemini-visionary\n## Cognitive Role: Synthesizer\n## Proposal: Massively Multiplayer Governance (Thread-Safe Arena)\n\n### 1. KEY IMPLEMENTATION APPROACH: The \"Stadium Mailbox\"\nTo transform Aragora from a fragile prototype into a platform capable of handling \"Viral Scale\" traffic, we must decouple the chaotic **Input Stream** (WebSockets/Users) from the deliberate **Cognitive Loop** (The Arena).\n\nMy approach implements a **Thread-Safe Mailbox** pattern:\n1.  **Ingest (The Mailbox):** The `Arena` gains a `queue.Queue`. When `_handle_user_event` is triggered by the `stream_emitter` (running on the server thread), it simply drops the event into the queue. No logic, no list mutation, zero race conditions.\n2.  **Digest (The Drain):** At specific cognitive checkpoints (before `run_round` or `conduct_design_phas",
         "files": [
-          "aragora/agents/grounded.py"
+          "aragora/debate/orchestrator.py"
         ],
         "complexity": "moderate",
         "dependencies": []
       },
       {
         "id": "task-2",
-        "description": "Create new FlipDetector module to format position flip data for UI and streaming.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH: \"The Narrative Ledger\"\n\nWe aren't just logging data; we are capturing the **intellectual evolution** of our agents. This feature transforms Aragora from a static debate platform into a dynamic learning system.\n\n*   **Database as the Source of Truth:** Treat `PositionLedger` as an append-only log of intellectual history. The `reversed_at` column is the anchor for time-series analysis.\n*   **The \"Flip\" Event:** In `nomic_loop.py`, treat a reversal as a high-value event. Don't just log it; prepare it for the `FlipDetector` to broadcast immediately via WebSocket. This creates \"Breaking News\" moments in the UI.\n*   **Viral Metrics:** The `get_agent_flip_stats` method is the crown jewel. It calculates an \"Open-Mindedness Score\" (or Consistency Score). This is the metric developers wi",
-        "files": [
-          "aragora/insights/flip_detector.py"
-        ],
-        "complexity": "moderate",
-        "dependencies": [
-          "task-1"
-        ]
-      },
-      {
-        "id": "task-3",
-        "description": "Integrate position reversal recording into the Nomic loop script.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH: \"The Narrative Ledger\"\n\nWe aren't just logging data; we are capturing the **intellectual evolution** of our agents. This feature transforms Aragora from a static debate platform into a dynamic learning system.\n\n*   **Database as the Source of Truth:** Treat `PositionLedger` as an append-only log of intellectual history. The `reversed_at` column is the anchor for time-series analysis.\n*   **The \"Flip\" Event:** In `nomic_loop.py`, treat a reversal as a high-value event. Don't just log it; prepare it for the `FlipDetector` to broadcast immediately via WebSocket. This creates \"Breaking News\" moments in the UI.\n*   **Viral Metrics:** The `get_agent_flip_stats` method is the crown jewel. It calculates an \"Open-Mindedness Score\" (or Consistency Score). This is the metric developers wi",
+        "description": "In `scripts/nomic_loop.py`, wire the `event_emitter` and `loop_id` to the design-phase Arena construction to ensure `audience_injection=\"summary\"` can receive events.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n## Identity: gemini-visionary\n## Cognitive Role: Synthesizer\n## Proposal: Massively Multiplayer Governance (Thread-Safe Arena)\n\n### 1. KEY IMPLEMENTATION APPROACH: The \"Stadium Mailbox\"\nTo transform Aragora from a fragile prototype into a platform capable of handling \"Viral Scale\" traffic, we must decouple the chaotic **Input Stream** (WebSockets/Users) from the deliberate **Cognitive Loop** (The Arena).\n\nMy approach implements a **Thread-Safe Mailbox** pattern:\n1.  **Ingest (The Mailbox):** The `Arena` gains a `queue.Queue`. When `_handle_user_event` is triggered by the `stream_emitter` (running on the server thread), it simply drops the event into the queue. No logic, no list mutation, zero race conditions.\n2.  **Digest (The Drain):** At specific cognitive checkpoints (before `run_round` or `conduct_design_phas",
         "files": [
           "scripts/nomic_loop.py"
         ],
-        "complexity": "moderate",
-        "dependencies": [
-          "task-1"
-        ]
+        "complexity": "simple",
+        "dependencies": []
+      },
+      {
+        "id": "task-3",
+        "description": "In `aragora/server/unified_server.py`, verify that `event_emitter` and `loop_id` are passed during ad-hoc debate creation, adding them if they are missing.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n## Identity: gemini-visionary\n## Cognitive Role: Synthesizer\n## Proposal: Massively Multiplayer Governance (Thread-Safe Arena)\n\n### 1. KEY IMPLEMENTATION APPROACH: The \"Stadium Mailbox\"\nTo transform Aragora from a fragile prototype into a platform capable of handling \"Viral Scale\" traffic, we must decouple the chaotic **Input Stream** (WebSockets/Users) from the deliberate **Cognitive Loop** (The Arena).\n\nMy approach implements a **Thread-Safe Mailbox** pattern:\n1.  **Ingest (The Mailbox):** The `Arena` gains a `queue.Queue`. When `_handle_user_event` is triggered by the `stream_emitter` (running on the server thread), it simply drops the event into the queue. No logic, no list mutation, zero race conditions.\n2.  **Digest (The Drain):** At specific cognitive checkpoints (before `run_round` or `conduct_design_phas",
+        "files": [
+          "aragora/server/unified_server.py"
+        ],
+        "complexity": "simple",
+        "dependencies": []
       },
       {
         "id": "task-4",
-        "description": "Add backend tests for flip detection, including schema migration, reversal recording, and consistency calculations.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH: \"The Narrative Ledger\"\n\nWe aren't just logging data; we are capturing the **intellectual evolution** of our agents. This feature transforms Aragora from a static debate platform into a dynamic learning system.\n\n*   **Database as the Source of Truth:** Treat `PositionLedger` as an append-only log of intellectual history. The `reversed_at` column is the anchor for time-series analysis.\n*   **The \"Flip\" Event:** In `nomic_loop.py`, treat a reversal as a high-value event. Don't just log it; prepare it for the `FlipDetector` to broadcast immediately via WebSocket. This creates \"Breaking News\" moments in the UI.\n*   **Viral Metrics:** The `get_agent_flip_stats` method is the crown jewel. It calculates an \"Open-Mindedness Score\" (or Consistency Score). This is the metric developers wi",
+        "description": "In `aragora/debate/orchestrator.py`, integrate the event draining mechanism by calling `_drain_user_events` before prompt builds and user-vote aggregation to ensure pending events are processed.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n## Identity: gemini-visionary\n## Cognitive Role: Synthesizer\n## Proposal: Massively Multiplayer Governance (Thread-Safe Arena)\n\n### 1. KEY IMPLEMENTATION APPROACH: The \"Stadium Mailbox\"\nTo transform Aragora from a fragile prototype into a platform capable of handling \"Viral Scale\" traffic, we must decouple the chaotic **Input Stream** (WebSockets/Users) from the deliberate **Cognitive Loop** (The Arena).\n\nMy approach implements a **Thread-Safe Mailbox** pattern:\n1.  **Ingest (The Mailbox):** The `Arena` gains a `queue.Queue`. When `_handle_user_event` is triggered by the `stream_emitter` (running on the server thread), it simply drops the event into the queue. No logic, no list mutation, zero race conditions.\n2.  **Digest (The Drain):** At specific cognitive checkpoints (before `run_round` or `conduct_design_phas",
         "files": [
-          "tests/test_flip_alerts.py"
+          "aragora/debate/orchestrator.py"
         ],
-        "complexity": "moderate",
+        "complexity": "simple",
         "dependencies": [
-          "task-1",
-          "task-2"
+          "task-1"
         ]
       },
       {
         "id": "task-5",
-        "description": "Expose position flips and agent consistency scores via a new cached API endpoint.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH: \"The Narrative Ledger\"\n\nWe aren't just logging data; we are capturing the **intellectual evolution** of our agents. This feature transforms Aragora from a static debate platform into a dynamic learning system.\n\n*   **Database as the Source of Truth:** Treat `PositionLedger` as an append-only log of intellectual history. The `reversed_at` column is the anchor for time-series analysis.\n*   **The \"Flip\" Event:** In `nomic_loop.py`, treat a reversal as a high-value event. Don't just log it; prepare it for the `FlipDetector` to broadcast immediately via WebSocket. This creates \"Breaking News\" moments in the UI.\n*   **Viral Metrics:** The `get_agent_flip_stats` method is the crown jewel. It calculates an \"Open-Mindedness Score\" (or Consistency Score). This is the metric developers wi",
+        "description": "In `aragora/debate/orchestrator.py`, add an optional `strict_loop_scoping: bool = False` parameter to the `Arena` constructor and update `_handle_user_event` to drop events with an empty `loop_id` when the flag is enabled.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n## Identity: gemini-visionary\n## Cognitive Role: Synthesizer\n## Proposal: Massively Multiplayer Governance (Thread-Safe Arena)\n\n### 1. KEY IMPLEMENTATION APPROACH: The \"Stadium Mailbox\"\nTo transform Aragora from a fragile prototype into a platform capable of handling \"Viral Scale\" traffic, we must decouple the chaotic **Input Stream** (WebSockets/Users) from the deliberate **Cognitive Loop** (The Arena).\n\nMy approach implements a **Thread-Safe Mailbox** pattern:\n1.  **Ingest (The Mailbox):** The `Arena` gains a `queue.Queue`. When `_handle_user_event` is triggered by the `stream_emitter` (running on the server thread), it simply drops the event into the queue. No logic, no list mutation, zero race conditions.\n2.  **Digest (The Drain):** At specific cognitive checkpoints (before `run_round` or `conduct_design_phas",
         "files": [
-          "aragora/server/unified_server.py"
+          "aragora/debate/orchestrator.py"
         ],
-        "complexity": "moderate",
+        "complexity": "simple",
         "dependencies": [
-          "task-2"
+          "task-1"
         ]
       },
       {
         "id": "task-6",
-        "description": "Update streaming event types for backend and frontend to include position flips.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH: \"The Narrative Ledger\"\n\nWe aren't just logging data; we are capturing the **intellectual evolution** of our agents. This feature transforms Aragora from a static debate platform into a dynamic learning system.\n\n*   **Database as the Source of Truth:** Treat `PositionLedger` as an append-only log of intellectual history. The `reversed_at` column is the anchor for time-series analysis.\n*   **The \"Flip\" Event:** In `nomic_loop.py`, treat a reversal as a high-value event. Don't just log it; prepare it for the `FlipDetector` to broadcast immediately via WebSocket. This creates \"Breaking News\" moments in the UI.\n*   **Viral Metrics:** The `get_agent_flip_stats` method is the crown jewel. It calculates an \"Open-Mindedness Score\" (or Consistency Score). This is the metric developers wi",
+        "description": "Create a new test file `tests/test_audience_participation.py` with tests for loop scoping, concurrency safety of the event queue, and the integration of user votes in shifting consensus weights.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n## Identity: gemini-visionary\n## Cognitive Role: Synthesizer\n## Proposal: Massively Multiplayer Governance (Thread-Safe Arena)\n\n### 1. KEY IMPLEMENTATION APPROACH: The \"Stadium Mailbox\"\nTo transform Aragora from a fragile prototype into a platform capable of handling \"Viral Scale\" traffic, we must decouple the chaotic **Input Stream** (WebSockets/Users) from the deliberate **Cognitive Loop** (The Arena).\n\nMy approach implements a **Thread-Safe Mailbox** pattern:\n1.  **Ingest (The Mailbox):** The `Arena` gains a `queue.Queue`. When `_handle_user_event` is triggered by the `stream_emitter` (running on the server thread), it simply drops the event into the queue. No logic, no list mutation, zero race conditions.\n2.  **Digest (The Drain):** At specific cognitive checkpoints (before `run_round` or `conduct_design_phas",
         "files": [
-          "aragora/server/stream.py",
-          "aragora/live/src/types/events.ts"
+          "tests/test_audience_participation.py"
         ],
         "complexity": "moderate",
         "dependencies": [
-          "task-2"
-        ]
-      },
-      {
-        "id": "task-7",
-        "description": "Add tests for the new /api/insights/flips endpoint.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH: \"The Narrative Ledger\"\n\nWe aren't just logging data; we are capturing the **intellectual evolution** of our agents. This feature transforms Aragora from a static debate platform into a dynamic learning system.\n\n*   **Database as the Source of Truth:** Treat `PositionLedger` as an append-only log of intellectual history. The `reversed_at` column is the anchor for time-series analysis.\n*   **The \"Flip\" Event:** In `nomic_loop.py`, treat a reversal as a high-value event. Don't just log it; prepare it for the `FlipDetector` to broadcast immediately via WebSocket. This creates \"Breaking News\" moments in the UI.\n*   **Viral Metrics:** The `get_agent_flip_stats` method is the crown jewel. It calculates an \"Open-Mindedness Score\" (or Consistency Score). This is the metric developers wi",
-        "files": [
-          "tests/test_unified_server.py"
-        ],
-        "complexity": "simple",
-        "dependencies": [
+          "task-4",
           "task-5"
-        ]
-      },
-      {
-        "id": "task-8",
-        "description": "Implement a 'Flips' tab in the InsightsPanel to display reversal data from the new API.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH: \"The Narrative Ledger\"\n\nWe aren't just logging data; we are capturing the **intellectual evolution** of our agents. This feature transforms Aragora from a static debate platform into a dynamic learning system.\n\n*   **Database as the Source of Truth:** Treat `PositionLedger` as an append-only log of intellectual history. The `reversed_at` column is the anchor for time-series analysis.\n*   **The \"Flip\" Event:** In `nomic_loop.py`, treat a reversal as a high-value event. Don't just log it; prepare it for the `FlipDetector` to broadcast immediately via WebSocket. This creates \"Breaking News\" moments in the UI.\n*   **Viral Metrics:** The `get_agent_flip_stats` method is the crown jewel. It calculates an \"Open-Mindedness Score\" (or Consistency Score). This is the metric developers wi",
-        "files": [
-          "aragora/live/src/components/InsightsPanel.tsx"
-        ],
-        "complexity": "complex",
-        "dependencies": [
-          "task-5",
-          "task-6"
-        ]
-      },
-      {
-        "id": "task-9",
-        "description": "Add frontend tests for the new 'Flips' tab in the InsightsPanel.\n\n\n## IMPLEMENTATION GUIDANCE (from other agents)\nThe following suggestions were provided by other agents. Consider their insights while implementing.\n\n### GEMINI's Suggestions:\n### 1. KEY IMPLEMENTATION APPROACH: \"The Narrative Ledger\"\n\nWe aren't just logging data; we are capturing the **intellectual evolution** of our agents. This feature transforms Aragora from a static debate platform into a dynamic learning system.\n\n*   **Database as the Source of Truth:** Treat `PositionLedger` as an append-only log of intellectual history. The `reversed_at` column is the anchor for time-series analysis.\n*   **The \"Flip\" Event:** In `nomic_loop.py`, treat a reversal as a high-value event. Don't just log it; prepare it for the `FlipDetector` to broadcast immediately via WebSocket. This creates \"Breaking News\" moments in the UI.\n*   **Viral Metrics:** The `get_agent_flip_stats` method is the crown jewel. It calculates an \"Open-Mindedness Score\" (or Consistency Score). This is the metric developers wi",
-        "files": [
-          "aragora/live/__tests__/InsightsPanel.test.tsx"
-        ],
-        "complexity": "moderate",
-        "dependencies": [
-          "task-8"
         ]
       }
     ],
-    "created_at": "2026-01-03T23:42:59.446421"
+    "created_at": "2026-01-04T01:09:40.958564"
   },
   "completed_tasks": [
-    "task-1",
+    "task-3",
     "task-2",
-    "task-5",
-    "task-6",
-    "task-4",
-    "task-3"
+    "task-1"
   ],
   "current_task": null,
-  "git_stash_ref": "c83d7c893bebf66e186c714c9b6e88c8fdb443d1",
+  "git_stash_ref": "adfd7dd5282060905efbcb50bac5d587a16b389e",
   "results": []
 }
