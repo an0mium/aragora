@@ -177,7 +177,7 @@ def create_agent(
         from aragora.agents.api_agents import OpenRouterAgent
         return OpenRouterAgent(
             name=name or "openrouter",
-            model=model or "deepseek/deepseek-chat",
+            model=model or "deepseek/deepseek-v3.2",  # V3.2 latest
             role=role,
         )
 

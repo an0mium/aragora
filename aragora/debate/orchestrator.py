@@ -2004,7 +2004,13 @@ Respond with only: CONTINUE or STOP
         total_votes = 0
 
         tasks = [self._generate_with_agent(agent, prompt, context[-5:]) for agent in self.agents]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        try:
+            async with asyncio.timeout(self.protocol.round_timeout_seconds):
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+        except asyncio.TimeoutError:
+            # Timeout during early stopping check - continue debate (safe default)
+            print(f"  [Warning] Early stopping check timed out after {self.protocol.round_timeout_seconds}s")
+            return True
 
         for agent, result in zip(self.agents, results):
             if isinstance(result, Exception):

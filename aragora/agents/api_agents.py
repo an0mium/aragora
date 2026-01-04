@@ -1085,13 +1085,13 @@ REASONING: explanation"""
 
 # Convenience aliases for specific OpenRouter models
 class DeepSeekAgent(OpenRouterAgent):
-    """DeepSeek V3 via OpenRouter - excellent for coding/math, very cost-effective."""
+    """DeepSeek V3.2 via OpenRouter - latest model with integrated thinking + tool-use."""
 
     def __init__(self, name: str = "deepseek", role: str = "analyst", system_prompt: str = None):
         super().__init__(
             name=name,
             role=role,
-            model="deepseek/deepseek-chat",
+            model="deepseek/deepseek-v3.2",  # V3.2 latest
             system_prompt=system_prompt,
         )
 

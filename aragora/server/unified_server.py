@@ -245,12 +245,12 @@ except ImportError:
 
 # Optional BeliefNetwork for debate cruxes
 try:
-    from aragora.reasoning.belief import BeliefNetwork, DebateCruxAnalyzer
+    from aragora.reasoning.belief import BeliefNetwork, BeliefPropagationAnalyzer
     BELIEF_NETWORK_AVAILABLE = True
 except ImportError:
     BELIEF_NETWORK_AVAILABLE = False
     BeliefNetwork = None
-    DebateCruxAnalyzer = None
+    BeliefPropagationAnalyzer = None
 
 # Optional ProvenanceTracker for claim support
 try:
@@ -3044,7 +3044,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             for msg in result.messages:
                 network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
 
-            analyzer = DebateCruxAnalyzer(network)
+            analyzer = BeliefPropagationAnalyzer(network)
             cruxes = analyzer.identify_debate_cruxes(top_k=top_k)
 
             self._send_json({

@@ -41,7 +41,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
   const [question, setQuestion] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [agents, setAgents] = useState('grok,anthropic-api,openai-api,deepseek-r1');
+  const [agents, setAgents] = useState('grok,anthropic-api,openai-api,deepseek');
   const [rounds, setRounds] = useState(3);
   const [apiStatus, setApiStatus] = useState<ApiStatus>('checking');
   const [recommendations, setRecommendations] = useState<AgentRecommendation[]>([]);
@@ -320,10 +320,10 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
                   className="w-full bg-bg border border-acid-green/30 px-3 py-2
                              font-mono text-sm text-text focus:border-acid-green
                              focus:outline-none"
-                  placeholder="grok,anthropic-api,openai-api,deepseek-r1"
+                  placeholder="grok,anthropic-api,openai-api,deepseek"
                 />
                 <p className="text-[10px] text-text-muted mt-1">
-                  Models: grok (Grok 4), anthropic-api (Opus 4.5), openai-api (GPT 5.2), deepseek-r1 (R1)
+                  Models: grok (Grok 4), anthropic-api (Opus 4.5), openai-api (GPT 5.2), deepseek (V3.2)
                 </p>
               </div>
 
