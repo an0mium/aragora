@@ -1,0 +1,2 @@
+/debate/:id  /debate/  200
+/debates/*  /debates/  200
