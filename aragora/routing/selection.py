@@ -356,6 +356,7 @@ class AgentSelector:
         - Claude: Primary implementer (leads Phase 3)
         - Codex: Primary verifier (leads Phase 4)
         - Grok: Lateral thinker/devil's advocate (critiques all phases)
+        - DeepSeek: Rigorous analyst/formal reasoner (validates logic all phases)
         """
         roles = {}
         agent_map = {a.name.lower(): a for a in team}
@@ -371,6 +372,7 @@ class AgentSelector:
         claude = find_agent("claude")
         codex = find_agent("codex")
         grok = find_agent("grok")
+        deepseek = find_agent("deepseek")
 
         if phase == "debate":
             # All agents are proposers in debate phase
@@ -387,6 +389,8 @@ class AgentSelector:
                 roles[codex.name] = "implementation_critic"
             if grok:
                 roles[grok.name] = "devil_advocate"
+            if deepseek:
+                roles[deepseek.name] = "logic_validator"
             # Fallback for any unassigned
             for agent in team:
                 if agent.name not in roles:
@@ -411,6 +415,8 @@ class AgentSelector:
                 roles[gemini.name] = "design_validator"
             if claude:
                 roles[claude.name] = "implementation_reviewer"
+            if deepseek:
+                roles[deepseek.name] = "formal_verifier"
             # Fallback
             for agent in team:
                 if agent.name not in roles:

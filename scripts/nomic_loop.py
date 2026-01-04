@@ -175,7 +175,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.debate.roles import RoleRotationConfig, CognitiveRole
 from aragora.core import Environment
-from aragora.agents.api_agents import GeminiAgent
+from aragora.agents.api_agents import GeminiAgent, DeepSeekReasonerAgent
 from aragora.agents.cli_agents import CodexAgent, ClaudeAgent, GrokCLIAgent, KiloCodeAgent
 
 # Check if Kilo Code CLI is available for Gemini/Grok codebase exploration
@@ -1484,6 +1484,32 @@ Your role is to BUILD and EXTEND, not to remove or break.
 Propose additions that unlock new capabilities and create emergent value.
 The most valuable proposals are those that others wouldn't think of.""" + safety_footer
 
+        # DeepSeek R1 - reasoning model via OpenRouter
+        self.deepseek = DeepSeekReasonerAgent(
+            name='deepseek-reasoner',
+            role='proposer',
+        )
+        self.deepseek.system_prompt = """You are a deep reasoning analyst for aragora.
+Focus on: rigorous logical analysis, systematic evaluation, mathematical precision.
+
+=== STRUCTURED REASONING PROTOCOL ===
+When analyzing a task:
+1. DECOMPOSE: Break complex problems into atomic components
+2. REASON: Apply formal logic and systematic analysis
+3. VERIFY: Check conclusions against evidence and constraints
+4. SYNTHESIZE: Build coherent solutions from verified components
+
+When proposing changes:
+- Show your reasoning chain explicitly
+- Identify edge cases and failure modes
+- Provide formal guarantees where possible
+- Balance theoretical rigor with practical utility
+
+=== BUILD MODE ===
+Your role is to BUILD and EXTEND, not to remove or break.
+Propose additions that are logically sound and provably beneficial.
+The most valuable proposals combine deep reasoning with practical impact.""" + safety_footer
+
     def get_current_features(self) -> str:
         """Read current aragora state from the codebase."""
         init_file = self.aragora_path / "aragora" / "__init__.py"
@@ -1741,7 +1767,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                 strength = ConsensusStrength.SPLIT
 
             # Get participating agents
-            agents = [self.gemini.name, self.codex.name, self.claude.name, self.grok.name]
+            agents = [self.gemini.name, self.codex.name, self.claude.name, self.grok.name, self.deepseek.name]
 
             # Store the consensus (full content, no truncation)
             record = self.consensus_memory.store_consensus(
@@ -1983,7 +2009,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
             # Identify winning agents
             winning_agents = set()
             if result.final_answer:
-                for agent in [self.gemini, self.codex, self.claude, self.grok]:
+                for agent in [self.gemini, self.codex, self.claude, self.grok, self.deepseek]:
                     if agent.name.lower() in result.final_answer.lower():
                         winning_agents.add(agent.name)
 
@@ -2077,7 +2103,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
 
         try:
             self._log(f"  [prober] Running capability probes...")
-            agents = [self.gemini, self.codex, self.claude, self.grok]
+            agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
 
             for agent in agents:
                 report = await self.prober.probe_agent(
@@ -2123,7 +2149,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
         if not self.persona_manager or not PERSONAS_AVAILABLE:
             return
         try:
-            for agent in [self.gemini, self.codex, self.claude, self.grok]:
+            for agent in [self.gemini, self.codex, self.claude, self.grok, self.deepseek]:
                 persona = get_or_create_persona(self.persona_manager, agent.name)
                 top_exp = persona.top_expertise[:2] if persona.top_expertise else []
                 self._log(f"  [persona] {agent.name}: {persona.trait_string}, top: {top_exp}")
@@ -2205,7 +2231,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                 self._log(f"  [evolver] No patterns accumulated yet")
                 return
 
-            for agent in [self.gemini, self.codex, self.claude, self.grok]:
+            for agent in [self.gemini, self.codex, self.claude, self.grok, self.deepseek]:
                 if hasattr(agent, 'system_prompt') and agent.system_prompt:
                     self.prompt_evolver.apply_evolution(agent, patterns)
                     version = self.prompt_evolver.get_prompt_version(agent.name)
@@ -2234,7 +2260,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
 
         try:
             self._log(f"\n=== TOURNAMENT (Cycle {self.cycle_count}) ===")
-            agents = [self.gemini, self.codex, self.claude, self.grok]
+            agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
             tasks = create_default_tasks()[:3]  # Use 3 tasks for speed
 
             tournament = Tournament(
@@ -2485,7 +2511,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
 
     def _select_debate_team(self, task: str) -> list:
         """Select optimal agent team for the task (P14: AgentSelector)."""
-        default_team = [self.gemini, self.codex, self.claude, self.grok]
+        default_team = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
         detected_domain = self._detect_domain(task)
 
         # If ELO available, sort by domain expertise first
@@ -2622,7 +2648,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
             return
 
         self._log("  [personas] Agent insights:")
-        agents = [self.gemini, self.claude, self.codex, self.grok]
+        agents = [self.gemini, self.claude, self.codex, self.grok, self.deepseek]
         for agent in agents:
             try:
                 persona = self.persona_synthesizer.get_grounded_persona(agent.name)
@@ -2662,7 +2688,7 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
         # ELO domain calibration stats
         if self.elo_system:
             try:
-                agents = [self.gemini, self.claude, self.codex, self.grok]
+                agents = [self.gemini, self.claude, self.codex, self.grok, self.deepseek]
                 for agent in agents:
                     cal = self.elo_system.get_domain_calibration(agent.name)
                     if cal and cal.get('total', 0) > 0:
@@ -3940,7 +3966,7 @@ Be concise (1-2 sentences). Focus on correctness and safety issues only.
         self._log("    [deep-audit] Running strategic design audit (5-round)")
 
         try:
-            audit_agents = [self.gemini, self.codex, self.claude, self.grok]
+            audit_agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
 
             # Use CODE_ARCHITECTURE_AUDIT for strategic design review
             verdict = await run_deep_audit(
@@ -4004,7 +4030,7 @@ Cross-examine each other's reasoning. Be thorough.""",
 
         try:
             # Create agents list for deep audit
-            audit_agents = [self.gemini, self.codex, self.claude, self.grok]
+            audit_agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
 
             # Run deep audit
             verdict = await run_deep_audit(
@@ -5434,7 +5460,7 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
 
         # HYBRID MODEL ARCHITECTURE: Gemini leads design, others critique
         # Order: Gemini first as design lead, then critics (Claude, Codex, Grok)
-        design_agents = [self.gemini, self.claude, self.codex, self.grok]
+        design_agents = [self.gemini, self.claude, self.codex, self.grok, self.deepseek]
 
         protocol = DebateProtocol(
             rounds=2,  # Allow critique and refinement round
