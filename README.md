@@ -333,9 +333,30 @@ Aragora has evolved through 8 phases of self-improvement, with the nomic loop de
 ## Roadmap
 
 - [x] **Phase 1-8**: Core framework with 30+ integrated features ✓
+- [x] **Position Flip Detection**: Track agent position reversals and consistency scores (in progress)
+- [x] **Hybrid Model Architecture**: Gemini=Designer, Claude=Implementer, Codex=Verifier
+- [x] **Security Hardening**: API key header auth, rate limiting, input validation
 - [ ] **Phase 9**: LeanBackend for Lean 4 theorem proving
 - [ ] **Phase 10**: Emergent society simulation (ala Project Sid)
 - [ ] **Phase 11**: Multi-codebase coordination
+
+## Security
+
+Aragora implements several security measures:
+
+- **API Key Protection**: Gemini API keys are transmitted via HTTP headers, not URL parameters
+- **Rate Limiting**: Thread-safe rate limiting with configurable limits per minute
+- **Input Validation**: API parameters are validated and capped to prevent resource exhaustion
+- **Path Traversal Protection**: Static file serving validates paths against base directory
+- **CORS Validation**: Origin allowlist prevents unauthorized cross-origin requests
+- **Generic Error Messages**: Internal errors don't leak stack traces to clients
+
+Configure security via environment variables:
+```bash
+export ARAGORA_API_TOKEN="your-secret-token"    # Enable token auth
+export ARAGORA_ALLOWED_ORIGINS="https://aragora.ai,https://live.aragora.ai"
+export ARAGORA_TOKEN_TTL=3600                   # Token lifetime in seconds
+```
 
 ## Contributing
 
