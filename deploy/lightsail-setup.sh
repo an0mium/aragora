@@ -32,7 +32,7 @@ source venv/bin/activate
 # Install Python dependencies
 echo "[5/6] Installing Python packages..."
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -e .
 
 # Create systemd service
 echo "[6/6] Creating systemd service..."
