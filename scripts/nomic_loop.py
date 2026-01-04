@@ -4382,6 +4382,7 @@ Synthesize these suggestions into a coherent, working implementation.
             protocol = DebateProtocol(
                 rounds=2,
                 consensus="majority",
+                judge_selection="elo_ranked",  # Use ELO-based judge selection
                 role_rotation=True,
                 role_rotation_config=RoleRotationConfig(
                     enabled=True,
@@ -4455,6 +4456,7 @@ Synthesize these suggestions into a coherent, working implementation.
             protocol = DebateProtocol(
                 rounds=2,
                 consensus="majority",
+                judge_selection="elo_ranked",  # Use ELO-based judge selection
                 role_rotation=True,
                 role_rotation_config=RoleRotationConfig(
                     enabled=True,
@@ -4780,6 +4782,7 @@ Recent changes:
         protocol = DebateProtocol(
             rounds=2,
             consensus="judge",
+            judge_selection="elo_ranked",  # Use highest-ELO agent as judge
             proposer_count=4,  # All 4 agents participate
             role_rotation=True,  # Heavy3-inspired cognitive role rotation
             role_rotation_config=RoleRotationConfig(
@@ -5419,6 +5422,7 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
         protocol = DebateProtocol(
             rounds=2,  # Allow critique and refinement round
             consensus="judge",
+            judge_selection="elo_ranked",  # Use highest-ELO agent as judge
             proposer_count=1,  # Gemini as primary design proposer
             role_rotation=True,  # Heavy3-inspired cognitive role rotation
             role_rotation_config=RoleRotationConfig(
