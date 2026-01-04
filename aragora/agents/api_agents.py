@@ -70,7 +70,7 @@ class APIAgent(Agent):
                         severity = min(1.0, max(0.0, float(match.group(1))))
                         if severity > 1:
                             severity = severity / 10
-                    except:
+                    except (ValueError, TypeError):
                         pass
             elif line.startswith(('-', '*', '•')):
                 item = line.lstrip('-*• ').strip()

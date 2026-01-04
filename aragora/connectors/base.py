@@ -262,7 +262,7 @@ class BaseConnector(ABC):
                 return 0.5
             else:
                 return 0.3
-        except:
+        except (ValueError, TypeError, AttributeError):
             return 0.5  # Unknown age
 
     def __repr__(self) -> str:

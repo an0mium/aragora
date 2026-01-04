@@ -28,6 +28,7 @@ class CLIAgent(Agent):
 
     async def _run_cli(self, command: list[str], input_text: str = None) -> str:
         """Run a CLI command and return output."""
+        proc = None
         try:
             proc = await asyncio.create_subprocess_exec(
                 *command,
@@ -47,8 +48,15 @@ class CLIAgent(Agent):
             return stdout.decode().strip()
 
         except asyncio.TimeoutError:
-            proc.kill()
+            if proc:
+                proc.kill()
+                await proc.wait()  # Ensure process is fully cleaned up
             raise TimeoutError(f"CLI command timed out after {self.timeout}s")
+        except Exception:
+            if proc and proc.returncode is None:
+                proc.kill()
+                await proc.wait()  # Cleanup zombie processes
+            raise
 
     def _build_context_prompt(self, context: list[Message] = None) -> str:
         """Build context from previous messages with truncation for large contexts."""
@@ -117,7 +125,7 @@ class CLIAgent(Agent):
                         severity = min(1.0, max(0.0, float(match.group(1))))
                         if severity > 1:
                             severity = severity / 10  # Handle 0-10 scale
-                    except:
+                    except (ValueError, TypeError):
                         pass
             elif line.startswith(('-', '*', '•')):
                 item = line.lstrip('-*• ').strip()
