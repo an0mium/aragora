@@ -192,7 +192,7 @@ auth_config = AuthConfig()
 auth_config.configure_from_env()
 
 
-def check_auth(headers: Dict[str, Any], query_string: str = "", loop_id: str = "") -> tuple:
+def check_auth(headers: Dict[str, Any], query_string: str = "", loop_id: str = "", ip_address: str = "") -> tuple:
     """
     Check authentication and rate limiting for a request.
 
@@ -200,14 +200,22 @@ def check_auth(headers: Dict[str, Any], query_string: str = "", loop_id: str = "
         headers: HTTP headers dict
         query_string: Raw query string
         loop_id: Optional loop ID to validate against token
+        ip_address: Client IP for rate limiting (used even when auth disabled)
 
     Returns:
         (authenticated, rate_limit_remaining) tuple.
         authenticated is True if authenticated or auth disabled.
         rate_limit_remaining is -1 if rate limiting not applicable.
     """
+    # Always check IP rate limit for DoS protection (even without auth)
+    if ip_address:
+        ip_allowed, ip_remaining = auth_config.check_rate_limit_by_ip(ip_address)
+        if not ip_allowed:
+            return False, 0
+
     if not auth_config.enabled:
-        return True, -1
+        # Return IP remaining if we have it, else -1
+        return True, ip_remaining if ip_address else -1
 
     query_params = parse_qs(query_string.lstrip("?")) if query_string else {}
     token = auth_config.extract_token_from_request(headers, query_params)
@@ -215,11 +223,14 @@ def check_auth(headers: Dict[str, Any], query_string: str = "", loop_id: str = "
     if not auth_config.validate_token(token or "", loop_id):
         return False, -1
 
-    # Check rate limit
+    # Check token-based rate limit
     allowed, remaining = auth_config.check_rate_limit(token or "anonymous")
     if not allowed:
         return False, 0
 
+    # Return the more restrictive limit
+    if ip_address:
+        return True, min(remaining, ip_remaining)
     return True, remaining
 
 
