@@ -990,9 +990,9 @@ class UnifiedServer:
 
             # Initialize FlipDetector from nomic directory
             if FLIP_DETECTOR_AVAILABLE:
-                personas_path = nomic_dir / "aragora_personas.db"
-                if personas_path.exists():
-                    UnifiedHandler.flip_detector = FlipDetector(str(personas_path))
+                positions_path = nomic_dir / "aragora_positions.db"
+                if positions_path.exists():
+                    UnifiedHandler.flip_detector = FlipDetector(str(positions_path))
                     print("[server] FlipDetector loaded for position reversal API")
 
             # Initialize DocumentStore for file uploads

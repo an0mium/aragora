@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import type { StreamEvent } from '@/types/events';
 import { RoleBadge } from './RoleBadge';
 
 interface AgentTabsProps {
   events: StreamEvent[];
 }
+
+// Special tab ID for unified "All Agents" view
+const ALL_AGENTS_TAB = '__all__';
 
 // Agent color schemes by model family
 const MODEL_COLORS: Record<string, { bg: string; text: string; border: string; tab: string }> = {
@@ -26,6 +29,17 @@ function getAgentColors(agentName: string) {
   return MODEL_COLORS.default;
 }
 
+// Terminal-style role indicators
+const ROLE_ICONS: Record<string, string> = {
+  proposer: '💡',
+  critic: '🔍',
+  synthesizer: '🔄',
+  judge: '⚖️',
+  reviewer: '📋',
+  implementer: '🛠️',
+  default: '▶',
+};
+
 interface AgentData {
   name: string;
   latestContent: string;
@@ -39,8 +53,11 @@ interface AgentData {
 }
 
 export function AgentTabs({ events }: AgentTabsProps) {
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  // Default to "All Agents" unified timeline view
+  const [selectedAgent, setSelectedAgent] = useState<string>(ALL_AGENTS_TAB);
   const [showHistory, setShowHistory] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
 
   // Extract agent data from events
   const agentData = useMemo(() => {
@@ -93,9 +110,40 @@ export function AgentTabs({ events }: AgentTabsProps) {
     return Object.values(agents).sort((a, b) => a.name.localeCompare(b.name));
   }, [events]);
 
-  // Auto-select first agent if none selected
-  const activeAgent = selectedAgent || agentData[0]?.name || null;
-  const currentAgent = agentData.find((a) => a.name === activeAgent);
+  // Extract unified timeline of all agent messages
+  const unifiedTimeline = useMemo(() => {
+    return events
+      .filter((e) => e.type === 'agent_message' && e.agent)
+      .map((e) => ({
+        agent: e.agent || '',
+        content: (e.data?.content as string) || '',
+        role: (e.data?.role as string) || 'proposer',
+        cognitiveRole: e.data?.cognitive_role as string | undefined,
+        round: e.round || 0,
+        timestamp: e.timestamp,
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+  }, [events]);
+
+  // Auto-scroll when new messages arrive in unified view
+  useEffect(() => {
+    if (autoScroll && scrollRef.current && selectedAgent === ALL_AGENTS_TAB) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [unifiedTimeline.length, autoScroll, selectedAgent]);
+
+  const handleScroll = () => {
+    if (scrollRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      setAutoScroll(isAtBottom);
+    }
+  };
+
+  const activeAgent = selectedAgent;
+  const currentAgent = selectedAgent !== ALL_AGENTS_TAB
+    ? agentData.find((a) => a.name === activeAgent)
+    : null;
 
   if (agentData.length === 0) {
     return (
@@ -116,6 +164,24 @@ export function AgentTabs({ events }: AgentTabsProps) {
     <div className="card flex flex-col h-full">
       {/* Tab Bar */}
       <div className="flex items-center border-b border-border overflow-x-auto">
+        {/* All Agents Tab (default) */}
+        <button
+          onClick={() => setSelectedAgent(ALL_AGENTS_TAB)}
+          className={`
+            relative px-4 py-3 text-sm font-medium whitespace-nowrap transition-all
+            ${activeAgent === ALL_AGENTS_TAB ? 'text-acid-green' : 'text-text-muted hover:text-text'}
+          `}
+        >
+          <span className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-acid-green" />
+            All Agents
+            <span className="text-xs opacity-60">{unifiedTimeline.length}</span>
+          </span>
+          {activeAgent === ALL_AGENTS_TAB && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-acid-green" />
+          )}
+        </button>
+        {/* Individual Agent Tabs */}
         {agentData.map((agent) => {
           const colors = getAgentColors(agent.name);
           const isActive = agent.name === activeAgent;

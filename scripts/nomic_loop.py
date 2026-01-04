@@ -4293,6 +4293,7 @@ Synthesize these suggestions into a coherent, working implementation.
                 memory=self.critique_store, debate_embeddings=self.debate_embeddings,
                 insight_store=self.insight_store, position_tracker=self.position_tracker,
                 position_ledger=self.position_ledger, elo_system=self.elo_system,
+                event_emitter=self.stream_emitter, loop_id=self.loop_id,
             )
             return await self._run_arena_with_logging(arena, phase_name)
 
@@ -4364,6 +4365,7 @@ Synthesize these suggestions into a coherent, working implementation.
                 memory=self.critique_store, debate_embeddings=self.debate_embeddings,
                 insight_store=self.insight_store, position_tracker=self.position_tracker,
                 position_ledger=self.position_ledger, elo_system=self.elo_system,
+                event_emitter=self.stream_emitter, loop_id=self.loop_id,
             )
             return await self._run_arena_with_logging(arena, phase_name)
 
@@ -4741,6 +4743,7 @@ Recent changes:
             position_tracker=self.position_tracker,
             position_ledger=self.position_ledger,
             elo_system=self.elo_system,
+            event_emitter=self.stream_emitter, loop_id=self.loop_id,
             event_hooks=self._create_arena_hooks("debate"),  # Enable real-time streaming
         )
 
