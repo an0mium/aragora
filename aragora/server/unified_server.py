@@ -105,6 +105,14 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     document_store: Optional[DocumentStore] = None  # Document store for uploads
     flip_detector: Optional["FlipDetector"] = None  # FlipDetector for position reversals
 
+    def _safe_int(self, query: dict, key: str, default: int, max_val: int = 100) -> int:
+        """Safely parse integer query param with bounds checking."""
+        try:
+            val = int(query.get(key, [default])[0])
+            return min(max(val, 1), max_val)
+        except (ValueError, IndexError, TypeError):
+            return default
+
     def do_GET(self) -> None:
         """Handle GET requests."""
         parsed = urlparse(self.path)
@@ -116,7 +124,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             slug = path.split('/')[-1]
             self._get_debate(slug)
         elif path == '/api/debates':
-            limit = int(query.get('limit', [20])[0])
+            limit = self._safe_int(query, 'limit', 20, 100)
             self._list_debates(limit)
         elif path == '/api/health':
             self._health_check()
@@ -129,15 +137,15 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         # History API (Supabase)
         elif path == '/api/history/cycles':
             loop_id = query.get('loop_id', [None])[0]
-            limit = int(query.get('limit', [50])[0])
+            limit = self._safe_int(query, 'limit', 50, 200)
             self._get_history_cycles(loop_id, limit)
         elif path == '/api/history/events':
             loop_id = query.get('loop_id', [None])[0]
-            limit = int(query.get('limit', [100])[0])
+            limit = self._safe_int(query, 'limit', 100, 500)
             self._get_history_events(loop_id, limit)
         elif path == '/api/history/debates':
             loop_id = query.get('loop_id', [None])[0]
-            limit = int(query.get('limit', [50])[0])
+            limit = self._safe_int(query, 'limit', 50, 200)
             self._get_history_debates(loop_id, limit)
         elif path == '/api/history/summary':
             loop_id = query.get('loop_id', [None])[0]
@@ -145,21 +153,21 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
         # Insights API (debate consensus feature)
         elif path == '/api/insights/recent':
-            limit = int(query.get('limit', [20])[0])
+            limit = self._safe_int(query, 'limit', 20, 100)
             self._get_recent_insights(limit)
 
         # Leaderboard API (debate consensus feature)
         elif path == '/api/leaderboard':
-            limit = int(query.get('limit', [20])[0])
+            limit = self._safe_int(query, 'limit', 20, 50)
             domain = query.get('domain', [None])[0]
             self._get_leaderboard(limit, domain)
         elif path == '/api/matches/recent':
-            limit = int(query.get('limit', [10])[0])
+            limit = self._safe_int(query, 'limit', 10, 50)
             loop_id = query.get('loop_id', [None])[0]
             self._get_recent_matches(limit, loop_id)
         elif path.startswith('/api/agent/') and path.endswith('/history'):
             agent = path.split('/')[3]
-            limit = int(query.get('limit', [30])[0])
+            limit = self._safe_int(query, 'limit', 30, 100)
             self._get_agent_history(agent, limit)
 
         # Document API
@@ -184,7 +192,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
         # Flip Detection API
         elif path == '/api/flips/recent':
-            limit = int(query.get('limit', [20])[0])
+            limit = self._safe_int(query, 'limit', 20, 100)
             self._get_recent_flips(limit)
         elif path == '/api/flips/summary':
             self._get_flip_summary()
@@ -193,7 +201,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._get_agent_consistency(agent)
         elif path.startswith('/api/agent/') and path.endswith('/flips'):
             agent = path.split('/')[3]
-            limit = int(query.get('limit', [20])[0])
+            limit = self._safe_int(query, 'limit', 20, 100)
             self._get_agent_flips(agent, limit)
 
         # Static file serving
