@@ -23,6 +23,8 @@ def mock_agent():
     agent = Mock(spec=Agent)
     agent.name = "test_agent"
     agent.role = "proposer"
+    agent.system_prompt = ""  # Required for _apply_agreement_intensity
+    agent.stance = None
     agent.generate = AsyncMock(return_value="Test proposal")
     agent.critique = AsyncMock()
     agent.vote = AsyncMock()

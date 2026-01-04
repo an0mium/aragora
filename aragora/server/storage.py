@@ -17,6 +17,33 @@ if TYPE_CHECKING:
     from aragora.export.artifact import DebateArtifact
 
 
+# Database connection timeout in seconds
+DB_TIMEOUT = 30.0
+
+
+def _escape_like_pattern(pattern: str) -> str:
+    """Escape special characters for SQL LIKE patterns.
+
+    LIKE metacharacters:
+    - % matches any sequence of characters
+    - _ matches any single character
+    """
+    # Escape backslash first (escape character itself)
+    pattern = pattern.replace("\\", "\\\\")
+    # Escape LIKE metacharacters
+    pattern = pattern.replace("%", "\\%")
+    pattern = pattern.replace("_", "\\_")
+    return pattern
+
+
+def _get_connection(db_path, timeout: float = DB_TIMEOUT) -> sqlite3.Connection:
+    """Get a database connection with timeout configured."""
+    conn = sqlite3.connect(db_path, timeout=timeout)
+    # Set busy timeout in milliseconds
+    conn.execute(f"PRAGMA busy_timeout = {int(timeout * 1000)}")
+    return conn
+
+
 @dataclass
 class DebateMetadata:
     """Summary metadata for a stored debate."""
@@ -59,7 +86,7 @@ class DebateStorage:
 
     def _init_db(self) -> None:
         """Initialize database schema."""
-        conn = sqlite3.connect(self.db_path)
+        conn = _get_connection(self.db_path)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS debates (
                 id TEXT PRIMARY KEY,
@@ -100,11 +127,12 @@ class DebateStorage:
         date = datetime.now().strftime('%Y-%m-%d')
         slug = f"{base}-{date}"
 
-        # Handle collisions
-        conn = sqlite3.connect(self.db_path)
+        # Handle collisions (escape LIKE pattern to prevent wildcard injection)
+        escaped_slug = _escape_like_pattern(slug)
+        conn = _get_connection(self.db_path)
         cursor = conn.execute(
-            "SELECT COUNT(*) FROM debates WHERE slug LIKE ?",
-            (f"{slug}%",)
+            "SELECT COUNT(*) FROM debates WHERE slug LIKE ? ESCAPE '\\'",
+            (f"{escaped_slug}%",)
         )
         count = cursor.fetchone()[0]
         conn.close()
@@ -123,7 +151,7 @@ class DebateStorage:
         """
         slug = self.generate_slug(artifact.task)
 
-        conn = sqlite3.connect(self.db_path)
+        conn = _get_connection(self.db_path)
         conn.execute("""
             INSERT INTO debates (
                 id, slug, task, agents, artifact_json,
@@ -153,7 +181,7 @@ class DebateStorage:
         slug = self.generate_slug(debate_data.get("task", "debate"))
         debate_id = debate_data.get("id", slug)
 
-        conn = sqlite3.connect(self.db_path)
+        conn = _get_connection(self.db_path)
         conn.execute("""
             INSERT INTO debates (
                 id, slug, task, agents, artifact_json,
@@ -181,7 +209,7 @@ class DebateStorage:
         Returns:
             Debate artifact dict or None if not found
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = _get_connection(self.db_path)
         cursor = conn.execute(
             "SELECT artifact_json FROM debates WHERE slug = ?",
             (slug,)
@@ -200,7 +228,7 @@ class DebateStorage:
 
     def get_by_id(self, debate_id: str) -> Optional[dict]:
         """Get debate by ID."""
-        conn = sqlite3.connect(self.db_path)
+        conn = _get_connection(self.db_path)
         cursor = conn.execute(
             "SELECT artifact_json FROM debates WHERE id = ?",
             (debate_id,)
@@ -216,7 +244,7 @@ class DebateStorage:
         Returns:
             List of DebateMetadata ordered by creation date (newest first)
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = _get_connection(self.db_path)
         cursor = conn.execute("""
             SELECT slug, id, task, agents, consensus_reached,
                    confidence, created_at, view_count
@@ -248,7 +276,7 @@ class DebateStorage:
 
     def delete(self, slug: str) -> bool:
         """Delete a debate by slug."""
-        conn = sqlite3.connect(self.db_path)
+        conn = _get_connection(self.db_path)
         cursor = conn.execute(
             "DELETE FROM debates WHERE slug = ?",
             (slug,)
