@@ -814,21 +814,34 @@ class CritiqueStore:
         Returns:
             Number of patterns pruned
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        if archive:
-            # Move stale/unsuccessful patterns to archive table
+            if archive:
+                # Move stale/unsuccessful patterns to archive table
+                cursor.execute(
+                    """
+                    INSERT INTO patterns_archive
+                        (id, issue_type, issue_text, suggestion_text, success_count,
+                         failure_count, avg_severity, surprise_score, example_task,
+                         created_at, updated_at)
+                    SELECT id, issue_type, issue_text, suggestion_text, success_count,
+                           failure_count, avg_severity, surprise_score, example_task,
+                           created_at, updated_at
+                    FROM patterns
+                    WHERE julianday('now') - julianday(updated_at) > ?
+                      AND (
+                        CAST(success_count AS REAL) /
+                        NULLIF(success_count + failure_count, 0)
+                      ) < ?
+                    """,
+                    (max_age_days, min_success_rate),
+                )
+
+            # Delete stale/unsuccessful patterns
             cursor.execute(
                 """
-                INSERT INTO patterns_archive
-                    (id, issue_type, issue_text, suggestion_text, success_count,
-                     failure_count, avg_severity, surprise_score, example_task,
-                     created_at, updated_at)
-                SELECT id, issue_type, issue_text, suggestion_text, success_count,
-                       failure_count, avg_severity, surprise_score, example_task,
-                       created_at, updated_at
-                FROM patterns
+                DELETE FROM patterns
                 WHERE julianday('now') - julianday(updated_at) > ?
                   AND (
                     CAST(success_count AS REAL) /
@@ -838,40 +851,25 @@ class CritiqueStore:
                 (max_age_days, min_success_rate),
             )
 
-        # Delete stale/unsuccessful patterns
-        cursor.execute(
-            """
-            DELETE FROM patterns
-            WHERE julianday('now') - julianday(updated_at) > ?
-              AND (
-                CAST(success_count AS REAL) /
-                NULLIF(success_count + failure_count, 0)
-              ) < ?
-            """,
-            (max_age_days, min_success_rate),
-        )
-
-        pruned = cursor.rowcount
-        conn.commit()
-        conn.close()
-        return pruned
+            pruned = cursor.rowcount
+            conn.commit()
+            return pruned
 
     def get_archive_stats(self) -> dict:
         """Get statistics about archived patterns."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute("SELECT COUNT(*) FROM patterns_archive")
-        total = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM patterns_archive")
+            total = cursor.fetchone()[0]
 
-        cursor.execute(
-            """
-            SELECT issue_type, COUNT(*)
-            FROM patterns_archive
-            GROUP BY issue_type
-            """
-        )
-        by_type = dict(cursor.fetchall())
+            cursor.execute(
+                """
+                SELECT issue_type, COUNT(*)
+                FROM patterns_archive
+                GROUP BY issue_type
+                """
+            )
+            by_type = dict(cursor.fetchall())
 
-        conn.close()
-        return {"total_archived": total, "archived_by_type": by_type}
+            return {"total_archived": total, "archived_by_type": by_type}
