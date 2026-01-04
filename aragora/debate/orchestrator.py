@@ -215,6 +215,7 @@ class Arena:
         elo_system=None,  # Optional EloSystem for relationship tracking
         persona_manager=None,  # Optional PersonaManager for agent specialization
         dissent_retriever=None,  # Optional DissentRetriever for historical minority views
+        flip_detector=None,  # Optional FlipDetector for position reversal detection
         loop_id: str = "",  # Loop ID for multi-loop scoping
         strict_loop_scoping: bool = False,  # Drop events without loop_id when True
     ):
@@ -234,6 +235,7 @@ class Arena:
         self.elo_system = elo_system  # For relationship tracking
         self.persona_manager = persona_manager  # For agent specialization context
         self.dissent_retriever = dissent_retriever  # For historical minority views in debates
+        self.flip_detector = flip_detector  # For detecting position reversals
         self.loop_id = loop_id  # Loop ID for scoping events
         self.strict_loop_scoping = strict_loop_scoping  # Enforce loop_id on all events
 
@@ -1642,6 +1644,16 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 asyncio.create_task(self._index_debate_async(artifact))
             except Exception:
                 pass  # Embedding indexing failure shouldn't break debate
+
+        # 5. Detect position flips for all participating agents
+        if self.flip_detector:
+            try:
+                for agent in self.agents:
+                    flips = self.flip_detector.detect_flips_for_agent(agent.name)
+                    if flips:
+                        print(f"  [flip] Detected {len(flips)} position changes for {agent.name}")
+            except Exception:
+                pass  # Flip detection failure shouldn't break debate
 
         return result
 

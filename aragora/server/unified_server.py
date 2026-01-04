@@ -186,6 +186,85 @@ _active_debates: dict[str, dict] = {}
 _active_debates_lock = threading.Lock()  # Thread-safe access to _active_debates
 
 
+def _wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
+    """Wrap an agent to emit token streaming events.
+
+    If the agent has a generate_stream() method, we override its generate()
+    to call generate_stream() and emit TOKEN_* events.
+    """
+    from datetime import datetime
+
+    # Check if agent supports streaming
+    if not hasattr(agent, 'generate_stream'):
+        return agent
+
+    # Store original generate method
+    original_generate = agent.generate
+
+    async def streaming_generate(prompt: str, context=None):
+        """Streaming wrapper that emits TOKEN_* events."""
+        # Emit start event
+        emitter.emit(StreamEvent(
+            type=StreamEventType.TOKEN_START,
+            data={
+                "debate_id": debate_id,
+                "agent": agent.name,
+                "timestamp": datetime.now().isoformat(),
+            },
+            agent=agent.name,
+        ))
+
+        full_response = ""
+        try:
+            # Stream tokens from the agent
+            async for token in agent.generate_stream(prompt, context):
+                full_response += token
+                # Emit token delta event
+                emitter.emit(StreamEvent(
+                    type=StreamEventType.TOKEN_DELTA,
+                    data={
+                        "debate_id": debate_id,
+                        "agent": agent.name,
+                        "token": token,
+                    },
+                    agent=agent.name,
+                ))
+
+            # Emit end event
+            emitter.emit(StreamEvent(
+                type=StreamEventType.TOKEN_END,
+                data={
+                    "debate_id": debate_id,
+                    "agent": agent.name,
+                    "full_response": full_response,
+                },
+                agent=agent.name,
+            ))
+
+            return full_response
+
+        except Exception as e:
+            # Emit error as end event
+            emitter.emit(StreamEvent(
+                type=StreamEventType.TOKEN_END,
+                data={
+                    "debate_id": debate_id,
+                    "agent": agent.name,
+                    "error": str(e),
+                    "full_response": full_response,
+                },
+                agent=agent.name,
+            ))
+            # Fall back to non-streaming
+            if full_response:
+                return full_response
+            return await original_generate(prompt, context)
+
+    # Replace the generate method
+    agent.generate = streaming_generate
+    return agent
+
+
 def _run_async(coro):
     """Run async coroutine in HTTP handler thread (which may not have an event loop)."""
     try:
@@ -794,7 +873,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                         raise ValueError(f"Invalid agent type: {agent_type}. Allowed: {', '.join(sorted(ALLOWED_AGENT_TYPES))}")
                     agent_specs.append((agent_type, role))
 
-                # Create agents
+                # Create agents with streaming support
                 agents = []
                 for i, (agent_type, role) in enumerate(agent_specs):
                     if role is None:
@@ -809,6 +888,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                         name=f"{agent_type}_{role}",
                         role=role,
                     )
+                    # Wrap agent for token streaming if supported
+                    agent = _wrap_agent_for_streaming(agent, self.stream_emitter, debate_id)
                     agents.append(agent)
 
                 # Create environment and protocol
@@ -826,6 +907,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     elo_system=self.elo_system,
                     position_tracker=self.position_tracker,
                     position_ledger=self.position_ledger,
+                    flip_detector=self.flip_detector,
                     loop_id=debate_id,
                 )
 
