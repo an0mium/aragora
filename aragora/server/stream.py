@@ -45,6 +45,11 @@ class StreamEventType(Enum):
     CONSENSUS = "consensus"
     DEBATE_END = "debate_end"
 
+    # Token streaming events (for real-time response display)
+    TOKEN_START = "token_start"      # Agent begins generating response
+    TOKEN_DELTA = "token_delta"      # Incremental token(s) received
+    TOKEN_END = "token_end"          # Agent finished generating response
+
     # Nomic loop events
     CYCLE_START = "cycle_start"
     CYCLE_END = "cycle_end"

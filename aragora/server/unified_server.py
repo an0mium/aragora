@@ -1994,6 +1994,69 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "critique_patterns")}, status=500)
 
+    def _get_ranking_stats(self) -> None:
+        """Get ELO ranking system statistics."""
+        if not self._check_rate_limit():
+            return
+
+        if not RANKING_AVAILABLE or not self.elo_system:
+            self._send_json({"error": "Ranking system not available"}, status=503)
+            return
+
+        try:
+            stats = self.elo_system.get_stats()
+            self._send_json(stats)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "ranking_stats")}, status=500)
+
+    def _get_memory_stats(self) -> None:
+        """Get memory tier statistics from continuum memory."""
+        if not self._check_rate_limit():
+            return
+
+        try:
+            from aragora.memory.continuum import ContinuumMemory
+
+            db_path = self.nomic_dir / "continuum_memory.db" if self.nomic_dir else None
+            if not db_path or not db_path.exists():
+                self._send_json({"message": "No memory data available", "tiers": {}})
+                return
+
+            memory = ContinuumMemory(db_path=str(db_path))
+            stats = memory.get_stats()
+            self._send_json(stats)
+        except ImportError:
+            self._send_json({"error": "Continuum memory module not available"}, status=503)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "memory_stats")}, status=500)
+
+    def _get_agent_comparison(self, agent_a: str, agent_b: str) -> None:
+        """Get head-to-head comparison between two agents."""
+        if not self._check_rate_limit():
+            return
+
+        if not RANKING_AVAILABLE or not self.elo_system:
+            self._send_json({"error": "Ranking system not available"}, status=503)
+            return
+
+        try:
+            comparison = self.elo_system.get_head_to_head(agent_a, agent_b)
+            if comparison:
+                self._send_json({
+                    "agent_a": agent_a,
+                    "agent_b": agent_b,
+                    **comparison
+                })
+            else:
+                self._send_json({
+                    "agent_a": agent_a,
+                    "agent_b": agent_b,
+                    "matches": 0,
+                    "message": "No head-to-head data available"
+                })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "agent_comparison")}, status=500)
+
     def _serve_file(self, filename: str) -> None:
         """Serve a static file with path traversal protection."""
         if not self.static_dir:

@@ -231,6 +231,97 @@ class GeminiAgent(APIAgent):
                 except (KeyError, IndexError) as e:
                     raise RuntimeError(f"Unexpected Gemini response format: {data}")
 
+    async def generate_stream(self, prompt: str, context: list[Message] = None):
+        """Stream tokens from Gemini API.
+
+        Yields chunks of text as they arrive from the API.
+        """
+        if not self.api_key:
+            raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable required")
+
+        full_prompt = prompt
+        if context:
+            full_prompt = self._build_context_prompt(context) + prompt
+
+        if self.system_prompt:
+            full_prompt = f"System context: {self.system_prompt}\n\n{full_prompt}"
+
+        # Use streamGenerateContent for streaming
+        url = f"{self.base_url}/models/{self.model}:streamGenerateContent"
+
+        payload = {
+            "contents": [{"parts": [{"text": full_prompt}]}],
+            "generationConfig": {
+                "temperature": 0.7,
+                "maxOutputTokens": 65536,
+            },
+        }
+
+        headers = {
+            "x-goog-api-key": self.api_key,
+            "Content-Type": "application/json",
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url,
+                json=payload,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=self.timeout),
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    sanitized = _sanitize_error_message(error_text)
+                    raise RuntimeError(f"Gemini streaming API error {response.status}: {sanitized}")
+
+                # Gemini streams as JSON array chunks
+                buffer = b""
+                async for chunk in response.content.iter_any():
+                    buffer += chunk
+                    # Try to parse complete JSON objects from buffer
+                    # Gemini streams as a JSON array: [{...}, {...}, ...]
+                    text = buffer.decode('utf-8', errors='ignore')
+
+                    # Find complete candidate objects
+                    while True:
+                        # Look for text content in the buffer
+                        try:
+                            # Parse as JSON array (Gemini format)
+                            if text.strip().startswith('['):
+                                # Remove trailing incomplete parts
+                                bracket_count = 0
+                                last_complete = -1
+                                for i, c in enumerate(text):
+                                    if c == '[':
+                                        bracket_count += 1
+                                    elif c == ']':
+                                        bracket_count -= 1
+                                        if bracket_count == 0:
+                                            last_complete = i
+
+                                if last_complete > 0:
+                                    complete_json = text[:last_complete + 1]
+                                    data = json.loads(complete_json)
+
+                                    # Extract text from all candidates
+                                    for item in data:
+                                        if 'candidates' in item:
+                                            for candidate in item['candidates']:
+                                                content = candidate.get('content', {})
+                                                for part in content.get('parts', []):
+                                                    if 'text' in part:
+                                                        yield part['text']
+
+                                    # Clear processed data from buffer
+                                    buffer = text[last_complete + 1:].encode('utf-8')
+                                    text = buffer.decode('utf-8', errors='ignore')
+                                else:
+                                    break
+                            else:
+                                break
+                        except json.JSONDecodeError:
+                            break
+
     async def critique(self, proposal: str, task: str, context: list[Message] = None) -> Critique:
         """Critique a proposal using Gemini."""
         critique_prompt = f"""You are a critical reviewer. Analyze this proposal for the given task.
@@ -398,6 +489,81 @@ class AnthropicAPIAgent(APIAgent):
                     return data["content"][0]["text"]
                 except (KeyError, IndexError):
                     raise RuntimeError(f"Unexpected Anthropic response format: {data}")
+
+    async def generate_stream(self, prompt: str, context: list[Message] = None):
+        """Stream tokens from Anthropic API.
+
+        Yields chunks of text as they arrive from the API using SSE.
+        """
+        if not self.api_key:
+            raise ValueError("ANTHROPIC_API_KEY environment variable required")
+
+        full_prompt = prompt
+        if context:
+            full_prompt = self._build_context_prompt(context) + prompt
+
+        url = f"{self.base_url}/messages"
+
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+
+        payload = {
+            "model": self.model,
+            "max_tokens": 4096,
+            "messages": [{"role": "user", "content": full_prompt}],
+            "stream": True,
+        }
+
+        if self.system_prompt:
+            payload["system"] = self.system_prompt
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=self.timeout),
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    sanitized = _sanitize_error_message(error_text)
+                    raise RuntimeError(f"Anthropic streaming API error {response.status}: {sanitized}")
+
+                # Anthropic uses SSE format: data: {...}\n\n
+                buffer = ""
+                async for chunk in response.content.iter_any():
+                    buffer += chunk.decode('utf-8', errors='ignore')
+
+                    # Process complete SSE lines
+                    while '\n' in buffer:
+                        line, buffer = buffer.split('\n', 1)
+                        line = line.strip()
+
+                        if not line or not line.startswith('data: '):
+                            continue
+
+                        data_str = line[6:]  # Remove 'data: ' prefix
+
+                        if data_str == '[DONE]':
+                            return
+
+                        try:
+                            event = json.loads(data_str)
+                            event_type = event.get('type', '')
+
+                            # Handle content_block_delta events
+                            if event_type == 'content_block_delta':
+                                delta = event.get('delta', {})
+                                if delta.get('type') == 'text_delta':
+                                    text = delta.get('text', '')
+                                    if text:
+                                        yield text
+
+                        except json.JSONDecodeError:
+                            continue
 
     async def critique(self, proposal: str, task: str, context: list[Message] = None) -> Critique:
         """Critique a proposal using Anthropic API."""
