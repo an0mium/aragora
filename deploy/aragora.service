@@ -1,0 +1,25 @@
+[Unit]
+Description=Aragora Debate Server
+After=network.target
+
+[Service]
+Type=simple
+User=aragora
+Group=aragora
+WorkingDirectory=/opt/aragora
+Environment="PATH=/opt/aragora/venv/bin"
+ExecStart=/opt/aragora/venv/bin/python -m aragora.server --host 0.0.0.0 --port 8765 --http-port 8080 --nomic-dir /opt/aragora/.nomic
+Restart=always
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aragora
+
+# Security
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
