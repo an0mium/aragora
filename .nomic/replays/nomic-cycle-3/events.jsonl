@@ -1,0 +1,4 @@
+{"event_id": "ec0de05f", "timestamp": 1767486423.896091, "offset_ms": 1805203, "event_type": "phase_change", "source": "system", "content": "debate", "metadata": {}}
+{"event_id": "e86c747d", "timestamp": 1767487321.60642, "offset_ms": 2702913, "event_type": "phase_change", "source": "system", "content": "design", "metadata": {}}
+{"event_id": "580919eb", "timestamp": 1767489138.696828, "offset_ms": 4520003, "event_type": "phase_change", "source": "system", "content": "implement", "metadata": {}}
+{"event_id": "f3a2941b", "timestamp": 1767493508.46986, "offset_ms": 8889776, "event_type": "phase_change", "source": "system", "content": "verify", "metadata": {}}
