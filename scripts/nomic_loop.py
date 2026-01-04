@@ -1634,6 +1634,20 @@ The most valuable proposals are those that others wouldn't think of.""" + safety
                     for d in context["unacknowledged_dissents"][:3]:
                         lines.append(f"- [{d['dissent_type']}] {d['content']}")
 
+                # Add contrarian views - alternative perspectives to consider
+                contrarian = self.dissent_retriever.find_contrarian_views(topic, limit=3)
+                if contrarian:
+                    lines.append("\n### Contrarian Perspectives (Devil's Advocate)")
+                    for c in contrarian:
+                        lines.append(f"- {c.content} (from {c.agent_id})")
+
+                # Add risk warnings - historical edge cases and concerns
+                risks = self.dissent_retriever.find_risk_warnings(topic, limit=3)
+                if risks:
+                    lines.append("\n### Historical Risk Warnings")
+                    for r in risks:
+                        lines.append(f"- ⚠️ {r.content}")
+
             return "\n".join(lines)
         except Exception as e:
             self._log(f"  [consensus] Error formatting history: {e}")
@@ -4743,6 +4757,27 @@ Recent changes:
         if result is None:
             result = await self._run_arena_with_logging(arena, "debate")
 
+        # Phase 10: Attempt forking if deadlock detected (P30: DebateForker)
+        # Fork into parallel branches when no consensus reached - explore alternatives
+        if self.fork_debate_enabled and not result.consensus_reached and DEBATE_FORKER_AVAILABLE:
+            try:
+                messages = result.messages if hasattr(result, 'messages') else []
+                rounds = result.rounds_used if hasattr(result, 'rounds_used') else 3
+
+                fork_decision = self._check_should_fork(messages, rounds, debate_team)
+                if fork_decision:
+                    self._log(f"  [fork] Deadlock detected - forking into {len(fork_decision.branches)} branches")
+                    base_context = f"Original debate topic: {task}\n\nPrior context: {topic_hint or ''}"
+                    merge_result = await self._run_forked_debate(fork_decision, base_context)
+
+                    if merge_result and hasattr(merge_result, 'winning_answer'):
+                        self._log(f"  [fork] Merged branches - selected answer from '{merge_result.winning_branch}'")
+                        result.final_answer = merge_result.winning_answer
+                        result.consensus_reached = True
+                        result.confidence = getattr(merge_result, 'confidence', 0.75)
+            except Exception as e:
+                self._log(f"  [fork] Forking failed: {e}")
+
         # Update agent reputation based on debate outcome
         if self.critique_store and result.consensus_reached:
             winning_proposal = result.final_answer if result.final_answer else ""
@@ -5097,6 +5132,43 @@ Recent changes:
                 )
             except Exception as e:
                 self._log(f"  [integration] Post-debate analysis failed: {e}")
+
+        # Phase 9: Comprehensive flip detection (P9: FlipDetector)
+        # Run every 3 cycles for efficiency
+        if FLIP_DETECTOR_AVAILABLE and self.cycle_count % 3 == 0:
+            try:
+                flip_detector = FlipDetector(str(self.nomic_dir / "aragora_personas.db"))
+
+                # Detect flips for all debate participants
+                total_flips_detected = 0
+                consistency_warnings = []
+                for agent in debate_team:
+                    flips = flip_detector.detect_flips_for_agent(agent.name, lookback_positions=20)
+                    total_flips_detected += len(flips)
+
+                    # Check consistency and flag concerning agents
+                    consistency = flip_detector.get_agent_consistency(agent.name)
+                    if consistency.contradictions >= 2 or consistency.consistency_score < 0.6:
+                        consistency_warnings.append(
+                            f"{agent.name}: {consistency.contradictions} contradictions, "
+                            f"consistency={consistency.consistency_score:.1%}"
+                        )
+
+                if total_flips_detected > 0:
+                    self._log(f"  [flip] Detected {total_flips_detected} new position flips")
+
+                if consistency_warnings:
+                    for warning in consistency_warnings:
+                        self._log(f"  [flip] ⚠️ Low consistency: {warning}")
+
+                # Get and log summary every 10 cycles
+                if self.cycle_count % 10 == 0:
+                    summary = flip_detector.get_flip_summary()
+                    if summary.get("total_flips", 0) > 0:
+                        self._log(f"  [flip] Summary: {summary.get('total_flips', 0)} total flips, "
+                                  f"{summary.get('by_type', {})} by type")
+            except Exception as e:
+                self._log(f"  [flip] Detection error: {e}")
 
         phase_duration = (datetime.now() - phase_start).total_seconds()
         self._stream_emit(
