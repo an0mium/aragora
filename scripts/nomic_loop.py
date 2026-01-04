@@ -64,6 +64,47 @@ PROTECTED_FILES = [
     "aragora/live/tailwind.config.js",                  # Tailwind config with agent colors
 ]
 
+# Global cache for protected file checksums (computed at startup)
+_PROTECTED_FILE_CHECKSUMS: dict[str, str] = {}
+
+
+def _compute_file_checksum(filepath: Path) -> str:
+    """Compute SHA-256 checksum of a file."""
+    import hashlib
+    if not filepath.exists():
+        return ""
+    with open(filepath, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()[:16]  # Short hash for logging
+
+
+def _init_protected_checksums(base_path: Path) -> dict[str, str]:
+    """Initialize checksums for all protected files at startup."""
+    global _PROTECTED_FILE_CHECKSUMS
+    for rel_path in PROTECTED_FILES:
+        full_path = base_path / rel_path
+        if full_path.exists():
+            _PROTECTED_FILE_CHECKSUMS[rel_path] = _compute_file_checksum(full_path)
+    return _PROTECTED_FILE_CHECKSUMS
+
+
+def verify_protected_files_unchanged(base_path: Path) -> tuple[bool, list[str]]:
+    """
+    Verify that protected files haven't been unexpectedly modified.
+
+    Security measure: Detects accidental or malicious modifications to
+    critical infrastructure between phases.
+
+    Returns:
+        Tuple of (all_ok, list of modified files)
+    """
+    modified = []
+    for rel_path, expected_hash in _PROTECTED_FILE_CHECKSUMS.items():
+        full_path = base_path / rel_path
+        current_hash = _compute_file_checksum(full_path)
+        if current_hash != expected_hash:
+            modified.append(rel_path)
+    return len(modified) == 0, modified
+
 SAFETY_PREAMBLE = """
 === CRITICAL SAFETY RULES ===
 You are modifying a self-improving system. These rules are NON-NEGOTIABLE:
@@ -712,6 +753,10 @@ class NomicLoop:
         self.state_file = self.nomic_dir / "nomic_state.json"
         self.backup_dir = self.nomic_dir / "backups"
         self.backup_dir.mkdir(exist_ok=True)
+
+        # Initialize protected file checksums for integrity verification
+        _init_protected_checksums(self.aragora_path)
+        print(f"[security] Initialized checksums for {len(_PROTECTED_FILE_CHECKSUMS)} protected files")
 
         # Supabase persistence for history tracking
         self.persistence = None
@@ -3991,6 +4036,48 @@ Be rigorous. These files are protected for a reason.""",
             self._log("    [deep-audit] Falling back to regular review due to error")
             return True, None
 
+    def _sanitize_agent_input(self, text: str, source: str = "agent") -> str:
+        """
+        Sanitize agent-provided text to prevent prompt injection attacks.
+
+        Security measure: Filters potentially malicious patterns from agent suggestions
+        before they're merged into prompts for other agents.
+
+        Args:
+            text: Raw text from agent
+            source: Source identifier for logging
+
+        Returns:
+            Sanitized text with dangerous patterns removed
+        """
+        import re
+
+        dangerous_patterns = [
+            (r"ignore\s+(?:all\s+)?(?:previous\s+)?instructions?", "instruction override"),
+            (r"disregard\s+(?:all\s+)?(?:previous\s+)?(?:rules?|guidelines?)", "rule bypass"),
+            (r"bypass\s+(?:safety|security|restrictions?)", "safety bypass"),
+            (r"execute\s+(?:this\s+)?(?:code|command|script)", "code execution"),
+            (r"system\s+prompt", "system prompt access"),
+            (r"you\s+are\s+now\s+(?:a|an)", "role hijacking"),
+            (r"forget\s+(?:everything|all)", "memory wipe"),
+            (r"new\s+instructions?:", "instruction injection"),
+            (r"<\s*script\s*>", "script tag"),
+            (r"\$\{.*\}", "template injection"),
+        ]
+
+        sanitized = text
+        filtered_count = 0
+
+        for pattern, description in dangerous_patterns:
+            if re.search(pattern, sanitized, re.IGNORECASE):
+                filtered_count += 1
+                sanitized = re.sub(pattern, f"[FILTERED:{description}]", sanitized, flags=re.IGNORECASE)
+
+        if filtered_count > 0:
+            self._log(f"  [security] Filtered {filtered_count} suspicious patterns from {source}")
+
+        return sanitized
+
     async def _gather_implementation_suggestions(self, design: str) -> str:
         """
         All agents provide implementation suggestions in parallel.
@@ -4039,12 +4126,14 @@ Be concise (max 500 words). Focus on actionable guidance."""
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Compile suggestions
+        # Compile suggestions with security sanitization
         suggestions = []
         for result in results:
             if isinstance(result, tuple) and result[1]:
                 name, suggestion = result
-                suggestions.append(f"### {name.upper()}'s Suggestions:\n{suggestion}\n")
+                # Sanitize agent input to prevent prompt injection attacks
+                sanitized = self._sanitize_agent_input(suggestion, source=name)
+                suggestions.append(f"### {name.upper()}'s Suggestions:\n{sanitized}\n")
 
         if suggestions:
             combined = "\n".join(suggestions)
@@ -4703,6 +4792,23 @@ Recent changes:
 
         # Phase 5: Select optimal debate team (P14: AgentSelector)
         debate_team = self._select_debate_team(topic_hint)
+
+        # Phase 10: Assign hybrid roles for specialized debate contributions
+        hybrid_roles = {}
+        if self.agent_selector and hasattr(self.agent_selector, 'assign_hybrid_roles'):
+            try:
+                hybrid_roles = self.agent_selector.assign_hybrid_roles(debate_team, "debate")
+                if hybrid_roles:
+                    self._log(f"  [selector] Assigned roles: {list(hybrid_roles.values())}")
+                    # Inject role into each agent's system prompt
+                    for agent in debate_team:
+                        if agent.name in hybrid_roles:
+                            role = hybrid_roles[agent.name]
+                            role_prompt = f"\n\nYour role in this debate: {role}"
+                            if hasattr(agent, 'system_prompt') and agent.system_prompt:
+                                agent.system_prompt += role_prompt
+            except Exception as e:
+                self._log(f"  [selector] Role assignment failed: {e}")
 
         # Probe agents for reliability weights before debate
         agent_weights = {}
