@@ -1306,6 +1306,147 @@ Get agent recommendations for a task.
 
 ---
 
+### Tournament System
+
+Tournament management and standings.
+
+#### GET /api/tournaments/:tournament_id/standings
+Get current tournament standings.
+
+**Response:**
+```json
+{
+  "tournament_id": "round-robin-2026",
+  "standings": [
+    {
+      "agent": "claude",
+      "wins": 8,
+      "losses": 2,
+      "draws": 1,
+      "points": 25,
+      "total_score": 142.5,
+      "win_rate": 0.73
+    }
+  ],
+  "count": 4
+}
+```
+
+---
+
+### Team Analytics
+
+Analyze team performance and find optimal combinations.
+
+#### GET /api/routing/best-teams
+Get best-performing team combinations from history.
+
+**Parameters:**
+- `min_debates` (int, default=3, max=20): Minimum debates for a team to qualify
+- `limit` (int, default=10, max=50): Maximum combinations to return
+
+**Response:**
+```json
+{
+  "min_debates": 3,
+  "combinations": [
+    {
+      "agents": ["claude", "gemini"],
+      "success_rate": 0.85,
+      "total_debates": 12,
+      "wins": 10
+    }
+  ],
+  "count": 5
+}
+```
+
+---
+
+### Prompt Evolution
+
+Track agent prompt evolution and learning.
+
+#### GET /api/evolution/:agent/history
+Get prompt evolution history for an agent.
+
+**Parameters:**
+- `limit` (int, default=10, max=50): Maximum history entries to return
+
+**Response:**
+```json
+{
+  "agent": "claude",
+  "history": [
+    {
+      "from_version": 1,
+      "to_version": 2,
+      "strategy": "pattern_mining",
+      "patterns_applied": ["logical_rigor", "edge_case_handling"],
+      "created_at": "2026-01-04T08:00:00Z"
+    }
+  ],
+  "count": 3
+}
+```
+
+---
+
+### Load-Bearing Claims
+
+Identify claims with highest structural importance in debates.
+
+#### GET /api/belief-network/:debate_id/load-bearing-claims
+Get claims with highest centrality (most load-bearing).
+
+**Parameters:**
+- `limit` (int, default=5, max=20): Maximum claims to return
+
+**Response:**
+```json
+{
+  "debate_id": "debate-123",
+  "load_bearing_claims": [
+    {
+      "claim_id": "claim-456",
+      "statement": "The architecture must support horizontal scaling",
+      "author": "claude",
+      "centrality": 0.92
+    }
+  ],
+  "count": 3
+}
+```
+
+---
+
+### Calibration Summary
+
+Comprehensive agent calibration analysis.
+
+#### GET /api/agent/:name/calibration-summary
+Get comprehensive calibration summary for an agent.
+
+**Parameters:**
+- `domain` (string, optional): Filter by domain
+
+**Response:**
+```json
+{
+  "agent": "claude",
+  "domain": null,
+  "total_predictions": 250,
+  "total_correct": 215,
+  "accuracy": 0.86,
+  "brier_score": 0.12,
+  "ece": 0.05,
+  "is_overconfident": false,
+  "is_underconfident": true
+}
+```
+
+---
+
 ## WebSocket API
 
 Connect to the WebSocket server for real-time streaming:

@@ -226,6 +226,22 @@ except ImportError:
     AgentSelector = None
     TaskRequirements = None
 
+# Optional TournamentManager for tournament standings
+try:
+    from aragora.tournaments.tournament import TournamentManager
+    TOURNAMENT_AVAILABLE = True
+except ImportError:
+    TOURNAMENT_AVAILABLE = False
+    TournamentManager = None
+
+# Optional PromptEvolver for evolution history
+try:
+    from aragora.evolution.evolver import PromptEvolver
+    EVOLUTION_AVAILABLE = True
+except ImportError:
+    EVOLUTION_AVAILABLE = False
+    PromptEvolver = None
+
 # Track active ad-hoc debates
 _active_debates: dict[str, dict] = {}
 _active_debates_lock = threading.Lock()  # Thread-safe access to _active_debates
@@ -773,6 +789,43 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 self._get_claim_support(debate_id, claim_id)
             else:
                 self._send_json({"error": "Invalid path format"}, status=400)
+
+        # Tournament API
+        elif path.startswith('/api/tournaments/') and path.endswith('/standings'):
+            tournament_id = self._extract_path_segment(path, 3, "tournament_id")
+            if tournament_id is None:
+                return
+            self._get_tournament_standings(tournament_id)
+
+        # Best Team Combinations API
+        elif path == '/api/routing/best-teams':
+            min_debates = self._safe_int(query, 'min_debates', 3, 20)
+            limit = self._safe_int(query, 'limit', 10, 50)
+            self._get_best_team_combinations(min_debates, limit)
+
+        # Evolution History API
+        elif path.startswith('/api/evolution/') and path.endswith('/history'):
+            agent = self._extract_path_segment(path, 3, "agent")
+            if agent is None:
+                return
+            limit = self._safe_int(query, 'limit', 10, 50)
+            self._get_evolution_history(agent, limit)
+
+        # Load-Bearing Claims API
+        elif path.startswith('/api/belief-network/') and path.endswith('/load-bearing-claims'):
+            debate_id = self._extract_path_segment(path, 3, "debate_id")
+            if debate_id is None:
+                return
+            limit = self._safe_int(query, 'limit', 5, 20)
+            self._get_load_bearing_claims(debate_id, limit)
+
+        # Calibration Summary API
+        elif path.startswith('/api/agent/') and path.endswith('/calibration-summary'):
+            agent = self._extract_path_segment(path, 3, "agent")
+            if agent is None:
+                return
+            domain = query.get('domain', [None])[0]
+            self._get_calibration_summary(agent, domain)
 
         # Static file serving
         elif path in ('/', '/index.html'):
@@ -2955,6 +3008,170 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "Invalid JSON body"}, status=400)
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "routing_recommendations")}, status=500)
+
+    def _get_tournament_standings(self, tournament_id: str) -> None:
+        """Get current tournament standings."""
+        if not self._check_rate_limit():
+            return
+
+        if not TOURNAMENT_AVAILABLE:
+            self._send_json({"error": "Tournament system not available"}, status=503)
+            return
+
+        try:
+            if not self.nomic_dir:
+                self._send_json({"error": "Nomic directory not configured"}, status=503)
+                return
+
+            tournament_path = self.nomic_dir / "tournaments" / f"{tournament_id}.db"
+            if not tournament_path.exists():
+                self._send_json({"error": "Tournament not found"}, status=404)
+                return
+
+            manager = TournamentManager(db_path=str(tournament_path))
+            standings = manager.get_current_standings()
+
+            self._send_json({
+                "tournament_id": tournament_id,
+                "standings": [
+                    {
+                        "agent": s.agent,
+                        "wins": s.wins,
+                        "losses": s.losses,
+                        "draws": s.draws,
+                        "points": s.points,
+                        "total_score": s.total_score,
+                        "win_rate": s.win_rate,
+                    }
+                    for s in standings
+                ],
+                "count": len(standings),
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "tournament_standings")}, status=500)
+
+    def _get_best_team_combinations(self, min_debates: int, limit: int) -> None:
+        """Get best-performing team combinations from history."""
+        if not self._check_rate_limit():
+            return
+
+        if not ROUTING_AVAILABLE:
+            self._send_json({"error": "Agent selector not available"}, status=503)
+            return
+
+        try:
+            selector = AgentSelector(
+                elo_system=self.elo_system,
+                persona_manager=self.persona_manager,
+            )
+            combinations = selector.get_best_team_combinations(min_debates=min_debates)[:limit]
+
+            self._send_json({
+                "min_debates": min_debates,
+                "combinations": combinations,
+                "count": len(combinations),
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "best_teams")}, status=500)
+
+    def _get_evolution_history(self, agent: str, limit: int) -> None:
+        """Get prompt evolution history for an agent."""
+        if not self._check_rate_limit():
+            return
+
+        if not EVOLUTION_AVAILABLE:
+            self._send_json({"error": "Prompt evolution not available"}, status=503)
+            return
+
+        try:
+            if not self.nomic_dir:
+                self._send_json({"error": "Nomic directory not configured"}, status=503)
+                return
+
+            evolver = PromptEvolver(db_path=str(self.nomic_dir / "prompt_evolution.db"))
+            history = evolver.get_evolution_history(agent, limit=limit)
+
+            self._send_json({
+                "agent": agent,
+                "history": history,
+                "count": len(history),
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "evolution_history")}, status=500)
+
+    def _get_load_bearing_claims(self, debate_id: str, limit: int) -> None:
+        """Get claims with highest centrality (most load-bearing)."""
+        if not self._check_rate_limit():
+            return
+
+        if not BELIEF_NETWORK_AVAILABLE:
+            self._send_json({"error": "Belief network not available"}, status=503)
+            return
+
+        try:
+            from aragora.debate.traces import DebateTrace
+
+            if not self.nomic_dir:
+                self._send_json({"error": "Nomic directory not configured"}, status=503)
+                return
+
+            trace_path = self.nomic_dir / "traces" / f"{debate_id}.json"
+            if not trace_path.exists():
+                self._send_json({"error": "Debate trace not found"}, status=404)
+                return
+
+            trace = DebateTrace.load(trace_path)
+            result = trace.to_debate_result()
+
+            # Build belief network from debate
+            network = BeliefNetwork(debate_id=debate_id)
+            for msg in result.messages:
+                network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
+
+            load_bearing = network.get_load_bearing_claims(limit=limit)
+
+            self._send_json({
+                "debate_id": debate_id,
+                "load_bearing_claims": [
+                    {
+                        "claim_id": node.claim_id,
+                        "statement": node.claim_statement,
+                        "author": node.author,
+                        "centrality": centrality,
+                    }
+                    for node, centrality in load_bearing
+                ],
+                "count": len(load_bearing),
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "load_bearing_claims")}, status=500)
+
+    def _get_calibration_summary(self, agent: str, domain: str = None) -> None:
+        """Get comprehensive calibration summary for an agent."""
+        if not self._check_rate_limit():
+            return
+
+        if not CALIBRATION_AVAILABLE:
+            self._send_json({"error": "Calibration tracker not available"}, status=503)
+            return
+
+        try:
+            tracker = CalibrationTracker()
+            summary = tracker.get_calibration_summary(agent, domain=domain)
+
+            self._send_json({
+                "agent": summary.agent,
+                "domain": domain,
+                "total_predictions": summary.total_predictions,
+                "total_correct": summary.total_correct,
+                "accuracy": summary.accuracy,
+                "brier_score": summary.brier_score,
+                "ece": summary.ece,
+                "is_overconfident": summary.is_overconfident,
+                "is_underconfident": summary.is_underconfident,
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "calibration_summary")}, status=500)
 
     def _serve_file(self, filename: str) -> None:
         """Serve a static file with path traversal protection."""
