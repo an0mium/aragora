@@ -359,6 +359,34 @@ Get consensus memory statistics.
 }
 ```
 
+#### GET /api/consensus/dissents
+Get dissenting views relevant to a topic.
+
+**Parameters:**
+- `topic` (string, required): Topic to search for (max 500 chars)
+- `domain` (string, optional): Filter by domain
+
+**Response:**
+```json
+{
+  "topic": "rate limiting",
+  "domain": null,
+  "similar_debates": [
+    {
+      "topic": "Rate limiter design",
+      "conclusion": "Token bucket preferred",
+      "confidence": 0.85
+    }
+  ],
+  "dissents_by_type": {
+    "alternative": 3,
+    "concern": 2,
+    "objection": 1
+  },
+  "unacknowledged_dissents": 2
+}
+```
+
 #### GET /api/consensus/domain/:domain
 Get consensus history for a domain.
 

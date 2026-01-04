@@ -719,77 +719,75 @@ class CritiqueStore:
         critique_valuable: bool = False,
     ) -> None:
         """Update reputation metrics for an agent."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        # Ensure agent exists
-        cursor.execute(
-            """
-            INSERT OR IGNORE INTO agent_reputation (agent_name)
-            VALUES (?)
-        """,
-            (agent_name,),
-        )
-
-        # Update metrics
-        updates = []
-        if proposal_made:
-            updates.append("proposals_made = proposals_made + 1")
-        if proposal_accepted:
-            updates.append("proposals_accepted = proposals_accepted + 1")
-        if critique_given:
-            updates.append("critiques_given = critiques_given + 1")
-        if critique_valuable:
-            updates.append("critiques_valuable = critiques_valuable + 1")
-
-        if updates:
-            updates.append(f"updated_at = '{datetime.now().isoformat()}'")
+            # Ensure agent exists
             cursor.execute(
-                f"""
-                UPDATE agent_reputation
-                SET {', '.join(updates)}
-                WHERE agent_name = ?
+                """
+                INSERT OR IGNORE INTO agent_reputation (agent_name)
+                VALUES (?)
             """,
                 (agent_name,),
             )
 
-        conn.commit()
-        conn.close()
+            # Update metrics
+            updates = []
+            if proposal_made:
+                updates.append("proposals_made = proposals_made + 1")
+            if proposal_accepted:
+                updates.append("proposals_accepted = proposals_accepted + 1")
+            if critique_given:
+                updates.append("critiques_given = critiques_given + 1")
+            if critique_valuable:
+                updates.append("critiques_valuable = critiques_valuable + 1")
+
+            if updates:
+                updates.append(f"updated_at = '{datetime.now().isoformat()}'")
+                cursor.execute(
+                    f"""
+                    UPDATE agent_reputation
+                    SET {', '.join(updates)}
+                    WHERE agent_name = ?
+                """,
+                    (agent_name,),
+                )
+
+            conn.commit()
 
     def get_all_reputations(self) -> list[AgentReputation]:
         """Get all agent reputations, ordered by score."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
+            cursor.execute(
+                """
+                SELECT agent_name, proposals_made, proposals_accepted,
+                       critiques_given, critiques_valuable, updated_at,
+                       COALESCE(total_predictions, 0),
+                       COALESCE(total_prediction_error, 0.0),
+                       COALESCE(calibration_score, 0.5)
+                FROM agent_reputation
+                ORDER BY proposals_accepted DESC
             """
-            SELECT agent_name, proposals_made, proposals_accepted,
-                   critiques_given, critiques_valuable, updated_at,
-                   COALESCE(total_predictions, 0),
-                   COALESCE(total_prediction_error, 0.0),
-                   COALESCE(calibration_score, 0.5)
-            FROM agent_reputation
-            ORDER BY proposals_accepted DESC
-        """
-        )
-
-        reputations = [
-            AgentReputation(
-                agent_name=row[0],
-                proposals_made=row[1],
-                proposals_accepted=row[2],
-                critiques_given=row[3],
-                critiques_valuable=row[4],
-                updated_at=row[5],
-                total_predictions=row[6],
-                total_prediction_error=row[7],
-                calibration_score=row[8],
             )
-            for row in cursor.fetchall()
-        ]
 
-        conn.close()
-        return reputations
+            reputations = [
+                AgentReputation(
+                    agent_name=row[0],
+                    proposals_made=row[1],
+                    proposals_accepted=row[2],
+                    critiques_given=row[3],
+                    critiques_valuable=row[4],
+                    updated_at=row[5],
+                    total_predictions=row[6],
+                    total_prediction_error=row[7],
+                    calibration_score=row[8],
+                )
+                for row in cursor.fetchall()
+            ]
+
+            return reputations
 
     # =========================================================================
     # Adaptive Forgetting (Titans/MIRAS)
