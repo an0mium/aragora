@@ -960,28 +960,29 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         elif path == '/api/consensus/stats':
             self._get_consensus_stats()
         elif path == '/api/consensus/dissents':
+            # Topic is optional - if not provided, get recent dissents globally
             topic = query.get('topic', [''])[0]
-            if not topic or len(topic) > 500:
-                self._send_json({"error": "Topic required (max 500 chars)"}, status=400)
-                return
+            if topic and len(topic) > 500:
+                topic = topic[:500]
             domain = query.get('domain', [None])[0]
-            self._get_dissents_for_topic(topic.strip()[:500], domain)
+            limit = self._safe_int(query, 'limit', 10, 50)
+            self._get_recent_dissents(topic.strip() if topic else None, domain, limit)
         elif path == '/api/consensus/contrarian-views':
+            # Topic is optional - if not provided, get recent contrarian views globally
             topic = query.get('topic', [''])[0]
-            if not topic or len(topic) > 500:
-                self._send_json({"error": "Topic required (max 500 chars)"}, status=400)
-                return
+            if topic and len(topic) > 500:
+                topic = topic[:500]
             domain = query.get('domain', [None])[0]
-            limit = self._safe_int(query, 'limit', 5, 20)
-            self._get_contrarian_views(topic.strip()[:500], domain, limit)
+            limit = self._safe_int(query, 'limit', 10, 50)
+            self._get_contrarian_views(topic.strip() if topic else None, domain, limit)
         elif path == '/api/consensus/risk-warnings':
+            # Topic is optional - if not provided, get recent risk warnings globally
             topic = query.get('topic', [''])[0]
-            if not topic or len(topic) > 500:
-                self._send_json({"error": "Topic required (max 500 chars)"}, status=400)
-                return
+            if topic and len(topic) > 500:
+                topic = topic[:500]
             domain = query.get('domain', [None])[0]
-            limit = self._safe_int(query, 'limit', 5, 20)
-            self._get_risk_warnings(topic.strip()[:500], domain, limit)
+            limit = self._safe_int(query, 'limit', 10, 50)
+            self._get_risk_warnings(topic.strip() if topic else None, domain, limit)
         elif path.startswith('/api/consensus/domain/'):
             domain = self._extract_path_segment(path, 4, "domain")
             if domain is None:
@@ -2569,7 +2570,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             similar = memory.find_similar_debates(topic, limit=limit)
             self._send_json({
                 "query": topic,
-                "results": [
+                "similar": [
                     {
                         "topic": s.consensus.topic,
                         "conclusion": s.consensus.conclusion,
@@ -2633,8 +2634,29 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
         try:
             memory = ConsensusMemory()
-            stats = memory.get_statistics()
-            self._send_json(stats)
+            raw_stats = memory.get_statistics()
+
+            # Transform to match frontend ConsensusStats interface
+            # Count high confidence topics (>= 0.7)
+            import sqlite3
+            with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM consensus WHERE confidence >= 0.7")
+                high_confidence_count = cursor.fetchone()[0]
+                cursor.execute("SELECT AVG(confidence) FROM consensus")
+                avg_row = cursor.fetchone()
+                avg_confidence = avg_row[0] if avg_row[0] else 0.0
+
+            self._send_json({
+                "total_topics": raw_stats.get("total_consensus", 0),
+                "high_confidence_count": high_confidence_count,
+                "domains": list(raw_stats.get("by_domain", {}).keys()),
+                "avg_confidence": round(avg_confidence, 3),
+                # Include original stats for backwards compatibility
+                "total_dissents": raw_stats.get("total_dissents", 0),
+                "by_strength": raw_stats.get("by_strength", {}),
+                "by_domain": raw_stats.get("by_domain", {}),
+            })
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "consensus_stats")}, status=500)
 
@@ -2658,57 +2680,167 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "dissent_retrieval")}, status=500)
 
-    def _get_contrarian_views(self, topic: str, domain: str, limit: int) -> None:
-        """Get historical contrarian/dissenting views on a topic."""
-        if not CONSENSUS_MEMORY_AVAILABLE or DissentRetriever is None:
-            self._send_json({"error": "Dissent retriever not available"}, status=503)
+    def _get_recent_dissents(self, topic: Optional[str], domain: Optional[str], limit: int) -> None:
+        """Get recent dissents, optionally filtered by topic."""
+        if not CONSENSUS_MEMORY_AVAILABLE:
+            self._send_json({"error": "Consensus memory not available"}, status=503)
             return
 
         try:
             memory = ConsensusMemory()
-            retriever = DissentRetriever(memory)
-            views = retriever.find_contrarian_views(topic, domain=domain, limit=limit)
+            import sqlite3
+            import json
+
+            # Query recent dissents with their associated consensus topics
+            with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
+                cursor = conn.cursor()
+                # Join dissent with consensus to get topic and majority view
+                query = """
+                    SELECT d.data, c.topic, c.conclusion
+                    FROM dissent d
+                    LEFT JOIN consensus c ON d.debate_id = c.id
+                    ORDER BY d.timestamp DESC
+                    LIMIT ?
+                """
+                cursor.execute(query, (limit,))
+                rows = cursor.fetchall()
+
+            # Transform to match frontend DissentView interface
+            dissents = []
+            for row in rows:
+                try:
+                    from aragora.memory.consensus import DissentRecord
+                    record = DissentRecord.from_dict(json.loads(row[0]))
+                    topic_name = row[1] or "Unknown topic"
+                    majority_view = row[2] or "No consensus recorded"
+
+                    dissents.append({
+                        "topic": topic_name,
+                        "majority_view": majority_view,
+                        "dissenting_view": record.content,
+                        "dissenting_agent": record.agent_id,
+                        "confidence": record.confidence,
+                        "reasoning": record.reasoning if record.reasoning else None,
+                    })
+                except Exception:
+                    pass
+
+            self._send_json({"dissents": dissents})
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "recent_dissents")}, status=500)
+
+    def _get_contrarian_views(self, topic: Optional[str], domain: Optional[str], limit: int) -> None:
+        """Get historical contrarian/dissenting views, optionally filtered by topic."""
+        if not CONSENSUS_MEMORY_AVAILABLE:
+            self._send_json({"error": "Consensus memory not available"}, status=503)
+            return
+
+        try:
+            memory = ConsensusMemory()
+            import sqlite3
+
+            # If topic provided, use DissentRetriever for similarity search
+            if topic and DissentRetriever is not None:
+                retriever = DissentRetriever(memory)
+                records = retriever.find_contrarian_views(topic, domain=domain, limit=limit)
+            else:
+                # Get recent contrarian views globally (FUNDAMENTAL_DISAGREEMENT, ALTERNATIVE_APPROACH)
+                with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
+                    cursor = conn.cursor()
+                    query = """
+                        SELECT data FROM dissent
+                        WHERE dissent_type IN ('fundamental_disagreement', 'alternative_approach')
+                        ORDER BY timestamp DESC
+                        LIMIT ?
+                    """
+                    cursor.execute(query, (limit,))
+                    rows = cursor.fetchall()
+
+                import json
+                records = []
+                for row in rows:
+                    try:
+                        from aragora.memory.consensus import DissentRecord
+                        records.append(DissentRecord.from_dict(json.loads(row[0])))
+                    except Exception:
+                        pass
+
+            # Transform to match frontend ContraryView interface
             self._send_json({
-                "topic": topic,
-                "domain": domain,
-                "contrarian_views": [
+                "views": [
                     {
-                        "agent": v.agent_name,
-                        "position": v.position,
-                        "reasoning": v.reasoning,
-                        "confidence": v.confidence,
-                        "timestamp": v.timestamp.isoformat() if hasattr(v, 'timestamp') else None,
+                        "agent": r.agent_id,
+                        "position": r.content,
+                        "confidence": r.confidence,
+                        "reasoning": r.reasoning,
+                        "debate_id": r.debate_id,
                     }
-                    for v in views
+                    for r in records
                 ],
-                "count": len(views),
             })
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "contrarian_views")}, status=500)
 
-    def _get_risk_warnings(self, topic: str, domain: str, limit: int) -> None:
-        """Get risk warnings and edge case concerns from past debates."""
-        if not CONSENSUS_MEMORY_AVAILABLE or DissentRetriever is None:
-            self._send_json({"error": "Dissent retriever not available"}, status=503)
+    def _get_risk_warnings(self, topic: Optional[str], domain: Optional[str], limit: int) -> None:
+        """Get risk warnings and edge case concerns, optionally filtered by topic."""
+        if not CONSENSUS_MEMORY_AVAILABLE:
+            self._send_json({"error": "Consensus memory not available"}, status=503)
             return
 
         try:
             memory = ConsensusMemory()
-            retriever = DissentRetriever(memory)
-            warnings = retriever.find_risk_warnings(topic, domain=domain, limit=limit)
+            import sqlite3
+
+            # If topic provided, use DissentRetriever for similarity search
+            if topic and DissentRetriever is not None:
+                retriever = DissentRetriever(memory)
+                records = retriever.find_risk_warnings(topic, domain=domain, limit=limit)
+            else:
+                # Get recent risk warnings globally (RISK_WARNING, EDGE_CASE_CONCERN)
+                with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
+                    cursor = conn.cursor()
+                    query = """
+                        SELECT data FROM dissent
+                        WHERE dissent_type IN ('risk_warning', 'edge_case_concern')
+                        ORDER BY timestamp DESC
+                        LIMIT ?
+                    """
+                    cursor.execute(query, (limit,))
+                    rows = cursor.fetchall()
+
+                import json
+                records = []
+                for row in rows:
+                    try:
+                        from aragora.memory.consensus import DissentRecord
+                        records.append(DissentRecord.from_dict(json.loads(row[0])))
+                    except Exception:
+                        pass
+
+            # Transform to match frontend RiskWarning interface
+            # Map dissent_type to risk_type and infer severity from confidence
+            def infer_severity(confidence: float, dissent_type: str) -> str:
+                if dissent_type == "risk_warning":
+                    if confidence >= 0.8:
+                        return "critical"
+                    elif confidence >= 0.6:
+                        return "high"
+                    elif confidence >= 0.4:
+                        return "medium"
+                return "low"
+
             self._send_json({
-                "topic": topic,
-                "domain": domain,
-                "risk_warnings": [
+                "warnings": [
                     {
-                        "agent": w.agent_name,
-                        "warning": w.position,
-                        "severity": getattr(w, 'severity', 'medium'),
-                        "timestamp": w.timestamp.isoformat() if hasattr(w, 'timestamp') else None,
+                        "domain": r.metadata.get("domain", "general"),
+                        "risk_type": r.dissent_type.value.replace("_", " ").title(),
+                        "severity": infer_severity(r.confidence, r.dissent_type.value),
+                        "description": r.content,
+                        "mitigation": r.rebuttal if r.rebuttal else None,
+                        "detected_at": r.timestamp.isoformat(),
                     }
-                    for w in warnings
+                    for r in records
                 ],
-                "count": len(warnings),
             })
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "risk_warnings")}, status=500)
