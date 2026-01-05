@@ -192,6 +192,29 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
               });
             }
           }
+          // Handle critique events
+          else if (data.type === 'critique' && isOurDebate) {
+            const msg: TranscriptMessage = {
+              agent: data.agent || data.data?.agent || 'unknown',
+              role: 'critic',
+              content: `[CRITIQUE → ${data.data?.target || 'unknown'}] ${data.data?.issues?.join('; ') || data.data?.content || ''}`,
+              round: data.round || data.data?.round,
+              timestamp: data.timestamp || Date.now() / 1000,
+            };
+            if (msg.content) {
+              setLiveMessages(prev => [...prev, msg]);
+            }
+          }
+          // Handle consensus events
+          else if (data.type === 'consensus' && isOurDebate) {
+            const msg: TranscriptMessage = {
+              agent: 'system',
+              role: 'synthesizer',
+              content: `[CONSENSUS ${data.data?.reached ? 'REACHED' : 'NOT REACHED'}] Confidence: ${Math.round((data.data?.confidence || 0) * 100)}%`,
+              timestamp: data.timestamp || Date.now() / 1000,
+            };
+            setLiveMessages(prev => [...prev, msg]);
+          }
         } catch (e) {
           console.error('Failed to parse WebSocket message:', e);
         }

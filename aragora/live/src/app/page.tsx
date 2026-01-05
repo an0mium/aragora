@@ -24,6 +24,8 @@ import { AgentNetworkPanel } from '@/components/AgentNetworkPanel';
 import { CapabilityProbePanel } from '@/components/CapabilityProbePanel';
 import { OperationalModesPanel } from '@/components/OperationalModesPanel';
 import { RedTeamAnalysisPanel } from '@/components/RedTeamAnalysisPanel';
+import { ContraryViewsPanel } from '@/components/ContraryViewsPanel';
+import { RiskWarningsPanel } from '@/components/RiskWarningsPanel';
 import { VerdictCard } from '@/components/VerdictCard';
 import { CompareView, CompareButton } from '@/components/CompareView';
 import { DeepAuditView, DeepAuditToggle } from '@/components/DeepAuditView';
@@ -364,6 +366,8 @@ export default function Home() {
             <CapabilityProbePanel apiBase={API_URL} />
             <OperationalModesPanel apiBase={API_URL} />
             <RedTeamAnalysisPanel apiBase={API_URL} />
+            <ContraryViewsPanel apiBase={API_URL} />
+            <RiskWarningsPanel apiBase={API_URL} />
             <ReplayBrowser />
           </div>
         </div>

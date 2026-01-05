@@ -1,0 +1,148 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+
+interface RiskWarning {
+  domain: string;
+  risk_type: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  mitigation?: string;
+  detected_at?: string;
+}
+
+interface RiskWarningsPanelProps {
+  apiBase?: string;
+}
+
+const severityColors: Record<string, string> = {
+  low: 'text-green-400 border-green-400/30 bg-green-400/5',
+  medium: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/5',
+  high: 'text-orange-400 border-orange-400/30 bg-orange-400/5',
+  critical: 'text-red-400 border-red-400/30 bg-red-400/5',
+};
+
+export function RiskWarningsPanel({ apiBase = '' }: RiskWarningsPanelProps) {
+  const [warnings, setWarnings] = useState<RiskWarning[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    const fetchWarnings = async () => {
+      try {
+        const response = await fetch(`${apiBase}/api/consensus/risk-warnings`);
+        if (response.ok) {
+          const data = await response.json();
+          setWarnings(data.warnings || data || []);
+        } else {
+          setError('Failed to fetch risk warnings');
+        }
+      } catch (e) {
+        setError('Network error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWarnings();
+    // Refresh every 60 seconds
+    const interval = setInterval(fetchWarnings, 60000);
+    return () => clearInterval(interval);
+  }, [apiBase]);
+
+  const criticalCount = warnings.filter(w => w.severity === 'critical').length;
+  const highCount = warnings.filter(w => w.severity === 'high').length;
+
+  if (!isExpanded) {
+    return (
+      <div
+        className={`border bg-surface/50 p-3 cursor-pointer hover:border-acid-green/50 transition-colors ${
+          criticalCount > 0 ? 'border-red-400/50' : highCount > 0 ? 'border-orange-400/50' : 'border-acid-green/30'
+        }`}
+        onClick={() => setIsExpanded(true)}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-mono text-acid-green">
+            {'>'} RISK_WARNINGS [{warnings.length}]
+          </h3>
+          <div className="flex items-center gap-2">
+            {criticalCount > 0 && (
+              <span className="text-xs font-mono text-red-400">
+                {criticalCount} CRITICAL
+              </span>
+            )}
+            {highCount > 0 && (
+              <span className="text-xs font-mono text-orange-400">
+                {highCount} HIGH
+              </span>
+            )}
+            <span className="text-xs text-text-muted">[EXPAND]</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-acid-green/30 bg-surface/50 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-mono text-acid-green">
+          {'>'} RISK_WARNINGS
+        </h3>
+        <button
+          onClick={() => setIsExpanded(false)}
+          className="text-xs text-text-muted hover:text-acid-green"
+        >
+          [COLLAPSE]
+        </button>
+      </div>
+
+      {loading && (
+        <div className="text-xs text-text-muted font-mono animate-pulse">
+          Scanning for domain-specific risks...
+        </div>
+      )}
+
+      {error && (
+        <div className="text-xs text-warning font-mono">{error}</div>
+      )}
+
+      {!loading && !error && warnings.length === 0 && (
+        <div className="text-xs text-green-400 font-mono">
+          No risk warnings detected.
+        </div>
+      )}
+
+      <div className="space-y-3 max-h-64 overflow-y-auto">
+        {warnings.map((warning, idx) => (
+          <div
+            key={idx}
+            className={`border p-3 space-y-2 ${severityColors[warning.severity] || severityColors.medium}`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono uppercase">
+                [{warning.severity}] {warning.risk_type}
+              </span>
+              <span className="text-xs font-mono text-text-muted">
+                {warning.domain}
+              </span>
+            </div>
+            <p className="text-xs text-text leading-relaxed">
+              {warning.description}
+            </p>
+            {warning.mitigation && (
+              <p className="text-xs text-text-muted">
+                <span className="text-acid-green">Mitigation:</span> {warning.mitigation}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 text-[10px] text-text-muted font-mono">
+        Domain-specific risk assessment from debate analysis
+      </div>
+    </div>
+  );
+}

@@ -44,7 +44,11 @@ export type StreamEventType =
   // Token streaming events
   | 'token_start'
   | 'token_delta'
-  | 'token_end';
+  | 'token_end'
+  // Mood/sentiment events (Real-Time Debate Drama)
+  | 'mood_detected'
+  | 'mood_shift'
+  | 'debate_energy';
 
 export interface StreamEvent {
   type: StreamEventType;

@@ -92,6 +92,11 @@ class StreamEventType(Enum):
     # Position tracking events
     FLIP_DETECTED = "flip_detected"      # Agent position reversal detected
 
+    # Mood/sentiment events (Real-Time Debate Drama)
+    MOOD_DETECTED = "mood_detected"      # Agent emotional state analyzed
+    MOOD_SHIFT = "mood_shift"            # Significant mood change detected
+    DEBATE_ENERGY = "debate_energy"      # Overall debate intensity level
+
 
 @dataclass
 class StreamEvent:
@@ -915,6 +920,10 @@ class AiohttpUnifiedServer:
         self.persona_manager = None
         self.debate_embeddings = None
 
+        # ArgumentCartographer registry (loop_id -> cartographer instance)
+        self.cartographers: Dict[str, Any] = {}
+        self._cartographers_lock = threading.Lock()
+
         # Subscribe to emitter to maintain debate states
         self._emitter.subscribe(self._update_debate_state)
 
@@ -1026,6 +1035,16 @@ class AiohttpUnifiedServer:
                     self.active_loops[loop_id].cycle = cycle
                 if phase is not None:
                     self.active_loops[loop_id].phase = phase
+
+    def register_cartographer(self, loop_id: str, cartographer: Any) -> None:
+        """Register an ArgumentCartographer instance for a loop."""
+        with self._cartographers_lock:
+            self.cartographers[loop_id] = cartographer
+
+    def unregister_cartographer(self, loop_id: str) -> None:
+        """Unregister an ArgumentCartographer instance."""
+        with self._cartographers_lock:
+            self.cartographers.pop(loop_id, None)
 
     def _cors_headers(self, origin: Optional[str] = None) -> dict:
         """Generate CORS headers with proper origin validation.
@@ -1562,6 +1581,343 @@ class AiohttpUnifiedServer:
 
         return web.json_response(state, headers=self._cors_headers(origin))
 
+    async def _handle_graph_json(self, request) -> 'aiohttp.web.Response':
+        """GET /api/debate/{loop_id}/graph - Debate argument graph as JSON."""
+        import aiohttp.web as web
+        import re
+        origin = request.headers.get("Origin")
+
+        loop_id = request.match_info.get('loop_id', '')
+
+        # Validate loop_id format (security: prevent injection)
+        if not re.match(r'^[a-zA-Z0-9_-]+$', loop_id):
+            return web.json_response(
+                {"error": "Invalid loop_id format"},
+                status=400,
+                headers=self._cors_headers(origin)
+            )
+
+        with self._cartographers_lock:
+            cartographer = self.cartographers.get(loop_id)
+
+        if not cartographer:
+            return web.json_response(
+                {"error": f"No cartographer found for loop: {loop_id}"},
+                status=404,
+                headers=self._cors_headers(origin)
+            )
+
+        try:
+            include_full = request.query.get("full", "false").lower() == "true"
+            graph_json = cartographer.export_json(include_full_content=include_full)
+            return web.Response(
+                text=graph_json,
+                content_type="application/json",
+                headers=self._cors_headers(origin)
+            )
+        except Exception as e:
+            logger.error(f"Graph JSON error for {loop_id}: {e}")
+            return web.json_response(
+                {"error": "Failed to export graph"},
+                status=500,
+                headers=self._cors_headers(origin)
+            )
+
+    async def _handle_graph_mermaid(self, request) -> 'aiohttp.web.Response':
+        """GET /api/debate/{loop_id}/graph/mermaid - Debate argument graph as Mermaid diagram."""
+        import aiohttp.web as web
+        import re
+        origin = request.headers.get("Origin")
+
+        loop_id = request.match_info.get('loop_id', '')
+
+        # Validate loop_id format
+        if not re.match(r'^[a-zA-Z0-9_-]+$', loop_id):
+            return web.json_response(
+                {"error": "Invalid loop_id format"},
+                status=400,
+                headers=self._cors_headers(origin)
+            )
+
+        with self._cartographers_lock:
+            cartographer = self.cartographers.get(loop_id)
+
+        if not cartographer:
+            return web.json_response(
+                {"error": f"No cartographer found for loop: {loop_id}"},
+                status=404,
+                headers=self._cors_headers(origin)
+            )
+
+        try:
+            direction = request.query.get("direction", "TD")
+            # Validate direction (only TD or LR)
+            if direction not in ("TD", "LR"):
+                direction = "TD"
+            mermaid = cartographer.export_mermaid(direction=direction)
+            return web.Response(
+                text=mermaid,
+                content_type="text/plain",
+                headers=self._cors_headers(origin)
+            )
+        except Exception as e:
+            logger.error(f"Graph Mermaid error for {loop_id}: {e}")
+            return web.json_response(
+                {"error": "Failed to export Mermaid diagram"},
+                status=500,
+                headers=self._cors_headers(origin)
+            )
+
+    async def _handle_graph_stats(self, request) -> 'aiohttp.web.Response':
+        """GET /api/debate/{loop_id}/graph/stats - Debate argument graph statistics."""
+        import aiohttp.web as web
+        import re
+        origin = request.headers.get("Origin")
+
+        loop_id = request.match_info.get('loop_id', '')
+
+        # Validate loop_id format
+        if not re.match(r'^[a-zA-Z0-9_-]+$', loop_id):
+            return web.json_response(
+                {"error": "Invalid loop_id format"},
+                status=400,
+                headers=self._cors_headers(origin)
+            )
+
+        with self._cartographers_lock:
+            cartographer = self.cartographers.get(loop_id)
+
+        if not cartographer:
+            return web.json_response(
+                {"error": f"No cartographer found for loop: {loop_id}"},
+                status=404,
+                headers=self._cors_headers(origin)
+            )
+
+        try:
+            stats = cartographer.get_statistics()
+            return web.json_response(stats, headers=self._cors_headers(origin))
+        except Exception as e:
+            logger.error(f"Graph stats error for {loop_id}: {e}")
+            return web.json_response(
+                {"error": "Failed to get graph statistics"},
+                status=500,
+                headers=self._cors_headers(origin)
+            )
+
+    async def _handle_audience_clusters(self, request) -> 'aiohttp.web.Response':
+        """GET /api/debate/{loop_id}/audience/clusters - Clustered audience suggestions."""
+        import aiohttp.web as web
+        import re
+        origin = request.headers.get("Origin")
+
+        loop_id = request.match_info.get('loop_id', '')
+
+        # Validate loop_id format
+        if not re.match(r'^[a-zA-Z0-9_-]+$', loop_id):
+            return web.json_response(
+                {"error": "Invalid loop_id format"},
+                status=400,
+                headers=self._cors_headers(origin)
+            )
+
+        try:
+            from aragora.audience.suggestions import cluster_suggestions
+
+            # Get suggestions from audience inbox for this loop
+            suggestions = self.audience_inbox.drain_suggestions(loop_id=loop_id)
+
+            if not suggestions:
+                return web.json_response(
+                    {"clusters": [], "total": 0},
+                    headers=self._cors_headers(origin)
+                )
+
+            # Cluster suggestions
+            clusters = cluster_suggestions(
+                suggestions,
+                similarity_threshold=float(request.query.get("threshold", 0.6)),
+                max_clusters=int(request.query.get("max_clusters", 5)),
+            )
+
+            return web.json_response(
+                {
+                    "clusters": [
+                        {
+                            "representative": c.representative,
+                            "count": c.count,
+                            "user_ids": c.user_ids[:5],  # Limit user IDs for privacy
+                        }
+                        for c in clusters
+                    ],
+                    "total": sum(c.count for c in clusters),
+                },
+                headers=self._cors_headers(origin)
+            )
+        except Exception as e:
+            logger.error(f"Audience clusters error for {loop_id}: {e}")
+            return web.json_response(
+                {"error": "Failed to cluster audience suggestions"},
+                status=500,
+                headers=self._cors_headers(origin)
+            )
+
+    async def _handle_replays(self, request) -> 'aiohttp.web.Response':
+        """GET /api/replays - List available debate replays."""
+        import aiohttp.web as web
+        origin = request.headers.get("Origin")
+
+        if not self.nomic_dir:
+            return web.json_response(
+                {"replays": [], "count": 0},
+                headers=self._cors_headers(origin)
+            )
+
+        try:
+            replays_dir = self.nomic_dir / "replays"
+            if not replays_dir.exists():
+                return web.json_response(
+                    {"replays": [], "count": 0},
+                    headers=self._cors_headers(origin)
+                )
+
+            replays = []
+            for replay_path in replays_dir.iterdir():
+                if replay_path.is_dir():
+                    meta_file = replay_path / "meta.json"
+                    if meta_file.exists():
+                        meta = json.loads(meta_file.read_text())
+                        replays.append({
+                            "id": replay_path.name,
+                            "topic": meta.get("topic", replay_path.name),
+                            "timestamp": meta.get("timestamp", ""),
+                        })
+
+            return web.json_response(
+                {"replays": sorted(replays, key=lambda x: x["id"], reverse=True), "count": len(replays)},
+                headers=self._cors_headers(origin)
+            )
+        except Exception as e:
+            logger.error(f"Replays list error: {e}")
+            return web.json_response(
+                {"error": "Failed to list replays"},
+                status=500,
+                headers=self._cors_headers(origin)
+            )
+
+    async def _handle_replay_html(self, request) -> 'aiohttp.web.Response':
+        """GET /api/replays/{replay_id}/html - Get HTML replay visualization."""
+        import aiohttp.web as web
+        import re
+        origin = request.headers.get("Origin")
+
+        replay_id = request.match_info.get('replay_id', '')
+
+        # Validate replay_id format (security: prevent path traversal)
+        if not re.match(r'^[a-zA-Z0-9_-]+$', replay_id):
+            return web.json_response(
+                {"error": "Invalid replay_id format"},
+                status=400,
+                headers=self._cors_headers(origin)
+            )
+
+        if not self.nomic_dir:
+            return web.json_response(
+                {"error": "No nomic directory configured"},
+                status=500,
+                headers=self._cors_headers(origin)
+            )
+
+        try:
+            replay_dir = self.nomic_dir / "replays" / replay_id
+            if not replay_dir.exists():
+                return web.json_response(
+                    {"error": f"Replay not found: {replay_id}"},
+                    status=404,
+                    headers=self._cors_headers(origin)
+                )
+
+            # Check for pre-generated HTML
+            html_file = replay_dir / "replay.html"
+            if html_file.exists():
+                return web.Response(
+                    text=html_file.read_text(),
+                    content_type="text/html",
+                    headers=self._cors_headers(origin)
+                )
+
+            # Generate from events.jsonl if no pre-generated HTML
+            events_file = replay_dir / "events.jsonl"
+            meta_file = replay_dir / "meta.json"
+
+            if not events_file.exists():
+                return web.json_response(
+                    {"error": f"No events found for replay: {replay_id}"},
+                    status=404,
+                    headers=self._cors_headers(origin)
+                )
+
+            # Load events and generate HTML
+            from aragora.visualization.replay import ReplayGenerator, ReplayArtifact, ReplayScene
+            from aragora.core import Message
+            from datetime import datetime
+
+            events = []
+            with events_file.open() as f:
+                for line in f:
+                    if line.strip():
+                        events.append(json.loads(line))
+
+            # Create artifact from events
+            meta = json.loads(meta_file.read_text()) if meta_file.exists() else {}
+            generator = ReplayGenerator()
+
+            # Simple HTML generation from events
+            artifact = ReplayArtifact(
+                debate_id=replay_id,
+                task=meta.get("topic", "Unknown"),
+                scenes=[],
+                verdict=meta.get("verdict", {}),
+                metadata=meta,
+            )
+
+            # Group events by round
+            round_events: Dict[int, list] = {}
+            for event in events:
+                round_num = event.get("round", 0)
+                round_events.setdefault(round_num, []).append(event)
+
+            for round_num in sorted(round_events.keys()):
+                messages = []
+                for event in round_events[round_num]:
+                    if event.get("type") in ("agent_message", "propose", "critique"):
+                        messages.append(Message(
+                            role=event.get("data", {}).get("role", "unknown"),
+                            agent=event.get("agent", "unknown"),
+                            content=event.get("data", {}).get("content", ""),
+                            round=round_num,
+                        ))
+                if messages:
+                    artifact.scenes.append(ReplayScene(
+                        round_number=round_num,
+                        timestamp=datetime.now(),
+                        messages=messages,
+                    ))
+
+            html = generator._render_html(artifact)
+            return web.Response(
+                text=html,
+                content_type="text/html",
+                headers=self._cors_headers(origin)
+            )
+        except Exception as e:
+            logger.error(f"Replay HTML error for {replay_id}: {e}")
+            return web.json_response(
+                {"error": "Failed to generate replay HTML"},
+                status=500,
+                headers=self._cors_headers(origin)
+            )
+
     async def _websocket_handler(self, request) -> 'aiohttp.web.WebSocketResponse':
         """Handle WebSocket connections with security validation and optional auth."""
         import aiohttp
@@ -1812,6 +2168,12 @@ class AiohttpUnifiedServer:
         app.router.add_get("/api/laboratory/emergent-traits", self._handle_laboratory_emergent_traits)
         app.router.add_get("/api/laboratory/cross-pollinations/suggest", self._handle_laboratory_cross_pollinations)
         app.router.add_get("/api/nomic/state", self._handle_nomic_state)
+        app.router.add_get("/api/debate/{loop_id}/graph", self._handle_graph_json)
+        app.router.add_get("/api/debate/{loop_id}/graph/mermaid", self._handle_graph_mermaid)
+        app.router.add_get("/api/debate/{loop_id}/graph/stats", self._handle_graph_stats)
+        app.router.add_get("/api/debate/{loop_id}/audience/clusters", self._handle_audience_clusters)
+        app.router.add_get("/api/replays", self._handle_replays)
+        app.router.add_get("/api/replays/{replay_id}/html", self._handle_replay_html)
         app.router.add_get("/", self._websocket_handler)  # WebSocket at root
         app.router.add_get("/ws", self._websocket_handler)  # Also at /ws
 
