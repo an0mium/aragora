@@ -73,18 +73,18 @@ class TestDebateProtocol:
     def test_default_protocol(self):
         """Test default protocol settings."""
         protocol = DebateProtocol()
-        assert protocol.rounds == 3
+        assert protocol.rounds == 5  # Default increased for more thorough debates
         assert protocol.consensus == "majority"
         assert protocol.early_stopping is True
 
     def test_custom_protocol(self):
         """Test custom protocol settings."""
         protocol = DebateProtocol(
-            rounds=5,
+            rounds=7,
             consensus="unanimous",
             early_stopping=False,
         )
-        assert protocol.rounds == 5
+        assert protocol.rounds == 7
         assert protocol.consensus == "unanimous"
         assert protocol.early_stopping is False
 

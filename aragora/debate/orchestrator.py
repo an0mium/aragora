@@ -141,7 +141,7 @@ class DebateProtocol:
     topology: Literal["all-to-all", "sparse", "round-robin", "ring", "star", "random-graph"] = "round-robin"
     topology_sparsity: float = 0.5  # fraction of possible critique connections (for sparse/random-graph)
     topology_hub_agent: Optional[str] = None  # for star topology, which agent is the hub
-    rounds: int = 3
+    rounds: int = 5  # Increased from 3 for more thorough debates
     consensus: Literal["majority", "unanimous", "judge", "none"] = "majority"
     consensus_threshold: float = 0.6  # fraction needed for majority
     allow_abstain: bool = True
@@ -364,6 +364,9 @@ class Arena:
 
         # Cache for research context (computed once per debate)
         self._research_context_cache: Optional[str] = None
+
+        # Cache for evidence pack (for grounding verdict with citations)
+        self._research_evidence_pack = None
 
         # Cache for continuum memory context (retrieved once per debate)
         self._continuum_context_cache: str = ""
@@ -972,11 +975,102 @@ class Arena:
 
         return report
 
+    def _link_evidence_to_claim(self, claim_text: str) -> tuple[list, float]:
+        """Link evidence snippets to a claim based on keyword matching.
+
+        Returns:
+            Tuple of (list of ScholarlyEvidence, grounding_score)
+        """
+        from aragora.reasoning.citations import (
+            ScholarlyEvidence,
+            CitationType,
+            CitationQuality,
+        )
+
+        if not self._research_evidence_pack or not self._research_evidence_pack.snippets:
+            return [], 0.0
+
+        # Extract keywords from claim
+        claim_lower = claim_text.lower()
+        claim_words = set(claim_lower.split())
+
+        matched_citations = []
+        for snippet in self._research_evidence_pack.snippets:
+            # Calculate relevance based on keyword overlap
+            snippet_words = set(snippet.snippet.lower().split())
+            snippet_words.update(set(snippet.title.lower().split()))
+
+            # Check for keyword overlap
+            overlap = claim_words.intersection(snippet_words)
+            if len(overlap) >= 2:  # At least 2 matching keywords
+                relevance = len(overlap) / max(len(claim_words), 1)
+
+                # Determine citation type based on source
+                source = snippet.source.lower()
+                if "github" in source:
+                    citation_type = CitationType.CODE_REPOSITORY
+                elif "doc" in source or "local" in source:
+                    citation_type = CitationType.DOCUMENTATION
+                else:
+                    citation_type = CitationType.WEB_PAGE
+
+                # Map reliability score to quality
+                if snippet.reliability_score >= 0.8:
+                    quality = CitationQuality.AUTHORITATIVE
+                elif snippet.reliability_score >= 0.6:
+                    quality = CitationQuality.REPUTABLE
+                elif snippet.reliability_score >= 0.4:
+                    quality = CitationQuality.MIXED
+                else:
+                    quality = CitationQuality.UNVERIFIED
+
+                evidence = ScholarlyEvidence(
+                    id=snippet.id,
+                    citation_type=citation_type,
+                    title=snippet.title,
+                    url=snippet.url,
+                    excerpt=snippet.snippet[:500],
+                    relevance_score=relevance,
+                    quality=quality,
+                    claim_id=claim_text[:50],  # Truncated claim as ID
+                    metadata=snippet.metadata,
+                )
+                matched_citations.append(evidence)
+
+        # Sort by relevance and take top 3
+        matched_citations.sort(key=lambda e: e.relevance_score, reverse=True)
+        top_citations = matched_citations[:3]
+
+        # Calculate grounding score based on evidence quality
+        if not top_citations:
+            return [], 0.0
+
+        # Average quality score weighted by relevance
+        total_weight = sum(e.relevance_score for e in top_citations)
+        if total_weight == 0:
+            return top_citations, 0.3  # Weak grounding
+
+        quality_scores = {
+            CitationQuality.PEER_REVIEWED: 1.0,
+            CitationQuality.AUTHORITATIVE: 0.9,
+            CitationQuality.REPUTABLE: 0.7,
+            CitationQuality.MIXED: 0.5,
+            CitationQuality.UNVERIFIED: 0.3,
+            CitationQuality.QUESTIONABLE: 0.1,
+        }
+
+        weighted_score = sum(
+            quality_scores.get(e.quality, 0.3) * e.relevance_score
+            for e in top_citations
+        ) / total_weight
+
+        return top_citations, weighted_score
+
     def _create_grounded_verdict(self, result: "DebateResult"):
         """Create a GroundedVerdict for the final answer.
 
         Heavy3-inspired: Wrap final answers with evidence grounding analysis.
-        Identifies claims that should be backed by evidence and calculates grounding score.
+        Identifies claims that should be backed by evidence and links available citations.
         """
         if not self.citation_extractor or not result.final_answer:
             return None
@@ -996,27 +1090,48 @@ class Arena:
                     grounding_score=1.0,  # No claims = fully grounded (nothing to cite)
                 )
 
-            # Create CitedClaim objects (without actual citations for now)
+            # Create CitedClaim objects with linked evidence
             cited_claims = []
+            all_citations = []
+            total_grounding = 0.0
+
             for claim_text in claims_text:
+                # Link evidence to this claim
+                citations, claim_grounding = self._link_evidence_to_claim(claim_text)
+                all_citations.extend(citations)
+
                 claim = CitedClaim(
                     claim_text=claim_text,
                     confidence=result.confidence,
-                    grounding_score=0.0,  # No citations found
+                    grounding_score=claim_grounding,
+                    citations=citations,
                 )
                 cited_claims.append(claim)
+                total_grounding += claim_grounding
 
-            # Calculate grounding score based on claim density
-            # Higher claim count = lower grounding (more unsubstantiated claims)
-            answer_words = len(result.final_answer.split())
-            claim_density = len(claims_text) / max(answer_words / 100, 1)  # Claims per 100 words
-            grounding_score = max(0.0, 1.0 - (claim_density * 0.2))  # Penalize high claim density
+            # Calculate overall grounding score
+            if cited_claims:
+                avg_grounding = total_grounding / len(cited_claims)
+            else:
+                # Fallback: penalize high claim density
+                answer_words = len(result.final_answer.split())
+                claim_density = len(claims_text) / max(answer_words / 100, 1)
+                avg_grounding = max(0.0, 1.0 - (claim_density * 0.2))
+
+            # Deduplicate citations by ID
+            seen_ids = set()
+            unique_citations = []
+            for citation in all_citations:
+                if citation.id not in seen_ids:
+                    seen_ids.add(citation.id)
+                    unique_citations.append(citation)
 
             return GroundedVerdict(
                 verdict=result.final_answer,
                 confidence=result.confidence,
                 claims=cited_claims,
-                grounding_score=grounding_score,
+                all_citations=unique_citations,
+                grounding_score=avg_grounding,
             )
 
         except Exception as e:
@@ -1245,6 +1360,8 @@ class Arena:
                 evidence_pack = await collector.collect_evidence(task, enabled_connectors=enabled_connectors)
 
                 if evidence_pack.snippets:
+                    # Store evidence pack for grounding verdict with citations
+                    self._research_evidence_pack = evidence_pack
                     # Store evidence in ContinuumMemory for future debates
                     self._store_evidence_in_memory(evidence_pack.snippets, task)
                     context_parts.append(f"## EVIDENCE CONTEXT\n{evidence_pack.to_context_string()}")
@@ -1275,21 +1392,88 @@ class Arena:
         else:
             return "No research context available."
 
+    def _format_conclusion(self, result: "DebateResult") -> str:
+        """Format a clear, readable debate conclusion with full context."""
+        lines = []
+        lines.append("=" * 60)
+        lines.append("DEBATE CONCLUSION")
+        lines.append("=" * 60)
+
+        # Verdict section
+        lines.append("\n## VERDICT")
+        if result.consensus_reached:
+            lines.append(f"Consensus: YES ({result.confidence:.0%} agreement)")
+            if hasattr(result, 'consensus_strength') and result.consensus_strength:
+                lines.append(f"Strength: {result.consensus_strength.upper()}")
+        else:
+            lines.append(f"Consensus: NO (only {result.confidence:.0%} agreement)")
+
+        # Winner (if determined)
+        if hasattr(result, 'winner') and result.winner:
+            lines.append(f"Winner: {result.winner}")
+
+        # Final answer section
+        lines.append("\n## FINAL ANSWER")
+        if result.final_answer:
+            # Truncate if very long, but show substantial content
+            answer_display = result.final_answer[:1000] + "..." if len(result.final_answer) > 1000 else result.final_answer
+            lines.append(answer_display)
+        else:
+            lines.append("No final answer determined.")
+
+        # Vote breakdown (if available)
+        if hasattr(result, 'votes') and result.votes:
+            lines.append("\n## VOTE BREAKDOWN")
+            vote_counts = {}
+            for vote in result.votes:
+                voter = getattr(vote, 'voter', 'unknown')
+                choice = getattr(vote, 'choice', 'abstain')
+                vote_counts[voter] = choice
+            for voter, choice in vote_counts.items():
+                lines.append(f"  - {voter}: {choice}")
+
+        # Dissenting views (if any)
+        if hasattr(result, 'dissenting_views') and result.dissenting_views:
+            lines.append("\n## DISSENTING VIEWS")
+            for i, view in enumerate(result.dissenting_views[:3]):
+                view_display = view[:300] + "..." if len(view) > 300 else view
+                lines.append(f"  {i+1}. {view_display}")
+
+        # Debate cruxes (key disagreement points)
+        if hasattr(result, 'belief_cruxes') and result.belief_cruxes:
+            lines.append("\n## KEY CRUXES")
+            for crux in result.belief_cruxes[:3]:
+                claim = crux.get('claim', 'unknown')[:80]
+                uncertainty = crux.get('uncertainty', 0)
+                lines.append(f"  - {claim}... (uncertainty: {uncertainty:.2f})")
+
+        lines.append("\n" + "=" * 60)
+        return "\n".join(lines)
+
     def _assign_roles(self):
-        """Assign roles to agents based on protocol."""
+        """Assign roles to agents based on protocol with safety bounds."""
         # If agents already have roles, respect them
         if all(a.role for a in self.agents):
             return
 
-        # Otherwise assign based on protocol
-        proposers_needed = self.protocol.proposer_count
+        n_agents = len(self.agents)
+
+        # Safety: Ensure at least 1 critic and 1 synthesizer when we have 3+ agents
+        # This prevents all-proposer scenarios that break debate dynamics
+        max_proposers = max(1, n_agents - 2) if n_agents >= 3 else 1
+        proposers_needed = min(self.protocol.proposer_count, max_proposers)
+
         for i, agent in enumerate(self.agents):
             if i < proposers_needed:
                 agent.role = "proposer"
-            elif i == len(self.agents) - 1:
+            elif i == n_agents - 1:
                 agent.role = "synthesizer"
             else:
                 agent.role = "critic"
+
+        # Log role assignment for debugging
+        roles = {a.name: a.role for a in self.agents}
+        logger.debug(f"Role assignment: {roles}")
 
     def _apply_agreement_intensity(self):
         """Apply agreement intensity guidance to all agents' system prompts.
@@ -2311,10 +2495,10 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             except Exception as e:
                 logger.debug(f"Belief analysis failed: {e}")
 
-        print(f"\n{'='*60}")
-        print(f"DEBATE COMPLETE in {result.duration_seconds:.1f}s")
-        print(f"Consensus: {'Yes' if result.consensus_reached else 'No'} ({result.confidence:.0%})")
-        print(f"{'='*60}\n")
+        # Print formatted conclusion with full context
+        print(f"\n[Completed in {result.duration_seconds:.1f}s]")
+        conclusion = self._format_conclusion(result)
+        print(conclusion)
 
         # Finalize recording
         if self.recorder:

@@ -79,12 +79,40 @@ class EvidenceCollector:
         if enabled_connectors is None:
             enabled_connectors = list(self.connectors.keys())
 
+        all_snippets = []
+        total_searched = 0
+
+        # NEW: First, fetch any explicit URLs mentioned in the task
+        explicit_urls = self._extract_urls(task)
+        if explicit_urls:
+            print(f"Evidence collection: fetching {len(explicit_urls)} explicit URL(s): {explicit_urls}")
+            if "web" in self.connectors:
+                web_connector = self.connectors["web"]
+                for url in explicit_urls:
+                    try:
+                        # Normalize URL
+                        full_url = url if url.startswith(('http://', 'https://')) else f'https://{url}'
+                        if hasattr(web_connector, 'fetch_url'):
+                            evidence = await web_connector.fetch_url(full_url)
+                            if evidence and getattr(evidence, 'confidence', 0) > 0:
+                                snippet = EvidenceSnippet(
+                                    id=f"url_{hash(full_url) % 10000}",
+                                    source="direct_url",
+                                    title=getattr(evidence, 'title', full_url),
+                                    snippet=self._truncate_snippet(evidence.content),
+                                    url=full_url,
+                                    reliability_score=0.9,  # High reliability for direct URL fetch
+                                    metadata={"fetched_directly": True, "original_url": url}
+                                )
+                                all_snippets.append(snippet)
+                                total_searched += 1
+                                print(f"  Fetched: {full_url} ({len(evidence.content)} chars)")
+                    except Exception as e:
+                        print(f"  Failed to fetch {url}: {e}")
+
         # Extract keywords from task for search
         keywords = self._extract_keywords(task)
         print(f"Evidence collection: searching for keywords {keywords}")
-
-        all_snippets = []
-        total_searched = 0
 
         # Search all enabled connectors concurrently
         search_tasks = []
@@ -166,6 +194,27 @@ class EvidenceCollector:
         except Exception as e:
             print(f"Error searching {connector_name}: {e}")
             return [], 0
+
+    def _extract_urls(self, task: str) -> List[str]:
+        """Extract explicit URLs and domain references from task description."""
+        patterns = [
+            r'https?://[^\s)<>\[\]]+',  # Full URLs (http/https)
+            r'www\.[^\s)<>\[\]]+',  # www URLs
+            r'\b([a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|org|net|io|ai|dev|app|co|edu|gov))\b',  # Domain names
+        ]
+        urls = []
+        for pattern in patterns:
+            matches = re.findall(pattern, task, re.IGNORECASE)
+            urls.extend(matches)
+        # Deduplicate while preserving order
+        seen = set()
+        unique_urls = []
+        for url in urls:
+            url_lower = url.lower()
+            if url_lower not in seen:
+                seen.add(url_lower)
+                unique_urls.append(url)
+        return unique_urls
 
     def _extract_keywords(self, task: str) -> List[str]:
         """Extract search keywords from task description."""
