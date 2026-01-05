@@ -8,6 +8,7 @@ Endpoints:
 - GET /api/agent/{name}/history - Get agent match history
 - GET /api/agent/{name}/calibration - Get calibration scores
 - GET /api/agent/{name}/consistency - Get consistency score
+- GET /api/agent/{name}/flips - Get agent flip history
 - GET /api/agent/{name}/network - Get relationship network
 - GET /api/agent/{name}/rivals - Get top rivals
 - GET /api/agent/{name}/allies - Get top allies
@@ -15,6 +16,8 @@ Endpoints:
 - GET /api/agent/{name}/positions - Get position history
 - GET /api/agent/compare - Compare multiple agents
 - GET /api/agent/{name}/head-to-head/{opponent} - Get head-to-head stats
+- GET /api/flips/recent - Get recent flips across all agents
+- GET /api/flips/summary - Get flip summary for dashboard
 """
 
 from typing import Optional, List
@@ -42,12 +45,15 @@ class AgentsHandler(BaseHandler):
         "/api/agent/*/history",
         "/api/agent/*/calibration",
         "/api/agent/*/consistency",
+        "/api/agent/*/flips",
         "/api/agent/*/network",
         "/api/agent/*/rivals",
         "/api/agent/*/allies",
         "/api/agent/*/moments",
         "/api/agent/*/positions",
         "/api/agent/*/head-to-head/*",
+        "/api/flips/recent",
+        "/api/flips/summary",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -59,6 +65,8 @@ class AgentsHandler(BaseHandler):
         if path == "/api/agent/compare":
             return True
         if path.startswith("/api/agent/"):
+            return True
+        if path.startswith("/api/flips/"):
             return True
         return False
 
@@ -89,6 +97,14 @@ class AgentsHandler(BaseHandler):
         # Per-agent endpoints
         if path.startswith("/api/agent/"):
             return self._handle_agent_endpoint(path, query_params)
+
+        # Flip endpoints (not per-agent)
+        if path == "/api/flips/recent":
+            limit = get_int_param(query_params, 'limit', 20)
+            return self._get_recent_flips(limit)
+
+        if path == "/api/flips/summary":
+            return self._get_flip_summary()
 
         return None
 
@@ -128,6 +144,7 @@ class AgentsHandler(BaseHandler):
             "history": lambda: self._get_history(agent, get_int_param(params, 'limit', 30)),
             "calibration": lambda: self._get_calibration(agent, params.get('domain')),
             "consistency": lambda: self._get_consistency(agent),
+            "flips": lambda: self._get_agent_flips(agent, get_int_param(params, 'limit', 20)),
             "network": lambda: self._get_network(agent),
             "rivals": lambda: self._get_rivals(agent, get_int_param(params, 'limit', 5)),
             "allies": lambda: self._get_allies(agent, get_int_param(params, 'limit', 5)),
@@ -444,3 +461,72 @@ class AgentsHandler(BaseHandler):
             })
         except Exception as e:
             return error_response(f"Failed to get head-to-head: {e}", 500)
+
+    # ==================== Flip Detector Endpoints ====================
+
+    @ttl_cache(ttl_seconds=300, key_prefix="agent_flips", skip_first=True)
+    def _get_agent_flips(self, agent: str, limit: int) -> HandlerResult:
+        """Get recent position flips for an agent."""
+        try:
+            from aragora.insights.flip_detector import FlipDetector
+            nomic_dir = self.get_nomic_dir()
+            if nomic_dir:
+                detector = FlipDetector(str(nomic_dir / "grounded_positions.db"))
+                flips = detector.detect_flips_for_agent(agent, lookback_positions=min(limit, 100))
+                consistency = detector.get_agent_consistency(agent)
+                return json_response({
+                    "agent": agent,
+                    "flips": [f.to_dict() for f in flips],
+                    "consistency": consistency.to_dict(),
+                    "count": len(flips),
+                })
+            return json_response({
+                "agent": agent,
+                "flips": [],
+                "consistency": {"agent_name": agent, "total_positions": 0, "total_flips": 0, "consistency_score": 1.0},
+                "count": 0,
+            })
+        except Exception as e:
+            return error_response(f"Failed to get agent flips: {e}", 500)
+
+    @ttl_cache(ttl_seconds=300, key_prefix="flips_recent", skip_first=True)
+    def _get_recent_flips(self, limit: int) -> HandlerResult:
+        """Get recent flips across all agents."""
+        try:
+            from aragora.insights.flip_detector import FlipDetector
+            nomic_dir = self.get_nomic_dir()
+            if nomic_dir:
+                detector = FlipDetector(str(nomic_dir / "grounded_positions.db"))
+                flips = detector.get_recent_flips(limit=min(limit, 100))
+                summary = detector.get_flip_summary()
+                return json_response({
+                    "flips": [f.to_dict() for f in flips],
+                    "summary": summary,
+                    "count": len(flips),
+                })
+            return json_response({
+                "flips": [],
+                "summary": {"total_flips": 0, "by_type": {}, "by_agent": {}, "recent_24h": 0},
+                "count": 0,
+            })
+        except Exception as e:
+            return error_response(f"Failed to get recent flips: {e}", 500)
+
+    @ttl_cache(ttl_seconds=600, key_prefix="flips_summary", skip_first=True)
+    def _get_flip_summary(self) -> HandlerResult:
+        """Get flip summary for dashboard."""
+        try:
+            from aragora.insights.flip_detector import FlipDetector
+            nomic_dir = self.get_nomic_dir()
+            if nomic_dir:
+                detector = FlipDetector(str(nomic_dir / "grounded_positions.db"))
+                summary = detector.get_flip_summary()
+                return json_response(summary)
+            return json_response({
+                "total_flips": 0,
+                "by_type": {},
+                "by_agent": {},
+                "recent_24h": 0,
+            })
+        except Exception as e:
+            return error_response(f"Failed to get flip summary: {e}", 500)

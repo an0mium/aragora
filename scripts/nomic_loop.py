@@ -1901,13 +1901,16 @@ class NomicLoop:
         self._fast_track_mode = False
         self._design_recovery_attempts = set()
         self._phase_progress = {}
+        self._phase_metrics = {}  # Duration vs budget metrics for each phase
+        self._cycle_backup_path = None  # Backup path for timeout rollback
 
     async def _run_with_phase_timeout(self, phase: str, coro, fallback=None):
         """
         Execute a phase coroutine with individual timeout protection.
 
         Complements the cycle-level timeout by preventing any single phase
-        from consuming the entire time budget.
+        from consuming the entire time budget. Also tracks phase duration
+        metrics for analysis and tuning.
 
         Args:
             phase: Phase name (context, debate, design, implement, verify, commit)
@@ -1924,13 +1927,45 @@ class NomicLoop:
         self._log(f"  [timeout] Phase '{phase}' has {timeout}s budget")
         self._stream_emit("on_phase_start", phase, timeout)
 
+        # Track phase start time for metrics
+        phase_start = time.time()
+
         try:
-            return await asyncio.wait_for(coro, timeout=timeout)
+            result = await asyncio.wait_for(coro, timeout=timeout)
+
+            # Log duration metrics on success
+            duration = time.time() - phase_start
+            utilization = (duration / timeout) * 100
+            self._log(f"  [{phase}] Completed in {duration:.1f}s ({utilization:.0f}% of {timeout}s budget)")
+
+            # Store metrics for cycle_result (initialize dict if needed)
+            if not hasattr(self, '_phase_metrics'):
+                self._phase_metrics = {}
+            self._phase_metrics[phase] = {
+                "duration": round(duration, 1),
+                "budget": timeout,
+                "utilization": round(utilization, 1),
+                "status": "completed",
+            }
+
+            return result
+
         except asyncio.TimeoutError:
+            duration = time.time() - phase_start
             elapsed_msg = f"Phase '{phase}' exceeded {timeout}s timeout"
             self._log(f"  [TIMEOUT] {elapsed_msg}")
             logger.warning(f"[phase_timeout] {elapsed_msg}")
             self._stream_emit("on_phase_timeout", phase, timeout)
+
+            # Store timeout metrics
+            if not hasattr(self, '_phase_metrics'):
+                self._phase_metrics = {}
+            self._phase_metrics[phase] = {
+                "duration": round(duration, 1),
+                "budget": timeout,
+                "utilization": 100.0,  # Consumed entire budget
+                "status": "timeout",
+            }
 
             if fallback is not None:
                 return fallback
@@ -8586,6 +8621,16 @@ Working directory: {self.aragora_path}
             cycle_result["staleness"] = staleness_status
 
         cycle_result["duration_seconds"] = (datetime.now() - cycle_start).total_seconds()
+
+        # Add phase duration metrics for analysis (Phase 4 enhancement)
+        if hasattr(self, '_phase_metrics') and self._phase_metrics:
+            cycle_result["phase_metrics"] = self._phase_metrics
+            # Log summary of phase efficiency
+            total_budget = sum(m["budget"] for m in self._phase_metrics.values())
+            total_duration = sum(m["duration"] for m in self._phase_metrics.values())
+            overall_efficiency = (total_duration / total_budget * 100) if total_budget > 0 else 0
+            self._log(f"\n  [metrics] Cycle {self.cycle_count} phase efficiency: {overall_efficiency:.0f}% ({total_duration:.0f}s / {total_budget}s budget)")
+
         self.history.append(cycle_result)
 
         self._save_state({
