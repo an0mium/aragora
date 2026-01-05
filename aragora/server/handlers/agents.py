@@ -123,6 +123,7 @@ class AgentsHandler(BaseHandler):
 
         return None
 
+    @ttl_cache(ttl_seconds=300, key_prefix="leaderboard")
     def _get_leaderboard(self, limit: int, domain: Optional[str]) -> HandlerResult:
         """Get agent leaderboard with consistency scores (batched to avoid N+1)."""
         elo = self.get_elo_system()
@@ -193,6 +194,7 @@ class AgentsHandler(BaseHandler):
         except Exception as e:
             return error_response(f"Failed to get leaderboard: {e}", 500)
 
+    @ttl_cache(ttl_seconds=300, key_prefix="calibration_lb")
     def _get_calibration_leaderboard(self, limit: int) -> HandlerResult:
         """Get calibration leaderboard."""
         elo = self.get_elo_system()
@@ -207,6 +209,7 @@ class AgentsHandler(BaseHandler):
         except Exception as e:
             return error_response(f"Failed to get calibration leaderboard: {e}", 500)
 
+    @ttl_cache(ttl_seconds=120, key_prefix="recent_matches")
     def _get_recent_matches(self, limit: int, loop_id: Optional[str]) -> HandlerResult:
         """Get recent matches (uses JSON snapshot cache for fast reads)."""
         elo = self.get_elo_system()
@@ -259,6 +262,7 @@ class AgentsHandler(BaseHandler):
         except Exception as e:
             return error_response(f"Comparison failed: {e}", 500)
 
+    @ttl_cache(ttl_seconds=600, key_prefix="agent_profile")
     def _get_profile(self, agent: str) -> HandlerResult:
         """Get complete agent profile."""
         elo = self.get_elo_system()
@@ -402,6 +406,7 @@ class AgentsHandler(BaseHandler):
         except Exception as e:
             return error_response(f"Failed to get positions: {e}", 500)
 
+    @ttl_cache(ttl_seconds=600, key_prefix="agent_h2h")
     def _get_head_to_head(self, agent: str, opponent: str) -> HandlerResult:
         """Get head-to-head stats between two agents."""
         elo = self.get_elo_system()

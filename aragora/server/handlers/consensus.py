@@ -23,6 +23,7 @@ from .base import (
     error_response,
     get_int_param,
     get_float_param,
+    ttl_cache,
 )
 
 logger = logging.getLogger(__name__)
@@ -139,6 +140,7 @@ class ConsensusHandler(BaseHandler):
 
         return None
 
+    @ttl_cache(ttl_seconds=240, key_prefix="consensus_similar")
     def _get_similar_debates(self, topic: str, limit: int) -> HandlerResult:
         """Find debates similar to a topic."""
         if not CONSENSUS_MEMORY_AVAILABLE:
@@ -170,6 +172,7 @@ class ConsensusHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "similar_topics"), 500)
 
+    @ttl_cache(ttl_seconds=600, key_prefix="consensus_settled")
     def _get_settled_topics(self, min_confidence: float, limit: int) -> HandlerResult:
         """Get high-confidence settled topics."""
         if not CONSENSUS_MEMORY_AVAILABLE:
@@ -205,6 +208,7 @@ class ConsensusHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "settled_topics"), 500)
 
+    @ttl_cache(ttl_seconds=600, key_prefix="consensus_stats")
     def _get_consensus_stats(self) -> HandlerResult:
         """Get consensus memory statistics."""
         if not CONSENSUS_MEMORY_AVAILABLE:
