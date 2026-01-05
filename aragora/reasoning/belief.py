@@ -329,6 +329,28 @@ class BeliefNetwork:
 
         return node
 
+    def add_claim(
+        self,
+        claim_id: str,
+        statement: str,
+        author: str,
+        initial_confidence: float = 0.5,
+        claim_type: ClaimType = ClaimType.ASSERTION,
+    ) -> BeliefNode:
+        """
+        Convenience method to add a claim directly without creating TypedClaim.
+
+        This provides a simpler API for adding claims during debate analysis.
+        """
+        claim = TypedClaim(
+            claim_id=claim_id,
+            claim_type=claim_type,
+            statement=statement,
+            author=author,
+            confidence=initial_confidence,
+        )
+        return self.add_node_from_claim(claim, prior_confidence=initial_confidence)
+
     def add_factor(
         self,
         source_claim_id: str,
