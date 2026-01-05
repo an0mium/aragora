@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface TournamentSummary {
   tournament_id: string;
@@ -64,11 +64,21 @@ export function TournamentPanel({ apiBase = DEFAULT_API_BASE }: TournamentPanelP
     }
   }, [apiBase]);
 
+  // Use ref to store latest fetchTournaments to avoid interval recreation
+  const fetchTournamentsRef = useRef(fetchTournaments);
+  fetchTournamentsRef.current = fetchTournaments;
+
   useEffect(() => {
     fetchTournaments();
-    const interval = setInterval(fetchTournaments, 60000); // Refresh every minute
-    return () => clearInterval(interval);
   }, [fetchTournaments]);
+
+  // Separate effect for interval - runs once, uses ref
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchTournamentsRef.current();
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []); // Empty deps - interval created once
 
   useEffect(() => {
     if (selectedTournament) {

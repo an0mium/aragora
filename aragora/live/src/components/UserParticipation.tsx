@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import type { StreamEvent, AudienceSummaryData, AudienceMetricsData } from '@/types/events';
+import { sanitizeSuggestion } from '@/utils/sanitize';
 
 interface UserParticipationProps {
   events: StreamEvent[];
@@ -110,9 +111,10 @@ export function UserParticipation({ events, onVote, onSuggest, onAck, onError }:
   };
 
   const handleSuggest = () => {
-    if (suggestion.trim() && suggestionState === 'idle') {
+    const sanitized = sanitizeSuggestion(suggestion, 1000);
+    if (sanitized && suggestionState === 'idle') {
       setSuggestionState('pending');
-      onSuggest(suggestion.trim());
+      onSuggest(sanitized);
       setSuggestion('');
     }
   };

@@ -643,6 +643,8 @@ class ContinuumMemory:
         """
         promotions = 0
         demotions = 0
+        promotion_ids: List[str] = []
+        demotion_ids: List[str] = []
 
         with sqlite3.connect(self.db_path, timeout=30.0) as conn:
             cursor = conn.cursor()
@@ -657,7 +659,7 @@ class ContinuumMemory:
                     """,
                     (tier.value, config.promotion_threshold),
                 )
-                promotion_ids = [row[0] for row in cursor.fetchall()]
+                promotion_ids.extend(row[0] for row in cursor.fetchall())
 
             # Find candidates for demotion (high stability)
             for tier in [MemoryTier.FAST, MemoryTier.MEDIUM, MemoryTier.SLOW]:
@@ -671,7 +673,7 @@ class ContinuumMemory:
                     """,
                     (tier.value, config.demotion_threshold),
                 )
-                demotion_ids = [row[0] for row in cursor.fetchall()]
+                demotion_ids.extend(row[0] for row in cursor.fetchall())
 
         # Process promotions/demotions outside the connection context
         for id in promotion_ids:

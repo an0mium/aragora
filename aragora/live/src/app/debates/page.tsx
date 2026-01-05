@@ -25,16 +25,24 @@ function getAgentColors(agentName: string) {
   return AGENT_COLORS.default;
 }
 
+const PAGE_SIZE = 20;
+
 export default function DebatesPage() {
   const [debates, setDebates] = useState<DebateArtifact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'consensus' | 'no-consensus'>('all');
 
   useEffect(() => {
     async function loadDebates() {
       try {
-        const data = await fetchRecentDebates(100);
+        setLoading(true);
+        const data = await fetchRecentDebates(PAGE_SIZE);
         setDebates(data);
+        setHasMore(data.length === PAGE_SIZE);
       } catch (e) {
         console.error('Failed to load debates:', e);
       } finally {
@@ -44,6 +52,37 @@ export default function DebatesPage() {
 
     loadDebates();
   }, []);
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+
+    try {
+      setLoadingMore(true);
+      const nextPage = page + 1;
+      const offset = page * PAGE_SIZE;
+      // Fetch next batch (simplified - using limit + offset simulation)
+      const data = await fetchRecentDebates(PAGE_SIZE * (nextPage + 1));
+      const newDebates = data.slice(offset, offset + PAGE_SIZE);
+
+      if (newDebates.length < PAGE_SIZE) {
+        setHasMore(false);
+      }
+
+      setDebates(prev => [...prev, ...newDebates]);
+      setPage(nextPage);
+    } catch (e) {
+      console.error('Failed to load more debates:', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Filter debates
+  const filteredDebates = debates.filter(debate => {
+    if (filter === 'consensus') return debate.consensus_reached;
+    if (filter === 'no-consensus') return !debate.consensus_reached;
+    return true;
+  });
 
   const handleCopyLink = async (debateId: string) => {
     const url = `${window.location.origin}/debate/${debateId}`;
@@ -67,8 +106,8 @@ export default function DebatesPage() {
     return new Date(timestamp).toLocaleString();
   };
 
-  // Group debates by date
-  const groupedDebates = debates.reduce((acc, debate) => {
+  // Group filtered debates by date
+  const groupedDebates = filteredDebates.reduce((acc, debate) => {
     const date = new Date(debate.created_at).toLocaleDateString();
     if (!acc[date]) acc[date] = [];
     acc[date].push(debate);
@@ -101,14 +140,37 @@ export default function DebatesPage() {
         </header>
 
         <div className="container mx-auto px-4 py-6">
-          {/* Page Title */}
+          {/* Page Title & Filters */}
           <div className="mb-6">
-            <h1 className="text-xl font-mono text-acid-green mb-2">
-              {'>'} DEBATE ARCHIVE
-            </h1>
-            <p className="text-xs text-text-muted font-mono">
-              Browse and share past debates with permalinks
-            </p>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h1 className="text-xl font-mono text-acid-green mb-2">
+                  {'>'} DEBATE ARCHIVE
+                </h1>
+                <p className="text-xs text-text-muted font-mono">
+                  Browse and share past debates with permalinks
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-text-muted font-mono">Filter:</span>
+                {(['all', 'consensus', 'no-consensus'] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                      filter === f
+                        ? 'bg-acid-green/20 text-acid-green border-acid-green/40'
+                        : 'bg-surface text-text-muted border-border hover:border-acid-green/40'
+                    }`}
+                  >
+                    {f === 'all' ? 'ALL' : f === 'consensus' ? 'CONSENSUS' : 'NO CONSENSUS'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-text-muted font-mono">
+              Showing {filteredDebates.length} of {debates.length} debates
+            </div>
           </div>
 
           {loading && (
@@ -208,6 +270,32 @@ export default function DebatesPage() {
                 </div>
               </div>
             ))}
+
+            {/* Load More Button */}
+            {hasMore && !loading && (
+              <div className="text-center py-6">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="px-6 py-3 font-mono text-sm bg-surface border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loadingMore ? (
+                    <span className="animate-pulse">LOADING MORE...</span>
+                  ) : (
+                    <span>LOAD MORE DEBATES</span>
+                  )}
+                </button>
+                <p className="text-xs text-text-muted mt-2">
+                  Page {page} • {PAGE_SIZE} debates per page
+                </p>
+              </div>
+            )}
+
+            {!hasMore && debates.length > 0 && (
+              <div className="text-center py-6 text-xs text-text-muted font-mono">
+                {'>'} END OF ARCHIVE • {debates.length} total debates
+              </div>
+            )}
           </div>
         </div>
 

@@ -233,7 +233,7 @@ class CodeReader:
                     else:
                         result[item.name] = item.stat().st_size
             except PermissionError:
-                pass
+                logger.debug(f"Permission denied accessing {path}")
             return result
 
         return build_tree(self.root, 0)
@@ -461,8 +461,8 @@ class CodeWriter:
             )
             if result.returncode != 0:
                 errors.append("Syntax errors in Python files")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Syntax check skipped: {e}")
 
         return {"errors": errors, "warnings": warnings}
 

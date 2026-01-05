@@ -9,11 +9,14 @@ import asyncio
 import aiohttp
 import hashlib
 import json
+import logging
 import os
 import struct
 from pathlib import Path
 from typing import Optional
 import sqlite3
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingProvider:
@@ -207,8 +210,8 @@ class SemanticRetriever:
                 sock.close()
                 if result == 0:
                     return ollama
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to connect to Ollama: {e}")
             # Fall back to hash-based embeddings (always works, no API needed)
             return EmbeddingProvider(dimension=256)
 

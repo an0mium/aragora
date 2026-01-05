@@ -31,6 +31,7 @@ import { CalibrationPanel } from '@/components/CalibrationPanel';
 import { ConsensusKnowledgeBase } from '@/components/ConsensusKnowledgeBase';
 import { DebateListPanel } from '@/components/DebateListPanel';
 import { AgentComparePanel } from '@/components/AgentComparePanel';
+import { TrendingTopicsPanel } from '@/components/TrendingTopicsPanel';
 import { VerdictCard } from '@/components/VerdictCard';
 import { CompareView, CompareButton } from '@/components/CompareView';
 import { DeepAuditView, DeepAuditToggle } from '@/components/DeepAuditView';
@@ -42,6 +43,7 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { BootSequence } from '@/components/BootSequence';
 import { LandingPage } from '@/components/LandingPage';
 import { BackendSelector, useBackend, BACKENDS } from '@/components/BackendSelector';
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import type { NomicState } from '@/types/events';
 
 type ViewMode = 'tabs' | 'stream' | 'deep-audit';
@@ -372,24 +374,57 @@ export default function Home() {
             />
             <CitationsPanel events={events} />
             <HistoryPanel />
+            <PanelErrorBoundary panelName="Trending Topics">
+              <TrendingTopicsPanel apiBase={apiBase} />
+            </PanelErrorBoundary>
             <DebateListPanel />
             <AgentComparePanel />
-            <LeaderboardPanel wsMessages={events} loopId={effectiveLoopId} apiBase={apiBase} />
-            <CalibrationPanel apiBase={apiBase} />
-            <TournamentPanel apiBase={apiBase} />
-            <AnalyticsPanel apiBase={apiBase} />
-            <ConsensusKnowledgeBase apiBase={apiBase} />
+            <PanelErrorBoundary panelName="Leaderboard">
+              <LeaderboardPanel wsMessages={events} loopId={effectiveLoopId} apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Calibration">
+              <CalibrationPanel apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Tournament">
+              <TournamentPanel apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Analytics">
+              <AnalyticsPanel apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Consensus KB">
+              <ConsensusKnowledgeBase apiBase={apiBase} />
+            </PanelErrorBoundary>
             <DebateBrowser />
-            <InsightsPanel wsMessages={events} />
-            <CruxPanel apiBase={apiBase} />
-            <MemoryInspector apiBase={apiBase} />
-            <LaboratoryPanel apiBase={apiBase} />
-            <AgentNetworkPanel apiBase={apiBase} />
-            <CapabilityProbePanel apiBase={apiBase} />
-            <OperationalModesPanel apiBase={apiBase} />
-            <RedTeamAnalysisPanel apiBase={apiBase} />
-            <ContraryViewsPanel apiBase={apiBase} />
-            <RiskWarningsPanel apiBase={apiBase} />
+            <PanelErrorBoundary panelName="Insights">
+              <InsightsPanel wsMessages={events} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Crux Analysis">
+              <CruxPanel apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Memory Inspector">
+              <MemoryInspector apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Laboratory">
+              <LaboratoryPanel apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Agent Network">
+              <AgentNetworkPanel apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Capability Probes">
+              <CapabilityProbePanel apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Operational Modes">
+              <OperationalModesPanel apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Red Team">
+              <RedTeamAnalysisPanel apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Contrary Views">
+              <ContraryViewsPanel apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Risk Warnings">
+              <RiskWarningsPanel apiBase={apiBase} />
+            </PanelErrorBoundary>
             <ReplayBrowser />
           </div>
         </div>

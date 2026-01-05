@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface EmergentTrait {
   agent: string;
@@ -91,12 +91,21 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
     }
   }, [apiBase]);
 
+  // Use ref to store latest fetchData to avoid interval recreation
+  const fetchDataRef = useRef(fetchData);
+  fetchDataRef.current = fetchData;
+
   useEffect(() => {
     fetchData();
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchData, 300000);
-    return () => clearInterval(interval);
   }, [fetchData]);
+
+  // Separate effect for interval - runs once, uses ref
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchDataRef.current();
+    }, 300000);
+    return () => clearInterval(interval);
+  }, []); // Empty deps - interval created once
 
   const getConfidenceColor = (confidence: number): string => {
     if (confidence >= 0.8) return 'text-green-400';

@@ -16,11 +16,11 @@ interface ReplayEvent {
   event_type: string;
   source: string;
   content: string;
-  metadata: any;
+  metadata: Record<string, unknown>;
 }
 
 interface ReplayDetail {
-  meta: any;
+  meta: Record<string, unknown>;
   events: ReplayEvent[];
 }
 
@@ -141,7 +141,7 @@ export function ReplayBrowser() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h4 className="text-sm font-medium">Replay: {selectedReplay.meta.topic}</h4>
+              <h4 className="text-sm font-medium">Replay: {String(selectedReplay.meta.topic || '')}</h4>
               <div className="text-xs text-text-muted">
                 Convergence patterns: {selectedReplay.events.filter(e => e.event_type === 'consensus').length} consensus points
                 • {selectedReplay.events.filter(e => e.event_type === 'fork').length} branches
@@ -188,21 +188,21 @@ export function ReplayBrowser() {
                     </span>
                   </div>
                   <div className="text-xs text-text-muted mb-2">
-                    Source: {event.source} • Round: {event.metadata?.round || 'N/A'}
-                    {event.metadata?.confidence && (
+                    Source: {event.source} • Round: {String(event.metadata?.round ?? 'N/A')}
+                    {typeof event.metadata?.confidence === 'number' && (
                       <span className="ml-2">Confidence: {Math.round(event.metadata.confidence * 100)}%</span>
                     )}
                   </div>
                   <div className="mb-2">{event.content}</div>
-                  {event.metadata?.citations && event.metadata.citations.length > 0 && (
+                  {Array.isArray(event.metadata?.citations) && event.metadata.citations.length > 0 && (
                     <div className="text-xs text-text-muted mb-2">
-                      Citations: {event.metadata.citations.join(', ')}
+                      Citations: {(event.metadata.citations as string[]).join(', ')}
                     </div>
                   )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      forkReplay(selectedReplay.meta.debate_id, event.event_id);
+                      forkReplay(String(selectedReplay.meta.debate_id || ''), event.event_id);
                     }}
                     disabled={forking === event.event_id}
                     className="px-2 py-1 bg-accent text-bg rounded text-xs hover:bg-accent/80 disabled:opacity-50"

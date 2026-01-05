@@ -20,6 +20,7 @@ Key concepts:
 import asyncio
 import uuid
 import re
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable, Optional
@@ -136,28 +137,52 @@ class VulnerabilityReport:
         }
 
 
-class ProbeStrategy:
-    """Base class for probe strategies."""
+class ProbeStrategy(ABC):
+    """Abstract base class for probe strategies.
+
+    Subclasses must implement:
+    - generate_probe(): Create a probing prompt based on context
+    - analyze_response(): Analyze agent response for vulnerabilities
+    """
 
     def __init__(self, probe_type: ProbeType):
         self.probe_type = probe_type
 
+    @abstractmethod
     def generate_probe(
         self,
         context: list[Message],
         previous_probes: list[ProbeResult],
     ) -> str:
-        """Generate probe prompt. Override in subclasses."""
-        raise NotImplementedError
+        """Generate probe prompt based on context and previous probes.
 
+        Args:
+            context: Previous messages in the conversation
+            previous_probes: Results of previous probes in this session
+
+        Returns:
+            The probe prompt to send to the agent
+        """
+        pass
+
+    @abstractmethod
     def analyze_response(
         self,
         probe_prompt: str,
         response: str,
         context: list[Message],
     ) -> tuple[bool, str, VulnerabilitySeverity]:
-        """Analyze response. Returns (vulnerable, description, severity)."""
-        raise NotImplementedError
+        """Analyze agent response for vulnerabilities.
+
+        Args:
+            probe_prompt: The probe that was sent
+            response: The agent's response
+            context: Previous messages in the conversation
+
+        Returns:
+            Tuple of (vulnerability_found, description, severity)
+        """
+        pass
 
 
 class ContradictionTrap(ProbeStrategy):

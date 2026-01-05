@@ -87,6 +87,20 @@ export function DocumentUpload({ onDocumentsChange, apiBase = '' }: DocumentUplo
       return;
     }
 
+    // Validate MIME type matches extension (security check)
+    const expectedMimes = Object.entries(ACCEPTED_TYPES)
+      .filter(([, extension]) => extension === ext || (ext === '.markdown' && extension === '.md'))
+      .map(([mime]) => mime);
+
+    if (expectedMimes.length > 0 && file.type && !expectedMimes.includes(file.type)) {
+      // Allow empty MIME type (some browsers don't set it)
+      if (file.type !== '') {
+        setError(`File MIME type (${file.type}) doesn't match extension (${ext}). Possible file spoofing.`);
+        setStatus('error');
+        return;
+      }
+    }
+
     // Validate file size (10MB max)
     if (file.size > 10 * 1024 * 1024) {
       setError('File too large. Maximum size is 10MB.');

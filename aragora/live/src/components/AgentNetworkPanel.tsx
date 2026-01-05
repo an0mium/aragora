@@ -232,8 +232,8 @@ export function AgentNetworkPanel({
   useEffect(() => {
     fetch(`${apiBase}/api/leaderboard?limit=20`)
       .then((res) => res.json())
-      .then((data) => {
-        const agents = (data.agents || []).map((a: any) => a.name);
+      .then((data: { agents?: Array<{ name: string }> }) => {
+        const agents = (data.agents || []).map((a) => a.name);
         setAvailableAgents(agents);
         if (!agentInput && agents.length > 0) {
           setAgentInput(agents[0]);

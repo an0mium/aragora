@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { LearningEvolution } from './LearningEvolution';
+import type { StreamEvent } from '@/types/events';
 
 interface Insight {
   id: string;
@@ -40,7 +41,7 @@ interface FlipSummary {
 }
 
 interface InsightsPanelProps {
-  wsMessages?: any[];
+  wsMessages?: StreamEvent[];
   apiBase?: string;
 }
 
@@ -100,12 +101,17 @@ export function InsightsPanel({ wsMessages = [], apiBase = DEFAULT_API_BASE }: I
 
   // Listen for memory_recall WebSocket events
   useEffect(() => {
-    const recallMessages = wsMessages
+    const recallMessages: MemoryRecall[] = wsMessages
       .filter((msg) => msg.type === 'memory_recall')
-      .map((msg) => ({
-        ...msg.data,
-        timestamp: msg.timestamp || new Date().toISOString(),
-      }));
+      .map((msg) => {
+        const data = msg.data as Record<string, unknown>;
+        return {
+          query: (data.query as string) || '',
+          hits: (data.hits as Array<{ topic: string; similarity: number }>) || [],
+          count: (data.count as number) || 0,
+          timestamp: msg.timestamp ? new Date(msg.timestamp).toISOString() : new Date().toISOString(),
+        };
+      });
 
     if (recallMessages.length > 0) {
       setMemoryRecalls((prev) => {
@@ -117,34 +123,43 @@ export function InsightsPanel({ wsMessages = [], apiBase = DEFAULT_API_BASE }: I
 
   // Listen for flip_detected WebSocket events for real-time flip updates
   useEffect(() => {
-    const flipMessages = wsMessages
+    const typeEmojis: Record<string, string> = {
+      'contradiction': '🔄',
+      'retraction': '↩️',
+      'qualification': '⚖️',
+      'refinement': '✨',
+    };
+
+    const flipMessages: FlipEvent[] = wsMessages
       .filter((msg) => msg.type === 'flip_detected')
       .map((msg) => {
-        const data = msg.data || {};
-        const flipType = data.flip_type || data.type || 'unknown';
-        const typeEmojis: Record<string, string> = {
-          'contradiction': '🔄',
-          'retraction': '↩️',
-          'qualification': '⚖️',
-          'refinement': '✨',
-        };
+        const data = (msg.data || {}) as Record<string, unknown>;
+        const beforeData = data.before as Record<string, unknown> | undefined;
+        const afterData = data.after as Record<string, unknown> | undefined;
+        const flipType = String(data.flip_type || data.type || 'unknown');
+        const origConf = data.original_confidence as number | undefined;
+        const newConf = data.new_confidence as number | undefined;
+        const simScore = data.similarity_score as number | undefined;
+
         return {
-          id: data.id || `flip-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          agent: data.agent_name || data.agent || 'unknown',
+          id: String(data.id || `flip-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+          agent: String(data.agent_name || data.agent || 'unknown'),
           type: flipType as FlipEvent['type'],
           type_emoji: typeEmojis[flipType] || '❓',
           before: {
-            claim: data.original_claim || data.before?.claim || '',
-            confidence: data.original_confidence ? `${(data.original_confidence * 100).toFixed(0)}%` : data.before?.confidence || 'N/A',
+            claim: String(data.original_claim || beforeData?.claim || ''),
+            confidence: origConf ? `${(origConf * 100).toFixed(0)}%` : String(beforeData?.confidence || 'N/A'),
           },
           after: {
-            claim: data.new_claim || data.after?.claim || '',
-            confidence: data.new_confidence ? `${(data.new_confidence * 100).toFixed(0)}%` : data.after?.confidence || 'N/A',
+            claim: String(data.new_claim || afterData?.claim || ''),
+            confidence: newConf ? `${(newConf * 100).toFixed(0)}%` : String(afterData?.confidence || 'N/A'),
           },
-          similarity: data.similarity_score ? `${(data.similarity_score * 100).toFixed(0)}%` : data.similarity || 'N/A',
-          domain: data.domain || null,
-          timestamp: msg.timestamp || data.detected_at || new Date().toISOString(),
-        } as FlipEvent;
+          similarity: simScore ? `${(simScore * 100).toFixed(0)}%` : String(data.similarity || 'N/A'),
+          domain: data.domain ? String(data.domain) : null,
+          timestamp: msg.timestamp
+            ? new Date(msg.timestamp).toISOString()
+            : String(data.detected_at || new Date().toISOString()),
+        };
       });
 
     if (flipMessages.length > 0) {

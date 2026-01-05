@@ -13,6 +13,7 @@ Key features:
 
 import asyncio
 import importlib
+import logging
 import resource
 import signal
 import sys
@@ -26,6 +27,8 @@ from aragora.plugins.manifest import (
     PluginCapability,
     PluginRequirement,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -344,8 +347,8 @@ class PluginRegistry:
                     valid, errors = manifest.validate()
                     if valid:
                         self.manifests[manifest.name] = manifest
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to load plugin manifest {manifest_path}: {e}")
 
     def get(self, name: str) -> Optional[PluginManifest]:
         """Get plugin manifest by name."""
