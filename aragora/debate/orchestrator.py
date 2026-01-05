@@ -32,6 +32,7 @@ from aragora.debate.roles import (
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol, user_vote_multiplier
 from aragora.spectate.stream import SpectatorStream
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
+from aragora.debate.sanitization import OutputSanitizer
 
 # Optional position tracking for truth-grounded personas
 PositionTracker = None
@@ -2698,8 +2699,9 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
     async def _generate_with_agent(
         self, agent: Agent, prompt: str, context: list[Message]
     ) -> str:
-        """Generate response with an agent, handling errors."""
-        return await agent.generate(prompt, context)
+        """Generate response with an agent, handling errors and sanitizing output."""
+        raw_output = await agent.generate(prompt, context)
+        return OutputSanitizer.sanitize_agent_output(raw_output, agent.name)
 
     async def _critique_with_agent(
         self, agent: Agent, proposal: str, task: str, context: list[Message]
