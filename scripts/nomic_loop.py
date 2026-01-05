@@ -723,6 +723,11 @@ class AgentCircuitBreaker:
 
     Tracks consecutive failures per agent and temporarily disables
     agents that fail repeatedly to prevent wasting cycles on broken agents.
+
+    Extended with task-scoped tracking (Jan 2026):
+    - Tracks failures per task type (debate, design, implement, verify)
+    - Agents can be disabled for specific task types while still usable for others
+    - Success rates tracked for intelligent agent selection
     """
 
     def __init__(self, failure_threshold: int = 3, cooldown_cycles: int = 2):
@@ -737,6 +742,11 @@ class AgentCircuitBreaker:
         self.cooldown_cycles = cooldown_cycles
         self.failures: dict[str, int] = {}  # agent_name -> consecutive failure count
         self.cooldowns: dict[str, int] = {}  # agent_name -> cycles remaining in cooldown
+
+        # Task-scoped tracking (new)
+        self.task_failures: dict[str, dict[str, int]] = {}  # agent -> task_type -> count
+        self.task_success_rate: dict[str, dict[str, float]] = {}  # agent -> task_type -> rate
+        self.task_cooldowns: dict[str, dict[str, int]] = {}  # agent -> task_type -> cooldown
 
     def record_success(self, agent_name: str) -> None:
         """Reset failure count on success."""
@@ -756,21 +766,99 @@ class AgentCircuitBreaker:
             return True
         return False
 
+    def record_task_success(self, agent_name: str, task_type: str) -> None:
+        """Record success for specific task type and update running average."""
+        # Initialize structures if needed
+        if agent_name not in self.task_success_rate:
+            self.task_success_rate[agent_name] = {}
+        if agent_name not in self.task_failures:
+            self.task_failures[agent_name] = {}
+
+        # Reset task-specific failures
+        self.task_failures[agent_name][task_type] = 0
+
+        # Update running average (exponential moving average)
+        current_rate = self.task_success_rate[agent_name].get(task_type, 0.5)
+        self.task_success_rate[agent_name][task_type] = current_rate * 0.8 + 0.2
+
+        # Also record agent-level success
+        self.record_success(agent_name)
+
+    def record_task_failure(self, agent_name: str, task_type: str) -> bool:
+        """
+        Record failure for specific task type.
+
+        Returns:
+            True if task-specific circuit just tripped
+        """
+        # Initialize structures if needed
+        if agent_name not in self.task_failures:
+            self.task_failures[agent_name] = {}
+        if agent_name not in self.task_cooldowns:
+            self.task_cooldowns[agent_name] = {}
+        if agent_name not in self.task_success_rate:
+            self.task_success_rate[agent_name] = {}
+
+        # Increment task-specific failure count
+        self.task_failures[agent_name][task_type] = \
+            self.task_failures[agent_name].get(task_type, 0) + 1
+
+        # Update running average (exponential moving average toward 0)
+        current_rate = self.task_success_rate[agent_name].get(task_type, 0.5)
+        self.task_success_rate[agent_name][task_type] = current_rate * 0.8
+
+        # Trip task-specific circuit if threshold reached
+        if self.task_failures[agent_name][task_type] >= self.failure_threshold:
+            self.task_cooldowns[agent_name][task_type] = self.cooldown_cycles
+            self.task_failures[agent_name][task_type] = 0
+            return True
+
+        # Also record agent-level failure
+        self.record_failure(agent_name)
+        return False
+
+    def get_task_success_rate(self, agent_name: str, task_type: str) -> float:
+        """Get agent's success rate for specific task type (0.0 to 1.0)."""
+        if agent_name not in self.task_success_rate:
+            return 0.5  # Default neutral
+        return self.task_success_rate[agent_name].get(task_type, 0.5)
+
+    def is_available_for_task(self, agent_name: str, task_type: str) -> bool:
+        """Check if agent is available for a specific task type."""
+        # First check global availability
+        if not self.is_available(agent_name):
+            return False
+        # Then check task-specific cooldown
+        if agent_name in self.task_cooldowns:
+            if self.task_cooldowns[agent_name].get(task_type, 0) > 0:
+                return False
+        return True
+
     def is_available(self, agent_name: str) -> bool:
         """Check if agent is available (not in cooldown)."""
         return self.cooldowns.get(agent_name, 0) <= 0
 
     def start_new_cycle(self) -> None:
         """Decrement cooldowns at start of each cycle."""
+        # Decrement global cooldowns
         for agent_name in list(self.cooldowns.keys()):
             if self.cooldowns[agent_name] > 0:
                 self.cooldowns[agent_name] -= 1
+
+        # Decrement task-specific cooldowns
+        for agent_name in list(self.task_cooldowns.keys()):
+            for task_type in list(self.task_cooldowns[agent_name].keys()):
+                if self.task_cooldowns[agent_name][task_type] > 0:
+                    self.task_cooldowns[agent_name][task_type] -= 1
 
     def get_status(self) -> dict:
         """Get circuit breaker status for all agents."""
         return {
             "failures": dict(self.failures),
             "cooldowns": dict(self.cooldowns),
+            "task_failures": dict(self.task_failures),
+            "task_cooldowns": dict(self.task_cooldowns),
+            "task_success_rates": dict(self.task_success_rate),
         }
 
 
@@ -845,7 +933,15 @@ class NomicLoop:
                     state = json.load(f)
                     self.circuit_breaker.failures = state.get("failures", {})
                     self.circuit_breaker.cooldowns = state.get("cooldowns", {})
-                    print(f"[circuit-breaker] Restored state: {len(self.circuit_breaker.cooldowns)} agents in cooldown")
+                    # Restore task-scoped tracking with defaultdict conversion
+                    for agent, tasks in state.get("task_failures", {}).items():
+                        self.circuit_breaker.task_failures[agent] = defaultdict(int, tasks)
+                    for agent, tasks in state.get("task_cooldowns", {}).items():
+                        self.circuit_breaker.task_cooldowns[agent] = defaultdict(int, tasks)
+                    for agent, rates in state.get("task_success_rate", {}).items():
+                        self.circuit_breaker.task_success_rate[agent] = rates
+                    task_count = sum(len(t) for t in self.circuit_breaker.task_cooldowns.values())
+                    print(f"[circuit-breaker] Restored state: {len(self.circuit_breaker.cooldowns)} agents in cooldown, {task_count} task cooldowns")
             except Exception as e:
                 print(f"[circuit-breaker] Failed to restore state: {e}")
 
@@ -1363,6 +1459,9 @@ class NomicLoop:
                 json.dump({
                     "failures": self.circuit_breaker.failures,
                     "cooldowns": self.circuit_breaker.cooldowns,
+                    "task_failures": dict(self.circuit_breaker.task_failures),
+                    "task_cooldowns": dict(self.circuit_breaker.task_cooldowns),
+                    "task_success_rate": dict(self.circuit_breaker.task_success_rate),
                     "saved_at": datetime.now().isoformat(),
                 }, f, indent=2)
         except Exception:

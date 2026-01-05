@@ -321,6 +321,30 @@ except ImportError:
     PROVENANCE_AVAILABLE = False
     ProvenanceTracker = None
 
+# Optional MomentDetector for significant agent moments
+try:
+    from aragora.agents.grounded import MomentDetector
+    MOMENT_DETECTOR_AVAILABLE = True
+except ImportError:
+    MOMENT_DETECTOR_AVAILABLE = False
+    MomentDetector = None
+
+# Optional ImpasseDetector for debate deadlock detection
+try:
+    from aragora.debate.counterfactual import ImpasseDetector
+    IMPASSE_DETECTOR_AVAILABLE = True
+except ImportError:
+    IMPASSE_DETECTOR_AVAILABLE = False
+    ImpasseDetector = None
+
+# Optional ConvergenceDetector for semantic position convergence
+try:
+    from aragora.debate.convergence import ConvergenceDetector
+    CONVERGENCE_DETECTOR_AVAILABLE = True
+except ImportError:
+    CONVERGENCE_DETECTOR_AVAILABLE = False
+    ConvergenceDetector = None
+
 # Optional AgentSelector for routing recommendations and auto team selection
 try:
     from aragora.routing.selection import AgentSelector, AgentProfile, TaskRequirements
@@ -763,6 +787,19 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         elif path == '/api/debates':
             limit = self._safe_int(query, 'limit', 20, 100)
             self._list_debates(limit)
+
+        # Debate Analysis API (impasse detection, convergence)
+        elif path.startswith('/api/debates/') and path.endswith('/impasse'):
+            debate_id = self._extract_path_segment(path, 3, "debate_id")
+            if debate_id is None:
+                return
+            self._get_debate_impasse(debate_id)
+        elif path.startswith('/api/debates/') and path.endswith('/convergence'):
+            debate_id = self._extract_path_segment(path, 3, "debate_id")
+            if debate_id is None:
+                return
+            self._get_debate_convergence(debate_id)
+
         elif path == '/api/health':
             self._health_check()
         elif path == '/api/nomic/state':
@@ -999,6 +1036,14 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 return
             limit = self._safe_int(query, 'limit', 5, 20)
             self._get_agent_allies(agent, limit)
+
+        # Agent Moments API (significant achievements timeline)
+        elif path.startswith('/api/agent/') and path.endswith('/moments'):
+            agent = self._extract_path_segment(path, 3, "agent")
+            if agent is None:
+                return
+            limit = self._safe_int(query, 'limit', 10, 50)
+            self._get_agent_moments(agent, limit)
 
         # System Statistics API
         elif path == '/api/ranking/stats':
@@ -2993,6 +3038,149 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._send_json({"agent": agent, "allies": allies, "count": len(allies)})
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "agent_allies")}, status=500)
+
+    def _get_agent_moments(self, agent: str, limit: int) -> None:
+        """Get significant moments timeline for an agent."""
+        if not self._check_rate_limit():
+            return
+
+        if not MOMENT_DETECTOR_AVAILABLE:
+            self._send_json({"error": "MomentDetector not available"}, status=503)
+            return
+
+        try:
+            db_path = self.nomic_dir / "grounded_positions.db" if self.nomic_dir else None
+            if not db_path or not db_path.exists():
+                self._send_json({"agent": agent, "moments": [], "narrative": ""})
+                return
+
+            detector = MomentDetector(str(db_path))
+            moments = detector.get_agent_moments(agent, limit=limit)
+            narrative = detector.get_narrative_summary(agent) if moments else ""
+
+            self._send_json({
+                "agent": agent,
+                "moments": [
+                    {
+                        "id": m.get("id", ""),
+                        "type": m.get("type", "unknown"),
+                        "description": m.get("description", ""),
+                        "significance_score": m.get("significance_score", 0.0),
+                        "created_at": m.get("created_at", ""),
+                    }
+                    for m in moments
+                ],
+                "narrative": narrative,
+                "count": len(moments),
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "agent_moments")}, status=500)
+
+    def _get_debate_impasse(self, debate_id: str) -> None:
+        """Analyze debate for impasse/deadlock detection."""
+        if not self._check_rate_limit():
+            return
+
+        if not IMPASSE_DETECTOR_AVAILABLE:
+            self._send_json({"error": "ImpasseDetector not available"}, status=503)
+            return
+
+        try:
+            # Load debate from storage
+            if not self.storage:
+                self._send_json({"error": "Storage not configured"}, status=503)
+                return
+
+            debate = self.storage.get_debate(debate_id)
+            if not debate:
+                self._send_json({"error": "Debate not found"}, status=404)
+                return
+
+            # Extract messages for impasse analysis
+            transcript = debate.get("transcript", [])
+            if not transcript:
+                self._send_json({
+                    "debate_id": debate_id,
+                    "has_impasse": False,
+                    "pivot_claim": None,
+                    "should_branch": False,
+                })
+                return
+
+            # Run impasse detection
+            detector = ImpasseDetector()
+            pivot = detector.detect_impasse(transcript)
+
+            self._send_json({
+                "debate_id": debate_id,
+                "has_impasse": pivot is not None,
+                "pivot_claim": {
+                    "claim_id": pivot.claim_id if pivot else None,
+                    "statement": pivot.statement if pivot else None,
+                    "disagreement_score": pivot.disagreement_score if pivot else 0.0,
+                    "importance_score": pivot.importance_score if pivot else 0.0,
+                } if pivot else None,
+                "should_branch": pivot is not None and pivot.importance_score > 0.5,
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "debate_impasse")}, status=500)
+
+    def _get_debate_convergence(self, debate_id: str) -> None:
+        """Check semantic convergence of agent positions in a debate."""
+        if not self._check_rate_limit():
+            return
+
+        if not CONVERGENCE_DETECTOR_AVAILABLE:
+            self._send_json({"error": "ConvergenceDetector not available"}, status=503)
+            return
+
+        try:
+            # Load debate from storage
+            if not self.storage:
+                self._send_json({"error": "Storage not configured"}, status=503)
+                return
+
+            debate = self.storage.get_debate(debate_id)
+            if not debate:
+                self._send_json({"error": "Debate not found"}, status=404)
+                return
+
+            # Extract agent positions from transcript
+            transcript = debate.get("transcript", [])
+            positions = {}
+            for msg in transcript:
+                agent = msg.get("agent") or msg.get("speaker", "unknown")
+                content = msg.get("content", "")
+                if content:
+                    positions[agent] = content  # Use latest position
+
+            if len(positions) < 2:
+                self._send_json({
+                    "debate_id": debate_id,
+                    "convergence_score": 0.0,
+                    "is_converged": False,
+                    "recommendation": "Not enough positions to analyze",
+                })
+                return
+
+            # Run convergence detection
+            detector = ConvergenceDetector(threshold=0.85)
+            result = detector.check_convergence(list(positions.values()))
+
+            self._send_json({
+                "debate_id": debate_id,
+                "convergence_score": round(result.similarity, 3),
+                "is_converged": result.converged,
+                "threshold": 0.85,
+                "recommendation": (
+                    "Positions have converged; further rounds unlikely to produce new insights"
+                    if result.converged
+                    else "Positions still divergent; debate may continue productively"
+                ),
+                "positions_analyzed": len(positions),
+            })
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "debate_convergence")}, status=500)
 
     def _get_critique_patterns(self, limit: int, min_success: float) -> None:
         """Get high-impact critique patterns for learning."""
