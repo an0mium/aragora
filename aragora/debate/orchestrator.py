@@ -1501,6 +1501,20 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         self._partial_messages = []
         self._partial_critiques = []
 
+        # Initialize context with fork debate history if provided
+        if self.initial_messages:
+            for msg in self.initial_messages:
+                if isinstance(msg, Message):
+                    self._partial_messages.append(msg)
+                elif isinstance(msg, dict):
+                    # Convert dict to Message for fork debate context
+                    self._partial_messages.append(Message(
+                        role=msg.get("role", "user"),
+                        agent=msg.get("agent", "fork_context"),
+                        content=msg.get("content", ""),
+                        round=msg.get("round", 0),
+                    ))
+
         # Start recording if recorder is provided
         if self.recorder:
             try:
@@ -1586,6 +1600,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     context.append(Message(
                         agent=msg.get('agent', 'previous'),
                         content=msg['content'],
+                        role=msg.get('role', 'assistant'),
                         round=-1,  # Mark as pre-debate context
                     ))
             if context:

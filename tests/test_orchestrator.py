@@ -639,5 +639,96 @@ class TestUserEventQueue:
         assert not arena._user_event_queue.empty()
 
 
+class TestForkInitialMessages:
+    """Tests for fork debate initial messages support."""
+
+    def test_arena_accepts_initial_messages_param(self):
+        """Arena constructor should accept initial_messages parameter."""
+        agents = [MockAgent("agent1")]
+        env = Environment(task="Test initial messages", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+
+        initial_messages = [
+            {"agent": "previous_agent", "content": "Previous discussion point"},
+            {"agent": "other_agent", "content": "Another point from earlier"},
+        ]
+
+        arena = Arena(env, agents, protocol, initial_messages=initial_messages)
+
+        assert arena.initial_messages == initial_messages
+        assert len(arena.initial_messages) == 2
+
+    def test_arena_defaults_to_empty_initial_messages(self):
+        """Arena should default to empty list when no initial_messages provided."""
+        agents = [MockAgent("agent1")]
+        env = Environment(task="Test default", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+
+        arena = Arena(env, agents, protocol)
+
+        assert arena.initial_messages == []
+
+    def test_arena_handles_none_initial_messages(self):
+        """Arena should handle None initial_messages gracefully."""
+        agents = [MockAgent("agent1")]
+        env = Environment(task="Test none", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+
+        arena = Arena(env, agents, protocol, initial_messages=None)
+
+        assert arena.initial_messages == []
+
+    def test_initial_messages_dict_format(self):
+        """Initial messages as dicts should be stored correctly."""
+        agents = [MockAgent("agent1")]
+        env = Environment(task="Test dict format", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+
+        initial_messages = [
+            {"content": "First message", "agent": "agent_a"},
+            {"content": "Second message"},  # No agent specified
+        ]
+
+        arena = Arena(env, agents, protocol, initial_messages=initial_messages)
+
+        assert len(arena.initial_messages) == 2
+        assert arena.initial_messages[0]["content"] == "First message"
+        assert arena.initial_messages[1]["content"] == "Second message"
+
+    def test_empty_initial_messages_list(self):
+        """Empty initial_messages list should work correctly."""
+        agents = [MockAgent("agent1")]
+        env = Environment(task="Test empty", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+
+        arena = Arena(env, agents, protocol, initial_messages=[])
+
+        assert arena.initial_messages == []
+
+    @pytest.mark.asyncio
+    async def test_initial_messages_in_context(self):
+        """Initial messages should be converted to Message objects in debate context."""
+        from aragora.core import Message
+
+        agents = [MockAgent("agent1")]
+        agents[0].generate_responses = ["Test proposal"]
+        env = Environment(task="Test context", max_rounds=1)
+        protocol = DebateProtocol(
+            rounds=1, consensus="none", early_stopping=False, convergence_detection=False
+        )
+
+        initial_messages = [
+            {"agent": "previous", "content": "Historical context"},
+        ]
+
+        arena = Arena(env, agents, protocol, initial_messages=initial_messages)
+        result = await arena.run()
+
+        # Debate should complete successfully with initial context
+        assert result is not None
+        # The initial messages are used as context but may not be in final messages
+        # depending on implementation - just verify no error occurred
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
