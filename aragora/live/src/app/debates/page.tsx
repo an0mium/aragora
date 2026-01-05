@@ -6,24 +6,7 @@ import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
-
-// Agent color schemes
-const AGENT_COLORS: Record<string, { bg: string; text: string }> = {
-  gemini: { bg: 'bg-purple/10', text: 'text-purple' },
-  codex: { bg: 'bg-gold/10', text: 'text-gold' },
-  claude: { bg: 'bg-acid-cyan/10', text: 'text-acid-cyan' },
-  grok: { bg: 'bg-crimson/10', text: 'text-crimson' },
-  default: { bg: 'bg-acid-green/10', text: 'text-acid-green' },
-};
-
-function getAgentColors(agentName: string) {
-  const name = agentName.toLowerCase();
-  if (name.startsWith('gemini')) return AGENT_COLORS.gemini;
-  if (name.startsWith('codex')) return AGENT_COLORS.codex;
-  if (name.startsWith('claude')) return AGENT_COLORS.claude;
-  if (name.startsWith('grok')) return AGENT_COLORS.grok;
-  return AGENT_COLORS.default;
-}
+import { getAgentColors } from '@/utils/agentColors';
 
 const PAGE_SIZE = 20;
 

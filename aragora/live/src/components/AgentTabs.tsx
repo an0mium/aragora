@@ -2,7 +2,9 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
+import { isAgentMessage } from '@/types/events';
 import { RoleBadge } from './RoleBadge';
+import { getAgentColors } from '@/utils/agentColors';
 
 interface AgentTabsProps {
   events: StreamEvent[];
@@ -21,24 +23,6 @@ const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora
 
 // Special tab ID for unified "All Agents" view
 const ALL_AGENTS_TAB = '__all__';
-
-// Agent color schemes by model family
-const MODEL_COLORS: Record<string, { bg: string; text: string; border: string; tab: string }> = {
-  gemini: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30', tab: 'bg-purple-500' },
-  codex: { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/30', tab: 'bg-yellow-500' },
-  claude: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/30', tab: 'bg-indigo-500' },
-  grok: { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/30', tab: 'bg-red-500' },
-  default: { bg: 'bg-surface', text: 'text-text', border: 'border-border', tab: 'bg-gray-500' },
-};
-
-function getAgentColors(agentName: string) {
-  const name = agentName.toLowerCase();
-  if (name.startsWith('gemini')) return MODEL_COLORS.gemini;
-  if (name.startsWith('codex')) return MODEL_COLORS.codex;
-  if (name.startsWith('claude')) return MODEL_COLORS.claude;
-  if (name.startsWith('grok')) return MODEL_COLORS.grok;
-  return MODEL_COLORS.default;
-}
 
 // Terminal-style role indicators
 const ROLE_ICONS: Record<string, string> = {
@@ -104,47 +88,47 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
   const agentData = useMemo(() => {
     const agents: Record<string, AgentData> = {};
 
-    events.forEach((event) => {
-      if (event.type === 'agent_message' && event.agent) {
-        const agentName = event.agent;
-        const content = event.data?.content as string || '';
-        const role = event.data?.role as string || 'proposer';
-        const cognitiveRole = event.data?.cognitive_role as string;
-        const round = event.round || 0;
-        const confidence = event.data?.confidence as number;
-        const citations = event.data?.citations as string[];
+    events.filter(isAgentMessage).forEach((event) => {
+      if (!event.agent) return;
 
-        if (!agents[agentName]) {
-          agents[agentName] = {
-            name: agentName,
-            latestContent: content,
-            role,
-            cognitiveRole,
-            round,
-            confidence,
-            citations,
-            timestamp: event.timestamp,
-            allMessages: [],
-          };
-        }
+      const agentName = event.agent;
+      const content = event.data.content || '';
+      const role = event.data.role || 'proposer';
+      const cognitiveRole = event.data.cognitive_role;
+      const round = event.round || 0;
+      const confidence = event.data.confidence;
+      const citations = event.data.citations;
 
-        agents[agentName].allMessages.push({
-          content,
-          round,
+      if (!agents[agentName]) {
+        agents[agentName] = {
+          name: agentName,
+          latestContent: content,
           role,
+          cognitiveRole,
+          round,
+          confidence,
+          citations,
           timestamp: event.timestamp,
-        });
+          allMessages: [],
+        };
+      }
 
-        // Update to latest message
-        if (event.timestamp >= agents[agentName].timestamp) {
-          agents[agentName].latestContent = content;
-          agents[agentName].role = role;
-          agents[agentName].cognitiveRole = cognitiveRole;
-          agents[agentName].round = round;
-          agents[agentName].confidence = confidence;
-          agents[agentName].citations = citations;
-          agents[agentName].timestamp = event.timestamp;
-        }
+      agents[agentName].allMessages.push({
+        content,
+        round,
+        role,
+        timestamp: event.timestamp,
+      });
+
+      // Update to latest message
+      if (event.timestamp >= agents[agentName].timestamp) {
+        agents[agentName].latestContent = content;
+        agents[agentName].role = role;
+        agents[agentName].cognitiveRole = cognitiveRole;
+        agents[agentName].round = round;
+        agents[agentName].confidence = confidence;
+        agents[agentName].citations = citations;
+        agents[agentName].timestamp = event.timestamp;
       }
     });
 
@@ -154,12 +138,13 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
   // Extract unified timeline of all agent messages
   const unifiedTimeline = useMemo(() => {
     return events
-      .filter((e) => e.type === 'agent_message' && e.agent)
+      .filter(isAgentMessage)
+      .filter((e) => e.agent)
       .map((e) => ({
         agent: e.agent || '',
-        content: (e.data?.content as string) || '',
-        role: (e.data?.role as string) || 'proposer',
-        cognitiveRole: e.data?.cognitive_role as string | undefined,
+        content: e.data.content || '',
+        role: e.data.role || 'proposer',
+        cognitiveRole: e.data.cognitive_role,
         round: e.round || 0,
         timestamp: e.timestamp,
       }))

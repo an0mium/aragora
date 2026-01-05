@@ -8,27 +8,10 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserParticipation } from '@/components/UserParticipation';
 import { CitationsPanel } from '@/components/CitationsPanel';
+import { getAgentColors } from '@/utils/agentColors';
 import type { StreamEvent } from '@/types/events';
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
-
-// Agent color schemes
-const AGENT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  gemini: { bg: 'bg-purple/10', text: 'text-purple', border: 'border-purple/40' },
-  codex: { bg: 'bg-gold/10', text: 'text-gold', border: 'border-gold/40' },
-  claude: { bg: 'bg-acid-cyan/10', text: 'text-acid-cyan', border: 'border-acid-cyan/40' },
-  grok: { bg: 'bg-crimson/10', text: 'text-crimson', border: 'border-crimson/40' },
-  default: { bg: 'bg-acid-green/10', text: 'text-acid-green', border: 'border-acid-green/40' },
-};
-
-function getAgentColors(agentName: string) {
-  const name = agentName.toLowerCase();
-  if (name.startsWith('gemini')) return AGENT_COLORS.gemini;
-  if (name.startsWith('codex')) return AGENT_COLORS.codex;
-  if (name.startsWith('claude')) return AGENT_COLORS.claude;
-  if (name.startsWith('grok')) return AGENT_COLORS.grok;
-  return AGENT_COLORS.default;
-}
 
 interface TranscriptMessage {
   agent: string;

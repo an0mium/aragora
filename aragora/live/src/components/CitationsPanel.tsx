@@ -73,24 +73,27 @@ export function CitationsPanel({ events }: CitationsPanelProps) {
 
     events.forEach((event) => {
       // Look for citation data in various event types
-      const citationsData = event.data?.citations as any[] | undefined;
+      // Cast to Record<string, unknown> since citations can appear on multiple event types
+      const eventData = event.data as Record<string, unknown>;
+      const citationsData = eventData?.citations as unknown[] | undefined;
 
       if (citationsData && Array.isArray(citationsData)) {
-        citationsData.forEach((c) => {
-          const id = c.id || `${c.title}-${c.year}`;
+        citationsData.forEach((citation) => {
+          const c = citation as Record<string, unknown>;
+          const id = (c.id as string) || `${c.title}-${c.year}`;
           if (!seen.has(id)) {
             seen.add(id);
             citationList.push({
               id,
-              type: (c.citation_type || c.type || 'unknown') as CitationType,
-              title: c.title || 'Untitled',
-              authors: c.authors || [],
-              year: c.year,
-              url: c.url,
-              excerpt: c.excerpt || '',
-              quality: (c.quality || 'unverified') as CitationQuality,
-              relevance: c.relevance_score || c.relevance || 0.5,
-              claimId: c.claim_id,
+              type: ((c.citation_type || c.type || 'unknown') as string) as CitationType,
+              title: (c.title as string) || 'Untitled',
+              authors: (c.authors as string[]) || [],
+              year: c.year as number | undefined,
+              url: c.url as string | undefined,
+              excerpt: (c.excerpt as string) || '',
+              quality: ((c.quality || 'unverified') as string) as CitationQuality,
+              relevance: (c.relevance_score || c.relevance || 0.5) as number,
+              claimId: c.claim_id as string | undefined,
             });
           }
         });
@@ -98,23 +101,24 @@ export function CitationsPanel({ events }: CitationsPanelProps) {
 
       // Also check for grounded_verdict events
       if (event.type === 'grounded_verdict' || event.type === 'verdict') {
-        const allCitations = event.data?.all_citations as any[] | undefined;
+        const allCitations = eventData?.all_citations as unknown[] | undefined;
         if (allCitations && Array.isArray(allCitations)) {
-          allCitations.forEach((c) => {
-            const id = c.id || `${c.title}-${c.year}`;
+          allCitations.forEach((citation) => {
+            const c = citation as Record<string, unknown>;
+            const id = (c.id as string) || `${c.title}-${c.year}`;
             if (!seen.has(id)) {
               seen.add(id);
               citationList.push({
                 id,
-                type: (c.citation_type || c.type || 'unknown') as CitationType,
-                title: c.title || 'Untitled',
-                authors: c.authors || [],
-                year: c.year,
-                url: c.url,
-                excerpt: c.excerpt || '',
-                quality: (c.quality || 'unverified') as CitationQuality,
-                relevance: c.relevance_score || c.relevance || 0.5,
-                claimId: c.claim_id,
+                type: ((c.citation_type || c.type || 'unknown') as string) as CitationType,
+                title: (c.title as string) || 'Untitled',
+                authors: (c.authors as string[]) || [],
+                year: c.year as number | undefined,
+                url: c.url as string | undefined,
+                excerpt: (c.excerpt as string) || '',
+                quality: ((c.quality || 'unverified') as string) as CitationQuality,
+                relevance: (c.relevance_score || c.relevance || 0.5) as number,
+                claimId: c.claim_id as string | undefined,
               });
             }
           });

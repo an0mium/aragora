@@ -60,12 +60,136 @@ export type StreamEventType =
   | 'audit_cross_exam'
   | 'audit_verdict';
 
-export interface StreamEvent {
-  type: StreamEventType;
-  data: Record<string, unknown>;
+// Base interface for all stream events
+interface StreamEventBase {
   timestamp: number;
   round?: number;
   agent?: string;
+}
+
+// Specific event data types for type-safe access
+export interface AgentMessageData {
+  agent: string;
+  content: string;
+  role?: string;
+  cognitive_role?: string;
+  confidence?: number;
+  citations?: string[];
+}
+
+export interface DebateStartData {
+  debate_id: string;
+  task: string;
+  agents: string[];
+  rounds: number;
+}
+
+export interface RoundStartData {
+  round: number;
+  total_rounds: number;
+}
+
+export interface VoteData {
+  agent: string;
+  choice: string;
+  vote?: string;  // Alternative field name for choice
+  confidence: number;
+  reasoning?: string;
+}
+
+export interface ConsensusData {
+  reached: boolean;
+  topic?: string;
+  confidence?: number;
+  supporting_agents?: string[];
+  answer?: string;
+}
+
+export interface VerdictData {
+  winner?: string;
+  reasoning: string;
+  scores?: Record<string, number>;
+  citations?: string[];
+}
+
+export interface TokenDeltaData {
+  agent: string;
+  delta: string;
+  accumulated?: string;
+}
+
+export interface MoodData {
+  agent: string;
+  mood: string;
+  confidence: number;
+  indicators?: string[];
+}
+
+export interface MemoryRecallData {
+  query: string;
+  hits: Array<{ topic: string; similarity: number }>;
+  count: number;
+}
+
+export interface FlipDetectedData {
+  agent_name: string;
+  flip_type: 'contradiction' | 'retraction' | 'qualification' | 'refinement';
+  original_claim: string;
+  new_claim: string;
+  original_confidence?: number;
+  new_confidence?: number;
+  similarity_score?: number;
+  domain?: string;
+  detected_at?: string;
+}
+
+// Discriminated union of specific event types
+export type TypedStreamEvent =
+  | (StreamEventBase & { type: 'agent_message'; data: AgentMessageData })
+  | (StreamEventBase & { type: 'debate_start'; data: DebateStartData })
+  | (StreamEventBase & { type: 'round_start'; data: RoundStartData })
+  | (StreamEventBase & { type: 'vote'; data: VoteData })
+  | (StreamEventBase & { type: 'consensus'; data: ConsensusData })
+  | (StreamEventBase & { type: 'verdict' | 'grounded_verdict'; data: VerdictData })
+  | (StreamEventBase & { type: 'token_delta'; data: TokenDeltaData })
+  | (StreamEventBase & { type: 'mood_detected' | 'mood_shift'; data: MoodData })
+  | (StreamEventBase & { type: 'memory_recall'; data: MemoryRecallData })
+  | (StreamEventBase & { type: 'flip_detected'; data: FlipDetectedData })
+  | (StreamEventBase & { type: 'audience_summary'; data: AudienceSummaryData })
+  | (StreamEventBase & { type: 'audience_metrics'; data: AudienceMetricsData })
+  | (StreamEventBase & { type: 'audit_finding'; data: AuditFinding })
+  | (StreamEventBase & { type: 'audit_round'; data: AuditRoundData })
+  | (StreamEventBase & { type: 'audit_verdict'; data: AuditVerdictData });
+
+// Generic event type for events not yet specifically typed
+export interface GenericStreamEvent extends StreamEventBase {
+  type: StreamEventType;
+  data: Record<string, unknown>;
+}
+
+// Union type that accepts both typed and generic events
+// Use TypedStreamEvent when you need type safety, StreamEvent for general use
+export type StreamEvent = TypedStreamEvent | GenericStreamEvent;
+
+// Type guard helpers
+export function isAgentMessage(event: StreamEvent): event is StreamEventBase & { type: 'agent_message'; data: AgentMessageData } {
+  return event.type === 'agent_message';
+}
+
+export function isMemoryRecall(event: StreamEvent): event is StreamEventBase & { type: 'memory_recall'; data: MemoryRecallData } {
+  return event.type === 'memory_recall';
+}
+
+export function isFlipDetected(event: StreamEvent): event is StreamEventBase & { type: 'flip_detected'; data: FlipDetectedData } {
+  return event.type === 'flip_detected';
+}
+
+export function isAudienceSummary(event: StreamEvent): event is StreamEventBase & { type: 'audience_summary'; data: AudienceSummaryData } {
+  return event.type === 'audience_summary';
+}
+
+export function isAudienceMetrics(event: StreamEvent): event is StreamEventBase & { type: 'audience_metrics'; data: AudienceMetricsData } {
+  return event.type === 'audience_metrics';
 }
 
 export interface NomicState {

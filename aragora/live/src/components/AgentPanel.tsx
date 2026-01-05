@@ -2,37 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { StreamEvent } from '@/types/events';
+import { isAgentMessage } from '@/types/events';
+import { getAgentColors } from '@/utils/agentColors';
 
 interface AgentPanelProps {
   events: StreamEvent[];
-}
-
-// Agent color schemes by model family - acid/terminal aesthetic
-const MODEL_COLORS = {
-  // Gemini - purple (Google AI)
-  gemini: { bg: 'bg-purple/5', text: 'text-purple', border: 'border-purple/40', glow: 'shadow-[0_0_10px_rgba(191,0,255,0.1)]' },
-  // Codex - gold (OpenAI)
-  codex: { bg: 'bg-gold/5', text: 'text-gold', border: 'border-gold/40', glow: 'shadow-[0_0_10px_rgba(255,215,0,0.1)]' },
-  // Claude - cyan (Anthropic)
-  claude: { bg: 'bg-acid-cyan/5', text: 'text-acid-cyan', border: 'border-acid-cyan/40', glow: 'shadow-[0_0_10px_rgba(0,255,255,0.1)]' },
-  // Grok - crimson red (xAI)
-  grok: { bg: 'bg-crimson/5', text: 'text-crimson', border: 'border-crimson/40', glow: 'shadow-[0_0_10px_rgba(255,0,64,0.1)]' },
-  // Default - acid green
-  default: { bg: 'bg-acid-green/5', text: 'text-acid-green', border: 'border-acid-green/30', glow: '' },
-};
-
-/**
- * Get colors for an agent by name, using prefix matching.
- * This ensures any variant (e.g., "grok-explorer", "grok-pragmatist") gets the right color.
- */
-function getAgentColors(agentName: string): { bg: string; text: string; border: string; glow: string } {
-  const name = agentName.toLowerCase();
-  // Match by prefix (order matters - check specific models first)
-  if (name.startsWith('gemini')) return MODEL_COLORS.gemini;
-  if (name.startsWith('codex')) return MODEL_COLORS.codex;
-  if (name.startsWith('claude')) return MODEL_COLORS.claude;
-  if (name.startsWith('grok')) return MODEL_COLORS.grok;
-  return MODEL_COLORS.default;
 }
 
 // Terminal-style role indicators
@@ -54,9 +28,9 @@ export function AgentPanel({ events }: AgentPanelProps) {
   // Collect all agent_message content for deduplication
   const agentMessageContents = new Set(
     events
-      .filter((e) => e.type === 'agent_message')
+      .filter(isAgentMessage)
       .map((e) => {
-        const content = (e.data?.content as string) || '';
+        const content = e.data.content || '';
         // Normalize: first 2000 chars, lowercase, trimmed for better deduplication accuracy
         // Increased from 500 to prevent false positive deduplication of long messages
         return content.slice(0, 2000).toLowerCase().trim();

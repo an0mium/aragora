@@ -3,24 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
-
-// Agent color schemes
-const AGENT_COLORS: Record<string, string> = {
-  gemini: 'text-purple',
-  codex: 'text-gold',
-  claude: 'text-acid-cyan',
-  grok: 'text-crimson',
-  default: 'text-acid-green',
-};
-
-function getAgentColor(agentName: string): string {
-  const name = agentName.toLowerCase();
-  if (name.startsWith('gemini')) return AGENT_COLORS.gemini;
-  if (name.startsWith('codex')) return AGENT_COLORS.codex;
-  if (name.startsWith('claude')) return AGENT_COLORS.claude;
-  if (name.startsWith('grok')) return AGENT_COLORS.grok;
-  return AGENT_COLORS.default;
-}
+import { getAgentTextColor as getAgentColor } from '@/utils/agentColors';
 
 export function DebateBrowser() {
   const [debates, setDebates] = useState<DebateArtifact[]>([]);

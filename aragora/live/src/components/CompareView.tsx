@@ -2,29 +2,13 @@
 
 import { useState, useMemo } from 'react';
 import type { StreamEvent } from '@/types/events';
+import { isAgentMessage } from '@/types/events';
 import { RoleBadge } from './RoleBadge';
+import { getAgentColors, AGENT_COLORS } from '@/utils/agentColors';
 
 interface CompareViewProps {
   events: StreamEvent[];
   onClose: () => void;
-}
-
-// Agent color schemes
-const MODEL_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  gemini: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30' },
-  codex: { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/30' },
-  claude: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/30' },
-  grok: { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/30' },
-  default: { bg: 'bg-surface', text: 'text-text', border: 'border-border' },
-};
-
-function getAgentColors(agentName: string) {
-  const name = agentName.toLowerCase();
-  if (name.startsWith('gemini')) return MODEL_COLORS.gemini;
-  if (name.startsWith('codex')) return MODEL_COLORS.codex;
-  if (name.startsWith('claude')) return MODEL_COLORS.claude;
-  if (name.startsWith('grok')) return MODEL_COLORS.grok;
-  return MODEL_COLORS.default;
 }
 
 interface AgentData {
@@ -79,14 +63,15 @@ export function CompareView({ events, onClose }: CompareViewProps) {
     if (!agentName) return null;
 
     const messages = events
-      .filter((e) => e.type === 'agent_message' && e.agent === agentName)
+      .filter(isAgentMessage)
+      .filter((e) => e.agent === agentName)
       .map((e) => ({
         name: agentName,
-        content: e.data?.content as string || '',
-        role: e.data?.role as string || 'proposer',
-        cognitiveRole: e.data?.cognitive_role as string,
+        content: e.data.content || '',
+        role: e.data.role || 'proposer',
+        cognitiveRole: e.data.cognitive_role,
         round: e.round || 0,
-        confidence: e.data?.confidence as number,
+        confidence: e.data.confidence,
         timestamp: e.timestamp,
       }));
 
@@ -174,7 +159,7 @@ interface ComparisonPaneProps {
 }
 
 function ComparisonPane({ agents, selectedAgent, onSelectAgent, agentData, position }: ComparisonPaneProps) {
-  const colors = selectedAgent ? getAgentColors(selectedAgent) : MODEL_COLORS.default;
+  const colors = selectedAgent ? getAgentColors(selectedAgent) : AGENT_COLORS.default;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
