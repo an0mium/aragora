@@ -135,6 +135,103 @@ def _get_argument_cartographer():
 
 
 @dataclass
+class CircuitBreaker:
+    """
+    Circuit breaker pattern for graceful agent failure handling.
+
+    Tracks consecutive failures per agent and temporarily removes
+    agents that exceed the failure threshold from debate participation.
+    """
+
+    failure_threshold: int = 3  # Consecutive failures before opening circuit
+    cooldown_seconds: float = 300.0  # 5 minutes before attempting recovery
+    half_open_success_threshold: int = 2  # Successes needed to fully close
+
+    def __post_init__(self):
+        self._failures: dict[str, int] = {}  # agent_name -> consecutive failures
+        self._circuit_open_at: dict[str, float] = {}  # agent_name -> timestamp
+        self._half_open_successes: dict[str, int] = {}  # agent_name -> recovery successes
+
+    def record_failure(self, agent_name: str) -> bool:
+        """Record an agent failure. Returns True if circuit just opened."""
+        self._failures[agent_name] = self._failures.get(agent_name, 0) + 1
+        self._half_open_successes[agent_name] = 0  # Reset recovery progress
+
+        if self._failures[agent_name] >= self.failure_threshold:
+            if agent_name not in self._circuit_open_at:
+                self._circuit_open_at[agent_name] = time.time()
+                logger.warning(
+                    f"[circuit_breaker] Circuit OPEN for {agent_name} "
+                    f"after {self._failures[agent_name]} failures"
+                )
+                return True
+        return False
+
+    def record_success(self, agent_name: str) -> None:
+        """Record an agent success. May close an open circuit."""
+        if agent_name in self._circuit_open_at:
+            # In half-open state, track recovery successes
+            self._half_open_successes[agent_name] = (
+                self._half_open_successes.get(agent_name, 0) + 1
+            )
+            if self._half_open_successes[agent_name] >= self.half_open_success_threshold:
+                # Fully close the circuit
+                del self._circuit_open_at[agent_name]
+                self._failures[agent_name] = 0
+                self._half_open_successes[agent_name] = 0
+                logger.info(f"[circuit_breaker] Circuit CLOSED for {agent_name}")
+        else:
+            # Reset failure count on success
+            self._failures[agent_name] = 0
+
+    def is_available(self, agent_name: str) -> bool:
+        """Check if an agent is available for use."""
+        if agent_name not in self._circuit_open_at:
+            return True
+
+        # Check if cooldown has passed (half-open state)
+        elapsed = time.time() - self._circuit_open_at[agent_name]
+        if elapsed >= self.cooldown_seconds:
+            return True  # Allow trial request in half-open state
+
+        return False
+
+    def get_status(self, agent_name: str) -> str:
+        """Get circuit status: 'closed', 'open', or 'half-open'."""
+        if agent_name not in self._circuit_open_at:
+            return "closed"
+        elapsed = time.time() - self._circuit_open_at[agent_name]
+        if elapsed >= self.cooldown_seconds:
+            return "half-open"
+        return "open"
+
+    def filter_available_agents(self, agents: list) -> list:
+        """Return only agents with closed or half-open circuits."""
+        return [a for a in agents if self.is_available(a.name)]
+
+    def to_dict(self) -> dict:
+        """Serialize to dict for persistence."""
+        return {
+            "failures": self._failures.copy(),
+            "cooldowns": {
+                name: time.time() - ts
+                for name, ts in self._circuit_open_at.items()
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> "CircuitBreaker":
+        """Load from persisted dict."""
+        cb = cls(**kwargs)
+        cb._failures = data.get("failures", {})
+        # Restore open circuits with remaining cooldown
+        for name, elapsed in data.get("cooldowns", {}).items():
+            if elapsed < cb.cooldown_seconds:
+                cb._circuit_open_at[name] = time.time() - elapsed
+        return cb
+
+
+@dataclass
 class DebateProtocol:
     """Configuration for how debates are conducted."""
 
@@ -287,6 +384,7 @@ class Arena:
         moment_detector=None,  # Optional MomentDetector for significant moments
         loop_id: str = "",  # Loop ID for multi-loop scoping
         strict_loop_scoping: bool = False,  # Drop events without loop_id when True
+        circuit_breaker: CircuitBreaker = None,  # Optional CircuitBreaker for agent failure handling
     ):
         self.env = environment
         self.agents = agents
@@ -311,6 +409,7 @@ class Arena:
         self.moment_detector = moment_detector  # For detecting significant moments
         self.loop_id = loop_id  # Loop ID for scoping events
         self.strict_loop_scoping = strict_loop_scoping  # Enforce loop_id on all events
+        self.circuit_breaker = circuit_breaker or CircuitBreaker()
 
         # ArgumentCartographer for debate graph visualization
         AC = _get_argument_cartographer()
@@ -1676,6 +1775,12 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         print("Round 0: Initial Proposals")
         print("-" * 40)
 
+        # Filter proposers through circuit breaker
+        available_proposers = self.circuit_breaker.filter_available_agents(proposers)
+        if len(available_proposers) < len(proposers):
+            skipped = [a.name for a in proposers if a not in available_proposers]
+            print(f"  [circuit_breaker] Skipping agents: {', '.join(skipped)}")
+
         # Create tasks with agent reference for streaming output
         async def generate_proposal(agent):
             """Generate proposal and return (agent, result_or_error)."""
@@ -1688,7 +1793,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 return (agent, e)
 
         # Use asyncio.as_completed to stream output as each agent finishes
-        tasks = [asyncio.create_task(generate_proposal(agent)) for agent in proposers]
+        tasks = [asyncio.create_task(generate_proposal(agent)) for agent in available_proposers]
 
         for completed_task in asyncio.as_completed(tasks):
             agent, result_or_error = await completed_task
@@ -1696,9 +1801,11 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             if isinstance(result_or_error, Exception):
                 print(f"  {agent.name}: ERROR - {result_or_error}")
                 proposals[agent.name] = f"[Error generating proposal: {result_or_error}]"
+                self.circuit_breaker.record_failure(agent.name)
             else:
                 proposals[agent.name] = result_or_error
                 print(f"  {agent.name}: {result_or_error}")  # Full content
+                self.circuit_breaker.record_success(agent.name)
 
                 # Notify spectator of proposal
                 self._notify_spectator("propose", agent=agent.name, details=f"Initial proposal ({len(result_or_error)} chars)", metric=len(result_or_error))
@@ -1785,6 +1892,13 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 # The loop below already skips self-critique via "if critic.name != proposal_agent"
                 critics = list(self.agents)
 
+            # Filter critics through circuit breaker
+            available_critics = self.circuit_breaker.filter_available_agents(critics)
+            if len(available_critics) < len(critics):
+                skipped = [c.name for c in critics if c not in available_critics]
+                print(f"  [circuit_breaker] Skipping critics: {', '.join(skipped)}")
+            critics = available_critics
+
             # === Critique Phase (stream output as each critique completes) ===
             async def generate_critique(critic, proposal_agent, proposal):
                 """Generate critique and return (critic, proposal_agent, result_or_error)."""
@@ -1810,7 +1924,9 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
 
                 if isinstance(crit_result, Exception):
                     print(f"  {critic.name} -> {proposal_agent}: ERROR - {crit_result}")
+                    self.circuit_breaker.record_failure(critic.name)
                 else:
+                    self.circuit_breaker.record_success(critic.name)
                     result.critiques.append(crit_result)
                     self._partial_critiques.append(crit_result)  # Track for timeout recovery
                     print(
@@ -2468,6 +2584,18 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             print(f"  [grounding] Evidence grounding score: {result.grounded_verdict.grounding_score:.0%}")
             if result.grounded_verdict.claims:
                 print(f"  [grounding] {len(result.grounded_verdict.claims)} claims analyzed")
+
+            # Emit grounded verdict event for frontend display
+            if self.event_emitter:
+                try:
+                    from aragora.server.stream import StreamEvent, StreamEventType
+                    self.event_emitter.emit(StreamEvent(
+                        type=StreamEventType.GROUNDED_VERDICT,
+                        data=result.grounded_verdict.to_dict(),
+                        debate_id=self.loop_id or "unknown",
+                    ))
+                except Exception as e:
+                    logger.debug(f"Failed to emit grounded verdict event: {e}")
 
         # === Formal Z3 verification for decidable claims ===
         await self._verify_claims_formally(result)
