@@ -103,17 +103,24 @@ class TestArgumentCartographer:
     def test_statistics(self):
         """Statistics should accurately reflect graph state."""
         cart = ArgumentCartographer()
-        
+
         cart.update_from_message("a1", "Proposal", "proposer", 1)
         cart.update_from_message("a2", "I disagree", "critic", 1)
         cart.update_from_message("a3", "Good point", "supporter", 1)
-        
+
         stats = cart.get_statistics()
-        
-        assert stats["total_nodes"] == 3
+
+        assert stats["node_count"] == 3
         assert stats["rounds"] == 1
         assert "a1" in stats["agents"]
         assert "a2" in stats["agents"]
+        # Verify new GraphStats fields exist
+        assert "edge_count" in stats
+        assert "max_depth" in stats
+        assert "avg_branching" in stats
+        assert "complexity_score" in stats
+        assert "claim_count" in stats
+        assert "rebuttal_count" in stats
 
     def test_sanitize_special_characters(self):
         """Special characters should be sanitized for Mermaid."""

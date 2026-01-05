@@ -29,6 +29,14 @@ interface GenesisStats {
   event_counts: Record<string, number>;
 }
 
+interface CritiquePattern {
+  pattern: string;
+  issue_type: string;
+  suggested_rebuttal: string;
+  success_rate: number;
+  usage_count: number;
+}
+
 interface LaboratoryPanelProps {
   apiBase?: string;
 }
@@ -39,9 +47,10 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
   const [traits, setTraits] = useState<EmergentTrait[]>([]);
   const [pollinations, setPollinations] = useState<CrossPollination[]>([]);
   const [genesisStats, setGenesisStats] = useState<GenesisStats | null>(null);
+  const [patterns, setPatterns] = useState<CritiquePattern[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'traits' | 'pollinations' | 'evolution'>('traits');
+  const [activeTab, setActiveTab] = useState<'traits' | 'pollinations' | 'evolution' | 'patterns'>('traits');
   const [expanded, setExpanded] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -49,10 +58,11 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
     setError(null);
 
     try {
-      const [traitsRes, pollinationsRes, genesisRes] = await Promise.all([
+      const [traitsRes, pollinationsRes, genesisRes, patternsRes] = await Promise.all([
         fetch(`${apiBase}/api/laboratory/emergent-traits?min_confidence=0.3&limit=10`),
         fetch(`${apiBase}/api/laboratory/cross-pollinations/suggest`),
         fetch(`${apiBase}/api/genesis/stats`),
+        fetch(`${apiBase}/api/critiques/patterns?limit=15&min_success=0.5`),
       ]);
 
       if (traitsRes.ok) {
@@ -68,6 +78,11 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
       if (genesisRes.ok) {
         const data = await genesisRes.json();
         setGenesisStats(data);
+      }
+
+      if (patternsRes.ok) {
+        const data = await patternsRes.json();
+        setPatterns(data.patterns || []);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch laboratory data');
@@ -129,6 +144,9 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
         <span>
           Pollinations: <span className="text-acid-green">{pollinations.length}</span>
         </span>
+        <span>
+          Patterns: <span className="text-purple-400">{patterns.length}</span>
+        </span>
         {genesisStats && (
           <>
             <span>
@@ -182,6 +200,16 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
               }`}
             >
               EVOLUTION
+            </button>
+            <button
+              onClick={() => setActiveTab('patterns')}
+              className={`px-3 py-1 rounded text-sm font-mono transition-colors flex-1 ${
+                activeTab === 'patterns'
+                  ? 'bg-purple-500 text-bg font-medium'
+                  : 'text-text-muted hover:text-text'
+              }`}
+            >
+              PATTERNS
             </button>
           </div>
 
@@ -369,6 +397,54 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Patterns Tab */}
+          {activeTab === 'patterns' && (
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {loading && patterns.length === 0 && (
+                <div className="text-center text-text-muted py-4 font-mono text-sm">
+                  Discovering critique patterns...
+                </div>
+              )}
+
+              {!loading && patterns.length === 0 && (
+                <div className="text-center text-text-muted py-4 font-mono text-sm">
+                  No critique patterns yet. Run more debates to discover effective arguments.
+                </div>
+              )}
+
+              {patterns.map((pattern, index) => (
+                <div
+                  key={`${pattern.pattern.slice(0, 20)}-${index}`}
+                  className="p-3 bg-bg border border-border rounded-lg hover:border-purple-500/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <span className={`px-2 py-0.5 text-xs rounded border bg-purple-500/20 text-purple-400 border-purple-500/30`}>
+                      {pattern.issue_type || 'general'}
+                    </span>
+                    <div className="flex items-center gap-2 text-xs font-mono">
+                      <span className={pattern.success_rate >= 0.7 ? 'text-green-400' : pattern.success_rate >= 0.5 ? 'text-yellow-400' : 'text-orange-400'}>
+                        {(pattern.success_rate * 100).toFixed(0)}% success
+                      </span>
+                      <span className="text-text-muted">
+                        {pattern.usage_count} uses
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-text font-medium mb-2">
+                    {pattern.pattern}
+                  </p>
+
+                  {pattern.suggested_rebuttal && (
+                    <div className="text-xs text-text-muted p-2 bg-surface rounded border border-border">
+                      <span className="text-purple-400 font-mono">Rebuttal:</span> {pattern.suggested_rebuttal}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </>

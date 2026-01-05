@@ -418,7 +418,7 @@ class TestGroundedPersonasIntegration:
     async def test_position_ledger_integration(self, mock_agents, debate_env, temp_db):
         """Position ledger should record positions during debate."""
         try:
-            from aragora.agents.grounded_personas import PositionLedger
+            from aragora.agents.grounded import PositionLedger
 
             ledger = PositionLedger(db_path=str(temp_db))
 
@@ -442,9 +442,9 @@ class TestGroundedPersonasIntegration:
     async def test_relationship_tracker_integration(self, mock_agents, debate_env, temp_db):
         """Relationship tracker should record interactions."""
         try:
-            from aragora.agents.grounded_personas import RelationshipTracker
+            from aragora.agents.grounded import RelationshipTracker
 
-            tracker = RelationshipTracker(db_path=str(temp_db))
+            tracker = RelationshipTracker(elo_db_path=str(temp_db))
 
             protocol = DebateProtocol(rounds=2, consensus="majority")
             arena = Arena(

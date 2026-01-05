@@ -5,6 +5,7 @@ import { DebateInput } from './DebateInput';
 import { AsciiBannerCompact } from './AsciiBanner';
 import { Scanlines, CRTVignette } from './MatrixRain';
 import { ThemeToggle } from './ThemeToggle';
+import { BackendSelector } from './BackendSelector';
 
 interface LandingPageProps {
   apiBase: string;
@@ -52,6 +53,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
               >
                 [LIVE DASHBOARD]
               </a>
+              <BackendSelector compact />
               <ThemeToggle />
             </div>
           </div>

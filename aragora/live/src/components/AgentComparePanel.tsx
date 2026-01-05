@@ -1,0 +1,304 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+
+interface AgentProfile {
+  name: string;
+  rating: number;
+  rank: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  consistency_score?: number;
+  calibration_score?: number;
+  domains?: string[];
+}
+
+interface ComparisonResult {
+  agents: AgentProfile[];
+  head_to_head?: {
+    matches: number;
+    agent1_wins: number;
+    agent2_wins: number;
+    draws: number;
+  };
+}
+
+interface AgentComparePanelProps {
+  initialAgents?: string[];
+  availableAgents?: string[];
+}
+
+export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: AgentComparePanelProps) {
+  const [agent1, setAgent1] = useState(initialAgents[0] || '');
+  const [agent2, setAgent2] = useState(initialAgents[1] || '');
+  const [comparison, setComparison] = useState<ComparisonResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [agents, setAgents] = useState<string[]>(availableAgents);
+
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
+  // Fetch available agents if not provided
+  useEffect(() => {
+    if (availableAgents.length === 0) {
+      fetch(`${apiBase}/api/rankings`)
+        .then(res => res.json())
+        .then(data => {
+          const agentNames = (data.rankings || []).map((r: { name: string }) => r.name);
+          setAgents(agentNames);
+          if (!agent1 && agentNames.length > 0) setAgent1(agentNames[0]);
+          if (!agent2 && agentNames.length > 1) setAgent2(agentNames[1]);
+        })
+        .catch(() => {});
+    }
+  }, [apiBase, availableAgents, agent1, agent2]);
+
+  const fetchComparison = useCallback(async () => {
+    if (!agent1 || !agent2 || agent1 === agent2) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(
+        `${apiBase}/api/agent/compare?agents=${encodeURIComponent(agent1)}&agents=${encodeURIComponent(agent2)}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Comparison failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setComparison(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Comparison failed');
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBase, agent1, agent2]);
+
+  useEffect(() => {
+    if (agent1 && agent2 && agent1 !== agent2) {
+      fetchComparison();
+    }
+  }, [agent1, agent2, fetchComparison]);
+
+  const getWinRateColor = (rate: number) => {
+    if (rate >= 0.6) return 'text-green-400';
+    if (rate >= 0.4) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const getRatingDiff = () => {
+    if (!comparison || comparison.agents.length < 2) return null;
+    const diff = comparison.agents[0].rating - comparison.agents[1].rating;
+    return diff;
+  };
+
+  return (
+    <div className="bg-gray-900 rounded-lg border border-gray-700 p-4">
+      <h3 className="text-lg font-semibold text-white mb-4">Agent Comparison</h3>
+
+      {/* Agent Selection */}
+      <div className="flex gap-4 mb-6">
+        <div className="flex-1">
+          <label className="block text-sm text-gray-400 mb-1">Agent 1</label>
+          <select
+            value={agent1}
+            onChange={(e) => setAgent1(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white"
+          >
+            <option value="">Select agent...</option>
+            {agents.map((agent) => (
+              <option key={agent} value={agent} disabled={agent === agent2}>
+                {agent}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-end pb-2">
+          <span className="text-gray-500 text-xl">vs</span>
+        </div>
+        <div className="flex-1">
+          <label className="block text-sm text-gray-400 mb-1">Agent 2</label>
+          <select
+            value={agent2}
+            onChange={(e) => setAgent2(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white"
+          >
+            <option value="">Select agent...</option>
+            {agents.map((agent) => (
+              <option key={agent} value={agent} disabled={agent === agent1}>
+                {agent}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded text-red-200 text-sm">
+          {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      )}
+
+      {comparison && comparison.agents.length === 2 && !loading && (
+        <div className="space-y-4">
+          {/* Rating Comparison */}
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="bg-gray-800 rounded p-3">
+              <div className="text-2xl font-bold text-blue-400">
+                {comparison.agents[0].rating.toFixed(0)}
+              </div>
+              <div className="text-xs text-gray-400">ELO Rating</div>
+            </div>
+            <div className="flex items-center justify-center">
+              {getRatingDiff() !== null && (
+                <span className={getRatingDiff()! > 0 ? 'text-green-400' : 'text-red-400'}>
+                  {getRatingDiff()! > 0 ? '+' : ''}{getRatingDiff()!.toFixed(0)}
+                </span>
+              )}
+            </div>
+            <div className="bg-gray-800 rounded p-3">
+              <div className="text-2xl font-bold text-purple-400">
+                {comparison.agents[1].rating.toFixed(0)}
+              </div>
+              <div className="text-xs text-gray-400">ELO Rating</div>
+            </div>
+          </div>
+
+          {/* Stats Comparison Table */}
+          <div className="bg-gray-800 rounded overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="py-2 px-3 text-left text-blue-400">{agent1}</th>
+                  <th className="py-2 px-3 text-center text-gray-400">Stat</th>
+                  <th className="py-2 px-3 text-right text-purple-400">{agent2}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-700">
+                  <td className="py-2 px-3 text-white">{comparison.agents[0].wins}</td>
+                  <td className="py-2 px-3 text-center text-gray-400">Wins</td>
+                  <td className="py-2 px-3 text-right text-white">{comparison.agents[1].wins}</td>
+                </tr>
+                <tr className="border-b border-gray-700">
+                  <td className="py-2 px-3 text-white">{comparison.agents[0].losses}</td>
+                  <td className="py-2 px-3 text-center text-gray-400">Losses</td>
+                  <td className="py-2 px-3 text-right text-white">{comparison.agents[1].losses}</td>
+                </tr>
+                <tr className="border-b border-gray-700">
+                  <td className={`py-2 px-3 ${getWinRateColor(comparison.agents[0].win_rate)}`}>
+                    {(comparison.agents[0].win_rate * 100).toFixed(1)}%
+                  </td>
+                  <td className="py-2 px-3 text-center text-gray-400">Win Rate</td>
+                  <td className={`py-2 px-3 text-right ${getWinRateColor(comparison.agents[1].win_rate)}`}>
+                    {(comparison.agents[1].win_rate * 100).toFixed(1)}%
+                  </td>
+                </tr>
+                <tr className="border-b border-gray-700">
+                  <td className="py-2 px-3 text-white">#{comparison.agents[0].rank}</td>
+                  <td className="py-2 px-3 text-center text-gray-400">Rank</td>
+                  <td className="py-2 px-3 text-right text-white">#{comparison.agents[1].rank}</td>
+                </tr>
+                {comparison.agents[0].consistency_score !== undefined && (
+                  <tr className="border-b border-gray-700">
+                    <td className="py-2 px-3 text-white">
+                      {(comparison.agents[0].consistency_score * 100).toFixed(0)}%
+                    </td>
+                    <td className="py-2 px-3 text-center text-gray-400">Consistency</td>
+                    <td className="py-2 px-3 text-right text-white">
+                      {comparison.agents[1].consistency_score !== undefined
+                        ? `${(comparison.agents[1].consistency_score * 100).toFixed(0)}%`
+                        : '-'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Head-to-Head */}
+          {comparison.head_to_head && comparison.head_to_head.matches > 0 && (
+            <div className="bg-gray-800 rounded p-4">
+              <h4 className="text-sm font-medium text-gray-300 mb-3">Head-to-Head Record</h4>
+              <div className="flex items-center justify-between">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-400">
+                    {comparison.head_to_head.agent1_wins}
+                  </div>
+                  <div className="text-xs text-gray-400">Wins</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg text-gray-500">
+                    {comparison.head_to_head.matches} matches
+                  </div>
+                  {comparison.head_to_head.draws > 0 && (
+                    <div className="text-xs text-gray-400">
+                      {comparison.head_to_head.draws} draws
+                    </div>
+                  )}
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-400">
+                    {comparison.head_to_head.agent2_wins}
+                  </div>
+                  <div className="text-xs text-gray-400">Wins</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Domain Overlap */}
+          {comparison.agents[0].domains && comparison.agents[1].domains && (
+            <div className="bg-gray-800 rounded p-4">
+              <h4 className="text-sm font-medium text-gray-300 mb-3">Domain Expertise</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs text-gray-400 mb-2">{agent1}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {comparison.agents[0].domains.slice(0, 5).map((domain, i) => (
+                      <span key={i} className="px-2 py-0.5 bg-blue-900/50 text-blue-300 text-xs rounded">
+                        {domain}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400 mb-2">{agent2}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {comparison.agents[1].domains.slice(0, 5).map((domain, i) => (
+                      <span key={i} className="px-2 py-0.5 bg-purple-900/50 text-purple-300 text-xs rounded">
+                        {domain}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!comparison && !loading && agent1 && agent2 && agent1 !== agent2 && (
+        <div className="text-center py-8 text-gray-400">
+          No comparison data available
+        </div>
+      )}
+
+      {agent1 === agent2 && agent1 && (
+        <div className="text-center py-8 text-gray-400">
+          Please select two different agents to compare
+        </div>
+      )}
+    </div>
+  );
+}

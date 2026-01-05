@@ -1627,55 +1627,66 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     self._partial_messages.append(msg)  # Track for timeout recovery
 
             # === Revision Phase ===
-            # Get critiques for each proposer and let them revise
-            for agent in proposers:
-                agent_critiques = [
-                    c for c in result.critiques if c.target_agent == "proposal"  # simplified
-                ]
+            # Get critiques for each proposer and let them revise (parallelized)
+            agent_critiques = [
+                c for c in result.critiques if c.target_agent == "proposal"  # simplified
+            ]
 
-                if agent_critiques:
+            if agent_critiques:
+                # Build revision tasks for all proposers in parallel
+                revision_tasks = []
+                revision_agents = []
+                for agent in proposers:
                     revision_prompt = self._build_revision_prompt(
                         agent, proposals[agent.name], agent_critiques[-len(critics) :]
                     )
-                    try:
-                        revised = await self._generate_with_agent(agent, revision_prompt, context)
-                        proposals[agent.name] = revised
-                        print(f"  {agent.name} revised: {revised}")  # Full content
+                    revision_tasks.append(self._generate_with_agent(agent, revision_prompt, context))
+                    revision_agents.append(agent)
 
-                        # Notify spectator of revision
-                        self._notify_spectator("propose", agent=agent.name, details=f"Revised proposal ({len(revised)} chars)", metric=len(revised))
+                # Execute all revisions in parallel
+                revision_results = await asyncio.gather(*revision_tasks, return_exceptions=True)
 
-                        msg = Message(
-                            role="proposer",
+                # Process results sequentially (for proper message ordering)
+                for agent, revised in zip(revision_agents, revision_results):
+                    if isinstance(revised, Exception):
+                        print(f"  {agent.name} revision ERROR: {revised}")
+                        continue
+
+                    proposals[agent.name] = revised
+                    print(f"  {agent.name} revised: {revised}")  # Full content
+
+                    # Notify spectator of revision
+                    self._notify_spectator("propose", agent=agent.name, details=f"Revised proposal ({len(revised)} chars)", metric=len(revised))
+
+                    msg = Message(
+                        role="proposer",
+                        agent=agent.name,
+                        content=revised,
+                        round=round_num,
+                    )
+                    context.append(msg)
+                    result.messages.append(msg)
+                    self._partial_messages.append(msg)  # Track for timeout recovery
+
+                    # Emit message event for revision
+                    if "on_message" in self.hooks:
+                        self.hooks["on_message"](
                             agent=agent.name,
                             content=revised,
-                            round=round_num,
+                            role="proposer",
+                            round_num=round_num,
                         )
-                        context.append(msg)
-                        result.messages.append(msg)
-                        self._partial_messages.append(msg)  # Track for timeout recovery
 
-                        # Emit message event for revision
-                        if "on_message" in self.hooks:
-                            self.hooks["on_message"](
-                                agent=agent.name,
-                                content=revised,
-                                role="proposer",
-                                round_num=round_num,
-                            )
+                    # Record revision
+                    if self.recorder:
+                        try:
+                            self.recorder.record_turn(agent.name, revised, round_num)
+                        except Exception:
+                            pass
 
-                        # Record revision
-                        if self.recorder:
-                            try:
-                                self.recorder.record_turn(agent.name, revised, round_num)
-                            except Exception:
-                                pass
-
-                        # Record revised position for grounded personas
-                        debate_id = result.id if hasattr(result, 'id') else self.env.task[:50]
-                        self._record_grounded_position(agent.name, revised, debate_id, round_num, 0.75)
-                    except Exception as e:
-                        print(f"  {agent.name} revision ERROR: {e}")
+                    # Record revised position for grounded personas
+                    debate_id = result.id if hasattr(result, 'id') else self.env.task[:50]
+                    self._record_grounded_position(agent.name, revised, debate_id, round_num, 0.75)
 
             result.rounds_used = round_num
 
@@ -1804,35 +1815,38 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             if vote_groups:
                 print(f"  Vote grouping merged: {vote_groups}")
 
-            # Count votes using canonical choices with reputation and reliability weighting
+            # Pre-compute vote weights for all agents (batch fetch optimization)
+            _vote_weight_cache: dict[str, float] = {}
+            for agent in self.agents:
+                agent_weight = 1.0
+
+                # Get reputation-based vote weight (0.5-1.5 range)
+                if self.memory and hasattr(self.memory, 'get_vote_weight'):
+                    agent_weight = self.memory.get_vote_weight(agent.name)
+
+                # Apply reliability weight from capability probing (0.0-1.0 multiplier)
+                if self.agent_weights and agent.name in self.agent_weights:
+                    agent_weight *= self.agent_weights[agent.name]
+
+                # Apply consistency weight from FlipDetector (0.5-1.0 multiplier)
+                if self.flip_detector:
+                    try:
+                        consistency = self.flip_detector.get_agent_consistency(agent.name)
+                        consistency_weight = 0.5 + (consistency.consistency_score * 0.5)
+                        agent_weight *= consistency_weight
+                    except Exception:
+                        pass
+
+                _vote_weight_cache[agent.name] = agent_weight
+
+            # Count votes using canonical choices with pre-computed weights
             vote_counts = Counter()
             total_weighted_votes = 0.0
 
             for v in result.votes:
                 if not isinstance(v, Exception):
                     canonical = choice_mapping.get(v.choice, v.choice)
-
-                    # Get reputation-based vote weight (0.5-1.5 range)
-                    vote_weight = 1.0
-                    if self.memory and hasattr(self.memory, 'get_vote_weight'):
-                        vote_weight = self.memory.get_vote_weight(v.agent)
-
-                    # Apply reliability weight from capability probing (0.0-1.0 multiplier)
-                    if self.agent_weights and v.agent in self.agent_weights:
-                        vote_weight *= self.agent_weights[v.agent]
-
-                    # Apply consistency weight from FlipDetector (0.5-1.0 multiplier)
-                    # Agents with many contradictions get down-weighted
-                    if self.flip_detector:
-                        try:
-                            consistency = self.flip_detector.get_agent_consistency(v.agent)
-                            # Scale consistency_score (0-1) to weight (0.5-1.0)
-                            # Fully consistent = 1.0x, fully inconsistent = 0.5x
-                            consistency_weight = 0.5 + (consistency.consistency_score * 0.5)
-                            vote_weight *= consistency_weight
-                        except Exception:
-                            pass  # Skip if consistency check fails
-
+                    vote_weight = _vote_weight_cache.get(v.agent, 1.0)
                     vote_counts[canonical] += vote_weight
                     total_weighted_votes += vote_weight
 
@@ -2506,27 +2520,34 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         if len(choices) < 2:
             return {}
 
-        # Build groups using union-find approach
+        # Build groups using union-find approach (optimized)
         groups: dict[str, list[str]] = {}  # canonical -> [choices]
         assigned: dict[str, str] = {}  # choice -> canonical
 
+        # Track unassigned for O(n) filtering instead of O(n²) checks
+        unassigned = set(choices)
+
         for choice in choices:
-            if choice in assigned:
+            if choice not in unassigned:
                 continue
 
             # Start a new group with this choice as canonical
             groups[choice] = [choice]
             assigned[choice] = choice
+            unassigned.remove(choice)
 
-            # Check other unassigned choices for similarity
-            for other in choices:
-                if other in assigned or other == choice:
-                    continue
-
+            # Check only remaining unassigned choices for similarity
+            to_assign = []
+            for other in unassigned:
                 similarity = backend.compute_similarity(choice, other)
                 if similarity >= self.protocol.vote_grouping_threshold:
                     groups[choice].append(other)
                     assigned[other] = choice
+                    to_assign.append(other)
+
+            # Remove newly assigned from unassigned set
+            for item in to_assign:
+                unassigned.remove(item)
 
         # Only return groups with multiple members (merges occurred)
         return {k: v for k, v in groups.items() if len(v) > 1}

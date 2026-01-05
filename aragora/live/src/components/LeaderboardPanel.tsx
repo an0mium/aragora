@@ -41,6 +41,29 @@ interface TeamCombination {
   wins: number;
 }
 
+interface RankingStats {
+  mean_elo: number;
+  median_elo: number;
+  total_agents: number;
+  total_matches: number;
+  rating_distribution: Record<string, number>;
+  trending_up: string[];
+  trending_down: string[];
+}
+
+interface AgentIntrospection {
+  agent: string;
+  self_model: {
+    strengths: string[];
+    weaknesses: string[];
+    biases: string[];
+  };
+  confidence_calibration: number;
+  recent_performance_assessment: string;
+  improvement_focus: string[];
+  last_updated: string;
+}
+
 interface LeaderboardPanelProps {
   wsMessages?: any[];
   loopId?: string | null;
@@ -54,9 +77,11 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
   const [matches, setMatches] = useState<Match[]>([]);
   const [reputations, setReputations] = useState<AgentReputation[]>([]);
   const [teams, setTeams] = useState<TeamCombination[]>([]);
+  const [stats, setStats] = useState<RankingStats | null>(null);
+  const [introspections, setIntrospections] = useState<AgentIntrospection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'rankings' | 'matches' | 'reputation' | 'teams'>('rankings');
+  const [activeTab, setActiveTab] = useState<'rankings' | 'matches' | 'reputation' | 'teams' | 'stats' | 'minds'>('rankings');
   const [lastEventId, setLastEventId] = useState<string | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [availableDomains, setAvailableDomains] = useState<string[]>([]);
@@ -79,11 +104,13 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
         matchesParams.set('domain', selectedDomain);
       }
 
-      const [leaderboardRes, matchesRes, reputationRes, teamsRes] = await Promise.all([
+      const [leaderboardRes, matchesRes, reputationRes, teamsRes, statsRes, introspectionRes] = await Promise.all([
         fetch(`${apiBase}/api/leaderboard?${leaderboardParams}`),
         fetch(`${apiBase}/api/matches/recent?${matchesParams}`),
         fetch(`${apiBase}/api/reputation/all`),
         fetch(`${apiBase}/api/routing/best-teams?min_debates=3&limit=10`),
+        fetch(`${apiBase}/api/ranking/stats`),
+        fetch(`${apiBase}/api/introspection/all`),
       ]);
 
       if (leaderboardRes.ok) {
@@ -140,6 +167,16 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
       if (teamsRes.ok) {
         const data = await teamsRes.json();
         setTeams(data.combinations || []);
+      }
+
+      if (statsRes.ok) {
+        const data = await statsRes.json();
+        setStats(data);
+      }
+
+      if (introspectionRes.ok) {
+        const data = await introspectionRes.json();
+        setIntrospections(data.agents || []);
       }
 
       setError(null);
@@ -287,6 +324,26 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
           }`}
         >
           Teams
+        </button>
+        <button
+          onClick={() => setActiveTab('stats')}
+          className={`px-3 py-1 rounded text-sm transition-colors flex-1 ${
+            activeTab === 'stats'
+              ? 'bg-accent text-bg font-medium'
+              : 'text-text-muted hover:text-text'
+          }`}
+        >
+          Stats
+        </button>
+        <button
+          onClick={() => setActiveTab('minds')}
+          className={`px-3 py-1 rounded text-sm transition-colors flex-1 ${
+            activeTab === 'minds'
+              ? 'bg-accent text-bg font-medium'
+              : 'text-text-muted hover:text-text'
+          }`}
+        >
+          Minds
         </button>
       </div>
 
@@ -509,6 +566,176 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
               {/* Success Rate */}
               <div className={`text-sm font-mono font-bold ${team.success_rate >= 0.7 ? 'text-green-400' : team.success_rate >= 0.5 ? 'text-yellow-400' : 'text-red-400'}`}>
                 {(team.success_rate * 100).toFixed(0)}%
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Stats Tab */}
+      {activeTab === 'stats' && (
+        <div className="space-y-3 max-h-80 overflow-y-auto">
+          {loading && (
+            <div className="text-center text-text-muted py-4">Loading stats...</div>
+          )}
+
+          {!loading && !stats && (
+            <div className="text-center text-text-muted py-4">
+              No ranking stats yet. Run debates to generate statistics.
+            </div>
+          )}
+
+          {stats && (
+            <>
+              {/* Key Metrics */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 bg-bg border border-border rounded-lg">
+                  <div className="text-xs text-text-muted">Mean ELO</div>
+                  <div className="text-xl font-bold text-accent">{stats.mean_elo?.toFixed(0) || 'N/A'}</div>
+                </div>
+                <div className="p-3 bg-bg border border-border rounded-lg">
+                  <div className="text-xs text-text-muted">Median ELO</div>
+                  <div className="text-xl font-bold text-text">{stats.median_elo?.toFixed(0) || 'N/A'}</div>
+                </div>
+                <div className="p-3 bg-bg border border-border rounded-lg">
+                  <div className="text-xs text-text-muted">Total Agents</div>
+                  <div className="text-xl font-bold text-text">{stats.total_agents || 0}</div>
+                </div>
+                <div className="p-3 bg-bg border border-border rounded-lg">
+                  <div className="text-xs text-text-muted">Total Matches</div>
+                  <div className="text-xl font-bold text-text">{stats.total_matches || 0}</div>
+                </div>
+              </div>
+
+              {/* Rating Distribution */}
+              {stats.rating_distribution && Object.keys(stats.rating_distribution).length > 0 && (
+                <div className="p-3 bg-bg border border-border rounded-lg">
+                  <div className="text-xs text-text-muted mb-2">Rating Distribution</div>
+                  <div className="space-y-1">
+                    {Object.entries(stats.rating_distribution)
+                      .sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
+                      .map(([tier, count]) => (
+                        <div key={tier} className="flex items-center gap-2">
+                          <span className="text-xs text-text-muted w-16">{tier}+</span>
+                          <div className="flex-1 h-2 bg-surface rounded">
+                            <div
+                              className="h-full bg-accent rounded"
+                              style={{ width: `${Math.min((count / stats.total_agents) * 100, 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-text w-8 text-right">{count}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Trending Agents */}
+              {((stats.trending_up && stats.trending_up.length > 0) ||
+                (stats.trending_down && stats.trending_down.length > 0)) && (
+                <div className="grid grid-cols-2 gap-2">
+                  {stats.trending_up && stats.trending_up.length > 0 && (
+                    <div className="p-3 bg-bg border border-border rounded-lg">
+                      <div className="text-xs text-green-400 mb-1">Trending Up</div>
+                      {stats.trending_up.slice(0, 3).map((agent) => (
+                        <div key={agent} className="text-sm text-text truncate">{agent}</div>
+                      ))}
+                    </div>
+                  )}
+                  {stats.trending_down && stats.trending_down.length > 0 && (
+                    <div className="p-3 bg-bg border border-border rounded-lg">
+                      <div className="text-xs text-red-400 mb-1">Trending Down</div>
+                      {stats.trending_down.slice(0, 3).map((agent) => (
+                        <div key={agent} className="text-sm text-text truncate">{agent}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Minds (Introspection) Tab */}
+      {activeTab === 'minds' && (
+        <div className="space-y-3 max-h-80 overflow-y-auto">
+          {loading && (
+            <div className="text-center text-text-muted py-4">Loading introspection data...</div>
+          )}
+
+          {!loading && introspections.length === 0 && (
+            <div className="text-center text-text-muted py-4">
+              No introspection data yet. Agents build self-models through debate participation.
+            </div>
+          )}
+
+          {introspections.map((intro) => (
+            <div
+              key={intro.agent}
+              className="p-3 bg-bg border border-border rounded-lg hover:border-purple-500/30 transition-colors"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <Link
+                  href={`/agent/${encodeURIComponent(intro.agent)}/`}
+                  className="font-medium text-text hover:text-accent transition-colors"
+                >
+                  {intro.agent}
+                </Link>
+                <span className={`text-xs px-2 py-0.5 rounded ${
+                  intro.confidence_calibration >= 0.8 ? 'bg-green-500/20 text-green-400' :
+                  intro.confidence_calibration >= 0.5 ? 'bg-yellow-500/20 text-yellow-400' :
+                  'bg-red-500/20 text-red-400'
+                }`}>
+                  {Math.round(intro.confidence_calibration * 100)}% calibrated
+                </span>
+              </div>
+
+              {/* Performance Assessment */}
+              {intro.recent_performance_assessment && (
+                <p className="text-sm text-text-muted mb-2 italic">
+                  &quot;{intro.recent_performance_assessment}&quot;
+                </p>
+              )}
+
+              {/* Strengths / Weaknesses / Biases */}
+              <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+                {intro.self_model?.strengths?.length > 0 && (
+                  <div>
+                    <div className="text-green-400 mb-1">Strengths</div>
+                    {intro.self_model.strengths.slice(0, 2).map((s, i) => (
+                      <div key={i} className="text-text-muted truncate">{s}</div>
+                    ))}
+                  </div>
+                )}
+                {intro.self_model?.weaknesses?.length > 0 && (
+                  <div>
+                    <div className="text-yellow-400 mb-1">Weaknesses</div>
+                    {intro.self_model.weaknesses.slice(0, 2).map((w, i) => (
+                      <div key={i} className="text-text-muted truncate">{w}</div>
+                    ))}
+                  </div>
+                )}
+                {intro.self_model?.biases?.length > 0 && (
+                  <div>
+                    <div className="text-red-400 mb-1">Known Biases</div>
+                    {intro.self_model.biases.slice(0, 2).map((b, i) => (
+                      <div key={i} className="text-text-muted truncate">{b}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Improvement Focus */}
+              {intro.improvement_focus?.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-purple-400">Focus:</span>{' '}
+                  <span className="text-text-muted">{intro.improvement_focus.slice(0, 2).join(', ')}</span>
+                </div>
+              )}
+
+              <div className="text-xs text-text-muted mt-2">
+                Updated: {intro.last_updated ? new Date(intro.last_updated).toLocaleDateString() : 'N/A'}
               </div>
             </div>
           ))}

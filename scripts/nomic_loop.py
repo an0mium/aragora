@@ -34,7 +34,180 @@ import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Callable, Any
+import traceback
+import logging
+
+# Configure module logger
+logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# PHASE RECOVERY - Structured error handling for nomic loop phases
+# =============================================================================
+
+
+class PhaseError(Exception):
+    """Exception raised when a phase fails."""
+    def __init__(self, phase: str, message: str, recoverable: bool = True, original_error: Exception = None):
+        self.phase = phase
+        self.recoverable = recoverable
+        self.original_error = original_error
+        super().__init__(f"[{phase}] {message}")
+
+
+class PhaseRecovery:
+    """
+    Structured error recovery for nomic loop phases.
+
+    Features:
+    - Per-phase retry with exponential backoff
+    - Phase-specific error classification
+    - Health metrics tracking
+    - Automatic rollback triggers
+    """
+
+    # Default retry settings per phase
+    PHASE_RETRY_CONFIG = {
+        "context": {"max_retries": 2, "base_delay": 5, "critical": False},
+        "debate": {"max_retries": 1, "base_delay": 10, "critical": True},
+        "design": {"max_retries": 2, "base_delay": 5, "critical": False},
+        "implement": {"max_retries": 1, "base_delay": 15, "critical": True},
+        "verify": {"max_retries": 3, "base_delay": 5, "critical": False},
+        "commit": {"max_retries": 1, "base_delay": 5, "critical": True},
+    }
+
+    # Errors that should NOT be retried
+    NON_RETRYABLE_ERRORS = (
+        KeyboardInterrupt,
+        SystemExit,
+        MemoryError,
+    )
+
+    # Errors that indicate rate limiting (should wait longer)
+    RATE_LIMIT_PATTERNS = [
+        "rate limit",
+        "429",
+        "too many requests",
+        "quota exceeded",
+        "resource exhausted",
+    ]
+
+    def __init__(self, log_func: Callable = print):
+        self.log = log_func
+        self.phase_health: dict[str, dict] = {}
+        self.consecutive_failures: dict[str, int] = {}
+
+    def is_retryable(self, error: Exception, phase: str) -> bool:
+        """Check if an error should be retried."""
+        if isinstance(error, self.NON_RETRYABLE_ERRORS):
+            return False
+
+        # Check if phase has retries left
+        config = self.PHASE_RETRY_CONFIG.get(phase, {"max_retries": 1})
+        failures = self.consecutive_failures.get(phase, 0)
+
+        if failures >= config["max_retries"]:
+            return False
+
+        return True
+
+    def get_retry_delay(self, error: Exception, phase: str) -> float:
+        """Calculate delay before retry with exponential backoff."""
+        config = self.PHASE_RETRY_CONFIG.get(phase, {"base_delay": 5})
+        base = config["base_delay"]
+        failures = self.consecutive_failures.get(phase, 0)
+
+        # Exponential backoff: base * 2^failures
+        delay = base * (2 ** failures)
+
+        # Check for rate limiting (use longer delay)
+        error_str = str(error).lower()
+        if any(pattern in error_str for pattern in self.RATE_LIMIT_PATTERNS):
+            delay = max(delay, 60)  # Minimum 60s for rate limits
+            self.log(f"  [recovery] Rate limit detected, waiting {delay}s")
+
+        return min(delay, 300)  # Cap at 5 minutes
+
+    def record_success(self, phase: str) -> None:
+        """Record successful phase completion."""
+        self.consecutive_failures[phase] = 0
+        if phase not in self.phase_health:
+            self.phase_health[phase] = {"successes": 0, "failures": 0, "last_error": None}
+        self.phase_health[phase]["successes"] += 1
+
+    def record_failure(self, phase: str, error: Exception) -> None:
+        """Record phase failure."""
+        self.consecutive_failures[phase] = self.consecutive_failures.get(phase, 0) + 1
+        if phase not in self.phase_health:
+            self.phase_health[phase] = {"successes": 0, "failures": 0, "last_error": None}
+        self.phase_health[phase]["failures"] += 1
+        self.phase_health[phase]["last_error"] = str(error)[:200]
+
+    def should_trigger_rollback(self, phase: str) -> bool:
+        """Check if failures warrant a rollback."""
+        config = self.PHASE_RETRY_CONFIG.get(phase, {"critical": False})
+        if not config["critical"]:
+            return False
+
+        # Rollback if critical phase has consecutive failures
+        failures = self.consecutive_failures.get(phase, 0)
+        return failures >= 2
+
+    def get_health_report(self) -> dict:
+        """Get health metrics for all phases."""
+        return {
+            "phase_health": self.phase_health,
+            "consecutive_failures": self.consecutive_failures,
+        }
+
+    async def run_with_recovery(
+        self,
+        phase: str,
+        phase_func: Callable,
+        *args,
+        **kwargs
+    ) -> tuple[bool, Any]:
+        """
+        Run a phase function with automatic retry and recovery.
+
+        Returns:
+            (success: bool, result: Any or error message)
+        """
+        config = self.PHASE_RETRY_CONFIG.get(phase, {"max_retries": 1})
+        attempts = 0
+
+        while attempts <= config["max_retries"]:
+            try:
+                result = await phase_func(*args, **kwargs)
+                self.record_success(phase)
+                return (True, result)
+
+            except self.NON_RETRYABLE_ERRORS:
+                raise  # Don't catch these
+
+            except Exception as e:
+                attempts += 1
+                self.record_failure(phase, e)
+
+                error_msg = f"{type(e).__name__}: {str(e)[:200]}"
+                self.log(f"  [recovery] Phase '{phase}' attempt {attempts} failed: {error_msg}")
+
+                if self.is_retryable(e, phase) and attempts <= config["max_retries"]:
+                    delay = self.get_retry_delay(e, phase)
+                    self.log(f"  [recovery] Retrying in {delay:.0f}s...")
+                    await asyncio.sleep(delay)
+                else:
+                    # Log full traceback for debugging
+                    logger.error(f"Phase {phase} failed after {attempts} attempts", exc_info=True)
+
+                    if self.should_trigger_rollback(phase):
+                        self.log(f"  [recovery] CRITICAL: Phase '{phase}' requires rollback")
+
+                    return (False, str(e))
+
+        return (False, "Max retries exceeded")
+
 
 # =============================================================================
 # SAFETY CONSTANTS - Files that must NEVER be deleted or broken
@@ -682,6 +855,15 @@ except ImportError:
     GroundedPersona = None
     MomentDetector = None
 
+# CalibrationTracker for prediction accuracy tracking (Phase 10)
+try:
+    from aragora.agents.calibration import CalibrationTracker, CalibrationSummary
+    CALIBRATION_AVAILABLE = True
+except ImportError:
+    CALIBRATION_AVAILABLE = False
+    CalibrationTracker = None
+    CalibrationSummary = None
+
 # =============================================================================
 # Citation Grounding (Heavy3-inspired scholarly evidence)
 # =============================================================================
@@ -915,6 +1097,9 @@ class NomicLoop:
 
         # Circuit breaker for agent reliability
         self.circuit_breaker = AgentCircuitBreaker(failure_threshold=3, cooldown_cycles=2)
+
+        # Phase recovery for structured error handling
+        self.phase_recovery = PhaseRecovery(log_func=lambda msg: print(msg))
 
         # Generate unique loop ID for this run
         self.loop_id = f"nomic-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -1182,6 +1367,11 @@ class NomicLoop:
             self.probe_filter = ProbeFilter(nomic_dir=str(self.nomic_dir))
             print(f"[probe-filter] Probe-aware agent selection enabled")
 
+            # Wire ProbeFilter into AgentSelector for reliability-weighted team selection
+            if self.agent_selector and hasattr(self.agent_selector, 'set_probe_filter'):
+                self.agent_selector.set_probe_filter(self.probe_filter)
+                print(f"[selector] Probe reliability weighting enabled")
+
         # =================================================================
         # Phase 9: Grounded Personas & Truth-Based Identity
         # =================================================================
@@ -1216,6 +1406,18 @@ class NomicLoop:
                 relationship_tracker=self.relationship_tracker,
             )
             print(f"[moments] Significant moment detection enabled")
+
+        # Phase 10: CalibrationTracker for prediction accuracy
+        self.calibration_tracker = None
+        if CALIBRATION_AVAILABLE and CalibrationTracker:
+            calibration_db_path = self.nomic_dir / "agent_calibration.db"
+            self.calibration_tracker = CalibrationTracker(str(calibration_db_path))
+            print(f"[calibration] Agent prediction calibration tracking enabled")
+
+            # Wire CalibrationTracker into AgentSelector for calibration-weighted team selection
+            if self.agent_selector and hasattr(self.agent_selector, 'set_calibration_tracker'):
+                self.agent_selector.set_calibration_tracker(self.calibration_tracker)
+                print(f"[selector] Calibration quality weighting enabled")
 
         # Phase 9: PersonaSynthesizer for grounded identity prompts
         self.persona_synthesizer = None
@@ -2135,6 +2337,60 @@ The most valuable proposals combine deep analysis with actionable implementation
         except Exception as e:
             self._log(f"  [consensus] Error storing: {e}")
 
+    def _record_calibration_from_debate(self, result, agents: list, domain: str = "general") -> None:
+        """Record calibration data from debate votes/predictions.
+
+        Tracks how well agents' confidence aligns with actual outcomes.
+        An agent's vote confidence vs whether consensus was reached indicates
+        calibration quality.
+        """
+        if not self.calibration_tracker or not CALIBRATION_AVAILABLE:
+            return
+
+        try:
+            consensus_reached = result.consensus_reached
+            debate_id = getattr(result, 'debate_id', f"debate-{self.cycle_count}")
+
+            # Get agent votes if available
+            votes = getattr(result, 'votes', {})
+            if not votes:
+                # Fallback: use result confidence as proxy for all agents
+                for agent in agents:
+                    agent_name = agent.name if hasattr(agent, 'name') else str(agent)
+                    # Agent "predicted" consensus would happen with result.confidence
+                    confidence = result.confidence if consensus_reached else 0.5
+                    self.calibration_tracker.record_prediction(
+                        agent=agent_name,
+                        confidence=confidence,
+                        correct=consensus_reached,
+                        domain=domain,
+                        debate_id=debate_id,
+                    )
+                return
+
+            # Use actual vote data if available
+            for agent_name, vote_data in votes.items():
+                if isinstance(vote_data, dict):
+                    confidence = vote_data.get('confidence', 0.5)
+                    # Was their vote aligned with the outcome?
+                    correct = consensus_reached if confidence >= 0.5 else not consensus_reached
+                else:
+                    confidence = float(vote_data) if vote_data else 0.5
+                    correct = consensus_reached
+
+                self.calibration_tracker.record_prediction(
+                    agent=agent_name,
+                    confidence=confidence,
+                    correct=correct,
+                    domain=domain,
+                    debate_id=debate_id,
+                )
+
+            self._log(f"  [calibration] Recorded {len(votes)} agent predictions")
+
+        except Exception as e:
+            self._log(f"  [calibration] Error recording: {e}")
+
     async def _extract_and_store_insights(self, result) -> None:
         """Extract and store insights from debate result (P2: InsightExtractor).
 
@@ -2953,12 +3209,42 @@ The most valuable proposals combine deep analysis with actionable implementation
         if not self.agent_selector or not SELECTOR_AVAILABLE:
             return default_team
         try:
-            # Register agents with ELO ratings
+            # Register agents with ELO ratings, probe scores, and calibration data
             for agent in default_team:
+                # Get probe profile if available
+                probe_score = 1.0
+                has_critical = False
+                if self.probe_filter and PROBE_FILTER_AVAILABLE:
+                    try:
+                        probe_profile = self.probe_filter.get_agent_profile(agent.name)
+                        probe_score = probe_profile.probe_score
+                        has_critical = probe_profile.has_critical_issues()
+                    except Exception:
+                        pass
+
+                # Get calibration data if available
+                calibration_score = 1.0
+                brier_score = 0.0
+                is_overconfident = False
+                if self.calibration_tracker and CALIBRATION_AVAILABLE:
+                    try:
+                        cal_summary = self.calibration_tracker.get_calibration_summary(agent.name)
+                        if cal_summary.total_predictions >= 5:
+                            calibration_score = max(0.0, 1.0 - cal_summary.ece)
+                            brier_score = cal_summary.brier_score
+                            is_overconfident = cal_summary.is_overconfident
+                    except Exception:
+                        pass
+
                 profile = AgentProfile(
                     name=agent.name,
                     agent_type=agent.model if hasattr(agent, 'model') else agent.name,
-                    elo_rating=self.elo_system.get_rating(agent.name).elo if self.elo_system else 1500
+                    elo_rating=self.elo_system.get_rating(agent.name).elo if self.elo_system else 1500,
+                    probe_score=probe_score,
+                    has_critical_probes=has_critical,
+                    calibration_score=calibration_score,
+                    brier_score=brier_score,
+                    is_overconfident=is_overconfident
                 )
                 self.agent_selector.register_agent(profile)
 
@@ -5502,6 +5788,10 @@ Recent changes:
 
         # Store consensus for future reference (P1: ConsensusMemory)
         await self._store_debate_consensus(result, topic_hint)
+
+        # Record calibration data from debate predictions (P10: CalibrationTracker)
+        detected_domain = self._detect_domain(topic_hint) if topic_hint else "general"
+        self._record_calibration_from_debate(result, debate_team, domain=detected_domain)
 
         # Extract and store insights for pattern learning (P2: InsightExtractor)
         await self._extract_and_store_insights(result)

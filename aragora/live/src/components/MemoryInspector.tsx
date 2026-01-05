@@ -22,6 +22,14 @@ interface TierStats {
   newest_entry: string | null;
 }
 
+interface ConsolidationResult {
+  success: boolean;
+  entries_processed: number;
+  entries_promoted: number;
+  entries_consolidated: number;
+  duration_seconds: number;
+}
+
 interface MemoryInspectorProps {
   apiBase?: string;
 }
@@ -71,6 +79,8 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
   const [error, setError] = useState<string | null>(null);
   const [selectedTiers, setSelectedTiers] = useState<string[]>(['fast', 'medium']);
   const [expanded, setExpanded] = useState(false);
+  const [consolidating, setConsolidating] = useState(false);
+  const [consolidationResult, setConsolidationResult] = useState<ConsolidationResult | null>(null);
 
   const fetchTierStats = useCallback(async () => {
     try {
@@ -123,6 +133,32 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
     searchMemories();
   };
 
+  const triggerConsolidation = useCallback(async () => {
+    setConsolidating(true);
+    setConsolidationResult(null);
+
+    try {
+      const response = await fetch(`${apiBase}/api/memory/continuum/consolidate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      setConsolidationResult(data);
+      // Refresh tier stats after consolidation
+      fetchTierStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Consolidation failed');
+    } finally {
+      setConsolidating(false);
+    }
+  }, [apiBase, fetchTierStats]);
+
   const toggleTier = (tier: string) => {
     setSelectedTiers((prev) =>
       prev.includes(tier) ? prev.filter((t) => t !== tier) : [...prev, tier]
@@ -172,10 +208,35 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
       </div>
 
       {/* Summary Stats */}
-      <div className="flex items-center gap-4 text-xs font-mono text-text-muted mb-4 border-b border-border pb-3">
-        <span>Total: <span className="text-text">{getTotalMemories()}</span> memories</span>
-        <span>Selected: <span className="text-acid-green">{selectedTiers.length}</span> tiers</span>
+      <div className="flex items-center justify-between text-xs font-mono text-text-muted mb-4 border-b border-border pb-3">
+        <div className="flex items-center gap-4">
+          <span>Total: <span className="text-text">{getTotalMemories()}</span> memories</span>
+          <span>Selected: <span className="text-acid-green">{selectedTiers.length}</span> tiers</span>
+        </div>
+        <button
+          onClick={triggerConsolidation}
+          disabled={consolidating}
+          className="px-2 py-1 bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 disabled:opacity-50 transition-colors"
+          title="Consolidate memories across tiers"
+        >
+          {consolidating ? 'CONSOLIDATING...' : 'CONSOLIDATE'}
+        </button>
       </div>
+
+      {/* Consolidation Result */}
+      {consolidationResult && (
+        <div className="mb-4 p-2 bg-acid-green/10 border border-acid-green/30 rounded text-xs font-mono">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-acid-green font-bold">✓ CONSOLIDATED</span>
+            <span className="text-text-muted">({consolidationResult.duration_seconds.toFixed(2)}s)</span>
+          </div>
+          <div className="flex gap-4 text-text-muted">
+            <span>Processed: <span className="text-text">{consolidationResult.entries_processed}</span></span>
+            <span>Promoted: <span className="text-acid-cyan">{consolidationResult.entries_promoted}</span></span>
+            <span>Merged: <span className="text-purple-400">{consolidationResult.entries_consolidated}</span></span>
+          </div>
+        </div>
+      )}
 
       {expanded && (
         <>

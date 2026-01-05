@@ -2253,3 +2253,342 @@ Other origins are blocked by the browser.
 7. **Query bounds**: Maximum 10 agents per debate, 10 parts per multipart upload
 8. **Database timeouts**: SQLite connections have 30-second timeout to prevent deadlocks
 9. **Content-Length validation**: Headers validated to prevent integer parsing attacks
+
+---
+
+## Python Module APIs
+
+The following sections document the Python APIs for extending Aragora.
+
+### Plugin System (`aragora.plugins`)
+
+The plugin system provides a sandboxed execution environment for code analysis, linting, and security scanning extensions.
+
+#### PluginManifest
+
+Defines plugin metadata and capabilities.
+
+```python
+from aragora.plugins.manifest import PluginManifest, PluginCapability, PluginRequirement
+
+manifest = PluginManifest(
+    name="my-linter",
+    version="1.0.0",
+    description="Custom code linter",
+    entry_point="my_linter:run",  # module:function format
+    capabilities=[PluginCapability.LINT, PluginCapability.CODE_ANALYSIS],
+    requirements=[PluginRequirement.READ_FILES],
+    timeout_seconds=30.0,
+    tags=["python", "lint"],
+)
+
+# Validate manifest
+valid, errors = manifest.validate()
+```
+
+**PluginCapability Enum:**
+- `CODE_ANALYSIS` - Analyze code structure
+- `LINT` - Check code style/issues
+- `SECURITY_SCAN` - Security vulnerability detection
+- `FORMAT` - Code formatting
+- `TEST` - Test execution
+
+**PluginRequirement Enum:**
+- `READ_FILES` - Read file access
+- `WRITE_FILES` - Write file access
+- `NETWORK` - Network access
+- `SUBPROCESS` - Subprocess execution
+
+#### PluginRunner
+
+Executes plugins in a sandboxed environment with restricted builtins.
+
+```python
+from aragora.plugins.runner import PluginRunner, PluginContext
+
+runner = PluginRunner(manifest)
+
+# Create execution context
+ctx = PluginContext(
+    working_dir="/path/to/project",
+    input_data={"files": ["main.py", "utils.py"]},
+)
+ctx.allowed_operations = {"read_files"}
+
+# Run plugin
+result = await runner.run(ctx, timeout_override=60.0)
+
+if result.success:
+    print(result.output)
+else:
+    print(result.errors)
+```
+
+**Security Features:**
+- Restricted builtins (no `exec`, `eval`, `compile`, `__import__`, `open`)
+- Path traversal prevention (cannot access parent directories)
+- Configurable timeouts
+- Capability-based permissions
+
+#### PluginRegistry
+
+Manages plugin discovery and instantiation.
+
+```python
+from aragora.plugins.runner import get_registry, run_plugin
+
+# Get global registry
+registry = get_registry()
+
+# List all plugins
+plugins = registry.list_plugins()
+
+# Get plugins by capability
+lint_plugins = registry.list_by_capability(PluginCapability.LINT)
+
+# Run a plugin by name
+result = await run_plugin("lint", {"files": ["main.py"]})
+```
+
+---
+
+### Genesis System (`aragora.genesis`)
+
+The Genesis system implements evolutionary agent algorithms with genetic operators and provenance tracking.
+
+#### AgentGenome
+
+Represents an agent's genetic makeup with traits, expertise, and fitness tracking.
+
+```python
+from aragora.genesis import AgentGenome, generate_genome_id
+
+# Create a genome
+genome = AgentGenome(
+    genome_id=generate_genome_id(
+        traits={"analytical": 0.8, "creative": 0.6},
+        expertise={"security": 0.9},
+        parents=[]
+    ),
+    name="security-specialist-v1",
+    traits={"analytical": 0.8, "creative": 0.6},
+    expertise={"security": 0.9, "backend": 0.7},
+    model_preference="claude",
+    generation=0,
+    fitness_score=0.5,
+)
+
+# Create from existing Persona
+genome = AgentGenome.from_persona(persona, model="gemini")
+
+# Convert back to Persona for debate use
+persona = genome.to_persona()
+
+# Update fitness based on debate outcome
+genome.update_fitness(
+    consensus_win=True,
+    critique_accepted=True,
+    prediction_correct=False
+)
+
+# Calculate genetic similarity (0-1)
+similarity = genome1.similarity_to(genome2)
+```
+
+#### GenomeStore
+
+SQLite-based persistence for genomes.
+
+```python
+from aragora.genesis import GenomeStore
+
+store = GenomeStore(db_path=".nomic/genesis.db")
+
+# Save genome
+store.save(genome)
+
+# Retrieve by ID
+genome = store.get("abc123def456")
+
+# Get by name (returns latest generation)
+genome = store.get_by_name("security-specialist")
+
+# Get top performers
+top_10 = store.get_top_by_fitness(n=10)
+
+# Get lineage (ancestors)
+lineage = store.get_lineage(genome_id)  # [child, parent, grandparent, ...]
+```
+
+#### GenomeBreeder
+
+Genetic operators for evolving agent populations.
+
+```python
+from aragora.genesis import GenomeBreeder
+
+breeder = GenomeBreeder(
+    mutation_rate=0.1,      # Probability of mutating each trait
+    crossover_ratio=0.5,    # Blend ratio (0.5 = equal parents)
+    elite_ratio=0.2,        # Fraction preserved unchanged
+)
+
+# Crossover: blend two parents
+child = breeder.crossover(
+    parent_a=genome1,
+    parent_b=genome2,
+    name="hybrid-agent",
+    debate_id="debate-123"
+)
+
+# Mutation: random modifications
+mutated = breeder.mutate(genome, rate=0.2)
+
+# Spawn specialist: create domain-focused agent
+specialist = breeder.spawn_specialist(
+    domain="security",
+    parent_pool=[genome1, genome2, genome3],
+    debate_id="debate-123"
+)
+```
+
+#### Population
+
+Collection of genomes with aggregate statistics.
+
+```python
+from aragora.genesis import Population
+
+pop = Population(
+    population_id="gen-5",
+    genomes=[genome1, genome2, genome3],
+    generation=5,
+)
+
+print(f"Size: {pop.size}")
+print(f"Average fitness: {pop.average_fitness:.2f}")
+print(f"Best: {pop.best_genome.name}")
+
+# Find by ID
+genome = pop.get_by_id("abc123")
+```
+
+#### GenesisLedger
+
+Immutable event log with cryptographic hashing.
+
+```python
+from aragora.genesis import GenesisLedger, GenesisEvent, GenesisEventType
+
+ledger = GenesisLedger(db_path=".nomic/genesis.db")
+
+# Events are automatically hashed and linked
+# Common event types:
+# - DEBATE_START, DEBATE_END, DEBATE_SPAWN, DEBATE_MERGE
+# - CONSENSUS_REACHED, TENSION_DETECTED, TENSION_RESOLVED
+# - AGENT_BIRTH, AGENT_DEATH, AGENT_MUTATION, AGENT_CROSSOVER
+# - FITNESS_UPDATE, POPULATION_EVOLVED, GENERATION_ADVANCE
+```
+
+#### FractalTree
+
+Tree structure for nested sub-debates.
+
+```python
+from aragora.genesis import FractalTree
+
+tree = FractalTree(root_id="main-debate")
+tree.add_node("main-debate", parent_id=None, depth=0, success=True)
+tree.add_node("sub-1", parent_id="main-debate", tension="scope", depth=1)
+tree.add_node("sub-2", parent_id="main-debate", tension="definition", depth=1)
+
+children = tree.get_children("main-debate")  # ["sub-1", "sub-2"]
+nested_dict = tree.to_dict()  # Recursive structure
+```
+
+---
+
+### Evolution System (`aragora.evolution`)
+
+Prompt evolution enables agents to improve their system prompts based on successful debate patterns.
+
+#### PromptEvolver
+
+Main class for evolving agent prompts.
+
+```python
+from aragora.evolution import PromptEvolver, EvolutionStrategy
+
+evolver = PromptEvolver(
+    db_path="aragora_evolution.db",
+    strategy=EvolutionStrategy.HYBRID,
+)
+
+# Extract patterns from successful debates
+patterns = evolver.extract_winning_patterns(
+    debates=recent_debates,
+    min_confidence=0.6,
+)
+
+# Store patterns for future use
+evolver.store_patterns(patterns)
+
+# Get most effective patterns
+top_patterns = evolver.get_top_patterns(
+    pattern_type="issue_identification",
+    limit=10,
+)
+
+# Evolve an agent's prompt
+new_prompt = evolver.evolve_prompt(
+    agent=my_agent,
+    patterns=top_patterns,
+    strategy=EvolutionStrategy.APPEND,
+)
+
+# Apply evolution and save version
+evolver.apply_evolution(agent, patterns)
+
+# Track performance
+evolver.update_performance(
+    agent_name="claude",
+    version=3,
+    debate_result=result,
+)
+```
+
+#### EvolutionStrategy
+
+Available strategies for prompt evolution:
+
+```python
+from aragora.evolution import EvolutionStrategy
+
+# APPEND: Add new learnings section to existing prompt
+# REPLACE: Replace old learnings section with new patterns
+# REFINE: Use LLM to synthesize patterns into coherent prompt
+# HYBRID: Append first, refine if prompt exceeds 2000 chars
+```
+
+#### Prompt Versioning
+
+Track prompt versions and their performance:
+
+```python
+# Save a new version
+version = evolver.save_prompt_version(
+    agent_name="claude",
+    prompt="You are a helpful assistant...",
+    metadata={"source": "manual", "note": "Added security focus"},
+)
+
+# Get specific version
+v1 = evolver.get_prompt_version("claude", version=1)
+
+# Get latest version
+latest = evolver.get_prompt_version("claude")
+
+# Get evolution history
+history = evolver.get_evolution_history("claude", limit=10)
+# Returns: [{"from_version": 2, "to_version": 3, "strategy": "append", ...}, ...]
+```

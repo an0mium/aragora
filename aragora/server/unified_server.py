@@ -1124,6 +1124,13 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 return
             self._get_meta_critique(debate_id)
 
+        # Debate Graph Stats API
+        elif path.startswith('/api/debate/') and path.endswith('/graph/stats'):
+            debate_id = self._extract_path_segment(path, 3, "debate_id")
+            if debate_id is None:
+                return
+            self._get_debate_graph_stats(debate_id)
+
         # Laboratory API - Emergent Traits
         elif path == '/api/laboratory/emergent-traits':
             min_confidence = self._safe_float(query, 'min_confidence', 0.5, 0.0, 1.0)
@@ -4033,6 +4040,95 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             })
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "meta_critique")}, status=500)
+
+    def _get_debate_graph_stats(self, debate_id: str) -> None:
+        """Get argument graph statistics for a debate.
+
+        Returns:
+            node_count, edge_count: Basic counts
+            max_depth: Maximum argument chain length
+            avg_branching: Average outgoing edges per node
+            complexity_score: 0-1 normalized complexity metric
+            claim_count, rebuttal_count: Type-specific counts
+        """
+        if not self._check_rate_limit():
+            return
+
+        try:
+            from aragora.visualization.mapper import ArgumentCartographer
+            from aragora.debate.traces import DebateTrace
+
+            # Load debate trace
+            if not self.nomic_dir:
+                self._send_json({"error": "Nomic directory not configured"}, status=503)
+                return
+
+            trace_path = self.nomic_dir / "traces" / f"{debate_id}.json"
+            if not trace_path.exists():
+                # Try replays directory as fallback
+                replay_path = self.nomic_dir / "replays" / debate_id / "events.jsonl"
+                if replay_path.exists():
+                    # Build cartographer from replay events
+                    cartographer = ArgumentCartographer()
+                    cartographer.set_debate_context(debate_id, "")
+                    with replay_path.open() as f:
+                        for line in f:
+                            if line.strip():
+                                event = json.loads(line)
+                                if event.get("type") == "agent_message":
+                                    cartographer.update_from_message(
+                                        agent=event.get("agent", "unknown"),
+                                        content=event.get("data", {}).get("content", ""),
+                                        role=event.get("data", {}).get("role", "proposer"),
+                                        round_num=event.get("round", 1),
+                                    )
+                                elif event.get("type") == "critique":
+                                    cartographer.update_from_critique(
+                                        critic_agent=event.get("agent", "unknown"),
+                                        target_agent=event.get("data", {}).get("target", "unknown"),
+                                        severity=event.get("data", {}).get("severity", 0.5),
+                                        round_num=event.get("round", 1),
+                                        critique_text=event.get("data", {}).get("content", ""),
+                                    )
+                    stats = cartographer.get_statistics()
+                    self._send_json(stats)
+                    return
+                else:
+                    self._send_json({"error": "Debate not found"}, status=404)
+                    return
+
+            # Load from trace file
+            trace = DebateTrace.load(trace_path)
+            result = trace.to_debate_result()
+
+            # Build cartographer from debate result
+            cartographer = ArgumentCartographer()
+            cartographer.set_debate_context(debate_id, result.task or "")
+
+            # Process messages from the debate
+            for msg in result.messages:
+                cartographer.update_from_message(
+                    agent=msg.agent,
+                    content=msg.content,
+                    role=msg.role,
+                    round_num=msg.round,
+                )
+
+            # Process critiques
+            for critique in result.critiques:
+                cartographer.update_from_critique(
+                    critic_agent=critique.agent,
+                    target_agent=critique.target or "",
+                    severity=critique.severity,
+                    round_num=getattr(critique, 'round', 1),
+                    critique_text=critique.reasoning,
+                )
+
+            stats = cartographer.get_statistics()
+            self._send_json(stats)
+
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "debate_graph_stats")}, status=500)
 
     def _get_emergent_traits(self, min_confidence: float, limit: int) -> None:
         """Get emergent traits detected from agent performance patterns."""

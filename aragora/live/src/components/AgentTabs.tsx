@@ -1,12 +1,23 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
 import { RoleBadge } from './RoleBadge';
 
 interface AgentTabsProps {
   events: StreamEvent[];
+  apiBase?: string;
 }
+
+interface PositionEntry {
+  topic: string;
+  position: string;
+  confidence: number;
+  evidence_count: number;
+  last_updated: string;
+}
+
+const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
 // Special tab ID for unified "All Agents" view
 const ALL_AGENTS_TAB = '__all__';
@@ -52,12 +63,42 @@ interface AgentData {
   allMessages: Array<{ content: string; round: number; role: string; timestamp: number }>;
 }
 
-export function AgentTabs({ events }: AgentTabsProps) {
+export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps) {
   // Default to "All Agents" unified timeline view
   const [selectedAgent, setSelectedAgent] = useState<string>(ALL_AGENTS_TAB);
   const [showHistory, setShowHistory] = useState(false);
+  const [showPositions, setShowPositions] = useState(false);
+  const [positions, setPositions] = useState<PositionEntry[]>([]);
+  const [positionsLoading, setPositionsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+
+  // Fetch positions when viewing individual agent
+  const fetchPositions = useCallback(async (agentName: string) => {
+    setPositionsLoading(true);
+    try {
+      const response = await fetch(`${apiBase}/api/agent/${encodeURIComponent(agentName)}/positions`);
+      if (response.ok) {
+        const data = await response.json();
+        setPositions(data.positions || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch positions:', err);
+      setPositions([]);
+    } finally {
+      setPositionsLoading(false);
+    }
+  }, [apiBase]);
+
+  // Fetch positions when agent selection changes
+  useEffect(() => {
+    if (selectedAgent !== ALL_AGENTS_TAB) {
+      fetchPositions(selectedAgent);
+    } else {
+      setPositions([]);
+      setShowPositions(false);
+    }
+  }, [selectedAgent, fetchPositions]);
 
   // Extract agent data from events
   const agentData = useMemo(() => {
@@ -322,7 +363,23 @@ export function AgentTabs({ events }: AgentTabsProps) {
                 </span>
               )}
               <button
-                onClick={() => setShowHistory(!showHistory)}
+                onClick={() => {
+                  setShowPositions(!showPositions);
+                  if (!showPositions) setShowHistory(false);
+                }}
+                className={`px-2 py-1 text-xs rounded border transition-colors ${
+                  showPositions
+                    ? 'bg-purple-500 text-white border-purple-500'
+                    : 'bg-surface text-text-muted border-border hover:text-text'
+                }`}
+              >
+                Positions {positions.length > 0 && `(${positions.length})`}
+              </button>
+              <button
+                onClick={() => {
+                  setShowHistory(!showHistory);
+                  if (!showHistory) setShowPositions(false);
+                }}
                 className={`px-2 py-1 text-xs rounded border transition-colors ${
                   showHistory
                     ? 'bg-accent text-white border-accent'
@@ -336,7 +393,39 @@ export function AgentTabs({ events }: AgentTabsProps) {
 
           {/* Response Content */}
           <div className="flex-1 overflow-y-auto p-4">
-            {showHistory ? (
+            {showPositions ? (
+              <div className="space-y-3">
+                {positionsLoading ? (
+                  <div className="text-center text-text-muted py-4">Loading positions...</div>
+                ) : positions.length === 0 ? (
+                  <div className="text-center text-text-muted py-4">No recorded positions for this agent.</div>
+                ) : (
+                  positions.map((pos, idx) => (
+                    <div key={idx} className="p-3 bg-surface border border-border rounded-lg hover:border-purple-500/30 transition-colors">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-text text-sm">{pos.topic}</span>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className={`px-2 py-0.5 rounded ${
+                            pos.confidence >= 0.8 ? 'bg-green-500/20 text-green-400' :
+                            pos.confidence >= 0.5 ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                            {Math.round(pos.confidence * 100)}% conf
+                          </span>
+                          {pos.evidence_count > 0 && (
+                            <span className="text-text-muted">{pos.evidence_count} evidence</span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm text-text-muted">{pos.position}</p>
+                      <div className="text-xs text-text-muted mt-2">
+                        Updated: {new Date(pos.last_updated).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : showHistory ? (
               <div className="space-y-4">
                 {currentAgent.allMessages
                   .sort((a, b) => b.timestamp - a.timestamp)

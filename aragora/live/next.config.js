@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  // Use 'standalone' for Docker, 'export' for static hosting
+  output: process.env.DOCKER_BUILD ? 'standalone' : 'export',
   trailingSlash: true,
   images: {
     unoptimized: true,

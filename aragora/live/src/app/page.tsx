@@ -29,6 +29,8 @@ import { RiskWarningsPanel } from '@/components/RiskWarningsPanel';
 import { AnalyticsPanel } from '@/components/AnalyticsPanel';
 import { CalibrationPanel } from '@/components/CalibrationPanel';
 import { ConsensusKnowledgeBase } from '@/components/ConsensusKnowledgeBase';
+import { DebateListPanel } from '@/components/DebateListPanel';
+import { AgentComparePanel } from '@/components/AgentComparePanel';
 import { VerdictCard } from '@/components/VerdictCard';
 import { CompareView, CompareButton } from '@/components/CompareView';
 import { DeepAuditView, DeepAuditToggle } from '@/components/DeepAuditView';
@@ -39,18 +41,27 @@ import { StatusBar, StatusPill } from '@/components/StatusBar';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { BootSequence } from '@/components/BootSequence';
 import { LandingPage } from '@/components/LandingPage';
+import { BackendSelector, useBackend, BACKENDS } from '@/components/BackendSelector';
 import type { NomicState } from '@/types/events';
-
-// WebSocket URL - can be overridden via environment variable
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai';
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
 type ViewMode = 'tabs' | 'stream' | 'deep-audit';
 type SiteMode = 'landing' | 'dashboard' | 'loading';
 
 export default function Home() {
   const router = useRouter();
-  const { events, connected, nomicState: wsNomicState, activeLoops, selectedLoopId, selectLoop, sendMessage, onAck, onError } = useNomicStream(WS_URL);
+
+  // Backend selection (production vs development)
+  const { config: backendConfig } = useBackend();
+  const [apiBase, setApiBase] = useState(BACKENDS.production.api);
+  const [wsUrl, setWsUrl] = useState(BACKENDS.production.ws);
+
+  // Update URLs when backend changes
+  useEffect(() => {
+    setApiBase(backendConfig.api);
+    setWsUrl(backendConfig.ws);
+  }, [backendConfig]);
+
+  const { events, connected, nomicState: wsNomicState, activeLoops, selectedLoopId, selectLoop, sendMessage, onAck, onError } = useNomicStream(wsUrl);
 
   // Domain detection - show landing page on aragora.ai, dashboard on live.aragora.ai
   const [siteMode, setSiteMode] = useState<SiteMode>('loading');
@@ -201,8 +212,8 @@ export default function Home() {
   if (siteMode === 'landing') {
     return (
       <LandingPage
-        apiBase={API_URL}
-        wsUrl={WS_URL}
+        apiBase={apiBase}
+        wsUrl={wsUrl}
         onDebateStarted={handleDebateStarted}
       />
     );
@@ -266,6 +277,9 @@ export default function Home() {
 
               {/* Status Pill */}
               <StatusPill connected={connected} phase={currentPhase} />
+
+              {/* Backend Selector */}
+              <BackendSelector compact />
 
               {/* Theme Toggle */}
               <ThemeToggle />
@@ -348,7 +362,7 @@ export default function Home() {
 
           {/* Side Panel */}
           <div className="lg:col-span-1 space-y-4">
-            <DocumentUpload apiBase={API_URL} />
+            <DocumentUpload apiBase={apiBase} />
             <UserParticipation
               events={events}
               onVote={handleUserVote}
@@ -358,22 +372,24 @@ export default function Home() {
             />
             <CitationsPanel events={events} />
             <HistoryPanel />
-            <LeaderboardPanel wsMessages={events} loopId={effectiveLoopId} apiBase={API_URL} />
-            <CalibrationPanel apiBase={API_URL} />
-            <TournamentPanel apiBase={API_URL} />
-            <AnalyticsPanel apiBase={API_URL} />
-            <ConsensusKnowledgeBase apiBase={API_URL} />
+            <DebateListPanel />
+            <AgentComparePanel />
+            <LeaderboardPanel wsMessages={events} loopId={effectiveLoopId} apiBase={apiBase} />
+            <CalibrationPanel apiBase={apiBase} />
+            <TournamentPanel apiBase={apiBase} />
+            <AnalyticsPanel apiBase={apiBase} />
+            <ConsensusKnowledgeBase apiBase={apiBase} />
             <DebateBrowser />
             <InsightsPanel wsMessages={events} />
-            <CruxPanel apiBase={API_URL} />
-            <MemoryInspector apiBase={API_URL} />
-            <LaboratoryPanel apiBase={API_URL} />
-            <AgentNetworkPanel apiBase={API_URL} />
-            <CapabilityProbePanel apiBase={API_URL} />
-            <OperationalModesPanel apiBase={API_URL} />
-            <RedTeamAnalysisPanel apiBase={API_URL} />
-            <ContraryViewsPanel apiBase={API_URL} />
-            <RiskWarningsPanel apiBase={API_URL} />
+            <CruxPanel apiBase={apiBase} />
+            <MemoryInspector apiBase={apiBase} />
+            <LaboratoryPanel apiBase={apiBase} />
+            <AgentNetworkPanel apiBase={apiBase} />
+            <CapabilityProbePanel apiBase={apiBase} />
+            <OperationalModesPanel apiBase={apiBase} />
+            <RedTeamAnalysisPanel apiBase={apiBase} />
+            <ContraryViewsPanel apiBase={apiBase} />
+            <RiskWarningsPanel apiBase={apiBase} />
             <ReplayBrowser />
           </div>
         </div>

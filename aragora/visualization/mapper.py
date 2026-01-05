@@ -318,25 +318,100 @@ class ArgumentCartographer:
         }, indent=2, default=str)
 
     def get_statistics(self) -> Dict[str, Any]:
-        """Get summary statistics about the argument graph."""
+        """Get summary statistics about the argument graph.
+
+        Returns stats matching the frontend GraphStats interface:
+        - node_count, edge_count: Basic counts
+        - max_depth: Maximum chain length from root
+        - avg_branching: Average outgoing edges per node
+        - complexity_score: 0-1 normalized complexity metric
+        - claim_count, rebuttal_count: Type-specific counts
+        """
         node_types = {}
         for node in self.nodes.values():
             node_types[node.node_type.value] = node_types.get(node.node_type.value, 0) + 1
-        
+
         edge_types = {}
         for edge in self.edges:
             edge_types[edge.relation.value] = edge_types.get(edge.relation.value, 0) + 1
-        
+
         agents = set(n.agent for n in self.nodes.values())
-        
+        node_count = len(self.nodes)
+        edge_count = len(self.edges)
+
+        # Calculate max depth (longest chain from any root node)
+        max_depth = self._calculate_max_depth()
+
+        # Calculate average branching factor
+        avg_branching = edge_count / node_count if node_count > 0 else 0.0
+
+        # Calculate complexity score (0-1, normalized)
+        # Based on: nodes, edges, depth, and rebuttals (indicates back-and-forth)
+        rounds = len(set(n.round_num for n in self.nodes.values()))
+        rebuttal_count = node_types.get("rebuttal", 0) + node_types.get("critique", 0)
+        claim_count = node_types.get("proposal", 0) + node_types.get("evidence", 0)
+
+        # Complexity formula: weighted combination of factors
+        depth_factor = min(max_depth / 10.0, 1.0)  # Cap at depth 10
+        branch_factor = min(avg_branching / 3.0, 1.0)  # Cap at 3 branches avg
+        exchange_factor = min(rebuttal_count / (node_count + 1), 1.0)  # Ratio of rebuttals
+        size_factor = min(node_count / 50.0, 1.0)  # Cap at 50 nodes
+
+        complexity_score = (depth_factor * 0.25 + branch_factor * 0.25 +
+                           exchange_factor * 0.3 + size_factor * 0.2)
+
         return {
-            "total_nodes": len(self.nodes),
-            "total_edges": len(self.edges),
+            # Frontend GraphStats fields
+            "node_count": node_count,
+            "edge_count": edge_count,
+            "max_depth": max_depth,
+            "avg_branching": round(avg_branching, 2),
+            "complexity_score": round(complexity_score, 3),
+            "claim_count": claim_count,
+            "rebuttal_count": rebuttal_count,
+            # Additional detail fields
             "node_types": node_types,
             "edge_types": edge_types,
             "agents": list(agents),
-            "rounds": len(set(n.round_num for n in self.nodes.values())),
+            "rounds": rounds,
         }
+
+    def _calculate_max_depth(self) -> int:
+        """Calculate the maximum depth of the argument graph."""
+        if not self.nodes:
+            return 0
+
+        # Build adjacency list for traversal
+        children: Dict[str, List[str]] = {node_id: [] for node_id in self.nodes}
+        has_parent = set()
+        for edge in self.edges:
+            if edge.source_id in children:
+                children[edge.source_id].append(edge.target_id)
+                has_parent.add(edge.target_id)
+
+        # Find root nodes (nodes with no incoming edges)
+        roots = [node_id for node_id in self.nodes if node_id not in has_parent]
+        if not roots:
+            # Cycle or no clear roots - use first node
+            roots = [next(iter(self.nodes))]
+
+        # BFS to find max depth
+        max_depth = 0
+        visited = set()
+        queue = [(root, 1) for root in roots]
+
+        while queue:
+            node_id, depth = queue.pop(0)
+            if node_id in visited:
+                continue
+            visited.add(node_id)
+            max_depth = max(max_depth, depth)
+
+            for child_id in children.get(node_id, []):
+                if child_id not in visited:
+                    queue.append((child_id, depth + 1))
+
+        return max_depth
 
     # --- Private helper methods ---
 

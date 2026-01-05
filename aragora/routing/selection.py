@@ -4,15 +4,19 @@ Adaptive Agent Selection using ELO and Personas.
 Routes tasks to best-fit agents by:
 - Matching task domain to agent expertise
 - Using ELO ratings for quality ranking
+- Using probe vulnerability scores for reliability
 - Forming optimal teams for debates
 - Maintaining a "bench" system with promotion/demotion
 """
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Any
+from typing import Optional, Any, TYPE_CHECKING
 import random
 import math
+
+if TYPE_CHECKING:
+    from aragora.routing.probe_filter import ProbeFilter
 
 
 @dataclass
@@ -30,15 +34,38 @@ class AgentProfile:
     latency_ms: float = 1000  # Average response latency
     success_rate: float = 0.8  # Historical success rate
 
+    # Probe-based reliability metrics (from ProbeFilter)
+    probe_score: float = 1.0  # 1 = no vulnerabilities, 0 = high vulnerability
+    has_critical_probes: bool = False  # True if agent has critical probe failures
+
+    # Calibration metrics (from CalibrationTracker)
+    calibration_score: float = 1.0  # 1 = well-calibrated, 0 = poorly calibrated
+    brier_score: float = 0.0  # Lower is better (0 = perfect predictions)
+    is_overconfident: bool = False  # True if agent's confidence exceeds accuracy
+
     @property
     def overall_score(self) -> float:
-        """Calculate overall agent quality score."""
-        return (
-            self.elo_rating / 2000 * 0.4 +
-            self.success_rate * 0.3 +
-            (1 - min(self.latency_ms, 5000) / 5000) * 0.15 +
-            (1 - min(self.cost_factor, 3) / 3) * 0.15
+        """Calculate overall agent quality score, including probe and calibration."""
+        # Base score composition:
+        # - 30% ELO rating
+        # - 20% success rate
+        # - 20% probe reliability
+        # - 15% calibration quality
+        # - 15% speed/cost
+        base_score = (
+            self.elo_rating / 2000 * 0.30 +
+            self.success_rate * 0.20 +
+            self.probe_score * 0.20 +
+            self.calibration_score * 0.15 +
+            (1 - min(self.latency_ms, 5000) / 5000) * 0.075 +
+            (1 - min(self.cost_factor, 3) / 3) * 0.075
         )
+        # Penalties for critical issues
+        if self.has_critical_probes:
+            base_score *= 0.7
+        if self.is_overconfident:
+            base_score *= 0.9  # 10% penalty for overconfidence
+        return base_score
 
 
 @dataclass
@@ -76,6 +103,8 @@ class AgentSelector:
 
     Features:
     - Domain-aware selection
+    - Probe-aware reliability weighting
+    - Calibration-aware confidence weighting
     - Team diversity optimization
     - Cost/quality tradeoffs
     - Bench system for testing new agents
@@ -85,9 +114,13 @@ class AgentSelector:
         self,
         elo_system: Optional[Any] = None,
         persona_manager: Optional[Any] = None,
+        probe_filter: Optional["ProbeFilter"] = None,
+        calibration_tracker: Optional[Any] = None,
     ):
         self.elo_system = elo_system
         self.persona_manager = persona_manager
+        self.probe_filter = probe_filter
+        self.calibration_tracker = calibration_tracker
         self.agent_pool: dict[str, AgentProfile] = {}
         self.bench: list[str] = []  # Agents on the bench (probation/testing)
         self._selection_history: list[dict] = []
@@ -112,6 +145,146 @@ class AgentSelector:
         """Promote an agent from bench to active pool."""
         if name in self.bench:
             self.bench.remove(name)
+
+    def set_probe_filter(self, probe_filter: "ProbeFilter"):
+        """Set or update the probe filter for reliability scoring."""
+        self.probe_filter = probe_filter
+        # Refresh scores immediately
+        self.refresh_probe_scores()
+
+    def refresh_probe_scores(self):
+        """
+        Refresh probe scores for all agents in the pool.
+
+        Queries the ProbeFilter for each agent's vulnerability profile
+        and updates their probe_score and has_critical_probes fields.
+        Call this periodically or before team selection.
+        """
+        if not self.probe_filter:
+            return
+
+        for agent_name, profile in self.agent_pool.items():
+            try:
+                probe_profile = self.probe_filter.get_agent_profile(agent_name)
+                profile.probe_score = probe_profile.probe_score
+                profile.has_critical_probes = probe_profile.has_critical_issues()
+            except Exception:
+                # Agent not in probe system - use defaults
+                profile.probe_score = 1.0
+                profile.has_critical_probes = False
+
+    def get_probe_adjusted_score(self, agent_name: str, base_score: float) -> float:
+        """
+        Adjust a score based on agent's probe reliability.
+
+        Args:
+            agent_name: Name of the agent
+            base_score: The base score to adjust
+
+        Returns:
+            Adjusted score (base_score * probe_reliability_factor)
+        """
+        probe_score = 1.0
+        has_critical = False
+
+        # First, check if we have probe data from the filter
+        if self.probe_filter:
+            try:
+                probe_profile = self.probe_filter.get_agent_profile(agent_name)
+                if probe_profile.total_probes > 0:  # Only use if agent has been probed
+                    probe_score = probe_profile.probe_score
+                    has_critical = probe_profile.has_critical_issues()
+            except Exception:
+                pass
+
+        # Fall back to agent profile's probe_score if no filter data
+        if probe_score == 1.0 and agent_name in self.agent_pool:
+            agent = self.agent_pool[agent_name]
+            probe_score = agent.probe_score
+            has_critical = agent.has_critical_probes
+
+        # Apply adjustment: range 0.5 (vulnerable) to 1.0 (reliable)
+        adjustment = 0.5 + (probe_score * 0.5)
+
+        # Extra penalty for critical issues
+        if has_critical:
+            adjustment *= 0.8
+
+        return base_score * adjustment
+
+    def set_calibration_tracker(self, calibration_tracker: Any):
+        """Set or update the calibration tracker for confidence scoring."""
+        self.calibration_tracker = calibration_tracker
+        # Refresh scores immediately
+        self.refresh_calibration_scores()
+
+    def refresh_calibration_scores(self):
+        """
+        Refresh calibration scores for all agents in the pool.
+
+        Queries the CalibrationTracker for each agent's calibration metrics
+        and updates their calibration_score, brier_score, and is_overconfident fields.
+        """
+        if not self.calibration_tracker:
+            return
+
+        for agent_name, profile in self.agent_pool.items():
+            try:
+                summary = self.calibration_tracker.get_calibration_summary(agent_name)
+                if summary.total_predictions >= 5:  # Need enough data
+                    # calibration_score = 1 - ECE (lower ECE = better calibration)
+                    profile.calibration_score = max(0.0, 1.0 - summary.ece)
+                    profile.brier_score = summary.brier_score
+                    profile.is_overconfident = summary.is_overconfident
+                else:
+                    # Not enough data - use defaults
+                    profile.calibration_score = 1.0
+                    profile.brier_score = 0.0
+                    profile.is_overconfident = False
+            except Exception:
+                # Agent not in calibration system - use defaults
+                profile.calibration_score = 1.0
+                profile.brier_score = 0.0
+                profile.is_overconfident = False
+
+    def get_calibration_adjusted_score(self, agent_name: str, base_score: float) -> float:
+        """
+        Adjust a score based on agent's calibration quality.
+
+        Args:
+            agent_name: Name of the agent
+            base_score: The base score to adjust
+
+        Returns:
+            Adjusted score (base_score * calibration_factor)
+        """
+        calibration_score = 1.0
+        is_overconfident = False
+
+        # Check calibration tracker first
+        if self.calibration_tracker:
+            try:
+                summary = self.calibration_tracker.get_calibration_summary(agent_name)
+                if summary.total_predictions >= 5:
+                    calibration_score = max(0.0, 1.0 - summary.ece)
+                    is_overconfident = summary.is_overconfident
+            except Exception:
+                pass
+
+        # Fall back to agent profile if no tracker data
+        if calibration_score == 1.0 and agent_name in self.agent_pool:
+            agent = self.agent_pool[agent_name]
+            calibration_score = agent.calibration_score
+            is_overconfident = agent.is_overconfident
+
+        # Apply adjustment: range 0.7 (poorly calibrated) to 1.0 (well calibrated)
+        adjustment = 0.7 + (calibration_score * 0.3)
+
+        # Penalty for overconfidence
+        if is_overconfident:
+            adjustment *= 0.9
+
+        return base_score * adjustment
 
     def select_team(
         self,
@@ -246,6 +419,14 @@ class AgentSelector:
             speed_score = 1 - min(agent.latency_ms, 5000) / 5000
             cost_score = 1 - min(agent.cost_factor, 3) / 3
             score = score * 0.6 + speed_score * 0.2 + cost_score * 0.2
+
+        # Apply probe reliability adjustment
+        # Agents with higher vulnerability rates get penalized
+        score = self.get_probe_adjusted_score(agent.name, score)
+
+        # Apply calibration adjustment
+        # Agents with poor calibration (overconfident) get penalized
+        score = self.get_calibration_adjusted_score(agent.name, score)
 
         return max(0, min(1, score))
 
