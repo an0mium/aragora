@@ -185,11 +185,13 @@ class TestCalibrationTrackerBasics:
 
     def test_confidence_clamping(self, tracker):
         """Test that confidence is clamped to [0, 1]."""
-        # This should not raise an error
-        tracker.record_prediction(agent="agent_1", confidence=1.5, correct=True)
-        tracker.record_prediction(agent="agent_1", confidence=-0.5, correct=False)
+        # Values outside [0,1] should be clamped and recorded
+        # 1.5 -> 1.0, -0.5 -> 0.0
+        tracker.record_prediction(agent="agent_clamp", confidence=1.5, correct=True)
+        tracker.record_prediction(agent="agent_clamp", confidence=-0.5, correct=False)
 
-        summary = tracker.get_calibration_summary("agent_1")
+        summary = tracker.get_calibration_summary("agent_clamp")
+        # Both predictions should be recorded (clamped but not rejected)
         assert summary.total_predictions == 2
 
 

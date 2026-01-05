@@ -211,11 +211,19 @@ class CalibrationTracker:
             range_start = i * bucket_size
             range_end = (i + 1) * bucket_size
 
-            query = """
-                SELECT COUNT(*), SUM(correct)
-                FROM predictions
-                WHERE agent = ? AND confidence >= ? AND confidence < ?
-            """
+            # Last bucket uses <= to include 1.0 exactly
+            if i == num_buckets - 1:
+                query = """
+                    SELECT COUNT(*), SUM(correct)
+                    FROM predictions
+                    WHERE agent = ? AND confidence >= ? AND confidence <= ?
+                """
+            else:
+                query = """
+                    SELECT COUNT(*), SUM(correct)
+                    FROM predictions
+                    WHERE agent = ? AND confidence >= ? AND confidence < ?
+                """
             params: list = [agent, range_start, range_end]
 
             if domain:
@@ -228,12 +236,19 @@ class CalibrationTracker:
             total = row[0] or 0
             correct = row[1] or 0
 
-            # Compute Brier sum for this bucket
-            brier_query = """
-                SELECT SUM((confidence - correct) * (confidence - correct))
-                FROM predictions
-                WHERE agent = ? AND confidence >= ? AND confidence < ?
-            """
+            # Compute Brier sum for this bucket (last bucket uses <= to include 1.0)
+            if i == num_buckets - 1:
+                brier_query = """
+                    SELECT SUM((confidence - correct) * (confidence - correct))
+                    FROM predictions
+                    WHERE agent = ? AND confidence >= ? AND confidence <= ?
+                """
+            else:
+                brier_query = """
+                    SELECT SUM((confidence - correct) * (confidence - correct))
+                    FROM predictions
+                    WHERE agent = ? AND confidence >= ? AND confidence < ?
+                """
             if domain:
                 brier_query += " AND domain = ?"
 

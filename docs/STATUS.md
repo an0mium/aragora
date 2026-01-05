@@ -1,8 +1,14 @@
 # Aragora Project Status
 
-*Last updated: January 5, 2026 (03:30 UTC)*
+*Last updated: January 4, 2026 (19:30 UTC)*
 
 ## Current State
+
+### Test Status
+- **Total Tests**: 347 passed, 6 pre-existing failures, 5 skipped
+- **Recent Fixes**: ELO tests (3), calibration test (1)
+- **Code Fix**: Calibration bucket boundary now includes confidence=1.0
+- **Pre-existing Failures**: 6 tests in test_unanimous_consensus.py (MockAgent voting issue)
 
 ### Nomic Loop
 - **Cycle**: 1
@@ -111,10 +117,15 @@
 - **NEW**: Added 4 unused UI components to dashboard (AgentNetworkPanel, CapabilityProbePanel, OperationalModesPanel, RedTeamAnalysisPanel)
 - **NEW**: Added circuit breaker persistence across nomic cycles (saves/restores cooldowns)
 - **NEW**: Added circuit breaker filtering to agent selection (skips agents in cooldown)
+- **NEW**: Fixed security: sanitized error messages in token streaming (unified_server.py)
+- **NEW**: Added mood/sentiment event types (MOOD_DETECTED, MOOD_SHIFT, DEBATE_ENERGY)
+- **NEW**: Added critique and consensus event handling to DebateViewer
+- **NEW**: Added ContraryViewsPanel for displaying dissenting opinions
+- **NEW**: Added RiskWarningsPanel for domain-specific risk assessment
 
 ## Feature Integration Status
 
-### Fully Integrated (41)
+### Fully Integrated (45)
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
@@ -158,6 +169,10 @@
 | CapabilityProbePanel | Active | `aragora/live/src/components/CapabilityProbePanel.tsx` |
 | OperationalModesPanel | Active | `aragora/live/src/components/OperationalModesPanel.tsx` |
 | RedTeamAnalysisPanel | Active | `aragora/live/src/components/RedTeamAnalysisPanel.tsx` |
+| Mood Event Types | Active | `aragora/server/stream.py` (MOOD_DETECTED, MOOD_SHIFT, DEBATE_ENERGY) |
+| ContraryViewsPanel | Active | `aragora/live/src/components/ContraryViewsPanel.tsx` |
+| RiskWarningsPanel | Active | `aragora/live/src/components/RiskWarningsPanel.tsx` |
+| DebateViewer Critique Handling | Active | `aragora/live/src/components/DebateViewer.tsx` (critique + consensus) |
 
 ### Recently Surfaced (6)
 | Feature | Status | Location |
