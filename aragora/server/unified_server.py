@@ -1509,7 +1509,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         if auto_select and ROUTING_AVAILABLE:
             agents_str = self._auto_select_agents(question, auto_select_config)
         else:
-            agents_str = data.get('agents', 'gemini,anthropic-api')
+            agents_str = data.get('agents', 'grok,anthropic-api,openai-api,deepseek')
 
         try:
             rounds = min(max(int(data.get('rounds', 3)), 1), 10)  # Clamp to 1-10

@@ -1,11 +1,12 @@
 # Aragora Project Status
 
-*Last updated: January 5, 2026 (02:00 UTC)*
+*Last updated: January 5, 2026 (05:30 UTC)*
 
 ## Current State
 
 ### Test Status
-- **Total Tests**: 605 passed, 0 failures, 9 skipped
+- **Total Tests**: 789+ passed (754 Python + 35 WebSocket), 6 skipped
+- **Frontend Tests**: 34 Jest tests (DebateListPanel, AgentComparePanel)
 - **Recent Fixes (2026-01-05)**:
   - Fixed `_get_belief_classes()` → `_get_belief_analyzer()` typo in orchestrator.py
   - Fixed all 7 unanimous consensus tests (were failing due to above typo)
@@ -135,6 +136,19 @@
 - **NEW**: Exported 4 new modules: audience, plugins, nomic, learning (25+ new public APIs)
 - **NEW**: Fixed N+1 query pattern in get_rivals/get_allies (single DB query instead of N+1)
 - **NEW**: Wired AUDIENCE_SUMMARY and INSIGHT_EXTRACTED events to WebSocket stream
+
+### Recent Changes (2026-01-05 Session 4)
+- **NEW**: Modular HTTP handlers framework (base.py, debates.py, agents.py, system.py)
+- **NEW**: Wired modular handlers into unified_server.py for gradual migration
+- **NEW**: Added DebateListPanel component (debate history browser with filters)
+- **NEW**: Added AgentComparePanel component (side-by-side agent comparison)
+- **NEW**: Added 34 Jest tests for new frontend components
+- **NEW**: Added 35 WebSocket tests (StreamEvent, SyncEventEmitter, TokenBucket)
+- **NEW**: Added PhaseRecovery class to nomic_loop.py (structured error handling)
+- **NEW**: Added Docker support for frontend (Dockerfile + next.config.js update)
+- **NEW**: Added "agents" parameter to query whitelist for /api/agent/compare
+- **NEW**: Nomic loop running SwarmAgent design proposal (audience participation)
+- **TOTAL TESTS**: 789+ passed (754 Python + 35 WebSocket)
 
 ### Recent Changes (2026-01-05 Session 3)
 - **NEW**: Fixed security: SAFE_ID_PATTERN bug (was string, needed re.match)
