@@ -4763,6 +4763,71 @@ Synthesize these suggestions into a coherent, working implementation.
             self._save_state({"phase": phase_name, "stage": "arena_error", "error": str(e)})
             raise
 
+    async def _arbitrate_design(self, proposals: dict, improvement: str) -> Optional[str]:
+        """Use a judge agent to pick between competing design proposals.
+
+        When design voting is tied or close, this method uses Claude as an impartial
+        judge to evaluate and select the best design based on:
+        - Feasibility (can it actually be implemented?)
+        - Completeness (does it cover all required changes?)
+        - Safety (does it preserve existing functionality?)
+        - Clarity (is it specific enough to implement?)
+
+        Args:
+            proposals: Dict mapping agent name to their design proposal
+            improvement: The improvement being designed (for context)
+
+        Returns:
+            The selected design text, or None if arbitration fails
+        """
+        if not proposals or len(proposals) < 2:
+            return None
+
+        try:
+            # Use Claude as judge (generally high-quality reasoning)
+            judge = self.claude
+
+            # Format proposals for comparison
+            proposals_text = "\n\n---\n\n".join(
+                f"## {agent}'s Design:\n{proposal[:2000]}..."
+                for agent, proposal in proposals.items()
+            )
+
+            arbitration_prompt = f"""You are a senior software architect arbitrating between competing design proposals.
+
+## The Improvement Being Designed:
+{improvement[:1000]}
+
+## Competing Designs:
+{proposals_text}
+
+## Evaluation Criteria:
+1. FEASIBILITY: Can this be implemented without major refactoring?
+2. COMPLETENESS: Does it specify all file changes, APIs, and integration points?
+3. SAFETY: Does it preserve existing functionality and avoid protected files?
+4. CLARITY: Is it specific enough that an engineer could implement it?
+5. TESTABILITY: Does it include a viable test plan?
+
+## Your Task:
+Select the BEST design. If one is clearly superior, choose it.
+If they're comparable, synthesize the best elements of each.
+
+Respond with ONLY the complete design specification (no preamble).
+Start directly with "## 1. FILE CHANGES" or similar."""
+
+            self._log("  [arbitration] Judge evaluating proposals...")
+            response = await judge.generate(arbitration_prompt)
+
+            if response and len(response) > 200:
+                return response
+            else:
+                self._log("  [arbitration] Judge response too short")
+                return None
+
+        except Exception as e:
+            self._log(f"  [arbitration] Error: {e}")
+            return None
+
     async def _run_fractal_with_logging(self, task: str, agents: list, phase_name: str) -> "DebateResult":
         """Run a fractal debate with agent evolution and real-time logging."""
         if not self.use_genesis or not GENESIS_AVAILABLE:
@@ -5857,23 +5922,70 @@ Recent changes:
    - Flag any assumptions that need verification
 """
 
-        env = Environment(
-            task=f"""{SAFETY_PREAMBLE}
+        # Enhanced design prompt with clearer guidance for better consensus
+        design_prompt = f"""{SAFETY_PREAMBLE}
 
-Design the implementation for this improvement:
+## DESIGN TASK
+Create a detailed implementation design for this improvement:
 
 {improvement}
+
+## CONTEXT FROM PRIOR LEARNING
 {design_learning}
-Provide:
-1. FILE CHANGES: Which files to create or modify (NEVER delete protected files)
-2. API DESIGN: Key classes, functions, signatures (EXTEND existing APIs, don't break them)
-3. INTEGRATION: How it connects to existing aragora modules (preserve all existing functionality)
-4. TEST PLAN: How to verify it works AND that existing features still work
-5. EXAMPLE USAGE: Code snippet showing the feature in action
-{citation_guidance}
-Be specific enough that an engineer could implement it.
-The implementation MUST preserve all existing aragora functionality.
-Learn from past patterns shown above - repeat successes and avoid failures.""",
+
+## REQUIRED DESIGN SECTIONS
+
+### 1. FILE CHANGES (Required)
+List EVERY file to create or modify. Be specific:
+- `aragora/path/file.py` - Create new | Modify existing
+- Estimated lines of code per file
+- NEVER delete or modify protected files: {PROTECTED_FILES}
+
+### 2. API DESIGN (Required)
+Define the public interface:
+```python
+class ClassName:
+    def method_name(self, param: Type) -> ReturnType:
+        '''Docstring explaining purpose.'''
+        ...
+```
+- EXTEND existing APIs, don't break them
+- Use existing patterns from aragora codebase
+
+### 3. INTEGRATION POINTS (Required)
+How does this connect to existing modules?
+- Which existing classes/functions does it use?
+- Which existing classes/functions call it?
+- Any new dependencies needed?
+
+### 4. TEST PLAN (Required)
+Concrete test cases:
+- Unit tests: `test_feature_basic()`, `test_feature_edge_case()`
+- Integration tests if needed
+- How to verify existing features still work
+
+### 5. EXAMPLE USAGE (Required)
+Working code snippet showing the feature in action:
+```python
+# Example usage
+result = new_feature.do_something()
+```
+
+## DESIGN QUALITY CRITERIA
+Your design will be evaluated on:
+- **Feasibility**: Can this be implemented in ~500 lines of code?
+- **Completeness**: Are all required sections filled out?
+- **Specificity**: Could an engineer implement this without asking questions?
+- **Safety**: Does it preserve all existing functionality?
+
+## IMPORTANT
+- Focus on MINIMAL viable implementation
+- Avoid over-engineering or unnecessary abstractions
+- Prefer simple, direct solutions over clever ones
+{citation_guidance}"""
+
+        env = Environment(
+            task=design_prompt,
             context=f"Working directory: {self.aragora_path}\n\nProtected files (NEVER delete): {PROTECTED_FILES}",
         )
 
@@ -5938,6 +6050,18 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
         )
         result = await self._run_arena_with_logging(arena, "design")
 
+        # Extract individual proposals from messages for fallback selection
+        individual_proposals = {}
+        for msg in result.messages:
+            if msg.role == "proposer" and msg.content:
+                individual_proposals[msg.agent] = msg.content
+
+        # Extract vote counts for fallback selection
+        vote_counts = {}
+        for vote in result.votes:
+            choice = vote.choice
+            vote_counts[choice] = vote_counts.get(choice, 0) + 1
+
         # NomicIntegration: Checkpoint the design phase
         if self.nomic_integration:
             try:
@@ -5960,6 +6084,10 @@ Learn from past patterns shown above - repeat successes and avoid failures.""",
             "design": result.final_answer,
             "consensus_reached": result.consensus_reached,
             "agent_weights": agent_weights,
+            "individual_proposals": individual_proposals,
+            "vote_counts": vote_counts,
+            "confidence": result.confidence,
+            "votes": [(v.agent, v.choice, v.confidence) for v in result.votes],
         }
 
     def _git_stash_create(self) -> Optional[str]:
@@ -7003,15 +7131,49 @@ Be concise - this is a quality gate, not a full review."""
 
         design = design_result.get("design", "")
         design_consensus = design_result.get("consensus_reached", False)
-        self._log(f"\nDesign complete")
+        design_confidence = design_result.get("confidence", 0.0)
+        vote_counts = design_result.get("vote_counts", {})
+        individual_proposals = design_result.get("individual_proposals", {})
+        self._log(f"\nDesign complete (consensus={design_consensus}, confidence={design_confidence:.0%})")
 
-        # === Check design consensus before implementation ===
-        if not design_consensus and not design:
-            self._log("  [warning] Design phase had no consensus and no design - skipping implementation")
-            cycle_result["outcome"] = "design_no_consensus"
-            return cycle_result
-        elif not design_consensus:
-            self._log("  [warning] Design phase had low consensus - proceeding with caution")
+        # === Design Fallback: Use highest-voted design if no consensus ===
+        if not design_consensus:
+            self._log("  [fallback] No design consensus - attempting recovery...")
+
+            # Strategy 1: Use highest-voted proposal
+            if vote_counts and individual_proposals:
+                top_choice = max(vote_counts.keys(), key=lambda k: vote_counts[k]) if vote_counts else None
+                if top_choice and top_choice in individual_proposals:
+                    design = individual_proposals[top_choice]
+                    self._log(f"  [fallback] Selected {top_choice}'s design with {vote_counts[top_choice]} votes")
+                elif individual_proposals:
+                    # Fallback to first available proposal
+                    first_agent = next(iter(individual_proposals))
+                    design = individual_proposals[first_agent]
+                    self._log(f"  [fallback] Selected {first_agent}'s design (first available)")
+
+            # Strategy 2: If close contest (top 2 within 1 vote), use judge arbitration
+            if vote_counts and len(vote_counts) >= 2:
+                sorted_votes = sorted(vote_counts.items(), key=lambda x: x[1], reverse=True)
+                top_votes = sorted_votes[0][1]
+                second_votes = sorted_votes[1][1] if len(sorted_votes) > 1 else 0
+
+                if top_votes - second_votes <= 1 and individual_proposals:
+                    self._log("  [arbitration] Close contest - invoking judge arbitration...")
+                    design = await self._arbitrate_design(individual_proposals, improvement)
+                    if design:
+                        self._log("  [arbitration] Judge selected winning design")
+
+            # Final check: do we have a usable design?
+            if not design or len(design.strip()) < 100:
+                self._log("  [warning] No viable design recovered - skipping implementation")
+                cycle_result["outcome"] = "design_no_consensus"
+                cycle_result["vote_counts"] = vote_counts
+                return cycle_result
+            else:
+                self._log(f"  [fallback] Proceeding with recovered design ({len(design)} chars)")
+        elif design_confidence < 0.5:
+            self._log("  [warning] Design has low confidence - proceeding with caution")
 
         # === Deadline check after design ===
         if not self._check_cycle_deadline(cycle_deadline, "design"):

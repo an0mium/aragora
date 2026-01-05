@@ -368,7 +368,7 @@ export default function Home() {
             <CruxPanel apiBase={API_URL} />
             <MemoryInspector apiBase={API_URL} />
             <LaboratoryPanel apiBase={API_URL} />
-            <AgentNetworkPanel events={events} apiBase={API_URL} />
+            <AgentNetworkPanel apiBase={API_URL} />
             <CapabilityProbePanel apiBase={API_URL} />
             <OperationalModesPanel apiBase={API_URL} />
             <RedTeamAnalysisPanel apiBase={API_URL} />

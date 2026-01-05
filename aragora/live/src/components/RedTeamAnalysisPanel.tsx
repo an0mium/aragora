@@ -17,7 +17,7 @@ interface RedTeamResult {
 }
 
 interface RedTeamAnalysisPanelProps {
-  debateId: string;
+  debateId?: string;
   apiBase?: string;
   onComplete?: (result: RedTeamResult) => void;
 }
@@ -60,6 +60,11 @@ export function RedTeamAnalysisPanel({
   };
 
   const runAnalysis = useCallback(async () => {
+    if (!debateId) {
+      setError('No debate selected for red team analysis');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
