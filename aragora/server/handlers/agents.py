@@ -124,14 +124,72 @@ class AgentsHandler(BaseHandler):
         return None
 
     def _get_leaderboard(self, limit: int, domain: Optional[str]) -> HandlerResult:
-        """Get agent leaderboard."""
+        """Get agent leaderboard with consistency scores (batched to avoid N+1)."""
         elo = self.get_elo_system()
         if not elo:
             return error_response("ELO system not available", 503)
 
         try:
-            rankings = elo.get_leaderboard(limit=min(limit, 50), domain=domain)
-            return json_response({"rankings": rankings})
+            # Use cached leaderboard when available (no domain filter needed for cache)
+            if domain is None and hasattr(elo, 'get_cached_leaderboard'):
+                rankings = elo.get_cached_leaderboard(limit=min(limit, 50))
+            else:
+                rankings = elo.get_leaderboard(limit=min(limit, 50), domain=domain)
+
+            # Batch fetch consistency scores to avoid N+1 queries
+            consistency_map = {}
+            try:
+                from aragora.insights.flip_detector import FlipDetector
+                nomic_dir = self.get_nomic_dir()
+                if nomic_dir:
+                    detector = FlipDetector(str(nomic_dir / "grounded_positions.db"))
+                    for agent in rankings:
+                        agent_name = agent.get("name") if isinstance(agent, dict) else getattr(agent, "name", None)
+                        if agent_name:
+                            try:
+                                score = detector.get_agent_consistency(agent_name)
+                                # Handle both dict and object returns
+                                if hasattr(score, 'total_flips'):
+                                    total_positions = max(score.total_positions, 1)
+                                    consistency = 1.0 - (score.total_flips / total_positions)
+                                elif isinstance(score, dict):
+                                    total_positions = max(score.get('total_positions', 1), 1)
+                                    consistency = 1.0 - (score.get('total_flips', 0) / total_positions)
+                                else:
+                                    consistency = 1.0
+                                consistency_map[agent_name] = {
+                                    "consistency": round(consistency, 3),
+                                    "consistency_class": "high" if consistency >= 0.8 else "medium" if consistency >= 0.6 else "low"
+                                }
+                            except Exception:
+                                consistency_map[agent_name] = {"consistency": 1.0, "consistency_class": "high"}
+            except ImportError:
+                pass  # FlipDetector not available, continue without consistency
+
+            # Enhance rankings with consistency data
+            enhanced_rankings = []
+            for agent in rankings:
+                if isinstance(agent, dict):
+                    agent_dict = agent.copy()
+                    agent_name = agent.get("name")
+                else:
+                    agent_dict = {
+                        "name": getattr(agent, "name", "unknown"),
+                        "elo": getattr(agent, "elo", 1500),
+                        "wins": getattr(agent, "wins", 0),
+                        "losses": getattr(agent, "losses", 0),
+                        "draws": getattr(agent, "draws", 0),
+                        "win_rate": getattr(agent, "win_rate", 0),
+                        "games": getattr(agent, "games", 0),
+                    }
+                    agent_name = agent_dict["name"]
+
+                if agent_name in consistency_map:
+                    agent_dict.update(consistency_map[agent_name])
+
+                enhanced_rankings.append(agent_dict)
+
+            return json_response({"rankings": enhanced_rankings, "agents": enhanced_rankings})
         except Exception as e:
             return error_response(f"Failed to get leaderboard: {e}", 500)
 

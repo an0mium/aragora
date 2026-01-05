@@ -7,11 +7,69 @@ shared across all endpoint modules.
 
 import json
 import logging
+import time
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from functools import wraps
+from typing import Any, Callable, Optional, Tuple
 from urllib.parse import parse_qs
 
 logger = logging.getLogger(__name__)
+
+
+# Simple TTL cache for expensive operations
+_cache: dict[str, tuple[float, Any]] = {}
+
+
+def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = ""):
+    """
+    Decorator for caching function results with TTL expiry.
+
+    Args:
+        ttl_seconds: How long to cache results (default 60s)
+        key_prefix: Prefix for cache key to namespace different functions
+
+    Usage:
+        @ttl_cache(ttl_seconds=300, key_prefix="leaderboard")
+        def get_expensive_data(limit: int):
+            ...
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Build cache key from function name, args and kwargs
+            cache_key = f"{key_prefix}:{func.__name__}:{args}:{sorted(kwargs.items())}"
+
+            now = time.time()
+            if cache_key in _cache:
+                cached_time, cached_value = _cache[cache_key]
+                if now - cached_time < ttl_seconds:
+                    logger.debug(f"Cache hit for {cache_key}")
+                    return cached_value
+
+            # Cache miss or expired
+            result = func(*args, **kwargs)
+            _cache[cache_key] = (now, result)
+            logger.debug(f"Cache miss, stored {cache_key}")
+            return result
+        return wrapper
+    return decorator
+
+
+def clear_cache(key_prefix: str = None) -> int:
+    """Clear cached entries, optionally filtered by prefix.
+
+    Returns number of entries cleared.
+    """
+    global _cache
+    if key_prefix is None:
+        count = len(_cache)
+        _cache = {}
+        return count
+    else:
+        keys_to_remove = [k for k in _cache if k.startswith(key_prefix)]
+        for k in keys_to_remove:
+            del _cache[k]
+        return len(keys_to_remove)
 
 
 @dataclass
