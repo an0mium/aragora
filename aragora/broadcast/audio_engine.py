@@ -114,7 +114,13 @@ async def generate_audio(segments: list[ScriptSegment], output_dir: Optional[Pat
     output_dir.mkdir(exist_ok=True)
 
     tasks = [generate_audio_segment(seg, output_dir) for seg in segments]
-    results = await asyncio.gather(*tasks)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Filter out None results
-    return [path for path in results if path is not None]
+    # Filter out None results and log exceptions
+    valid_paths = []
+    for result in results:
+        if isinstance(result, Exception):
+            logger.error(f"Audio segment generation failed: {type(result).__name__}: {result}")
+        elif result is not None:
+            valid_paths.append(result)
+    return valid_paths

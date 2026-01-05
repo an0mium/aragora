@@ -9,10 +9,11 @@ Inspired by Project Sid's emergent specialization, this module provides:
 
 import json
 import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Generator, Optional
 
 
 # Predefined expertise domains
@@ -97,62 +98,69 @@ class PersonaManager:
         self.db_path = Path(db_path)
         self._init_db()
 
+    @contextmanager
+    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
+        """Get a database connection with guaranteed cleanup."""
+        conn = sqlite3.connect(self.db_path)
+        try:
+            yield conn
+        finally:
+            conn.close()
+
     def _init_db(self):
         """Initialize database schema."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        # Personas table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS personas (
-                agent_name TEXT PRIMARY KEY,
-                description TEXT,
-                traits TEXT,
-                expertise TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+            # Personas table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS personas (
+                    agent_name TEXT PRIMARY KEY,
+                    description TEXT,
+                    traits TEXT,
+                    expertise TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
-        # Performance history for learning
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS performance_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                agent_name TEXT NOT NULL,
-                debate_id TEXT,
-                domain TEXT,
-                action TEXT,
-                success INTEGER,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+            # Performance history for learning
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS performance_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    agent_name TEXT NOT NULL,
+                    debate_id TEXT,
+                    domain TEXT,
+                    action TEXT,
+                    success INTEGER,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
     def get_persona(self, agent_name: str) -> Optional[Persona]:
         """Get persona for an agent."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT agent_name, description, traits, expertise, created_at, updated_at FROM personas WHERE agent_name = ?",
-            (agent_name,),
-        )
-        row = cursor.fetchone()
-        conn.close()
+            cursor.execute(
+                "SELECT agent_name, description, traits, expertise, created_at, updated_at FROM personas WHERE agent_name = ?",
+                (agent_name,),
+            )
+            row = cursor.fetchone()
 
-        if not row:
-            return None
+            if not row:
+                return None
 
-        return Persona(
-            agent_name=row[0],
-            description=row[1] or "",
-            traits=json.loads(row[2]) if row[2] else [],
-            expertise=json.loads(row[3]) if row[3] else {},
-            created_at=row[4],
-            updated_at=row[5],
-        )
+            return Persona(
+                agent_name=row[0],
+                description=row[1] or "",
+                traits=json.loads(row[2]) if row[2] else [],
+                expertise=json.loads(row[3]) if row[3] else {},
+                created_at=row[4],
+                updated_at=row[5],
+            )
 
     def create_persona(
         self,
@@ -162,9 +170,6 @@ class PersonaManager:
         expertise: dict[str, float] | None = None,
     ) -> Persona:
         """Create or update a persona for an agent."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
         now = datetime.now().isoformat()
         traits = traits or []
         expertise = expertise or {}
@@ -179,21 +184,23 @@ class PersonaManager:
             if k in EXPERTISE_DOMAINS
         }
 
-        cursor.execute(
-            """
-            INSERT INTO personas (agent_name, description, traits, expertise, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(agent_name) DO UPDATE SET
-                description = excluded.description,
-                traits = excluded.traits,
-                expertise = excluded.expertise,
-                updated_at = excluded.updated_at
-            """,
-            (agent_name, description, json.dumps(traits), json.dumps(expertise), now, now),
-        )
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        conn.commit()
-        conn.close()
+            cursor.execute(
+                """
+                INSERT INTO personas (agent_name, description, traits, expertise, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(agent_name) DO UPDATE SET
+                    description = excluded.description,
+                    traits = excluded.traits,
+                    expertise = excluded.expertise,
+                    updated_at = excluded.updated_at
+                """,
+                (agent_name, description, json.dumps(traits), json.dumps(expertise), now, now),
+            )
+
+            conn.commit()
 
         return Persona(
             agent_name=agent_name,
@@ -225,81 +232,78 @@ class PersonaManager:
         if domain not in EXPERTISE_DOMAINS:
             return
 
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            INSERT INTO performance_history (agent_name, debate_id, domain, action, success)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (agent_name, debate_id, domain, action, 1 if success else 0),
-        )
+            cursor.execute(
+                """
+                INSERT INTO performance_history (agent_name, debate_id, domain, action, success)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (agent_name, debate_id, domain, action, 1 if success else 0),
+            )
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
         # Update expertise based on performance
         self._update_expertise(agent_name, domain)
 
     def _update_expertise(self, agent_name: str, domain: str):
         """Update expertise score based on recent performance."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        # Get recent performance in this domain (last 50 events)
-        cursor.execute(
-            """
-            SELECT success FROM performance_history
-            WHERE agent_name = ? AND domain = ?
-            ORDER BY created_at DESC
-            LIMIT 50
-            """,
-            (agent_name, domain),
-        )
-        rows = cursor.fetchall()
+            # Get recent performance in this domain (last 50 events)
+            cursor.execute(
+                """
+                SELECT success FROM performance_history
+                WHERE agent_name = ? AND domain = ?
+                ORDER BY created_at DESC
+                LIMIT 50
+                """,
+                (agent_name, domain),
+            )
+            rows = cursor.fetchall()
 
-        if not rows:
-            conn.close()
-            return
+            if not rows:
+                return
 
-        # Calculate success rate with recency weighting
-        total_weight = 0.0
-        weighted_success = 0.0
-        for i, (success,) in enumerate(rows):
-            weight = 0.95 ** i  # Exponential decay
-            total_weight += weight
-            weighted_success += weight * success
+            # Calculate success rate with recency weighting
+            total_weight = 0.0
+            weighted_success = 0.0
+            for i, (success,) in enumerate(rows):
+                weight = 0.95 ** i  # Exponential decay
+                total_weight += weight
+                weighted_success += weight * success
 
-        new_score = weighted_success / total_weight if total_weight > 0 else 0.5
+            new_score = weighted_success / total_weight if total_weight > 0 else 0.5
 
-        # Get current persona
-        cursor.execute("SELECT expertise FROM personas WHERE agent_name = ?", (agent_name,))
-        row = cursor.fetchone()
+            # Get current persona
+            cursor.execute("SELECT expertise FROM personas WHERE agent_name = ?", (agent_name,))
+            row = cursor.fetchone()
 
-        if row:
-            expertise = json.loads(row[0]) if row[0] else {}
-        else:
-            expertise = {}
+            if row:
+                expertise = json.loads(row[0]) if row[0] else {}
+            else:
+                expertise = {}
 
-        # Smooth update (blend old and new)
-        old_score = expertise.get(domain, 0.5)
-        expertise[domain] = 0.7 * new_score + 0.3 * old_score
+            # Smooth update (blend old and new)
+            old_score = expertise.get(domain, 0.5)
+            expertise[domain] = 0.7 * new_score + 0.3 * old_score
 
-        # Update persona
-        cursor.execute(
-            """
-            INSERT INTO personas (agent_name, expertise, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(agent_name) DO UPDATE SET
-                expertise = excluded.expertise,
-                updated_at = excluded.updated_at
-            """,
-            (agent_name, json.dumps(expertise), datetime.now().isoformat()),
-        )
+            # Update persona
+            cursor.execute(
+                """
+                INSERT INTO personas (agent_name, expertise, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(agent_name) DO UPDATE SET
+                    expertise = excluded.expertise,
+                    updated_at = excluded.updated_at
+                """,
+                (agent_name, json.dumps(expertise), datetime.now().isoformat()),
+            )
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
     def infer_traits(self, agent_name: str) -> list[str]:
         """
@@ -307,96 +311,93 @@ class PersonaManager:
 
         Returns suggested traits based on observed behavior.
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        # Get performance stats
-        cursor.execute(
-            """
-            SELECT
-                COUNT(*) as total,
-                SUM(success) as successes,
-                COUNT(DISTINCT domain) as domains_covered
-            FROM performance_history
-            WHERE agent_name = ?
-            """,
-            (agent_name,),
-        )
-        row = cursor.fetchone()
-        conn.close()
+            # Get performance stats
+            cursor.execute(
+                """
+                SELECT
+                    COUNT(*) as total,
+                    SUM(success) as successes,
+                    COUNT(DISTINCT domain) as domains_covered
+                FROM performance_history
+                WHERE agent_name = ?
+                """,
+                (agent_name,),
+            )
+            row = cursor.fetchone()
 
-        if not row or row[0] == 0:
-            return []
+            if not row or row[0] == 0:
+                return []
 
-        total, successes, domains = row
-        success_rate = successes / total if total > 0 else 0
+            total, successes, domains = row
+            success_rate = successes / total if total > 0 else 0
 
-        traits = []
+            traits = []
 
-        # Infer traits from patterns
-        if domains >= 5:
-            traits.append("thorough")  # Covers many domains
+            # Infer traits from patterns
+            if domains >= 5:
+                traits.append("thorough")  # Covers many domains
 
-        if success_rate > 0.7:
-            traits.append("pragmatic")  # High success rate
+            if success_rate > 0.7:
+                traits.append("pragmatic")  # High success rate
 
-        if domains <= 2 and total >= 10:
-            traits.append("conservative")  # Focuses on few areas
+            if domains <= 2 and total >= 10:
+                traits.append("conservative")  # Focuses on few areas
 
-        return traits
+            return traits
 
     def get_all_personas(self) -> list[Persona]:
         """Get all personas."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT agent_name, description, traits, expertise, created_at, updated_at FROM personas"
-        )
-        rows = cursor.fetchall()
-        conn.close()
-
-        return [
-            Persona(
-                agent_name=row[0],
-                description=row[1] or "",
-                traits=json.loads(row[2]) if row[2] else [],
-                expertise=json.loads(row[3]) if row[3] else {},
-                created_at=row[4],
-                updated_at=row[5],
+            cursor.execute(
+                "SELECT agent_name, description, traits, expertise, created_at, updated_at FROM personas"
             )
-            for row in rows
-        ]
+            rows = cursor.fetchall()
+
+            return [
+                Persona(
+                    agent_name=row[0],
+                    description=row[1] or "",
+                    traits=json.loads(row[2]) if row[2] else [],
+                    expertise=json.loads(row[3]) if row[3] else {},
+                    created_at=row[4],
+                    updated_at=row[5],
+                )
+                for row in rows
+            ]
 
     def get_performance_summary(self, agent_name: str) -> dict:
         """Get performance summary for an agent."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute(
-            """
-            SELECT
-                domain,
-                COUNT(*) as total,
-                SUM(success) as successes
-            FROM performance_history
-            WHERE agent_name = ?
-            GROUP BY domain
-            ORDER BY total DESC
-            """,
-            (agent_name,),
-        )
-        rows = cursor.fetchall()
-        conn.close()
+            cursor.execute(
+                """
+                SELECT
+                    domain,
+                    COUNT(*) as total,
+                    SUM(success) as successes
+                FROM performance_history
+                WHERE agent_name = ?
+                GROUP BY domain
+                ORDER BY total DESC
+                """,
+                (agent_name,),
+            )
+            rows = cursor.fetchall()
 
-        return {
-            row[0]: {
-                "total": row[1],
-                "successes": row[2],
-                "rate": row[2] / row[1] if row[1] > 0 else 0,
+            return {
+                row[0]: {
+                    "total": row[1],
+                    "successes": row[2],
+                    "rate": row[2] / row[1] if row[1] > 0 else 0,
+                }
+                for row in rows
             }
-            for row in rows
-        }
 
 
 # Default personas for common agent types

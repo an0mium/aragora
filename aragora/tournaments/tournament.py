@@ -385,7 +385,11 @@ class Tournament:
             self._run_match(match, run_debate_fn)
             for match in self.matches
         ]
-        await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Log any match failures (matches are updated in _run_match)
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"Tournament match {i} failed: {type(result).__name__}: {result}")
 
     async def _run_sequential(self, run_debate_fn: Callable):
         """Run matches sequentially."""
