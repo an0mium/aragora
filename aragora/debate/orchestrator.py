@@ -44,7 +44,7 @@ def _get_position_tracker():
             from aragora.agents.truth_grounding import PositionTracker as _PT
             PositionTracker = _PT
         except ImportError:
-            logger.debug("PositionTracker not available - truth grounding disabled")
+            pass
     return PositionTracker
 
 
@@ -59,7 +59,7 @@ def _get_calibration_tracker():
             from aragora.agents.calibration import CalibrationTracker as _CT
             CalibrationTracker = _CT
         except ImportError:
-            logger.debug("CalibrationTracker not available - prediction calibration disabled")
+            pass
     return CalibrationTracker
 
 # Lazy import to avoid circular dependencies
@@ -81,7 +81,7 @@ def _get_belief_analyzer():
             BeliefNetwork = _BN
             BeliefPropagationAnalyzer = _BPA
         except ImportError:
-            logger.debug("BeliefPropagationAnalyzer not available - belief analysis disabled")
+            pass
     return BeliefNetwork, BeliefPropagationAnalyzer
 
 def _get_citation_extractor():
@@ -92,7 +92,7 @@ def _get_citation_extractor():
             from aragora.reasoning.citations import CitationExtractor as _CE
             CitationExtractor = _CE
         except ImportError:
-            logger.debug("CitationExtractor not available - citation extraction disabled")
+            pass
     return CitationExtractor
 
 def _get_insight_classes():
@@ -116,7 +116,7 @@ def _get_critique_store():
             from aragora.memory.store import CritiqueStore as _CS
             CritiqueStore = _CS
         except ImportError:
-            logger.debug("CritiqueStore not available - critique pattern memory disabled")
+            pass
     return CritiqueStore
 
 
@@ -131,7 +131,7 @@ def _get_argument_cartographer():
             from aragora.visualization.mapper import ArgumentCartographer as _AC
             ArgumentCartographer = _AC
         except ImportError:
-            logger.debug("ArgumentCartographer not available - argument mapping disabled")
+            pass
     return ArgumentCartographer
 
 
@@ -209,7 +209,6 @@ class Arena:
             except ImportError:
                 pass  # MomentDetector not available
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 logger.debug("MomentDetector auto-init failed: %s", e)
 
         self.loop_id = loop_id  # Loop ID for scoping events
@@ -333,7 +332,6 @@ class Arena:
             logger.info(f"  [continuum] Retrieved {len(memories)} relevant memories for domain '{domain}'")
             return self._continuum_context_cache
         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
             logger.warning(f"  [continuum] Memory retrieval error: {e}")
             return ""
 
@@ -384,7 +382,6 @@ class Arena:
             logger.info(f"  [continuum] Stored outcome as {tier}-tier memory (importance: {importance:.2f})")
 
         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
             logger.warning(f"  [continuum] Failed to store outcome: {e}")
 
     def _store_evidence_in_memory(self, evidence_snippets: list, task: str) -> None:
@@ -424,15 +421,13 @@ class Arena:
                         }
                     )
                     stored_count += 1
-                except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-                    logger.debug(f"  [continuum] Evidence storage skipped: {e}")
+                except Exception:
+                    pass  # Skip duplicates or storage errors
 
             if stored_count > 0:
                 logger.info(f"  [continuum] Stored {stored_count} evidence snippets for future retrieval")
 
         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
             logger.warning(f"  [continuum] Failed to store evidence: {e}")
 
     def _update_continuum_memory_outcomes(self, result: "DebateResult") -> None:
@@ -459,7 +454,6 @@ class Arena:
                     )
                     updated_count += 1
                 except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                     logger.debug(f"  [continuum] Failed to update memory {mem_id}: {e}")
 
             if updated_count > 0:
@@ -469,7 +463,6 @@ class Arena:
             self._continuum_retrieved_ids = []
 
         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
             logger.warning(f"  [continuum] Failed to update memory outcomes: {e}")
 
     def _extract_citation_needs(self, proposals: dict[str, str]) -> dict[str, list[dict]]:
@@ -700,9 +693,8 @@ class Arena:
                 loop_id=getattr(self, 'loop_id', ''),
             )
             self.event_emitter.emit(stream_event)
-        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-            logger.debug(f"Spectator event emission failed: {e}")
+        except Exception:
+            pass  # Fail silently to not disrupt debate flow
 
         # Update ArgumentCartographer with this event
         self._update_cartographer(event_type, **kwargs)
@@ -720,7 +712,6 @@ class Arena:
             ))
             logger.debug("Emitted moment event: %s for %s", moment.moment_type, moment.agent_name)
         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
             logger.debug("Failed to emit moment event: %s", e)
 
     def _update_cartographer(self, event_type: str, **kwargs):
@@ -766,9 +757,8 @@ class Arena:
                     result=result,
                     round_num=round_num,
                 )
-        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-            logger.debug(f"Cartographer update failed: {e}")
+        except Exception:
+            pass  # Don't break debate on cartographer errors
 
     def _record_grounded_position(
         self, agent_name: str, content: str, debate_id: str, round_num: int,
@@ -782,9 +772,8 @@ class Arena:
                 agent_name=agent_name, claim=content[:1000], confidence=confidence,
                 debate_id=debate_id, round_num=round_num, domain=domain,
             )
-        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-            logger.debug(f"Position ledger recording failed: {e}")
+        except Exception:
+            pass  # Don't break debate on ledger errors
 
     def _update_agent_relationships(self, debate_id: str, participants: list[str], winner: Optional[str], votes: list):
         """Update agent relationships after debate completion."""
@@ -801,9 +790,8 @@ class Arena:
                         agent_a=agent_a, agent_b=agent_b, debate_increment=1,
                         agreement_increment=1 if agreed else 0, a_win=a_win, b_win=b_win,
                     )
-        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-            logger.debug(f"Agent relationship update failed: {e}")
+        except Exception:
+            pass  # Don't break debate on relationship update errors
 
     def _generate_disagreement_report(
         self,
@@ -1065,7 +1053,6 @@ class Arena:
             )
 
         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
             logger.warning(f"Error creating grounded verdict: {e}")
             return None
 
@@ -1122,14 +1109,12 @@ class Arena:
                         disproven_count += 1
 
                 except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                     logger.debug(f"Formal verification failed for claim: {e}")
 
             if verified_count > 0 or disproven_count > 0:
                 logger.info(f"  [formal] Z3 verified {verified_count} claims, disproved {disproven_count}")
 
         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
             logger.debug(f"Formal verification error: {e}")
 
     async def _fetch_historical_context(self, task: str, limit: int = 3) -> str:
@@ -1176,9 +1161,7 @@ class Arena:
                 lines.append("")  # blank line between entries
 
             return "\n".join(lines)
-        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-            logger.debug(f"Historical context formatting failed: {e}")
+        except Exception:
             return ""
 
     def _format_patterns_for_prompt(self, patterns: list[dict]) -> str:
@@ -1249,7 +1232,6 @@ class Arena:
 
             return self._format_patterns_for_prompt(pattern_dicts)
         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
             logger.debug(f"Failed to retrieve patterns: {e}")
             return ""
 
@@ -1279,7 +1261,7 @@ class Arena:
                     collector.add_connector("web", WebConnector())
                     enabled_connectors.append("web")
             except ImportError:
-                logger.debug("WebConnector not available - web research disabled")
+                pass
 
             # Add GitHub connector if available
             try:
@@ -1289,7 +1271,7 @@ class Arena:
                     collector.add_connector("github", GitHubConnector())
                     enabled_connectors.append("github")
             except ImportError:
-                logger.debug("GitHubConnector not available - GitHub research disabled")
+                pass
 
             # Collect evidence from all available connectors
             if enabled_connectors:
@@ -1303,7 +1285,6 @@ class Arena:
                     context_parts.append(f"## EVIDENCE CONTEXT\n{evidence_pack.to_context_string()}")
 
         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
             logger.warning(f"Evidence collection failed: {e}")
 
         # === Pulse/Trending Context ===
@@ -1322,7 +1303,6 @@ class Arena:
                 context_parts.append(trending_context)
 
         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
             logger.debug(f"Pulse context unavailable: {e}")
 
         if context_parts:
@@ -1519,9 +1499,8 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             try:
                 self.recorder.start()
                 self.recorder.record_phase_change("debate_start")
-            except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-                logger.debug(f"Recorder start failed: {e}")
+            except Exception:
+                pass  # Recording failure shouldn't break debate
 
         # Fetch historical context once at debate start (for institutional memory)
         if self.debate_embeddings:
@@ -1529,9 +1508,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 self._historical_context_cache = await self._fetch_historical_context(
                     self.env.task, limit=2  # Limit to 2 to avoid prompt bloat
                 )
-            except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-                logger.debug(f"Historical context fetch failed: {e}")
+            except Exception:
                 self._historical_context_cache = ""
 
         # Inject learned patterns from past debates (pattern-based prompting)
@@ -1546,9 +1523,8 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                         self.env.context += "\n\n" + pattern_context
                     else:
                         self.env.context = pattern_context
-            except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-                logger.debug(f"Pattern injection failed: {e}")
+            except Exception:
+                pass  # Pattern injection failure shouldn't break debate
 
         # Inject successful critique patterns from CritiqueStore memory
         if self.memory:
@@ -1560,9 +1536,8 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     else:
                         self.env.context = memory_patterns
                     logger.info("  [memory] Injected successful critique patterns into debate context")
-            except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-                logger.debug(f"Memory pattern injection failed: {e}")
+            except Exception:
+                pass  # Pattern injection failure shouldn't break debate
 
         # Pre-debate research phase
         if self.protocol.enable_research:
@@ -1579,7 +1554,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 else:
                     print("  [research] No research context returned")
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 print(f"  [research] Research phase failed: {e}")
                 # Continue without research - don't break the debate
 
@@ -1635,7 +1609,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 result = await self._generate_with_agent(agent, prompt, context)
                 return (agent, result)
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 return (agent, e)
 
         # Use asyncio.as_completed to stream output as each agent finishes
@@ -1667,9 +1640,8 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                             round_num=0,
                             confidence=0.7,
                         )
-                    except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-                        logger.debug(f"Position tracking failed: {e}")  # Position tracking failure shouldn't break debate
+                    except Exception:
+                        pass  # Position tracking failure shouldn't break debate
 
                 # Record position for grounded personas (new ledger system)
                 debate_id = result.id if hasattr(result, 'id') else self.env.task[:50]
@@ -1698,9 +1670,8 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             if self.recorder and not isinstance(result_or_error, Exception):
                 try:
                     self.recorder.record_turn(agent.name, proposals[agent.name], 0)
-                except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-                    logger.debug(f"Recorder turn failed: {e}")
+                except Exception:
+                    pass
 
         # Extract citation needs from initial proposals (Heavy3-inspired)
         self._extract_citation_needs(proposals)
@@ -1730,9 +1701,8 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             if self.recorder:
                 try:
                     self.recorder.record_phase_change(f"round_{round_num}_start")
-                except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-                    logger.debug(f"Recorder phase change failed: {e}")
+                except Exception:
+                    pass
 
             # Get critics - when all agents are proposers, they all critique each other
             critics = [a for a in self.agents if a.role in ("critic", "synthesizer")]
@@ -1756,7 +1726,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     crit_result = await self._critique_with_agent(critic, proposal, self.env.task, context)
                     return (critic, proposal_agent, crit_result)
                 except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                     return (critic, proposal_agent, e)
 
             # Create critique tasks based on topology
@@ -1815,8 +1784,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     if self.recorder:
                         try:
                             self.recorder.record_turn(critic.name, critique_content, round_num)
-                        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+                        except Exception:
                             pass
 
                     # Add critique to context
@@ -1885,8 +1853,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     if self.recorder:
                         try:
                             self.recorder.record_turn(agent.name, revised, round_num)
-                        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+                        except Exception:
                             pass
 
                     # Record revised position for grounded personas
@@ -1967,7 +1934,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     vote_result = await self._vote_with_agent(agent, proposals, self.env.task)
                     return (agent, vote_result)
                 except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                     return (agent, e)
 
             vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in self.agents]
@@ -1992,8 +1958,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     if self.recorder:
                         try:
                             self.recorder.record_vote(agent.name, vote_result.choice, vote_result.reasoning)
-                        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+                        except Exception:
                             pass
 
                     # Record position for truth-grounded personas
@@ -2007,8 +1972,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                                 round_num=result.rounds_used,
                                 confidence=vote_result.confidence,
                             )
-                        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+                        except Exception:
                             pass
 
             # Group similar vote options before counting
@@ -2042,8 +2006,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                         consistency = self.flip_detector.get_agent_consistency(agent.name)
                         consistency_weight = 0.5 + (consistency.consistency_score * 0.5)
                         agent_weight *= consistency_weight
-                    except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+                    except Exception:
                         pass
 
                 _vote_weight_cache[agent.name] = agent_weight
@@ -2120,8 +2083,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 if self.recorder:
                     try:
                         self.recorder.record_phase_change(f"consensus_reached: {winner}")
-                    except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+                    except Exception:
                         pass
 
                 # Finalize debate for truth-grounded personas
@@ -2133,8 +2095,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                             winning_position=result.final_answer[:1000],
                             consensus_confidence=result.confidence,
                         )
-                    except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+                    except Exception:
                         pass
 
                 # Record calibration predictions (vote predictions vs consensus outcome)
@@ -2155,7 +2116,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                                 )
                         print(f"  [calibration] Recorded {len(result.votes)} predictions")
                     except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                         print(f"  [calibration] Error recording predictions: {e}")
 
                 # Analyze belief network to identify cruxes (key disagreement points)
@@ -2182,7 +2142,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                             if result.debate_cruxes:
                                 print(f"  [belief] Identified {len(result.debate_cruxes)} debate cruxes")
                     except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                         print(f"  [belief] Analysis error: {e}")
             else:
                 result.final_answer = list(proposals.values())[0]
@@ -2199,7 +2158,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     vote_result = await self._vote_with_agent(agent, proposals, self.env.task)
                     return (agent, vote_result)
                 except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                     return (agent, e)
 
             vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in self.agents]
@@ -2226,8 +2184,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     if self.recorder:
                         try:
                             self.recorder.record_vote(agent.name, vote_result.choice, vote_result.reasoning)
-                        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+                        except Exception:
                             pass
 
             # Group similar votes to handle minor wording differences
@@ -2286,8 +2243,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     if self.recorder:
                         try:
                             self.recorder.record_phase_change(f"consensus_reached: {winner}")
-                        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+                        except Exception:
                             pass
 
                     # Record calibration predictions for unanimous mode
@@ -2307,7 +2263,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                                     )
                             print(f"  [calibration] Recorded {len(result.votes)} predictions (unanimous)")
                         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                             print(f"  [calibration] Error recording predictions: {e}")
                 else:
                     # Not unanimous - no consensus
@@ -2362,7 +2317,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                         round_num=self.protocol.rounds + 1,  # After all debate rounds
                     )
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 print(f"  Judge ERROR: {e}")
                 result.final_answer = list(proposals.values())[0]
                 result.consensus_reached = False
@@ -2383,7 +2337,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                             issue_type=getattr(critique, 'category', 'general'),
                         )
                     except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                         logger.debug(f"Failed to record pattern failure: {e}")
 
         result.duration_seconds = time.time() - start_time
@@ -2422,7 +2375,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                         metric=stored_count,
                     )
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 print(f"  Insight extraction failed: {e}")
 
         # === Update agent relationships for grounded personas ===
@@ -2462,7 +2414,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                         debate_id=self.loop_id or "unknown",
                     ))
                 except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                     logger.debug(f"Failed to emit grounded verdict event: {e}")
 
         # === Formal Z3 verification for decidable claims ===
@@ -2489,7 +2440,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     for crux in cruxes[:3]:  # Show top 3
                         print(f"    - {crux.get('claim', 'unknown')[:60]}... (uncertainty: {crux.get('uncertainty', 0):.2f})")
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 logger.debug(f"Belief analysis failed: {e}")
 
         # Print formatted conclusion with full context
@@ -2502,8 +2452,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             try:
                 verdict = result.final_answer[:100] if result.final_answer else "incomplete"
                 self.recorder.finalize(verdict, vote_tally)
-            except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+            except Exception:
                 pass  # Recording finalization failure shouldn't affect result
 
         # === FEEDBACK LOOPS: Update systems with debate outcome ===
@@ -2534,8 +2483,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                             try:
                                 rating = self.elo_system.get_rating(agent_name)
                                 elo_changes[agent_name] = rating.elo if rating else 1500.0
-                            except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+                            except Exception:
                                 elo_changes[agent_name] = 1500.0
                         self.event_emitter.emit(StreamEvent(
                             type=StreamEventType.MATCH_RECORDED,
@@ -2548,11 +2496,9 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                                 "winner": result.winner,
                             }
                         ))
-                    except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+                    except Exception:
                         pass  # Don't break on event emission failure
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 logger.debug("ELO update failed: %s", e)
 
         # 2. Update PersonaManager with performance feedback
@@ -2569,7 +2515,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                         success=success,
                     )
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 logger.debug("Persona update failed: %s", e)
 
         # 3. Resolve positions in PositionLedger
@@ -2587,7 +2532,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                                 resolution_source=f"debate:{debate_id}",
                             )
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 logger.debug("Position resolution failed: %s", e)
 
         # 4. Update relationship metrics from debate
@@ -2611,7 +2555,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     critiques=critiques,
                 )
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 logger.debug("Relationship tracking failed: %s", e)
 
         # 5. Detect significant narrative moments
@@ -2647,7 +2590,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                                 self.moment_detector.record_moment(moment)
                                 self._emit_moment_event(moment)
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 logger.debug("Moment detection failed: %s", e)
 
         # 6. Index debate in embeddings for historical retrieval
@@ -2676,7 +2618,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 }
                 asyncio.create_task(self._index_debate_async(artifact))
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 logger.debug("Embedding indexing failed: %s", e)
 
         # 7. Detect position flips for all participating agents
@@ -2706,7 +2647,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                                     }
                                 ))
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 logger.debug("Flip detection failed: %s", e)
 
         # 8. Store debate outcome in ContinuumMemory for future learning
@@ -2725,7 +2665,6 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             if self.debate_embeddings:
                 await self.debate_embeddings.index_debate(artifact)
         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
             logger.debug("Async debate indexing failed: %s", e)
 
     async def _generate_with_agent(
@@ -2857,7 +2796,6 @@ REASON: <brief explanation>"""
                 return False, reason
 
         except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
             logger.warning(f"Judge termination check failed: {e}")
 
         return True, ""
@@ -2960,7 +2898,6 @@ Respond with only: CONTINUE or STOP
                             logger.debug(f"Selected {top_agent_name} (ELO: {top_elo}) as judge")
                             return judge
             except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
                 logger.warning(f"ELO query failed: {e}; falling back to random")
 
             # Fallback if no ELO data
@@ -2985,8 +2922,7 @@ Respond with only: CONTINUE or STOP
                     if other.name.lower() in response.lower():
                         vote_counts[other.name] = vote_counts.get(other.name, 0) + 1
                         break
-            except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+            except Exception:
                 pass  # Skip failed votes
 
         # Select agent with most votes, random tiebreaker
@@ -3066,8 +3002,7 @@ and building on others' ideas."""
                 if fix_preview:
                     lines.append(f"  Fix: {fix_preview} ({p.success_count} successes)")
             return "\n".join(lines)
-        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+        except Exception:
             return ""
 
     def _update_role_assignments(self, round_num: int) -> None:
@@ -3165,8 +3100,7 @@ and building on others' ideas."""
 
             return "\n".join(lines) if len(lines) > 1 else ""
 
-        except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
+        except Exception:
             return ""  # Non-critical, continue without flip context
 
     def _build_proposal_prompt(self, agent: Agent) -> str:
@@ -3216,9 +3150,8 @@ and building on others' ideas."""
                 )
                 if dissent_context:
                     dissent_section = f"\n\n## Historical Minority Views\n{dissent_context[:600]}"
-            except Exception as e:
-                            logger.debug(f"Recorder operation failed: {e}")
-                logger.debug(f"Non-critical operation failed: {e}")  # Non-critical, continue without historical dissent
+            except Exception:
+                pass  # Non-critical, continue without historical dissent
 
         # Include successful patterns from past debates
         patterns_section = ""
