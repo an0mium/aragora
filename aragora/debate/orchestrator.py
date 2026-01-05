@@ -743,6 +743,8 @@ class Arena:
                 "judge": StreamEventType.AGENT_MESSAGE,
                 "memory_recall": StreamEventType.MEMORY_RECALL,
                 "audience_drain": StreamEventType.AUDIENCE_DRAIN,
+                "audience_summary": StreamEventType.AUDIENCE_SUMMARY,
+                "insight_extracted": StreamEventType.INSIGHT_EXTRACTED,
                 # Token streaming events
                 "token_start": StreamEventType.TOKEN_START,
                 "token_delta": StreamEventType.TOKEN_DELTA,
@@ -2176,6 +2178,12 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 stored_count = await self.insight_store.store_debate_insights(insights)
                 if stored_count > 0:
                     print(f"  Extracted {insights.total_insights} insights ({stored_count} stored)")
+                    # Emit INSIGHT_EXTRACTED event for frontend
+                    self._notify_spectator(
+                        "insight_extracted",
+                        details=f"{insights.total_insights} insights extracted",
+                        metric=stored_count,
+                    )
             except Exception as e:
                 print(f"  Insight extraction failed: {e}")
 
@@ -2210,7 +2218,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         await self._verify_claims_formally(result)
 
         # === Belief Network analysis for debate cruxes ===
-        BN, BPA = _get_belief_classes()
+        BN, BPA = _get_belief_analyzer()
         if BPA and result.grounded_verdict and result.grounded_verdict.claims:
             try:
                 analyzer = BPA()

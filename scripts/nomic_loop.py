@@ -6891,7 +6891,16 @@ Be concise - this is a quality gate, not a full review."""
         cycle_result["phases"]["design"] = design_result
 
         design = design_result.get("design", "")
+        design_consensus = design_result.get("consensus_reached", False)
         self._log(f"\nDesign complete")
+
+        # === Check design consensus before implementation ===
+        if not design_consensus and not design:
+            self._log("  [warning] Design phase had no consensus and no design - skipping implementation")
+            cycle_result["outcome"] = "design_no_consensus"
+            return cycle_result
+        elif not design_consensus:
+            self._log("  [warning] Design phase had low consensus - proceeding with caution")
 
         # === Deadline check after design ===
         if not self._check_cycle_deadline(cycle_deadline, "design"):

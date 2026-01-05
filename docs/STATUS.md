@@ -1,25 +1,32 @@
 # Aragora Project Status
 
-*Last updated: January 5, 2026 (04:45 UTC)*
+*Last updated: January 5, 2026 (07:30 UTC)*
 
 ## Current State
 
 ### Test Status
-- **Total Tests**: 347 passed, 6 pre-existing failures, 5 skipped
-- **Recent Fixes**: ELO tests (3), calibration test (1)
-- **Code Fix**: Calibration bucket boundary now includes confidence=1.0
-- **Pre-existing Failures**: 6 tests in test_unanimous_consensus.py (MockAgent voting issue)
+- **Total Tests**: 356 passed, 0 failures, 2 skipped
+- **Recent Fixes (2026-01-05)**:
+  - Fixed `_get_belief_classes()` → `_get_belief_analyzer()` typo in orchestrator.py
+  - Fixed all 7 unanimous consensus tests (were failing due to above typo)
+  - ELO tests (3), calibration test (1), replay tests (4) fixed in previous session
+- **Code Fixes**:
+  - Calibration bucket boundary now includes confidence=1.0
+  - Belief analyzer function name corrected in orchestrator.py:2213
 
 ### Nomic Loop
 - **Cycle**: 1
-- **Phase**: debate (Round 1 - Live Position Flip Telemetry proposal)
+- **Phase**: implement (executing stage)
+- **Current Proposal**: "Live Debate Viewer with Shareable Permalinks" (already implemented)
 - **Last Proposal**: Claude's "Persona Laboratory v2" (won 2/3 consensus)
-- **Implementation**: Failed on verification (timeout issues)
+- **Implementation**: Core streaming/storage/viewer infrastructure complete
 - **Blocking Issues FIXED**:
   - Missing `agent_type` attribute in GeminiAgent (now added to all API agents)
   - RelationshipTracker.get_influence_network() parameter mismatch (fixed)
   - OpenRouterAgent broken super().__init__() call (fixed)
+  - `_get_belief_classes()` undefined (fixed - was typo for `_get_belief_analyzer()`)
 - **Position Ledger**: Implemented in `aragora/agents/grounded.py`
+- **NomicIntegration**: Fully wired up (probing, belief analysis, checkpointing, staleness)
 
 ### Active Agents (4 default, 12+ total)
 | Agent | Model | API |

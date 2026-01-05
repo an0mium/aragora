@@ -233,6 +233,16 @@ class EloSystem:
                 )
             """)
 
+            # Performance indexes for frequently queried columns
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_elo_history_agent ON elo_history(agent_name)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_elo_history_created ON elo_history(created_at)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_elo_history_debate ON elo_history(debate_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_matches_winner ON matches(winner)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_matches_created ON matches(created_at)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_domain_cal_agent ON domain_calibration(agent_name)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_relationships_a ON agent_relationships(agent_a)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_relationships_b ON agent_relationships(agent_b)")
+
 
     def get_rating(self, agent_name: str) -> AgentRating:
         """Get or create rating for an agent."""
@@ -1249,25 +1259,69 @@ class EloSystem:
             "head_to_head": f"{a_wins}-{b_wins}",
         }
 
+    def _compute_metrics_from_raw(self, agent_a: str, agent_b: str, raw: dict) -> dict:
+        """Compute relationship metrics from raw data (no database call)."""
+        debate_count = raw.get("debate_count", 0)
+        if debate_count == 0:
+            return {
+                "agent_a": agent_a, "agent_b": agent_b,
+                "rivalry_score": 0.0, "alliance_score": 0.0,
+                "relationship": "no_history", "debate_count": 0,
+            }
+
+        agreement_rate = raw.get("agreement_count", 0) / debate_count
+        a_wins = raw.get("a_wins_over_b", 0)
+        b_wins = raw.get("b_wins_over_a", 0)
+        total_wins = a_wins + b_wins
+        win_balance = min(a_wins, b_wins) / max(a_wins, b_wins) if total_wins > 0 and max(a_wins, b_wins) > 0 else 0.5
+
+        critiques_given = raw.get("critique_count_a_to_b", 0) + raw.get("critique_count_b_to_a", 0)
+        critiques_accepted = raw.get("critique_accepted_a_to_b", 0) + raw.get("critique_accepted_b_to_a", 0)
+        critique_acceptance = critiques_accepted / critiques_given if critiques_given > 0 else 0.5
+
+        rivalry_score = min(1.0, debate_count / 20) * 0.3 + (1 - agreement_rate) * 0.4 + win_balance * 0.3
+        alliance_score = (
+            agreement_rate * 0.5 + critique_acceptance * 0.3 + (1 - win_balance) * 0.2
+            if total_wins > 2 else agreement_rate * 0.5 + critique_acceptance * 0.5
+        )
+
+        if rivalry_score > 0.6 and rivalry_score > alliance_score:
+            relationship = "rival"
+        elif alliance_score > 0.6 and alliance_score > rivalry_score:
+            relationship = "ally"
+        elif debate_count < 3:
+            relationship = "acquaintance"
+        else:
+            relationship = "neutral"
+
+        return {
+            "agent_a": agent_a, "agent_b": agent_b,
+            "rivalry_score": round(rivalry_score, 3),
+            "alliance_score": round(alliance_score, 3),
+            "relationship": relationship, "debate_count": debate_count,
+        }
+
     def get_rivals(self, agent_name: str, limit: int = 5) -> list[dict]:
-        """Get agent's top rivals by rivalry score."""
+        """Get agent's top rivals by rivalry score (optimized: single DB query)."""
         relationships = self.get_all_relationships_for_agent(agent_name)
         scored = []
         for rel in relationships:
             other = rel["agent_b"] if rel["agent_a"] == agent_name else rel["agent_a"]
-            metrics = self.compute_relationship_metrics(agent_name, other)
+            # Use cached raw data instead of additional DB call
+            metrics = self._compute_metrics_from_raw(agent_name, other, rel)
             if metrics["rivalry_score"] > 0.3:
                 scored.append(metrics)
         scored.sort(key=lambda x: x["rivalry_score"], reverse=True)
         return scored[:limit]
 
     def get_allies(self, agent_name: str, limit: int = 5) -> list[dict]:
-        """Get agent's top allies by alliance score."""
+        """Get agent's top allies by alliance score (optimized: single DB query)."""
         relationships = self.get_all_relationships_for_agent(agent_name)
         scored = []
         for rel in relationships:
             other = rel["agent_b"] if rel["agent_a"] == agent_name else rel["agent_a"]
-            metrics = self.compute_relationship_metrics(agent_name, other)
+            # Use cached raw data instead of additional DB call
+            metrics = self._compute_metrics_from_raw(agent_name, other, rel)
             if metrics["alliance_score"] > 0.3:
                 scored.append(metrics)
         scored.sort(key=lambda x: x["alliance_score"], reverse=True)

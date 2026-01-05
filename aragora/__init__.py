@@ -366,6 +366,43 @@ from aragora.introspection import (
     format_introspection_section,
 )
 
+# Audience (Suggestion Clustering)
+from aragora.audience import (
+    SuggestionCluster,
+    sanitize_suggestion,
+    cluster_suggestions,
+    format_for_prompt,
+)
+
+# Plugins (Sandboxed Extensions)
+from aragora.plugins import (
+    PluginManifest,
+    PluginCapability,
+    PluginRequirement,
+    PluginRunner,
+    PluginResult,
+    PluginContext,
+)
+
+# Nomic Integration (Loop Coordination)
+from aragora.nomic import (
+    NomicIntegration,
+    BeliefAnalysis,
+    AgentReliability,
+    StalenessReport,
+    PhaseCheckpoint,
+    create_nomic_integration,
+)
+
+# Learning (Memory Tiers)
+from aragora.learning import (
+    ContinuumMemory,
+    ContinuumMemoryEntry,
+    MemoryTier,
+    TierConfig,
+    TIER_CONFIGS,
+)
+
 __version__ = "0.8.0"
 __all__ = [
     # Core
@@ -648,4 +685,29 @@ __all__ = [
     "IntrospectionCache",
     "get_agent_introspection",
     "format_introspection_section",
+    # Audience
+    "SuggestionCluster",
+    "sanitize_suggestion",
+    "cluster_suggestions",
+    "format_for_prompt",
+    # Plugins
+    "PluginManifest",
+    "PluginCapability",
+    "PluginRequirement",
+    "PluginRunner",
+    "PluginResult",
+    "PluginContext",
+    # Nomic Integration
+    "NomicIntegration",
+    "BeliefAnalysis",
+    "AgentReliability",
+    "StalenessReport",
+    "PhaseCheckpoint",
+    "create_nomic_integration",
+    # Learning
+    "ContinuumMemory",
+    "ContinuumMemoryEntry",
+    "MemoryTier",
+    "TierConfig",
+    "TIER_CONFIGS",
 ]

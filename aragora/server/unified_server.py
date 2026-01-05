@@ -76,6 +76,13 @@ MAX_JSON_CONTENT_LENGTH = 10 * 1024 * 1024
 # Safe ID pattern for path segments (prevent path traversal)
 SAFE_ID_PATTERN = r'^[a-zA-Z0-9_-]+$'
 
+# Trusted proxies for X-Forwarded-For header validation
+# Only trust X-Forwarded-For if request comes from these IPs
+import os
+TRUSTED_PROXIES = frozenset(
+    os.getenv('ARAGORA_TRUSTED_PROXIES', '127.0.0.1,::1,localhost').split(',')
+)
+
 # Query parameter whitelist (security: reject unknown params to prevent injection)
 # Maps param name -> allowed values (None means any string allowed, set means restricted)
 ALLOWED_QUERY_PARAMS = {
@@ -603,10 +610,15 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         """
         import time
 
-        # Get client IP (handle proxy headers)
-        client_ip = self.headers.get('X-Forwarded-For', '').split(',')[0].strip()
-        if not client_ip:
-            client_ip = self.client_address[0] if hasattr(self, 'client_address') else 'unknown'
+        # Get client IP (validate proxy headers for security)
+        remote_ip = self.client_address[0] if hasattr(self, 'client_address') else 'unknown'
+        if remote_ip in TRUSTED_PROXIES:
+            # Only trust X-Forwarded-For from trusted proxies
+            forwarded = self.headers.get('X-Forwarded-For', '')
+            client_ip = forwarded.split(',')[0].strip() if forwarded else remote_ip
+        else:
+            # Untrusted source - use direct connection IP
+            client_ip = remote_ip
 
         now = time.time()
         one_minute_ago = now - 60
@@ -4697,9 +4709,11 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         # Referrer policy - don't leak internal URLs
         self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
         # Content Security Policy - prevent XSS and data injection
+        # Note: 'unsafe-inline' for styles needed by CSS-in-JS frameworks
+        # 'unsafe-eval' removed for security - blocks eval()/new Function()
         self.send_header('Content-Security-Policy',
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "script-src 'self'; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: https:; "
             "connect-src 'self' wss: https:; "
