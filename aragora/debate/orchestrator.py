@@ -160,7 +160,7 @@ class Arena:
         debate_embeddings=None,  # DebateEmbeddingsDatabase for historical context
         insight_store=None,  # Optional InsightStore for extracting learnings from debates
         recorder=None,  # Optional ReplayRecorder for debate recording
-        agent_weights: dict[str, float] = None,  # Optional reliability weights from capability probing
+        agent_weights: dict[str, float] | None = None,  # Optional reliability weights from capability probing
         position_tracker=None,  # Optional PositionTracker for truth-grounded personas
         position_ledger=None,  # Optional PositionLedger for grounded personas
         elo_system=None,  # Optional EloSystem for relationship tracking
@@ -174,6 +174,7 @@ class Arena:
         loop_id: str = "",  # Loop ID for multi-loop scoping
         strict_loop_scoping: bool = False,  # Drop events without loop_id when True
         circuit_breaker: CircuitBreaker = None,  # Optional CircuitBreaker for agent failure handling
+        initial_messages: list = None,  # Optional initial conversation history (for fork debates)
     ):
         self.env = environment
         self.agents = agents
@@ -215,6 +216,7 @@ class Arena:
         self.loop_id = loop_id  # Loop ID for scoping events
         self.strict_loop_scoping = strict_loop_scoping  # Enforce loop_id on all events
         self.circuit_breaker = circuit_breaker or CircuitBreaker()
+        self.initial_messages = initial_messages or []  # Fork debate initial context
 
         # ArgumentCartographer for debate graph visualization
         AC = _get_argument_cartographer()
@@ -226,7 +228,7 @@ class Arena:
             self.protocol.judge_selection = "elo_ranked"
 
         # User participation tracking (thread-safe mailbox pattern)
-        self._user_event_queue: queue.Queue = queue.Queue()
+        self._user_event_queue: queue.Queue = queue.Queue(maxsize=10000)
         self.user_votes: list[dict] = []  # Populated via _drain_user_events()
         self.user_suggestions: list[dict] = []  # Populated via _drain_user_events()
 
@@ -605,7 +607,10 @@ class Arena:
 
         # Enqueue for processing (thread-safe)
         if event.type in (StreamEventType.USER_VOTE, StreamEventType.USER_SUGGESTION):
-            self._user_event_queue.put((event.type, event.data))
+            try:
+                self._user_event_queue.put_nowait((event.type, event.data))
+            except queue.Full:
+                logger.warning(f"User event queue full, dropping {event.type}")
 
     def _drain_user_events(self) -> None:
         """Drain pending user events from queue into working lists.
@@ -1573,7 +1578,18 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         )
 
         proposals: dict[str, str] = {}
+        # Initialize context with any initial messages (for fork debates)
         context: list[Message] = []
+        if self.initial_messages:
+            for msg in self.initial_messages:
+                if isinstance(msg, dict) and 'content' in msg:
+                    context.append(Message(
+                        agent=msg.get('agent', 'previous'),
+                        content=msg['content'],
+                        round=-1,  # Mark as pre-debate context
+                    ))
+            if context:
+                logger.debug(f"fork_context loaded {len(context)} initial messages")
 
         # === ROUND 0: Initial Proposals ===
         proposers = [a for a in self.agents if a.role == "proposer"]

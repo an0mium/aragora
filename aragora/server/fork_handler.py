@@ -122,9 +122,15 @@ class ForkBridgeHandler:
             if not isinstance(initial_messages, list):
                 logger.warning(f"Invalid initial_messages type: {type(initial_messages).__name__}")
                 initial_messages = []
-            elif len(initial_messages) > 1000:
-                logger.warning(f"Too many initial messages: {len(initial_messages)}, truncating to 1000")
-                initial_messages = initial_messages[:1000]
+            else:
+                # Validate per-message structure and truncate
+                validated = []
+                for msg in initial_messages[:1000]:
+                    if isinstance(msg, dict) and isinstance(msg.get('content'), str):
+                        validated.append(msg)
+                if len(validated) < min(len(initial_messages), 1000):
+                    logger.debug(f"Filtered {min(len(initial_messages), 1000) - len(validated)} invalid messages")
+                initial_messages = validated
             original_task = fork_data.get('task', 'Continue the debate')
             agents_config = fork_data.get('agents', ['anthropic-api', 'openai-api'])
 
@@ -147,12 +153,16 @@ class ForkBridgeHandler:
             env = Environment(task=task, max_rounds=3)
             protocol = DebateProtocol(rounds=3, consensus="majority")
 
-            # Create arena
-            arena = Arena(env, agents, protocol, loop_id=loop_id)
+            # Create arena with initial message context
+            arena = Arena(
+                env, agents, protocol,
+                loop_id=loop_id,
+                initial_messages=initial_messages,
+            )
 
             # Run in background task
             task_obj = asyncio.create_task(
-                self._run_fork_debate(arena, loop_id, initial_messages),
+                self._run_fork_debate(arena, loop_id),
                 name=loop_id
             )
 
@@ -209,12 +219,8 @@ class ForkBridgeHandler:
             await self._send_error(ws, f"Fork initialization failed: {type(e).__name__}")
             return False
 
-    async def _run_fork_debate(
-        self, arena, loop_id: str, initial_messages: list
-    ) -> Any:
-        """Run the forked debate with initial message context."""
-        # TODO: Pass initial_messages to arena.run() when that's supported
-        # For now, run debate normally (messages are in the task description)
+    async def _run_fork_debate(self, arena, loop_id: str) -> Any:
+        """Run the forked debate (initial messages are passed to Arena constructor)."""
         try:
             return await arena.run()
         except Exception as e:
