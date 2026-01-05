@@ -9,10 +9,13 @@ Provides capabilities for agents to:
 - Enable self-improvement through debate
 """
 
+import json
+import logging
 import os
 import re
-import json
 import subprocess
+
+logger = logging.getLogger(__name__)
 import tempfile
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
@@ -208,7 +211,8 @@ class CodeReader:
                     for i, line in enumerate(content.splitlines(), 1):
                         if regex.search(line):
                             results.append(self.read_span(str(path), i, i, context_lines=2))
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Failed to search in {path}: {e}")
                     continue
 
         return results

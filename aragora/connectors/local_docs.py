@@ -10,6 +10,7 @@ Searches:
 Uses simple text search with optional regex support.
 """
 
+import logging
 import os
 import re
 from pathlib import Path
@@ -17,6 +18,8 @@ from typing import Optional
 import hashlib
 
 from aragora.reasoning.provenance import SourceType
+
+logger = logging.getLogger(__name__)
 from aragora.connectors.base import BaseConnector, Evidence
 
 
@@ -111,8 +114,8 @@ class LocalDocsConnector(BaseConnector):
                         "context": context,
                     })
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to search in {path}: {e}")
 
         return matches
 

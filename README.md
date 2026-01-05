@@ -265,9 +265,9 @@ for pattern in security_patterns:
     print(f"Success rate: {pattern.success_rate:.0%}")
 ```
 
-## Implemented Features (30+ Components)
+## Implemented Features (54 Components)
 
-Aragora has evolved through 8 phases of self-improvement, with the nomic loop debating and implementing each feature:
+Aragora has evolved through 11 phases of self-improvement, with the nomic loop debating and implementing each feature:
 
 ### Phase 1: Foundation
 | Feature | Description |
@@ -337,15 +337,36 @@ Aragora has evolved through 8 phases of self-improvement, with the nomic loop de
 | **DebateGraph** | DAG-based debates for complex disagreements |
 | **DebateForker** | Parallel branch exploration |
 
+### Phase 9: Truth Grounding
+| Feature | Description |
+|---------|-------------|
+| **FlipDetector** | Semantic position reversal detection |
+| **CalibrationTracker** | Prediction accuracy tracking (Brier score) |
+| **GroundedPersonaManager** | Evidence-linked persona synthesis |
+| **PositionTracker** | Agent position history with verification |
+
+### Phase 10: Thread-Safe Audience Participation
+| Feature | Description |
+|---------|-------------|
+| **ArenaMailbox** | Thread-safe event queue for live interaction |
+| **LoopScoping** | Session-isolated streaming events |
+
+### Phase 11: Operational Modes
+| Feature | Description |
+|---------|-------------|
+| **OperationalModes** | Agent tool configuration switching |
+| **CapabilityProber** | Agent vulnerability testing |
+| **RedTeamMode** | Adversarial analysis of proposals |
+
 ## Roadmap
 
-- [x] **Phase 1-8**: Core framework with 30+ integrated features ✓
-- [x] **Position Flip Detection**: Track agent position reversals and consistency scores (in progress)
-- [x] **Hybrid Model Architecture**: Gemini=Designer, Claude=Implementer, Codex=Verifier
-- [x] **Security Hardening**: API key header auth, rate limiting, input validation
-- [ ] **Phase 9**: LeanBackend for Lean 4 theorem proving
-- [ ] **Phase 10**: Emergent society simulation (ala Project Sid)
-- [ ] **Phase 11**: Multi-codebase coordination
+- [x] **Phase 1-11**: Core framework with 54 integrated features ✓
+- [x] **Position Flip Detection**: Track agent position reversals and consistency scores ✓
+- [x] **Hybrid Model Architecture**: Gemini=Designer, Claude=Implementer, Codex=Verifier ✓
+- [x] **Security Hardening**: API key header auth, rate limiting, input validation ✓
+- [ ] **Phase 12**: LeanBackend for Lean 4 theorem proving
+- [ ] **Phase 13**: Emergent society simulation (ala Project Sid)
+- [ ] **Phase 14**: Multi-codebase coordination
 
 ## Deployment
 

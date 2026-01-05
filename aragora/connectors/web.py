@@ -168,9 +168,9 @@ class WebConnector(BaseConnector):
                 cached_data = json.loads(cache_file.read_text())
                 # Properly reconstruct Evidence objects from cache
                 return [Evidence.from_dict(e) for e in cached_data["results"]]
-            except Exception:
+            except Exception as e:
                 # If cache is corrupted, proceed with search
-                pass
+                logger.debug(f"Cache load failed for query '{query[:50]}': {e}")
 
         # Use test seam for actual search (allows mocking in tests)
         return await self._search_web_actual(query, limit, region)
@@ -259,9 +259,9 @@ class WebConnector(BaseConnector):
         }
         try:
             cache_file.write_text(json.dumps(cache_data, indent=2))
-        except Exception:
+        except Exception as e:
             # If caching fails, don't break the search
-            pass
+            logger.debug(f"Failed to cache search results: {e}")
 
     async def fetch(self, evidence_id: str) -> Optional[Evidence]:
         """

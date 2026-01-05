@@ -9,6 +9,7 @@ Inspired by ChatArena's competitive environments, this module provides:
 """
 
 import json
+import logging
 import sqlite3
 import math
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+logger = logging.getLogger(__name__)
 
 # Default ELO rating for new agents
 DEFAULT_ELO = 1500
@@ -504,8 +506,9 @@ class EloSystem:
             with open(temp_path, 'w') as f:
                 json.dump(data, f)
             temp_path.rename(snapshot_path)
-        except Exception:
+        except Exception as e:
             # Snapshot is optional, don't fail on write errors
+            logger.debug(f"Failed to write ELO snapshot: {e}")
             if temp_path.exists():
                 temp_path.unlink()
 
@@ -526,8 +529,8 @@ class EloSystem:
                 with open(snapshot_path) as f:
                     data = json.load(f)
                 return data.get("leaderboard", [])[:limit]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to read ELO snapshot, falling back to database: {e}")
 
         # Fall back to database
         leaderboard = self.get_leaderboard(limit)
@@ -561,8 +564,8 @@ class EloSystem:
                 with open(snapshot_path) as f:
                     data = json.load(f)
                 return data.get("recent_matches", [])[:limit]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to read recent matches from snapshot: {e}")
 
         # Fall back to database
         return self.get_recent_matches(limit)
