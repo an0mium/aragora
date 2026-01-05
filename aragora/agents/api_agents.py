@@ -8,11 +8,14 @@ Supports Gemini, Ollama (local), and direct OpenAI/Anthropic API calls.
 import asyncio
 import aiohttp
 import json
+import logging
 import os
 import re
 from typing import Optional
 
 from aragora.core import Agent, Critique, Message
+
+logger = logging.getLogger(__name__)
 
 
 # Patterns that might contain sensitive data in error messages
@@ -589,7 +592,21 @@ Provide structured feedback:
 
 
 class OpenAIAPIAgent(APIAgent):
-    """Agent that uses OpenAI API directly (without CLI)."""
+    """Agent that uses OpenAI API directly (without CLI).
+
+    Includes automatic fallback to OpenRouter when OpenAI quota is exceeded (429 error).
+    The fallback uses the same GPT model via OpenRouter's API.
+    """
+
+    # Model mapping from OpenAI to OpenRouter format
+    OPENROUTER_MODEL_MAP = {
+        "gpt-4o": "openai/gpt-4o",
+        "gpt-4o-mini": "openai/gpt-4o-mini",
+        "gpt-4-turbo": "openai/gpt-4-turbo",
+        "gpt-4": "openai/gpt-4",
+        "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
+        "gpt-5.2": "openai/gpt-4o",  # Fallback to gpt-4o if gpt-5.2 not available
+    }
 
     def __init__(
         self,
@@ -598,6 +615,7 @@ class OpenAIAPIAgent(APIAgent):
         role: str = "proposer",
         timeout: int = 120,
         api_key: str = None,
+        enable_fallback: bool = True,
     ):
         super().__init__(
             name=name,
@@ -608,6 +626,35 @@ class OpenAIAPIAgent(APIAgent):
             base_url="https://api.openai.com/v1",
         )
         self.agent_type = "openai"
+        self.enable_fallback = enable_fallback
+        self._fallback_agent = None  # Lazy-loaded OpenRouter fallback
+
+    def _get_fallback_agent(self):
+        """Get or create the OpenRouter fallback agent."""
+        if self._fallback_agent is None:
+            # Map the model to OpenRouter format
+            openrouter_model = self.OPENROUTER_MODEL_MAP.get(self.model, "openai/gpt-4o")
+
+            # Import here to avoid circular imports
+            from aragora.agents.api_agents import OpenRouterAgent
+
+            self._fallback_agent = OpenRouterAgent(
+                name=f"{self.name}_fallback",
+                model=openrouter_model,
+                role=self.role,
+                system_prompt=self.system_prompt,
+                timeout=self.timeout,
+            )
+            logger.info(f"Created OpenRouter fallback agent with model {openrouter_model}")
+        return self._fallback_agent
+
+    def _is_quota_error(self, status_code: int, error_text: str) -> bool:
+        """Check if the error is a quota/rate limit error."""
+        if status_code == 429:
+            return True
+        # Also check for quota-related messages in other error codes
+        quota_keywords = ["quota", "rate_limit", "insufficient_quota", "exceeded"]
+        return any(kw in error_text.lower() for kw in quota_keywords)
 
     async def generate(self, prompt: str, context: list[Message] = None) -> str:
         """Generate a response using OpenAI API."""
@@ -645,6 +692,22 @@ class OpenAIAPIAgent(APIAgent):
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
+
+                    # Check if this is a quota error and fallback is enabled
+                    if self.enable_fallback and self._is_quota_error(response.status, error_text):
+                        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+                        if openrouter_key:
+                            logger.warning(
+                                f"OpenAI quota exceeded (status {response.status}), "
+                                f"falling back to OpenRouter for {self.name}"
+                            )
+                            fallback = self._get_fallback_agent()
+                            return await fallback.generate(prompt, context)
+                        else:
+                            logger.warning(
+                                "OpenAI quota exceeded but OPENROUTER_API_KEY not set - cannot fallback"
+                            )
+
                     raise RuntimeError(f"OpenAI API error {response.status}: {sanitized}")
 
                 data = await response.json()
@@ -694,6 +757,25 @@ class OpenAIAPIAgent(APIAgent):
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
+
+                    # Check if this is a quota error and fallback is enabled
+                    if self.enable_fallback and self._is_quota_error(response.status, error_text):
+                        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+                        if openrouter_key:
+                            logger.warning(
+                                f"OpenAI quota exceeded (status {response.status}), "
+                                f"falling back to OpenRouter streaming for {self.name}"
+                            )
+                            fallback = self._get_fallback_agent()
+                            # Yield from fallback's stream
+                            async for token in fallback.generate_stream(prompt, context):
+                                yield token
+                            return
+                        else:
+                            logger.warning(
+                                "OpenAI quota exceeded but OPENROUTER_API_KEY not set - cannot fallback"
+                            )
+
                     raise RuntimeError(f"OpenAI streaming API error {response.status}: {sanitized}")
 
                 # OpenAI uses SSE format: data: {...}\n\n
