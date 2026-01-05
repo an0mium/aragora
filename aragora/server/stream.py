@@ -224,6 +224,7 @@ class StreamEventType(Enum):
     # Ranking/leaderboard events (debate consensus feature)
     MATCH_RECORDED = "match_recorded"    # ELO match recorded, leaderboard updated
     LEADERBOARD_UPDATE = "leaderboard_update"  # Periodic leaderboard snapshot
+    GROUNDED_VERDICT = "grounded_verdict"  # Evidence-backed verdict with citations
 
     # Position tracking events
     FLIP_DETECTED = "flip_detected"      # Agent position reversal detected
@@ -924,8 +925,8 @@ class DebateStreamServer:
             for client in list(self.clients):
                 try:
                     close_tasks.append(client.close())
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Error closing WebSocket client: {e}")
             if close_tasks:
                 await asyncio.gather(*close_tasks, return_exceptions=True)
             self.clients.clear()
@@ -1089,7 +1090,7 @@ class AiohttpUnifiedServer:
                 self.elo_system = EloSystem(str(elo_path))
                 logger.info("[server] EloSystem loaded")
         except ImportError:
-            pass
+            logger.debug("[server] EloSystem not available (optional dependency)")
 
         # InsightStore for insights
         try:
@@ -1099,7 +1100,7 @@ class AiohttpUnifiedServer:
                 self.insight_store = InsightStore(str(insights_path))
                 logger.info("[server] InsightStore loaded")
         except ImportError:
-            pass
+            logger.debug("[server] InsightStore not available (optional dependency)")
 
         # FlipDetector for position reversals
         try:
@@ -1109,7 +1110,7 @@ class AiohttpUnifiedServer:
                 self.flip_detector = FlipDetector(str(positions_path))
                 logger.info("[server] FlipDetector loaded")
         except ImportError:
-            pass
+            logger.debug("[server] FlipDetector not available (optional dependency)")
 
         # PersonaManager for agent specialization
         try:
@@ -1119,7 +1120,7 @@ class AiohttpUnifiedServer:
                 self.persona_manager = PersonaManager(str(personas_path))
                 logger.info("[server] PersonaManager loaded")
         except ImportError:
-            pass
+            logger.debug("[server] PersonaManager not available (optional dependency)")
 
         # DebateEmbeddingsDatabase for memory
         try:
@@ -1129,7 +1130,7 @@ class AiohttpUnifiedServer:
                 self.debate_embeddings = DebateEmbeddingsDatabase(str(embeddings_path))
                 logger.info("[server] DebateEmbeddings loaded")
         except ImportError:
-            pass
+            logger.debug("[server] DebateEmbeddings not available (optional dependency)")
 
     @property
     def emitter(self) -> SyncEventEmitter:

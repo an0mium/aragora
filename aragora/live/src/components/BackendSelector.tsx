@@ -9,6 +9,8 @@ interface BackendConfig {
   ws: string;
   label: string;
   description: string;
+  fallbackApi?: string;
+  fallbackWs?: string;
 }
 
 export const BACKENDS: Record<BackendType, BackendConfig> = {
@@ -22,7 +24,9 @@ export const BACKENDS: Record<BackendType, BackendConfig> = {
     api: 'https://api-dev.aragora.ai',
     ws: 'wss://api-dev.aragora.ai/ws',
     label: 'DEV',
-    description: 'Local Mac (when available)',
+    description: 'Local Mac (via tunnel or localhost)',
+    fallbackApi: 'http://localhost:8080',
+    fallbackWs: 'ws://localhost:8765',
   },
 };
 
@@ -36,6 +40,7 @@ interface BackendSelectorProps {
 export function BackendSelector({ onChange, compact = false }: BackendSelectorProps) {
   const [selected, setSelected] = useState<BackendType>('production');
   const [devAvailable, setDevAvailable] = useState<boolean | null>(null);
+  const [devSource, setDevSource] = useState<'tunnel' | 'localhost' | null>(null);
 
   // Load saved preference
   useEffect(() => {
@@ -46,19 +51,43 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
     }
   }, [onChange]);
 
-  // Check if dev backend is available
+  // Check if dev backend is available (try tunnel first, then localhost)
   useEffect(() => {
-    const checkDev = async () => {
+    const checkEndpoint = async (url: string): Promise<boolean> => {
       try {
-        const res = await fetch(`${BACKENDS.development.api}/api/health`, {
+        const res = await fetch(`${url}/api/health`, {
           method: 'GET',
           signal: AbortSignal.timeout(3000),
         });
-        setDevAvailable(res.ok || res.status === 405); // 405 means server is up but endpoint not found
+        return res.ok || res.status === 405;
       } catch {
-        setDevAvailable(false);
+        return false;
       }
     };
+
+    const checkDev = async () => {
+      // Try tunnel first
+      const tunnelOk = await checkEndpoint(BACKENDS.development.api);
+      if (tunnelOk) {
+        setDevAvailable(true);
+        setDevSource('tunnel');
+        return;
+      }
+
+      // Try localhost fallback
+      if (BACKENDS.development.fallbackApi) {
+        const localhostOk = await checkEndpoint(BACKENDS.development.fallbackApi);
+        if (localhostOk) {
+          setDevAvailable(true);
+          setDevSource('localhost');
+          return;
+        }
+      }
+
+      setDevAvailable(false);
+      setDevSource(null);
+    };
+
     checkDev();
     const interval = setInterval(checkDev, 30000); // Check every 30s
     return () => clearInterval(interval);
@@ -67,7 +96,17 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
   const handleSelect = (backend: BackendType) => {
     setSelected(backend);
     localStorage.setItem(STORAGE_KEY, backend);
-    onChange?.(backend, BACKENDS[backend]);
+
+    // For development, use localhost URLs if that's what's available
+    let config = BACKENDS[backend];
+    if (backend === 'development' && devSource === 'localhost' && config.fallbackApi && config.fallbackWs) {
+      config = {
+        ...config,
+        api: config.fallbackApi,
+        ws: config.fallbackWs,
+      };
+    }
+    onChange?.(backend, config);
   };
 
   if (compact) {
@@ -94,10 +133,17 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
               ? 'text-text-muted/30 border-border/30 cursor-not-allowed'
               : 'text-text-muted border-border hover:text-acid-cyan hover:border-acid-cyan/50'
           }`}
-          title={devAvailable === false ? 'Dev server offline' : BACKENDS.development.description}
+          title={
+            devAvailable === false
+              ? 'Dev server offline'
+              : devSource === 'localhost'
+              ? 'Connected via localhost'
+              : BACKENDS.development.description
+          }
         >
           DEV
           {devAvailable === false && <span className="ml-1 text-warning">●</span>}
+          {devSource === 'localhost' && <span className="ml-1 text-[10px]">L</span>}
         </button>
       </div>
     );
@@ -135,8 +181,15 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
                 {key === 'development' && devAvailable === true && (
                   <span className="text-success text-xs">●</span>
                 )}
+                {key === 'development' && devSource === 'localhost' && (
+                  <span className="text-acid-cyan text-xs">LOCAL</span>
+                )}
               </div>
-              <div className="text-[10px] opacity-70">{config.description}</div>
+              <div className="text-[10px] opacity-70">
+                {key === 'development' && devSource === 'localhost'
+                  ? 'Connected via localhost:8080'
+                  : config.description}
+              </div>
             </button>
           );
         })}

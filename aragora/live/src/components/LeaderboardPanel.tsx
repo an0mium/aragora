@@ -1,8 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import Link from 'next/link';
 import { AgentMomentsModal } from './AgentMomentsModal';
+import {
+  LeaderboardSkeleton,
+  MatchesSkeleton,
+  StatsSkeleton,
+  IntrospectionListSkeleton,
+} from './Skeleton';
+import type { StreamEvent } from '@/types/events';
 
 interface AgentRanking {
   name: string;
@@ -65,14 +72,40 @@ interface AgentIntrospection {
 }
 
 interface LeaderboardPanelProps {
-  wsMessages?: any[];
+  wsMessages?: StreamEvent[];
   loopId?: string | null;
   apiBase?: string;
 }
 
 const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
-export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_API_BASE }: LeaderboardPanelProps) {
+// Pure helper functions moved outside component to avoid recreation on each render
+const getEloColor = (elo: number): string => {
+  if (elo >= 1600) return 'text-green-400';
+  if (elo >= 1500) return 'text-yellow-400';
+  if (elo >= 1400) return 'text-orange-400';
+  return 'text-red-400';
+};
+
+const getConsistencyColor = (consistency: number): string => {
+  if (consistency >= 0.8) return 'text-green-400';
+  if (consistency >= 0.6) return 'text-yellow-400';
+  return 'text-red-400';
+};
+
+const getRankBadge = (rank: number): string => {
+  if (rank === 1) return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+  if (rank === 2) return 'bg-gray-400/20 text-gray-300 border-gray-400/30';
+  if (rank === 3) return 'bg-amber-600/20 text-amber-500 border-amber-600/30';
+  return 'bg-surface text-text-muted border-border';
+};
+
+const formatEloChange = (change: number): string => {
+  if (change > 0) return `+${change}`;
+  return String(change);
+};
+
+function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_API_BASE }: LeaderboardPanelProps) {
   const [agents, setAgents] = useState<AgentRanking[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [reputations, setReputations] = useState<AgentReputation[]>([]);
@@ -81,6 +114,7 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
   const [introspections, setIntrospections] = useState<AgentIntrospection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [endpointErrors, setEndpointErrors] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'rankings' | 'matches' | 'reputation' | 'teams' | 'stats' | 'minds'>('rankings');
   const [lastEventId, setLastEventId] = useState<string | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
@@ -88,124 +122,128 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
+    setLoading(true);
+    const errors: Record<string, string> = {};
 
-      // Build query params with loop_id and domain filtering
-      const leaderboardParams = new URLSearchParams({ limit: '10' });
-      const matchesParams = new URLSearchParams({ limit: '5' });
+    // Build query params with loop_id and domain filtering
+    const leaderboardParams = new URLSearchParams({ limit: '10' });
+    const matchesParams = new URLSearchParams({ limit: '5' });
 
-      if (loopId) {
-        leaderboardParams.set('loop_id', loopId);
-        matchesParams.set('loop_id', loopId);
-      }
-      if (selectedDomain) {
-        leaderboardParams.set('domain', selectedDomain);
-        matchesParams.set('domain', selectedDomain);
-      }
-
-      const [leaderboardRes, matchesRes, reputationRes, teamsRes, statsRes, introspectionRes] = await Promise.all([
-        fetch(`${apiBase}/api/leaderboard?${leaderboardParams}`),
-        fetch(`${apiBase}/api/matches/recent?${matchesParams}`),
-        fetch(`${apiBase}/api/reputation/all`),
-        fetch(`${apiBase}/api/routing/best-teams?min_debates=3&limit=10`),
-        fetch(`${apiBase}/api/ranking/stats`),
-        fetch(`${apiBase}/api/introspection/all`),
-      ]);
-
-      if (leaderboardRes.ok) {
-        const data = await leaderboardRes.json();
-        const agentsList: AgentRanking[] = data.agents || [];
-
-        // Fetch consistency scores for each agent in parallel
-        const consistencyPromises = agentsList.map(agent =>
-          fetch(`${apiBase}/api/agent/${agent.name}/consistency`)
-            .then(res => res.ok ? res.json() : null)
-            .catch(() => null)
-        );
-        const consistencies = await Promise.all(consistencyPromises);
-
-        // Merge consistency data into agents
-        const agentsWithConsistency = agentsList.map((agent, idx) => {
-          const consistencyData = consistencies[idx];
-          if (consistencyData && typeof consistencyData.consistency === 'number') {
-            return {
-              ...agent,
-              consistency: consistencyData.consistency,
-              consistency_class: consistencyData.consistency_class,
-            };
-          }
-          return agent;
-        });
-
-        setAgents(agentsWithConsistency);
-        // Extract unique domains from matches for the domain filter
-        if (data.domains) {
-          setAvailableDomains(data.domains);
-        }
-      }
-
-      if (matchesRes.ok) {
-        const data = await matchesRes.json();
-        setMatches(data.matches || []);
-        // Also extract domains from recent matches
-        const domainSet = new Set<string>(data.matches?.map((m: Match) => m.domain).filter(Boolean) || []);
-        const matchDomains = Array.from(domainSet);
-        if (matchDomains.length > 0) {
-          setAvailableDomains(prev => {
-            const combined = new Set<string>([...prev, ...matchDomains]);
-            return Array.from(combined);
-          });
-        }
-      }
-
-      if (reputationRes.ok) {
-        const data = await reputationRes.json();
-        setReputations(data.reputations || []);
-      }
-
-      if (teamsRes.ok) {
-        const data = await teamsRes.json();
-        setTeams(data.combinations || []);
-      }
-
-      if (statsRes.ok) {
-        const data = await statsRes.json();
-        setStats(data);
-      }
-
-      if (introspectionRes.ok) {
-        const data = await introspectionRes.json();
-        setIntrospections(data.agents || []);
-      }
-
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch leaderboard');
-    } finally {
-      setLoading(false);
+    if (loopId) {
+      leaderboardParams.set('loop_id', loopId);
+      matchesParams.set('loop_id', loopId);
     }
+    if (selectedDomain) {
+      leaderboardParams.set('domain', selectedDomain);
+      matchesParams.set('domain', selectedDomain);
+    }
+
+    // Fetch all endpoints with individual error handling (graceful degradation)
+    const endpoints = [
+      { key: 'rankings', url: `${apiBase}/api/leaderboard?${leaderboardParams}` },
+      { key: 'matches', url: `${apiBase}/api/matches/recent?${matchesParams}` },
+      { key: 'reputation', url: `${apiBase}/api/reputation/all` },
+      { key: 'teams', url: `${apiBase}/api/routing/best-teams?min_debates=3&limit=10` },
+      { key: 'stats', url: `${apiBase}/api/ranking/stats` },
+      { key: 'minds', url: `${apiBase}/api/introspection/all` },
+    ];
+
+    const results = await Promise.allSettled(
+      endpoints.map(async ({ key, url }) => {
+        const res = await fetch(url);
+        if (!res.ok) {
+          const errorText = await res.text().catch(() => 'Unknown error');
+          throw new Error(`${res.status}: ${errorText.slice(0, 100)}`);
+        }
+        return { key, data: await res.json() };
+      })
+    );
+
+    // Process results with per-endpoint error tracking
+    results.forEach((result, idx) => {
+      const { key } = endpoints[idx];
+      if (result.status === 'rejected') {
+        errors[key] = result.reason?.message || 'Failed to fetch';
+        return;
+      }
+
+      const { data } = result.value;
+      switch (key) {
+        case 'rankings': {
+          const agentsList: AgentRanking[] = data.agents || data.rankings || [];
+          setAgents(agentsList);
+          if (data.domains) setAvailableDomains(data.domains);
+          break;
+        }
+        case 'matches': {
+          setMatches(data.matches || []);
+          const domainSet = new Set<string>(data.matches?.map((m: Match) => m.domain).filter(Boolean) || []);
+          const matchDomains = Array.from(domainSet);
+          if (matchDomains.length > 0) {
+            setAvailableDomains(prev => Array.from(new Set([...prev, ...matchDomains])));
+          }
+          break;
+        }
+        case 'reputation':
+          setReputations(data.reputations || []);
+          break;
+        case 'teams':
+          setTeams(data.combinations || []);
+          break;
+        case 'stats':
+          setStats(data);
+          break;
+        case 'minds':
+          setIntrospections(data.agents || []);
+          break;
+      }
+    });
+
+    // Update error states
+    setEndpointErrors(errors);
+    const errorCount = Object.keys(errors).length;
+    if (errorCount === endpoints.length) {
+      setError('All endpoints failed. Check server connection.');
+    } else if (errorCount > 0) {
+      setError(`${errorCount} endpoint(s) unavailable`);
+    } else {
+      setError(null);
+    }
+
+    setLoading(false);
   }, [apiBase, loopId, selectedDomain]);
+
+  // Use ref to store latest fetchData to avoid interval recreation on dependency changes
+  const fetchDataRef = useRef(fetchData);
+  fetchDataRef.current = fetchData;
 
   useEffect(() => {
     fetchData();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
   }, [fetchData]);
+
+  // Separate effect for interval - runs once, uses ref to call latest fetchData
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchDataRef.current();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []); // Empty deps - interval created once
+
+  // Memoize filtered match events to avoid recalculating on every render
+  const matchEvents = useMemo(() => {
+    return wsMessages.filter((msg) => {
+      if (msg.type !== 'match_recorded') return false;
+      const msgLoopId = msg.data?.loop_id as string | undefined;
+      if (loopId && msgLoopId && msgLoopId !== loopId) return false;
+      return true;
+    });
+  }, [wsMessages, loopId]);
 
   // Listen for match_recorded WebSocket events for real-time updates (debate consensus feature)
   useEffect(() => {
-    const matchEvents = wsMessages.filter((msg) => {
-      if (msg.type !== 'match_recorded') return false;
-      // Filter by loopId if specified (multi-loop support)
-      if (loopId && msg.data?.loop_id && msg.data.loop_id !== loopId) return false;
-      return true;
-    });
-
     if (matchEvents.length > 0) {
       const latestEvent = matchEvents[matchEvents.length - 1];
-      const eventId = latestEvent.data?.debate_id;
+      const eventId = latestEvent.data?.debate_id as string | undefined;
 
       // Only refresh if this is a new match event
       if (eventId && eventId !== lastEventId) {
@@ -213,44 +251,13 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
         fetchData(); // Refresh leaderboard when a match is recorded
 
         // Track new domains from match events
-        const eventDomain = latestEvent.data?.domain;
+        const eventDomain = latestEvent.data?.domain as string | undefined;
         if (eventDomain && !availableDomains.includes(eventDomain)) {
           setAvailableDomains(prev => [...prev, eventDomain]);
         }
       }
     }
-  }, [wsMessages, lastEventId, fetchData, loopId, availableDomains]);
-
-  const getEloColor = (elo: number): string => {
-    if (elo >= 1600) return 'text-green-400';
-    if (elo >= 1500) return 'text-yellow-400';
-    if (elo >= 1400) return 'text-orange-400';
-    return 'text-red-400';
-  };
-
-  const getConsistencyColor = (consistency: number): string => {
-    if (consistency >= 0.8) return 'text-green-400';
-    if (consistency >= 0.6) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
-  const getConsistencyClass = (consistency: number): string => {
-    if (consistency >= 0.8) return 'high';
-    if (consistency >= 0.6) return 'medium';
-    return 'low';
-  };
-
-  const getRankBadge = (rank: number): string => {
-    if (rank === 1) return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-    if (rank === 2) return 'bg-gray-400/20 text-gray-300 border-gray-400/30';
-    if (rank === 3) return 'bg-amber-600/20 text-amber-500 border-amber-600/30';
-    return 'bg-surface text-text-muted border-border';
-  };
-
-  const formatEloChange = (change: number): string => {
-    if (change > 0) return `+${change}`;
-    return String(change);
-  };
+  }, [matchEvents, lastEventId, fetchData, availableDomains]);
 
   return (
     <div className="bg-surface border border-border rounded-lg p-4">
@@ -350,12 +357,33 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
       {/* Rankings Tab */}
       {activeTab === 'rankings' && (
         <div className="space-y-2 max-h-80 overflow-y-auto">
-          {loading && (
-            <div className="text-center text-text-muted py-4">Loading rankings...</div>
-          )}
+          {loading && <LeaderboardSkeleton count={5} />}
 
           {error && (
-            <div className="text-center text-red-400 py-4 text-sm">{error}</div>
+            <div className="bg-red-900/20 border border-red-500/30 rounded p-3 mb-2">
+              <div className="text-red-400 text-sm font-medium mb-1">{error}</div>
+              {Object.keys(endpointErrors).length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-red-300 hover:text-red-200">
+                    Show details
+                  </summary>
+                  <ul className="mt-2 space-y-1 text-red-300/80">
+                    {Object.entries(endpointErrors).map(([endpoint, msg]) => (
+                      <li key={endpoint}>
+                        <span className="font-mono">{endpoint}:</span> {msg}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+
+          {/* Per-tab endpoint error indicator */}
+          {endpointErrors[activeTab] && !error?.includes('All endpoints') && (
+            <div className="bg-yellow-900/20 border border-yellow-500/30 rounded p-2 mb-2 text-xs text-yellow-400">
+              This tab&apos;s data is unavailable: {endpointErrors[activeTab]}
+            </div>
           )}
 
           {!loading && !error && agents.length === 0 && (
@@ -416,7 +444,7 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
       {activeTab === 'matches' && (
         <div className="space-y-2 max-h-80 overflow-y-auto">
           {loading && (
-            <div className="text-center text-text-muted py-4">Loading matches...</div>
+            <MatchesSkeleton count={3} />
           )}
 
           {!loading && matches.length === 0 && (
@@ -464,7 +492,7 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
       {activeTab === 'reputation' && (
         <div className="space-y-2 max-h-80 overflow-y-auto">
           {loading && (
-            <div className="text-center text-text-muted py-4">Loading reputation data...</div>
+            <LeaderboardSkeleton count={3} />
           )}
 
           {!loading && reputations.length === 0 && (
@@ -576,7 +604,7 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
       {activeTab === 'stats' && (
         <div className="space-y-3 max-h-80 overflow-y-auto">
           {loading && (
-            <div className="text-center text-text-muted py-4">Loading stats...</div>
+            <StatsSkeleton />
           )}
 
           {!loading && !stats && (
@@ -661,7 +689,7 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
       {activeTab === 'minds' && (
         <div className="space-y-3 max-h-80 overflow-y-auto">
           {loading && (
-            <div className="text-center text-text-muted py-4">Loading introspection data...</div>
+            <IntrospectionListSkeleton count={2} />
           )}
 
           {!loading && introspections.length === 0 && (
@@ -753,3 +781,6 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
     </div>
   );
 }
+
+// Memoize the component to prevent re-renders when parent re-renders with same props
+export const LeaderboardPanel = memo(LeaderboardPanelComponent);

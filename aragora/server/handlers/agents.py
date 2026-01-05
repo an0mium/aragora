@@ -362,12 +362,25 @@ class AgentsHandler(BaseHandler):
     def _get_moments(self, agent: str, limit: int) -> HandlerResult:
         """Get agent's significant moments."""
         try:
-            from aragora.insights.moments import MomentDetector
-            nomic_dir = self.get_nomic_dir()
-            if nomic_dir:
-                detector = MomentDetector(str(nomic_dir / "agent_moments.db"))
+            from aragora.agents.grounded import MomentDetector
+            elo = self.get_elo_system()
+            if elo:
+                detector = MomentDetector(elo_system=elo)
                 moments = detector.get_agent_moments(agent, limit=limit)
-                return json_response({"agent": agent, "moments": moments})
+                # Convert moments to dicts for JSON serialization
+                moments_data = [
+                    {
+                        "id": m.id,
+                        "moment_type": m.moment_type,
+                        "agent_name": m.agent_name,
+                        "description": m.description,
+                        "significance_score": m.significance_score,
+                        "timestamp": m.timestamp.isoformat() if m.timestamp else None,
+                        "debate_id": m.debate_id,
+                    }
+                    for m in moments
+                ]
+                return json_response({"agent": agent, "moments": moments_data})
             return json_response({"agent": agent, "moments": []})
         except Exception as e:
             return error_response(f"Failed to get moments: {e}", 500)

@@ -24,6 +24,7 @@ from .cors_config import cors_config
 
 # For ad-hoc debates
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 import uuid
 import logging
@@ -413,6 +414,9 @@ except ImportError:
 _active_debates: dict[str, dict] = {}
 _active_debates_lock = threading.Lock()  # Thread-safe access to _active_debates
 
+# Server startup time for uptime tracking
+_server_start_time: float = time.time()
+
 
 def _wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
     """Wrap an agent to emit token streaming events.
@@ -527,6 +531,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     position_ledger: Optional["PositionLedger"] = None  # PositionLedger for grounded positions
     consensus_memory: Optional["ConsensusMemory"] = None  # ConsensusMemory for historical positions
     dissent_retriever: Optional["DissentRetriever"] = None  # DissentRetriever for minority views
+    moment_detector: Optional["MomentDetector"] = None  # MomentDetector for significant moments
 
     # Modular HTTP handlers (initialized lazily)
     _system_handler: Optional["SystemHandler"] = None
@@ -1624,6 +1629,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     position_ledger=self.position_ledger,
                     flip_detector=self.flip_detector,
                     dissent_retriever=self.dissent_retriever,
+                    moment_detector=self.moment_detector,
                     loop_id=debate_id,
                 )
 
@@ -1639,6 +1645,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                         "final_answer": result.final_answer,
                         "consensus_reached": result.consensus_reached,
                         "confidence": result.confidence,
+                        "grounded_verdict": result.grounded_verdict.to_dict() if result.grounded_verdict else None,
                     }
 
                 # Emit LEADERBOARD_UPDATE after debate completes (if ELO system available)
@@ -1886,12 +1893,43 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _health_check(self) -> None:
-        """Health check endpoint."""
+        """Health check endpoint with comprehensive system status."""
+        global _active_debates, _server_start_time
+
+        # Count active debates by status
+        with _active_debates_lock:
+            active_count = sum(1 for d in _active_debates.values() if d.get("status") == "running")
+            pending_count = sum(1 for d in _active_debates.values() if d.get("status") == "pending")
+            total_debates = len(_active_debates)
+
+        # Calculate uptime
+        uptime_seconds = int(time.time() - _server_start_time)
+        hours, remainder = divmod(uptime_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        uptime_str = f"{hours}h {minutes}m {seconds}s"
+
         self._send_json({
             "status": "ok",
-            "storage": self.storage is not None,
-            "streaming": self.stream_emitter is not None,
-            "static_dir": str(self.static_dir) if self.static_dir else None,
+            "uptime": uptime_str,
+            "uptime_seconds": uptime_seconds,
+            "services": {
+                "storage": self.storage is not None,
+                "streaming": self.stream_emitter is not None,
+                "persistence": self.persistence is not None,
+                "elo_system": self.elo_system is not None,
+                "moment_detector": self.moment_detector is not None,
+                "position_ledger": self.position_ledger is not None,
+                "persona_manager": self.persona_manager is not None,
+                "debate_embeddings": self.debate_embeddings is not None,
+            },
+            "debates": {
+                "active": active_count,
+                "pending": pending_count,
+                "total_tracked": total_debates,
+            },
+            "agents": {
+                "default": ["anthropic-api", "openai-api", "gemini", "grok"],
+            },
         })
 
     def _get_nomic_state(self) -> None:
@@ -2755,8 +2793,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                         "confidence": record.confidence,
                         "reasoning": record.reasoning if record.reasoning else None,
                     })
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to parse dissent record: {e}")
 
             self._send_json({"dissents": dissents})
         except Exception as e:
@@ -2795,8 +2833,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     try:
                         from aragora.memory.consensus import DissentRecord
                         records.append(DissentRecord.from_dict(json.loads(row[0])))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Failed to parse contrarian view record: {e}")
 
             # Transform to match frontend ContraryView interface
             self._send_json({
@@ -2847,8 +2885,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     try:
                         from aragora.memory.consensus import DissentRecord
                         records.append(DissentRecord.from_dict(json.loads(row[0])))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Failed to parse risk warning record: {e}")
 
             # Transform to match frontend RiskWarning interface
             # Map dissent_type to risk_type and infer severity from confidence
@@ -3213,29 +3251,23 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         if not self._check_rate_limit():
             return
 
-        if not MOMENT_DETECTOR_AVAILABLE:
-            self._send_json({"error": "MomentDetector not available"}, status=503)
+        if not MOMENT_DETECTOR_AVAILABLE or not self.moment_detector:
+            self._send_json({"agent": agent, "moments": [], "narrative": "MomentDetector not initialized"})
             return
 
         try:
-            db_path = self.nomic_dir / "grounded_positions.db" if self.nomic_dir else None
-            if not db_path or not db_path.exists():
-                self._send_json({"agent": agent, "moments": [], "narrative": ""})
-                return
-
-            detector = MomentDetector(str(db_path))
-            moments = detector.get_agent_moments(agent, limit=limit)
-            narrative = detector.get_narrative_summary(agent) if moments else ""
+            moments = self.moment_detector.get_agent_moments(agent, limit=limit)
+            narrative = self.moment_detector.get_narrative_summary(agent) if moments else ""
 
             self._send_json({
                 "agent": agent,
                 "moments": [
                     {
-                        "id": m.get("id", ""),
-                        "type": m.get("type", "unknown"),
-                        "description": m.get("description", ""),
-                        "significance_score": m.get("significance_score", 0.0),
-                        "created_at": m.get("created_at", ""),
+                        "type": m.moment_type,
+                        "description": m.description,
+                        "timestamp": m.created_at,
+                        "significance": m.significance_score,
+                        "context": m.metadata.get("topic", "") if m.metadata else "",
                     }
                     for m in moments
                 ],
@@ -4938,8 +4970,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 try:
                     agent = create_agent(model_type, name=name, role="proposer")
                     agents.append(agent)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to create audit agent {name}: {e}")
 
             if len(agents) < 2:
                 self._send_json({
@@ -5854,6 +5886,17 @@ class UnifiedServer:
                     print("[server] DissentRetriever loaded for historical minority views")
                 except Exception as e:
                     print(f"[server] DissentRetriever initialization failed: {e}")
+
+            # Initialize MomentDetector for significant agent moments (narrative storytelling)
+            if MOMENT_DETECTOR_AVAILABLE and MomentDetector is not None:
+                try:
+                    UnifiedHandler.moment_detector = MomentDetector(
+                        elo_system=UnifiedHandler.elo_system,
+                        position_ledger=UnifiedHandler.position_ledger,
+                    )
+                    print("[server] MomentDetector loaded for agent moments API")
+                except Exception as e:
+                    print(f"[server] MomentDetector initialization failed: {e}")
 
     @property
     def emitter(self) -> SyncEventEmitter:

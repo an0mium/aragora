@@ -466,9 +466,9 @@ class TestGroundedPersonasIntegration:
     async def test_moment_detector_integration(self, mock_agents, debate_env, temp_db):
         """Moment detector should detect significant moments."""
         try:
-            from aragora.insights.moments import MomentDetector
+            from aragora.agents.grounded import MomentDetector
 
-            detector = MomentDetector(db_path=str(temp_db))
+            detector = MomentDetector()  # All args optional for testing
 
             protocol = DebateProtocol(rounds=2, consensus="majority")
             arena = Arena(

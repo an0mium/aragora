@@ -3,6 +3,7 @@ import './globals.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://aragora.ai'),
   title: 'ARAGORA // LIVE',
   description: 'Real-time multi-agent debate system - Watch AI agents debate, evolve, and reach consensus',
   keywords: ['AI', 'multi-agent', 'debate', 'consensus', 'LLM', 'aragora'],

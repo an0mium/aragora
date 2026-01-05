@@ -153,6 +153,24 @@ class ScholarlyEvidence:
 
         return score
 
+    def to_dict(self) -> dict:
+        """Serialize to dictionary for JSON transmission."""
+        return {
+            "id": self.id,
+            "citation_type": self.citation_type.value,
+            "title": self.title,
+            "authors": self.authors,
+            "publication": self.publication,
+            "year": self.year,
+            "url": self.url,
+            "doi": self.doi,
+            "excerpt": self.excerpt,
+            "relevance_score": self.relevance_score,
+            "quality": self.quality.value if self.quality else None,
+            "quality_score": self.quality_score(),
+            "peer_reviewed": self.peer_reviewed,
+        }
+
 
 @dataclass
 class CitedClaim:
@@ -172,6 +190,16 @@ class CitedClaim:
             avg_quality = sum(c.quality_score() for c in self.citations) / len(self.citations)
             avg_relevance = sum(c.relevance_score for c in self.citations) / len(self.citations)
             self.grounding_score = (avg_quality + avg_relevance) / 2
+
+    def to_dict(self) -> dict:
+        """Serialize to dictionary for JSON transmission."""
+        return {
+            "claim_text": self.claim_text,
+            "claim_id": self.claim_id,
+            "citations": [c.to_dict() for c in self.citations],
+            "confidence": self.confidence,
+            "grounding_score": self.grounding_score,
+        }
 
 
 @dataclass
@@ -233,6 +261,16 @@ class GroundedVerdict:
             lines.append(f"  ... and {len(self.all_citations) - 5} more")
 
         return "\n".join(lines)
+
+    def to_dict(self) -> dict:
+        """Serialize to dictionary for JSON transmission."""
+        return {
+            "verdict": self.verdict,
+            "confidence": self.confidence,
+            "claims": [c.to_dict() for c in self.claims],
+            "all_citations": [c.to_dict() for c in self.all_citations],
+            "grounding_score": self.grounding_score,
+        }
 
 
 class CitationExtractor:

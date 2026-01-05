@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { fetchDebateById, type DebateArtifact } from '@/utils/supabase';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserParticipation } from '@/components/UserParticipation';
+import { CitationsPanel } from '@/components/CitationsPanel';
+import type { StreamEvent } from '@/types/events';
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
 
@@ -62,6 +65,45 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   const [streamingMessages, setStreamingMessages] = useState<Map<string, StreamingMessage>>(new Map());
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // User participation state
+  const [streamEvents, setStreamEvents] = useState<StreamEvent[]>([]);
+  const [showParticipation, setShowParticipation] = useState(true);
+  const [showCitations, setShowCitations] = useState(false);
+  const [hasCitations, setHasCitations] = useState(false);
+  const ackCallbackRef = useRef<((msgType: string) => void) | null>(null);
+  const errorCallbackRef = useRef<((message: string) => void) | null>(null);
+
+  // User participation handlers
+  const handleVote = useCallback((choice: string, intensity?: number) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'user_vote',
+        debate_id: debateId,
+        data: { choice, intensity: intensity ?? 5 },
+      }));
+    }
+  }, [debateId]);
+
+  const handleSuggest = useCallback((suggestion: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'user_suggestion',
+        debate_id: debateId,
+        data: { suggestion },
+      }));
+    }
+  }, [debateId]);
+
+  const registerAckCallback = useCallback((callback: (msgType: string) => void) => {
+    ackCallbackRef.current = callback;
+    return () => { ackCallbackRef.current = null; };
+  }, []);
+
+  const registerErrorCallback = useCallback((callback: (message: string) => void) => {
+    errorCallbackRef.current = callback;
+    return () => { errorCallbackRef.current = null; };
+  }, []);
 
   // Auto-scroll to bottom on new messages or streaming updates
   useEffect(() => {
@@ -215,6 +257,56 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
               timestamp: data.timestamp || Date.now() / 1000,
             };
             setLiveMessages(prev => [...prev, msg]);
+          }
+          // Handle acknowledgment events (for user participation)
+          else if (data.type === 'ack' && isOurDebate) {
+            const msgType = data.data?.message_type || '';
+            if (ackCallbackRef.current) {
+              ackCallbackRef.current(msgType);
+            }
+          }
+          // Handle error events (including rate limiting)
+          else if (data.type === 'error' && isOurDebate) {
+            const errorMsg = data.data?.message || 'Unknown error';
+            if (errorCallbackRef.current) {
+              errorCallbackRef.current(errorMsg);
+            }
+          }
+          // Handle audience summary events
+          else if ((data.type === 'audience_summary' || data.type === 'audience_metrics') && isOurDebate) {
+            const event: StreamEvent = {
+              type: data.type,
+              data: data.data || {},
+              timestamp: data.timestamp || Date.now() / 1000,
+            };
+            setStreamEvents(prev => [...prev, event]);
+          }
+          // Handle grounded_verdict events (citations and evidence)
+          else if (data.type === 'grounded_verdict' && isOurDebate) {
+            const event: StreamEvent = {
+              type: 'grounded_verdict',
+              data: data.data || {},
+              timestamp: data.timestamp || Date.now() / 1000,
+            };
+            setStreamEvents(prev => [...prev, event]);
+            setHasCitations(true);
+            setShowCitations(true);  // Auto-show when citations arrive
+          }
+
+          // Track all events for UserParticipation (agent_message events)
+          if ((data.type === 'agent_message' || data.type === 'debate_message') && isOurDebate) {
+            const event: StreamEvent = {
+              type: 'agent_message',
+              data: {
+                agent: data.agent || data.data?.agent || 'unknown',
+                content: data.data?.content || '',
+                role: data.data?.role || '',
+              },
+              timestamp: data.timestamp || Date.now() / 1000,
+              round: data.round || data.data?.round,
+              agent: data.agent || data.data?.agent,
+            };
+            setStreamEvents(prev => [...prev, event]);
           }
         } catch (e) {
           console.error('Failed to parse WebSocket message:', e);
@@ -374,21 +466,35 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
                 </div>
               </div>
 
-              {/* Live Transcript */}
-              <div className="bg-surface border border-acid-green/30">
-                <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
-                  <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
-                    {'>'} LIVE TRANSCRIPT
-                  </span>
-                  <span className="text-xs font-mono text-text-muted">
-                    {liveMessages.length} messages
-                    {streamingMessages.size > 0 && (
-                      <span className="ml-2 text-acid-cyan animate-pulse">
-                        ({streamingMessages.size} streaming)
+              {/* Live Transcript + User Participation Grid */}
+              <div className={`grid gap-4 ${showParticipation ? 'lg:grid-cols-3' : 'grid-cols-1'}`}>
+                {/* Live Transcript */}
+                <div className={`bg-surface border border-acid-green/30 ${showParticipation ? 'lg:col-span-2' : ''}`}>
+                  <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
+                    <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+                      {'>'} LIVE TRANSCRIPT
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono text-text-muted">
+                        {liveMessages.length} messages
+                        {streamingMessages.size > 0 && (
+                          <span className="ml-2 text-acid-cyan animate-pulse">
+                            ({streamingMessages.size} streaming)
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                </div>
+                      <button
+                        onClick={() => setShowParticipation(!showParticipation)}
+                        className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                          showParticipation
+                            ? 'bg-accent/20 text-accent border-accent/40'
+                            : 'bg-surface text-text-muted border-border hover:border-accent/40'
+                        }`}
+                      >
+                        {showParticipation ? '[HIDE VOTE]' : '[JOIN]'}
+                      </button>
+                    </div>
+                  </div>
                 <div className="p-4 space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto">
                   {liveMessages.length === 0 && streamingMessages.size === 0 && liveStatus === 'streaming' && (
                     <div className="text-center py-8 text-text-muted font-mono">
@@ -461,6 +567,42 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
                   <div ref={messagesEndRef} />
                 </div>
               </div>
+
+                {/* User Participation Panel */}
+                {showParticipation && liveStatus === 'streaming' && (
+                  <div className="lg:col-span-1">
+                    <UserParticipation
+                      events={streamEvents}
+                      onVote={handleVote}
+                      onSuggest={handleSuggest}
+                      onAck={registerAckCallback}
+                      onError={registerErrorCallback}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Citations Panel - show when we have evidence */}
+              {hasCitations && (
+                <div className="bg-surface border border-accent/30">
+                  <div className="px-4 py-3 border-b border-accent/20 bg-bg/50 flex items-center justify-between">
+                    <span className="text-xs font-mono text-accent uppercase tracking-wider">
+                      {'>'} EVIDENCE & CITATIONS
+                    </span>
+                    <button
+                      onClick={() => setShowCitations(!showCitations)}
+                      className="px-2 py-1 text-xs font-mono border transition-colors bg-surface text-text-muted border-border hover:border-accent/40"
+                    >
+                      {showCitations ? '[HIDE]' : '[SHOW]'}
+                    </button>
+                  </div>
+                  {showCitations && (
+                    <div className="p-4">
+                      <CitationsPanel events={streamEvents} />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Minimal footer - only show when complete */}
               {liveStatus === 'complete' && (
