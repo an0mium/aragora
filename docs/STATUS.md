@@ -1,11 +1,11 @@
 # Aragora Project Status
 
-*Last updated: January 5, 2026 (20:00 UTC)*
+*Last updated: January 5, 2026 (02:00 UTC)*
 
 ## Current State
 
 ### Test Status
-- **Total Tests**: 402 passed, 0 failures, 2 skipped
+- **Total Tests**: 605 passed, 0 failures, 9 skipped
 - **Recent Fixes (2026-01-05)**:
   - Fixed `_get_belief_classes()` → `_get_belief_analyzer()` typo in orchestrator.py
   - Fixed all 7 unanimous consensus tests (were failing due to above typo)
@@ -283,3 +283,39 @@ The codebase is **feature-rich with improving exposure**:
 - Surprise-based ContinuumMemory learning now connected
 
 **Key Insight**: Continuing to expose hidden features via REST APIs increases system utility without new core logic.
+
+## Deployment
+
+### Docker Deployment
+```bash
+# Quick start (requires .env file with API keys)
+docker-compose up -d
+
+# With frontend
+docker-compose --profile with-frontend up -d
+
+# View logs
+docker-compose logs -f aragora
+```
+
+### Environment Variables
+Required (at least one):
+- `ANTHROPIC_API_KEY` - Anthropic Claude API
+- `OPENAI_API_KEY` - OpenAI GPT API
+
+Optional:
+- `GEMINI_API_KEY` - Google Gemini API
+- `XAI_API_KEY` - xAI Grok API
+- `OPENROUTER_API_KEY` - OpenRouter (DeepSeek, Llama, Mistral)
+- `ARAGORA_API_TOKEN` - Optional authentication token
+- `ARAGORA_ALLOWED_ORIGINS` - CORS origins (default: http://localhost:3000)
+
+### Health Check
+```bash
+curl http://localhost:8080/api/health
+```
+
+### Recent Additions (2026-01-05)
+- **End-to-End Integration Tests**: 22 new tests covering full debate flows
+- **Dockerfile**: Production-ready container with non-root user
+- **docker-compose.yml**: Complete orchestration with volume persistence

@@ -1,0 +1,58 @@
+# Aragora Multi-Agent Debate Framework
+# Docker Compose Configuration
+
+services:
+  aragora:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aragora
+    ports:
+      - "8080:8080"
+    environment:
+      # Required: At least one AI provider key
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Optional: Additional providers
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - XAI_API_KEY=${XAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # Security settings
+      - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:-}
+      - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-http://localhost:3000}
+      - ARAGORA_TRUSTED_PROXIES=${ARAGORA_TRUSTED_PROXIES:-127.0.0.1,::1}
+      # Performance
+      - ARAGORA_MAX_CONCURRENT_DEBATES=${ARAGORA_MAX_CONCURRENT_DEBATES:-5}
+    volumes:
+      # Persist debate data
+      - aragora-data:/app/data
+      - aragora-nomic:/app/.nomic
+      - aragora-logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Frontend (when built)
+  frontend:
+    build:
+      context: ./aragora/live
+      dockerfile: Dockerfile
+    container_name: aragora-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://aragora:8080
+      - NEXT_PUBLIC_WS_URL=ws://aragora:8080/ws
+    depends_on:
+      - aragora
+    profiles:
+      - with-frontend
+
+volumes:
+  aragora-data:
+  aragora-nomic:
+  aragora-logs:
