@@ -48,7 +48,11 @@ export type StreamEventType =
   // Mood/sentiment events (Real-Time Debate Drama)
   | 'mood_detected'
   | 'mood_shift'
-  | 'debate_energy';
+  | 'debate_energy'
+  // Capability probe events (Adversarial Testing)
+  | 'probe_start'
+  | 'probe_result'
+  | 'probe_complete';
 
 export interface StreamEvent {
   type: StreamEventType;

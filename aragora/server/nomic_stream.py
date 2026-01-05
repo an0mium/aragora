@@ -260,6 +260,68 @@ def create_nomic_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
             },
         ))
 
+    def on_probe_start(
+        probe_id: str,
+        target_agent: str,
+        probe_types: list[str],
+        probes_per_type: int = 3,
+    ) -> None:
+        """Emit when capability probing begins for an agent."""
+        emitter.emit(StreamEvent(
+            type=StreamEventType.PROBE_START,
+            data={
+                "probe_id": probe_id,
+                "target_agent": target_agent,
+                "probe_types": probe_types,
+                "probes_per_type": probes_per_type,
+                "total_probes": len(probe_types) * probes_per_type,
+            },
+        ))
+
+    def on_probe_result(
+        probe_id: str,
+        probe_type: str,
+        passed: bool,
+        severity: Optional[str] = None,
+        description: str = "",
+        response_time_ms: float = 0,
+    ) -> None:
+        """Emit individual probe result (vulnerability check)."""
+        emitter.emit(StreamEvent(
+            type=StreamEventType.PROBE_RESULT,
+            data={
+                "probe_id": probe_id,
+                "probe_type": probe_type,
+                "passed": passed,
+                "severity": severity,
+                "description": description,
+                "response_time_ms": response_time_ms,
+            },
+        ))
+
+    def on_probe_complete(
+        report_id: str,
+        target_agent: str,
+        probes_run: int,
+        vulnerabilities_found: int,
+        vulnerability_rate: float,
+        elo_penalty: float,
+        by_severity: Optional[dict] = None,
+    ) -> None:
+        """Emit when all probes complete and report is ready."""
+        emitter.emit(StreamEvent(
+            type=StreamEventType.PROBE_COMPLETE,
+            data={
+                "report_id": report_id,
+                "target_agent": target_agent,
+                "probes_run": probes_run,
+                "vulnerabilities_found": vulnerabilities_found,
+                "vulnerability_rate": vulnerability_rate,
+                "elo_penalty": elo_penalty,
+                "by_severity": by_severity or {},
+            },
+        ))
+
     return {
         "on_cycle_start": on_cycle_start,
         "on_cycle_end": on_cycle_end,
@@ -276,4 +338,7 @@ def create_nomic_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
         "on_error": on_error,
         "on_log_message": on_log_message,
         "on_match_recorded": on_match_recorded,
+        "on_probe_start": on_probe_start,
+        "on_probe_result": on_probe_result,
+        "on_probe_complete": on_probe_complete,
     }

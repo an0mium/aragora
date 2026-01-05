@@ -4346,14 +4346,20 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         POST body:
             agent_name: Name of agent to probe (required)
             probe_types: List of probe types (optional, default: all)
-                Options: contradiction, hallucination, sycophancy, persistence
+                Options: contradiction, hallucination, sycophancy, persistence,
+                         confidence_calibration, reasoning_depth, edge_case
             probes_per_type: Number of probes per type (default: 3, max: 10)
+            model_type: Agent model type (optional, default: anthropic-api)
 
         Returns:
-            report_id: Unique ID for this probe session
+            report_id: Unique report ID
             target_agent: Name of probed agent
-            probes_configured: Total probes configured
-            by_type: Results grouped by probe type
+            probes_run: Total probes executed
+            vulnerabilities_found: Count of vulnerabilities detected
+            vulnerability_rate: Fraction of probes that found vulnerabilities
+            elo_penalty: ELO penalty applied
+            by_type: Results grouped by probe type with passed/failed status
+            summary: Quick stats for UI display
         """
         if not self._check_rate_limit():
             return
@@ -4362,6 +4368,13 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._send_json({
                 "error": "Capability prober not available",
                 "hint": "Prober module failed to import"
+            }, status=503)
+            return
+
+        if not DEBATE_AVAILABLE or create_agent is None:
+            self._send_json({
+                "error": "Agent system not available",
+                "hint": "Debate module or create_agent failed to import"
             }, status=503)
             return
 
@@ -4375,44 +4388,196 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "Missing required field: agent_name"}, status=400)
                 return
 
-            probe_types = data.get('probe_types', ['contradiction', 'hallucination', 'sycophancy', 'persistence'])
-            probes_per_type = min(int(data.get('probes_per_type', 3)), 10)
+            # Validate agent name
+            if not re.match(SAFE_ID_PATTERN, agent_name):
+                self._send_json({"error": "Invalid agent_name format"}, status=400)
+                return
 
-            from aragora.modes.prober import ProbeType
+            probe_type_strs = data.get('probe_types', [
+                'contradiction', 'hallucination', 'sycophancy', 'persistence'
+            ])
+            probes_per_type = min(int(data.get('probes_per_type', 3)), 10)
+            model_type = data.get('model_type', 'anthropic-api')
+
+            from aragora.modes.prober import ProbeType, CapabilityProber
             from datetime import datetime
+            import asyncio
+
+            # Convert string probe types to enum
+            probe_types = []
+            for pt_str in probe_type_strs:
+                try:
+                    probe_types.append(ProbeType(pt_str))
+                except ValueError:
+                    pass  # Skip invalid probe types
+
+            if not probe_types:
+                self._send_json({"error": "No valid probe types specified"}, status=400)
+                return
+
+            # Create agent for probing
+            try:
+                agent = create_agent(model_type, name=agent_name, role="proposer")
+            except Exception as e:
+                self._send_json({
+                    "error": f"Failed to create agent: {str(e)}",
+                    "hint": f"model_type '{model_type}' may not be available"
+                }, status=400)
+                return
+
+            # Create prober with optional ELO integration
+            prober = CapabilityProber(
+                elo_system=self.elo_system,
+                elo_penalty_multiplier=5.0
+            )
+
+            # Get stream hooks if available for real-time updates
+            probe_hooks = None
+            if hasattr(self.server, 'stream_server') and self.server.stream_server:
+                from .nomic_stream import create_nomic_hooks
+                probe_hooks = create_nomic_hooks(self.server.stream_server.emitter)
 
             report_id = f"probe-report-{uuid.uuid4().hex[:8]}"
-            probe_results = []
-            by_type = {}
 
-            for pt in probe_types:
+            # Emit probe start event
+            if probe_hooks and 'on_probe_start' in probe_hooks:
+                probe_hooks['on_probe_start'](
+                    probe_id=report_id,
+                    target_agent=agent_name,
+                    probe_types=[pt.value for pt in probe_types],
+                    probes_per_type=probes_per_type
+                )
+
+            # Define run_agent_fn callback for prober
+            async def run_agent_fn(target_agent, prompt: str) -> str:
+                """Execute agent with probe prompt."""
                 try:
-                    ProbeType(pt)
-                except ValueError:
-                    continue
+                    if asyncio.iscoroutinefunction(target_agent.generate):
+                        return await target_agent.generate(prompt)
+                    else:
+                        return target_agent.generate(prompt)
+                except Exception as e:
+                    return f"[Agent Error: {str(e)}]"
 
-                type_results = []
-                for i in range(probes_per_type):
-                    probe_result = {
-                        "probe_id": f"{report_id}-{pt}-{i+1}",
-                        "probe_type": pt,
-                        "target_agent": agent_name,
-                        "status": "pending",
+            # Run probes asynchronously
+            async def run_probes():
+                return await prober.probe_agent(
+                    target_agent=agent,
+                    run_agent_fn=run_agent_fn,
+                    probe_types=probe_types,
+                    probes_per_type=probes_per_type,
+                )
+
+            # Execute in event loop
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                report = loop.run_until_complete(run_probes())
+                loop.close()
+            except Exception as e:
+                self._send_json({
+                    "error": f"Probe execution failed: {str(e)}"
+                }, status=500)
+                return
+
+            # Transform results for frontend (vulnerability_found -> passed)
+            by_type_transformed = {}
+            for probe_type_key, results in report.by_type.items():
+                transformed_results = []
+                for r in results:
+                    result_dict = r.to_dict() if hasattr(r, 'to_dict') else r
+                    # Invert vulnerability_found to get passed
+                    passed = not result_dict.get('vulnerability_found', False)
+                    transformed_results.append({
+                        "probe_id": result_dict.get('probe_id', ''),
+                        "type": result_dict.get('probe_type', probe_type_key),
+                        "passed": passed,
+                        "severity": result_dict.get('severity', '').lower() if result_dict.get('severity') else None,
+                        "description": result_dict.get('vulnerability_description', ''),
+                        "details": result_dict.get('evidence', ''),
+                        "response_time_ms": result_dict.get('response_time_ms', 0),
+                    })
+
+                    # Emit individual probe result event
+                    if probe_hooks and 'on_probe_result' in probe_hooks:
+                        probe_hooks['on_probe_result'](
+                            probe_id=result_dict.get('probe_id', ''),
+                            probe_type=probe_type_key,
+                            passed=passed,
+                            severity=result_dict.get('severity', '').lower() if result_dict.get('severity') else None,
+                            description=result_dict.get('vulnerability_description', ''),
+                            response_time_ms=result_dict.get('response_time_ms', 0)
+                        )
+
+                by_type_transformed[probe_type_key] = transformed_results
+
+            # Record red team result in ELO system
+            if self.elo_system and report.probes_run > 0:
+                robustness_score = 1.0 - report.vulnerability_rate
+                try:
+                    self.elo_system.record_redteam_result(
+                        agent_name=agent_name,
+                        robustness_score=robustness_score,
+                        successful_attacks=report.vulnerabilities_found,
+                        total_attacks=report.probes_run,
+                        critical_vulnerabilities=report.critical_count,
+                        session_id=report_id
+                    )
+                except Exception:
+                    pass  # Don't fail probe if ELO update fails
+
+            # Save results to .nomic/probes/
+            if self.nomic_dir:
+                try:
+                    probes_dir = self.nomic_dir / "probes" / agent_name
+                    probes_dir.mkdir(parents=True, exist_ok=True)
+                    date_str = datetime.now().strftime("%Y-%m-%d")
+                    probe_file = probes_dir / f"{date_str}_{report.report_id}.json"
+                    probe_file.write_text(json.dumps(report.to_dict(), indent=2, default=str))
+                except Exception:
+                    pass  # Don't fail if storage fails
+
+            # Emit probe complete event
+            if probe_hooks and 'on_probe_complete' in probe_hooks:
+                probe_hooks['on_probe_complete'](
+                    report_id=report.report_id,
+                    target_agent=agent_name,
+                    probes_run=report.probes_run,
+                    vulnerabilities_found=report.vulnerabilities_found,
+                    vulnerability_rate=report.vulnerability_rate,
+                    elo_penalty=report.elo_penalty,
+                    by_severity={
+                        "critical": report.critical_count,
+                        "high": report.high_count,
+                        "medium": report.medium_count,
+                        "low": report.low_count,
                     }
-                    type_results.append(probe_result)
-                    probe_results.append(probe_result)
+                )
 
-                by_type[pt] = type_results
+            # Calculate summary for frontend
+            passed_count = report.probes_run - report.vulnerabilities_found
+            pass_rate = passed_count / report.probes_run if report.probes_run > 0 else 1.0
 
             self._send_json({
-                "report_id": report_id,
+                "report_id": report.report_id,
                 "target_agent": agent_name,
-                "probes_configured": len(probe_results),
-                "probe_types": probe_types,
-                "status": "configured",
-                "by_type": by_type,
-                "instructions": "To run live probes, start a debate with probe_mode=true.",
-                "created_at": datetime.now().isoformat(),
+                "probes_run": report.probes_run,
+                "vulnerabilities_found": report.vulnerabilities_found,
+                "vulnerability_rate": round(report.vulnerability_rate, 3),
+                "elo_penalty": round(report.elo_penalty, 1),
+                "by_type": by_type_transformed,
+                "summary": {
+                    "total": report.probes_run,
+                    "passed": passed_count,
+                    "failed": report.vulnerabilities_found,
+                    "pass_rate": round(pass_rate, 3),
+                    "critical": report.critical_count,
+                    "high": report.high_count,
+                    "medium": report.medium_count,
+                    "low": report.low_count,
+                },
+                "recommendations": report.recommendations,
+                "created_at": report.created_at,
             })
 
         except json.JSONDecodeError:

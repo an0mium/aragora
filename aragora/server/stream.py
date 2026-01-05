@@ -97,6 +97,11 @@ class StreamEventType(Enum):
     MOOD_SHIFT = "mood_shift"            # Significant mood change detected
     DEBATE_ENERGY = "debate_energy"      # Overall debate intensity level
 
+    # Capability probe events (Adversarial Testing)
+    PROBE_START = "probe_start"          # Probe session started for agent
+    PROBE_RESULT = "probe_result"        # Individual probe result
+    PROBE_COMPLETE = "probe_complete"    # All probes complete, report ready
+
 
 @dataclass
 class StreamEvent:
