@@ -30,25 +30,25 @@ export function CompareView({ events, onClose }: CompareViewProps) {
     const agentMap: Record<string, AgentData[]> = {};
     const roundSet = new Set<number>();
 
-    events.forEach((event) => {
-      if (event.type === 'agent_message' && event.agent) {
-        const round = event.round || 0;
-        roundSet.add(round);
+    events.filter(isAgentMessage).forEach((event) => {
+      if (!event.agent) return;
 
-        if (!agentMap[event.agent]) {
-          agentMap[event.agent] = [];
-        }
+      const round = event.round || 0;
+      roundSet.add(round);
 
-        agentMap[event.agent].push({
-          name: event.agent,
-          content: event.data?.content as string || '',
-          role: event.data?.role as string || 'proposer',
-          cognitiveRole: event.data?.cognitive_role as string,
-          round,
-          confidence: event.data?.confidence as number,
-          timestamp: event.timestamp,
-        });
+      if (!agentMap[event.agent]) {
+        agentMap[event.agent] = [];
       }
+
+      agentMap[event.agent].push({
+        name: event.agent,
+        content: event.data.content || '',
+        role: event.data.role || 'proposer',
+        cognitiveRole: event.data.cognitive_role,
+        round,
+        confidence: event.data.confidence,
+        timestamp: event.timestamp,
+      });
     });
 
     return {
