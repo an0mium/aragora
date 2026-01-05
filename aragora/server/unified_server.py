@@ -9,6 +9,7 @@ Provides a single entry point for:
 
 import asyncio
 import json
+import re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from threading import Thread
@@ -1101,7 +1102,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._get_introspection_leaderboard(limit)
         elif path.startswith('/api/introspection/agents/'):
             agent = path.split('/')[-1]
-            if not agent or not SAFE_ID_PATTERN.match(agent):
+            if not agent or not re.match(SAFE_ID_PATTERN, agent):
                 self._send_json({"error": "Invalid agent name"}, status=400)
             else:
                 self._get_agent_introspection(agent)
@@ -1205,7 +1206,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._list_plugins()
         elif path.startswith('/api/plugins/') and not path.endswith('/run'):
             plugin_name = path.split('/')[-1]
-            if not plugin_name or not SAFE_ID_PATTERN.match(plugin_name):
+            if not plugin_name or not re.match(SAFE_ID_PATTERN, plugin_name):
                 self._send_json({"error": "Invalid plugin name"}, status=400)
             else:
                 self._get_plugin(plugin_name)
@@ -1219,13 +1220,13 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._get_genesis_events(limit, event_type)
         elif path.startswith('/api/genesis/lineage/'):
             genome_id = path.split('/')[-1]
-            if not genome_id or not SAFE_ID_PATTERN.match(genome_id):
+            if not genome_id or not re.match(SAFE_ID_PATTERN, genome_id):
                 self._send_json({"error": "Invalid genome ID"}, status=400)
             else:
                 self._get_genome_lineage(genome_id)
         elif path.startswith('/api/genesis/tree/'):
             debate_id = path.split('/')[-1]
-            if not debate_id or not SAFE_ID_PATTERN.match(debate_id):
+            if not debate_id or not re.match(SAFE_ID_PATTERN, debate_id):
                 self._send_json({"error": "Invalid debate ID"}, status=400)
             else:
                 self._get_debate_tree(debate_id)
@@ -1284,7 +1285,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             parts = path.split('/')
             if len(parts) >= 4:
                 plugin_name = parts[3]
-                if not SAFE_ID_PATTERN.match(plugin_name):
+                if not re.match(SAFE_ID_PATTERN, plugin_name):
                     self._send_json({"error": "Invalid plugin name"}, status=400)
                 else:
                     self._run_plugin(plugin_name)
@@ -2247,7 +2248,6 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             return
 
         # Validate replay_id to prevent path traversal
-        import re
         if not re.match(SAFE_ID_PATTERN, replay_id):
             self._send_json({"error": "Invalid replay ID format"}, status=400)
             return
@@ -4645,7 +4645,6 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             return
 
         # Validate tournament_id to prevent path traversal
-        import re
         if not re.match(SAFE_ID_PATTERN, tournament_id):
             self._send_json({"error": "Invalid tournament ID format"}, status=400)
             return
@@ -4941,6 +4940,14 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             # Ensure resolved path is within static directory
             if not str(filepath).startswith(str(static_dir_resolved)):
                 self.send_error(403, "Access denied")
+                return
+
+            # Security: Reject symlinks to prevent escape attacks
+            # Check the original path (before resolve) for symlink
+            original_path = self.static_dir / filename
+            if original_path.is_symlink():
+                logger.warning(f"Symlink access denied: {filename}")
+                self.send_error(403, "Symlinks not allowed")
                 return
         except (ValueError, OSError):
             self.send_error(400, "Invalid path")
