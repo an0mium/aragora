@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { AgentMomentsModal } from './AgentMomentsModal';
 
 interface AgentRanking {
   name: string;
@@ -40,6 +41,7 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
   const [lastEventId, setLastEventId] = useState<string | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [availableDomains, setAvailableDomains] = useState<string[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -269,9 +271,13 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
               {/* Agent Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-text">
+                  <button
+                    onClick={() => setSelectedAgent(agent.name)}
+                    className="text-sm font-medium text-text hover:text-accent transition-colors cursor-pointer"
+                    title="View agent timeline"
+                  >
                     {agent.name}
-                  </span>
+                  </button>
                   <span className={`text-sm font-mono font-bold ${getEloColor(agent.elo)}`}>
                     {agent.elo}
                   </span>
@@ -344,6 +350,15 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
             </div>
           ))}
         </div>
+      )}
+
+      {/* Agent Moments Modal */}
+      {selectedAgent && (
+        <AgentMomentsModal
+          agentName={selectedAgent}
+          onClose={() => setSelectedAgent(null)}
+          apiBase={apiBase}
+        />
       )}
     </div>
   );

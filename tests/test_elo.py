@@ -378,5 +378,289 @@ class TestAtomicWrites:
             assert rating.elo > 0
 
 
+class TestConcurrentAccess:
+    """Test thread-safe concurrent database access."""
+
+    def test_threaded_record_match(self, elo):
+        """Test concurrent record_match calls from multiple threads."""
+        import threading
+
+        errors = []
+        results = []
+        lock = threading.Lock()
+
+        def record_matches(thread_id: int):
+            try:
+                for i in range(10):
+                    debate_id = f"thread_{thread_id}_match_{i}"
+                    # Use unique opponents per thread to avoid contention
+                    elo.record_match(
+                        debate_id=debate_id,
+                        participants=[f"agent_{thread_id}", f"opponent_{thread_id}"],
+                        scores={f"agent_{thread_id}": 1.0, f"opponent_{thread_id}": 0.0}
+                    )
+                    with lock:
+                        results.append(debate_id)
+            except Exception as e:
+                with lock:
+                    errors.append(e)
+
+        threads = [threading.Thread(target=record_matches, args=(i,)) for i in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0, f"Errors: {errors}"
+        assert len(results) == 50  # 5 threads * 10 matches
+
+        # Verify each thread's agent has correct game count
+        for i in range(5):
+            rating = elo.get_rating(f"agent_{i}")
+            assert rating.games_played == 10
+
+    def test_concurrent_read_write(self, elo):
+        """Test concurrent reads while writes are happening."""
+        import threading
+        import time
+
+        errors = []
+        read_results = []
+
+        def write_matches():
+            try:
+                for i in range(20):
+                    elo.record_match(
+                        debate_id=f"rw_match_{i}",
+                        participants=["writer_agent", "opponent"],
+                        scores={"writer_agent": 1.0, "opponent": 0.0}
+                    )
+                    time.sleep(0.01)  # Small delay to interleave
+            except Exception as e:
+                errors.append(("write", e))
+
+        def read_ratings():
+            try:
+                for _ in range(30):
+                    rating = elo.get_rating("writer_agent")
+                    read_results.append(rating.elo)
+                    time.sleep(0.005)
+            except Exception as e:
+                errors.append(("read", e))
+
+        writer = threading.Thread(target=write_matches)
+        reader = threading.Thread(target=read_ratings)
+
+        writer.start()
+        reader.start()
+        writer.join()
+        reader.join()
+
+        assert len(errors) == 0, f"Errors: {errors}"
+        # ELO should generally increase (we're winning all matches)
+        assert read_results[-1] >= read_results[0]
+
+
+class TestDataConsistency:
+    """Test data consistency after various operations."""
+
+    def test_elo_sum_is_conserved(self, elo):
+        """Test that total ELO is roughly conserved (zero-sum game)."""
+        initial_total = 1500 * 4  # 4 agents, each starts at 1500
+
+        agents = ["a", "b", "c", "d"]
+        for i in range(20):
+            winner = agents[i % 4]
+            loser = agents[(i + 1) % 4]
+            elo.record_match(
+                debate_id=f"conservation_{i}",
+                participants=[winner, loser],
+                scores={winner: 1.0, loser: 0.0}
+            )
+
+        final_total = sum(elo.get_rating(a).elo for a in agents)
+
+        # ELO is approximately zero-sum (small deviations due to K-factor adjustments)
+        assert abs(final_total - initial_total) < 100
+
+    def test_wins_plus_losses_equals_games(self, elo):
+        """Test that wins + losses + draws equals games played."""
+        for i in range(15):
+            if i % 3 == 0:
+                scores = {"agent": 1.0, "opp": 0.0}  # Win
+            elif i % 3 == 1:
+                scores = {"agent": 0.0, "opp": 1.0}  # Loss
+            else:
+                scores = {"agent": 0.5, "opp": 0.5}  # Draw
+
+            elo.record_match(
+                debate_id=f"consistency_{i}",
+                participants=["agent", "opp"],
+                scores=scores
+            )
+
+        rating = elo.get_rating("agent")
+        total_games = rating.wins + rating.losses + rating.draws
+        assert total_games == rating.games_played
+        assert rating.games_played == 15
+
+    def test_match_history_count_matches_games(self, elo):
+        """Test that match history count matches total games recorded."""
+        for i in range(10):
+            elo.record_match(
+                debate_id=f"history_{i}",
+                participants=["agent_x", "agent_y"],
+                scores={"agent_x": 1.0, "agent_y": 0.0}
+            )
+
+        history = elo.get_recent_matches(limit=100)
+        assert len(history) == 10
+
+        rating_x = elo.get_rating("agent_x")
+        rating_y = elo.get_rating("agent_y")
+        assert rating_x.games_played == 10
+        assert rating_y.games_played == 10
+
+
+class TestEdgeCases:
+    """Test edge cases and error handling."""
+
+    def test_single_participant_ignored(self, elo):
+        """Test that matches with single participant are ignored."""
+        result = elo.record_match(
+            debate_id="single",
+            participants=["solo"],
+            scores={"solo": 1.0}
+        )
+
+        assert result == {}
+        rating = elo.get_rating("solo")
+        assert rating.games_played == 0
+
+    def test_empty_participants_ignored(self, elo):
+        """Test that matches with no participants are ignored."""
+        result = elo.record_match(
+            debate_id="empty",
+            participants=[],
+            scores={}
+        )
+
+        assert result == {}
+
+    def test_duplicate_debate_id_updates(self, elo):
+        """Test that recording same debate_id updates existing record."""
+        elo.record_match(
+            debate_id="duplicate",
+            participants=["a", "b"],
+            scores={"a": 1.0, "b": 0.0}
+        )
+        rating_a_first = elo.get_rating("a").elo
+
+        # Record same debate again (should update/replace)
+        elo.record_match(
+            debate_id="duplicate",
+            participants=["a", "b"],
+            scores={"a": 1.0, "b": 0.0}
+        )
+        rating_a_second = elo.get_rating("a").elo
+
+        # Rating should have changed (match recorded twice)
+        assert rating_a_second > rating_a_first
+
+    def test_confidence_weight_clamping(self, elo):
+        """Test that confidence_weight is clamped to valid range."""
+        # Test with weight below minimum
+        elo.record_match(
+            debate_id="low_confidence",
+            participants=["a", "b"],
+            scores={"a": 1.0, "b": 0.0},
+            confidence_weight=0.0  # Should be clamped to 0.1
+        )
+
+        # Test with weight above maximum
+        elo.record_match(
+            debate_id="high_confidence",
+            participants=["c", "d"],
+            scores={"c": 1.0, "d": 0.0},
+            confidence_weight=2.0  # Should be clamped to 1.0
+        )
+
+        # Both should have recorded without error
+        assert elo.get_rating("a").games_played == 1
+        assert elo.get_rating("c").games_played == 1
+
+    def test_multiway_match(self, elo):
+        """Test that 3+ agent matches are handled."""
+        elo.record_match(
+            debate_id="multiway",
+            participants=["first", "second", "third"],
+            scores={"first": 1.0, "second": 0.5, "third": 0.0}
+        )
+
+        # All should have played
+        assert elo.get_rating("first").games_played == 1
+        assert elo.get_rating("second").games_played == 1
+        assert elo.get_rating("third").games_played == 1
+
+        # First should have highest rating (won against both)
+        first_elo = elo.get_rating("first").elo
+        third_elo = elo.get_rating("third").elo
+        assert first_elo > third_elo
+
+    def test_zero_scores_handled(self, elo):
+        """Test that zero scores for all agents defaults to draw."""
+        elo.record_match(
+            debate_id="zero_scores",
+            participants=["a", "b"],
+            scores={"a": 0.0, "b": 0.0}
+        )
+
+        # Both should have played
+        assert elo.get_rating("a").games_played == 1
+        # Should count as draw
+        assert elo.get_rating("a").draws == 1
+
+    def test_negative_scores_handled(self, elo):
+        """Test that negative scores are handled correctly."""
+        elo.record_match(
+            debate_id="negative_scores",
+            participants=["a", "b"],
+            scores={"a": -1.0, "b": -2.0}  # Both negative, a is "less bad"
+        )
+
+        # Both should have played
+        assert elo.get_rating("a").games_played == 1
+        assert elo.get_rating("b").games_played == 1
+
+        # a should have won (higher score)
+        assert elo.get_rating("a").wins == 1
+        assert elo.get_rating("b").losses == 1
+
+
+class TestEloHistory:
+    """Test ELO history tracking."""
+
+    def test_elo_history_recorded(self, elo):
+        """Test that ELO history is recorded after each match."""
+        for i in range(5):
+            # Use different opponents to avoid ELO interaction effects
+            elo.record_match(
+                debate_id=f"history_test_{i}",
+                participants=["tracked", f"opponent_{i}"],
+                scores={"tracked": 1.0, f"opponent_{i}": 0.0}
+            )
+
+        history = elo.get_elo_history("tracked", limit=10)
+        assert len(history) == 5  # Exactly 5 entries
+
+        # History is list of (created_at, elo) tuples, sorted DESC by created_at
+        # Verify structure is correct
+        assert all(isinstance(entry, tuple) and len(entry) == 2 for entry in history)
+
+        # ELO should be above starting rating (winning all matches)
+        newest_elo = history[0][1]  # Most recent
+        assert newest_elo > 1500  # Should have gained ELO from wins
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

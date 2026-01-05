@@ -19,6 +19,16 @@ interface CrossPollination {
   rationale: string;
 }
 
+interface GenesisStats {
+  total_events: number;
+  total_births: number;
+  total_deaths: number;
+  net_population_change: number;
+  avg_fitness_change_recent: number;
+  integrity_verified: boolean;
+  event_counts: Record<string, number>;
+}
+
 interface LaboratoryPanelProps {
   apiBase?: string;
 }
@@ -28,9 +38,10 @@ const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora
 export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelProps) {
   const [traits, setTraits] = useState<EmergentTrait[]>([]);
   const [pollinations, setPollinations] = useState<CrossPollination[]>([]);
+  const [genesisStats, setGenesisStats] = useState<GenesisStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'traits' | 'pollinations'>('traits');
+  const [activeTab, setActiveTab] = useState<'traits' | 'pollinations' | 'evolution'>('traits');
   const [expanded, setExpanded] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -38,9 +49,10 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
     setError(null);
 
     try {
-      const [traitsRes, pollinationsRes] = await Promise.all([
+      const [traitsRes, pollinationsRes, genesisRes] = await Promise.all([
         fetch(`${apiBase}/api/laboratory/emergent-traits?min_confidence=0.3&limit=10`),
         fetch(`${apiBase}/api/laboratory/cross-pollinations/suggest`),
+        fetch(`${apiBase}/api/genesis/stats`),
       ]);
 
       if (traitsRes.ok) {
@@ -51,6 +63,11 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
       if (pollinationsRes.ok) {
         const data = await pollinationsRes.json();
         setPollinations(data.suggestions || []);
+      }
+
+      if (genesisRes.ok) {
+        const data = await genesisRes.json();
+        setGenesisStats(data);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch laboratory data');
@@ -105,13 +122,25 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
       </div>
 
       {/* Summary Stats */}
-      <div className="flex items-center gap-4 text-xs font-mono text-text-muted mb-4 border-b border-border pb-3">
+      <div className="flex items-center gap-4 text-xs font-mono text-text-muted mb-4 border-b border-border pb-3 flex-wrap">
         <span>
-          Emergent Traits: <span className="text-acid-cyan">{traits.length}</span>
+          Traits: <span className="text-acid-cyan">{traits.length}</span>
         </span>
         <span>
           Pollinations: <span className="text-acid-green">{pollinations.length}</span>
         </span>
+        {genesisStats && (
+          <>
+            <span>
+              Population: <span className={genesisStats.net_population_change >= 0 ? 'text-green-400' : 'text-red-400'}>
+                {genesisStats.net_population_change >= 0 ? '+' : ''}{genesisStats.net_population_change}
+              </span>
+            </span>
+            <span>
+              Events: <span className="text-yellow-400">{genesisStats.total_events}</span>
+            </span>
+          </>
+        )}
       </div>
 
       {error && (
@@ -142,7 +171,17 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
                   : 'text-text-muted hover:text-text'
               }`}
             >
-              CROSS-POLLINATIONS
+              POLLINATIONS
+            </button>
+            <button
+              onClick={() => setActiveTab('evolution')}
+              className={`px-3 py-1 rounded text-sm font-mono transition-colors flex-1 ${
+                activeTab === 'evolution'
+                  ? 'bg-yellow-500 text-bg font-medium'
+                  : 'text-text-muted hover:text-text'
+              }`}
+            >
+              EVOLUTION
             </button>
           </div>
 
@@ -251,6 +290,87 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
               ))}
             </div>
           )}
+
+          {/* Evolution Tab */}
+          {activeTab === 'evolution' && (
+            <div className="space-y-4 max-h-80 overflow-y-auto">
+              {loading && !genesisStats && (
+                <div className="text-center text-text-muted py-4 font-mono text-sm">
+                  Loading evolution data...
+                </div>
+              )}
+
+              {!loading && !genesisStats && (
+                <div className="text-center text-text-muted py-4 font-mono text-sm">
+                  No evolution data available yet.
+                </div>
+              )}
+
+              {genesisStats && (
+                <>
+                  {/* Population Stats */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-3 bg-bg border border-border rounded-lg text-center">
+                      <div className="text-2xl font-mono text-green-400">{genesisStats.total_births}</div>
+                      <div className="text-xs text-text-muted">Births</div>
+                    </div>
+                    <div className="p-3 bg-bg border border-border rounded-lg text-center">
+                      <div className="text-2xl font-mono text-red-400">{genesisStats.total_deaths}</div>
+                      <div className="text-xs text-text-muted">Deaths</div>
+                    </div>
+                    <div className="p-3 bg-bg border border-border rounded-lg text-center">
+                      <div className={`text-2xl font-mono ${genesisStats.net_population_change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {genesisStats.net_population_change >= 0 ? '+' : ''}{genesisStats.net_population_change}
+                      </div>
+                      <div className="text-xs text-text-muted">Net Change</div>
+                    </div>
+                  </div>
+
+                  {/* Fitness Trend */}
+                  <div className="p-3 bg-bg border border-border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-mono text-text-muted">Avg Fitness Change (Recent)</span>
+                      <span className={`text-lg font-mono ${genesisStats.avg_fitness_change_recent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {genesisStats.avg_fitness_change_recent >= 0 ? '+' : ''}{genesisStats.avg_fitness_change_recent.toFixed(4)}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-surface rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${genesisStats.avg_fitness_change_recent >= 0 ? 'bg-green-400' : 'bg-red-400'}`}
+                        style={{ width: `${Math.min(100, Math.abs(genesisStats.avg_fitness_change_recent) * 500)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Event Breakdown */}
+                  {genesisStats.event_counts && Object.keys(genesisStats.event_counts).length > 0 && (
+                    <div className="p-3 bg-bg border border-border rounded-lg">
+                      <div className="text-sm font-mono text-text-muted mb-3">Event Types</div>
+                      <div className="space-y-2">
+                        {Object.entries(genesisStats.event_counts)
+                          .filter(([_, count]) => count > 0)
+                          .sort(([_, a], [__, b]) => b - a)
+                          .map(([type, count]) => (
+                            <div key={type} className="flex items-center justify-between text-xs font-mono">
+                              <span className="text-text-muted">{type.replace(/_/g, ' ')}</span>
+                              <span className="text-yellow-400">{count}</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Integrity Status */}
+                  <div className="flex items-center justify-between p-2 bg-bg border border-border rounded-lg text-xs font-mono">
+                    <span className="text-text-muted">Ledger Integrity</span>
+                    <span className={genesisStats.integrity_verified ? 'text-green-400' : 'text-red-400'}>
+                      {genesisStats.integrity_verified ? 'VERIFIED' : 'UNVERIFIED'}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -258,10 +378,9 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
       {!expanded && (
         <div className="text-xs font-mono text-text-muted">
           <p>
-            <span className="text-acid-cyan">Emergent traits:</span> Specializations discovered from performance patterns
-          </p>
-          <p className="mt-1">
-            <span className="text-acid-green">Cross-pollinations:</span> Suggested trait transfers between agents
+            <span className="text-acid-cyan">Traits:</span> Discovered specializations |{' '}
+            <span className="text-acid-green">Pollinations:</span> Trait transfers |{' '}
+            <span className="text-yellow-400">Evolution:</span> Population dynamics
           </p>
         </div>
       )}
