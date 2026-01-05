@@ -1,15 +1,47 @@
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
+
+interface NomicState {
+  phase: string;
+  stage: string;
+  cycle: number;
+  saved_at: string;
+  loop_id?: string;
+  loop_name?: string;
+}
 
 interface PhaseProgressProps {
   events: StreamEvent[];
   currentPhase: string;
+  apiBase?: string;
 }
 
+const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 const PHASES = ['debate', 'design', 'implement', 'verify', 'commit'];
 
-export function PhaseProgress({ events, currentPhase }: PhaseProgressProps) {
+export function PhaseProgress({ events, currentPhase, apiBase = DEFAULT_API_BASE }: PhaseProgressProps) {
+  const [nomicState, setNomicState] = useState<NomicState | null>(null);
+
+  const fetchNomicState = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiBase}/api/nomic/state`);
+      if (response.ok) {
+        const data = await response.json();
+        setNomicState(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch nomic state:', err);
+    }
+  }, [apiBase]);
+
+  useEffect(() => {
+    fetchNomicState();
+    // Poll every 10 seconds for updates
+    const interval = setInterval(fetchNomicState, 10000);
+    return () => clearInterval(interval);
+  }, [fetchNomicState]);
   type PhaseStatusType = 'pending' | 'active' | 'complete' | 'failed';
 
   // Get phase statuses from events
@@ -33,21 +65,54 @@ export function PhaseProgress({ events, currentPhase }: PhaseProgressProps) {
     return { phase, status: 'pending' as PhaseStatusType };
   });
 
+  // Use API state if available, otherwise fall back to events
+  const effectivePhase = nomicState?.phase || currentPhase;
+
   return (
     <div className="card p-4">
-      <h2 className="text-sm font-medium text-text-muted uppercase tracking-wider mb-3">
-        Phase Progress
-      </h2>
-      <div className="flex items-center gap-2">
-        {phaseStatuses.map(({ phase, status }, index) => (
-          <div key={phase} className="flex items-center">
-            <PhaseBlock phase={phase} status={status} />
-            {index < phaseStatuses.length - 1 && (
-              <div className="w-4 h-0.5 bg-border" />
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-medium text-text-muted uppercase tracking-wider">
+          Phase Progress
+        </h2>
+        {nomicState && (
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-acid-green">Cycle {nomicState.cycle}</span>
+            {nomicState.stage && (
+              <span className="text-text-muted">• {nomicState.stage.replace(/_/g, ' ')}</span>
             )}
           </div>
-        ))}
+        )}
       </div>
+      <div className="flex items-center gap-2">
+        {phaseStatuses.map(({ phase, status }, index) => {
+          // Override status based on API state
+          let effectiveStatus = status;
+          if (nomicState) {
+            const phaseIndex = PHASES.indexOf(phase);
+            const currentIndex = PHASES.indexOf(effectivePhase);
+            if (phaseIndex < currentIndex) {
+              effectiveStatus = 'complete';
+            } else if (phaseIndex === currentIndex) {
+              effectiveStatus = 'active';
+            } else {
+              effectiveStatus = 'pending';
+            }
+          }
+          return (
+            <div key={phase} className="flex items-center">
+              <PhaseBlock phase={phase} status={effectiveStatus} />
+              {index < phaseStatuses.length - 1 && (
+                <div className="w-4 h-0.5 bg-border" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {nomicState?.saved_at && (
+        <div className="mt-2 text-[10px] text-text-muted font-mono">
+          Last update: {new Date(nomicState.saved_at).toLocaleTimeString()}
+        </div>
+      )}
     </div>
   );
 }

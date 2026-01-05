@@ -28,18 +28,30 @@ interface EarlyStop {
   timestamp: string;
 }
 
-interface AnalyticsPanelProps {
-  apiBase: string;
+interface GraphStats {
+  node_count: number;
+  edge_count: number;
+  max_depth: number;
+  avg_branching: number;
+  complexity_score: number;
+  claim_count: number;
+  rebuttal_count: number;
 }
 
-type TabType = 'disagreements' | 'roles' | 'early-stops';
+interface AnalyticsPanelProps {
+  apiBase: string;
+  loopId?: string;
+}
 
-export function AnalyticsPanel({ apiBase }: AnalyticsPanelProps) {
+type TabType = 'disagreements' | 'roles' | 'early-stops' | 'graph';
+
+export function AnalyticsPanel({ apiBase, loopId }: AnalyticsPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('disagreements');
   const [disagreements, setDisagreements] = useState<Disagreement[]>([]);
   const [roleRotations, setRoleRotations] = useState<RoleRotation[]>([]);
   const [earlyStops, setEarlyStops] = useState<EarlyStop[]>([]);
+  const [graphStats, setGraphStats] = useState<GraphStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,24 +59,40 @@ export function AnalyticsPanel({ apiBase }: AnalyticsPanelProps) {
     setLoading(true);
     setError(null);
     try {
-      const endpoint = tab === 'roles' ? 'role-rotation' : tab;
-      const response = await fetch(`${apiBase}/api/analytics/${endpoint}?limit=10`);
-      if (!response.ok) throw new Error(`Failed to fetch ${tab}`);
-      const data = await response.json();
+      if (tab === 'graph') {
+        // Fetch debate graph stats if we have a loopId
+        if (!loopId) {
+          setGraphStats(null);
+          setLoading(false);
+          return;
+        }
+        const response = await fetch(`${apiBase}/api/debate/${encodeURIComponent(loopId)}/graph/stats`);
+        if (response.ok) {
+          const data = await response.json();
+          setGraphStats(data);
+        } else {
+          setGraphStats(null);
+        }
+      } else {
+        const endpoint = tab === 'roles' ? 'role-rotation' : tab;
+        const response = await fetch(`${apiBase}/api/analytics/${endpoint}?limit=10`);
+        if (!response.ok) throw new Error(`Failed to fetch ${tab}`);
+        const data = await response.json();
 
-      if (tab === 'disagreements') {
-        setDisagreements(data.disagreements || []);
-      } else if (tab === 'roles') {
-        setRoleRotations(data.summary || []);
-      } else if (tab === 'early-stops') {
-        setEarlyStops(data.early_stops || []);
+        if (tab === 'disagreements') {
+          setDisagreements(data.disagreements || []);
+        } else if (tab === 'roles') {
+          setRoleRotations(data.summary || []);
+        } else if (tab === 'early-stops') {
+          setEarlyStops(data.early_stops || []);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch analytics');
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [apiBase, loopId]);
 
   useEffect(() => {
     if (expanded) {
@@ -96,7 +124,7 @@ export function AnalyticsPanel({ apiBase }: AnalyticsPanelProps) {
         <div className="px-4 pb-4 space-y-3">
           {/* Tabs */}
           <div className="flex gap-1 border-b border-acid-green/20 pb-2">
-            {(['disagreements', 'roles', 'early-stops'] as TabType[]).map((tab) => (
+            {(['disagreements', 'roles', 'early-stops', 'graph'] as TabType[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -198,6 +226,57 @@ export function AnalyticsPanel({ apiBase }: AnalyticsPanelProps) {
                       </div>
                     </div>
                   ))
+                )
+              )}
+
+              {activeTab === 'graph' && (
+                !loopId ? (
+                  <div className="text-text-muted text-xs text-center py-4">
+                    No debate selected for graph analysis
+                  </div>
+                ) : !graphStats ? (
+                  <div className="text-text-muted text-xs text-center py-4">
+                    No graph data available for this debate
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="border border-acid-cyan/30 bg-acid-cyan/5 p-2 text-xs">
+                        <div className="text-text-muted">Nodes</div>
+                        <div className="text-acid-cyan text-lg font-mono">{graphStats.node_count}</div>
+                      </div>
+                      <div className="border border-acid-cyan/30 bg-acid-cyan/5 p-2 text-xs">
+                        <div className="text-text-muted">Edges</div>
+                        <div className="text-acid-cyan text-lg font-mono">{graphStats.edge_count}</div>
+                      </div>
+                      <div className="border border-purple-500/30 bg-purple-500/5 p-2 text-xs">
+                        <div className="text-text-muted">Max Depth</div>
+                        <div className="text-purple-400 text-lg font-mono">{graphStats.max_depth}</div>
+                      </div>
+                      <div className="border border-purple-500/30 bg-purple-500/5 p-2 text-xs">
+                        <div className="text-text-muted">Avg Branching</div>
+                        <div className="text-purple-400 text-lg font-mono">{graphStats.avg_branching.toFixed(2)}</div>
+                      </div>
+                    </div>
+                    <div className="border border-acid-green/30 bg-surface p-2 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="text-text-muted">Complexity Score</span>
+                        <span className="text-acid-green font-mono text-lg">
+                          {(graphStats.complexity_score * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 bg-bg rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-acid-green"
+                          style={{ width: `${graphStats.complexity_score * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 text-xs text-text-muted">
+                      <span>Claims: <span className="text-acid-green">{graphStats.claim_count}</span></span>
+                      <span>Rebuttals: <span className="text-warning">{graphStats.rebuttal_count}</span></span>
+                    </div>
+                  </div>
                 )
               )}
             </div>

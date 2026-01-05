@@ -1008,6 +1008,231 @@ result = await mode.run_redteam(
 
 ---
 
+## Phase 12: Grounded Personas v2
+
+### Overview
+
+Grounded Personas v2 is a comprehensive system for building agent identities from verifiable performance history. Unlike traditional persona systems that rely on predefined traits, Grounded Personas emerge from actual debate outcomes, creating trustworthy agent identities backed by evidence.
+
+**Core Philosophy:**
+- Personas are *earned* through performance, not assigned
+- All claims about an agent are backed by verifiable debate history
+- Relationships between agents emerge from actual interactions
+- Significant moments define agent identity naturally
+
+### PositionLedger
+**File:** `aragora/agents/grounded.py`
+
+Tracks every position an agent takes across all debates, enabling historical analysis of consistency and expertise.
+
+```python
+from aragora.agents.grounded import PositionLedger, Position
+
+ledger = PositionLedger(db_path="personas.db")
+
+# Record a position
+position_id = ledger.record_position(
+    agent_name="claude",
+    claim="Microservices are better for this use case",
+    confidence=0.85,
+    debate_id="debate-123",
+    round_num=2,
+    domain="architecture",
+)
+
+# Get agent's position history
+positions = ledger.get_agent_positions("claude", limit=50)
+
+# Resolve position outcome after debate
+ledger.resolve_position(position_id, outcome="correct")  # or "incorrect", "pending"
+
+# Check for position reversals
+ledger.mark_reversal(position_id, reversal_debate_id="debate-456")
+```
+
+**Key Fields:**
+- `claim` - The position statement
+- `confidence` - Agent's stated confidence (0.0-1.0)
+- `outcome` - Was the position correct? (pending/correct/incorrect)
+- `reversed` - Did agent later reverse this position?
+- `domain` - Topic domain for expertise tracking
+
+### RelationshipTracker
+**File:** `aragora/agents/grounded.py`
+
+Tracks inter-agent relationships based on actual debate interactions.
+
+```python
+from aragora.agents.grounded import RelationshipTracker
+
+tracker = RelationshipTracker(db_path="personas.db")
+
+# Update from debate results
+tracker.update_from_debate(
+    debate_id="debate-123",
+    participants=["claude", "gemini", "codex"],
+    winner="claude",
+    votes={"claude": "option_a", "gemini": "option_a", "codex": "option_b"},
+    critiques=[
+        {"agent": "codex", "target": "claude"},
+        {"agent": "gemini", "target": "codex"},
+    ],
+)
+
+# Get relationship between two agents
+rel = tracker.get_relationship("claude", "gemini")
+print(f"Alliance score: {rel.alliance_score:.2f}")
+print(f"Rivalry score: {rel.rivalry_score:.2f}")
+print(f"Influence score: {rel.influence_score:.2f}")
+
+# Get agent's full network
+network = tracker.get_agent_network("claude")
+# Returns: {allies: [...], rivals: [...], influences: [...], influenced_by: [...]}
+```
+
+**Relationship Types:**
+- `alliance_score` - How often agents vote together
+- `rivalry_score` - How often agents oppose each other
+- `influence_score` - How much this agent influences the other's positions
+- `debate_count` - Number of shared debates
+
+### MomentDetector
+**File:** `aragora/agents/grounded.py`
+
+Detects genuinely significant narrative moments from debate history.
+
+```python
+from aragora.agents.grounded import MomentDetector, SignificantMoment
+
+detector = MomentDetector(
+    elo_system=elo,
+    position_ledger=ledger,
+    relationship_tracker=tracker,
+)
+
+# Detect upset victory
+moment = detector.detect_upset_victory(
+    winner="underdog_agent",
+    loser="top_ranked_agent",
+    debate_id="debate-789",
+)
+if moment:
+    detector.record_moment(moment)
+    print(f"Upset! Significance: {moment.significance_score:.2%}")
+
+# Detect calibration vindication
+moment = detector.detect_calibration_vindication(
+    agent_name="claude",
+    prediction_confidence=0.92,
+    was_correct=True,
+    domain="security",
+    debate_id="debate-101",
+)
+
+# Detect streak achievements
+moment = detector.detect_streak_achievement(
+    agent_name="gemini",
+    streak_type="win",
+    streak_length=7,
+    debate_id="debate-102",
+)
+
+# Get narrative summary
+summary = detector.get_narrative_summary("claude", limit=5)
+# Returns formatted markdown of agent's defining moments
+```
+
+**Moment Types:**
+- `upset_victory` - Lower-rated agent defeats higher-rated (100+ ELO diff)
+- `position_reversal` - High-confidence position changed with evidence
+- `calibration_vindication` - 85%+ confidence prediction proven correct
+- `streak_achievement` - 5+ consecutive wins or losses
+- `domain_mastery` - Becomes #1 ranked in a domain
+- `consensus_breakthrough` - Rivals reach agreement
+
+### PersonaSynthesizer
+**File:** `aragora/agents/grounded.py`
+
+Synthesizes complete agent personas from all grounded data sources.
+
+```python
+from aragora.agents.grounded import PersonaSynthesizer
+
+synthesizer = PersonaSynthesizer(
+    position_ledger=ledger,
+    calibration_tracker=calibration,
+    relationship_tracker=tracker,
+    moment_detector=detector,
+    elo_system=elo,
+)
+
+# Generate complete grounded persona
+persona = synthesizer.synthesize("claude")
+
+print(persona.identity_summary)
+# "claude is a well-calibrated architect (Brier: 0.12) with expertise in
+#  security and distributed systems. They've maintained 78% consistency
+#  across 234 positions. Key rival: codex. Key ally: gemini."
+
+print(persona.expertise_profile)
+# {"security": 0.89, "architecture": 0.82, "testing": 0.65}
+
+print(persona.calibration_summary)
+# {"brier_score": 0.12, "ece": 0.08, "total_predictions": 156}
+
+print(persona.relationship_brief)
+# {"allies": ["gemini"], "rivals": ["codex"], "influences": ["grok"]}
+
+# Get opponent briefing for debate prep
+briefing = synthesizer.get_opponent_briefing("claude", opponent="codex")
+# Returns strategic information about how claude typically debates codex
+```
+
+### Arena Integration
+
+The Grounded Personas system is integrated into Arena for automatic tracking:
+
+```python
+from aragora.debate.orchestrator import Arena
+
+arena = Arena(
+    environment=env,
+    agents=agents,
+    # Grounded Personas v2 integrations
+    calibration_tracker=CalibrationTracker("calibration.db"),
+    relationship_tracker=RelationshipTracker("relationships.db"),
+    moment_detector=MomentDetector(elo_system=elo),
+)
+
+# After each debate, Arena automatically:
+# 1. Records positions to PositionLedger
+# 2. Updates CalibrationTracker with prediction accuracy
+# 3. Updates RelationshipTracker with debate outcomes
+# 4. Detects significant moments (upsets, vindications)
+# 5. Stores all data for persona synthesis
+```
+
+### API Endpoints
+
+The following endpoints expose Grounded Personas data:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/agent/{name}/network` | Agent's relationship network |
+| `GET /api/agent/{name}/moments?limit=N` | Significant moments |
+| `GET /api/agent/{name}/consistency` | Consistency score from FlipDetector |
+| `GET /api/consensus/dissents?limit=N` | Dissenting views on topics |
+
+### Benefits
+
+1. **Trust Through Evidence**: Agent claims are backed by verifiable history
+2. **Natural Narratives**: Stories emerge from actual performance
+3. **Fair Reputation**: Agents earn their standings through debate outcomes
+4. **Rich Context**: Debate participants understand each other's tendencies
+5. **Accountability**: Position reversals and calibration failures are tracked
+
+---
+
 ## API Reference
 
 See [API_REFERENCE.md](./API_REFERENCE.md) for complete HTTP and WebSocket API documentation.
