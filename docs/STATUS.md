@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 5, 2026 (02:00 UTC)*
+*Last updated: January 5, 2026 (03:30 UTC)*
 
 ## Current State
 
@@ -106,10 +106,15 @@
 - **NEW**: Added loop_id to FLIP_DETECTED events for multi-loop isolation
 - **NEW**: Added original_confidence, new_confidence, domain fields to flip event data
 - **NEW**: Fixed security: exec() timeout protection in proofs.py (5s limit prevents CPU exhaustion)
+- **NEW**: Fixed security: sanitized error messages in api.py (replay endpoint)
+- **NEW**: Fixed AgentRelationship export in __init__.py (was exporting wrong name)
+- **NEW**: Added 4 unused UI components to dashboard (AgentNetworkPanel, CapabilityProbePanel, OperationalModesPanel, RedTeamAnalysisPanel)
+- **NEW**: Added circuit breaker persistence across nomic cycles (saves/restores cooldowns)
+- **NEW**: Added circuit breaker filtering to agent selection (skips agents in cooldown)
 
 ## Feature Integration Status
 
-### Fully Integrated (35)
+### Fully Integrated (41)
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
@@ -147,6 +152,12 @@
 | Custom Mode Security | Active | `aragora/modes/custom.py` (path traversal protection) |
 | Crux Cache Lifecycle | Active | `scripts/nomic_loop.py:run_cycle()` (cleared at cycle start) |
 | Unified Serve CLI | Active | `aragora/cli/main.py:cmd_serve()` (unified server integration) |
+| Circuit Breaker Persistence | Active | `scripts/nomic_loop.py` (saves/restores across cycles) |
+| Circuit Breaker Agent Filtering | Active | `scripts/nomic_loop.py:_select_debate_team()` |
+| AgentNetworkPanel | Active | `aragora/live/src/components/AgentNetworkPanel.tsx` |
+| CapabilityProbePanel | Active | `aragora/live/src/components/CapabilityProbePanel.tsx` |
+| OperationalModesPanel | Active | `aragora/live/src/components/OperationalModesPanel.tsx` |
+| RedTeamAnalysisPanel | Active | `aragora/live/src/components/RedTeamAnalysisPanel.tsx` |
 
 ### Recently Surfaced (6)
 | Feature | Status | Location |

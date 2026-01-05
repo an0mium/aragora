@@ -837,6 +837,18 @@ class NomicLoop:
         self.backup_dir = self.nomic_dir / "backups"
         self.backup_dir.mkdir(exist_ok=True)
 
+        # Restore circuit breaker state from previous run (persistence across cycles)
+        circuit_breaker_path = self.nomic_dir / "circuit_breaker.json"
+        if circuit_breaker_path.exists():
+            try:
+                with open(circuit_breaker_path) as f:
+                    state = json.load(f)
+                    self.circuit_breaker.failures = state.get("failures", {})
+                    self.circuit_breaker.cooldowns = state.get("cooldowns", {})
+                    print(f"[circuit-breaker] Restored state: {len(self.circuit_breaker.cooldowns)} agents in cooldown")
+            except Exception as e:
+                print(f"[circuit-breaker] Failed to restore state: {e}")
+
         # Initialize protected file checksums for integrity verification
         _init_protected_checksums(self.aragora_path)
         print(f"[security] Initialized checksums for {len(_PROTECTED_FILE_CHECKSUMS)} protected files")
@@ -1343,6 +1355,18 @@ class NomicLoop:
         state["cycle"] = self.cycle_count
         with open(self.state_file, "w") as f:
             json.dump(state, f, indent=2, default=str)
+
+        # Persist circuit breaker state across runs
+        try:
+            circuit_breaker_path = self.nomic_dir / "circuit_breaker.json"
+            with open(circuit_breaker_path, "w") as f:
+                json.dump({
+                    "failures": self.circuit_breaker.failures,
+                    "cooldowns": self.circuit_breaker.cooldowns,
+                    "saved_at": datetime.now().isoformat(),
+                }, f, indent=2)
+        except Exception:
+            pass  # Don't fail save_state if circuit breaker persistence fails
 
     def _load_state(self) -> Optional[dict]:
         """Load saved state if exists."""
@@ -2705,7 +2729,20 @@ The most valuable proposals combine deep analysis with actionable implementation
 
     def _select_debate_team(self, task: str) -> list:
         """Select optimal agent team for the task (P14: AgentSelector)."""
-        default_team = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
+        all_agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
+
+        # Filter out agents in circuit breaker cooldown
+        default_team = []
+        for agent in all_agents:
+            if self.circuit_breaker.is_available(agent.name):
+                default_team.append(agent)
+            else:
+                self._log(f"  [circuit-breaker] Skipping {agent.name} (in cooldown)")
+
+        if len(default_team) < 2:
+            self._log("  [circuit-breaker] WARNING: Not enough agents available, using all")
+            default_team = all_agents  # Fall back to all agents if too few
+
         detected_domain = self._detect_domain(task)
 
         # If ELO available, sort by domain expertise first

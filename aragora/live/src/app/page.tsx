@@ -20,6 +20,10 @@ import { CruxPanel } from '@/components/CruxPanel';
 import { MemoryInspector } from '@/components/MemoryInspector';
 import { LaboratoryPanel } from '@/components/LaboratoryPanel';
 import { CitationsPanel } from '@/components/CitationsPanel';
+import { AgentNetworkPanel } from '@/components/AgentNetworkPanel';
+import { CapabilityProbePanel } from '@/components/CapabilityProbePanel';
+import { OperationalModesPanel } from '@/components/OperationalModesPanel';
+import { RedTeamAnalysisPanel } from '@/components/RedTeamAnalysisPanel';
 import { VerdictCard } from '@/components/VerdictCard';
 import { CompareView, CompareButton } from '@/components/CompareView';
 import { DeepAuditView, DeepAuditToggle } from '@/components/DeepAuditView';
@@ -356,6 +360,10 @@ export default function Home() {
             <CruxPanel apiBase={API_URL} />
             <MemoryInspector apiBase={API_URL} />
             <LaboratoryPanel apiBase={API_URL} />
+            <AgentNetworkPanel events={events} apiBase={API_URL} />
+            <CapabilityProbePanel apiBase={API_URL} />
+            <OperationalModesPanel apiBase={API_URL} />
+            <RedTeamAnalysisPanel apiBase={API_URL} />
             <ReplayBrowser />
           </div>
         </div>

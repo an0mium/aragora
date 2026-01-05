@@ -448,7 +448,7 @@ __all__ = [
     "Position",
     "PositionLedger",
     "RelationshipTracker",
-    "Relationship",
+    "AgentRelationship",
     "GroundedPersona",
     "PersonaSynthesizer",
     "SignificantMoment",

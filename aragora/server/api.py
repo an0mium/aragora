@@ -169,7 +169,8 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
                 "events": events
             })
         except (OSError, json.JSONDecodeError) as e:
-            self.send_error(500, f"Error reading replay: {e}")
+            logger.error(f"Error reading replay {debate_id}: {type(e).__name__}: {e}")
+            self.send_error(500, "Failed to read replay")
 
     def _fork_replay(self, debate_id: str) -> None:
         """Fork a replay at a specific event into a new live debate."""
