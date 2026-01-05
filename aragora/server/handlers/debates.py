@@ -8,6 +8,7 @@ Endpoints:
 - GET /api/debates/{id}/export/{format} - Export debate
 - GET /api/debates/{id}/impasse - Detect debate impasse
 - GET /api/debates/{id}/convergence - Get convergence status
+- GET /api/debates/{id}/citations - Get evidence citations for debate
 """
 
 from typing import Optional
@@ -25,6 +26,7 @@ class DebatesHandler(BaseHandler):
         "/api/debates/*/export/",
         "/api/debates/*/impasse",
         "/api/debates/*/convergence",
+        "/api/debates/*/citations",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -60,6 +62,11 @@ class DebatesHandler(BaseHandler):
             debate_id = self._extract_debate_id(path)
             if debate_id:
                 return self._get_convergence(handler, debate_id)
+
+        if path.endswith("/citations"):
+            debate_id = self._extract_debate_id(path)
+            if debate_id:
+                return self._get_citations(handler, debate_id)
 
         if "/export/" in path:
             parts = path.split("/")
@@ -186,3 +193,64 @@ class DebatesHandler(BaseHandler):
 
         except Exception as e:
             return error_response(f"Export failed: {e}", 500)
+
+    def _get_citations(self, handler, debate_id: str) -> HandlerResult:
+        """Get evidence citations for a debate.
+
+        Returns the grounded verdict including:
+        - Claims extracted from final answer
+        - Evidence snippets linked to each claim
+        - Overall grounding score
+        - Full citation list with sources
+        """
+        import json as json_module
+
+        storage = self.get_storage()
+        if not storage:
+            return error_response("Storage not available", 503)
+
+        try:
+            debate = storage.get_debate(debate_id)
+            if not debate:
+                return error_response(f"Debate not found: {debate_id}", 404)
+
+            # Check if grounded_verdict is stored
+            grounded_verdict_raw = debate.get("grounded_verdict")
+
+            if not grounded_verdict_raw:
+                return json_response({
+                    "debate_id": debate_id,
+                    "has_citations": False,
+                    "message": "No evidence citations available for this debate",
+                    "grounded_verdict": None,
+                })
+
+            # Parse grounded_verdict JSON if it's a string
+            if isinstance(grounded_verdict_raw, str):
+                try:
+                    grounded_verdict = json_module.loads(grounded_verdict_raw)
+                except json_module.JSONDecodeError:
+                    grounded_verdict = None
+            else:
+                grounded_verdict = grounded_verdict_raw
+
+            if not grounded_verdict:
+                return json_response({
+                    "debate_id": debate_id,
+                    "has_citations": False,
+                    "message": "Evidence citations could not be parsed",
+                    "grounded_verdict": None,
+                })
+
+            return json_response({
+                "debate_id": debate_id,
+                "has_citations": True,
+                "grounding_score": grounded_verdict.get("grounding_score", 0),
+                "confidence": grounded_verdict.get("confidence", 0),
+                "claims": grounded_verdict.get("claims", []),
+                "all_citations": grounded_verdict.get("all_citations", []),
+                "verdict": grounded_verdict.get("verdict", ""),
+            })
+
+        except Exception as e:
+            return error_response(f"Failed to get citations: {e}", 500)

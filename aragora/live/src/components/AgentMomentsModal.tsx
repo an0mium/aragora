@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 
 interface Moment {
-  type: string;
+  id: string;
+  moment_type: string;
+  agent_name: string;
   description: string;
-  timestamp: string;
-  significance: number;
-  context: string;
+  significance_score: number;
+  timestamp: string | null;
+  debate_id: string | null;
 }
 
 interface AgentMomentsModalProps {
@@ -20,7 +22,6 @@ const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora
 
 export function AgentMomentsModal({ agentName, onClose, apiBase = DEFAULT_API_BASE }: AgentMomentsModalProps) {
   const [moments, setMoments] = useState<Moment[]>([]);
-  const [narrative, setNarrative] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +33,6 @@ export function AgentMomentsModal({ agentName, onClose, apiBase = DEFAULT_API_BA
         if (res.ok) {
           const data = await res.json();
           setMoments(data.moments || []);
-          setNarrative(data.narrative || '');
         } else {
           setError('Failed to load moments');
         }
@@ -47,13 +47,15 @@ export function AgentMomentsModal({ agentName, onClose, apiBase = DEFAULT_API_BA
 
   const getMomentIcon = (type: string): string => {
     switch (type.toLowerCase()) {
+      case 'upset_victory': return '🏆';
+      case 'calibration_vindication': return '🎯';
+      case 'streak_achievement': return '🔥';
+      case 'domain_mastery': return '👑';
+      case 'consensus_breakthrough': return '⚡';
+      case 'position_reversal': return '🔄';
       case 'breakthrough': return '⚡';
-      case 'upset_win': return '🏆';
-      case 'consensus_leader': return '🎯';
-      case 'streak': return '🔥';
       case 'first_win': return '🌟';
       case 'comeback': return '💪';
-      case 'dominant_performance': return '👑';
       default: return '📌';
     }
   };
@@ -92,13 +94,6 @@ export function AgentMomentsModal({ agentName, onClose, apiBase = DEFAULT_API_BA
           </button>
         </div>
 
-        {/* Narrative Summary */}
-        {narrative && (
-          <div className="mb-4 p-3 bg-bg border border-border rounded-lg">
-            <p className="text-sm text-text-muted italic">{narrative}</p>
-          </div>
-        )}
-
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
           {loading && (
@@ -117,29 +112,31 @@ export function AgentMomentsModal({ agentName, onClose, apiBase = DEFAULT_API_BA
 
           {!loading && !error && moments.length > 0 && (
             <div className="space-y-3">
-              {moments.map((moment, idx) => (
+              {moments.map((moment) => (
                 <div
-                  key={idx}
+                  key={moment.id}
                   className="p-3 bg-bg border border-border rounded-lg hover:border-accent/50 transition-colors"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl">{getMomentIcon(moment.type)}</span>
+                    <span className="text-2xl">{getMomentIcon(moment.moment_type)}</span>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium text-text">
-                          {moment.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                          {moment.moment_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                         </span>
-                        <span className={`text-xs ${getSignificanceColor(moment.significance)}`}>
-                          {(moment.significance * 100).toFixed(0)}% significance
+                        <span className={`text-xs ${getSignificanceColor(moment.significance_score)}`}>
+                          {(moment.significance_score * 100).toFixed(0)}% significance
                         </span>
                       </div>
                       <p className="text-sm text-text-muted">{moment.description}</p>
-                      {moment.context && (
-                        <p className="text-xs text-text-muted/70 mt-1">{moment.context}</p>
+                      {moment.debate_id && (
+                        <p className="text-xs text-text-muted/70 mt-1">Debate: {moment.debate_id}</p>
                       )}
-                      <p className="text-xs text-text-muted/50 mt-1">
-                        {new Date(moment.timestamp).toLocaleString()}
-                      </p>
+                      {moment.timestamp && (
+                        <p className="text-xs text-text-muted/50 mt-1">
+                          {new Date(moment.timestamp).toLocaleString()}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

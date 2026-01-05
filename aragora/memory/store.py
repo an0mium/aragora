@@ -150,6 +150,7 @@ class CritiqueStore:
                     confidence REAL,
                     rounds_used INTEGER,
                     duration_seconds REAL,
+                    grounded_verdict TEXT,  -- JSON: evidence, citations, grounding score
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -284,12 +285,21 @@ class CritiqueStore:
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
+            # Serialize grounded_verdict if present
+            grounded_verdict_json = None
+            if result.grounded_verdict:
+                try:
+                    grounded_verdict_json = json.dumps(result.grounded_verdict.to_dict())
+                except (AttributeError, TypeError):
+                    # Fallback for objects without to_dict
+                    pass
+
             # Store debate
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO debates
-                (id, task, final_answer, consensus_reached, confidence, rounds_used, duration_seconds)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (id, task, final_answer, consensus_reached, confidence, rounds_used, duration_seconds, grounded_verdict)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     result.id,
@@ -299,6 +309,7 @@ class CritiqueStore:
                     result.confidence,
                     result.rounds_used,
                     result.duration_seconds,
+                    grounded_verdict_json,
                 ),
             )
 

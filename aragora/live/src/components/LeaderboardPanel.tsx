@@ -233,7 +233,8 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
   const matchEvents = useMemo(() => {
     return wsMessages.filter((msg) => {
       if (msg.type !== 'match_recorded') return false;
-      const msgLoopId = msg.data?.loop_id as string | undefined;
+      const msgData = msg.data as Record<string, unknown>;
+      const msgLoopId = msgData?.loop_id as string | undefined;
       if (loopId && msgLoopId && msgLoopId !== loopId) return false;
       return true;
     });
@@ -243,7 +244,8 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
   useEffect(() => {
     if (matchEvents.length > 0) {
       const latestEvent = matchEvents[matchEvents.length - 1];
-      const eventId = latestEvent.data?.debate_id as string | undefined;
+      const eventData = latestEvent.data as Record<string, unknown>;
+      const eventId = eventData?.debate_id as string | undefined;
 
       // Only refresh if this is a new match event
       if (eventId && eventId !== lastEventId) {
@@ -251,7 +253,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
         fetchData(); // Refresh leaderboard when a match is recorded
 
         // Track new domains from match events
-        const eventDomain = latestEvent.data?.domain as string | undefined;
+        const eventDomain = eventData?.domain as string | undefined;
         if (eventDomain && !availableDomains.includes(eventDomain)) {
           setAvailableDomains(prev => [...prev, eventDomain]);
         }

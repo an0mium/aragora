@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import type { StreamEvent, AudienceSummaryData, AudienceMetricsData } from '@/types/events';
+import { isAgentMessage } from '@/types/events';
 import { sanitizeSuggestion } from '@/utils/sanitize';
 
 interface UserParticipationProps {
@@ -94,11 +95,12 @@ export function UserParticipation({ events, onVote, onSuggest, onAck, onError }:
 
   // Extract current proposals from recent agent messages
   const recentProposals = events
-    .filter(e => e.type === 'agent_message' && e.data.role === 'proposer')
+    .filter(isAgentMessage)
+    .filter(e => e.data.role === 'proposer')
     .slice(-4) // Last 4 proposals
     .map(e => ({
-      agent: e.data.agent as string,
-      content: e.data.content as string, // Full content, no truncation
+      agent: e.data.agent,
+      content: e.data.content, // Full content, no truncation
     }));
 
   const handleVote = () => {

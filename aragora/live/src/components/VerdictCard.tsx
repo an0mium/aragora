@@ -32,16 +32,17 @@ export function VerdictCard({ events }: VerdictCardProps) {
     if (verdictEvents.length === 0) return null;
 
     const latest = verdictEvents[verdictEvents.length - 1];
-    const data = latest.data;
+    // Cast to Record since verdict data can have various fields depending on event type
+    const data = latest.data as Record<string, unknown>;
 
     return {
-      recommendation: (data.recommendation || data.answer || data.content || '') as string,
-      confidence: (data.confidence ?? 0.5) as number,
-      grounding: (data.grounding_score ?? data.evidence_grounding ?? 0) as number,
-      unanimousIssues: (data.unanimous_issues || []) as string[],
-      splitOpinions: (data.split_opinions || []) as string[],
-      riskAreas: (data.risk_areas || []) as string[],
-      citationCount: (Array.isArray(data.all_citations) ? data.all_citations.length : (data.citation_count || 0)) as number,
+      recommendation: ((data.recommendation || data.answer || data.content || '') as string),
+      confidence: ((data.confidence ?? 0.5) as number),
+      grounding: ((data.grounding_score ?? data.evidence_grounding ?? 0) as number),
+      unanimousIssues: ((data.unanimous_issues || []) as string[]),
+      splitOpinions: ((data.split_opinions || []) as string[]),
+      riskAreas: ((data.risk_areas || []) as string[]),
+      citationCount: (Array.isArray(data.all_citations) ? (data.all_citations as unknown[]).length : ((data.citation_count || 0) as number)),
       crossExamination: data.cross_examination_notes as string | undefined,
       timestamp: latest.timestamp,
     };

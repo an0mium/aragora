@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { fetchDebateById, type DebateArtifact } from '@/utils/supabase';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -9,24 +9,9 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserParticipation } from '@/components/UserParticipation';
 import { CitationsPanel } from '@/components/CitationsPanel';
 import { getAgentColors } from '@/utils/agentColors';
-import type { StreamEvent } from '@/types/events';
+import { useDebateWebSocket, type TranscriptMessage } from '@/hooks/useDebateWebSocket';
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
-
-interface TranscriptMessage {
-  agent: string;
-  role?: string;
-  content: string;
-  round?: number;
-  timestamp?: number;
-}
-
-interface StreamingMessage {
-  agent: string;
-  content: string;
-  isComplete: boolean;
-  startTime: number;
-}
 
 interface DebateViewerProps {
   debateId: string;
@@ -39,298 +24,69 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Live debate state
-  const [isLive, setIsLive] = useState(false);
-  const [liveMessages, setLiveMessages] = useState<TranscriptMessage[]>([]);
-  const [liveTask, setLiveTask] = useState<string>('');
-  const [liveAgents, setLiveAgents] = useState<string[]>([]);
-  const [liveStatus, setLiveStatus] = useState<'connecting' | 'streaming' | 'complete' | 'error'>('connecting');
-  const [streamingMessages, setStreamingMessages] = useState<Map<string, StreamingMessage>>(new Map());
-  const wsRef = useRef<WebSocket | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // User participation state
-  const [streamEvents, setStreamEvents] = useState<StreamEvent[]>([]);
+  // UI state
   const [showParticipation, setShowParticipation] = useState(true);
   const [showCitations, setShowCitations] = useState(false);
-  const [hasCitations, setHasCitations] = useState(false);
-  const ackCallbackRef = useRef<((msgType: string) => void) | null>(null);
-  const errorCallbackRef = useRef<((message: string) => void) | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // User participation handlers
-  const handleVote = useCallback((choice: string, intensity?: number) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'user_vote',
-        debate_id: debateId,
-        data: { choice, intensity: intensity ?? 5 },
-      }));
+  // Determine if this is a live debate
+  const isLiveDebate = debateId.startsWith('adhoc_');
+
+  // Use WebSocket hook for live debates
+  const {
+    status: liveStatus,
+    task: liveTask,
+    agents: liveAgents,
+    messages: liveMessages,
+    streamingMessages,
+    streamEvents,
+    hasCitations,
+    sendVote,
+    sendSuggestion,
+    registerAckCallback,
+    registerErrorCallback,
+  } = useDebateWebSocket({
+    debateId,
+    wsUrl,
+    enabled: isLiveDebate,
+  });
+
+  // Auto-show citations when they arrive
+  useEffect(() => {
+    if (hasCitations) {
+      setShowCitations(true);
     }
-  }, [debateId]);
+  }, [hasCitations]);
 
-  const handleSuggest = useCallback((suggestion: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'user_suggestion',
-        debate_id: debateId,
-        data: { suggestion },
-      }));
-    }
-  }, [debateId]);
-
-  const registerAckCallback = useCallback((callback: (msgType: string) => void) => {
-    ackCallbackRef.current = callback;
-    return () => { ackCallbackRef.current = null; };
-  }, []);
-
-  const registerErrorCallback = useCallback((callback: (message: string) => void) => {
-    errorCallbackRef.current = callback;
-    return () => { errorCallbackRef.current = null; };
-  }, []);
-
-  // Auto-scroll to bottom on new messages or streaming updates
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [liveMessages, streamingMessages]);
 
+  // Fetch completed debate from Supabase (non-live debates)
   useEffect(() => {
-    // Check if this is a live/adhoc debate
-    const isAdhocDebate = debateId.startsWith('adhoc_');
-
-    if (isAdhocDebate) {
-      // Connect to WebSocket for live streaming
-      setIsLive(true);
+    if (isLiveDebate) {
       setLoading(false);
-
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log('WebSocket connected for debate:', debateId);
-        setLiveStatus('streaming');
-        // Subscribe to this specific debate
-        ws.send(JSON.stringify({ type: 'subscribe', debate_id: debateId }));
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          // Check if event belongs to this debate (supports both loop_id and debate_id)
-          const eventDebateId = data.loop_id || data.data?.debate_id || data.data?.loop_id;
-          const isOurDebate = !eventDebateId || eventDebateId === debateId;
-
-          // Handle different event types
-          if (data.type === 'debate_start' && isOurDebate) {
-            setLiveTask(data.data.task || 'Debate in progress...');
-            setLiveAgents(data.data.agents || []);
-          } else if ((data.type === 'debate_message' || data.type === 'agent_message') && isOurDebate) {
-            // Handle both debate_message and agent_message event types
-            const msg: TranscriptMessage = {
-              agent: data.agent || data.data?.agent || 'unknown',
-              role: data.data?.role,
-              content: data.data?.content || '',
-              round: data.round || data.data?.round,
-              timestamp: data.timestamp || data.data?.timestamp || Date.now() / 1000,
-            };
-            if (msg.content) {
-              setLiveMessages(prev => [...prev, msg]);
-              const agentName = msg.agent;
-              if (agentName && !liveAgents.includes(agentName)) {
-                setLiveAgents(prev => prev.includes(agentName) ? prev : [...prev, agentName]);
-              }
-            }
-          } else if (data.type === 'agent_response' && isOurDebate) {
-            // Also handle agent_response events for backwards compatibility
-            const msg: TranscriptMessage = {
-              agent: data.data?.agent || 'unknown',
-              role: data.data?.role,
-              content: data.data?.content || data.data?.response || '',
-              round: data.data?.round,
-              timestamp: Date.now() / 1000,
-            };
-            if (msg.content) {
-              setLiveMessages(prev => [...prev, msg]);
-            }
-          } else if (data.type === 'debate_end' && isOurDebate) {
-            setLiveStatus('complete');
-          }
-          // Token streaming events (also check isOurDebate)
-          else if (data.type === 'token_start' && isOurDebate) {
-            const agent = data.agent || data.data?.agent;
-            if (agent) {
-              setStreamingMessages(prev => {
-                const updated = new Map(prev);
-                updated.set(agent, {
-                  agent,
-                  content: '',
-                  isComplete: false,
-                  startTime: Date.now(),
-                });
-                return updated;
-              });
-              // Add agent to list if not already present
-              if (agent && !liveAgents.includes(agent)) {
-                setLiveAgents(prev => prev.includes(agent) ? prev : [...prev, agent]);
-              }
-            }
-          } else if (data.type === 'token_delta' && isOurDebate) {
-            const agent = data.agent || data.data?.agent;
-            const token = data.data?.token || '';
-            if (agent && token) {
-              setStreamingMessages(prev => {
-                const updated = new Map(prev);
-                const existing = updated.get(agent);
-                if (existing) {
-                  updated.set(agent, {
-                    ...existing,
-                    content: existing.content + token,
-                  });
-                } else {
-                  // Create new if token_start was missed
-                  updated.set(agent, {
-                    agent,
-                    content: token,
-                    isComplete: false,
-                    startTime: Date.now(),
-                  });
-                }
-                return updated;
-              });
-            }
-          } else if (data.type === 'token_end' && isOurDebate) {
-            const agent = data.agent || data.data?.agent;
-            if (agent) {
-              setStreamingMessages(prev => {
-                const updated = new Map(prev);
-                const existing = updated.get(agent);
-                if (existing && existing.content) {
-                  // Move completed streaming message to live messages
-                  const msg: TranscriptMessage = {
-                    agent,
-                    content: existing.content,
-                    timestamp: Date.now() / 1000,
-                  };
-                  setLiveMessages(prevMsgs => [...prevMsgs, msg]);
-                }
-                updated.delete(agent);
-                return updated;
-              });
-            }
-          }
-          // Handle critique events
-          else if (data.type === 'critique' && isOurDebate) {
-            const msg: TranscriptMessage = {
-              agent: data.agent || data.data?.agent || 'unknown',
-              role: 'critic',
-              content: `[CRITIQUE → ${data.data?.target || 'unknown'}] ${data.data?.issues?.join('; ') || data.data?.content || ''}`,
-              round: data.round || data.data?.round,
-              timestamp: data.timestamp || Date.now() / 1000,
-            };
-            if (msg.content) {
-              setLiveMessages(prev => [...prev, msg]);
-            }
-          }
-          // Handle consensus events
-          else if (data.type === 'consensus' && isOurDebate) {
-            const msg: TranscriptMessage = {
-              agent: 'system',
-              role: 'synthesizer',
-              content: `[CONSENSUS ${data.data?.reached ? 'REACHED' : 'NOT REACHED'}] Confidence: ${Math.round((data.data?.confidence || 0) * 100)}%`,
-              timestamp: data.timestamp || Date.now() / 1000,
-            };
-            setLiveMessages(prev => [...prev, msg]);
-          }
-          // Handle acknowledgment events (for user participation)
-          else if (data.type === 'ack' && isOurDebate) {
-            const msgType = data.data?.message_type || '';
-            if (ackCallbackRef.current) {
-              ackCallbackRef.current(msgType);
-            }
-          }
-          // Handle error events (including rate limiting)
-          else if (data.type === 'error' && isOurDebate) {
-            const errorMsg = data.data?.message || 'Unknown error';
-            if (errorCallbackRef.current) {
-              errorCallbackRef.current(errorMsg);
-            }
-          }
-          // Handle audience summary events
-          else if ((data.type === 'audience_summary' || data.type === 'audience_metrics') && isOurDebate) {
-            const event: StreamEvent = {
-              type: data.type,
-              data: data.data || {},
-              timestamp: data.timestamp || Date.now() / 1000,
-            };
-            setStreamEvents(prev => [...prev, event]);
-          }
-          // Handle grounded_verdict events (citations and evidence)
-          else if (data.type === 'grounded_verdict' && isOurDebate) {
-            const event: StreamEvent = {
-              type: 'grounded_verdict',
-              data: data.data || {},
-              timestamp: data.timestamp || Date.now() / 1000,
-            };
-            setStreamEvents(prev => [...prev, event]);
-            setHasCitations(true);
-            setShowCitations(true);  // Auto-show when citations arrive
-          }
-
-          // Track all events for UserParticipation (agent_message events)
-          if ((data.type === 'agent_message' || data.type === 'debate_message') && isOurDebate) {
-            const event: StreamEvent = {
-              type: 'agent_message',
-              data: {
-                agent: data.agent || data.data?.agent || 'unknown',
-                content: data.data?.content || '',
-                role: data.data?.role || '',
-              },
-              timestamp: data.timestamp || Date.now() / 1000,
-              round: data.round || data.data?.round,
-              agent: data.agent || data.data?.agent,
-            };
-            setStreamEvents(prev => [...prev, event]);
-          }
-        } catch (e) {
-          console.error('Failed to parse WebSocket message:', e);
-        }
-      };
-
-      ws.onerror = () => {
-        setLiveStatus('error');
-        setError('WebSocket connection error');
-      };
-
-      ws.onclose = () => {
-        console.log('WebSocket closed');
-        if (liveStatus === 'streaming') {
-          setLiveStatus('complete');
-        }
-      };
-
-      return () => {
-        ws.close();
-      };
-    } else {
-      // Fetch completed debate from Supabase
-      const loadDebate = async () => {
-        try {
-          const data = await fetchDebateById(debateId);
-          if (data) {
-            setDebate(data);
-          } else {
-            setError('Debate not found');
-          }
-        } catch {
-          setError('Failed to load debate');
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      loadDebate();
+      return;
     }
-  }, [debateId]);
+
+    const loadDebate = async () => {
+      try {
+        const data = await fetchDebateById(debateId);
+        if (data) {
+          setDebate(data);
+        } else {
+          setError('Debate not found');
+        }
+      } catch {
+        setError('Failed to load debate');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDebate();
+  }, [debateId, isLiveDebate]);
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -339,7 +95,6 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = url;
       document.body.appendChild(textArea);
@@ -385,7 +140,7 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
             </div>
           )}
 
-          {error && !isLive && (
+          {error && !isLiveDebate && (
             <div className="bg-warning/10 border border-warning/30 rounded-lg p-6 text-center">
               <div className="text-warning text-2xl mb-2">{'>'} ERROR</div>
               <div className="text-text-muted">{error}</div>
@@ -399,330 +154,37 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
           )}
 
           {/* Live Debate View */}
-          {isLive && (
-            <div className="space-y-6">
-              {/* Live Debate Header */}
-              <div className="bg-surface border border-acid-green/30 p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 text-xs font-mono mb-2">
-                      <span className={`w-2 h-2 rounded-full ${
-                        liveStatus === 'streaming' ? 'bg-green-400 animate-pulse' :
-                        liveStatus === 'complete' ? 'bg-blue-400' :
-                        liveStatus === 'error' ? 'bg-red-400' : 'bg-yellow-400'
-                      }`} />
-                      <span className="text-text-muted uppercase">
-                        {liveStatus === 'streaming' ? 'LIVE DEBATE' :
-                         liveStatus === 'complete' ? 'DEBATE COMPLETE' :
-                         liveStatus === 'error' ? 'CONNECTION ERROR' : 'CONNECTING...'}
-                      </span>
-                    </div>
-                    <h1 className="text-lg font-mono text-acid-green mb-4">
-                      {liveTask || 'Waiting for debate to start...'}
-                    </h1>
-                    <div className="flex flex-wrap gap-2">
-                      {liveAgents.map((agent) => {
-                        const colors = getAgentColors(agent);
-                        return (
-                          <span
-                            key={agent}
-                            className={`px-2 py-1 text-xs font-mono ${colors.bg} ${colors.text} ${colors.border} border`}
-                          >
-                            {agent}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-2">
-                    <button
-                      onClick={handleShare}
-                      className="px-3 py-1 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
-                    >
-                      {copied ? '[COPIED!]' : '[SHARE LINK]'}
-                    </button>
-                    <div className="text-xs text-text-muted font-mono">
-                      ID: {debateId}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Live Transcript + User Participation Grid */}
-              <div className={`grid gap-4 ${showParticipation ? 'lg:grid-cols-3' : 'grid-cols-1'}`}>
-                {/* Live Transcript */}
-                <div className={`bg-surface border border-acid-green/30 ${showParticipation ? 'lg:col-span-2' : ''}`}>
-                  <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
-                    <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
-                      {'>'} LIVE TRANSCRIPT
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-text-muted">
-                        {liveMessages.length} messages
-                        {streamingMessages.size > 0 && (
-                          <span className="ml-2 text-acid-cyan animate-pulse">
-                            ({streamingMessages.size} streaming)
-                          </span>
-                        )}
-                      </span>
-                      <button
-                        onClick={() => setShowParticipation(!showParticipation)}
-                        className={`px-2 py-1 text-xs font-mono border transition-colors ${
-                          showParticipation
-                            ? 'bg-accent/20 text-accent border-accent/40'
-                            : 'bg-surface text-text-muted border-border hover:border-accent/40'
-                        }`}
-                      >
-                        {showParticipation ? '[HIDE VOTE]' : '[JOIN]'}
-                      </button>
-                    </div>
-                  </div>
-                <div className="p-4 space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto">
-                  {liveMessages.length === 0 && streamingMessages.size === 0 && liveStatus === 'streaming' && (
-                    <div className="text-center py-8 text-text-muted font-mono">
-                      <div className="animate-pulse">Waiting for agents to respond...</div>
-                    </div>
-                  )}
-                  {liveMessages.map((msg, idx) => {
-                    const colors = getAgentColors(msg.agent || 'system');
-                    return (
-                      <div
-                        key={idx}
-                        className={`${colors.bg} border ${colors.border} p-4`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-mono font-bold text-sm ${colors.text}`}>
-                              {(msg.agent || 'SYSTEM').toUpperCase()}
-                            </span>
-                            {msg.role && (
-                              <span className="text-xs text-text-muted border border-text-muted/30 px-1">
-                                {msg.role}
-                              </span>
-                            )}
-                            {msg.round !== undefined && msg.round > 0 && (
-                              <span className="text-xs text-text-muted">
-                                R{msg.round}
-                              </span>
-                            )}
-                          </div>
-                          {msg.timestamp && (
-                            <span className="text-[10px] text-text-muted font-mono">
-                              {new Date(msg.timestamp * 1000).toLocaleTimeString()}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-text whitespace-pre-wrap">
-                          {msg.content}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {/* Streaming messages (tokens arriving in real-time) */}
-                  {Array.from(streamingMessages.values()).map((streamMsg) => {
-                    const colors = getAgentColors(streamMsg.agent);
-                    return (
-                      <div
-                        key={`streaming-${streamMsg.agent}`}
-                        className={`${colors.bg} border-2 ${colors.border} p-4 animate-pulse`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-mono font-bold text-sm ${colors.text}`}>
-                              {streamMsg.agent.toUpperCase()}
-                            </span>
-                            <span className="text-xs text-acid-cyan border border-acid-cyan/30 px-1 animate-pulse">
-                              STREAMING
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-text-muted font-mono">
-                            {Math.round((Date.now() - streamMsg.startTime) / 1000)}s
-                          </span>
-                        </div>
-                        <div className="text-sm text-text whitespace-pre-wrap">
-                          {streamMsg.content}
-                          <span className="inline-block w-2 h-4 bg-acid-cyan ml-1 animate-pulse">▌</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div ref={messagesEndRef} />
-                </div>
-              </div>
-
-                {/* User Participation Panel */}
-                {showParticipation && liveStatus === 'streaming' && (
-                  <div className="lg:col-span-1">
-                    <UserParticipation
-                      events={streamEvents}
-                      onVote={handleVote}
-                      onSuggest={handleSuggest}
-                      onAck={registerAckCallback}
-                      onError={registerErrorCallback}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Citations Panel - show when we have evidence */}
-              {hasCitations && (
-                <div className="bg-surface border border-accent/30">
-                  <div className="px-4 py-3 border-b border-accent/20 bg-bg/50 flex items-center justify-between">
-                    <span className="text-xs font-mono text-accent uppercase tracking-wider">
-                      {'>'} EVIDENCE & CITATIONS
-                    </span>
-                    <button
-                      onClick={() => setShowCitations(!showCitations)}
-                      className="px-2 py-1 text-xs font-mono border transition-colors bg-surface text-text-muted border-border hover:border-accent/40"
-                    >
-                      {showCitations ? '[HIDE]' : '[SHOW]'}
-                    </button>
-                  </div>
-                  {showCitations && (
-                    <div className="p-4">
-                      <CitationsPanel events={streamEvents} />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Minimal footer - only show when complete */}
-              {liveStatus === 'complete' && (
-                <div className="text-center text-xs font-mono text-text-muted py-2 border-t border-acid-green/20">
-                  ID: {debateId}
-                </div>
-              )}
-            </div>
+          {isLiveDebate && (
+            <LiveDebateView
+              debateId={debateId}
+              status={liveStatus}
+              task={liveTask}
+              agents={liveAgents}
+              messages={liveMessages}
+              streamingMessages={streamingMessages}
+              streamEvents={streamEvents}
+              hasCitations={hasCitations}
+              showCitations={showCitations}
+              setShowCitations={setShowCitations}
+              showParticipation={showParticipation}
+              setShowParticipation={setShowParticipation}
+              onShare={handleShare}
+              copied={copied}
+              onVote={sendVote}
+              onSuggest={sendSuggestion}
+              onAck={registerAckCallback}
+              onError={registerErrorCallback}
+              messagesEndRef={messagesEndRef}
+            />
           )}
 
+          {/* Archived Debate View */}
           {debate && (
-            <div className="space-y-6">
-              {/* Debate Header */}
-              <div className="bg-surface border border-acid-green/30 p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-xs text-text-muted font-mono mb-2">
-                      DEBATE // CYCLE {debate.cycle_number} // {debate.phase.toUpperCase()}
-                    </div>
-                    <h1 className="text-lg font-mono text-acid-green mb-4">
-                      {debate.task}
-                    </h1>
-                    <div className="flex flex-wrap gap-2">
-                      {debate.agents.map((agent) => {
-                        const colors = getAgentColors(agent);
-                        return (
-                          <span
-                            key={agent}
-                            className={`px-2 py-1 text-xs font-mono ${colors.bg} ${colors.text} ${colors.border} border`}
-                          >
-                            {agent}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-2">
-                    <button
-                      onClick={handleShare}
-                      className="px-3 py-1 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
-                    >
-                      {copied ? '[COPIED!]' : '[SHARE LINK]'}
-                    </button>
-                    <div className="text-xs text-text-muted font-mono">
-                      {new Date(debate.created_at).toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Consensus Status */}
-                <div className="mt-4 pt-4 border-t border-acid-green/20 flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        debate.consensus_reached ? 'bg-green-400' : 'bg-yellow-400'
-                      }`}
-                    />
-                    <span className="text-xs font-mono text-text-muted">
-                      {debate.consensus_reached ? 'CONSENSUS REACHED' : 'NO CONSENSUS'}
-                    </span>
-                  </div>
-                  <div className="text-xs font-mono text-text-muted">
-                    CONFIDENCE: {Math.round(debate.confidence * 100)}%
-                  </div>
-                  {debate.vote_tally && Object.keys(debate.vote_tally).length > 0 && (
-                    <div className="text-xs font-mono text-text-muted">
-                      VOTES: {Object.entries(debate.vote_tally).map(([k, v]) => `${k}:${v}`).join(' ')}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Winning Proposal */}
-              {debate.winning_proposal && (
-                <div className="bg-gradient-to-br from-accent/10 to-purple-500/10 border-2 border-accent/50 p-6">
-                  <div className="text-xs text-accent font-mono mb-2 uppercase tracking-wider">
-                    Winning Proposal
-                  </div>
-                  <div className="text-text whitespace-pre-wrap font-mono text-sm">
-                    {debate.winning_proposal}
-                  </div>
-                </div>
-              )}
-
-              {/* Transcript */}
-              <div className="bg-surface border border-acid-green/30">
-                <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
-                  <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
-                    {'>'} DEBATE TRANSCRIPT
-                  </span>
-                </div>
-                <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
-                  {(debate.transcript as unknown as TranscriptMessage[]).map((msg, idx) => {
-                    const colors = getAgentColors(msg.agent || 'system');
-                    return (
-                      <div
-                        key={idx}
-                        className={`${colors.bg} border ${colors.border} p-4`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-mono font-bold text-sm ${colors.text}`}>
-                              {(msg.agent || 'SYSTEM').toUpperCase()}
-                            </span>
-                            {msg.role && (
-                              <span className="text-xs text-text-muted border border-text-muted/30 px-1">
-                                {msg.role}
-                              </span>
-                            )}
-                            {msg.round !== undefined && msg.round > 0 && (
-                              <span className="text-xs text-text-muted">
-                                R{msg.round}
-                              </span>
-                            )}
-                          </div>
-                          {msg.timestamp && (
-                            <span className="text-[10px] text-text-muted font-mono">
-                              {new Date(msg.timestamp * 1000).toLocaleTimeString()}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-text whitespace-pre-wrap">
-                          {msg.content}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Metadata */}
-              <div className="text-center text-xs font-mono text-text-muted py-4 border-t border-acid-green/20">
-                <div>DEBATE ID: {debate.id}</div>
-                <div>LOOP: {debate.loop_id}</div>
-              </div>
-            </div>
+            <ArchivedDebateView
+              debate={debate}
+              onShare={handleShare}
+              copied={copied}
+            />
           )}
         </div>
 
@@ -750,5 +212,357 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
         </footer>
       </main>
     </>
+  );
+}
+
+// Sub-component for live debate view
+interface LiveDebateViewProps {
+  debateId: string;
+  status: 'connecting' | 'streaming' | 'complete' | 'error';
+  task: string;
+  agents: string[];
+  messages: TranscriptMessage[];
+  streamingMessages: Map<string, { agent: string; content: string; startTime: number }>;
+  streamEvents: import('@/types/events').StreamEvent[];
+  hasCitations: boolean;
+  showCitations: boolean;
+  setShowCitations: (show: boolean) => void;
+  showParticipation: boolean;
+  setShowParticipation: (show: boolean) => void;
+  onShare: () => void;
+  copied: boolean;
+  onVote: (choice: string, intensity?: number) => void;
+  onSuggest: (suggestion: string) => void;
+  onAck: (callback: (msgType: string) => void) => () => void;
+  onError: (callback: (message: string) => void) => () => void;
+  messagesEndRef: React.RefObject<HTMLDivElement>;
+}
+
+function LiveDebateView({
+  debateId,
+  status,
+  task,
+  agents,
+  messages,
+  streamingMessages,
+  streamEvents,
+  hasCitations,
+  showCitations,
+  setShowCitations,
+  showParticipation,
+  setShowParticipation,
+  onShare,
+  copied,
+  onVote,
+  onSuggest,
+  onAck,
+  onError,
+  messagesEndRef,
+}: LiveDebateViewProps) {
+  return (
+    <div className="space-y-6">
+      {/* Live Debate Header */}
+      <div className="bg-surface border border-acid-green/30 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-mono mb-2">
+              <span className={`w-2 h-2 rounded-full ${
+                status === 'streaming' ? 'bg-green-400 animate-pulse' :
+                status === 'complete' ? 'bg-blue-400' :
+                status === 'error' ? 'bg-red-400' : 'bg-yellow-400'
+              }`} />
+              <span className="text-text-muted uppercase">
+                {status === 'streaming' ? 'LIVE DEBATE' :
+                 status === 'complete' ? 'DEBATE COMPLETE' :
+                 status === 'error' ? 'CONNECTION ERROR' : 'CONNECTING...'}
+              </span>
+            </div>
+            <h1 className="text-lg font-mono text-acid-green mb-4">
+              {task || 'Waiting for debate to start...'}
+            </h1>
+            <div className="flex flex-wrap gap-2">
+              {agents.map((agent) => {
+                const colors = getAgentColors(agent);
+                return (
+                  <span
+                    key={agent}
+                    className={`px-2 py-1 text-xs font-mono ${colors.bg} ${colors.text} ${colors.border} border`}
+                  >
+                    {agent}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-2">
+            <button
+              onClick={onShare}
+              className="px-3 py-1 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+            >
+              {copied ? '[COPIED!]' : '[SHARE LINK]'}
+            </button>
+            <div className="text-xs text-text-muted font-mono">
+              ID: {debateId}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Live Transcript + User Participation Grid */}
+      <div className={`grid gap-4 ${showParticipation ? 'lg:grid-cols-3' : 'grid-cols-1'}`}>
+        {/* Live Transcript */}
+        <div className={`bg-surface border border-acid-green/30 ${showParticipation ? 'lg:col-span-2' : ''}`}>
+          <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
+            <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+              {'>'} LIVE TRANSCRIPT
+            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono text-text-muted">
+                {messages.length} messages
+                {streamingMessages.size > 0 && (
+                  <span className="ml-2 text-acid-cyan animate-pulse">
+                    ({streamingMessages.size} streaming)
+                  </span>
+                )}
+              </span>
+              <button
+                onClick={() => setShowParticipation(!showParticipation)}
+                className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                  showParticipation
+                    ? 'bg-accent/20 text-accent border-accent/40'
+                    : 'bg-surface text-text-muted border-border hover:border-accent/40'
+                }`}
+              >
+                {showParticipation ? '[HIDE VOTE]' : '[JOIN]'}
+              </button>
+            </div>
+          </div>
+          <div className="p-4 space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto">
+            {messages.length === 0 && streamingMessages.size === 0 && status === 'streaming' && (
+              <div className="text-center py-8 text-text-muted font-mono">
+                <div className="animate-pulse">Waiting for agents to respond...</div>
+              </div>
+            )}
+            {messages.map((msg, idx) => (
+              <TranscriptMessageCard key={idx} message={msg} />
+            ))}
+            {/* Streaming messages */}
+            {Array.from(streamingMessages.values()).map((streamMsg) => (
+              <StreamingMessageCard key={`streaming-${streamMsg.agent}`} message={streamMsg} />
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+
+        {/* User Participation Panel */}
+        {showParticipation && status === 'streaming' && (
+          <div className="lg:col-span-1">
+            <UserParticipation
+              events={streamEvents}
+              onVote={onVote}
+              onSuggest={onSuggest}
+              onAck={onAck}
+              onError={onError}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Citations Panel */}
+      {hasCitations && (
+        <div className="bg-surface border border-accent/30">
+          <div className="px-4 py-3 border-b border-accent/20 bg-bg/50 flex items-center justify-between">
+            <span className="text-xs font-mono text-accent uppercase tracking-wider">
+              {'>'} EVIDENCE & CITATIONS
+            </span>
+            <button
+              onClick={() => setShowCitations(!showCitations)}
+              className="px-2 py-1 text-xs font-mono border transition-colors bg-surface text-text-muted border-border hover:border-accent/40"
+            >
+              {showCitations ? '[HIDE]' : '[SHOW]'}
+            </button>
+          </div>
+          {showCitations && (
+            <div className="p-4">
+              <CitationsPanel events={streamEvents} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Footer - show when complete */}
+      {status === 'complete' && (
+        <div className="text-center text-xs font-mono text-text-muted py-2 border-t border-acid-green/20">
+          ID: {debateId}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Sub-component for archived debate view
+interface ArchivedDebateViewProps {
+  debate: DebateArtifact;
+  onShare: () => void;
+  copied: boolean;
+}
+
+function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateViewProps) {
+  return (
+    <div className="space-y-6">
+      {/* Debate Header */}
+      <div className="bg-surface border border-acid-green/30 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-xs text-text-muted font-mono mb-2">
+              DEBATE // CYCLE {debate.cycle_number} // {debate.phase.toUpperCase()}
+            </div>
+            <h1 className="text-lg font-mono text-acid-green mb-4">
+              {debate.task}
+            </h1>
+            <div className="flex flex-wrap gap-2">
+              {debate.agents.map((agent) => {
+                const colors = getAgentColors(agent);
+                return (
+                  <span
+                    key={agent}
+                    className={`px-2 py-1 text-xs font-mono ${colors.bg} ${colors.text} ${colors.border} border`}
+                  >
+                    {agent}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-2">
+            <button
+              onClick={onShare}
+              className="px-3 py-1 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+            >
+              {copied ? '[COPIED!]' : '[SHARE LINK]'}
+            </button>
+            <div className="text-xs text-text-muted font-mono">
+              {new Date(debate.created_at).toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        {/* Consensus Status */}
+        <div className="mt-4 pt-4 border-t border-acid-green/20 flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                debate.consensus_reached ? 'bg-green-400' : 'bg-yellow-400'
+              }`}
+            />
+            <span className="text-xs font-mono text-text-muted">
+              {debate.consensus_reached ? 'CONSENSUS REACHED' : 'NO CONSENSUS'}
+            </span>
+          </div>
+          <div className="text-xs font-mono text-text-muted">
+            CONFIDENCE: {Math.round(debate.confidence * 100)}%
+          </div>
+          {debate.vote_tally && Object.keys(debate.vote_tally).length > 0 && (
+            <div className="text-xs font-mono text-text-muted">
+              VOTES: {Object.entries(debate.vote_tally).map(([k, v]) => `${k}:${v}`).join(' ')}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Winning Proposal */}
+      {debate.winning_proposal && (
+        <div className="bg-gradient-to-br from-accent/10 to-purple-500/10 border-2 border-accent/50 p-6">
+          <div className="text-xs text-accent font-mono mb-2 uppercase tracking-wider">
+            Winning Proposal
+          </div>
+          <div className="text-text whitespace-pre-wrap font-mono text-sm">
+            {debate.winning_proposal}
+          </div>
+        </div>
+      )}
+
+      {/* Transcript */}
+      <div className="bg-surface border border-acid-green/30">
+        <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
+          <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+            {'>'} DEBATE TRANSCRIPT
+          </span>
+        </div>
+        <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+          {(debate.transcript as unknown as TranscriptMessage[]).map((msg, idx) => (
+            <TranscriptMessageCard key={idx} message={msg} />
+          ))}
+        </div>
+      </div>
+
+      {/* Metadata */}
+      <div className="text-center text-xs font-mono text-text-muted py-4 border-t border-acid-green/20">
+        <div>DEBATE ID: {debate.id}</div>
+        <div>LOOP: {debate.loop_id}</div>
+      </div>
+    </div>
+  );
+}
+
+// Reusable transcript message component
+function TranscriptMessageCard({ message }: { message: TranscriptMessage }) {
+  const colors = getAgentColors(message.agent || 'system');
+  return (
+    <div className={`${colors.bg} border ${colors.border} p-4`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className={`font-mono font-bold text-sm ${colors.text}`}>
+            {(message.agent || 'SYSTEM').toUpperCase()}
+          </span>
+          {message.role && (
+            <span className="text-xs text-text-muted border border-text-muted/30 px-1">
+              {message.role}
+            </span>
+          )}
+          {message.round !== undefined && message.round > 0 && (
+            <span className="text-xs text-text-muted">
+              R{message.round}
+            </span>
+          )}
+        </div>
+        {message.timestamp && (
+          <span className="text-[10px] text-text-muted font-mono">
+            {new Date(message.timestamp * 1000).toLocaleTimeString()}
+          </span>
+        )}
+      </div>
+      <div className="text-sm text-text whitespace-pre-wrap">
+        {message.content}
+      </div>
+    </div>
+  );
+}
+
+// Streaming message component with animation
+function StreamingMessageCard({ message }: { message: { agent: string; content: string; startTime: number } }) {
+  const colors = getAgentColors(message.agent);
+  return (
+    <div className={`${colors.bg} border-2 ${colors.border} p-4 animate-pulse`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className={`font-mono font-bold text-sm ${colors.text}`}>
+            {message.agent.toUpperCase()}
+          </span>
+          <span className="text-xs text-acid-cyan border border-acid-cyan/30 px-1 animate-pulse">
+            STREAMING
+          </span>
+        </div>
+        <span className="text-[10px] text-text-muted font-mono">
+          {Math.round((Date.now() - message.startTime) / 1000)}s
+        </span>
+      </div>
+      <div className="text-sm text-text whitespace-pre-wrap">
+        {message.content}
+        <span className="inline-block w-2 h-4 bg-acid-cyan ml-1 animate-pulse">▌</span>
+      </div>
+    </div>
   );
 }

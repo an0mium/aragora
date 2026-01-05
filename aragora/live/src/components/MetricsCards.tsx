@@ -17,14 +17,17 @@ export function MetricsCards({ nomicState, events }: MetricsCardsProps) {
   // Calculate consensus from events
   const consensusEvents = events.filter((e) => e.type === 'consensus');
   const lastConsensus = consensusEvents[consensusEvents.length - 1];
-  const confidence = lastConsensus?.data?.confidence
-    ? Math.round((lastConsensus.data.confidence as number) * 100)
+  const lastConsensusData = lastConsensus?.data as Record<string, unknown> | undefined;
+  const confidence = lastConsensusData?.confidence
+    ? Math.round((lastConsensusData.confidence as number) * 100)
     : null;
 
   // Calculate duration from cycle events
-  const cycleStartEvent = events.find(
-    (e) => e.type === 'cycle_start' && e.data.cycle === cycle
-  );
+  const cycleStartEvent = events.find((e) => {
+    if (e.type !== 'cycle_start') return false;
+    const eventData = e.data as Record<string, unknown>;
+    return eventData.cycle === cycle;
+  });
   const duration = cycleStartEvent
     ? Math.round((Date.now() / 1000 - cycleStartEvent.timestamp) / 60)
     : 0;

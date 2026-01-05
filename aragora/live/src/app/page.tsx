@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useNomicStream } from '@/hooks/useNomicStream';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { MetricsCards } from '@/components/MetricsCards';
@@ -13,14 +14,10 @@ import { HistoryPanel } from '@/components/HistoryPanel';
 import { UserParticipation } from '@/components/UserParticipation';
 import { ReplayBrowser } from '@/components/ReplayBrowser';
 import { DebateBrowser } from '@/components/DebateBrowser';
-import { InsightsPanel } from '@/components/InsightsPanel';
-import { LeaderboardPanel } from '@/components/LeaderboardPanel';
 import { TournamentPanel } from '@/components/TournamentPanel';
 import { CruxPanel } from '@/components/CruxPanel';
 import { MemoryInspector } from '@/components/MemoryInspector';
-import { LaboratoryPanel } from '@/components/LaboratoryPanel';
 import { CitationsPanel } from '@/components/CitationsPanel';
-import { AgentNetworkPanel } from '@/components/AgentNetworkPanel';
 import { CapabilityProbePanel } from '@/components/CapabilityProbePanel';
 import { OperationalModesPanel } from '@/components/OperationalModesPanel';
 import { RedTeamAnalysisPanel } from '@/components/RedTeamAnalysisPanel';
@@ -33,18 +30,66 @@ import { DebateListPanel } from '@/components/DebateListPanel';
 import { AgentComparePanel } from '@/components/AgentComparePanel';
 import { TrendingTopicsPanel } from '@/components/TrendingTopicsPanel';
 import { VerdictCard } from '@/components/VerdictCard';
-import { CompareView, CompareButton } from '@/components/CompareView';
-import { DeepAuditView, DeepAuditToggle } from '@/components/DeepAuditView';
+import { CompareButton } from '@/components/CompareView';
+import { DeepAuditToggle } from '@/components/DeepAuditView';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { DocumentUpload } from '@/components/DocumentUpload';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { StatusBar, StatusPill } from '@/components/StatusBar';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
-import { BootSequence } from '@/components/BootSequence';
-import { LandingPage } from '@/components/LandingPage';
 import { BackendSelector, useBackend, BACKENDS } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import type { NomicState } from '@/types/events';
+
+// Dynamic imports for heavy/conditionally-shown components
+// These are code-split to reduce initial bundle size
+
+// Shown once per session
+const BootSequence = dynamic(() => import('@/components/BootSequence').then(m => ({ default: m.BootSequence })), {
+  ssr: false,
+});
+
+// Shown only on aragora.ai domain
+const LandingPage = dynamic(() => import('@/components/LandingPage').then(m => ({ default: m.LandingPage })), {
+  ssr: false,
+  loading: () => <div className="min-h-screen bg-bg flex items-center justify-center"><div className="text-acid-green font-mono animate-pulse">LOADING...</div></div>,
+});
+
+// Modal - only shown on button click
+const CompareView = dynamic(() => import('@/components/CompareView').then(m => ({ default: m.CompareView })), {
+  ssr: false,
+});
+
+// Only shown in deep-audit view mode
+const DeepAuditView = dynamic(() => import('@/components/DeepAuditView').then(m => ({ default: m.DeepAuditView })), {
+  ssr: false,
+});
+
+// Heavy panels (788, 566, 498, 485, 451 lines)
+const LeaderboardPanel = dynamic(() => import('@/components/LeaderboardPanel').then(m => ({ default: m.LeaderboardPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-40 bg-surface rounded" /></div>,
+});
+
+const AgentNetworkPanel = dynamic(() => import('@/components/AgentNetworkPanel').then(m => ({ default: m.AgentNetworkPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-40 bg-surface rounded" /></div>,
+});
+
+const InsightsPanel = dynamic(() => import('@/components/InsightsPanel').then(m => ({ default: m.InsightsPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-40 bg-surface rounded" /></div>,
+});
+
+const LaboratoryPanel = dynamic(() => import('@/components/LaboratoryPanel').then(m => ({ default: m.LaboratoryPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-40 bg-surface rounded" /></div>,
+});
+
+const MetricsPanel = dynamic(() => import('@/components/MetricsPanel').then(m => ({ default: m.MetricsPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-40 bg-surface rounded" /></div>,
+});
 
 type ViewMode = 'tabs' | 'stream' | 'deep-audit';
 type SiteMode = 'landing' | 'dashboard' | 'loading';
@@ -404,6 +449,9 @@ export default function Home() {
             </PanelErrorBoundary>
             <PanelErrorBoundary panelName="Analytics">
               <AnalyticsPanel apiBase={apiBase} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Server Metrics">
+              <MetricsPanel apiBase={apiBase} />
             </PanelErrorBoundary>
             <PanelErrorBoundary panelName="Consensus KB">
               <ConsensusKnowledgeBase apiBase={apiBase} />

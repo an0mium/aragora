@@ -46,17 +46,22 @@ export function PhaseProgress({ events, currentPhase, apiBase = DEFAULT_API_BASE
 
   // Get phase statuses from events
   const phaseStatuses: { phase: string; status: PhaseStatusType }[] = PHASES.map((phase) => {
-    const startEvent = events.find(
-      (e) => e.type === 'phase_start' && e.data.phase === phase
-    );
-    const endEvent = events.find(
-      (e) => e.type === 'phase_end' && e.data.phase === phase
-    );
+    const startEvent = events.find((e) => {
+      if (e.type !== 'phase_start') return false;
+      const eventData = e.data as Record<string, unknown>;
+      return eventData.phase === phase;
+    });
+    const endEvent = events.find((e) => {
+      if (e.type !== 'phase_end') return false;
+      const eventData = e.data as Record<string, unknown>;
+      return eventData.phase === phase;
+    });
 
     if (endEvent) {
+      const endEventData = endEvent.data as Record<string, unknown>;
       return {
         phase,
-        status: (endEvent.data.success ? 'complete' : 'failed') as PhaseStatusType,
+        status: (endEventData.success ? 'complete' : 'failed') as PhaseStatusType,
       };
     }
     if (startEvent || currentPhase === phase) {
