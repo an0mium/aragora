@@ -99,8 +99,8 @@ class BeliefHandler(BaseHandler):
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route belief network requests to appropriate methods."""
         # Get nomic_dir from server context
-        nomic_dir = self.context.get("nomic_dir")
-        persona_manager = self.context.get("persona_manager")
+        nomic_dir = self.ctx.get("nomic_dir")
+        persona_manager = self.ctx.get("persona_manager")
 
         if path == "/api/laboratory/emergent-traits":
             min_confidence = get_float_param(query_params, 'min_confidence', 0.5)

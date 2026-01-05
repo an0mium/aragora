@@ -50,7 +50,6 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
 
         // Circuit breaker: stop reconnecting after MAX_RECONNECT_ATTEMPTS
         if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-          console.log('Circuit breaker open - stopping reconnection attempts');
           setCircuitOpen(true);
           return;
         }
@@ -62,7 +61,6 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
         );
         reconnectAttemptsRef.current += 1;
 
-        console.log(`Reconnect attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS} in ${backoffMs}ms`);
         reconnectTimeoutRef.current = setTimeout(() => {
           connect();
         }, backoffMs);
@@ -85,21 +83,18 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
           // Handle loop list event (sent on connect and on request)
           if (data.type === 'loop_list') {
             const loopData = data.data as { loops: LoopInstance[]; count: number };
-            console.log('[WS] loop_list received:', loopData);
             setActiveLoops(loopData.loops || []);
             // Find the loop to use for state (use ref to avoid stale closure)
             const currentLoopId = selectedLoopIdRef.current;
             const targetLoop = currentLoopId
               ? loopData.loops?.find(l => l.loop_id === currentLoopId)
               : loopData.loops?.[0];
-            console.log('[WS] targetLoop:', targetLoop, 'currentLoopId:', currentLoopId);
             if (targetLoop) {
               if (!currentLoopId) {
                 setSelectedLoopId(targetLoop.loop_id);
                 selectedLoopIdRef.current = targetLoop.loop_id;
               }
               // Initialize/update nomicState from loop data
-              console.log('[WS] Setting nomicState with cycle:', targetLoop.cycle, 'phase:', targetLoop.phase);
               setNomicState((prev) => ({
                 ...prev,
                 cycle: targetLoop.cycle || 0,
@@ -180,7 +175,6 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
 
       // Circuit breaker check
       if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-        console.log('Circuit breaker open - stopping reconnection attempts');
         setCircuitOpen(true);
         return;
       }

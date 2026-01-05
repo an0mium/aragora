@@ -4,7 +4,7 @@ This document describes the HTTP and WebSocket APIs for the Aragora debate platf
 
 ## Endpoint Usage Status
 
-**Last audited:** 2026-01-04
+**Last audited:** 2026-01-05
 
 | Category | Count | Notes |
 |----------|-------|-------|
@@ -1779,6 +1779,123 @@ Run adversarial analysis on a debate's conclusions.
 
 ---
 
+## Usage Examples
+
+Common API operations with curl. Replace `localhost:8080` with your server address.
+
+### Health Check
+
+```bash
+# Check server health
+curl http://localhost:8080/api/health
+```
+
+### Starting a Debate
+
+```bash
+# Start a new debate
+curl -X POST http://localhost:8080/api/debates/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "Is microservices architecture better than monolith?",
+    "agents": ["claude", "gpt4", "gemini"],
+    "rounds": 3
+  }'
+```
+
+### Listing and Viewing Debates
+
+```bash
+# List recent debates (default limit: 20)
+curl http://localhost:8080/api/debates
+
+# List with custom limit
+curl "http://localhost:8080/api/debates?limit=50"
+
+# Get specific debate details
+curl http://localhost:8080/api/debates/debate-abc123
+```
+
+### Exporting Debates
+
+```bash
+# Export as JSON
+curl http://localhost:8080/api/debates/debate-abc123/export?format=json
+
+# Export messages as CSV
+curl http://localhost:8080/api/debates/debate-abc123/export?format=csv&table=messages \
+  -o debate-messages.csv
+
+# Export as standalone HTML
+curl http://localhost:8080/api/debates/debate-abc123/export?format=html \
+  -o debate-report.html
+```
+
+### Agent Information
+
+```bash
+# Get leaderboard
+curl http://localhost:8080/api/agent/leaderboard
+
+# Get agent profile
+curl http://localhost:8080/api/agent/claude/profile
+
+# Compare two agents
+curl "http://localhost:8080/api/agent/compare?a=claude&b=gpt4"
+
+# Get head-to-head record
+curl http://localhost:8080/api/agent/claude/head-to-head/gpt4
+```
+
+### Nomic Loop Status
+
+```bash
+# Get current nomic loop state
+curl http://localhost:8080/api/nomic/state
+
+# Get nomic loop logs (last 100 lines)
+curl http://localhost:8080/api/nomic/log
+
+# Get more log lines
+curl "http://localhost:8080/api/nomic/log?lines=500"
+```
+
+### Tournaments
+
+```bash
+# List tournaments
+curl http://localhost:8080/api/tournaments
+
+# Get tournament details
+curl http://localhost:8080/api/tournaments/tourney-abc123
+
+# Get tournament bracket
+curl http://localhost:8080/api/tournaments/tourney-abc123/bracket
+```
+
+### Authenticated Requests
+
+```bash
+# With bearer token
+curl http://localhost:8080/api/debates \
+  -H "Authorization: Bearer your-token-here"
+
+# With query parameter token
+curl "http://localhost:8080/api/debates?token=your-token-here"
+```
+
+### WebSocket Connection (wscat)
+
+```bash
+# Connect to WebSocket for real-time events
+wscat -c ws://localhost:8080/ws
+
+# With authentication token
+wscat -c "ws://localhost:8080/ws?token=your-token-here"
+```
+
+---
+
 ## WebSocket API
 
 Connect to the WebSocket server for real-time streaming:
@@ -2592,3 +2709,79 @@ latest = evolver.get_prompt_version("claude")
 history = evolver.get_evolution_history("claude", limit=10)
 # Returns: [{"from_version": 2, "to_version": 3, "strategy": "append", ...}, ...]
 ```
+
+---
+
+## Deprecated Endpoints
+
+The following endpoints are deprecated and will be removed in future versions.
+
+| Endpoint | Status | Removal | Migration |
+|----------|--------|---------|-----------|
+| `GET /api/debates/list` | Deprecated | v2.0 | Use `GET /api/debates` |
+| `POST /api/debate/new` | Deprecated | v2.0 | Use `POST /api/debates/start` |
+| `GET /api/elo/rankings` | Deprecated | v2.0 | Use `GET /api/agent/leaderboard` |
+| `GET /api/agent/elo` | Deprecated | v2.0 | Use `GET /api/agent/{name}/profile` |
+| `POST /api/stream/start` | Deprecated | v2.0 | Use WebSocket `/ws` connection |
+
+### Migration Guide
+
+#### Debate Listing
+
+```bash
+# Old (deprecated)
+curl http://localhost:8080/api/debates/list
+
+# New (recommended)
+curl http://localhost:8080/api/debates
+```
+
+#### Starting Debates
+
+```bash
+# Old (deprecated)
+curl -X POST http://localhost:8080/api/debate/new \
+  -d '{"question": "..."}'
+
+# New (recommended)
+curl -X POST http://localhost:8080/api/debates/start \
+  -H "Content-Type: application/json" \
+  -d '{"question": "...", "agents": ["claude", "gpt4"]}'
+```
+
+#### Agent Rankings
+
+```bash
+# Old (deprecated)
+curl http://localhost:8080/api/elo/rankings
+curl http://localhost:8080/api/agent/elo?name=claude
+
+# New (recommended)
+curl http://localhost:8080/api/agent/leaderboard
+curl http://localhost:8080/api/agent/claude/profile
+```
+
+### Deprecation Timeline
+
+- **v1.5** (Current): Deprecated endpoints still functional, emit deprecation warnings in response headers
+- **v2.0** (Planned): Deprecated endpoints return 410 Gone status
+- **v2.1** (Planned): Deprecated endpoints removed entirely
+
+Response headers for deprecated endpoints:
+
+```
+Deprecation: true
+Sunset: 2026-06-01
+Link: </api/debates>; rel="successor-version"
+```
+
+---
+
+## Changelog
+
+### 2026-01-05
+- Added CSV and HTML export formats for debates
+- Added token streaming events (`token_start`, `token_delta`, `token_end`)
+- Added phase timeout events (`phase_start` now includes timeout, added `phase_timeout`)
+- Added usage examples section with curl commands
+- Added deprecated endpoints documentation with migration guide

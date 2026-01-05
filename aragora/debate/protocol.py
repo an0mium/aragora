@@ -1,143 +1,24 @@
 """
-Debate protocol configuration and circuit breaker.
+Debate protocol configuration.
 
 Contains:
-- CircuitBreaker: Failure handling pattern for agents
 - DebateProtocol: Configuration for debate execution
 - user_vote_multiplier: Conviction-weighted voting calculation
+
+Note: CircuitBreaker is now in aragora.resilience module.
 """
 
 import logging
-import time
 from dataclasses import dataclass
 from typing import Literal, Optional
 
 from aragora.debate.roles import RoleRotationConfig
+from aragora.resilience import CircuitBreaker  # Re-export for backwards compatibility
 
 logger = logging.getLogger(__name__)
 
-
-@dataclass
-class CircuitBreaker:
-    """
-    Circuit breaker pattern for graceful agent failure handling.
-
-    Tracks consecutive failures per agent and temporarily removes
-    agents that exceed the failure threshold from debate participation.
-    """
-
-    failure_threshold: int = 3  # Consecutive failures before opening circuit
-    cooldown_seconds: float = 300.0  # 5 minutes before attempting recovery
-    half_open_success_threshold: int = 2  # Successes needed to fully close
-
-    def __post_init__(self):
-        self._failures: dict[str, int] = {}  # agent_name -> consecutive failures
-        self._circuit_open_at: dict[str, float] = {}  # agent_name -> timestamp
-        self._half_open_successes: dict[str, int] = {}  # agent_name -> recovery successes
-
-    def record_failure(self, agent_name: str) -> bool:
-        """Record an agent failure. Returns True if circuit just opened."""
-        self._failures[agent_name] = self._failures.get(agent_name, 0) + 1
-        self._half_open_successes[agent_name] = 0  # Reset recovery progress
-
-        if self._failures[agent_name] >= self.failure_threshold:
-            if agent_name not in self._circuit_open_at:
-                self._circuit_open_at[agent_name] = time.time()
-                logger.warning(
-                    f"[circuit_breaker] Circuit OPEN for {agent_name} "
-                    f"after {self._failures[agent_name]} failures"
-                )
-                return True
-        return False
-
-    def record_success(self, agent_name: str) -> None:
-        """Record an agent success. May close an open circuit."""
-        if agent_name in self._circuit_open_at:
-            # In half-open state, track recovery successes
-            self._half_open_successes[agent_name] = (
-                self._half_open_successes.get(agent_name, 0) + 1
-            )
-            if self._half_open_successes[agent_name] >= self.half_open_success_threshold:
-                # Fully close the circuit
-                del self._circuit_open_at[agent_name]
-                self._failures[agent_name] = 0
-                self._half_open_successes[agent_name] = 0
-                logger.info(f"[circuit_breaker] Circuit CLOSED for {agent_name}")
-        else:
-            # Reset failure count on success
-            self._failures[agent_name] = 0
-
-    def is_available(self, agent_name: str) -> bool:
-        """Check if an agent is available for use."""
-        if agent_name not in self._circuit_open_at:
-            return True
-
-        # Check if cooldown has passed (half-open state)
-        elapsed = time.time() - self._circuit_open_at[agent_name]
-        if elapsed >= self.cooldown_seconds:
-            return True  # Allow trial request in half-open state
-
-        return False
-
-    def get_status(self, agent_name: str) -> str:
-        """Get circuit status: 'closed', 'open', or 'half-open'."""
-        if agent_name not in self._circuit_open_at:
-            return "closed"
-        elapsed = time.time() - self._circuit_open_at[agent_name]
-        if elapsed >= self.cooldown_seconds:
-            return "half-open"
-        return "open"
-
-    def filter_available_agents(self, agents: list) -> list:
-        """Return only agents with closed or half-open circuits."""
-        return [a for a in agents if self.is_available(a.name)]
-
-    def to_dict(self) -> dict:
-        """Serialize to dict for persistence."""
-        return {
-            "failures": self._failures.copy(),
-            "cooldowns": {
-                name: time.time() - ts
-                for name, ts in self._circuit_open_at.items()
-            },
-        }
-
-    def get_all_status(self) -> dict[str, dict]:
-        """Get status for all tracked agents."""
-        all_agents = set(self._failures.keys()) | set(self._circuit_open_at.keys())
-        return {
-            agent: {
-                "status": self.get_status(agent),
-                "failures": self._failures.get(agent, 0),
-                "half_open_successes": self._half_open_successes.get(agent, 0),
-            }
-            for agent in all_agents
-        }
-
-    def reset_agent(self, agent_name: str) -> None:
-        """Reset circuit breaker state for a specific agent."""
-        self._failures.pop(agent_name, None)
-        self._circuit_open_at.pop(agent_name, None)
-        self._half_open_successes.pop(agent_name, None)
-        logger.info(f"[circuit_breaker] Reset state for {agent_name}")
-
-    def reset_all(self) -> None:
-        """Reset all circuit breaker state."""
-        self._failures.clear()
-        self._circuit_open_at.clear()
-        self._half_open_successes.clear()
-        logger.info("[circuit_breaker] Reset all agent states")
-
-    @classmethod
-    def from_dict(cls, data: dict, **kwargs) -> "CircuitBreaker":
-        """Load from persisted dict."""
-        cb = cls(**kwargs)
-        cb._failures = data.get("failures", {})
-        # Restore open circuits with remaining cooldown
-        for name, elapsed in data.get("cooldowns", {}).items():
-            if elapsed < cb.cooldown_seconds:
-                cb._circuit_open_at[name] = time.time() - elapsed
-        return cb
+# Re-export CircuitBreaker for backwards compatibility
+__all__ = ["CircuitBreaker", "DebateProtocol", "user_vote_multiplier"]
 
 
 @dataclass

@@ -32,6 +32,8 @@ from .analytics import AnalyticsHandler
 from .metrics import MetricsHandler
 from .consensus import ConsensusHandler
 from .belief import BeliefHandler
+from .critique import CritiqueHandler
+from .genesis import GenesisHandler
 
 __all__ = [
     # Base utilities
@@ -48,4 +50,6 @@ __all__ = [
     "MetricsHandler",
     "ConsensusHandler",
     "BeliefHandler",
+    "CritiqueHandler",
+    "GenesisHandler",
 ]

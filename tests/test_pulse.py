@@ -63,7 +63,7 @@ class TestCircuitBreaker:
 
     def test_circuit_breaker_resets_after_timeout(self):
         """Test circuit resets after timeout."""
-        cb = CircuitBreaker(failure_threshold=1, reset_timeout=0.1)
+        cb = CircuitBreaker(failure_threshold=1, cooldown_seconds=0.1)
         cb.record_failure()
         assert cb.is_open is True
         assert cb.can_proceed() is False

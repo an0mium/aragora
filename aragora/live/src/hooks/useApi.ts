@@ -70,12 +70,7 @@ export function useApi<T = unknown>(
         initialDelayMs: 1000,
         maxDelayMs: 10000,
         timeoutMs: 30000,
-        onRetry: (error, attempt, delayMs) => {
-          console.log(
-            `[API] Retry ${attempt} for ${endpoint} in ${delayMs}ms:`,
-            error.message
-          );
-        },
+        // onRetry callback can be overridden via customRetryConfig if logging is needed
         ...options,
         ...customRetryConfig,
       };

@@ -22,48 +22,9 @@ from typing import Dict, List, Optional, Any
 import httpx
 
 from aragora.core import Message, Environment
+from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class CircuitBreaker:
-    """Circuit breaker for API calls to prevent repeated failures."""
-
-    failure_threshold: int = 3
-    reset_timeout: float = 60.0  # seconds
-
-    # State tracking
-    failures: int = 0
-    last_failure_time: float = 0.0
-    is_open: bool = False
-
-    def record_failure(self):
-        """Record a failure and potentially open the circuit."""
-        self.failures += 1
-        self.last_failure_time = time.time()
-        if self.failures >= self.failure_threshold:
-            self.is_open = True
-            logger.warning(f"Circuit breaker opened after {self.failures} failures")
-
-    def record_success(self):
-        """Record a success and reset failure count."""
-        self.failures = 0
-        self.is_open = False
-
-    def can_proceed(self) -> bool:
-        """Check if we can proceed with a request."""
-        if not self.is_open:
-            return True
-
-        # Check if reset timeout has elapsed
-        if time.time() - self.last_failure_time >= self.reset_timeout:
-            logger.info("Circuit breaker reset timeout elapsed, allowing retry")
-            self.is_open = False
-            self.failures = 0
-            return True
-
-        return False
 
 
 @dataclass
