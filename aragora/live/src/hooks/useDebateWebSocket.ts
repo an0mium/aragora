@@ -22,6 +22,10 @@ export interface StreamingMessage {
 
 export type DebateConnectionStatus = 'connecting' | 'streaming' | 'complete' | 'error';
 
+// Reconnection configuration
+const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_RECONNECT_DELAY_MS = 30000; // 30 seconds cap
+
 interface UseDebateWebSocketOptions {
   debateId: string;
   wsUrl?: string;
@@ -33,6 +37,7 @@ interface UseDebateWebSocketReturn {
   status: DebateConnectionStatus;
   error: string | null;
   isConnected: boolean;
+  reconnectAttempt: number;  // Expose for UI feedback
 
   // Debate data
   task: string;
@@ -47,6 +52,7 @@ interface UseDebateWebSocketReturn {
   sendSuggestion: (suggestion: string) => void;
   registerAckCallback: (callback: (msgType: string) => void) => () => void;
   registerErrorCallback: (callback: (message: string) => void) => () => void;
+  reconnect: () => void;  // Manual reconnect trigger
 }
 
 export function useDebateWebSocket({
@@ -62,13 +68,33 @@ export function useDebateWebSocket({
   const [streamingMessages, setStreamingMessages] = useState<Map<string, StreamingMessage>>(new Map());
   const [streamEvents, setStreamEvents] = useState<StreamEvent[]>([]);
   const [hasCitations, setHasCitations] = useState(false);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const ackCallbackRef = useRef<((msgType: string) => void) | null>(null);
   const errorCallbackRef = useRef<((message: string) => void) | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isUnmountedRef = useRef(false);
 
   // Message deduplication
   const seenMessagesRef = useRef<Set<string>>(new Set());
+
+  // Sequence tracking for gap detection
+  const lastSeqRef = useRef<number>(0);
+
+  // Stream events buffer limit to prevent unbounded memory growth
+  const MAX_STREAM_EVENTS = 500;
+
+  // Helper to add stream event with size limit
+  const addStreamEvent = useCallback((event: StreamEvent) => {
+    setStreamEvents(prev => {
+      const updated = [...prev, event];
+      if (updated.length > MAX_STREAM_EVENTS) {
+        return updated.slice(-MAX_STREAM_EVENTS);
+      }
+      return updated;
+    });
+  }, []);
 
   // Orphaned stream cleanup - handles agents that never send token_end
   const STREAM_TIMEOUT_MS = 60000; // 60 seconds
@@ -107,10 +133,11 @@ export function useDebateWebSocket({
     return () => clearInterval(interval);
   }, []);
 
-  // Clear deduplication set when debate ends to prevent memory leak
+  // Clear deduplication set and stream events when debate ends to prevent memory leak
   useEffect(() => {
     if (status === 'complete' || status === 'error') {
       seenMessagesRef.current.clear();
+      setStreamEvents([]);
     }
   }, [status]);
 
@@ -148,6 +175,45 @@ export function useDebateWebSocket({
     return () => { errorCallbackRef.current = null; };
   }, []);
 
+  // Clear any pending reconnection timeout
+  const clearReconnectTimeout = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Schedule reconnection with exponential backoff
+  const scheduleReconnect = useCallback(() => {
+    if (isUnmountedRef.current) return;
+    if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      setStatus('error');
+      setError(`Connection lost. Max reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached.`);
+      errorCallbackRef.current?.(`Connection lost after ${MAX_RECONNECT_ATTEMPTS} attempts`);
+      return;
+    }
+
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s (capped at 30s)
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempt), MAX_RECONNECT_DELAY_MS);
+    console.log(`[WebSocket] Scheduling reconnect attempt ${reconnectAttempt + 1} in ${delay}ms`);
+
+    clearReconnectTimeout();
+    reconnectTimeoutRef.current = setTimeout(() => {
+      if (!isUnmountedRef.current) {
+        setReconnectAttempt(prev => prev + 1);
+        // Reconnection will be triggered by the useEffect dependency on reconnectAttempt
+      }
+    }, delay);
+  }, [reconnectAttempt, clearReconnectTimeout]);
+
+  // Manual reconnect trigger
+  const reconnect = useCallback(() => {
+    clearReconnectTimeout();
+    setReconnectAttempt(0);
+    setStatus('connecting');
+    setError(null);
+  }, [clearReconnectTimeout]);
+
   // Helper to add message with deduplication
   const addMessageIfNew = useCallback((msg: TranscriptMessage) => {
     // Create key from agent + timestamp + content prefix for deduplication
@@ -163,11 +229,27 @@ export function useDebateWebSocket({
     try {
       const data = JSON.parse(event.data);
 
+      // Track sequence numbers for gap detection
+      if (data.seq && data.seq > 0) {
+        if (lastSeqRef.current > 0 && data.seq > lastSeqRef.current + 1) {
+          const gap = data.seq - lastSeqRef.current - 1;
+          console.warn(`[WebSocket] Sequence gap detected: expected ${lastSeqRef.current + 1}, got ${data.seq} (${gap} events missed)`);
+        }
+        lastSeqRef.current = data.seq;
+      }
+
       // Check if event belongs to this debate
       const eventDebateId = data.loop_id || data.data?.debate_id || data.data?.loop_id;
       const isOurDebate = !eventDebateId || eventDebateId === debateId;
 
       if (!isOurDebate) return;
+
+      // Handle queue overflow notifications
+      if (data.type === 'error' && data.data?.error_type === 'queue_overflow') {
+        console.warn('[WebSocket] Server queue overflow:', data.data.message);
+        errorCallbackRef.current?.(`Some updates may be missing (${data.data.dropped_count} events dropped)`);
+        return;
+      }
 
       // Debate lifecycle events
       if (data.type === 'debate_start') {
@@ -205,7 +287,7 @@ export function useDebateWebSocket({
           round: data.round || data.data?.round,
           agent: data.agent || data.data?.agent,
         };
-        setStreamEvents(prev => [...prev, streamEvent]);
+        addStreamEvent(streamEvent);
       }
 
       // Legacy agent_response events
@@ -334,7 +416,7 @@ export function useDebateWebSocket({
           data: data.data || {},
           timestamp: data.timestamp || Date.now() / 1000,
         };
-        setStreamEvents(prev => [...prev, event]);
+        addStreamEvent(event);
       }
 
       // Grounded verdict events (citations)
@@ -344,48 +426,94 @@ export function useDebateWebSocket({
           data: data.data || {},
           timestamp: data.timestamp || Date.now() / 1000,
         };
-        setStreamEvents(prev => [...prev, event]);
+        addStreamEvent(event);
         setHasCitations(true);
       }
     } catch (e) {
       console.error('Failed to parse WebSocket message:', e);
     }
-  }, [debateId, addMessageIfNew]);
+  }, [debateId, addMessageIfNew, addStreamEvent]);
+
+  // Track unmount state
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+      clearReconnectTimeout();
+    };
+  }, [clearReconnectTimeout]);
 
   // WebSocket connection effect
   useEffect(() => {
     if (!enabled) return;
 
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    // Don't reconnect if we've reached max attempts
+    if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS && status === 'error') {
+      return;
+    }
+
+    setStatus('connecting');
+    let ws: WebSocket;
+
+    try {
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+    } catch (e) {
+      console.error('[WebSocket] Failed to create connection:', e);
+      setStatus('error');
+      setError('Failed to establish WebSocket connection');
+      scheduleReconnect();
+      return;
+    }
 
     ws.onopen = () => {
+      console.log(`[WebSocket] Connected (attempt ${reconnectAttempt + 1})`);
       setStatus('streaming');
+      setError(null);
+      setReconnectAttempt(0);  // Reset on successful connection
+      lastSeqRef.current = 0;  // Reset sequence tracking
       ws.send(JSON.stringify({ type: 'subscribe', debate_id: debateId }));
     };
 
     ws.onmessage = handleMessage;
 
-    ws.onerror = () => {
-      setStatus('error');
-      setError('WebSocket connection error');
+    ws.onerror = (e) => {
+      console.error('[WebSocket] Connection error:', e);
+      // Don't set error status here - let onclose handle it
+      // This prevents duplicate error handling
     };
 
-    ws.onclose = () => {
-      if (status === 'streaming') {
+    ws.onclose = (event) => {
+      wsRef.current = null;
+
+      // Normal closure (code 1000) or debate ended
+      if (event.code === 1000 || status === 'complete') {
         setStatus('complete');
+        return;
+      }
+
+      // Abnormal closure - attempt reconnection
+      console.log(`[WebSocket] Connection closed (code: ${event.code}, reason: ${event.reason || 'none'})`);
+
+      if (!isUnmountedRef.current) {
+        setStatus('connecting');
+        setError(`Connection lost (code: ${event.code}). Reconnecting...`);
+        scheduleReconnect();
       }
     };
 
     return () => {
-      ws.close();
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close(1000, 'Component unmounted');
+      }
     };
-  }, [enabled, wsUrl, debateId, handleMessage, status]);
+  }, [enabled, wsUrl, debateId, handleMessage, reconnectAttempt, scheduleReconnect, status]);
 
   return {
     status,
     error,
     isConnected: status === 'streaming',
+    reconnectAttempt,
     task,
     agents,
     messages,
@@ -396,5 +524,6 @@ export function useDebateWebSocket({
     sendSuggestion,
     registerAckCallback,
     registerErrorCallback,
+    reconnect,
   };
 }
