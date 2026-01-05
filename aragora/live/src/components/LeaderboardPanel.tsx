@@ -24,6 +24,22 @@ interface Match {
   created_at: string;
 }
 
+interface AgentReputation {
+  agent: string;
+  score: number;
+  vote_weight: number;
+  proposal_acceptance_rate: number;
+  critique_value: number;
+  debates_participated: number;
+}
+
+interface TeamCombination {
+  agents: string[];
+  success_rate: number;
+  total_debates: number;
+  wins: number;
+}
+
 interface LeaderboardPanelProps {
   wsMessages?: any[];
   loopId?: string | null;
@@ -35,9 +51,11 @@ const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora
 export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_API_BASE }: LeaderboardPanelProps) {
   const [agents, setAgents] = useState<AgentRanking[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [reputations, setReputations] = useState<AgentReputation[]>([]);
+  const [teams, setTeams] = useState<TeamCombination[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'rankings' | 'matches'>('rankings');
+  const [activeTab, setActiveTab] = useState<'rankings' | 'matches' | 'reputation' | 'teams'>('rankings');
   const [lastEventId, setLastEventId] = useState<string | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [availableDomains, setAvailableDomains] = useState<string[]>([]);
@@ -60,9 +78,11 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
         matchesParams.set('domain', selectedDomain);
       }
 
-      const [leaderboardRes, matchesRes] = await Promise.all([
+      const [leaderboardRes, matchesRes, reputationRes, teamsRes] = await Promise.all([
         fetch(`${apiBase}/api/leaderboard?${leaderboardParams}`),
         fetch(`${apiBase}/api/matches/recent?${matchesParams}`),
+        fetch(`${apiBase}/api/reputation/all`),
+        fetch(`${apiBase}/api/routing/best-teams?min_debates=3&limit=10`),
       ]);
 
       if (leaderboardRes.ok) {
@@ -109,6 +129,16 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
             return Array.from(combined);
           });
         }
+      }
+
+      if (reputationRes.ok) {
+        const data = await reputationRes.json();
+        setReputations(data.reputations || []);
+      }
+
+      if (teamsRes.ok) {
+        const data = await teamsRes.json();
+        setTeams(data.combinations || []);
       }
 
       setError(null);
@@ -235,7 +265,27 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
               : 'text-text-muted hover:text-text'
           }`}
         >
-          Recent Matches
+          Matches
+        </button>
+        <button
+          onClick={() => setActiveTab('reputation')}
+          className={`px-3 py-1 rounded text-sm transition-colors flex-1 ${
+            activeTab === 'reputation'
+              ? 'bg-accent text-bg font-medium'
+              : 'text-text-muted hover:text-text'
+          }`}
+        >
+          Reputation
+        </button>
+        <button
+          onClick={() => setActiveTab('teams')}
+          className={`px-3 py-1 rounded text-sm transition-colors flex-1 ${
+            activeTab === 'teams'
+              ? 'bg-accent text-bg font-medium'
+              : 'text-text-muted hover:text-text'
+          }`}
+        >
+          Teams
         </button>
       </div>
 
@@ -346,6 +396,117 @@ export function LeaderboardPanel({ wsMessages = [], loopId, apiBase = DEFAULT_AP
 
               <div className="text-xs text-text-muted mt-1">
                 {new Date(match.created_at).toLocaleString()}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Reputation Tab */}
+      {activeTab === 'reputation' && (
+        <div className="space-y-2 max-h-80 overflow-y-auto">
+          {loading && (
+            <div className="text-center text-text-muted py-4">Loading reputation data...</div>
+          )}
+
+          {!loading && reputations.length === 0 && (
+            <div className="text-center text-text-muted py-4">
+              No reputation data yet. Run debate cycles to build agent reputations.
+            </div>
+          )}
+
+          {reputations.map((rep, index) => (
+            <div
+              key={rep.agent}
+              className="flex items-center gap-3 p-2 bg-bg border border-border rounded-lg hover:border-accent/50 transition-colors"
+            >
+              {/* Rank */}
+              <div className="w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold bg-surface text-text-muted">
+                {index + 1}
+              </div>
+
+              {/* Agent Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedAgent(rep.agent)}
+                    className="text-sm font-medium text-text hover:text-accent transition-colors cursor-pointer"
+                  >
+                    {rep.agent}
+                  </button>
+                  <span className={`text-sm font-mono font-bold ${rep.score >= 0.7 ? 'text-green-400' : rep.score >= 0.4 ? 'text-yellow-400' : 'text-red-400'}`}>
+                    {(rep.score * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="flex gap-3 text-xs text-text-muted">
+                  <span title="Vote weight in consensus">
+                    Vote: <span className="text-text">{rep.vote_weight.toFixed(2)}x</span>
+                  </span>
+                  <span title="Proposal acceptance rate">
+                    Accept: <span className="text-text">{(rep.proposal_acceptance_rate * 100).toFixed(0)}%</span>
+                  </span>
+                  <span title="Critique value score">
+                    Critique: <span className="text-text">{rep.critique_value.toFixed(2)}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Debates count */}
+              <div className="text-xs text-text-muted">
+                {rep.debates_participated} debates
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Teams Tab */}
+      {activeTab === 'teams' && (
+        <div className="space-y-2 max-h-80 overflow-y-auto">
+          {loading && (
+            <div className="text-center text-text-muted py-4">Loading team data...</div>
+          )}
+
+          {!loading && teams.length === 0 && (
+            <div className="text-center text-text-muted py-4">
+              No team combinations yet. Run more debates to find winning teams.
+            </div>
+          )}
+
+          {teams.map((team, index) => (
+            <div
+              key={team.agents.join('-')}
+              className="flex items-center gap-3 p-2 bg-bg border border-border rounded-lg hover:border-accent/50 transition-colors"
+            >
+              {/* Rank Badge */}
+              <div
+                className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold border ${getRankBadge(index + 1)}`}
+              >
+                {index + 1}
+              </div>
+
+              {/* Team Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {team.agents.map((agent, i) => (
+                    <button
+                      key={agent}
+                      onClick={() => setSelectedAgent(agent)}
+                      className="text-sm font-medium text-text hover:text-accent transition-colors cursor-pointer"
+                      title="View agent timeline"
+                    >
+                      {agent}{i < team.agents.length - 1 && <span className="text-text-muted ml-1">+</span>}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-xs text-text-muted">
+                  {team.wins}W / {team.total_debates} debates
+                </div>
+              </div>
+
+              {/* Success Rate */}
+              <div className={`text-sm font-mono font-bold ${team.success_rate >= 0.7 ? 'text-green-400' : team.success_rate >= 0.5 ? 'text-yellow-400' : 'text-red-400'}`}>
+                {(team.success_rate * 100).toFixed(0)}%
               </div>
             </div>
           ))}

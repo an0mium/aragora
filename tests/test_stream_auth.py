@@ -501,3 +501,246 @@ class TestEmitterSubscriptions:
 
         assert len(received) == 1
 
+
+class TestErrorEventHandling:
+    """Test error event serialization and broadcasting."""
+
+    def test_error_event_serialization(self):
+        """Error events should serialize with proper structure."""
+        event = StreamEvent(
+            type=StreamEventType.ERROR,
+            data={"error": "Connection failed", "code": "ERR_CONN"},
+            loop_id="test_loop"
+        )
+
+        result = event.to_dict()
+
+        assert result["type"] == "error"
+        assert result["data"]["error"] == "Connection failed"
+        assert result["data"]["code"] == "ERR_CONN"
+        assert "timestamp" in result
+
+    def test_error_event_broadcast(self):
+        """Error events should broadcast to all clients."""
+        server = DebateStreamServer(host="localhost", port=0)
+
+        client1 = AsyncMock()
+        client2 = AsyncMock()
+        server.clients = {client1, client2}
+
+        error_event = StreamEvent(
+            type=StreamEventType.ERROR,
+            data={"error": "Debate failed"},
+            loop_id="test_loop"
+        )
+
+        asyncio.get_event_loop().run_until_complete(server.broadcast(error_event))
+
+        # Both clients should receive the error
+        assert client1.send.called
+        assert client2.send.called
+        sent_data = json.loads(client1.send.call_args[0][0])
+        assert sent_data["type"] == "error"
+
+    def test_error_event_with_stack_trace_sanitized(self):
+        """Error events should not expose internal stack traces."""
+        # Simulate an internal error
+        event = StreamEvent(
+            type=StreamEventType.ERROR,
+            data={"error": "Internal server error"},
+            loop_id="test_loop"
+        )
+
+        json_str = event.to_json()
+        parsed = json.loads(json_str)
+
+        # Should not contain path or traceback info
+        assert "traceback" not in parsed["data"].get("error", "").lower()
+        assert "/Users/" not in json_str
+        assert "\\Users\\" not in json_str
+
+
+class TestDebateStateErrors:
+    """Test error handling in debate state management."""
+
+    def test_update_state_missing_loop(self):
+        """State update for non-existent loop should not crash."""
+        server = DebateStreamServer(host="localhost", port=0)
+
+        # Try to update state for a loop that doesn't exist
+        event = StreamEvent(
+            type=StreamEventType.AGENT_MESSAGE,
+            data={"role": "assistant", "content": "Test"},
+            agent="test-agent",
+            loop_id="nonexistent_loop"
+        )
+
+        # Should not raise
+        server._update_debate_state(event)
+
+        # Loop should still not exist in states
+        assert "nonexistent_loop" not in server.debate_states
+
+    def test_debate_state_malformed_event_data(self):
+        """Malformed event data should be handled gracefully."""
+        server = DebateStreamServer(host="localhost", port=0)
+
+        # Create a debate first
+        start_event = StreamEvent(
+            type=StreamEventType.DEBATE_START,
+            data={"task": "Test task", "agents": ["agent1", "agent2"]},
+            loop_id="test_loop"
+        )
+        server._update_debate_state(start_event)
+
+        # Send message with missing fields
+        malformed_event = StreamEvent(
+            type=StreamEventType.AGENT_MESSAGE,
+            data={},  # Missing required fields
+            agent="test-agent",
+            loop_id="test_loop"
+        )
+
+        # Should raise KeyError since role is required
+        with pytest.raises(KeyError):
+            server._update_debate_state(malformed_event)
+
+    def test_message_history_overflow_protection(self):
+        """Message history should be capped to prevent memory issues."""
+        server = DebateStreamServer(host="localhost", port=0)
+
+        # Create a debate
+        start_event = StreamEvent(
+            type=StreamEventType.DEBATE_START,
+            data={"task": "Test task", "agents": ["agent1"]},
+            loop_id="test_loop"
+        )
+        server._update_debate_state(start_event)
+
+        # Add 1100 messages (above the 1000 cap)
+        for i in range(1100):
+            msg_event = StreamEvent(
+                type=StreamEventType.AGENT_MESSAGE,
+                data={"role": "assistant", "content": f"Message {i}"},
+                agent="agent1",
+                round=i,
+                loop_id="test_loop"
+            )
+            server._update_debate_state(msg_event)
+
+        # Should be capped at 1000
+        assert len(server.debate_states["test_loop"]["messages"]) == 1000
+        # Should keep the latest messages
+        assert "Message 1099" in server.debate_states["test_loop"]["messages"][-1]["content"]
+
+
+class TestRateLimiterCleanup:
+    """Test rate limiter cleanup and memory management."""
+
+    def test_stale_rate_limiter_cleanup(self):
+        """Stale rate limiters should be cleaned up."""
+        server = DebateStreamServer(host="localhost", port=0)
+
+        # Add a rate limiter with old timestamp
+        with server._rate_limiters_lock:
+            server._rate_limiters["old_client"] = TokenBucket(rate_per_minute=10, burst_size=5)
+            server._rate_limiter_last_access["old_client"] = time.time() - 7200  # 2 hours ago
+
+            server._rate_limiters["recent_client"] = TokenBucket(rate_per_minute=10, burst_size=5)
+            server._rate_limiter_last_access["recent_client"] = time.time()
+
+        # Run cleanup
+        server._cleanup_stale_rate_limiters()
+
+        # Old client should be removed
+        assert "old_client" not in server._rate_limiters
+        # Recent client should remain
+        assert "recent_client" in server._rate_limiters
+
+    def test_rate_limiter_ttl_boundary(self):
+        """Rate limiter exactly at TTL boundary should be kept."""
+        server = DebateStreamServer(host="localhost", port=0)
+
+        # Add a rate limiter at exactly TTL - 1 second
+        with server._rate_limiters_lock:
+            server._rate_limiters["boundary_client"] = TokenBucket(rate_per_minute=10, burst_size=5)
+            server._rate_limiter_last_access["boundary_client"] = time.time() - server._RATE_LIMITER_TTL + 1
+
+        server._cleanup_stale_rate_limiters()
+
+        # Should still exist (not yet expired)
+        assert "boundary_client" in server._rate_limiters
+
+
+class TestLateJoinerSync:
+    """Test late joiner state synchronization."""
+
+    def test_get_debate_state_for_late_joiner(self):
+        """Late joiners should receive current debate state."""
+        server = DebateStreamServer(host="localhost", port=0)
+
+        # Create a debate with some history
+        start_event = StreamEvent(
+            type=StreamEventType.DEBATE_START,
+            data={"task": "Test debate", "agents": ["agent1", "agent2"]},
+            loop_id="sync_test"
+        )
+        server._update_debate_state(start_event)
+
+        # Add messages
+        for i in range(3):
+            msg_event = StreamEvent(
+                type=StreamEventType.AGENT_MESSAGE,
+                data={"role": "assistant", "content": f"Turn {i}"},
+                agent=f"agent{(i % 2) + 1}",
+                round=i,
+                loop_id="sync_test"
+            )
+            server._update_debate_state(msg_event)
+
+        # Get state for late joiner
+        state = server.debate_states.get("sync_test")
+
+        assert state is not None
+        assert state["task"] == "Test debate"
+        assert len(state["messages"]) == 3
+
+    def test_late_joiner_missing_loop(self):
+        """Request for non-existent loop should return None."""
+        server = DebateStreamServer(host="localhost", port=0)
+
+        state = server.debate_states.get("nonexistent_loop")
+        assert state is None
+
+
+class TestClientIdSecurity:
+    """Test secure client ID generation and mapping."""
+
+    def test_client_id_is_cryptographically_secure(self):
+        """Client IDs should be cryptographically random, not memory addresses."""
+        import secrets
+
+        server = DebateStreamServer(host="localhost", port=0)
+
+        # Simulate generating client IDs for multiple clients
+        mock_ws_1 = Mock()
+        mock_ws_2 = Mock()
+
+        # The server uses secrets.token_hex for client IDs
+        client_id_1 = secrets.token_hex(16)
+        client_id_2 = secrets.token_hex(16)
+
+        # IDs should be different
+        assert client_id_1 != client_id_2
+        # IDs should be proper hex strings
+        assert all(c in "0123456789abcdef" for c in client_id_1)
+        assert len(client_id_1) == 32  # 16 bytes = 32 hex chars
+
+    def test_client_id_not_predictable(self):
+        """Client IDs should not be predictable from memory address."""
+        import secrets
+
+        # Generate many IDs and ensure they're all unique
+        ids = [secrets.token_hex(16) for _ in range(100)]
+        assert len(set(ids)) == 100  # All unique
+

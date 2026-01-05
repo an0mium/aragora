@@ -16,6 +16,14 @@ interface AgentNetwork {
   allies: RelationshipEntry[];
 }
 
+interface SignificantMoment {
+  type: string;
+  description: string;
+  significance: number;
+  debate_id?: string;
+  timestamp?: string;
+}
+
 interface AgentNetworkPanelProps {
   selectedAgent?: string;
   apiBase?: string;
@@ -31,6 +39,7 @@ export function AgentNetworkPanel({
 }: AgentNetworkPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [network, setNetwork] = useState<AgentNetwork | null>(null);
+  const [moments, setMoments] = useState<SignificantMoment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [agentInput, setAgentInput] = useState(selectedAgent || '');
@@ -57,13 +66,26 @@ export function AgentNetworkPanel({
     setError(null);
 
     try {
-      const response = await fetch(`${apiBase}/api/agent/${encodeURIComponent(agent)}/network`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch network: ${response.statusText}`);
+      // Fetch network and moments in parallel
+      const [networkRes, momentsRes] = await Promise.all([
+        fetch(`${apiBase}/api/agent/${encodeURIComponent(agent)}/network`),
+        fetch(`${apiBase}/api/agent/${encodeURIComponent(agent)}/moments?limit=5`),
+      ]);
+
+      if (!networkRes.ok) {
+        throw new Error(`Failed to fetch network: ${networkRes.statusText}`);
       }
 
-      const data = await response.json();
-      setNetwork(data);
+      const networkData = await networkRes.json();
+      setNetwork(networkData);
+
+      // Moments are optional - don't fail if not available
+      if (momentsRes.ok) {
+        const momentsData = await momentsRes.json();
+        setMoments(momentsData.moments || []);
+      } else {
+        setMoments([]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load network');
     } finally {
@@ -264,6 +286,38 @@ export function AgentNetworkPanel({
               )}
             </div>
           </div>
+
+          {/* Significant Moments */}
+          {moments.length > 0 && (
+            <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-zinc-400 mb-3 flex items-center gap-2">
+                <span>⭐</span> Significant Moments
+              </h4>
+              <div className="space-y-2">
+                {moments.map((moment, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded bg-yellow-900/20 border border-yellow-800/30"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-yellow-400 uppercase">
+                        {moment.type.replace(/_/g, ' ')}
+                      </span>
+                      <span className="text-xs text-zinc-500">
+                        {(moment.significance * 100).toFixed(0)}% significance
+                      </span>
+                    </div>
+                    <p className="text-sm text-zinc-300">{moment.description}</p>
+                    {moment.debate_id && (
+                      <span className="text-xs text-zinc-500 mt-1 block">
+                        Debate: {moment.debate_id.slice(0, 8)}...
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

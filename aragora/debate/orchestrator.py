@@ -283,6 +283,8 @@ class Arena:
         flip_detector=None,  # Optional FlipDetector for position reversal detection
         calibration_tracker=None,  # Optional CalibrationTracker for prediction accuracy
         continuum_memory=None,  # Optional ContinuumMemory for cross-debate learning
+        relationship_tracker=None,  # Optional RelationshipTracker for agent relationships
+        moment_detector=None,  # Optional MomentDetector for significant moments
         loop_id: str = "",  # Loop ID for multi-loop scoping
         strict_loop_scoping: bool = False,  # Drop events without loop_id when True
     ):
@@ -305,6 +307,8 @@ class Arena:
         self.flip_detector = flip_detector  # For detecting position reversals
         self.calibration_tracker = calibration_tracker  # For prediction accuracy tracking
         self.continuum_memory = continuum_memory  # For cross-debate learning
+        self.relationship_tracker = relationship_tracker  # For agent relationship metrics
+        self.moment_detector = moment_detector  # For detecting significant moments
         self.loop_id = loop_id  # Loop ID for scoping events
         self.strict_loop_scoping = strict_loop_scoping  # Enforce loop_id on all events
 
@@ -2332,7 +2336,63 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             except Exception as e:
                 logger.debug("Position resolution failed: %s", e)
 
-        # 4. Index debate in embeddings for historical retrieval
+        # 4. Update relationship metrics from debate
+        if self.relationship_tracker:
+            try:
+                # Extract critiques from debate messages
+                critiques = []
+                if hasattr(result, 'messages') and result.messages:
+                    for msg in result.messages:
+                        if getattr(msg, 'role', '') == 'critic':
+                            critiques.append({
+                                "agent": getattr(msg, 'agent', 'unknown'),
+                                "target": getattr(msg, 'target_agent', None),
+                            })
+
+                self.relationship_tracker.update_from_debate(
+                    debate_id=debate_id,
+                    participants=[agent.name for agent in self.agents],
+                    winner=result.winner,
+                    votes={v.agent: choice_mapping.get(v.choice, v.choice) for v in result.votes},
+                    critiques=critiques,
+                )
+            except Exception as e:
+                logger.debug("Relationship tracking failed: %s", e)
+
+        # 5. Detect significant narrative moments
+        if self.moment_detector:
+            try:
+                # Upset victories (lower-rated agent beats higher-rated)
+                if result.winner and self.elo_system:
+                    for agent in self.agents:
+                        if agent.name != result.winner:
+                            moment = self.moment_detector.detect_upset_victory(
+                                winner=result.winner,
+                                loser=agent.name,
+                                debate_id=debate_id,
+                            )
+                            if moment:
+                                self.moment_detector.record_moment(moment)
+
+                # Calibration vindications (high-confidence predictions proven correct)
+                for v in result.votes:
+                    if v.confidence >= 0.85:
+                        canonical = choice_mapping.get(v.choice, v.choice)
+                        was_correct = (canonical == result.winner)
+                        if was_correct:
+                            moment = self.moment_detector.detect_calibration_vindication(
+                                agent_name=v.agent,
+                                prediction_confidence=v.confidence,
+                                was_correct=True,
+                                domain=domain,
+                                debate_id=debate_id,
+                            )
+                            if moment:
+                                self.moment_detector.record_moment(moment)
+            except Exception as e:
+                logger.debug("Moment detection failed: %s", e)
+
+        # 6. Index debate in embeddings for historical retrieval
         if self.debate_embeddings:
             try:
                 # Create minimal debate artifact for indexing
@@ -2360,7 +2420,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             except Exception as e:
                 logger.debug("Embedding indexing failed: %s", e)
 
-        # 5. Detect position flips for all participating agents
+        # 7. Detect position flips for all participating agents
         if self.flip_detector:
             try:
                 for agent in self.agents:
@@ -2389,11 +2449,11 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             except Exception as e:
                 logger.debug("Flip detection failed: %s", e)
 
-        # 6. Store debate outcome in ContinuumMemory for future learning
+        # 8. Store debate outcome in ContinuumMemory for future learning
         if self.continuum_memory and result.final_answer:
             self._store_debate_outcome_as_memory(result)
 
-        # 7. Update retrieved memories based on debate outcome (surprise-based learning)
+        # 9. Update retrieved memories based on debate outcome (surprise-based learning)
         if self.continuum_memory:
             self._update_continuum_memory_outcomes(result)
 

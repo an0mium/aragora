@@ -24,11 +24,20 @@ interface SimilarDebate {
   similarity: number;
 }
 
+interface DissentView {
+  topic: string;
+  majority_view: string;
+  dissenting_view: string;
+  dissenting_agent: string;
+  confidence: number;
+  reasoning?: string;
+}
+
 interface ConsensusKnowledgeBaseProps {
   apiBase: string;
 }
 
-type TabType = 'settled' | 'search' | 'stats';
+type TabType = 'settled' | 'search' | 'stats' | 'dissents';
 
 export function ConsensusKnowledgeBase({ apiBase }: ConsensusKnowledgeBaseProps) {
   const [expanded, setExpanded] = useState(false);
@@ -37,6 +46,7 @@ export function ConsensusKnowledgeBase({ apiBase }: ConsensusKnowledgeBaseProps)
   const [stats, setStats] = useState<ConsensusStats | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SimilarDebate[]>([]);
+  const [dissents, setDissents] = useState<DissentView[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,12 +94,33 @@ export function ConsensusKnowledgeBase({ apiBase }: ConsensusKnowledgeBaseProps)
     }
   }, [apiBase, searchQuery]);
 
+  const fetchDissents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${apiBase}/api/consensus/dissents?limit=10`);
+      if (!response.ok) throw new Error('Failed to fetch dissents');
+      const data = await response.json();
+      setDissents(data.dissents || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch dissents');
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBase]);
+
   useEffect(() => {
     if (expanded) {
       fetchSettled();
       fetchStats();
     }
   }, [expanded, fetchSettled, fetchStats]);
+
+  useEffect(() => {
+    if (expanded && activeTab === 'dissents') {
+      fetchDissents();
+    }
+  }, [expanded, activeTab, fetchDissents]);
 
   const formatTimestamp = (ts: string) => {
     if (!ts) return 'Unknown';
@@ -131,7 +162,7 @@ export function ConsensusKnowledgeBase({ apiBase }: ConsensusKnowledgeBaseProps)
 
           {/* Tabs */}
           <div className="flex gap-1 border-b border-acid-green/20 pb-2">
-            {(['settled', 'search', 'stats'] as TabType[]).map((tab) => (
+            {(['settled', 'dissents', 'search', 'stats'] as TabType[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -180,6 +211,44 @@ export function ConsensusKnowledgeBase({ apiBase }: ConsensusKnowledgeBaseProps)
                       <div className="text-text-muted/50 mt-1">
                         {formatTimestamp(topic.timestamp)}
                       </div>
+                    </div>
+                  ))
+                )
+              )}
+
+              {activeTab === 'dissents' && (
+                dissents.length === 0 ? (
+                  <div className="text-text-muted text-xs text-center py-4">
+                    No dissenting views recorded yet
+                  </div>
+                ) : (
+                  dissents.map((dissent, idx) => (
+                    <div
+                      key={idx}
+                      className="border border-orange-500/30 bg-orange-900/10 p-2 text-xs"
+                    >
+                      <div className="font-mono text-orange-400 truncate mb-1">
+                        {dissent.topic}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div>
+                          <span className="text-text-muted">Majority: </span>
+                          <span className="text-acid-green">{dissent.majority_view}</span>
+                        </div>
+                        <div>
+                          <span className="text-text-muted">Dissent: </span>
+                          <span className="text-orange-400">{dissent.dissenting_view}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center mt-2 text-text-muted/70">
+                        <span>By: {dissent.dissenting_agent}</span>
+                        <span>{(dissent.confidence * 100).toFixed(0)}% confident</span>
+                      </div>
+                      {dissent.reasoning && (
+                        <div className="mt-1 text-text-muted/60 italic">
+                          &quot;{dissent.reasoning}&quot;
+                        </div>
+                      )}
                     </div>
                   ))
                 )
