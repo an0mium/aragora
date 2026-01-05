@@ -2263,12 +2263,16 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                             for flip in flips:
                                 self.event_emitter.emit(StreamEvent(
                                     type=StreamEventType.FLIP_DETECTED,
+                                    loop_id=getattr(self, 'loop_id', None),
                                     data={
                                         "agent": agent.name,
                                         "flip_type": flip.flip_type if hasattr(flip, 'flip_type') else "unknown",
                                         "original_claim": flip.original_claim[:200] if hasattr(flip, 'original_claim') else "",
                                         "new_claim": flip.new_claim[:200] if hasattr(flip, 'new_claim') else "",
-                                        "similarity": flip.similarity_score if hasattr(flip, 'similarity_score') else 0.0,
+                                        "original_confidence": flip.original_confidence if hasattr(flip, 'original_confidence') else 0.0,
+                                        "new_confidence": flip.new_confidence if hasattr(flip, 'new_confidence') else 0.0,
+                                        "similarity_score": flip.similarity_score if hasattr(flip, 'similarity_score') else 0.0,
+                                        "domain": flip.domain if hasattr(flip, 'domain') else None,
                                         "debate_id": result.id,
                                     }
                                 ))

@@ -25,11 +25,15 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Optional
 import asyncio
+import concurrent.futures
 import hashlib
 import json
 import subprocess
 import traceback
 import uuid
+
+# Timeout for code execution (seconds) - prevents infinite loops/CPU exhaustion
+EXEC_TIMEOUT_SECONDS = 5.0
 
 # Safe subset of builtins for proof execution (no imports, no file access)
 SAFE_BUILTINS = {
@@ -55,6 +59,33 @@ SAFE_BUILTINS = {
     'AttributeError': AttributeError, 'RuntimeError': RuntimeError,
     # Explicitly excluded: __import__, open, exec, eval, compile, globals, locals
 }
+
+
+def _exec_with_timeout(code: str, namespace: dict, timeout: float = EXEC_TIMEOUT_SECONDS) -> None:
+    """
+    Execute code with timeout protection.
+
+    Runs exec() in a thread pool with timeout to prevent infinite loops
+    and CPU exhaustion from untrusted code.
+
+    Args:
+        code: Python code to execute
+        namespace: Namespace dict (will be modified in-place)
+        timeout: Maximum execution time in seconds
+
+    Raises:
+        TimeoutError: If execution exceeds timeout
+        Exception: Any exception raised during execution
+    """
+    def run_exec():
+        exec(code, {"__builtins__": SAFE_BUILTINS}, namespace)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(run_exec)
+        try:
+            future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            raise TimeoutError(f"Code execution exceeded {timeout}s timeout")
 
 
 class ProofType(Enum):
@@ -325,11 +356,11 @@ class ProofExecutor:
         if assertion:
             exec_code += f"\n__result__ = bool({assertion})"
 
-        # Execute in isolated namespace
+        # Execute in isolated namespace with timeout protection
         namespace: dict[str, Any] = {}
 
         try:
-            exec(exec_code, {"__builtins__": SAFE_BUILTINS}, namespace)
+            _exec_with_timeout(exec_code, namespace, timeout=EXEC_TIMEOUT_SECONDS)
 
             if assertion:
                 assertion_value = namespace.get("__result__", False)
@@ -362,11 +393,19 @@ class ProofExecutor:
                 error=f"Assertion failed: {str(e)}",
                 assertion_value=False,
             )
+        except TimeoutError as e:
+            return VerificationResult(
+                proof_id=proof.id,
+                claim_id=proof.claim_id,
+                status=ProofStatus.TIMEOUT,
+                passed=False,
+                error=str(e),
+            )
 
     async def _execute_code(
         self, proof: VerificationProof, timeout: float
     ) -> VerificationResult:
-        """Execute code and capture output."""
+        """Execute code and capture output with timeout protection."""
 
         import io
         import sys
@@ -378,9 +417,19 @@ class ProofExecutor:
         try:
             sys.stdout = stdout_capture
             namespace: dict[str, Any] = {}
-            exec(proof.code, {"__builtins__": SAFE_BUILTINS}, namespace)
+            # Use timeout protection for code execution
+            _exec_with_timeout(proof.code, namespace, timeout=min(timeout, EXEC_TIMEOUT_SECONDS))
             output = stdout_capture.getvalue()
 
+        except TimeoutError as e:
+            sys.stdout = old_stdout
+            return VerificationResult(
+                proof_id=proof.id,
+                claim_id=proof.claim_id,
+                status=ProofStatus.TIMEOUT,
+                passed=False,
+                error=str(e),
+            )
         finally:
             sys.stdout = old_stdout
 
