@@ -406,6 +406,7 @@ try:
         ReplaysHandler,
         TournamentHandler,
         MemoryHandler,
+        LeaderboardViewHandler,
         HandlerResult,
     )
     HANDLERS_AVAILABLE = True
@@ -424,6 +425,7 @@ except ImportError:
     ReplaysHandler = None
     TournamentHandler = None
     MemoryHandler = None
+    LeaderboardViewHandler = None
     HandlerResult = None
 
 # Track active ad-hoc debates
@@ -563,6 +565,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     _replays_handler: Optional["ReplaysHandler"] = None
     _tournament_handler: Optional["TournamentHandler"] = None
     _memory_handler: Optional["MemoryHandler"] = None
+    _leaderboard_handler: Optional["LeaderboardViewHandler"] = None
     _handlers_initialized: bool = False
 
     # Thread pool for debate execution (prevents unbounded thread creation)
@@ -706,8 +709,9 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         cls._replays_handler = ReplaysHandler(ctx)
         cls._tournament_handler = TournamentHandler(ctx)
         cls._memory_handler = MemoryHandler(ctx)
+        cls._leaderboard_handler = LeaderboardViewHandler(ctx)
         cls._handlers_initialized = True
-        logger.info("[handlers] Modular handlers initialized (13 handlers)")
+        logger.info("[handlers] Modular handlers initialized (14 handlers)")
 
     def _try_modular_handler(self, path: str, query: dict) -> bool:
         """Try to handle request via modular handlers.
@@ -738,6 +742,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._replays_handler,
             self._tournament_handler,
             self._memory_handler,
+            self._leaderboard_handler,
         ]
 
         for handler in handlers:

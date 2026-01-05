@@ -123,25 +123,116 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+
+    // Build query params for consolidated endpoint
+    const params = new URLSearchParams({ limit: '10' });
+    if (loopId) params.set('loop_id', loopId);
+    if (selectedDomain) params.set('domain', selectedDomain);
+
+    try {
+      // Single consolidated request instead of 6 separate calls
+      const res = await fetch(`${apiBase}/api/leaderboard-view?${params}`);
+
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => 'Unknown error');
+        throw new Error(`${res.status}: ${errorText.slice(0, 100)}`);
+      }
+
+      const response = await res.json();
+      const { data, errors: apiErrors } = response;
+
+      // Update state from consolidated response
+      if (data.rankings) {
+        const agentsList: AgentRanking[] = data.rankings.agents || [];
+        setAgents(agentsList);
+      }
+
+      if (data.matches) {
+        setMatches(data.matches.matches || []);
+        const domainSet = new Set<string>(
+          (data.matches.matches || []).map((m: Match) => m.domain).filter(Boolean)
+        );
+        const matchDomains = Array.from(domainSet);
+        if (matchDomains.length > 0) {
+          setAvailableDomains(prev => Array.from(new Set([...prev, ...matchDomains])));
+        }
+      }
+
+      if (data.reputation) {
+        setReputations(data.reputation.reputations || []);
+      }
+
+      if (data.teams) {
+        setTeams(data.teams.combinations || []);
+      }
+
+      if (data.stats) {
+        setStats(data.stats);
+      }
+
+      if (data.introspection) {
+        // Convert object to array for compatibility
+        const introArray = Object.values(data.introspection.agents || {}) as AgentIntrospection[];
+        setIntrospections(introArray);
+      }
+
+      // Handle partial failures from consolidated endpoint
+      if (apiErrors?.partial_failure) {
+        setEndpointErrors(apiErrors.messages || {});
+        setError(`${apiErrors.failed_sections?.length || 0} section(s) unavailable`);
+      } else {
+        setEndpointErrors({});
+        setError(null);
+      }
+    } catch (err) {
+      // Fallback: consolidated endpoint failed, try legacy endpoints
+      console.warn('Consolidated endpoint failed, falling back to legacy:', err);
+      const errors: Record<string, string> = {};
+      const endpoints = [
+        { key: 'rankings', url: `${apiBase}/api/leaderboard?limit=10${loopId ? `&loop_id=${loopId}` : ''}${selectedDomain ? `&domain=${selectedDomain}` : ''}` },
+        { key: 'matches', url: `${apiBase}/api/matches/recent?limit=5${loopId ? `&loop_id=${loopId}` : ''}` },
+        { key: 'reputation', url: `${apiBase}/api/reputation/all` },
+        { key: 'teams', url: `${apiBase}/api/routing/best-teams?min_debates=3&limit=10` },
+        { key: 'stats', url: `${apiBase}/api/ranking/stats` },
+        { key: 'minds', url: `${apiBase}/api/introspection/all` },
+      ];
+      const results = await Promise.allSettled(
+        endpoints.map(async ({ key, url }) => {
+          const r = await fetch(url);
+          if (!r.ok) throw new Error(`${r.status}`);
+          return { key, data: await r.json() };
+        })
+      );
+      results.forEach((result, idx) => {
+        const { key } = endpoints[idx];
+        if (result.status === 'rejected') { errors[key] = result.reason?.message || 'Failed'; return; }
+        const { data } = result.value;
+        switch (key) {
+          case 'rankings': setAgents(data.agents || data.rankings || []); break;
+          case 'matches': setMatches(data.matches || []); break;
+          case 'reputation': setReputations(data.reputations || []); break;
+          case 'teams': setTeams(data.combinations || []); break;
+          case 'stats': setStats(data); break;
+          case 'minds': setIntrospections(Object.values(data.agents || {}) as AgentIntrospection[]); break;
+        }
+      });
+      setEndpointErrors(errors);
+      if (Object.keys(errors).length === endpoints.length) {
+        setError('All endpoints failed.');
+      } else if (Object.keys(errors).length > 0) {
+        setError(`${Object.keys(errors).length} endpoint(s) unavailable`);
+      }
+    }
+
+    setLoading(false);
+  }, [apiBase, loopId, selectedDomain]);
+
+  // Legacy fallback kept as separate function for testing
+  const fetchDataLegacy = useCallback(async () => {
     const errors: Record<string, string> = {};
-
-    // Build query params with loop_id and domain filtering
-    const leaderboardParams = new URLSearchParams({ limit: '10' });
-    const matchesParams = new URLSearchParams({ limit: '5' });
-
-    if (loopId) {
-      leaderboardParams.set('loop_id', loopId);
-      matchesParams.set('loop_id', loopId);
-    }
-    if (selectedDomain) {
-      leaderboardParams.set('domain', selectedDomain);
-      matchesParams.set('domain', selectedDomain);
-    }
-
-    // Fetch all endpoints with individual error handling (graceful degradation)
     const endpoints = [
-      { key: 'rankings', url: `${apiBase}/api/leaderboard?${leaderboardParams}` },
-      { key: 'matches', url: `${apiBase}/api/matches/recent?${matchesParams}` },
+      { key: 'rankings', url: `${apiBase}/api/leaderboard?limit=10${loopId ? `&loop_id=${loopId}` : ''}${selectedDomain ? `&domain=${selectedDomain}` : ''}` },
+      { key: 'matches', url: `${apiBase}/api/matches/recent?limit=5${loopId ? `&loop_id=${loopId}` : ''}` },
       { key: 'reputation', url: `${apiBase}/api/reputation/all` },
       { key: 'teams', url: `${apiBase}/api/routing/best-teams?min_debates=3&limit=10` },
       { key: 'stats', url: `${apiBase}/api/ranking/stats` },
@@ -151,39 +242,25 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
     const results = await Promise.allSettled(
       endpoints.map(async ({ key, url }) => {
         const res = await fetch(url);
-        if (!res.ok) {
-          const errorText = await res.text().catch(() => 'Unknown error');
-          throw new Error(`${res.status}: ${errorText.slice(0, 100)}`);
-        }
+        if (!res.ok) throw new Error(`${res.status}`);
         return { key, data: await res.json() };
       })
     );
 
-    // Process results with per-endpoint error tracking
     results.forEach((result, idx) => {
       const { key } = endpoints[idx];
       if (result.status === 'rejected') {
-        errors[key] = result.reason?.message || 'Failed to fetch';
+        errors[key] = result.reason?.message || 'Failed';
         return;
       }
-
       const { data } = result.value;
       switch (key) {
-        case 'rankings': {
-          const agentsList: AgentRanking[] = data.agents || data.rankings || [];
-          setAgents(agentsList);
-          if (data.domains) setAvailableDomains(data.domains);
+        case 'rankings':
+          setAgents(data.agents || data.rankings || []);
           break;
-        }
-        case 'matches': {
+        case 'matches':
           setMatches(data.matches || []);
-          const domainSet = new Set<string>(data.matches?.map((m: Match) => m.domain).filter(Boolean) || []);
-          const matchDomains = Array.from(domainSet);
-          if (matchDomains.length > 0) {
-            setAvailableDomains(prev => Array.from(new Set([...prev, ...matchDomains])));
-          }
           break;
-        }
         case 'reputation':
           setReputations(data.reputations || []);
           break;
@@ -194,23 +271,20 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
           setStats(data);
           break;
         case 'minds':
-          setIntrospections(data.agents || []);
+          setIntrospections(Object.values(data.agents || {}) as AgentIntrospection[]);
           break;
       }
     });
 
-    // Update error states
     setEndpointErrors(errors);
     const errorCount = Object.keys(errors).length;
     if (errorCount === endpoints.length) {
-      setError('All endpoints failed. Check server connection.');
+      setError('All endpoints failed.');
     } else if (errorCount > 0) {
       setError(`${errorCount} endpoint(s) unavailable`);
     } else {
       setError(null);
     }
-
-    setLoading(false);
   }, [apiBase, loopId, selectedDomain]);
 
   // Use ref to store latest fetchData to avoid interval recreation on dependency changes

@@ -37,6 +37,7 @@ from .genesis import GenesisHandler
 from .replays import ReplaysHandler
 from .tournaments import TournamentHandler
 from .memory import MemoryHandler
+from .leaderboard import LeaderboardViewHandler
 
 __all__ = [
     # Base utilities
@@ -58,4 +59,5 @@ __all__ = [
     "ReplaysHandler",
     "TournamentHandler",
     "MemoryHandler",
+    "LeaderboardViewHandler",
 ]
