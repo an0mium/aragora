@@ -1955,7 +1955,11 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 """Cast vote and return (agent, result_or_error)."""
                 logger.debug(f"agent_voting agent={agent.name}")
                 try:
-                    vote_result = await self._vote_with_agent(agent, proposals, self.env.task)
+                    vote_result = await self._with_timeout(
+                        self._vote_with_agent(agent, proposals, self.env.task),
+                        agent.name,
+                        timeout_seconds=90.0,
+                    )
                     return (agent, vote_result)
                 except Exception as e:
                     return (agent, e)
@@ -2179,7 +2183,11 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 """Cast vote and return (agent, result_or_error)."""
                 logger.debug(f"agent_voting_unanimous agent={agent.name}")
                 try:
-                    vote_result = await self._vote_with_agent(agent, proposals, self.env.task)
+                    vote_result = await self._with_timeout(
+                        self._vote_with_agent(agent, proposals, self.env.task),
+                        agent.name,
+                        timeout_seconds=90.0,
+                    )
                     return (agent, vote_result)
                 except Exception as e:
                     return (agent, e)
@@ -2641,7 +2649,10 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     'rounds_used': result.rounds_used,
                     'consensus_reached': result.consensus_reached,
                 }
-                asyncio.create_task(self._index_debate_async(artifact))
+                task = asyncio.create_task(self._index_debate_async(artifact))
+                task.add_done_callback(lambda t: (
+                    logger.warning(f"Debate indexing failed: {t.exception()}") if t.exception() else None
+                ))
             except Exception as e:
                 logger.debug("Embedding indexing failed: %s", e)
 
