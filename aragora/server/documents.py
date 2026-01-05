@@ -7,10 +7,13 @@ Inspired by Heavy3.ai document attachment feature.
 
 import hashlib
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 # Optional PDF support
 try:
@@ -238,13 +241,13 @@ class DocumentStore:
                     "preview": data.get("preview", "")[:100],
                 })
             except json.JSONDecodeError as e:
-                print(f"  [Warning] Corrupted document file {doc_path}: {e}")
+                logger.warning(f"Corrupted document file {doc_path}: {e}")
                 continue
             except KeyError as e:
-                print(f"  [Warning] Missing required field in {doc_path}: {e}")
+                logger.warning(f"Missing required field in {doc_path}: {e}")
                 continue
             except (IOError, OSError) as e:
-                print(f"  [Warning] Failed to read document {doc_path}: {e}")
+                logger.warning(f"Failed to read document {doc_path}: {e}")
                 continue
         return docs
 

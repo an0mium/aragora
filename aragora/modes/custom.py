@@ -5,6 +5,7 @@ Loads user-defined modes from YAML configuration files,
 enabling extensible mode creation without code changes.
 """
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,6 +15,8 @@ import yaml
 
 from aragora.modes.base import Mode, ModeRegistry
 from aragora.modes.tool_groups import ToolGroup
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -162,14 +165,14 @@ class CustomModeLoader:
                     modes.append(mode)
                 except Exception as e:
                     # Log but don't fail on individual file errors
-                    print(f"Warning: Failed to load {yaml_file}: {e}")
+                    logger.warning(f"Failed to load {yaml_file}: {e}")
 
             for yml_file in path.glob("*.yml"):
                 try:
                     mode = self.load_from_yaml(yml_file)
                     modes.append(mode)
                 except Exception as e:
-                    print(f"Warning: Failed to load {yml_file}: {e}")
+                    logger.warning(f"Failed to load {yml_file}: {e}")
 
         return modes
 

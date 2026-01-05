@@ -195,7 +195,7 @@ class EvidenceCollector:
             return snippets, len(results)
 
         except Exception as e:
-            print(f"Error searching {connector_name}: {e}")
+            logger.warning(f"Error searching {connector_name}: {e}")
             return [], 0
 
     def _extract_urls(self, task: str) -> List[str]:

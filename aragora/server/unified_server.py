@@ -404,6 +404,8 @@ try:
         CritiqueHandler,
         GenesisHandler,
         ReplaysHandler,
+        TournamentHandler,
+        MemoryHandler,
         HandlerResult,
     )
     HANDLERS_AVAILABLE = True
@@ -420,6 +422,8 @@ except ImportError:
     CritiqueHandler = None
     GenesisHandler = None
     ReplaysHandler = None
+    TournamentHandler = None
+    MemoryHandler = None
     HandlerResult = None
 
 # Track active ad-hoc debates
@@ -557,6 +561,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     _critique_handler: Optional["CritiqueHandler"] = None
     _genesis_handler: Optional["GenesisHandler"] = None
     _replays_handler: Optional["ReplaysHandler"] = None
+    _tournament_handler: Optional["TournamentHandler"] = None
+    _memory_handler: Optional["MemoryHandler"] = None
     _handlers_initialized: bool = False
 
     # Thread pool for debate execution (prevents unbounded thread creation)
@@ -569,6 +575,51 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     _upload_counts_lock = threading.Lock()
     MAX_UPLOADS_PER_MINUTE = 5  # Maximum uploads per IP per minute
     MAX_UPLOADS_PER_HOUR = 30  # Maximum uploads per IP per hour
+
+    # Request logging for observability
+    _request_log_enabled = True  # Can be disabled via environment
+    _slow_request_threshold_ms = 1000  # Log warning for requests slower than this
+
+    def _log_request(self, method: str, path: str, status: int, duration_ms: float, extra: dict = None) -> None:
+        """Log request details for observability.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            path: Request path
+            status: HTTP status code
+            duration_ms: Request duration in milliseconds
+            extra: Additional context to log
+        """
+        if not self._request_log_enabled:
+            return
+
+        # Determine log level based on status and duration
+        if status >= 500:
+            log_fn = logger.error
+        elif status >= 400:
+            log_fn = logger.warning
+        elif duration_ms > self._slow_request_threshold_ms:
+            log_fn = logger.warning
+        else:
+            log_fn = logger.info
+
+        # Build log message
+        client_ip = self._get_client_ip()
+        msg_parts = [
+            f"{method} {path}",
+            f"status={status}",
+            f"duration={duration_ms:.1f}ms",
+            f"ip={client_ip}",
+        ]
+
+        if extra:
+            for k, v in extra.items():
+                msg_parts.append(f"{k}={v}")
+
+        if duration_ms > self._slow_request_threshold_ms:
+            msg_parts.append("SLOW")
+
+        log_fn(f"[request] {' '.join(msg_parts)}")
 
     def _safe_int(self, query: dict, key: str, default: int, max_val: int = 100) -> int:
         """Safely parse integer query param with bounds checking."""
@@ -653,8 +704,10 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         cls._critique_handler = CritiqueHandler(ctx)
         cls._genesis_handler = GenesisHandler(ctx)
         cls._replays_handler = ReplaysHandler(ctx)
+        cls._tournament_handler = TournamentHandler(ctx)
+        cls._memory_handler = MemoryHandler(ctx)
         cls._handlers_initialized = True
-        logger.info("[handlers] Modular handlers initialized (11 handlers)")
+        logger.info("[handlers] Modular handlers initialized (13 handlers)")
 
     def _try_modular_handler(self, path: str, query: dict) -> bool:
         """Try to handle request via modular handlers.
@@ -683,6 +736,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._critique_handler,
             self._genesis_handler,
             self._replays_handler,
+            self._tournament_handler,
+            self._memory_handler,
         ]
 
         for handler in handlers:
@@ -933,10 +988,29 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         """Handle GET requests."""
+        start_time = time.time()
+        status_code = 200  # Default, updated by handlers
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
 
+        try:
+            self._do_GET_internal(path, query)
+        except Exception as e:
+            status_code = 500
+            logger.exception(f"[request] Unhandled exception in GET {path}: {e}")
+            try:
+                self._send_json({"error": "Internal server error"}, status=500)
+            except Exception:
+                pass  # Response may have already been sent
+        finally:
+            duration_ms = (time.time() - start_time) * 1000
+            # Log API requests (skip static file logging for noise reduction)
+            if path.startswith('/api/'):
+                self._log_request("GET", path, status_code, duration_ms)
+
+    def _do_GET_internal(self, path: str, query: dict) -> None:
+        """Internal GET handler with actual routing logic."""
         # Validate query parameters against whitelist (security)
         if query and path.startswith('/api/'):
             is_valid, error_msg = _validate_query_params(query)
@@ -1250,14 +1324,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             else:
                 self._send_json({"error": "Invalid path format"}, status=400)
 
-        # Tournament API
-        elif path == '/api/tournaments':
-            self._list_tournaments()
-        elif path.startswith('/api/tournaments/') and path.endswith('/standings'):
-            tournament_id = self._extract_path_segment(path, 3, "tournament_id")
-            if tournament_id is None:
-                return
-            self._get_tournament_standings(tournament_id)
+        # Tournament API - now handled by TournamentHandler
 
         # Best Team Combinations API
         elif path == '/api/routing/best-teams':
@@ -1289,15 +1356,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             domain = query.get('domain', [None])[0]
             self._get_calibration_summary(agent, domain)
 
-        # Continuum Memory API
-        elif path == '/api/memory/continuum/retrieve':
-            query_str = query.get('query', [''])[0]
-            tiers = query.get('tiers', ['fast,medium'])[0]
-            limit = self._safe_int(query, 'limit', 10, 50)
-            min_importance = self._safe_float(query, 'min_importance', 0.0, 0.0, 1.0)
-            self._get_continuum_memories(query_str, tiers, limit, min_importance)
-        elif path == '/api/memory/continuum/consolidate':
-            self._get_continuum_consolidation()
+        # Continuum Memory API - now handled by MemoryHandler
 
         # Formal Verification Status API
         elif path == '/api/verification/status':
@@ -1350,9 +1409,26 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Handle POST requests."""
+        start_time = time.time()
+        status_code = 200  # Default, updated by handlers
         parsed = urlparse(self.path)
         path = parsed.path
 
+        try:
+            self._do_POST_internal(path)
+        except Exception as e:
+            status_code = 500
+            logger.exception(f"[request] Unhandled exception in POST {path}: {e}")
+            try:
+                self._send_json({"error": "Internal server error"}, status=500)
+            except Exception:
+                pass  # Response may have already been sent
+        finally:
+            duration_ms = (time.time() - start_time) * 1000
+            self._log_request("POST", path, status_code, duration_ms)
+
+    def _do_POST_internal(self, path: str) -> None:
+        """Internal POST handler with actual routing logic."""
         if path == '/api/documents/upload':
             self._upload_document()
         elif path == '/api/debate':
@@ -1734,11 +1810,11 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 # Log and optionally reset circuit breaker for fresh debates
                 cb_status = arena.circuit_breaker.get_all_status()
                 if cb_status:
-                    print(f"  [circuit_breaker] Agent status before debate: {cb_status}")
+                    logger.debug(f"Agent status before debate: {cb_status}")
                     # Reset all circuits for ad-hoc debates to ensure full participation
                     open_circuits = [name for name, status in cb_status.items() if status["status"] == "open"]
                     if open_circuits:
-                        print(f"  [circuit_breaker] Resetting open circuits for: {open_circuits}")
+                        logger.debug(f"Resetting open circuits for: {open_circuits}")
                         arena.circuit_breaker.reset_all()
 
                 # Run debate with timeout protection (10 minutes max)
@@ -5388,91 +5464,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "verify_debate")}, status=500)
 
-    def _get_tournament_standings(self, tournament_id: str) -> None:
-        """Get current tournament standings."""
-        if not self._check_rate_limit():
-            return
-
-        if not TOURNAMENT_AVAILABLE:
-            self._send_json({"error": "Tournament system not available"}, status=503)
-            return
-
-        # Validate tournament_id to prevent path traversal
-        if not re.match(SAFE_ID_PATTERN, tournament_id):
-            self._send_json({"error": "Invalid tournament ID format"}, status=400)
-            return
-
-        try:
-            if not self.nomic_dir:
-                self._send_json({"error": "Nomic directory not configured"}, status=503)
-                return
-
-            tournament_path = self.nomic_dir / "tournaments" / f"{tournament_id}.db"
-            if not tournament_path.exists():
-                self._send_json({"error": "Tournament not found"}, status=404)
-                return
-
-            manager = TournamentManager(db_path=str(tournament_path))
-            standings = manager.get_current_standings()
-
-            self._send_json({
-                "tournament_id": tournament_id,
-                "standings": [
-                    {
-                        "agent": s.agent,
-                        "wins": s.wins,
-                        "losses": s.losses,
-                        "draws": s.draws,
-                        "points": s.points,
-                        "total_score": s.total_score,
-                        "win_rate": s.win_rate,
-                    }
-                    for s in standings
-                ],
-                "count": len(standings),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "tournament_standings")}, status=500)
-
-    def _list_tournaments(self) -> None:
-        """List all available tournaments."""
-        if not self._check_rate_limit():
-            return
-
-        if not TOURNAMENT_AVAILABLE:
-            self._send_json({"error": "Tournament system not available"}, status=503)
-            return
-
-        try:
-            if not self.nomic_dir:
-                self._send_json({"error": "Nomic directory not configured"}, status=503)
-                return
-
-            tournaments_dir = self.nomic_dir / "tournaments"
-            tournaments = []
-
-            if tournaments_dir.exists():
-                for db_file in tournaments_dir.glob("*.db"):
-                    tournament_id = db_file.stem
-                    try:
-                        manager = TournamentManager(db_path=str(db_file))
-                        standings = manager.get_current_standings()
-                        tournaments.append({
-                            "tournament_id": tournament_id,
-                            "participants": len(standings),
-                            "total_matches": sum(s.wins + s.losses + s.draws for s in standings) // 2,
-                            "top_agent": standings[0].agent if standings else None,
-                        })
-                    except Exception:
-                        # Skip corrupted or invalid tournament files
-                        continue
-
-            self._send_json({
-                "tournaments": tournaments,
-                "count": len(tournaments),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "list_tournaments")}, status=500)
+    # Tournament methods moved to TournamentHandler
 
     def _get_best_team_combinations(self, min_debates: int, limit: int) -> None:
         """Get best-performing team combinations from history."""
@@ -5597,87 +5589,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "calibration_summary")}, status=500)
 
-    def _get_continuum_memories(self, query: str, tiers_str: str, limit: int, min_importance: float) -> None:
-        """Retrieve memories from the continuum memory system."""
-        if not self._check_rate_limit():
-            return
-
-        if not CONTINUUM_AVAILABLE:
-            self._send_json({"error": "Continuum memory not available"}, status=503)
-            return
-
-        try:
-            if not self.nomic_dir:
-                self._send_json({"error": "Nomic directory not configured"}, status=503)
-                return
-
-            memory = ContinuumMemory(db_path=str(self.nomic_dir / "continuum.db"))
-
-            # Parse tier filter
-            tier_names = [t.strip().upper() for t in tiers_str.split(',') if t.strip()]
-            tiers = []
-            for name in tier_names:
-                try:
-                    tiers.append(MemoryTier[name])
-                except KeyError:
-                    pass  # Ignore invalid tier names
-
-            if not tiers:
-                tiers = [MemoryTier.FAST, MemoryTier.MEDIUM]  # Default
-
-            entries = memory.retrieve(
-                query=query if query else None,
-                tiers=tiers,
-                limit=limit,
-                min_importance=min_importance,
-            )
-
-            self._send_json({
-                "query": query,
-                "tiers": [t.name for t in tiers],
-                "memories": [
-                    {
-                        "id": e.id,
-                        "tier": e.tier.name,
-                        "content": e.content,
-                        "importance": e.importance,
-                        "surprise_score": e.surprise_score,
-                        "consolidation_score": e.consolidation_score,
-                        "success_rate": e.success_rate,
-                        "update_count": e.update_count,
-                        "created_at": e.created_at,
-                        "updated_at": e.updated_at,
-                    }
-                    for e in entries
-                ],
-                "count": len(entries),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "continuum_memories")}, status=500)
-
-    def _get_continuum_consolidation(self) -> None:
-        """Get memory consolidation status and run consolidation."""
-        if not self._check_rate_limit():
-            return
-
-        if not CONTINUUM_AVAILABLE:
-            self._send_json({"error": "Continuum memory not available"}, status=503)
-            return
-
-        try:
-            if not self.nomic_dir:
-                self._send_json({"error": "Nomic directory not configured"}, status=503)
-                return
-
-            memory = ContinuumMemory(db_path=str(self.nomic_dir / "continuum.db"))
-            stats = memory.consolidate()
-
-            self._send_json({
-                "consolidation": stats,
-                "message": "Memory consolidation complete",
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "continuum_consolidation")}, status=500)
+    # Continuum memory methods moved to MemoryHandler
 
     def _serve_file(self, filename: str) -> None:
         """Serve a static file with path traversal protection."""

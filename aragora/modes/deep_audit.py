@@ -11,9 +11,12 @@ Use for high-stakes decisions: strategy, contracts, code architecture,
 legal documentation where blind spots carry significant consequences.
 """
 
+import asyncio
+import logging
 from dataclasses import dataclass, field
 from typing import Optional, Callable, Awaitable
-import asyncio
+
+logger = logging.getLogger(__name__)
 
 from aragora.core import Agent, DebateResult, Environment, Message, Vote, Critique
 from aragora.debate.orchestrator import Arena, DebateProtocol
@@ -155,12 +158,12 @@ class DeepAuditOrchestrator:
         Returns:
             DeepAuditVerdict with recommendation and findings
         """
-        print(f"\n{'='*60}")
-        print("DEEP AUDIT MODE")
-        print(f"Task: {task[:80]}...")
-        print(f"Rounds: {self.config.rounds}")
-        print(f"Agents: {', '.join(a.name for a in self.agents)}")
-        print(f"{'='*60}\n")
+        logger.info("=" * 60)
+        logger.info("DEEP AUDIT MODE")
+        logger.info(f"Task: {task[:80]}...")
+        logger.info(f"Rounds: {self.config.rounds}")
+        logger.info(f"Agents: {', '.join(a.name for a in self.agents)}")
+        logger.info("=" * 60)
 
         env = Environment(task=task, context=context)
 
@@ -185,9 +188,9 @@ class DeepAuditOrchestrator:
         result = await arena.run(env)
 
         # === Cross-Examination Phase ===
-        print("\n" + "-" * 40)
-        print("SYNTHESIZER CROSS-EXAMINATION")
-        print("-" * 40)
+        logger.info("-" * 40)
+        logger.info("SYNTHESIZER CROSS-EXAMINATION")
+        logger.info("-" * 40)
 
         cross_exam_notes = await self._run_cross_examination(
             task=task,
@@ -198,7 +201,7 @@ class DeepAuditOrchestrator:
         # === Build Verdict ===
         verdict = self._build_verdict(result, cross_exam_notes)
 
-        print(f"\n{verdict.summary()}")
+        logger.info(f"\n{verdict.summary()}")
 
         return verdict
 
@@ -264,10 +267,10 @@ Be rigorous but fair. Your goal is to ensure we haven't missed critical issues."
 
         try:
             cross_exam_result = await synthesizer.generate(cross_exam_prompt, [])
-            print(f"  Synthesizer cross-examination complete ({len(cross_exam_result)} chars)")
+            logger.info(f"Synthesizer cross-examination complete ({len(cross_exam_result)} chars)")
             return cross_exam_result
         except Exception as e:
-            print(f"  Cross-examination failed: {e}")
+            logger.warning(f"Cross-examination failed: {e}")
             return f"Cross-examination failed: {e}"
 
     def _build_verdict(

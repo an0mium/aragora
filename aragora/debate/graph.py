@@ -13,11 +13,14 @@ Key concepts:
 - GraphReplayBuilder: Reconstruct and replay graph debates
 """
 
+import hashlib
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Optional
-import hashlib
+
+logger = logging.getLogger(__name__)
 import json
 import uuid
 
@@ -713,8 +716,8 @@ class GraphDebateOrchestrator:
                     data=data,
                     debate_id=debate_id,
                 ))
-        except Exception:
-            pass  # Fail silently to not disrupt debate
+        except Exception as e:
+            logger.debug(f"Stream event emission failed (non-critical): {e}")
 
     async def run_debate(
         self,

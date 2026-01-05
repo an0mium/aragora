@@ -578,7 +578,7 @@ class DebateStreamServer:
                 self._rate_limiters.pop(k, None)
                 self._rate_limiter_last_access.pop(k, None)
         if stale_keys:
-            print(f"[stream] Cleaned up {len(stale_keys)} stale rate limiters")
+            logger.debug(f"Cleaned up {len(stale_keys)} stale rate limiters")
 
     def _update_debate_state(self, event: StreamEvent) -> None:
         """Update cached debate state based on emitted events."""
@@ -642,7 +642,8 @@ class DebateStreamServer:
         for client in self.clients:
             try:
                 await client.send(message)
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Client disconnected during broadcast: {e}")
                 disconnected.add(client)
 
         self.clients -= disconnected
@@ -729,7 +730,8 @@ class DebateStreamServer:
                 origin = websocket.request_headers.get("Origin", "")
             else:
                 origin = ""
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Could not extract origin header: {e}")
             origin = ""
 
         if origin and origin not in WS_ALLOWED_ORIGINS:
@@ -1400,8 +1402,9 @@ class AiohttpUnifiedServer:
                             tournament["total_matches"] = match_summary["total_matches"]
                             tournament["top_agent"] = standings[0].agent_name if standings else None
                             tournaments_list.append(tournament)
-                    except Exception:
-                        continue  # Skip corrupted files
+                    except Exception as e:
+                        logger.debug(f"Skipping corrupted tournament file: {e}")
+                        continue
 
             return web.json_response(
                 {"tournaments": tournaments_list, "count": len(tournaments_list)},
@@ -2099,7 +2102,8 @@ class AiohttpUnifiedServer:
         # Parse JSON body
         try:
             data = await request.json()
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Invalid JSON in request: {e}")
             return web.json_response(
                 {"error": "Invalid JSON"},
                 status=400,

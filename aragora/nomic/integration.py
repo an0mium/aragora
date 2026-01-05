@@ -13,10 +13,13 @@ all aragora features in a coordinated way.
 """
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from aragora.core import Agent, DebateResult, Vote
 from aragora.reasoning.claims import ClaimsKernel, TypedClaim, ClaimType
@@ -687,7 +690,7 @@ class NomicIntegration:
 
         except Exception as e:
             # Log but don't fail on checkpoint errors
-            print(f"Checkpoint failed for {phase}: {e}")
+            logger.warning(f"Checkpoint failed for {phase}: {e}")
             return None
 
     async def resume_from_checkpoint(
@@ -730,7 +733,7 @@ class NomicIntegration:
                 )
 
         except Exception as e:
-            print(f"Resume failed: {e}")
+            logger.warning(f"Resume failed: {e}")
 
         return None
 

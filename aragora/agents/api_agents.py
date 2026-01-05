@@ -216,7 +216,7 @@ class GeminiAgent(APIAgent):
                     # Handle truncation: if we have partial text, use it with a warning
                     if finish_reason == "MAX_TOKENS" and text.strip():
                         # Got partial content - use it but log warning
-                        print(f"  [gemini] Warning: Response truncated at {len(text)} chars, using partial content")
+                        logger.warning(f"Gemini response truncated at {len(text)} chars, using partial content")
                         return text
 
                     if not text.strip():

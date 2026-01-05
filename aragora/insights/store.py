@@ -7,6 +7,7 @@ Stores and retrieves insights with:
 - Pattern clustering
 """
 
+import logging
 import sqlite3
 import json
 from datetime import datetime
@@ -14,6 +15,8 @@ from pathlib import Path
 from typing import Optional
 
 from aragora.insights.extractor import Insight, InsightType, DebateInsights
+
+logger = logging.getLogger(__name__)
 
 
 def _escape_like_pattern(value: str) -> str:
@@ -186,7 +189,7 @@ class InsightStore:
                     )
                     stored_count += 1
                 except Exception as e:
-                    print(f"Error storing insight {insight.id}: {e}")
+                    logger.error(f"Error storing insight {insight.id}: {e}")
 
             # Store agent performances
             for perf in insights.agent_performances:
