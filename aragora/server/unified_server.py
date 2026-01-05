@@ -1104,8 +1104,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             logger.exception(f"[request] Unhandled exception in GET {path}: {e}")
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
-            except Exception:
-                pass  # Response may have already been sent
+            except Exception as send_err:
+                logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
             duration_ms = (time.time() - start_time) * 1000
             # Log API requests (skip static file logging for noise reduction)
@@ -1199,17 +1199,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
         # Agent Comparison API - NOW HANDLED BY AgentsHandler
         # Head-to-Head API - NOW HANDLED BY AgentsHandler
-
-        # Opponent Briefing API (still needs migration to AgentsHandler)
-        elif '/opponent-briefing/' in path and path.startswith('/api/agent/'):
-            # Pattern: /api/agent/{agent}/opponent-briefing/{opponent}
-            parts = path.split('/')
-            if len(parts) >= 6:
-                agent = parts[3]
-                opponent = parts[5]
-                self._get_opponent_briefing(agent, opponent)
-            else:
-                self._send_json({"error": "Invalid path format"}, status=400)
+        # Opponent Briefing API - NOW HANDLED BY AgentsHandler
 
         # Introspection API (Agent Self-Awareness)
         elif path == '/api/introspection/all':
@@ -1318,8 +1308,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             logger.exception(f"[request] Unhandled exception in POST {path}: {e}")
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
-            except Exception:
-                pass  # Response may have already been sent
+            except Exception as send_err:
+                logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
             duration_ms = (time.time() - start_time) * 1000
             self._log_request("POST", path, status_code, duration_ms)
@@ -2786,7 +2776,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                         "reasoning": record.reasoning if record.reasoning else None,
                     })
                 except Exception as e:
-                    logger.debug(f"Failed to parse dissent record: {e}")
+                    logger.warning(f"Failed to parse dissent record: {e}")
 
             self._send_json({"dissents": dissents})
         except Exception as e:
@@ -2826,7 +2816,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                         from aragora.memory.consensus import DissentRecord
                         records.append(DissentRecord.from_dict(json.loads(row[0])))
                     except Exception as e:
-                        logger.debug(f"Failed to parse contrarian view record: {e}")
+                        logger.warning(f"Failed to parse contrarian view record: {e} (data: {row[0][:100]}...)")
 
             # Transform to match frontend ContraryView interface
             self._send_json({
@@ -2878,7 +2868,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                         from aragora.memory.consensus import DissentRecord
                         records.append(DissentRecord.from_dict(json.loads(row[0])))
                     except Exception as e:
-                        logger.debug(f"Failed to parse risk warning record: {e}")
+                        logger.warning(f"Failed to parse risk warning record: {e} (data: {row[0][:100]}...)")
 
             # Transform to match frontend RiskWarning interface
             # Map dissent_type to risk_type and infer severity from confidence

@@ -55,6 +55,7 @@ class AgentsHandler(BaseHandler):
         "/api/agent/*/moments",
         "/api/agent/*/positions",
         "/api/agent/*/head-to-head/*",
+        "/api/agent/*/opponent-briefing/*",
         "/api/flips/recent",
         "/api/flips/summary",
     ]
@@ -140,6 +141,15 @@ class AgentsHandler(BaseHandler):
             if not is_valid:
                 return error_response(err, 400)
             return self._get_head_to_head(agent_name, opponent)
+
+        # Opponent briefing: /api/agent/{name}/opponent-briefing/{opponent}
+        if len(parts) >= 6 and parts[4] == "opponent-briefing":
+            opponent = parts[5]
+            # Validate opponent name
+            is_valid, err = validate_agent_name(opponent)
+            if not is_valid:
+                return error_response(err, 400)
+            return self._get_opponent_briefing(agent_name, opponent)
 
         # Other endpoints: /api/agent/{name}/{endpoint}
         if len(parts) >= 5:
@@ -472,6 +482,58 @@ class AgentsHandler(BaseHandler):
             })
         except Exception as e:
             return error_response(f"Failed to get head-to-head: {e}", 500)
+
+    def _get_opponent_briefing(self, agent: str, opponent: str) -> HandlerResult:
+        """Get strategic briefing about an opponent for an agent."""
+        elo = self.get_elo_system()
+        nomic_dir = self.get_nomic_dir()
+
+        try:
+            from aragora.agents.grounded import PersonaSynthesizer
+
+            # Get position ledger if available
+            position_ledger = None
+            if nomic_dir:
+                try:
+                    from aragora.agents.grounded import PositionLedger
+                    db_path = nomic_dir / "grounded_positions.db"
+                    if db_path.exists():
+                        position_ledger = PositionLedger(str(db_path))
+                except ImportError:
+                    pass
+
+            # Get calibration tracker if available
+            calibration_tracker = None
+            try:
+                from aragora.ranking.calibration import CalibrationTracker
+                calibration_tracker = CalibrationTracker()
+            except ImportError:
+                pass
+
+            synthesizer = PersonaSynthesizer(
+                elo_system=elo,
+                calibration_tracker=calibration_tracker,
+                position_ledger=position_ledger,
+            )
+            briefing = synthesizer.get_opponent_briefing(agent, opponent)
+
+            if briefing:
+                return json_response({
+                    "agent": agent,
+                    "opponent": opponent,
+                    "briefing": briefing,
+                })
+            else:
+                return json_response({
+                    "agent": agent,
+                    "opponent": opponent,
+                    "briefing": None,
+                    "message": "No opponent data available"
+                })
+        except ImportError:
+            return error_response("PersonaSynthesizer not available", 503)
+        except Exception as e:
+            return error_response(f"Failed to get opponent briefing: {e}", 500)
 
     # ==================== Flip Detector Endpoints ====================
 
