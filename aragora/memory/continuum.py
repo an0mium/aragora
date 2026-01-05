@@ -24,6 +24,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
+from aragora.storage.schema import SchemaManager
+
+# Schema version for ContinuumMemory
+CONTINUUM_SCHEMA_VERSION = 1
+
 
 class MemoryTier(Enum):
     """Memory update frequency tiers."""
@@ -166,46 +171,36 @@ class ContinuumMemory:
         }
 
     def _init_db(self):
-        """Initialize the continuum memory tables."""
+        """Initialize the continuum memory tables using SchemaManager."""
         with sqlite3.connect(self.db_path, timeout=30.0) as conn:
-            cursor = conn.cursor()
+            manager = SchemaManager(conn, "continuum_memory", current_version=CONTINUUM_SCHEMA_VERSION)
 
-            # Main continuum memory table
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS continuum_memory (
-                id TEXT PRIMARY KEY,
-                tier TEXT NOT NULL DEFAULT 'slow',
-                content TEXT NOT NULL,
-                importance REAL DEFAULT 0.5,
-                surprise_score REAL DEFAULT 0.0,
-                consolidation_score REAL DEFAULT 0.0,
-                update_count INTEGER DEFAULT 0,
-                success_count INTEGER DEFAULT 0,
-                failure_count INTEGER DEFAULT 0,
-                semantic_centroid BLOB,
-                last_promotion_at TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                metadata TEXT DEFAULT '{}'
-            )
-            """)
+            # Initial schema (v1)
+            initial_schema = """
+                -- Main continuum memory table
+                CREATE TABLE IF NOT EXISTS continuum_memory (
+                    id TEXT PRIMARY KEY,
+                    tier TEXT NOT NULL DEFAULT 'slow',
+                    content TEXT NOT NULL,
+                    importance REAL DEFAULT 0.5,
+                    surprise_score REAL DEFAULT 0.0,
+                    consolidation_score REAL DEFAULT 0.0,
+                    update_count INTEGER DEFAULT 0,
+                    success_count INTEGER DEFAULT 0,
+                    failure_count INTEGER DEFAULT 0,
+                    semantic_centroid BLOB,
+                    last_promotion_at TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    metadata TEXT DEFAULT '{}'
+                );
 
-            # Indexes for efficient tier-based retrieval
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_continuum_tier
-                ON continuum_memory(tier)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_continuum_surprise
-                ON continuum_memory(surprise_score DESC)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_continuum_importance
-                ON continuum_memory(importance DESC)
-            """)
+                -- Indexes for efficient tier-based retrieval
+                CREATE INDEX IF NOT EXISTS idx_continuum_tier ON continuum_memory(tier);
+                CREATE INDEX IF NOT EXISTS idx_continuum_surprise ON continuum_memory(surprise_score DESC);
+                CREATE INDEX IF NOT EXISTS idx_continuum_importance ON continuum_memory(importance DESC);
 
-            # Meta-learning state table for hyperparameter tracking
-            cursor.execute("""
+                -- Meta-learning state table for hyperparameter tracking
                 CREATE TABLE IF NOT EXISTS meta_learning_state (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     hyperparams TEXT NOT NULL,
@@ -214,11 +209,9 @@ class ContinuumMemory:
                     forgetting_rate REAL,
                     cycles_evaluated INTEGER DEFAULT 0,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+                );
 
-            # Tier transition history for analysis
-            cursor.execute("""
+                -- Tier transition history for analysis
                 CREATE TABLE IF NOT EXISTS tier_transitions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     memory_id TEXT NOT NULL,
@@ -228,10 +221,10 @@ class ContinuumMemory:
                     surprise_score REAL,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (memory_id) REFERENCES continuum_memory(id)
-                )
-            """)
+                );
+            """
 
-            conn.commit()
+            manager.ensure_schema(initial_schema=initial_schema)
 
     def add(
         self,

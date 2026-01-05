@@ -125,12 +125,21 @@ class EloSystem:
         self._init_db()
 
     def _init_db(self):
-        """Initialize database schema."""
+        """Initialize database schema using SchemaManager."""
         with sqlite3.connect(self.db_path, timeout=30.0) as conn:
-            cursor = conn.cursor()
+            manager = SchemaManager(conn, "elo", current_version=ELO_SCHEMA_VERSION)
 
-            # Agent ratings
-            cursor.execute("""
+            # Register migration from v1 to v2: add calibration columns
+            manager.register_migration(
+                from_version=1,
+                to_version=2,
+                function=self._migrate_v1_to_v2,
+                description="Add calibration columns to ratings table",
+            )
+
+            # Initial schema (v1)
+            initial_schema = """
+                -- Agent ratings
                 CREATE TABLE IF NOT EXISTS ratings (
                     agent_name TEXT PRIMARY KEY,
                     elo REAL DEFAULT 1500,
@@ -142,11 +151,9 @@ class EloSystem:
                     critiques_accepted INTEGER DEFAULT 0,
                     critiques_total INTEGER DEFAULT 0,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+                );
 
-            # Match history
-            cursor.execute("""
+                -- Match history
                 CREATE TABLE IF NOT EXISTS matches (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     debate_id TEXT UNIQUE,
@@ -156,22 +163,18 @@ class EloSystem:
                     scores TEXT,
                     elo_changes TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+                );
 
-            # ELO history for tracking progression
-            cursor.execute("""
+                -- ELO history for tracking progression
                 CREATE TABLE IF NOT EXISTS elo_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     agent_name TEXT NOT NULL,
                     elo REAL NOT NULL,
                     debate_id TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+                );
 
-            # Calibration predictions table (for tracking pre-tournament predictions)
-            cursor.execute("""
+                -- Calibration predictions table
                 CREATE TABLE IF NOT EXISTS calibration_predictions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     tournament_id TEXT NOT NULL,
@@ -180,21 +183,9 @@ class EloSystem:
                     confidence REAL NOT NULL,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(tournament_id, predictor_agent)
-                )
-            """)
+                );
 
-            # Safe schema migration: add calibration columns if missing
-            cursor.execute("PRAGMA table_info(ratings)")
-            columns = {row[1] for row in cursor.fetchall()}
-            if "calibration_correct" not in columns:
-                cursor.execute("ALTER TABLE ratings ADD COLUMN calibration_correct INTEGER DEFAULT 0")
-            if "calibration_total" not in columns:
-                cursor.execute("ALTER TABLE ratings ADD COLUMN calibration_total INTEGER DEFAULT 0")
-            if "calibration_brier_sum" not in columns:
-                cursor.execute("ALTER TABLE ratings ADD COLUMN calibration_brier_sum REAL DEFAULT 0.0")
-
-            # Domain-specific calibration tracking (for grounded personas)
-            cursor.execute("""
+                -- Domain-specific calibration tracking
                 CREATE TABLE IF NOT EXISTS domain_calibration (
                     agent_name TEXT NOT NULL,
                     domain TEXT NOT NULL,
@@ -203,11 +194,9 @@ class EloSystem:
                     brier_sum REAL DEFAULT 0.0,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (agent_name, domain)
-                )
-            """)
+                );
 
-            # Calibration by confidence bucket (for calibration curves)
-            cursor.execute("""
+                -- Calibration by confidence bucket
                 CREATE TABLE IF NOT EXISTS calibration_buckets (
                     agent_name TEXT NOT NULL,
                     domain TEXT NOT NULL,
@@ -216,11 +205,9 @@ class EloSystem:
                     correct INTEGER DEFAULT 0,
                     brier_sum REAL DEFAULT 0.0,
                     PRIMARY KEY (agent_name, domain, bucket_key)
-                )
-            """)
+                );
 
-            # Agent relationships tracking (for grounded personas)
-            cursor.execute("""
+                -- Agent relationships tracking
                 CREATE TABLE IF NOT EXISTS agent_relationships (
                     agent_a TEXT NOT NULL,
                     agent_b TEXT NOT NULL,
@@ -237,21 +224,29 @@ class EloSystem:
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (agent_a, agent_b),
                     CHECK (agent_a < agent_b)
-                )
-            """)
+                );
 
-            # Performance indexes for frequently queried columns
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_elo_history_agent ON elo_history(agent_name)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_elo_history_created ON elo_history(created_at)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_elo_history_debate ON elo_history(debate_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_matches_winner ON matches(winner)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_matches_created ON matches(created_at)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_matches_domain ON matches(domain)")  # For domain filtering
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_domain_cal_agent ON domain_calibration(agent_name)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_relationships_a ON agent_relationships(agent_a)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_relationships_b ON agent_relationships(agent_b)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_calibration_pred_tournament ON calibration_predictions(tournament_id)")  # For tournament resolution
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_ratings_agent ON ratings(agent_name)")  # For rating lookups
+                -- Performance indexes
+                CREATE INDEX IF NOT EXISTS idx_elo_history_agent ON elo_history(agent_name);
+                CREATE INDEX IF NOT EXISTS idx_elo_history_created ON elo_history(created_at);
+                CREATE INDEX IF NOT EXISTS idx_elo_history_debate ON elo_history(debate_id);
+                CREATE INDEX IF NOT EXISTS idx_matches_winner ON matches(winner);
+                CREATE INDEX IF NOT EXISTS idx_matches_created ON matches(created_at);
+                CREATE INDEX IF NOT EXISTS idx_matches_domain ON matches(domain);
+                CREATE INDEX IF NOT EXISTS idx_domain_cal_agent ON domain_calibration(agent_name);
+                CREATE INDEX IF NOT EXISTS idx_relationships_a ON agent_relationships(agent_a);
+                CREATE INDEX IF NOT EXISTS idx_relationships_b ON agent_relationships(agent_b);
+                CREATE INDEX IF NOT EXISTS idx_calibration_pred_tournament ON calibration_predictions(tournament_id);
+                CREATE INDEX IF NOT EXISTS idx_ratings_agent ON ratings(agent_name);
+            """
+
+            manager.ensure_schema(initial_schema=initial_schema)
+
+    def _migrate_v1_to_v2(self, conn: sqlite3.Connection) -> None:
+        """Migration: Add calibration columns to ratings table."""
+        safe_add_column(conn, "ratings", "calibration_correct", "INTEGER", default="0")
+        safe_add_column(conn, "ratings", "calibration_total", "INTEGER", default="0")
+        safe_add_column(conn, "ratings", "calibration_brier_sum", "REAL", default="0.0")
 
 
     def get_rating(self, agent_name: str) -> AgentRating:
