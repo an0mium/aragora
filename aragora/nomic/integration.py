@@ -666,12 +666,12 @@ class NomicIntegration:
                 debate_id=debate_id,
                 task=f"nomic_loop_cycle_{cycle}_{phase}",
                 current_round=cycle,
+                total_rounds=10,  # Max nomic cycles per session
                 phase=phase,
                 messages=[],  # Messages are in state dict
                 critiques=[],
                 votes=[],
                 agents=[],
-                extra_state=checkpoint_state,
             )
 
             # Track phase checkpoint

@@ -898,6 +898,13 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             sections = query.get('sections', [None])[0]
             self._get_identity_prompt(agent, sections)
 
+        # Agent Position Accuracy API (PositionTracker integration)
+        elif path.startswith('/api/agent/') and path.endswith('/accuracy'):
+            agent = self._extract_path_segment(path, 3, "agent")
+            if agent is None:
+                return
+            self._get_agent_accuracy(agent)
+
         # Consensus Memory API (expose underutilized databases)
         elif path == '/api/consensus/similar':
             topic = query.get('topic', [''])[0]
@@ -2454,6 +2461,47 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "Grounded personas module not available"}, status=503)
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "identity_prompt")}, status=500)
+
+    def _get_agent_accuracy(self, agent: str) -> None:
+        """Get position accuracy stats for an agent from PositionTracker."""
+        if not self._check_rate_limit():
+            return
+
+        try:
+            from aragora.agents.truth_grounding import PositionTracker
+
+            # Use existing position_tracker or create one
+            if hasattr(self, 'position_tracker') and self.position_tracker:
+                tracker = self.position_tracker
+            else:
+                db_path = self.nomic_dir / "aragora_positions.db" if self.nomic_dir else None
+                if not db_path or not db_path.exists():
+                    self._send_json({"error": "Position tracking not configured"}, status=503)
+                    return
+                tracker = PositionTracker(db_path=str(db_path))
+
+            accuracy = tracker.get_agent_position_accuracy(agent)
+            if accuracy:
+                self._send_json({
+                    "agent": agent,
+                    "total_positions": accuracy.get("total_positions", 0),
+                    "verified_positions": accuracy.get("verified_positions", 0),
+                    "correct_positions": accuracy.get("correct_positions", 0),
+                    "accuracy_rate": accuracy.get("accuracy_rate", 0.0),
+                    "by_type": accuracy.get("by_type", {}),
+                })
+            else:
+                self._send_json({
+                    "agent": agent,
+                    "total_positions": 0,
+                    "verified_positions": 0,
+                    "accuracy_rate": 0.0,
+                    "message": "No position accuracy data available",
+                })
+        except ImportError:
+            self._send_json({"error": "PositionTracker module not available"}, status=503)
+        except Exception as e:
+            self._send_json({"error": _safe_error_message(e, "agent_accuracy")}, status=500)
 
     # === Consensus Memory API ===
 

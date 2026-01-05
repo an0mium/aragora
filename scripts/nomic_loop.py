@@ -5332,11 +5332,23 @@ Recent changes:
                 if position_changes:
                     self._log(f"  [grounded] Detected position changes: {position_changes}")
 
+                # Extract critiques for relationship tracking
+                critiques_data = []
+                if hasattr(result, 'messages'):
+                    for msg in result.messages:
+                        if hasattr(msg, 'critique') and msg.critique:
+                            critiques_data.append({
+                                'critic': getattr(msg, 'agent', 'unknown'),
+                                'target': getattr(msg.critique, 'target', 'unknown'),
+                                'accepted': getattr(msg.critique, 'accepted', False),
+                            })
+
                 self.relationship_tracker.update_from_debate(
                     debate_id=f"cycle-{self.cycle_count}",
                     participants=participants,
                     winner=winner,
                     votes=result.votes if hasattr(result, 'votes') else [],
+                    critiques=critiques_data,
                     position_changes=position_changes,
                 )
                 self._log(f"  [grounded] Updated relationships for {len(participants)} agents")
