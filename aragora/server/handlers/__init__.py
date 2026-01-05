@@ -35,6 +35,8 @@ from .belief import BeliefHandler
 from .critique import CritiqueHandler
 from .genesis import GenesisHandler
 from .replays import ReplaysHandler
+from .tournaments import TournamentHandler
+from .memory import MemoryHandler
 
 __all__ = [
     # Base utilities
@@ -54,4 +56,6 @@ __all__ = [
     "CritiqueHandler",
     "GenesisHandler",
     "ReplaysHandler",
+    "TournamentHandler",
+    "MemoryHandler",
 ]

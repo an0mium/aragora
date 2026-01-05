@@ -154,33 +154,35 @@ class AgentsHandler(BaseHandler):
             else:
                 rankings = elo.get_leaderboard(limit=min(limit, 50), domain=domain)
 
-            # Batch fetch consistency scores to avoid N+1 queries
+            # Batch fetch consistency scores (uses 3 queries instead of 3*N)
             consistency_map = {}
             try:
                 from aragora.insights.flip_detector import FlipDetector
                 nomic_dir = self.get_nomic_dir()
                 if nomic_dir:
                     detector = FlipDetector(str(nomic_dir / "grounded_positions.db"))
+                    # Extract all agent names first
+                    agent_names = []
                     for agent in rankings:
-                        agent_name = agent.get("name") if isinstance(agent, dict) else getattr(agent, "name", None)
-                        if agent_name:
-                            try:
-                                score = detector.get_agent_consistency(agent_name)
-                                # Handle both dict and object returns
-                                if hasattr(score, 'total_flips'):
-                                    total_positions = max(score.total_positions, 1)
-                                    consistency = 1.0 - (score.total_flips / total_positions)
-                                elif isinstance(score, dict):
-                                    total_positions = max(score.get('total_positions', 1), 1)
-                                    consistency = 1.0 - (score.get('total_flips', 0) / total_positions)
-                                else:
-                                    consistency = 1.0
+                        name = agent.get("name") if isinstance(agent, dict) else getattr(agent, "name", None)
+                        if name:
+                            agent_names.append(name)
+
+                    # Batch fetch all consistency scores at once
+                    if agent_names:
+                        try:
+                            scores = detector.get_agents_consistency_batch(agent_names)
+                            for agent_name, score in scores.items():
+                                total_positions = max(score.total_positions, 1)
+                                consistency = 1.0 - (score.total_flips / total_positions)
                                 consistency_map[agent_name] = {
                                     "consistency": round(consistency, 3),
                                     "consistency_class": "high" if consistency >= 0.8 else "medium" if consistency >= 0.6 else "low"
                                 }
-                            except Exception:
-                                consistency_map[agent_name] = {"consistency": 1.0, "consistency_class": "high"}
+                        except Exception:
+                            # Fallback: set default consistency for all agents
+                            for name in agent_names:
+                                consistency_map[name] = {"consistency": 1.0, "consistency_class": "high"}
             except ImportError:
                 pass  # FlipDetector not available, continue without consistency
 
