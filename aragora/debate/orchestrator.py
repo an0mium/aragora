@@ -119,6 +119,21 @@ def _get_critique_store():
     return CritiqueStore
 
 
+# Lazy import for ArgumentCartographer (graph visualization)
+ArgumentCartographer = None
+
+def _get_argument_cartographer():
+    """Lazy-load ArgumentCartographer to avoid circular imports."""
+    global ArgumentCartographer
+    if ArgumentCartographer is None:
+        try:
+            from aragora.visualization.mapper import ArgumentCartographer as _AC
+            ArgumentCartographer = _AC
+        except ImportError:
+            pass
+    return ArgumentCartographer
+
+
 @dataclass
 class DebateProtocol:
     """Configuration for how debates are conducted."""
@@ -292,6 +307,10 @@ class Arena:
         self.continuum_memory = continuum_memory  # For cross-debate learning
         self.loop_id = loop_id  # Loop ID for scoping events
         self.strict_loop_scoping = strict_loop_scoping  # Enforce loop_id on all events
+
+        # ArgumentCartographer for debate graph visualization
+        AC = _get_argument_cartographer()
+        self.cartographer = AC() if AC else None
 
         # Auto-upgrade to ELO-ranked judge selection when elo_system is available
         # Only upgrade from default "random" - don't override explicit user choice
@@ -749,6 +768,55 @@ class Arena:
             self.event_emitter.emit(stream_event)
         except Exception:
             pass  # Fail silently to not disrupt debate flow
+
+        # Update ArgumentCartographer with this event
+        self._update_cartographer(event_type, **kwargs)
+
+    def _update_cartographer(self, event_type: str, **kwargs):
+        """Update the ArgumentCartographer graph with debate events."""
+        if not self.cartographer:
+            return
+        try:
+            agent = kwargs.get("agent", "")
+            details = kwargs.get("details", "")
+            round_num = kwargs.get("round_number", 0)
+
+            if event_type in ("propose", "proposal"):
+                # Record proposal/revision as a node
+                self.cartographer.update_from_message(
+                    agent=agent,
+                    content=details,
+                    role="proposer",
+                    round_num=round_num,
+                )
+            elif event_type == "critique":
+                # Extract target from details (format: "Critiqued {target}: ...")
+                target = ""
+                if "Critiqued " in details:
+                    target = details.split("Critiqued ")[1].split(":")[0]
+                severity = kwargs.get("metric", 0.5)
+                self.cartographer.update_from_critique(
+                    critic_agent=agent,
+                    target_agent=target,
+                    severity=severity if isinstance(severity, (int, float)) else 0.5,
+                    round_num=round_num,
+                    critique_text=details,
+                )
+            elif event_type == "vote":
+                vote_value = details.split(":")[-1].strip() if ":" in details else details
+                self.cartographer.update_from_vote(
+                    agent=agent,
+                    vote_value=vote_value,
+                    round_num=round_num,
+                )
+            elif event_type == "consensus":
+                result = details.split(":")[-1].strip() if ":" in details else details
+                self.cartographer.update_from_consensus(
+                    result=result,
+                    round_num=round_num,
+                )
+        except Exception:
+            pass  # Don't break debate on cartographer errors
 
     def _record_grounded_position(
         self, agent_name: str, content: str, debate_id: str, round_num: int,

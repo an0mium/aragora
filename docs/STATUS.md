@@ -125,7 +125,7 @@
 
 ## Feature Integration Status
 
-### Fully Integrated (45)
+### Fully Integrated (49)
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
@@ -173,6 +173,10 @@
 | ContraryViewsPanel | Active | `aragora/live/src/components/ContraryViewsPanel.tsx` |
 | RiskWarningsPanel | Active | `aragora/live/src/components/RiskWarningsPanel.tsx` |
 | DebateViewer Critique Handling | Active | `aragora/live/src/components/DebateViewer.tsx` (critique + consensus) |
+| ArgumentCartographer | Active | `aragora/debate/orchestrator.py` (graph visualization) |
+| Graph Export API | Active | `aragora/server/stream.py` (/api/debate/{loop_id}/graph/*) |
+| Audience Clusters API | Active | `aragora/server/stream.py` (/api/debate/{loop_id}/audience/clusters) |
+| Replay Export API | Active | `aragora/server/stream.py` (/api/replays/*) |
 
 ### Recently Surfaced (6)
 | Feature | Status | Location |
@@ -184,11 +188,11 @@
 | Persona Laboratory | LaboratoryPanel added | `aragora/live/src/components/LaboratoryPanel.tsx` |
 | Prompt Evolution | LLM refinement implemented | `aragora/evolution/evolver.py` |
 
-### Server Endpoints (64+ total)
-- **Used by Frontend**: ~15%
+### Server Endpoints (72+ total)
+- **Used by Frontend**: ~18%
 - **Available but Unused**: ~50 endpoints
 - **Key Gap**: Frontend uses WebSocket events, bypasses most REST endpoints
-- **New APIs**: Introspection (3), Plugins (3), Genesis (4)
+- **New APIs**: Introspection (3), Plugins (3), Genesis (4), Graph (3), Audience (1), Replay (2)
 
 ## Security Status
 
