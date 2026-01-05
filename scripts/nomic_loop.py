@@ -450,6 +450,15 @@ except ImportError:
     AgentProfile = None
     TaskRequirements = None
 
+# ProbeFilter for probe-aware agent selection (Phase 10)
+try:
+    from aragora.routing.probe_filter import ProbeFilter, ProbeProfile
+    PROBE_FILTER_AVAILABLE = True
+except ImportError:
+    PROBE_FILTER_AVAILABLE = False
+    ProbeFilter = None
+    ProbeProfile = None
+
 # RiskRegister for risk tracking (Phase 5)
 try:
     from aragora.pipeline.risk_register import RiskLevel
@@ -1166,6 +1175,12 @@ class NomicLoop:
                 persona_manager=self.persona_manager
             )
             print(f"[selector] Smart agent selection enabled")
+
+        # Phase 10: ProbeFilter for probe-aware agent selection
+        self.probe_filter = None
+        if PROBE_FILTER_AVAILABLE:
+            self.probe_filter = ProbeFilter(nomic_dir=str(self.nomic_dir))
+            print(f"[probe-filter] Probe-aware agent selection enabled")
 
         # =================================================================
         # Phase 9: Grounded Personas & Truth-Based Identity
@@ -2862,7 +2877,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             pass
 
     def _select_debate_team(self, task: str) -> list:
-        """Select optimal agent team for the task (P14: AgentSelector)."""
+        """Select optimal agent team for the task (P14: AgentSelector + P10: ProbeFilter)."""
         all_agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
 
         # Filter out agents in circuit breaker cooldown
@@ -2876,6 +2891,38 @@ The most valuable proposals combine deep analysis with actionable implementation
         if len(default_team) < 2:
             self._log("  [circuit-breaker] WARNING: Not enough agents available, using all")
             default_team = all_agents  # Fall back to all agents if too few
+
+        # Phase 10: Apply probe-aware filtering
+        if self.probe_filter and PROBE_FILTER_AVAILABLE:
+            try:
+                # Get probe scores for weighted selection
+                agent_names = [a.name for a in default_team]
+                probe_scores = self.probe_filter.get_team_scores(agent_names)
+
+                # Log probe status for visibility
+                probed_agents = [n for n, s in probe_scores.items() if s != 1.0]
+                if probed_agents:
+                    self._log(f"  [probe-filter] Probe scores: {[(n, f'{s:.0%}') for n, s in sorted(probe_scores.items(), key=lambda x: x[1], reverse=True)]}")
+
+                # Filter out high-risk agents (>50% vulnerability rate)
+                safe_names = self.probe_filter.filter_agents(
+                    candidates=agent_names,
+                    max_vulnerability_rate=0.5,
+                    exclude_critical=True
+                )
+
+                if len(safe_names) >= 2:
+                    filtered_team = [a for a in default_team if a.name in safe_names]
+                    if len(filtered_team) < len(default_team):
+                        excluded = [a.name for a in default_team if a.name not in safe_names]
+                        self._log(f"  [probe-filter] Excluded high-risk agents: {excluded}")
+                    default_team = filtered_team
+
+                # Sort by probe score (higher is better)
+                default_team.sort(key=lambda a: probe_scores.get(a.name, 1.0), reverse=True)
+
+            except Exception as e:
+                self._log(f"  [probe-filter] Error: {e}, using default selection")
 
         detected_domain = self._detect_domain(task)
 
@@ -3059,6 +3106,23 @@ The most valuable proposals combine deep analysis with actionable implementation
                 self._log("    MomentDetector: unavailable")
         else:
             self._log("    MomentDetector: not initialized")
+
+        # Probe Filter stats
+        if self.probe_filter:
+            try:
+                profiles = self.probe_filter.get_all_profiles()
+                if profiles:
+                    probed_count = len(profiles)
+                    avg_score = sum(p.probe_score for p in profiles.values()) / probed_count
+                    high_risk = sum(1 for p in profiles.values() if p.is_high_risk())
+                    self._log(f"    ProbeFilter: {probed_count} agents probed, "
+                             f"{avg_score:.0%} avg score, {high_risk} high-risk")
+                else:
+                    self._log("    ProbeFilter: no probe data yet")
+            except Exception:
+                self._log("    ProbeFilter: unavailable")
+        else:
+            self._log("    ProbeFilter: not initialized")
 
         # ELO domain calibration stats
         if self.elo_system:
