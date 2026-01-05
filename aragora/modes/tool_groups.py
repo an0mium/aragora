@@ -35,19 +35,16 @@ class ToolGroup(Flag):
 
     # Composite groups for convenience
     @classmethod
-    @property
     def READONLY(cls) -> "ToolGroup":
         """Read-only access with web browsing."""
         return cls.READ | cls.BROWSER
 
     @classmethod
-    @property
     def DEVELOPER(cls) -> "ToolGroup":
         """Standard development access: read, edit, run commands."""
         return cls.READ | cls.EDIT | cls.COMMAND
 
     @classmethod
-    @property
     def FULL(cls) -> "ToolGroup":
         """Full access to all tools."""
         return cls.READ | cls.EDIT | cls.COMMAND | cls.BROWSER | cls.MCP | cls.DEBATE

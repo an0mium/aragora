@@ -366,7 +366,7 @@ class CitationGraph:
         cycles = []
 
         # Build adjacency list
-        adj = {}
+        adj: dict[str, list[str]] = {}
         for claim_id, citation_ids in self.claim_citations.items():
             for cid in citation_ids:
                 citation = self.citations.get(cid)
@@ -522,37 +522,42 @@ class ProvenanceVerifier:
         """Verify all evidence supporting a claim."""
         citations = self.graph.get_claim_evidence(claim_id)
 
-        result = {
-            "claim_id": claim_id,
-            "citation_count": len(citations),
-            "verified_count": 0,
-            "failed_count": 0,
-            "support_score": 0.0,
-            "errors": [],
-            "evidence_status": {},
-        }
+        # Use typed variables to avoid mypy object type issues
+        verified_count = 0
+        failed_count = 0
+        support_score = 0.0
+        error_list: list[str] = []
+        evidence_status: dict[str, str] = {}
 
         for citation in citations:
             record = self.chain.get_record(citation.evidence_id)
             if not record:
-                result["failed_count"] += 1
-                result["errors"].append(f"Evidence {citation.evidence_id} not found in chain")
-                result["evidence_status"][citation.evidence_id] = "not_found"
+                failed_count += 1
+                error_list.append(f"Evidence {citation.evidence_id} not found in chain")
+                evidence_status[citation.evidence_id] = "not_found"
                 continue
 
             valid, errors = self.verify_record(citation.evidence_id)
             if valid:
-                result["verified_count"] += 1
-                result["evidence_status"][citation.evidence_id] = "verified"
+                verified_count += 1
+                evidence_status[citation.evidence_id] = "verified"
             else:
-                result["failed_count"] += 1
-                result["errors"].extend(errors)
-                result["evidence_status"][citation.evidence_id] = "failed"
+                failed_count += 1
+                error_list.extend(errors)
+                evidence_status[citation.evidence_id] = "failed"
 
         if citations:
-            result["support_score"] = self.graph.compute_claim_support_score(claim_id)
+            support_score = self.graph.compute_claim_support_score(claim_id)
 
-        return result
+        return {
+            "claim_id": claim_id,
+            "citation_count": len(citations),
+            "verified_count": verified_count,
+            "failed_count": failed_count,
+            "support_score": support_score,
+            "errors": error_list,
+            "evidence_status": evidence_status,
+        }
 
     def generate_provenance_report(self, record_id: str) -> dict[str, Any]:
         """Generate a full provenance report for a record."""

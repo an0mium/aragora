@@ -158,8 +158,8 @@ class PersonaManager:
         self,
         agent_name: str,
         description: str = "",
-        traits: list[str] = None,
-        expertise: dict[str, float] = None,
+        traits: list[str] | None = None,
+        expertise: dict[str, float] | None = None,
     ) -> Persona:
         """Create or update a persona for an agent."""
         conn = sqlite3.connect(self.db_path)
@@ -210,7 +210,7 @@ class PersonaManager:
         domain: str,
         success: bool,
         action: str = "critique",
-        debate_id: str = None,
+        debate_id: str | None = None,
     ):
         """
         Record a performance event to update expertise.
@@ -264,8 +264,8 @@ class PersonaManager:
             return
 
         # Calculate success rate with recency weighting
-        total_weight = 0
-        weighted_success = 0
+        total_weight = 0.0
+        weighted_success = 0.0
         for i, (success,) in enumerate(rows):
             weight = 0.95 ** i  # Exponential decay
             total_weight += weight

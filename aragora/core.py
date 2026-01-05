@@ -188,12 +188,12 @@ class Agent(ABC):
         self.stance: str = "neutral"
 
     @abstractmethod
-    async def generate(self, prompt: str, context: list[Message] = None) -> str:
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response to a prompt."""
         pass
 
     @abstractmethod
-    async def critique(self, proposal: str, task: str, context: list[Message] = None) -> Critique:
+    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal."""
         pass
 

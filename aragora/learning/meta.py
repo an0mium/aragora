@@ -178,7 +178,7 @@ class MetaLearner:
             return HyperparameterState.from_dict(data)
         return HyperparameterState()  # Default state
 
-    def _save_state(self, reason: str = "", metrics: LearningMetrics = None):
+    def _save_state(self, reason: str = "", metrics: LearningMetrics | None = None):
         """Save current hyperparameter state."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()

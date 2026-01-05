@@ -243,9 +243,9 @@ class DebateMetadata:
         """Check if two debates have similar configuration."""
         return self.config_hash == other.config_hash
 
-    def diff(self, other: "DebateMetadata") -> dict:
+    def diff(self, other: "DebateMetadata") -> dict[str, dict[str, Any]]:
         """Get differences between two metadata configs."""
-        diffs = {}
+        diffs: dict[str, dict[str, Any]] = {}
 
         if self.task_hash != other.task_hash:
             diffs["task"] = {"self": self.task_hash, "other": other.task_hash}

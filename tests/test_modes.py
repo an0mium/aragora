@@ -50,7 +50,7 @@ class TestToolGroup:
 
     def test_developer_composite(self):
         """Test DEVELOPER composite group."""
-        developer = ToolGroup.DEVELOPER
+        developer = ToolGroup.DEVELOPER()
 
         assert ToolGroup.READ in developer
         assert ToolGroup.EDIT in developer
@@ -59,7 +59,7 @@ class TestToolGroup:
 
     def test_readonly_composite(self):
         """Test READONLY composite group."""
-        readonly = ToolGroup.READONLY
+        readonly = ToolGroup.READONLY()
 
         assert ToolGroup.READ in readonly
         assert ToolGroup.BROWSER in readonly
@@ -68,7 +68,7 @@ class TestToolGroup:
 
     def test_full_composite(self):
         """Test FULL composite group includes all."""
-        full = ToolGroup.FULL
+        full = ToolGroup.FULL()
 
         assert ToolGroup.READ in full
         assert ToolGroup.EDIT in full
@@ -132,13 +132,13 @@ class TestCanUseTool:
         """Test allowed tool returns True."""
         assert can_use_tool(ToolGroup.READ, "read") is True
         assert can_use_tool(ToolGroup.EDIT, "edit") is True
-        assert can_use_tool(ToolGroup.DEVELOPER, "bash") is True
+        assert can_use_tool(ToolGroup.DEVELOPER(), "bash") is True
 
     def test_disallowed_tool(self):
         """Test disallowed tool returns False."""
         assert can_use_tool(ToolGroup.READ, "edit") is False
         assert can_use_tool(ToolGroup.EDIT, "bash") is False
-        assert can_use_tool(ToolGroup.READONLY, "edit") is False
+        assert can_use_tool(ToolGroup.READONLY(), "edit") is False
 
     def test_unknown_tool_allowed(self):
         """Test unknown tools are allowed by default."""

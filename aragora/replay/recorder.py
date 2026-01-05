@@ -74,7 +74,7 @@ class ReplayRecorder:
     def _elapsed_ms(self) -> int:
         return int((time.time() - (self._start_time or time.time())) * 1000)
     
-    def _record(self, event_type: str, source: str, content: str, metadata: Dict[str, Any] = None) -> None:
+    def _record(self, event_type: str, source: str, content: str, metadata: Dict[str, Any] | None = None) -> None:
         if not self._is_active:
             return
         try:
@@ -92,7 +92,7 @@ class ReplayRecorder:
             pass
     
     def record_turn(self, agent_id: str, content: str, round_num: int, loop_id: Optional[str] = None) -> None:
-        meta = {"round": round_num}
+        meta: Dict[str, Any] = {"round": round_num}
         if loop_id:
             meta["loop_id"] = loop_id
         self._record("turn", agent_id, content, meta)

@@ -239,7 +239,7 @@ class ContinuumMemory:
         content: str,
         tier: MemoryTier = MemoryTier.SLOW,
         importance: float = 0.5,
-        metadata: Dict[str, Any] = None,
+        metadata: Dict[str, Any] | None = None,
     ) -> ContinuumMemoryEntry:
         """
         Add a new memory entry to the continuum.
@@ -319,8 +319,8 @@ class ContinuumMemory:
 
     def retrieve(
         self,
-        query: str = None,
-        tiers: List[MemoryTier] = None,
+        query: str | None = None,
+        tiers: List[MemoryTier] | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
         include_glacial: bool = True,
@@ -414,7 +414,7 @@ class ContinuumMemory:
         self,
         id: str,
         success: bool,
-        agent_prediction_error: float = None,
+        agent_prediction_error: float | None = None,
     ) -> float:
         """
         Update memory after observing outcome.
@@ -690,7 +690,7 @@ class ContinuumMemory:
         with sqlite3.connect(self.db_path, timeout=30.0) as conn:
             cursor = conn.cursor()
 
-            stats = {}
+            stats: Dict[str, Any] = {}
 
             # Count by tier
             cursor.execute("""

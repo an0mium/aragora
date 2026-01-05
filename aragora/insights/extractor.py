@@ -245,7 +245,7 @@ class InsightExtractor:
         insights = []
 
         # Group critiques by issue category
-        category_counts = {cat: [] for cat in self.ISSUE_CATEGORIES}
+        category_counts: dict[str, list[dict]] = {cat: [] for cat in self.ISSUE_CATEGORIES}
 
         for critique in critiques:
             issues = getattr(critique, 'issues', [])
@@ -345,7 +345,7 @@ class InsightExtractor:
 
         vote_summary = ""
         if votes:
-            vote_choices = {}
+            vote_choices: dict[str, int] = {}
             for v in votes:
                 choice = getattr(v, 'choice', 'unknown')
                 vote_choices[choice] = vote_choices.get(choice, 0) + 1
@@ -449,12 +449,12 @@ class InsightExtractor:
         winning_choice = None
         if votes and final_answer:
             # Try to identify winning choice
-            vote_counts = {}
+            vote_counts: dict[str, int] = {}
             for v in votes:
                 choice = getattr(v, 'choice', '')
                 vote_counts[choice] = vote_counts.get(choice, 0) + 1
             if vote_counts:
-                winning_choice = max(vote_counts, key=vote_counts.get)
+                winning_choice = max(vote_counts, key=lambda x: vote_counts.get(x, 0))
 
         for v in votes:
             agent = getattr(v, 'agent', 'unknown')

@@ -327,11 +327,11 @@ class ArgumentCartographer:
         - complexity_score: 0-1 normalized complexity metric
         - claim_count, rebuttal_count: Type-specific counts
         """
-        node_types = {}
+        node_types: dict[str, int] = {}
         for node in self.nodes.values():
             node_types[node.node_type.value] = node_types.get(node.node_type.value, 0) + 1
 
-        edge_types = {}
+        edge_types: dict[str, int] = {}
         for edge in self.edges:
             edge_types[edge.relation.value] = edge_types.get(edge.relation.value, 0) + 1
 

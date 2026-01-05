@@ -159,17 +159,17 @@ class SimpleMetrics:
     counters: Dict[str, float] = field(default_factory=dict)
     gauges: Dict[str, float] = field(default_factory=dict)
     histograms: Dict[str, list] = field(default_factory=dict)
-    info: Dict[str, str] = field(default_factory=dict)
+    info: Dict[str, Dict[str, str]] = field(default_factory=dict)
 
-    def inc_counter(self, name: str, labels: Dict[str, str] = None, value: float = 1):
+    def inc_counter(self, name: str, labels: Dict[str, str] | None = None, value: float = 1):
         key = self._make_key(name, labels)
         self.counters[key] = self.counters.get(key, 0) + value
 
-    def set_gauge(self, name: str, value: float, labels: Dict[str, str] = None):
+    def set_gauge(self, name: str, value: float, labels: Dict[str, str] | None = None):
         key = self._make_key(name, labels)
         self.gauges[key] = value
 
-    def observe_histogram(self, name: str, value: float, labels: Dict[str, str] = None):
+    def observe_histogram(self, name: str, value: float, labels: Dict[str, str] | None = None):
         key = self._make_key(name, labels)
         if key not in self.histograms:
             self.histograms[key] = []
@@ -178,7 +178,7 @@ class SimpleMetrics:
     def set_info(self, name: str, info: Dict[str, str]):
         self.info[name] = info
 
-    def _make_key(self, name: str, labels: Dict[str, str] = None) -> str:
+    def _make_key(self, name: str, labels: Dict[str, str] | None = None) -> str:
         if not labels:
             return name
         label_str = ",".join(f'{k}="{v}"' for k, v in sorted(labels.items()))
