@@ -7372,7 +7372,7 @@ Provide a brief verification report:
 
 Be concise - this is a quality gate, not a full review."""
 
-                audit_response = await self.codex.generate(audit_prompt, timeout=60)
+                audit_response = await self.codex.generate(audit_prompt)
                 if audit_response:
                     codex_audit = audit_response
                     # Check if audit has concerns
@@ -7682,42 +7682,67 @@ Be concise - this is a quality gate, not a full review."""
         individual_proposals = design_result.get("individual_proposals", {})
         self._log(f"\nDesign complete (consensus={design_consensus}, confidence={design_confidence:.0%})")
 
-        # === Design Fallback: Use highest-voted design if no consensus ===
+        # === Design Fallback: Multi-strategy recovery for no consensus ===
         if not design_consensus:
-            self._log("  [fallback] No design consensus - attempting recovery...")
+            self._log("  [fallback] No design consensus - attempting multi-strategy recovery...")
+            candidate_design = None
 
-            # Strategy 1: Use highest-voted proposal
-            if vote_counts and individual_proposals:
-                top_choice = max(vote_counts.keys(), key=lambda k: vote_counts[k]) if vote_counts else None
-                if top_choice and top_choice in individual_proposals:
-                    design = individual_proposals[top_choice]
-                    self._log(f"  [fallback] Selected {top_choice}'s design with {vote_counts[top_choice]} votes")
-                elif individual_proposals:
-                    # Fallback to first available proposal
-                    first_agent = next(iter(individual_proposals))
-                    design = individual_proposals[first_agent]
-                    self._log(f"  [fallback] Selected {first_agent}'s design (first available)")
+            # Helper to validate design quality
+            def is_viable_design(d: str) -> bool:
+                if not d or len(d.strip()) < 100:
+                    return False
+                # Must contain actual implementation details
+                keywords = ["file", "function", "class", "import", "def ", "async ", "return"]
+                return any(kw in d.lower() for kw in keywords)
 
-            # Strategy 2: If close contest (top 2 within 1 vote), use judge arbitration
-            if vote_counts and len(vote_counts) >= 2:
+            # Strategy 1: Always try judge arbitration first (not just close contests)
+            if individual_proposals and len(individual_proposals) >= 2:
+                self._log("  [arbitration] Multiple proposals exist - invoking judge arbitration...")
+                try:
+                    arbitrated = await self._arbitrate_design(individual_proposals, improvement)
+                    if arbitrated and is_viable_design(arbitrated):
+                        candidate_design = arbitrated
+                        self._log(f"  [arbitration] Judge synthesized viable design ({len(arbitrated)} chars)")
+                except Exception as e:
+                    self._log(f"  [arbitration] Judge arbitration failed: {e}")
+
+            # Strategy 2: Use highest-voted viable proposal
+            if not candidate_design and vote_counts and individual_proposals:
                 sorted_votes = sorted(vote_counts.items(), key=lambda x: x[1], reverse=True)
-                top_votes = sorted_votes[0][1]
-                second_votes = sorted_votes[1][1] if len(sorted_votes) > 1 else 0
+                for agent, votes in sorted_votes:
+                    if agent in individual_proposals:
+                        proposal = individual_proposals[agent]
+                        if is_viable_design(proposal):
+                            candidate_design = proposal
+                            self._log(f"  [fallback] Selected {agent}'s design with {votes} votes ({len(proposal)} chars)")
+                            break
+                        else:
+                            self._log(f"  [fallback] Skipped {agent}'s design (not viable: {len(proposal) if proposal else 0} chars)")
 
-                if top_votes - second_votes <= 1 and individual_proposals:
-                    self._log("  [arbitration] Close contest - invoking judge arbitration...")
-                    design = await self._arbitrate_design(individual_proposals, improvement)
-                    if design:
-                        self._log("  [arbitration] Judge selected winning design")
+            # Strategy 3: Use any viable proposal regardless of votes
+            if not candidate_design and individual_proposals:
+                for agent, proposal in individual_proposals.items():
+                    if is_viable_design(proposal):
+                        candidate_design = proposal
+                        self._log(f"  [fallback] Selected {agent}'s design (first viable found)")
+                        break
 
-            # Final check: do we have a usable design?
-            if not design or len(design.strip()) < 100:
+            # Strategy 4: Use conditional design from counterfactual analysis if available
+            conditional_design = design_result.get("conditional_design")
+            if not candidate_design and conditional_design and is_viable_design(conditional_design):
+                candidate_design = conditional_design
+                self._log("  [fallback] Using conditional design from counterfactual analysis")
+
+            # Final assignment
+            if candidate_design:
+                design = candidate_design
+                self._log(f"  [fallback] Proceeding with recovered design ({len(design)} chars)")
+            else:
                 self._log("  [warning] No viable design recovered - skipping implementation")
                 cycle_result["outcome"] = "design_no_consensus"
                 cycle_result["vote_counts"] = vote_counts
+                cycle_result["proposals_checked"] = len(individual_proposals) if individual_proposals else 0
                 return cycle_result
-            else:
-                self._log(f"  [fallback] Proceeding with recovered design ({len(design)} chars)")
         elif design_confidence < 0.5:
             self._log("  [warning] Design has low confidence - proceeding with caution")
 
