@@ -1273,6 +1273,197 @@ The following endpoints expose Grounded Personas data:
 
 ---
 
+## Phase 13: Pulse Module & Infrastructure
+
+### Pulse Ingestors
+**File:** `aragora/pulse/ingestor.py`
+
+Real-time trending topic ingestion from social media platforms for dynamic debate topic generation.
+
+```python
+from aragora.pulse.ingestor import (
+    PulseManager,
+    TwitterIngestor,
+    HackerNewsIngestor,
+    RedditIngestor,
+    TrendingTopic,
+)
+
+# Create ingestors
+manager = PulseManager()
+manager.add_ingestor("twitter", TwitterIngestor(bearer_token="..."))
+manager.add_ingestor("hackernews", HackerNewsIngestor())
+manager.add_ingestor("reddit", RedditIngestor(subreddits=["technology", "programming"]))
+
+# Fetch trending topics from all platforms concurrently
+topics = await manager.get_trending_topics(
+    platforms=["hackernews", "reddit"],
+    limit_per_platform=5,
+    filters={"skip_toxic": True, "categories": ["tech", "ai"]},
+)
+
+# Select best topic for debate
+best = manager.select_topic_for_debate(topics)
+prompt = best.to_debate_prompt()
+# "Debate the implications of trending topic: 'OpenAI announces GPT-5' (hackernews, 521 engagement)"
+```
+
+**Platform Support:**
+- `TwitterIngestor` - Twitter/X trending topics (requires API key)
+- `HackerNewsIngestor` - HN front page stories (free Algolia API)
+- `RedditIngestor` - Hot posts from subreddits (public JSON API)
+
+**Production Features:**
+- Exponential backoff with configurable retries
+- Circuit breaker for failing APIs
+- Content toxicity filtering
+- Category-based filtering
+- Concurrent platform fetching
+
+### CircuitBreaker
+**File:** `aragora/pulse/ingestor.py`
+
+Prevents cascade failures when APIs are unavailable.
+
+```python
+from aragora.pulse.ingestor import CircuitBreaker
+
+breaker = CircuitBreaker(
+    failure_threshold=3,  # Open after 3 failures
+    reset_timeout=60.0,   # Auto-reset after 60 seconds
+)
+
+if breaker.can_proceed():
+    try:
+        result = await fetch_data()
+        breaker.record_success()
+    except Exception:
+        breaker.record_failure()  # Opens circuit after threshold
+```
+
+**States:**
+- **CLOSED**: Normal operation
+- **OPEN**: Blocking calls, using fallback
+- **HALF-OPEN**: Testing recovery after timeout
+
+---
+
+## Phase 14: Exception Hierarchy
+**File:** `aragora/exceptions.py`
+
+Structured exception types for precise error handling across the codebase.
+
+```python
+from aragora.exceptions import (
+    AragoraError,       # Base class for all exceptions
+    DebateError,        # Debate-related errors
+    AgentError,         # Agent failures
+    ValidationError,    # Input validation
+    StorageError,       # Database errors
+    MemoryError,        # Memory system errors
+    ModeError,          # Operational mode errors
+    PluginError,        # Plugin execution errors
+    AuthError,          # Authentication errors
+    NomicError,         # Nomic loop errors
+    VerificationError,  # Formal verification errors
+)
+
+# Example: Precise error handling
+try:
+    result = await arena.run_debate(task)
+except DebateNotFoundError as e:
+    print(f"Debate {e.debate_id} not found")
+except AgentTimeoutError as e:
+    print(f"Agent {e.agent_name} timed out after {e.timeout_seconds}s")
+except AragoraError as e:
+    print(f"General error: {e.message}, details: {e.details}")
+```
+
+**Exception Categories:**
+
+| Category | Exceptions | Use Case |
+|----------|------------|----------|
+| **Debate** | `DebateNotFoundError`, `ConsensusError`, `RoundLimitExceededError` | Debate lifecycle errors |
+| **Agent** | `AgentNotFoundError`, `AgentTimeoutError`, `APIKeyError`, `RateLimitError` | Agent communication failures |
+| **Storage** | `DatabaseError`, `DatabaseConnectionError`, `RecordNotFoundError` | Database operations |
+| **Memory** | `MemoryRetrievalError`, `MemoryStorageError`, `EmbeddingError` | Memory system failures |
+| **Auth** | `AuthenticationError`, `AuthorizationError`, `TokenExpiredError` | Security failures |
+| **Nomic** | `NomicCycleError`, `NomicStateError` | Self-improvement loop errors |
+| **Verification** | `Z3NotAvailableError`, `VerificationTimeoutError` | Formal proof errors |
+
+**Exception Details:**
+All exceptions include `message` and `details` fields:
+```python
+raise AgentResponseError("claude", "Connection refused")
+# Error: Agent 'claude' failed to respond: Connection refused
+# Details: {"agent_name": "claude", "reason": "Connection refused"}
+```
+
+---
+
+## Phase 15: Schema Versioning
+**File:** `aragora/storage/schema.py`
+
+SQLite schema migration framework for safe database upgrades.
+
+```python
+from aragora.storage import SchemaManager, safe_add_column, Migration
+
+# Initialize manager with target version
+manager = SchemaManager(conn, "elo", current_version=3)
+
+# Register migrations
+manager.register_migration(
+    from_version=1,
+    to_version=2,
+    sql="ALTER TABLE agents ADD COLUMN domain TEXT DEFAULT 'general';",
+    description="Add domain tracking",
+)
+
+manager.register_migration(
+    from_version=2,
+    to_version=3,
+    function=lambda conn: migrate_to_v3(conn),
+    description="Normalize ratings table",
+)
+
+# Apply pending migrations (idempotent)
+initial_schema = """
+    CREATE TABLE agents (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        elo INTEGER DEFAULT 1500
+    );
+"""
+manager.ensure_schema(initial_schema=initial_schema)
+
+# Check version
+print(f"Current version: {manager.get_version()}")
+```
+
+**Safe Column Addition:**
+```python
+# Add column only if it doesn't exist (idempotent)
+added = safe_add_column(conn, "agents", "calibration_score", "REAL", default="0.5")
+if added:
+    print("Added calibration_score column")
+```
+
+**Schema Validation:**
+```python
+result = manager.validate_schema(["agents", "matches", "domains"])
+# {"valid": True, "missing": [], "extra": ["temp_table"], "version": 3}
+```
+
+**Key Features:**
+- Per-module version tracking in `_schema_versions` table
+- SQL and Python function migrations
+- Automatic version bumping on migration success
+- Graceful handling of downgrades (skip with warning)
+- Thread-safe migration execution
+
+---
+
 ## API Reference
 
 See [API_REFERENCE.md](./API_REFERENCE.md) for complete HTTP and WebSocket API documentation.
