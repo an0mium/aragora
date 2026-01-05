@@ -385,6 +385,85 @@ class FlipDetector:
             domains_with_flips=domains,
         )
 
+    def get_agents_consistency_batch(self, agent_names: list[str]) -> dict[str, AgentConsistencyScore]:
+        """Get consistency scores for multiple agents in batch (avoids N+1 queries).
+
+        Args:
+            agent_names: List of agent names to fetch
+
+        Returns:
+            Dict mapping agent names to their consistency scores
+        """
+        if not agent_names:
+            return {}
+
+        # Create placeholders for SQL IN clause
+        placeholders = ",".join("?" * len(agent_names))
+
+        with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+            # Batch query 1: Count positions per agent
+            cursor = conn.execute(
+                f"SELECT agent_name, COUNT(*) FROM positions WHERE agent_name IN ({placeholders}) GROUP BY agent_name",
+                agent_names,
+            )
+            positions_map = {row[0]: row[1] for row in cursor.fetchall()}
+
+            # Batch query 2: Get flip stats per agent
+            cursor = conn.execute(
+                f"""
+                SELECT agent_name, flip_type, COUNT(*), AVG(original_confidence)
+                FROM detected_flips
+                WHERE agent_name IN ({placeholders})
+                GROUP BY agent_name, flip_type
+                """,
+                agent_names,
+            )
+            flip_stats = {}
+            for row in cursor.fetchall():
+                agent, flip_type, count, avg_conf = row
+                if agent not in flip_stats:
+                    flip_stats[agent] = {"counts": {}, "total": 0, "weighted_conf": 0.0}
+                flip_stats[agent]["counts"][flip_type] = count
+                flip_stats[agent]["total"] += count
+                flip_stats[agent]["weighted_conf"] += (avg_conf or 0) * count
+
+            # Batch query 3: Get domains with flips per agent
+            cursor = conn.execute(
+                f"""
+                SELECT agent_name, domain FROM detected_flips
+                WHERE agent_name IN ({placeholders}) AND domain IS NOT NULL
+                """,
+                agent_names,
+            )
+            domains_map = {}
+            for row in cursor.fetchall():
+                agent, domain = row
+                if agent not in domains_map:
+                    domains_map[agent] = set()
+                domains_map[agent].add(domain)
+
+        # Build result dict
+        result = {}
+        for agent in agent_names:
+            total_positions = positions_map.get(agent, 0)
+            stats = flip_stats.get(agent, {"counts": {}, "total": 0, "weighted_conf": 0.0})
+            total_flips = stats["total"]
+            avg_conf = stats["weighted_conf"] / total_flips if total_flips > 0 else 0.0
+
+            result[agent] = AgentConsistencyScore(
+                agent_name=agent,
+                total_positions=total_positions,
+                total_flips=total_flips,
+                contradictions=stats["counts"].get("contradiction", 0),
+                refinements=stats["counts"].get("refinement", 0),
+                retractions=stats["counts"].get("retraction", 0),
+                qualifications=stats["counts"].get("qualification", 0),
+                avg_confidence_on_flip=avg_conf,
+                domains_with_flips=list(domains_map.get(agent, [])),
+            )
+
+        return result
+
     def get_recent_flips(self, limit: int = 20) -> list[FlipEvent]:
         """Get recent flips across all agents."""
         with sqlite3.connect(self.db_path, timeout=30.0) as conn:

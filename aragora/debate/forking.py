@@ -8,11 +8,14 @@ Inspired by UniversalBackrooms' branching conversations, this module provides:
 """
 
 import asyncio
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Callable
 from copy import deepcopy
+
+logger = logging.getLogger(__name__)
 
 from aragora.core import Agent, Message, DebateResult, Environment
 
@@ -363,7 +366,10 @@ class DebateForker:
 
         # Find winner
         winner_id = max(branch_scores, key=branch_scores.get)
-        winner = next(b for b in completed if b.branch_id == winner_id)
+        winner = next((b for b in completed if b.branch_id == winner_id), None)
+        if not winner:
+            logger.error(f"branch_winner_not_found winner_id={winner_id}")
+            winner = completed[0]  # Fallback to first branch
 
         # Generate comparison summary
         comparison = self._generate_comparison(completed, branch_scores)

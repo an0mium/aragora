@@ -18,11 +18,14 @@ Key features:
 """
 
 import asyncio
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable, Optional
 from enum import Enum
+
+logger = logging.getLogger(__name__)
 
 from aragora.core import Message, DebateResult, Vote
 from aragora.debate.graph import (
@@ -756,7 +759,11 @@ async def explore_counterfactual(
         run_branch_fn=run_branch_fn,
     )
 
-    true_branch = next(b for b in branches if b.assumption)
-    false_branch = next(b for b in branches if not b.assumption)
+    true_branch = next((b for b in branches if b.assumption), None)
+    false_branch = next((b for b in branches if not b.assumption), None)
+
+    if not true_branch or not false_branch:
+        logger.error(f"counterfactual_missing_branch true={true_branch is not None} false={false_branch is not None}")
+        raise ValueError("Counterfactual analysis requires both true and false branches")
 
     return orchestrator.synthesize_branches(true_branch, false_branch)

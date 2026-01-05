@@ -43,6 +43,23 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
+# AUTOMATION FLAGS - Environment variables for CI/automation support
+# =============================================================================
+
+# Auto-commit: Skip interactive commit prompt (default OFF - requires explicit opt-in)
+NOMIC_AUTO_COMMIT = os.environ.get("NOMIC_AUTO_COMMIT", "0") == "1"
+
+# Auto-continue: Skip interactive cycle continuation prompt (default ON for loops)
+NOMIC_AUTO_CONTINUE = os.environ.get("NOMIC_AUTO_CONTINUE", "1") == "1"
+
+# Cycle-level hard timeout in seconds (default 2 hours)
+NOMIC_MAX_CYCLE_SECONDS = int(os.environ.get("NOMIC_MAX_CYCLE_SECONDS", "7200"))
+
+# Stall detection threshold in seconds (default 30 minutes)
+NOMIC_STALL_THRESHOLD = int(os.environ.get("NOMIC_STALL_THRESHOLD", "1800"))
+
+
+# =============================================================================
 # PHASE RECOVERY - Structured error handling for nomic loop phases
 # =============================================================================
 
@@ -1918,6 +1935,38 @@ class NomicLoop:
             if fallback is not None:
                 return fallback
             raise PhaseError(phase, f"Timeout after {timeout}s", recoverable=False)
+
+    async def _run_phase_with_recovery(self, phase: str, coro, fallback=None):
+        """
+        Run a phase with both timeout enforcement and retry recovery.
+
+        Combines _run_with_phase_timeout (for individual phase timeout)
+        with PhaseRecovery.run_with_recovery (for retry with exponential backoff).
+
+        Args:
+            phase: Phase name (context, debate, design, implement, verify, commit)
+            coro: Async coroutine to execute
+            fallback: Optional fallback value on timeout/failure
+
+        Returns:
+            Coroutine result, fallback value, or raises PhaseError
+        """
+        async def timeout_wrapped():
+            return await self._run_with_phase_timeout(phase, coro, fallback)
+
+        success, result = await self.phase_recovery.run_with_recovery(
+            phase=phase,
+            phase_func=timeout_wrapped,
+        )
+
+        if success:
+            return result
+        else:
+            # result contains error message
+            if fallback is not None:
+                self._log(f"  [recovery] Phase '{phase}' failed, using fallback")
+                return fallback
+            raise PhaseError(phase, f"Recovery failed: {result}", recoverable=False)
 
     async def _check_agent_health(self, agent, agent_name: str) -> bool:
         """
@@ -7697,9 +7746,15 @@ Be concise - this is a quality gate, not a full review."""
             self._log("\nChanges ready for review:")
             subprocess.run(["git", "diff", "--stat"], cwd=self.aragora_path)
 
-            # Check if running in interactive mode before waiting for input
-            import sys
-            if sys.stdin.isatty():
+            # Check if auto-commit is enabled or running non-interactively
+            if NOMIC_AUTO_COMMIT:
+                self._log("\n[commit] Auto-committing (NOMIC_AUTO_COMMIT=1)")
+            elif not sys.stdin.isatty():
+                # Non-interactive mode: log warning and proceed with commit
+                self._log("\n[commit] Non-interactive mode detected - proceeding with auto-commit")
+                self._log("[commit] Set NOMIC_AUTO_COMMIT=1 to suppress this warning")
+            else:
+                # Interactive mode: prompt for approval
                 response = input("\nCommit these changes? [y/N]: ")
                 if response.lower() != 'y':
                     self._log("Skipping commit.")
@@ -7709,10 +7764,6 @@ Be concise - this is a quality gate, not a full review."""
                         phase_duration, {"reason": "human_declined"}
                     )
                     return {"phase": "commit", "committed": False, "reason": "Human declined"}
-            else:
-                # Non-interactive mode: log warning and proceed with commit
-                self._log("\n[commit] Non-interactive mode detected - proceeding with auto-commit")
-                self._log("[commit] Use --auto flag or set auto_commit=True to suppress this warning")
 
         summary = improvement.replace('\n', ' ')
 
@@ -7781,8 +7832,53 @@ Be concise - this is a quality gate, not a full review."""
             }
 
     async def run_cycle(self) -> dict:
-        """Run one complete improvement cycle with safety backup/restore."""
+        """
+        Run one complete improvement cycle with hard timeout enforcement.
+
+        This is the public entry point that wraps _run_cycle_impl() with
+        a hard timeout to prevent runaway cycles. If the cycle exceeds
+        NOMIC_MAX_CYCLE_SECONDS, it will be forcibly terminated and any
+        changes rolled back to the pre-cycle backup.
+
+        Returns:
+            dict: Cycle result with outcome, phases, duration, etc.
+        """
+        # Increment cycle count before entering impl (needed for error message)
         self.cycle_count += 1
+
+        try:
+            return await asyncio.wait_for(
+                self._run_cycle_impl(),
+                timeout=NOMIC_MAX_CYCLE_SECONDS
+            )
+        except asyncio.TimeoutError:
+            self._log(f"\n{'=' * 70}")
+            self._log(f"[CRITICAL] Cycle {self.cycle_count} exceeded {NOMIC_MAX_CYCLE_SECONDS}s hard limit")
+            self._log(f"{'=' * 70}")
+
+            # Restore backup if one was created during this cycle
+            if hasattr(self, '_cycle_backup_path') and self._cycle_backup_path:
+                self._log(f"  [recovery] Rolling back to backup: {self._cycle_backup_path}")
+                self._restore_backup(self._cycle_backup_path)
+                self._cycle_backup_path = None  # Clear for next cycle
+
+            # Emit timeout event for monitoring
+            self._stream_emit("on_cycle_timeout", self.cycle_count, NOMIC_MAX_CYCLE_SECONDS)
+            self._dispatch_webhook("cycle_timeout", {
+                "cycle": self.cycle_count,
+                "timeout_seconds": NOMIC_MAX_CYCLE_SECONDS,
+            })
+
+            return {
+                "outcome": "cycle_timeout",
+                "cycle": self.cycle_count,
+                "timeout_seconds": NOMIC_MAX_CYCLE_SECONDS,
+                "error": f"Cycle exceeded {NOMIC_MAX_CYCLE_SECONDS}s hard limit",
+            }
+
+    async def _run_cycle_impl(self) -> dict:
+        """Internal implementation of run_cycle (called with timeout wrapper)."""
+        # Note: self.cycle_count already incremented by run_cycle() wrapper
         cycle_start = datetime.now()
         cycle_deadline = cycle_start + timedelta(seconds=self.max_cycle_seconds)
 
@@ -7855,6 +7951,8 @@ Be concise - this is a quality gate, not a full review."""
 
         # === SAFETY: Create backup before any changes ===
         backup_path = self._create_backup(f"cycle_{self.cycle_count}")
+        # Store for timeout handler (run_cycle wrapper can access for rollback)
+        self._cycle_backup_path = backup_path
 
         cycle_result = {
             "cycle": self.cycle_count,
@@ -8748,13 +8846,19 @@ Working directory: {self.aragora_path}
                 else:
                     self._log("Cycle did not complete successfully.")
                     if self.require_human_approval and not self.auto_commit:
-                        try:
-                            response = input("Continue to next cycle? [Y/n]: ")
-                            if response.lower() == 'n':
-                                break
-                        except EOFError:
-                            # Running in background/non-interactive mode
-                            self._log("Non-interactive mode detected, continuing...")
+                        # Check if auto-continue is enabled or running non-interactively
+                        if NOMIC_AUTO_CONTINUE:
+                            self._log("[auto] Auto-continuing (NOMIC_AUTO_CONTINUE=1)")
+                        elif not sys.stdin.isatty():
+                            self._log("[auto] Non-interactive mode detected, continuing...")
+                        else:
+                            try:
+                                response = input("Continue to next cycle? [Y/n]: ")
+                                if response.lower() == 'n':
+                                    break
+                            except EOFError:
+                                # Running in background/non-interactive mode
+                                self._log("Non-interactive mode detected, continuing...")
                     else:
                         self._log("Auto-commit mode: continuing to next cycle...")
 

@@ -10,7 +10,10 @@ from typing import Dict, List, Optional, Any
 from enum import Enum
 import json
 import hashlib
+import logging
 import time
+
+logger = logging.getLogger(__name__)
 
 
 class NodeType(Enum):
@@ -392,7 +395,10 @@ class ArgumentCartographer:
         # Find root nodes (nodes with no incoming edges)
         roots = [node_id for node_id in self.nodes if node_id not in has_parent]
         if not roots:
-            # Cycle or no clear roots - use first node
+            # Cycle or no clear roots - use first node if available
+            if not self.nodes:
+                logger.warning("mapper_empty_nodes")
+                return 0
             roots = [next(iter(self.nodes))]
 
         # BFS to find max depth

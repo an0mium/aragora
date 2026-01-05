@@ -2958,9 +2958,12 @@ Respond with only: CONTINUE or STOP
             max_votes = max(vote_counts.values())
             candidates = [name for name, count in vote_counts.items() if count == max_votes]
             winner_name = random.choice(candidates)
-            return next(a for a in self.agents if a.name == winner_name)
+            winner = next((a for a in self.agents if a.name == winner_name), None)
+            if winner:
+                return winner
+            logger.warning(f"vote_for_judge_winner_not_found name={winner_name}")
 
-        # Fallback to random if voting fails
+        # Fallback to random if voting fails or winner not found
         return random.choice(self.agents)
 
     def _build_judge_vote_prompt(self, candidates: list[Agent], proposals: dict[str, str]) -> str:
