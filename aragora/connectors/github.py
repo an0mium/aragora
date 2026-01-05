@@ -388,7 +388,7 @@ class GitHubConnector(BaseConnector):
             },
         )
 
-        self._cache[evidence.id] = evidence
+        self._cache_put(evidence.id, evidence)
         return evidence
 
     async def _fetch_pr(self, repo: str, number: str) -> Optional[Evidence]:
@@ -438,5 +438,5 @@ class GitHubConnector(BaseConnector):
             },
         )
 
-        self._cache[evidence.id] = evidence
+        self._cache_put(evidence.id, evidence)
         return evidence

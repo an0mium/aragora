@@ -8,6 +8,7 @@ All connectors inherit from BaseConnector and implement:
 """
 
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
@@ -123,10 +124,20 @@ class BaseConnector(ABC):
         self,
         provenance: Optional[ProvenanceManager] = None,
         default_confidence: float = 0.5,
+        max_cache_entries: int = 500,
     ):
         self.provenance = provenance
         self.default_confidence = default_confidence
-        self._cache: dict[str, Evidence] = {}
+        self._cache: OrderedDict[str, Evidence] = OrderedDict()
+        self._max_cache_entries = max_cache_entries
+
+    def _cache_put(self, evidence_id: str, evidence: Evidence) -> None:
+        """Add to cache with LRU eviction."""
+        if evidence_id in self._cache:
+            self._cache.move_to_end(evidence_id)
+        self._cache[evidence_id] = evidence
+        while len(self._cache) > self._max_cache_entries:
+            self._cache.popitem(last=False)
 
     @property
     @abstractmethod

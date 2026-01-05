@@ -232,7 +232,7 @@ class LocalDocsConnector(BaseConnector):
                 },
             )
 
-            self._cache[evidence.id] = evidence
+            self._cache_put(evidence.id, evidence)
             return evidence
 
         except Exception as e:

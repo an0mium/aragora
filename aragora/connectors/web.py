@@ -206,7 +206,7 @@ class WebConnector(BaseConnector):
             for result in results:
                 evidence = self._result_to_evidence(result, query)
                 evidence_list.append(evidence)
-                self._cache[evidence.id] = evidence
+                self._cache_put(evidence.id, evidence)
 
             # Cache the results
             self._save_to_cache(query, evidence_list)
@@ -347,7 +347,7 @@ class WebConnector(BaseConnector):
                     metadata={"fetched_at": datetime.now().isoformat()},
                 )
 
-                self._cache[evidence_id] = evidence
+                self._cache_put(evidence_id, evidence)
                 return evidence
 
         except httpx.TimeoutException:
