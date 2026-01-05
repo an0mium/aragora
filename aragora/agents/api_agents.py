@@ -11,6 +11,9 @@ import json
 import logging
 import os
 import re
+import threading
+import time
+from dataclasses import dataclass
 from typing import Optional
 
 from aragora.core import Agent, Critique, Message
@@ -50,6 +53,167 @@ def _sanitize_error_message(error_text: str, max_length: int = 500) -> str:
     return sanitized
 
 
+# ============================================================================
+# OpenRouter Rate Limiting
+# ============================================================================
+
+@dataclass
+class OpenRouterTier:
+    """Rate limit configuration for an OpenRouter pricing tier."""
+    name: str
+    requests_per_minute: int
+    tokens_per_minute: int = 0  # 0 = unlimited
+    burst_size: int = 10  # Allow short bursts
+
+
+# OpenRouter tier configurations (based on their pricing)
+OPENROUTER_TIERS = {
+    "free": OpenRouterTier(name="free", requests_per_minute=20, burst_size=5),
+    "basic": OpenRouterTier(name="basic", requests_per_minute=60, burst_size=15),
+    "standard": OpenRouterTier(name="standard", requests_per_minute=200, burst_size=30),
+    "premium": OpenRouterTier(name="premium", requests_per_minute=500, burst_size=50),
+    "unlimited": OpenRouterTier(name="unlimited", requests_per_minute=1000, burst_size=100),
+}
+
+
+class OpenRouterRateLimiter:
+    """Rate limiter for OpenRouter API calls.
+
+    Uses token bucket algorithm with configurable tiers.
+    Thread-safe for use across multiple agent instances.
+    """
+
+    def __init__(self, tier: str = "standard"):
+        """
+        Initialize rate limiter with specified tier.
+
+        Tier can be set via OPENROUTER_TIER environment variable.
+        """
+        tier_name = os.environ.get("OPENROUTER_TIER", tier).lower()
+        self.tier = OPENROUTER_TIERS.get(tier_name, OPENROUTER_TIERS["standard"])
+
+        self._tokens = float(self.tier.burst_size)
+        self._last_refill = time.monotonic()
+        self._lock = threading.Lock()
+
+        # Track rate limit headers from API
+        self._api_limit: Optional[int] = None
+        self._api_remaining: Optional[int] = None
+        self._api_reset: Optional[float] = None
+
+        logger.debug(f"OpenRouter rate limiter initialized: tier={self.tier.name}, rpm={self.tier.requests_per_minute}")
+
+    def _refill(self) -> None:
+        """Refill tokens based on elapsed time."""
+        now = time.monotonic()
+        elapsed_minutes = (now - self._last_refill) / 60.0
+        refill_amount = elapsed_minutes * self.tier.requests_per_minute
+        self._tokens = min(self.tier.burst_size, self._tokens + refill_amount)
+        self._last_refill = now
+
+    async def acquire(self, timeout: float = 30.0) -> bool:
+        """
+        Acquire permission to make an API request.
+
+        Blocks until a token is available or timeout is reached.
+        Returns True if acquired, False if timed out.
+        """
+        deadline = time.monotonic() + timeout
+
+        while True:
+            with self._lock:
+                self._refill()
+
+                # Check API-reported limits if available
+                if self._api_remaining is not None and self._api_remaining <= 0:
+                    wait_time = (self._api_reset or 60) - time.time()
+                    if wait_time > 0 and wait_time < timeout:
+                        logger.debug(f"OpenRouter API limit reached, waiting {wait_time:.1f}s")
+                        await asyncio.sleep(min(wait_time, 1.0))
+                        continue
+
+                if self._tokens >= 1:
+                    self._tokens -= 1
+                    return True
+
+            # Wait and retry
+            if time.monotonic() >= deadline:
+                logger.warning("OpenRouter rate limit timeout")
+                return False
+
+            wait_time = 60.0 / self.tier.requests_per_minute  # Time for 1 token
+            await asyncio.sleep(min(wait_time, 1.0))
+
+    def update_from_headers(self, headers: dict) -> None:
+        """Update rate limit state from API response headers.
+
+        OpenRouter returns standard rate limit headers:
+        - X-RateLimit-Limit: Total requests allowed
+        - X-RateLimit-Remaining: Requests remaining
+        - X-RateLimit-Reset: Unix timestamp when limit resets
+        """
+        with self._lock:
+            if "X-RateLimit-Limit" in headers:
+                try:
+                    self._api_limit = int(headers["X-RateLimit-Limit"])
+                except ValueError:
+                    pass
+
+            if "X-RateLimit-Remaining" in headers:
+                try:
+                    self._api_remaining = int(headers["X-RateLimit-Remaining"])
+                except ValueError:
+                    pass
+
+            if "X-RateLimit-Reset" in headers:
+                try:
+                    self._api_reset = float(headers["X-RateLimit-Reset"])
+                except ValueError:
+                    pass
+
+    def release_on_error(self) -> None:
+        """Release a token back on request error (optional, for retries)."""
+        with self._lock:
+            self._tokens = min(self.tier.burst_size, self._tokens + 0.5)
+
+    @property
+    def stats(self) -> dict:
+        """Get current rate limiter statistics."""
+        with self._lock:
+            return {
+                "tier": self.tier.name,
+                "rpm_limit": self.tier.requests_per_minute,
+                "tokens_available": int(self._tokens),
+                "burst_size": self.tier.burst_size,
+                "api_limit": self._api_limit,
+                "api_remaining": self._api_remaining,
+            }
+
+
+# Global rate limiter instance (shared across all OpenRouterAgent instances)
+_openrouter_limiter: Optional[OpenRouterRateLimiter] = None
+_openrouter_limiter_lock = threading.Lock()
+
+
+def get_openrouter_limiter() -> OpenRouterRateLimiter:
+    """Get or create the global OpenRouter rate limiter."""
+    global _openrouter_limiter
+    with _openrouter_limiter_lock:
+        if _openrouter_limiter is None:
+            _openrouter_limiter = OpenRouterRateLimiter()
+        return _openrouter_limiter
+
+
+def set_openrouter_tier(tier: str) -> None:
+    """Set the OpenRouter rate limit tier.
+
+    Valid tiers: free, basic, standard, premium, unlimited
+    """
+    global _openrouter_limiter
+    with _openrouter_limiter_lock:
+        _openrouter_limiter = OpenRouterRateLimiter(tier=tier)
+
+
 class APIAgent(Agent):
     """Base class for API-based agents."""
 
@@ -59,8 +223,8 @@ class APIAgent(Agent):
         model: str,
         role: str = "proposer",
         timeout: int = 120,
-        api_key: str = None,
-        base_url: str = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
     ):
         super().__init__(name, model, role)
         self.timeout = timeout
@@ -68,7 +232,7 @@ class APIAgent(Agent):
         self.base_url = base_url
         self.agent_type = "api"  # Default for API agents
 
-    def _build_context_prompt(self, context: list[Message] = None) -> str:
+    def _build_context_prompt(self, context: list[Message] | None = None) -> str:
         """Build context from previous messages."""
         if not context:
             return ""
@@ -150,7 +314,7 @@ class GeminiAgent(APIAgent):
         model: str = "gemini-3-pro-preview",  # Gemini 3 Pro Preview - advanced reasoning
         role: str = "proposer",
         timeout: int = 120,
-        api_key: str = None,
+        api_key: str | None = None,
     ):
         super().__init__(
             name=name,
@@ -162,7 +326,7 @@ class GeminiAgent(APIAgent):
         )
         self.agent_type = "gemini"
 
-    async def generate(self, prompt: str, context: list[Message] = None) -> str:
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using Gemini API."""
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable required")
@@ -236,7 +400,7 @@ class GeminiAgent(APIAgent):
                 except (KeyError, IndexError) as e:
                     raise RuntimeError(f"Unexpected Gemini response format: {data}")
 
-    async def generate_stream(self, prompt: str, context: list[Message] = None):
+    async def generate_stream(self, prompt: str, context: list[Message] | None = None):
         """Stream tokens from Gemini API.
 
         Yields chunks of text as they arrive from the API.
@@ -327,7 +491,7 @@ class GeminiAgent(APIAgent):
                         except json.JSONDecodeError:
                             break
 
-    async def critique(self, proposal: str, task: str, context: list[Message] = None) -> Critique:
+    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using Gemini."""
         critique_prompt = f"""You are a critical reviewer. Analyze this proposal for the given task.
 
@@ -357,7 +521,7 @@ class OllamaAgent(APIAgent):
         model: str = "llama3.2",
         role: str = "proposer",
         timeout: int = 180,
-        base_url: str = None,
+        base_url: str | None = None,
     ):
         super().__init__(
             name=name,
@@ -368,7 +532,7 @@ class OllamaAgent(APIAgent):
         )
         self.agent_type = "ollama"
 
-    async def generate(self, prompt: str, context: list[Message] = None) -> str:
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using Ollama API."""
         full_prompt = prompt
         if context:
@@ -406,7 +570,7 @@ class OllamaAgent(APIAgent):
                     "Is Ollama running? Start with: ollama serve"
                 )
 
-    async def critique(self, proposal: str, task: str, context: list[Message] = None) -> Critique:
+    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using Ollama."""
         critique_prompt = f"""You are a critical reviewer. Analyze this proposal:
 
@@ -440,7 +604,7 @@ class AnthropicAPIAgent(APIAgent):
         model: str = "claude-opus-4-5-20251101",
         role: str = "proposer",
         timeout: int = 120,
-        api_key: str = None,
+        api_key: str | None = None,
     ):
         super().__init__(
             name=name,
@@ -452,7 +616,7 @@ class AnthropicAPIAgent(APIAgent):
         )
         self.agent_type = "anthropic"
 
-    async def generate(self, prompt: str, context: list[Message] = None) -> str:
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using Anthropic API."""
         if not self.api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable required")
@@ -497,7 +661,7 @@ class AnthropicAPIAgent(APIAgent):
                 except (KeyError, IndexError):
                     raise RuntimeError(f"Unexpected Anthropic response format: {data}")
 
-    async def generate_stream(self, prompt: str, context: list[Message] = None):
+    async def generate_stream(self, prompt: str, context: list[Message] | None = None):
         """Stream tokens from Anthropic API.
 
         Yields chunks of text as they arrive from the API using SSE.
@@ -572,7 +736,7 @@ class AnthropicAPIAgent(APIAgent):
                         except json.JSONDecodeError:
                             continue
 
-    async def critique(self, proposal: str, task: str, context: list[Message] = None) -> Critique:
+    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using Anthropic API."""
         critique_prompt = f"""Analyze this proposal critically:
 
@@ -614,7 +778,7 @@ class OpenAIAPIAgent(APIAgent):
         model: str = "gpt-5.2",
         role: str = "proposer",
         timeout: int = 120,
-        api_key: str = None,
+        api_key: str | None = None,
         enable_fallback: bool = True,
     ):
         super().__init__(
@@ -656,7 +820,7 @@ class OpenAIAPIAgent(APIAgent):
         quota_keywords = ["quota", "rate_limit", "insufficient_quota", "exceeded"]
         return any(kw in error_text.lower() for kw in quota_keywords)
 
-    async def generate(self, prompt: str, context: list[Message] = None) -> str:
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using OpenAI API."""
         if not self.api_key:
             raise ValueError("OPENAI_API_KEY environment variable required")
@@ -717,7 +881,7 @@ class OpenAIAPIAgent(APIAgent):
                 except (KeyError, IndexError):
                     raise RuntimeError(f"Unexpected OpenAI response format: {data}")
 
-    async def generate_stream(self, prompt: str, context: list[Message] = None):
+    async def generate_stream(self, prompt: str, context: list[Message] | None = None):
         """Stream tokens from OpenAI API.
 
         Yields chunks of text as they arrive from the API using SSE.
@@ -808,7 +972,7 @@ class OpenAIAPIAgent(APIAgent):
                         except json.JSONDecodeError:
                             continue
 
-    async def critique(self, proposal: str, task: str, context: list[Message] = None) -> Critique:
+    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using OpenAI API."""
         critique_prompt = f"""Critically analyze this proposal:
 
@@ -843,7 +1007,7 @@ class GrokAgent(APIAgent):
         model: str = "grok-4",
         role: str = "proposer",
         timeout: int = 120,
-        api_key: str = None,
+        api_key: str | None = None,
     ):
         super().__init__(
             name=name,
@@ -855,7 +1019,7 @@ class GrokAgent(APIAgent):
         )
         self.agent_type = "grok"
 
-    async def generate(self, prompt: str, context: list[Message] = None) -> str:
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using Grok API."""
         if not self.api_key:
             raise ValueError("XAI_API_KEY or GROK_API_KEY environment variable required")
@@ -900,7 +1064,7 @@ class GrokAgent(APIAgent):
                 except (KeyError, IndexError):
                     raise RuntimeError(f"Unexpected Grok response format: {data}")
 
-    async def generate_stream(self, prompt: str, context: list[Message] = None):
+    async def generate_stream(self, prompt: str, context: list[Message] | None = None):
         """Stream tokens from Grok API."""
         if not self.api_key:
             raise ValueError("XAI_API_KEY or GROK_API_KEY environment variable required")
@@ -967,7 +1131,7 @@ class GrokAgent(APIAgent):
                         except json.JSONDecodeError:
                             continue
 
-    async def critique(self, proposal: str, task: str, context: list[Message] = None) -> Critique:
+    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using Grok API."""
         critique_prompt = f"""Critically analyze this proposal:
 
@@ -1011,7 +1175,7 @@ class OpenRouterAgent(APIAgent):
         name: str = "openrouter",
         role: str = "analyst",
         model: str = "deepseek/deepseek-chat",
-        system_prompt: str = None,
+        system_prompt: str | None = None,
         timeout: int = 300,
     ):
         super().__init__(
@@ -1035,10 +1199,15 @@ class OpenRouterAgent(APIAgent):
             prompt += f"- {msg.agent} ({msg.role}): {msg.content[:500]}...\n"
         return prompt + "\n"
 
-    async def generate(self, prompt: str, context: list[Message] = None) -> str:
-        """Generate a response using OpenRouter API."""
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response using OpenRouter API with rate limiting."""
         if not self.api_key:
             raise ValueError("OPENROUTER_API_KEY environment variable required")
+
+        # Acquire rate limit token
+        limiter = get_openrouter_limiter()
+        if not await limiter.acquire(timeout=30.0):
+            raise RuntimeError("OpenRouter rate limit exceeded, request timed out")
 
         full_prompt = prompt
         if context:
@@ -1070,6 +1239,15 @@ class OpenRouterAgent(APIAgent):
                 json=payload,
                 timeout=aiohttp.ClientTimeout(total=self.timeout),
             ) as response:
+                # Update rate limit state from headers
+                limiter.update_from_headers(dict(response.headers))
+
+                if response.status == 429:
+                    # Rate limited by API - release token and wait
+                    limiter.release_on_error()
+                    retry_after = response.headers.get("Retry-After", "60")
+                    raise RuntimeError(f"OpenRouter rate limited (429), retry after {retry_after}s")
+
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
@@ -1081,13 +1259,18 @@ class OpenRouterAgent(APIAgent):
                 except (KeyError, IndexError):
                     raise RuntimeError(f"Unexpected OpenRouter response format: {data}")
 
-    async def generate_stream(self, prompt: str, context: list[Message] = None):
-        """Stream tokens from OpenRouter API.
+    async def generate_stream(self, prompt: str, context: list[Message] | None = None):
+        """Stream tokens from OpenRouter API with rate limiting.
 
         Yields chunks of text as they arrive from the API using SSE.
         """
         if not self.api_key:
             raise ValueError("OPENROUTER_API_KEY environment variable required")
+
+        # Acquire rate limit token
+        limiter = get_openrouter_limiter()
+        if not await limiter.acquire(timeout=30.0):
+            raise RuntimeError("OpenRouter rate limit exceeded, request timed out")
 
         full_prompt = prompt
         if context:
@@ -1120,6 +1303,14 @@ class OpenRouterAgent(APIAgent):
                 json=payload,
                 timeout=aiohttp.ClientTimeout(total=self.timeout),
             ) as response:
+                # Update rate limit state from headers
+                limiter.update_from_headers(dict(response.headers))
+
+                if response.status == 429:
+                    limiter.release_on_error()
+                    retry_after = response.headers.get("Retry-After", "60")
+                    raise RuntimeError(f"OpenRouter rate limited (429), retry after {retry_after}s")
+
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
@@ -1154,7 +1345,7 @@ class OpenRouterAgent(APIAgent):
                         except json.JSONDecodeError:
                             continue
 
-    async def critique(self, proposal: str, task: str, context: list[Message] = None) -> Critique:
+    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using OpenRouter API."""
         critique_prompt = f"""Critically analyze this proposal:
 
@@ -1181,7 +1372,7 @@ REASONING: explanation"""
 class DeepSeekAgent(OpenRouterAgent):
     """DeepSeek V3.2 via OpenRouter - latest model with integrated thinking + tool-use."""
 
-    def __init__(self, name: str = "deepseek", role: str = "analyst", system_prompt: str = None):
+    def __init__(self, name: str = "deepseek", role: str = "analyst", system_prompt: str | None = None):
         super().__init__(
             name=name,
             role=role,
@@ -1194,7 +1385,7 @@ class DeepSeekAgent(OpenRouterAgent):
 class DeepSeekReasonerAgent(OpenRouterAgent):
     """DeepSeek R1 via OpenRouter - reasoning model with chain-of-thought."""
 
-    def __init__(self, name: str = "deepseek-r1", role: str = "analyst", system_prompt: str = None):
+    def __init__(self, name: str = "deepseek-r1", role: str = "analyst", system_prompt: str | None = None):
         super().__init__(
             name=name,
             role=role,
@@ -1207,7 +1398,7 @@ class DeepSeekReasonerAgent(OpenRouterAgent):
 class DeepSeekV3Agent(OpenRouterAgent):
     """DeepSeek V3.2 via OpenRouter - integrated thinking + tool-use, GPT-5 class reasoning."""
 
-    def __init__(self, name: str = "deepseek-v3", role: str = "analyst", system_prompt: str = None):
+    def __init__(self, name: str = "deepseek-v3", role: str = "analyst", system_prompt: str | None = None):
         super().__init__(
             name=name,
             role=role,
@@ -1220,7 +1411,7 @@ class DeepSeekV3Agent(OpenRouterAgent):
 class LlamaAgent(OpenRouterAgent):
     """Llama 3.3 70B via OpenRouter."""
 
-    def __init__(self, name: str = "llama", role: str = "analyst", system_prompt: str = None):
+    def __init__(self, name: str = "llama", role: str = "analyst", system_prompt: str | None = None):
         super().__init__(
             name=name,
             role=role,
@@ -1233,7 +1424,7 @@ class LlamaAgent(OpenRouterAgent):
 class MistralAgent(OpenRouterAgent):
     """Mistral Large via OpenRouter."""
 
-    def __init__(self, name: str = "mistral", role: str = "analyst", system_prompt: str = None):
+    def __init__(self, name: str = "mistral", role: str = "analyst", system_prompt: str | None = None):
         super().__init__(
             name=name,
             role=role,

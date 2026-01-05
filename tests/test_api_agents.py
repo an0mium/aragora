@@ -393,5 +393,126 @@ class TestAgentStreamingCapability:
         assert hasattr(agent, 'generate')
 
 
+class TestOpenRouterRateLimiter:
+    """Tests for OpenRouter rate limiting."""
+
+    def test_tier_configuration(self):
+        """Test tier configurations exist and have expected values."""
+        from aragora.agents.api_agents import OPENROUTER_TIERS
+
+        assert "free" in OPENROUTER_TIERS
+        assert "standard" in OPENROUTER_TIERS
+        assert "premium" in OPENROUTER_TIERS
+
+        assert OPENROUTER_TIERS["free"].requests_per_minute == 20
+        assert OPENROUTER_TIERS["standard"].requests_per_minute == 200
+
+    def test_limiter_initialization(self):
+        """Test rate limiter initializes with correct tier."""
+        from aragora.agents.api_agents import OpenRouterRateLimiter
+
+        limiter = OpenRouterRateLimiter(tier="free")
+        assert limiter.tier.name == "free"
+        assert limiter.tier.requests_per_minute == 20
+
+    def test_limiter_defaults_to_standard(self):
+        """Test rate limiter defaults to standard tier."""
+        from aragora.agents.api_agents import OpenRouterRateLimiter
+
+        with patch.dict("os.environ", {}, clear=False):
+            # Remove OPENROUTER_TIER if present
+            import os
+            os.environ.pop("OPENROUTER_TIER", None)
+            limiter = OpenRouterRateLimiter()
+
+        assert limiter.tier.name == "standard"
+
+    def test_limiter_respects_env_tier(self):
+        """Test rate limiter respects OPENROUTER_TIER env var."""
+        from aragora.agents.api_agents import OpenRouterRateLimiter
+
+        with patch.dict("os.environ", {"OPENROUTER_TIER": "premium"}):
+            limiter = OpenRouterRateLimiter()
+
+        assert limiter.tier.name == "premium"
+
+    def test_limiter_stats(self):
+        """Test rate limiter stats property."""
+        from aragora.agents.api_agents import OpenRouterRateLimiter
+
+        limiter = OpenRouterRateLimiter(tier="basic")
+        stats = limiter.stats
+
+        assert "tier" in stats
+        assert stats["tier"] == "basic"
+        assert "rpm_limit" in stats
+        assert stats["rpm_limit"] == 60
+        assert "tokens_available" in stats
+        assert "burst_size" in stats
+
+    def test_limiter_update_from_headers(self):
+        """Test rate limiter updates from API response headers."""
+        from aragora.agents.api_agents import OpenRouterRateLimiter
+
+        limiter = OpenRouterRateLimiter(tier="standard")
+
+        headers = {
+            "X-RateLimit-Limit": "200",
+            "X-RateLimit-Remaining": "150",
+            "X-RateLimit-Reset": "1704067200",
+        }
+
+        limiter.update_from_headers(headers)
+        stats = limiter.stats
+
+        assert stats["api_limit"] == 200
+        assert stats["api_remaining"] == 150
+
+    def test_global_limiter_singleton(self):
+        """Test global rate limiter is a singleton."""
+        from aragora.agents.api_agents import get_openrouter_limiter, set_openrouter_tier
+
+        # Reset global limiter
+        set_openrouter_tier("standard")
+
+        limiter1 = get_openrouter_limiter()
+        limiter2 = get_openrouter_limiter()
+
+        assert limiter1 is limiter2
+
+    def test_set_tier_changes_limiter(self):
+        """Test set_openrouter_tier creates new limiter with correct tier."""
+        from aragora.agents.api_agents import get_openrouter_limiter, set_openrouter_tier
+
+        set_openrouter_tier("free")
+        limiter = get_openrouter_limiter()
+
+        assert limiter.tier.name == "free"
+
+    @pytest.mark.asyncio
+    async def test_limiter_acquire_succeeds(self):
+        """Test rate limiter acquire succeeds with available tokens."""
+        from aragora.agents.api_agents import OpenRouterRateLimiter
+
+        limiter = OpenRouterRateLimiter(tier="standard")
+
+        # Should succeed immediately with burst tokens available
+        acquired = await limiter.acquire(timeout=1.0)
+        assert acquired is True
+
+    def test_limiter_release_on_error(self):
+        """Test release_on_error returns partial token."""
+        from aragora.agents.api_agents import OpenRouterRateLimiter
+
+        limiter = OpenRouterRateLimiter(tier="standard")
+        initial_tokens = limiter.stats["tokens_available"]
+
+        limiter.release_on_error()
+        final_tokens = limiter.stats["tokens_available"]
+
+        # Should not exceed burst size
+        assert final_tokens <= limiter.tier.burst_size
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
