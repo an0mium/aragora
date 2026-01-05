@@ -5,6 +5,8 @@ Each module handles a specific domain of endpoints:
 - debates: Debate history and management
 - agents: Agent profiles, rankings, and metrics
 - system: Health checks, nomic state, modes
+- pulse: Trending topics from multiple sources
+- analytics: Aggregated metrics and statistics
 
 Usage:
     from aragora.server.handlers import DebatesHandler, AgentsHandler, SystemHandler
@@ -24,6 +26,8 @@ from .base import HandlerResult, BaseHandler, json_response, error_response
 from .debates import DebatesHandler
 from .agents import AgentsHandler
 from .system import SystemHandler
+from .pulse import PulseHandler
+from .analytics import AnalyticsHandler
 
 __all__ = [
     # Base utilities
@@ -35,4 +39,6 @@ __all__ = [
     "DebatesHandler",
     "AgentsHandler",
     "SystemHandler",
+    "PulseHandler",
+    "AnalyticsHandler",
 ]

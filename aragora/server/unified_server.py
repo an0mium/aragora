@@ -395,6 +395,8 @@ try:
         SystemHandler,
         DebatesHandler,
         AgentsHandler,
+        PulseHandler,
+        AnalyticsHandler,
         HandlerResult,
     )
     HANDLERS_AVAILABLE = True
@@ -403,6 +405,8 @@ except ImportError:
     SystemHandler = None
     DebatesHandler = None
     AgentsHandler = None
+    PulseHandler = None
+    AnalyticsHandler = None
     HandlerResult = None
 
 # Track active ad-hoc debates
@@ -528,6 +532,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     _system_handler: Optional["SystemHandler"] = None
     _debates_handler: Optional["DebatesHandler"] = None
     _agents_handler: Optional["AgentsHandler"] = None
+    _pulse_handler: Optional["PulseHandler"] = None
+    _analytics_handler: Optional["AnalyticsHandler"] = None
     _handlers_initialized: bool = False
 
     # Thread pool for debate execution (prevents unbounded thread creation)
@@ -616,8 +622,10 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         cls._system_handler = SystemHandler(ctx)
         cls._debates_handler = DebatesHandler(ctx)
         cls._agents_handler = AgentsHandler(ctx)
+        cls._pulse_handler = PulseHandler(ctx)
+        cls._analytics_handler = AnalyticsHandler(ctx)
         cls._handlers_initialized = True
-        logger.info("[handlers] Modular handlers initialized")
+        logger.info("[handlers] Modular handlers initialized (5 handlers)")
 
     def _try_modular_handler(self, path: str, query: dict) -> bool:
         """Try to handle request via modular handlers.
@@ -638,6 +646,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._system_handler,
             self._debates_handler,
             self._agents_handler,
+            self._pulse_handler,
+            self._analytics_handler,
         ]
 
         for handler in handlers:
