@@ -42,6 +42,7 @@ import { StatusBar, StatusPill } from '@/components/StatusBar';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { BackendSelector, useBackend, BACKENDS } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { CollapsibleSection } from '@/components/CollapsibleSection';
 import type { NomicState } from '@/types/events';
 
 // Dynamic imports for heavy/conditionally-shown components
@@ -448,97 +449,120 @@ export default function Home() {
             )}
           </div>
 
-          {/* Side Panel */}
-          <div className="lg:col-span-1 space-y-4">
-            <PanelErrorBoundary panelName="Document Upload">
-              <DocumentUpload apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="User Participation">
-              <UserParticipation
-                events={events}
-                onVote={handleUserVote}
-                onSuggest={handleUserSuggestion}
-                onAck={onAck}
-                onError={onError}
-              />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Citations">
-              <CitationsPanel events={events} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="History">
-              <HistoryPanel />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Trending Topics">
-              <TrendingTopicsPanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Debate List">
-              <DebateListPanel />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Agent Compare">
-              <AgentComparePanel />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Leaderboard">
-              <LeaderboardPanel wsMessages={events} loopId={effectiveLoopId} apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Calibration">
-              <CalibrationPanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Tournament">
-              <TournamentPanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Analytics">
-              <AnalyticsPanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Learning Evolution">
-              <LearningEvolution />
-            </PanelErrorBoundary>
-            {currentDebateId && (
-              <PanelErrorBoundary panelName="Impasse Detection">
-                <ImpasseDetectionPanel debateId={currentDebateId} apiBase={apiBase} />
+          {/* Side Panel - Organized into Collapsible Sections */}
+          <div className="lg:col-span-1 space-y-2">
+            {/* Section 1: Core Debate - expanded by default */}
+            <CollapsibleSection id="core-debate" title="CORE DEBATE" defaultOpen={true}>
+              <PanelErrorBoundary panelName="Document Upload">
+                <DocumentUpload apiBase={apiBase} />
               </PanelErrorBoundary>
-            )}
-            <PanelErrorBoundary panelName="Server Metrics">
-              <MetricsPanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Consensus KB">
-              <ConsensusKnowledgeBase apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Debate Browser">
-              <DebateBrowser />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Insights">
-              <InsightsPanel wsMessages={events} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Crux Analysis">
-              <CruxPanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Memory Inspector">
-              <MemoryInspector apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Laboratory">
-              <LaboratoryPanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Agent Network">
-              <AgentNetworkPanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Capability Probes">
-              <CapabilityProbePanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Operational Modes">
-              <OperationalModesPanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Red Team">
-              <RedTeamAnalysisPanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Contrary Views">
-              <ContraryViewsPanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Risk Warnings">
-              <RiskWarningsPanel apiBase={apiBase} />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary panelName="Replay Browser">
-              <ReplayBrowser />
-            </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="User Participation">
+                <UserParticipation
+                  events={events}
+                  onVote={handleUserVote}
+                  onSuggest={handleUserSuggestion}
+                  onAck={onAck}
+                  onError={onError}
+                />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Citations">
+                <CitationsPanel events={events} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="History">
+                <HistoryPanel />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+
+            {/* Section 2: Browse & Discover */}
+            <CollapsibleSection id="browse-discover" title="BROWSE & DISCOVER">
+              <PanelErrorBoundary panelName="Trending Topics">
+                <TrendingTopicsPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Debate List">
+                <DebateListPanel />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Debate Browser">
+                <DebateBrowser />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Replay Browser">
+                <ReplayBrowser />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+
+            {/* Section 3: Agent Analysis */}
+            <CollapsibleSection id="agent-analysis" title="AGENT ANALYSIS">
+              <PanelErrorBoundary panelName="Agent Compare">
+                <AgentComparePanel />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Agent Network">
+                <AgentNetworkPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Leaderboard">
+                <LeaderboardPanel wsMessages={events} loopId={effectiveLoopId} apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Calibration">
+                <CalibrationPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Tournament">
+                <TournamentPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+
+            {/* Section 4: Insights & Learning */}
+            <CollapsibleSection id="insights-learning" title="INSIGHTS & LEARNING">
+              <PanelErrorBoundary panelName="Insights">
+                <InsightsPanel wsMessages={events} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Crux Analysis">
+                <CruxPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Contrary Views">
+                <ContraryViewsPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Risk Warnings">
+                <RiskWarningsPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Learning Evolution">
+                <LearningEvolution />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+
+            {/* Section 5: System Tools */}
+            <CollapsibleSection id="system-tools" title="SYSTEM TOOLS">
+              <PanelErrorBoundary panelName="Capability Probes">
+                <CapabilityProbePanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Operational Modes">
+                <OperationalModesPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Red Team">
+                <RedTeamAnalysisPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Laboratory">
+                <LaboratoryPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+
+            {/* Section 6: Advanced/Debug */}
+            <CollapsibleSection id="advanced-debug" title="ADVANCED / DEBUG">
+              <PanelErrorBoundary panelName="Analytics">
+                <AnalyticsPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Server Metrics">
+                <MetricsPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Consensus KB">
+                <ConsensusKnowledgeBase apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Memory Inspector">
+                <MemoryInspector apiBase={apiBase} />
+              </PanelErrorBoundary>
+              {currentDebateId && (
+                <PanelErrorBoundary panelName="Impasse Detection">
+                  <ImpasseDetectionPanel debateId={currentDebateId} apiBase={apiBase} />
+                </PanelErrorBoundary>
+              )}
+            </CollapsibleSection>
           </div>
         </div>
 

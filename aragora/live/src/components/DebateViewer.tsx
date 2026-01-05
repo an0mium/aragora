@@ -345,7 +345,7 @@ function LiveDebateView({
               </div>
             )}
             {messages.map((msg, idx) => (
-              <TranscriptMessageCard key={idx} message={msg} />
+              <TranscriptMessageCard key={`${msg.agent}-${msg.timestamp}-${idx}`} message={msg} />
             ))}
             {/* Streaming messages */}
             {Array.from(streamingMessages.values()).map((streamMsg) => (

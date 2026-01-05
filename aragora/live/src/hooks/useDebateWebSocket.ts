@@ -67,6 +67,46 @@ export function useDebateWebSocket({
   const ackCallbackRef = useRef<((msgType: string) => void) | null>(null);
   const errorCallbackRef = useRef<((message: string) => void) | null>(null);
 
+  // Message deduplication
+  const seenMessagesRef = useRef<Set<string>>(new Set());
+
+  // Orphaned stream cleanup - handles agents that never send token_end
+  const STREAM_TIMEOUT_MS = 60000; // 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStreamingMessages(prev => {
+        const now = Date.now();
+        const updated = new Map(prev);
+        let changed = false;
+
+        for (const [agent, msg] of Array.from(updated.entries())) {
+          if (now - msg.startTime > STREAM_TIMEOUT_MS) {
+            // Convert stale stream to completed message with timeout indicator
+            if (msg.content) {
+              const timedOutMsg = {
+                agent: msg.agent,
+                content: msg.content + ' [stream timed out]',
+                timestamp: Date.now() / 1000,
+              };
+              // Deduplication check
+              const msgKey = `${timedOutMsg.agent}-${timedOutMsg.timestamp}-${timedOutMsg.content.slice(0, 50)}`;
+              if (!seenMessagesRef.current.has(msgKey)) {
+                seenMessagesRef.current.add(msgKey);
+                setMessages(prevMsgs => [...prevMsgs, timedOutMsg]);
+              }
+            }
+            updated.delete(agent);
+            changed = true;
+          }
+        }
+
+        return changed ? updated : prev;
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Send vote to server
   const sendVote = useCallback((choice: string, intensity?: number) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -101,6 +141,16 @@ export function useDebateWebSocket({
     return () => { errorCallbackRef.current = null; };
   }, []);
 
+  // Helper to add message with deduplication
+  const addMessageIfNew = useCallback((msg: TranscriptMessage) => {
+    // Create key from agent + timestamp + content prefix for deduplication
+    const msgKey = `${msg.agent}-${msg.timestamp}-${msg.content.slice(0, 50)}`;
+    if (seenMessagesRef.current.has(msgKey)) return false;
+    seenMessagesRef.current.add(msgKey);
+    setMessages(prev => [...prev, msg]);
+    return true;
+  }, []);
+
   // Handle incoming WebSocket message
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
@@ -129,8 +179,7 @@ export function useDebateWebSocket({
           round: data.round || data.data?.round,
           timestamp: data.timestamp || data.data?.timestamp || Date.now() / 1000,
         };
-        if (msg.content) {
-          setMessages(prev => [...prev, msg]);
+        if (msg.content && addMessageIfNew(msg)) {
           const agentName = msg.agent;
           if (agentName) {
             setAgents(prev => prev.includes(agentName) ? prev : [...prev, agentName]);
@@ -162,7 +211,7 @@ export function useDebateWebSocket({
           timestamp: Date.now() / 1000,
         };
         if (msg.content) {
-          setMessages(prev => [...prev, msg]);
+          addMessageIfNew(msg);
         }
       }
 
@@ -217,7 +266,12 @@ export function useDebateWebSocket({
                 content: existing.content,
                 timestamp: Date.now() / 1000,
               };
-              setMessages(prevMsgs => [...prevMsgs, msg]);
+              // Deduplication check
+              const msgKey = `${msg.agent}-${msg.timestamp}-${msg.content.slice(0, 50)}`;
+              if (!seenMessagesRef.current.has(msgKey)) {
+                seenMessagesRef.current.add(msgKey);
+                setMessages(prevMsgs => [...prevMsgs, msg]);
+              }
             }
             updated.delete(agent);
             return updated;
@@ -235,7 +289,7 @@ export function useDebateWebSocket({
           timestamp: data.timestamp || Date.now() / 1000,
         };
         if (msg.content) {
-          setMessages(prev => [...prev, msg]);
+          addMessageIfNew(msg);
         }
       }
 
@@ -247,7 +301,7 @@ export function useDebateWebSocket({
           content: `[CONSENSUS ${data.data?.reached ? 'REACHED' : 'NOT REACHED'}] Confidence: ${Math.round((data.data?.confidence || 0) * 100)}%`,
           timestamp: data.timestamp || Date.now() / 1000,
         };
-        setMessages(prev => [...prev, msg]);
+        addMessageIfNew(msg);
       }
 
       // Acknowledgment events
@@ -289,7 +343,7 @@ export function useDebateWebSocket({
     } catch (e) {
       console.error('Failed to parse WebSocket message:', e);
     }
-  }, [debateId]);
+  }, [debateId, addMessageIfNew]);
 
   // WebSocket connection effect
   useEffect(() => {
