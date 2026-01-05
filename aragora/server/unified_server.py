@@ -871,32 +871,9 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             limit = self._safe_int(query, 'limit', 20, 100)
             self._get_recent_insights(limit)
 
-        # Leaderboard API (debate consensus feature)
-        elif path == '/api/leaderboard':
-            limit = self._safe_int(query, 'limit', 20, 50)
-            domain = query.get('domain', [None])[0]
-            self._get_leaderboard(limit, domain)
-        elif path == '/api/matches/recent':
-            limit = self._safe_int(query, 'limit', 10, 50)
-            loop_id = query.get('loop_id', [None])[0]
-            self._get_recent_matches(limit, loop_id)
-        elif path.startswith('/api/agent/') and path.endswith('/history'):
-            agent = self._extract_path_segment(path, 3, "agent")
-            if agent is None:
-                return
-            limit = self._safe_int(query, 'limit', 30, 100)
-            self._get_agent_history(agent, limit)
-
-        # Calibration API
-        elif path == '/api/calibration/leaderboard':
-            limit = self._safe_int(query, 'limit', 20, 50)
-            self._get_calibration_leaderboard(limit)
-        elif path.startswith('/api/agent/') and path.endswith('/calibration'):
-            agent = self._extract_path_segment(path, 3, "agent")
-            if agent is None:
-                return
-            domain = query.get('domain', [None])[0]
-            self._get_agent_calibration(agent, domain)
+        # Note: /api/leaderboard, /api/matches/recent, /api/agent/*/history,
+        # /api/calibration/leaderboard, /api/agent/*/calibration
+        # are now handled by AgentsHandler
 
         # Pulse API (trending topics)
         elif path == '/api/pulse/trending':
@@ -928,16 +905,12 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._get_learning_evolution()
 
         # Flip Detection API
+        # Note: /api/agent/*/consistency is handled by AgentsHandler
         elif path == '/api/flips/recent':
             limit = self._safe_int(query, 'limit', 20, 100)
             self._get_recent_flips(limit)
         elif path == '/api/flips/summary':
             self._get_flip_summary()
-        elif path.startswith('/api/agent/') and path.endswith('/consistency'):
-            agent = self._extract_path_segment(path, 3, "agent")
-            if agent is None:
-                return
-            self._get_agent_consistency(agent)
         elif path.startswith('/api/agent/') and path.endswith('/flips'):
             agent = self._extract_path_segment(path, 3, "agent")
             if agent is None:
