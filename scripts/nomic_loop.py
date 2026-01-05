@@ -2625,6 +2625,8 @@ The most valuable proposals combine deep analysis with actionable implementation
                     ),
                     position_tracker=self.position_tracker,
                     event_hooks=self._create_arena_hooks("tournament"),
+                    event_emitter=self.stream_emitter,
+                    loop_id=self.loop_id,
                     persona_manager=self.persona_manager,
                     relationship_tracker=self.relationship_tracker,
                     moment_detector=self.moment_detector,
@@ -3429,6 +3431,8 @@ The most valuable proposals combine deep analysis with actionable implementation
                     env, agents, protocol,
                     position_tracker=self.position_tracker,
                     event_hooks=self._create_arena_hooks("scenario"),
+                    event_emitter=self.stream_emitter,
+                    loop_id=self.loop_id,
                     persona_manager=self.persona_manager,
                     relationship_tracker=self.relationship_tracker,
                     moment_detector=self.moment_detector,
@@ -6083,6 +6087,61 @@ Your design will be evaluated on:
         )
         result = await self._run_arena_with_logging(arena, "design")
 
+        # === Deadlock Resolution via Counterfactual Branching ===
+        # When design consensus fails, use belief analysis to identify crux claims
+        # and fork the debate to explore different assumptions
+        conditional_design = None
+        if not result.consensus_reached and self.nomic_integration:
+            try:
+                self._log("  [deadlock] No design consensus - attempting counterfactual resolution...")
+
+                # Run full post-debate analysis which includes deadlock resolution
+                post_analysis = await self.nomic_integration.full_post_debate_analysis(
+                    result=result,
+                    arena=arena,  # Pass arena for branch execution
+                    claims_kernel=None,
+                    changed_files=None,
+                )
+
+                conditional = post_analysis.get("conditional")
+                summary = post_analysis.get("summary", {})
+
+                if conditional:
+                    self._log(f"  [deadlock] Resolved with conditional consensus")
+                    # Synthesize a design from the conditional consensus
+                    if hasattr(conditional, 'synthesized_answer') and conditional.synthesized_answer:
+                        result.final_answer = conditional.synthesized_answer
+                        result.consensus_reached = True
+                        result.confidence = getattr(conditional, 'confidence', 0.7)
+                        conditional_design = conditional.synthesized_answer
+                        self._log(f"  [deadlock] Applied conditional design ({len(conditional_design)} chars)")
+                    elif hasattr(conditional, 'if_true_conclusion') and hasattr(conditional, 'if_false_conclusion'):
+                        # Build conditional design from branches
+                        pivot = getattr(conditional, 'pivot_claim', None)
+                        pivot_text = pivot.text if pivot and hasattr(pivot, 'text') else "the disputed assumption"
+                        conditional_design = (
+                            f"## CONDITIONAL DESIGN\n\n"
+                            f"**Key Decision Point:** {pivot_text}\n\n"
+                            f"### If True:\n{conditional.if_true_conclusion}\n\n"
+                            f"### If False:\n{conditional.if_false_conclusion}\n\n"
+                            f"**Recommended Path:** "
+                            f"{'True assumption' if conditional.preferred_world else 'False assumption'} "
+                            f"(Reason: {getattr(conditional, 'preference_reason', 'higher confidence')})"
+                        )
+                        result.final_answer = conditional_design
+                        result.consensus_reached = True
+                        result.confidence = max(
+                            conditional.if_true_confidence or 0.5,
+                            conditional.if_false_confidence or 0.5
+                        )
+                        self._log(f"  [deadlock] Built conditional design from branches")
+                elif summary.get("has_deadlock"):
+                    self._log(f"  [deadlock] Deadlock detected but no resolution found")
+                    self._log(f"  [deadlock] Contested: {summary.get('contested_count', 0)}, Crux: {summary.get('crux_count', 0)}")
+
+            except Exception as e:
+                self._log(f"  [deadlock] Resolution failed: {e}")
+
         # Extract individual proposals from messages for fallback selection
         individual_proposals = {}
         for msg in result.messages:
@@ -6121,6 +6180,7 @@ Your design will be evaluated on:
             "vote_counts": vote_counts,
             "confidence": result.confidence,
             "votes": [(v.agent, v.choice, v.confidence) for v in result.votes],
+            "conditional_design": conditional_design is not None,  # Flag for conditional resolution
         }
 
     def _git_stash_create(self) -> Optional[str]:
