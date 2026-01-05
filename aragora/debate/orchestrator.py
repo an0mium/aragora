@@ -1001,7 +1001,7 @@ class Arena:
             )
 
         except Exception as e:
-            print(f"  [grounding] Error creating grounded verdict: {e}")
+            logger.warning(f"Error creating grounded verdict: {e}")
             return None
 
     async def _verify_claims_formally(self, result: "DebateResult") -> None:
@@ -1219,7 +1219,7 @@ class Arena:
                 return "No relevant web research found for this topic."
 
         except Exception as e:
-            print(f"Research failed: {e}")
+            logger.warning(f"Research failed: {e}")
             return f"Web research failed: {str(e)}"
 
     def _assign_roles(self):
@@ -2527,7 +2527,7 @@ REASON: <brief explanation>"""
                 return False, reason
 
         except Exception as e:
-            print(f"  Judge termination check failed: {e}")
+            logger.warning(f"Judge termination check failed: {e}")
 
         return True, ""
 
@@ -2567,7 +2567,7 @@ Respond with only: CONTINUE or STOP
             )
         except asyncio.TimeoutError:
             # Timeout during early stopping check - continue debate (safe default)
-            print(f"  [Warning] Early stopping check timed out after {self.protocol.round_timeout_seconds}s")
+            logger.warning(f"Early stopping check timed out after {self.protocol.round_timeout_seconds}s")
             return True
 
         for agent, result in zip(self.agents, results):
@@ -2610,7 +2610,7 @@ Respond with only: CONTINUE or STOP
         elif self.protocol.judge_selection == "elo_ranked":
             # Select highest ELO-rated agent as judge
             if not self.elo_system:
-                print("  [Warning] elo_ranked judge selection requires elo_system; falling back to random")
+                logger.warning("elo_ranked judge selection requires elo_system; falling back to random")
                 return random.choice(self.agents)
 
             # Get agent names participating in this debate
@@ -2626,10 +2626,10 @@ Respond with only: CONTINUE or STOP
                         top_elo = entry.get("elo", 1500)
                         judge = next((a for a in self.agents if a.name == top_agent_name), None)
                         if judge:
-                            print(f"  [ELO] Selected {top_agent_name} (ELO: {top_elo}) as judge")
+                            logger.debug(f"Selected {top_agent_name} (ELO: {top_elo}) as judge")
                             return judge
             except Exception as e:
-                print(f"  [Warning] ELO query failed: {e}; falling back to random")
+                logger.warning(f"ELO query failed: {e}; falling back to random")
 
             # Fallback if no ELO data
             return random.choice(self.agents)
