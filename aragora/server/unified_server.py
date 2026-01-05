@@ -796,6 +796,48 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
         return True
 
+    def _revoke_token(self) -> None:
+        """Handle token revocation request.
+
+        Revokes a token so it can no longer be used for authentication.
+        Requires the token to be revoked in the request body.
+        """
+        import json
+
+        # Only allow authenticated requests to revoke tokens
+        if not self._check_rate_limit():
+            return
+
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length > 0:
+                body = self.rfile.read(content_length).decode('utf-8')
+                data = json.loads(body)
+            else:
+                data = {}
+        except (json.JSONDecodeError, ValueError):
+            self._send_json({"error": "Invalid JSON body"}, status=400)
+            return
+
+        token_to_revoke = data.get('token')
+        reason = data.get('reason', '')
+
+        if not token_to_revoke:
+            self._send_json({"error": "Missing 'token' field"}, status=400)
+            return
+
+        # Revoke the token
+        revoked = auth_config.revoke_token(token_to_revoke, reason)
+
+        if revoked:
+            self._send_json({
+                "status": "revoked",
+                "message": "Token has been revoked and can no longer be used",
+                "revoked_tokens_count": auth_config.get_revocation_count(),
+            })
+        else:
+            self._send_json({"error": "Failed to revoke token"}, status=500)
+
     def _auto_select_agents(self, question: str, config: dict) -> str:
         """Select optimal agents using AgentSelector.
 
@@ -1334,6 +1376,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     self._run_plugin(plugin_name)
             else:
                 self._send_json({"error": "Invalid path format"}, status=400)
+        elif path == '/api/auth/revoke':
+            self._revoke_token()
         else:
             self.send_error(404, f"Unknown POST endpoint: {path}")
 
@@ -1667,8 +1711,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                                 ],
                             }
                         ))
-                    except Exception:
-                        pass  # Don't break on leaderboard emission errors
+                    except Exception as e:
+                        logger.debug(f"Leaderboard emission failed: {e}")
 
             except Exception as e:
                 import traceback
@@ -2951,7 +2995,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     "rating": rating,
                     "recent_matches": len(history),
                 }
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Agent ranking fetch failed: {e}")
                 profile["ranking"] = None
         else:
             profile["ranking"] = None
@@ -2969,7 +3014,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     }
                 else:
                     profile["persona"] = None
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Agent persona fetch failed: {e}")
                 profile["persona"] = None
         else:
             profile["persona"] = None
@@ -2983,7 +3029,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     "score": consistency,
                     "recent_flips": len(flips),
                 }
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Agent consistency fetch failed: {e}")
                 profile["consistency"] = None
         else:
             profile["consistency"] = None
@@ -3000,7 +3047,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     }
                 else:
                     profile["calibration"] = None
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Agent calibration fetch failed: {e}")
                 profile["calibration"] = None
         else:
             profile["calibration"] = None

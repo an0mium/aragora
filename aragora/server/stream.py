@@ -2377,6 +2377,21 @@ class AiohttpUnifiedServer:
                             # Handle audience participation with validation
                             loop_id = data.get("loop_id", "")
 
+                            # Optional per-message token validation for high-security operations
+                            # Allows revoking access mid-session
+                            msg_token = data.get("token")
+                            if msg_token:
+                                from aragora.server.auth import auth_config
+                                if not auth_config.validate_token(msg_token, loop_id):
+                                    await ws.send_json({
+                                        "type": "error",
+                                        "data": {
+                                            "code": "AUTH_FAILED",
+                                            "message": "Invalid or revoked token"
+                                        }
+                                    })
+                                    continue
+
                             # Validate loop_id exists and is active
                             with self._active_loops_lock:
                                 loop_valid = loop_id and loop_id in self.active_loops

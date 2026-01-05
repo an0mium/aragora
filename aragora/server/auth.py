@@ -32,6 +32,10 @@ class AuthConfig:
         self._ip_request_counts: Dict[str, list] = {}  # IP -> timestamps
         self._rate_limit_lock = threading.Lock()  # Thread-safe rate limiting
         self._max_tracked_entries = 10000  # Prevent memory exhaustion from rotating tokens/IPs
+        # Token revocation tracking
+        self._revoked_tokens: Dict[str, float] = {}  # token_hash -> revocation_time
+        self._revocation_lock = threading.Lock()
+        self._max_revoked_tokens = 10000  # Limit stored revocations
 
     def configure_from_env(self):
         """Configure from environment variables."""
@@ -67,10 +71,65 @@ class AuthConfig:
 
         return f"{payload}:{signature}"
 
+    def revoke_token(self, token: str, reason: str = "") -> bool:
+        """Revoke a token to prevent further use.
+
+        Uses truncated hash to minimize storage while preventing timing attacks.
+
+        Args:
+            token: The token to revoke
+            reason: Optional reason for revocation (logged but not stored)
+
+        Returns:
+            True if revoked successfully
+        """
+        if not token:
+            return False
+
+        # Use truncated hash for storage efficiency
+        token_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
+
+        with self._revocation_lock:
+            # Clean up expired revocations to prevent unbounded growth
+            if len(self._revoked_tokens) >= self._max_revoked_tokens:
+                # Remove oldest 10% of entries
+                sorted_items = sorted(self._revoked_tokens.items(), key=lambda x: x[1])
+                for key, _ in sorted_items[:len(sorted_items) // 10]:
+                    del self._revoked_tokens[key]
+
+            self._revoked_tokens[token_hash] = time.time()
+            return True
+
+    def is_revoked(self, token: str) -> bool:
+        """Check if a token has been revoked.
+
+        Args:
+            token: The token to check
+
+        Returns:
+            True if token is revoked
+        """
+        if not token:
+            return False
+
+        token_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
+
+        with self._revocation_lock:
+            return token_hash in self._revoked_tokens
+
+    def get_revocation_count(self) -> int:
+        """Get the number of revoked tokens being tracked."""
+        with self._revocation_lock:
+            return len(self._revoked_tokens)
+
     def validate_token(self, token: str, loop_id: str = "") -> bool:
         """Validate a token."""
         if not self.api_token or not token:
             return not self.enabled  # If auth disabled, allow; if enabled, require token
+
+        # Check revocation first (before expensive crypto operations)
+        if self.is_revoked(token):
+            return False
 
         try:
             payload, signature = token.rsplit(":", 1)

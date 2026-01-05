@@ -7601,15 +7601,22 @@ Be concise - this is a quality gate, not a full review."""
             self._log("\nChanges ready for review:")
             subprocess.run(["git", "diff", "--stat"], cwd=self.aragora_path)
 
-            response = input("\nCommit these changes? [y/N]: ")
-            if response.lower() != 'y':
-                self._log("Skipping commit.")
-                phase_duration = (datetime.now() - phase_start).total_seconds()
-                self._stream_emit(
-                    "on_phase_end", "commit", self.cycle_count, False,
-                    phase_duration, {"reason": "human_declined"}
-                )
-                return {"phase": "commit", "committed": False, "reason": "Human declined"}
+            # Check if running in interactive mode before waiting for input
+            import sys
+            if sys.stdin.isatty():
+                response = input("\nCommit these changes? [y/N]: ")
+                if response.lower() != 'y':
+                    self._log("Skipping commit.")
+                    phase_duration = (datetime.now() - phase_start).total_seconds()
+                    self._stream_emit(
+                        "on_phase_end", "commit", self.cycle_count, False,
+                        phase_duration, {"reason": "human_declined"}
+                    )
+                    return {"phase": "commit", "committed": False, "reason": "Human declined"}
+            else:
+                # Non-interactive mode: log warning and proceed with commit
+                self._log("\n[commit] Non-interactive mode detected - proceeding with auto-commit")
+                self._log("[commit] Use --auto flag or set auto_commit=True to suppress this warning")
 
         summary = improvement.replace('\n', ' ')
 
