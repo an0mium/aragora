@@ -864,6 +864,14 @@ except ImportError:
     CalibrationTracker = None
     CalibrationSummary = None
 
+# SuggestionFeedbackTracker for audience suggestion effectiveness (Phase 10)
+try:
+    from aragora.audience.feedback import SuggestionFeedbackTracker
+    SUGGESTION_FEEDBACK_AVAILABLE = True
+except ImportError:
+    SUGGESTION_FEEDBACK_AVAILABLE = False
+    SuggestionFeedbackTracker = None
+
 # =============================================================================
 # Citation Grounding (Heavy3-inspired scholarly evidence)
 # =============================================================================
@@ -1418,6 +1426,13 @@ class NomicLoop:
             if self.agent_selector and hasattr(self.agent_selector, 'set_calibration_tracker'):
                 self.agent_selector.set_calibration_tracker(self.calibration_tracker)
                 print(f"[selector] Calibration quality weighting enabled")
+
+        # Phase 10: SuggestionFeedbackTracker for audience suggestion effectiveness
+        self.suggestion_tracker = None
+        if SUGGESTION_FEEDBACK_AVAILABLE and SuggestionFeedbackTracker:
+            suggestion_db_path = self.nomic_dir / "suggestion_feedback.db"
+            self.suggestion_tracker = SuggestionFeedbackTracker(str(suggestion_db_path))
+            print(f"[suggestions] Audience suggestion feedback tracking enabled")
 
         # Phase 9: PersonaSynthesizer for grounded identity prompts
         self.persona_synthesizer = None
@@ -2390,6 +2405,68 @@ The most valuable proposals combine deep analysis with actionable implementation
 
         except Exception as e:
             self._log(f"  [calibration] Error recording: {e}")
+
+    def _record_suggestion_feedback(
+        self,
+        result,
+        debate_id: str,
+        suggestions_injected: list = None,
+    ) -> None:
+        """Record audience suggestion effectiveness after debate completion.
+
+        Tracks whether debates with audience suggestions achieved consensus
+        and updates contributor reputation scores accordingly.
+        """
+        if not self.suggestion_tracker or not SUGGESTION_FEEDBACK_AVAILABLE:
+            return
+
+        try:
+            # Record outcome for any suggestions that were injected
+            updated = self.suggestion_tracker.record_outcome(
+                debate_id=debate_id,
+                consensus_reached=result.consensus_reached,
+                consensus_confidence=result.confidence,
+                duration_seconds=getattr(result, 'duration_seconds', 0.0),
+            )
+
+            if updated > 0:
+                self._log(f"  [suggestions] Updated {updated} suggestion(s) with outcome")
+
+                # Log effectiveness stats periodically
+                if self.cycle_count % 10 == 0:
+                    stats = self.suggestion_tracker.get_effectiveness_stats()
+                    if stats.get('total_suggestions', 0) > 0:
+                        self._log(f"  [suggestions] Overall stats: {stats['total_suggestions']} suggestions, "
+                                 f"{stats['avg_effectiveness']:.0%} avg effectiveness")
+
+        except Exception as e:
+            self._log(f"  [suggestions] Error recording feedback: {e}")
+
+    def _record_suggestion_injection(
+        self,
+        debate_id: str,
+        clusters: list,
+    ) -> list[str]:
+        """Record which suggestions were injected into a debate.
+
+        Args:
+            debate_id: Unique debate identifier
+            clusters: List of SuggestionCluster objects
+
+        Returns:
+            List of injection IDs for tracking
+        """
+        if not self.suggestion_tracker or not SUGGESTION_FEEDBACK_AVAILABLE:
+            return []
+
+        try:
+            injection_ids = self.suggestion_tracker.record_injection(debate_id, clusters)
+            if injection_ids:
+                self._log(f"  [suggestions] Recorded {len(injection_ids)} suggestion cluster(s) for tracking")
+            return injection_ids
+        except Exception as e:
+            self._log(f"  [suggestions] Error recording injection: {e}")
+            return []
 
     async def _extract_and_store_insights(self, result) -> None:
         """Extract and store insights from debate result (P2: InsightExtractor).
@@ -5792,6 +5869,10 @@ Recent changes:
         # Record calibration data from debate predictions (P10: CalibrationTracker)
         detected_domain = self._detect_domain(topic_hint) if topic_hint else "general"
         self._record_calibration_from_debate(result, debate_team, domain=detected_domain)
+
+        # Record suggestion feedback for audience learning (P10: SuggestionFeedbackTracker)
+        debate_id = getattr(result, 'debate_id', f"cycle-{self.cycle_count}-debate")
+        self._record_suggestion_feedback(result, debate_id)
 
         # Extract and store insights for pattern learning (P2: InsightExtractor)
         await self._extract_and_store_insights(result)

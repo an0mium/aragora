@@ -14,13 +14,13 @@ interface BackendConfig {
 export const BACKENDS: Record<BackendType, BackendConfig> = {
   production: {
     api: 'https://api.aragora.ai',
-    ws: 'wss://api.aragora.ai',
+    ws: 'wss://api.aragora.ai/ws',
     label: 'PROD',
     description: 'AWS Lightsail (always-on)',
   },
   development: {
     api: 'https://api-dev.aragora.ai',
-    ws: 'wss://api-dev.aragora.ai',
+    ws: 'wss://api-dev.aragora.ai/ws',
     label: 'DEV',
     description: 'Local Mac (when available)',
   },

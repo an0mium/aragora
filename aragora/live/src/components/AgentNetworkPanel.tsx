@@ -1,11 +1,27 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 interface RelationshipEntry {
   agent: string;
   score: number;
   debate_count?: number;
+}
+
+// Network graph node
+interface NetworkNode {
+  id: string;
+  x: number;
+  y: number;
+  type: 'center' | 'rival' | 'ally' | 'influence' | 'influenced_by';
+}
+
+// Network graph edge
+interface NetworkEdge {
+  source: string;
+  target: string;
+  type: 'rival' | 'ally' | 'influence' | 'influenced_by';
+  strength: number;
 }
 
 interface AgentNetwork {
@@ -32,12 +48,179 @@ interface AgentNetworkPanelProps {
 
 const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
+// SVG Network Graph Component
+function NetworkGraph({
+  network,
+  onNodeClick,
+}: {
+  network: AgentNetwork;
+  onNodeClick?: (agent: string) => void;
+}) {
+  const width = 400;
+  const height = 300;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radius = 100;
+
+  // Build nodes and edges
+  const { nodes, edges } = useMemo(() => {
+    const nodeList: NetworkNode[] = [];
+    const edgeList: NetworkEdge[] = [];
+    const seenAgents = new Set<string>();
+
+    // Center node (the selected agent)
+    nodeList.push({
+      id: network.agent,
+      x: centerX,
+      y: centerY,
+      type: 'center',
+    });
+    seenAgents.add(network.agent);
+
+    // Collect all related agents with their types
+    const relatedAgents: { agent: string; type: NetworkEdge['type']; score: number }[] = [];
+
+    network.rivals?.forEach((r) => {
+      if (!seenAgents.has(r.agent)) {
+        relatedAgents.push({ agent: r.agent, type: 'rival', score: r.score });
+        seenAgents.add(r.agent);
+      }
+    });
+    network.allies?.forEach((a) => {
+      if (!seenAgents.has(a.agent)) {
+        relatedAgents.push({ agent: a.agent, type: 'ally', score: a.score });
+        seenAgents.add(a.agent);
+      }
+    });
+    network.influences?.forEach((i) => {
+      if (!seenAgents.has(i.agent)) {
+        relatedAgents.push({ agent: i.agent, type: 'influence', score: i.score });
+        seenAgents.add(i.agent);
+      }
+    });
+    network.influenced_by?.forEach((i) => {
+      if (!seenAgents.has(i.agent)) {
+        relatedAgents.push({ agent: i.agent, type: 'influenced_by', score: i.score });
+        seenAgents.add(i.agent);
+      }
+    });
+
+    // Position nodes in a circle around the center
+    const angleStep = (2 * Math.PI) / Math.max(relatedAgents.length, 1);
+    relatedAgents.forEach((rel, idx) => {
+      const angle = idx * angleStep - Math.PI / 2;
+      nodeList.push({
+        id: rel.agent,
+        x: centerX + radius * Math.cos(angle),
+        y: centerY + radius * Math.sin(angle),
+        type: rel.type,
+      });
+      edgeList.push({
+        source: network.agent,
+        target: rel.agent,
+        type: rel.type,
+        strength: rel.score,
+      });
+    });
+
+    return { nodes: nodeList, edges: edgeList };
+  }, [network, centerX, centerY, radius]);
+
+  const getNodeColor = (type: NetworkNode['type']) => {
+    switch (type) {
+      case 'center': return '#22d3ee'; // cyan
+      case 'rival': return '#ef4444'; // red
+      case 'ally': return '#22c55e'; // green
+      case 'influence': return '#3b82f6'; // blue
+      case 'influenced_by': return '#a855f7'; // purple
+      default: return '#71717a';
+    }
+  };
+
+  const getEdgeColor = (type: NetworkEdge['type']) => {
+    switch (type) {
+      case 'rival': return 'rgba(239, 68, 68, 0.5)';
+      case 'ally': return 'rgba(34, 197, 94, 0.5)';
+      case 'influence': return 'rgba(59, 130, 246, 0.5)';
+      case 'influenced_by': return 'rgba(168, 85, 247, 0.5)';
+      default: return 'rgba(113, 113, 122, 0.5)';
+    }
+  };
+
+  const nodeById = useMemo(() => {
+    const map: Record<string, NetworkNode> = {};
+    nodes.forEach((n) => { map[n.id] = n; });
+    return map;
+  }, [nodes]);
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-64 bg-zinc-900/50 rounded-lg">
+      {/* Edges */}
+      {edges.map((edge, idx) => {
+        const source = nodeById[edge.source];
+        const target = nodeById[edge.target];
+        if (!source || !target) return null;
+        return (
+          <line
+            key={idx}
+            x1={source.x}
+            y1={source.y}
+            x2={target.x}
+            y2={target.y}
+            stroke={getEdgeColor(edge.type)}
+            strokeWidth={Math.max(1, edge.strength * 3)}
+            strokeDasharray={edge.type === 'rival' ? '4,2' : undefined}
+          />
+        );
+      })}
+
+      {/* Nodes */}
+      {nodes.map((node) => (
+        <g
+          key={node.id}
+          transform={`translate(${node.x}, ${node.y})`}
+          className="cursor-pointer"
+          onClick={() => onNodeClick?.(node.id)}
+        >
+          <circle
+            r={node.type === 'center' ? 20 : 15}
+            fill={getNodeColor(node.type)}
+            stroke={node.type === 'center' ? '#fff' : 'transparent'}
+            strokeWidth={node.type === 'center' ? 2 : 0}
+            className="hover:opacity-80 transition-opacity"
+          />
+          <text
+            textAnchor="middle"
+            dy={node.type === 'center' ? 35 : 28}
+            className="text-[10px] fill-zinc-400"
+          >
+            {node.id.length > 12 ? node.id.slice(0, 10) + '...' : node.id}
+          </text>
+        </g>
+      ))}
+
+      {/* Legend */}
+      <g transform="translate(10, 10)">
+        <circle cx="6" cy="6" r="4" fill="#ef4444" />
+        <text x="14" y="9" className="text-[8px] fill-zinc-500">Rival</text>
+        <circle cx="6" cy="20" r="4" fill="#22c55e" />
+        <text x="14" y="23" className="text-[8px] fill-zinc-500">Ally</text>
+        <circle cx="56" cy="6" r="4" fill="#3b82f6" />
+        <text x="64" y="9" className="text-[8px] fill-zinc-500">Influences</text>
+        <circle cx="56" cy="20" r="4" fill="#a855f7" />
+        <text x="64" y="23" className="text-[8px] fill-zinc-500">Influenced By</text>
+      </g>
+    </svg>
+  );
+}
+
 export function AgentNetworkPanel({
   selectedAgent,
   apiBase = DEFAULT_API_BASE,
   onAgentSelect,
 }: AgentNetworkPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [viewMode, setViewMode] = useState<'graph' | 'list'>('graph');
   const [network, setNetwork] = useState<AgentNetwork | null>(null);
   const [moments, setMoments] = useState<SignificantMoment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -223,11 +406,35 @@ export function AgentNetworkPanel({
       {/* Network Display */}
       {network && (
         <div className="space-y-4">
-          {/* Agent Header */}
+          {/* Agent Header with View Toggle */}
           <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
-            <h4 className="text-lg font-medium text-white mb-2">
-              {network.agent}&apos;s Relationship Network
-            </h4>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-lg font-medium text-white">
+                {network.agent}&apos;s Relationship Network
+              </h4>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setViewMode('graph')}
+                  className={`px-2 py-1 text-xs rounded ${
+                    viewMode === 'graph'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600'
+                  }`}
+                >
+                  Graph
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-2 py-1 text-xs rounded ${
+                    viewMode === 'list'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600'
+                  }`}
+                >
+                  List
+                </button>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="text-zinc-400">
                 <span className="text-white font-medium">{network.rivals?.length || 0}</span> rivals
@@ -244,7 +451,27 @@ export function AgentNetworkPanel({
             </div>
           </div>
 
-          {/* Relationship Sections */}
+          {/* Graph View */}
+          {viewMode === 'graph' && (
+            <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+              <NetworkGraph
+                network={network}
+                onNodeClick={(agent) => {
+                  if (agent !== network.agent) {
+                    setAgentInput(agent);
+                    fetchNetwork(agent);
+                    onAgentSelect?.(agent);
+                  }
+                }}
+              />
+              <p className="text-xs text-zinc-500 mt-2 text-center">
+                Click on a node to explore that agent&apos;s network
+              </p>
+            </div>
+          )}
+
+          {/* Relationship Sections (List View) */}
+          {viewMode === 'list' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Rivals */}
             <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
@@ -286,6 +513,7 @@ export function AgentNetworkPanel({
               )}
             </div>
           </div>
+          )}
 
           {/* Significant Moments */}
           {moments.length > 0 && (

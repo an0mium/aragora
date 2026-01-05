@@ -203,7 +203,7 @@ class DebateProtocol:
     audience_injection: Literal["off", "summary", "inject"] = "off"
 
     # Pre-debate web research
-    enable_research: bool = False  # Enable web research before debates
+    enable_research: bool = True  # Enable web research before debates
 
     # Cognitive role rotation (Heavy3-inspired)
     # Assigns different cognitive roles (Analyst, Skeptic, Lateral Thinker, Synthesizer)
@@ -1188,43 +1188,77 @@ class Arena:
             return ""
 
     async def _perform_research(self, task: str) -> str:
-        """Perform web research for the debate topic and return formatted context.
+        """Perform multi-source research for the debate topic and return formatted context.
 
-        Uses EvidenceCollector with WebConnector to gather relevant information.
+        Uses EvidenceCollector with multiple connectors:
+        - WebConnector: DuckDuckGo search for general web results
+        - GitHubConnector: Code/docs from GitHub repositories
+        - LocalDocsConnector: Local documentation files
+
+        Also includes pulse/trending context when available.
         """
+        context_parts = []
+
+        # === Evidence Collection ===
         try:
-            # Check if web search dependencies are available
-            try:
-                from aragora.connectors.web import DDGS_AVAILABLE
-                if not DDGS_AVAILABLE:
-                    return "Web research unavailable: duckduckgo-search package not installed."
-            except ImportError:
-                return "Web research unavailable: required packages not installed."
-
             from aragora.evidence.collector import EvidenceCollector
-            from aragora.connectors.web import WebConnector
 
-            # Create evidence collector with web connector
             collector = EvidenceCollector()
-            web_connector = WebConnector()
-            collector.add_connector("web", web_connector)
+            enabled_connectors = []
 
-            # Collect evidence for the task
-            evidence_pack = await collector.collect_evidence(task, enabled_connectors=["web"])
+            # Add web connector if available
+            try:
+                from aragora.connectors.web import WebConnector, DDGS_AVAILABLE
+                if DDGS_AVAILABLE:
+                    collector.add_connector("web", WebConnector())
+                    enabled_connectors.append("web")
+            except ImportError:
+                pass
 
-            # Format as context string
-            if evidence_pack.snippets:
-                # Store evidence in ContinuumMemory for future debates
-                self._store_evidence_in_memory(evidence_pack.snippets, task)
+            # Add GitHub connector if available
+            try:
+                from aragora.connectors.github import GitHubConnector
+                import os
+                if os.environ.get("GITHUB_TOKEN"):
+                    collector.add_connector("github", GitHubConnector())
+                    enabled_connectors.append("github")
+            except ImportError:
+                pass
 
-                context = evidence_pack.to_context_string()
-                return f"## WEB RESEARCH CONTEXT\n{context}"
-            else:
-                return "No relevant web research found for this topic."
+            # Collect evidence from all available connectors
+            if enabled_connectors:
+                evidence_pack = await collector.collect_evidence(task, enabled_connectors=enabled_connectors)
+
+                if evidence_pack.snippets:
+                    # Store evidence in ContinuumMemory for future debates
+                    self._store_evidence_in_memory(evidence_pack.snippets, task)
+                    context_parts.append(f"## EVIDENCE CONTEXT\n{evidence_pack.to_context_string()}")
 
         except Exception as e:
-            logger.warning(f"Research failed: {e}")
-            return f"Web research failed: {str(e)}"
+            logger.warning(f"Evidence collection failed: {e}")
+
+        # === Pulse/Trending Context ===
+        try:
+            from aragora.pulse.ingestor import PulseManager, TwitterIngestor
+
+            manager = PulseManager()
+            manager.add_ingestor("twitter", TwitterIngestor())
+
+            topics = await manager.get_trending_topics(limit_per_platform=3)
+
+            if topics:
+                trending_context = "## TRENDING CONTEXT\nCurrent trending topics that may be relevant:\n"
+                for t in topics[:3]:
+                    trending_context += f"- {t.topic} ({t.platform}, {t.volume:,} engagement, {t.category})\n"
+                context_parts.append(trending_context)
+
+        except Exception as e:
+            logger.debug(f"Pulse context unavailable: {e}")
+
+        if context_parts:
+            return "\n\n".join(context_parts)
+        else:
+            return "No research context available."
 
     def _assign_roles(self):
         """Assign roles to agents based on protocol."""

@@ -9,13 +9,13 @@ import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+import { useBackend } from '@/components/BackendSelector';
 
 export function DebateViewerWrapper() {
   const [debateId, setDebateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const { config } = useBackend();
 
   useEffect(() => {
     // Extract debate ID from actual browser URL: /debate/abc123 -> abc123
@@ -63,7 +63,7 @@ export function DebateViewerWrapper() {
   return (
     <div className="min-h-screen bg-bg">
       {/* Main Debate Viewer */}
-      <DebateViewer debateId={debateId} />
+      <DebateViewer debateId={debateId} wsUrl={config.ws} />
 
       {/* Analysis Panels Toggle */}
       <div className="container mx-auto px-4 py-4">
@@ -81,17 +81,17 @@ export function DebateViewerWrapper() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Crux Analysis Panel */}
             <div className="lg:col-span-1">
-              <CruxPanel debateId={debateId} apiBase={API_BASE} />
+              <CruxPanel debateId={debateId} apiBase={config.api} />
             </div>
 
             {/* Analytics Panel (with Graph Stats) */}
             <div className="lg:col-span-1">
-              <AnalyticsPanel apiBase={API_BASE} loopId={debateId} />
+              <AnalyticsPanel apiBase={config.api} loopId={debateId} />
             </div>
 
             {/* Red Team Analysis Panel */}
             <div className="lg:col-span-1">
-              <RedTeamAnalysisPanel debateId={debateId} apiBase={API_BASE} />
+              <RedTeamAnalysisPanel debateId={debateId} apiBase={config.api} />
             </div>
           </div>
         </div>

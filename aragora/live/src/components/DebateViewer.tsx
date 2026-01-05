@@ -7,7 +7,7 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai';
+const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
 
 // Agent color schemes
 const AGENT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -44,9 +44,10 @@ interface StreamingMessage {
 
 interface DebateViewerProps {
   debateId: string;
+  wsUrl?: string;
 }
 
-export function DebateViewer({ debateId }: DebateViewerProps) {
+export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerProps) {
   const [debate, setDebate] = useState<DebateArtifact | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +77,7 @@ export function DebateViewer({ debateId }: DebateViewerProps) {
       setIsLive(true);
       setLoading(false);
 
-      const ws = new WebSocket(WS_URL);
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {

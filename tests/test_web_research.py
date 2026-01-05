@@ -188,10 +188,30 @@ async def test_arena_research_phase():
 
 
 @pytest.mark.asyncio
-async def test_research_disabled_by_default():
-    """Test that research is disabled by default."""
+async def test_research_enabled_by_default():
+    """Test that research is enabled by default."""
     env = Environment(task="Test task")
-    protocol = DebateProtocol()  # enable_research=False by default
+    protocol = DebateProtocol()  # enable_research=True by default
+    agents = [MockAgent("Agent1")]
+
+    arena = Arena(env, agents, protocol)
+
+    with patch.object(arena, '_perform_research', new_callable=AsyncMock) as mock_research:
+        mock_research.return_value = "Mock research context"
+        try:
+            await arena.run()
+        except Exception:
+            pass
+
+        # Research should be called since it's enabled by default
+        mock_research.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_research_can_be_disabled():
+    """Test that research can be explicitly disabled."""
+    env = Environment(task="Test task")
+    protocol = DebateProtocol(enable_research=False)
     agents = [MockAgent("Agent1")]
 
     arena = Arena(env, agents, protocol)
@@ -202,7 +222,7 @@ async def test_research_disabled_by_default():
         except Exception:
             pass
 
-        # Research should not be called
+        # Research should not be called when disabled
         mock_research.assert_not_called()
 
 
