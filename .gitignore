@@ -91,6 +91,20 @@ config.local.yaml
 aragora/live/node_modules/
 aragora/live/.next/
 aragora/live/out/
-.nomic/backups/
 tsconfig.tsbuildinfo
 .env.production
+
+# Nomic loop state (large binary files, not needed in git)
+.nomic/backups/
+.nomic/checkpoints/
+.nomic/replays/
+.nomic/*.db
+.nomic/*.db-journal
+.nomic/*.db-wal
+.nomic/*.db-shm
+
+# Web cache
+.web_cache/
+
+# Local backups
+backups/
