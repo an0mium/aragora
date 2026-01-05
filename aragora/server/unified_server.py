@@ -389,6 +389,22 @@ except ImportError:
     INSIGHT_EXTRACTOR_AVAILABLE = False
     InsightExtractor = None
 
+# Modular HTTP handlers for endpoint routing
+try:
+    from aragora.server.handlers import (
+        SystemHandler,
+        DebatesHandler,
+        AgentsHandler,
+        HandlerResult,
+    )
+    HANDLERS_AVAILABLE = True
+except ImportError:
+    HANDLERS_AVAILABLE = False
+    SystemHandler = None
+    DebatesHandler = None
+    AgentsHandler = None
+    HandlerResult = None
+
 # Track active ad-hoc debates
 _active_debates: dict[str, dict] = {}
 _active_debates_lock = threading.Lock()  # Thread-safe access to _active_debates
@@ -508,6 +524,12 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     consensus_memory: Optional["ConsensusMemory"] = None  # ConsensusMemory for historical positions
     dissent_retriever: Optional["DissentRetriever"] = None  # DissentRetriever for minority views
 
+    # Modular HTTP handlers (initialized lazily)
+    _system_handler: Optional["SystemHandler"] = None
+    _debates_handler: Optional["DebatesHandler"] = None
+    _agents_handler: Optional["AgentsHandler"] = None
+    _handlers_initialized: bool = False
+
     # Thread pool for debate execution (prevents unbounded thread creation)
     _debate_executor: Optional["ThreadPoolExecutor"] = None
     _debate_executor_lock = threading.Lock()  # Lock for thread-safe executor creation
@@ -566,6 +588,76 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._send_json({"error": f"Missing {segment_name} in path"}, status=400)
             return None
         return parts[index]
+
+    @classmethod
+    def _init_handlers(cls) -> None:
+        """Initialize modular HTTP handlers with server context.
+
+        Called lazily on first request. Creates handler instances with
+        references to storage, ELO system, and other shared resources.
+        """
+        if cls._handlers_initialized or not HANDLERS_AVAILABLE:
+            return
+
+        # Build server context for handlers
+        nomic_dir = None
+        if cls.nomic_state_file:
+            nomic_dir = cls.nomic_state_file.parent
+
+        ctx = {
+            "storage": cls.storage,
+            "elo_system": cls.elo_system,
+            "nomic_dir": nomic_dir,
+            "debate_embeddings": cls.debate_embeddings,
+            "critique_store": getattr(cls, 'critique_store', None),
+        }
+
+        # Initialize handlers
+        cls._system_handler = SystemHandler(ctx)
+        cls._debates_handler = DebatesHandler(ctx)
+        cls._agents_handler = AgentsHandler(ctx)
+        cls._handlers_initialized = True
+        logger.info("[handlers] Modular handlers initialized")
+
+    def _try_modular_handler(self, path: str, query: dict) -> bool:
+        """Try to handle request via modular handlers.
+
+        Returns True if handled, False if should fall through to legacy routes.
+        """
+        if not HANDLERS_AVAILABLE:
+            return False
+
+        # Ensure handlers are initialized
+        self._init_handlers()
+
+        # Convert query params from {key: [val]} to {key: val}
+        query_dict = {k: v[0] if len(v) == 1 else v for k, v in query.items()}
+
+        # Try each handler in order
+        handlers = [
+            self._system_handler,
+            self._debates_handler,
+            self._agents_handler,
+        ]
+
+        for handler in handlers:
+            if handler and handler.can_handle(path):
+                try:
+                    result = handler.handle(path, query_dict, self)
+                    if result:
+                        self.send_response(result.status_code)
+                        self.send_header('Content-Type', result.content_type)
+                        for h_name, h_val in result.headers.items():
+                            self.send_header(h_name, h_val)
+                        self.end_headers()
+                        self.wfile.write(result.body)
+                        return True
+                except Exception as e:
+                    logger.error(f"[handlers] Error in {handler.__class__.__name__}: {e}")
+                    # Fall through to legacy handler on error
+                    return False
+
+        return False
 
     def _validate_content_length(self, max_size: int = None) -> Optional[int]:
         """Validate Content-Length header for DoS protection.
@@ -767,67 +859,15 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             if not self._check_rate_limit():
                 return
 
-        # API routes
-        if path.startswith('/api/debates/slug/'):
-            # Slug-based lookup for permalinks (bridges SQLite storage to frontend)
-            slug = path.split('/')[-1]
-            self._get_debate_by_slug(slug)
-        elif '/export/' in path and path.startswith('/api/debates/'):
-            # Export endpoints: /api/debates/{id}/export/{format}
-            parts = path.split('/')
-            if len(parts) >= 6:
-                debate_id = parts[3]
-                export_format = parts[5]
-                table = query.get('table', ['summary'])[0]
-                self._export_debate(debate_id, export_format, table)
-            else:
-                self._send_json({"error": "Invalid export path"}, status=400)
-        elif path.startswith('/api/debates/'):
-            slug = path.split('/')[-1]
-            self._get_debate(slug)
-        elif path == '/api/debates':
-            limit = self._safe_int(query, 'limit', 20, 100)
-            self._list_debates(limit)
-
-        # Debate Analysis API (impasse detection, convergence)
-        elif path.startswith('/api/debates/') and path.endswith('/impasse'):
-            debate_id = self._extract_path_segment(path, 3, "debate_id")
-            if debate_id is None:
+        # Try modular handlers first (gradual migration)
+        if path.startswith('/api/'):
+            if self._try_modular_handler(path, query):
                 return
-            self._get_debate_impasse(debate_id)
-        elif path.startswith('/api/debates/') and path.endswith('/convergence'):
-            debate_id = self._extract_path_segment(path, 3, "debate_id")
-            if debate_id is None:
-                return
-            self._get_debate_convergence(debate_id)
-
-        elif path == '/api/health':
-            self._health_check()
-        elif path == '/api/nomic/state':
-            self._get_nomic_state()
-        elif path == '/api/nomic/log':
-            lines = self._safe_int(query, 'lines', 100, 1000)
-            self._get_nomic_log(lines)
-
-        # History API (Supabase)
-        elif path == '/api/history/cycles':
-            loop_id = query.get('loop_id', [None])[0]
-            limit = self._safe_int(query, 'limit', 50, 200)
-            self._get_history_cycles(loop_id, limit)
-        elif path == '/api/history/events':
-            loop_id = query.get('loop_id', [None])[0]
-            limit = self._safe_int(query, 'limit', 100, 500)
-            self._get_history_events(loop_id, limit)
-        elif path == '/api/history/debates':
-            loop_id = query.get('loop_id', [None])[0]
-            limit = self._safe_int(query, 'limit', 50, 200)
-            self._get_history_debates(loop_id, limit)
-        elif path == '/api/history/summary':
-            loop_id = query.get('loop_id', [None])[0]
-            self._get_history_summary(loop_id)
 
         # Insights API (debate consensus feature)
-        elif path == '/api/insights/recent':
+        # Note: /api/debates/*, /api/health, /api/nomic/*, /api/history/*
+        # are now handled by modular handlers (DebatesHandler, SystemHandler)
+        if path == '/api/insights/recent':
             limit = self._safe_int(query, 'limit', 20, 100)
             self._get_recent_insights(limit)
 
@@ -1509,7 +1549,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         if auto_select and ROUTING_AVAILABLE:
             agents_str = self._auto_select_agents(question, auto_select_config)
         else:
-            agents_str = data.get('agents', 'grok,anthropic-api,openai-api,deepseek')
+            agents_str = data.get('agents', 'anthropic-api,openai-api,gemini,grok')
 
         try:
             rounds = min(max(int(data.get('rounds', 3)), 1), 10)  # Clamp to 1-10
@@ -1565,15 +1605,11 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     agent_specs.append((agent_type, role))
 
                 # Create agents with streaming support
+                # All agents are proposers for full participation in all rounds
                 agents = []
                 for i, (agent_type, role) in enumerate(agent_specs):
                     if role is None:
-                        if i == 0:
-                            role = "proposer"
-                        elif i == len(agent_specs) - 1:
-                            role = "synthesizer"
-                        else:
-                            role = "critic"
+                        role = "proposer"  # All agents propose and participate fully
                     agent = create_agent(
                         model_type=agent_type,
                         name=f"{agent_type}_{role}",
@@ -1585,7 +1621,12 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
                 # Create environment and protocol
                 env = Environment(task=question, context="", max_rounds=rounds)
-                protocol = DebateProtocol(rounds=rounds, consensus=consensus)
+                protocol = DebateProtocol(
+                    rounds=rounds,
+                    consensus=consensus,
+                    proposer_count=len(agents),  # All agents propose initially
+                    topology="all-to-all",  # Everyone critiques everyone
+                )
 
                 # Create arena with hooks and all available context systems
                 hooks = create_arena_hooks(self.stream_emitter)

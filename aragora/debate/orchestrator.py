@@ -166,7 +166,7 @@ class DebateProtocol:
     # Based on ai-counsel pattern - can save 40-70% API costs
     early_stopping: bool = True
     early_stop_threshold: float = 0.66  # fraction of agents saying stop to trigger
-    min_rounds_before_early_stop: int = 1  # minimum rounds before allowing early exit
+    min_rounds_before_early_stop: int = 2  # minimum rounds before allowing early exit
 
     # Asymmetric debate roles: Assign affirmative/negative/neutral stances
     # Forces perspective diversity, prevents premature consensus
@@ -368,6 +368,12 @@ class Arena:
         # Cache for continuum memory context (retrieved once per debate)
         self._continuum_context_cache: str = ""
         self._continuum_retrieved_ids: list = []  # Track retrieved memory IDs for outcome updates
+
+        # Cached similarity backend for vote grouping (avoids recreating per call)
+        self._similarity_backend = None
+
+        # Cache for debate domain (computed once per debate)
+        self._debate_domain_cache: Optional[str] = None
 
         # Citation extraction (Heavy3-inspired evidence grounding)
         self.citation_extractor = None
@@ -577,28 +583,37 @@ class Arena:
         """Extract domain from the debate task for calibration tracking.
 
         Uses heuristics to categorize the debate topic.
+        Result is cached since the task doesn't change during a debate.
         """
+        # Return cached domain if available
+        if self._debate_domain_cache is not None:
+            return self._debate_domain_cache
+
         task_lower = self.env.task.lower()
 
         # Domain detection heuristics
         if any(w in task_lower for w in ["security", "hack", "vulnerability", "auth", "encrypt"]):
-            return "security"
+            domain = "security"
         elif any(w in task_lower for w in ["performance", "speed", "optimize", "cache", "latency"]):
-            return "performance"
+            domain = "performance"
         elif any(w in task_lower for w in ["test", "testing", "coverage", "regression"]):
-            return "testing"
+            domain = "testing"
         elif any(w in task_lower for w in ["design", "architecture", "pattern", "structure"]):
-            return "architecture"
+            domain = "architecture"
         elif any(w in task_lower for w in ["bug", "error", "fix", "crash", "exception"]):
-            return "debugging"
+            domain = "debugging"
         elif any(w in task_lower for w in ["api", "endpoint", "rest", "graphql"]):
-            return "api"
+            domain = "api"
         elif any(w in task_lower for w in ["database", "sql", "query", "schema"]):
-            return "database"
+            domain = "database"
         elif any(w in task_lower for w in ["ui", "frontend", "react", "css", "layout"]):
-            return "frontend"
+            domain = "frontend"
         else:
-            return "general"
+            domain = "general"
+
+        # Cache and return
+        self._debate_domain_cache = domain
+        return domain
 
     def _select_critics_for_proposal(self, proposal_agent: str, all_critics: list[Agent]) -> list[Agent]:
         """Select which critics should critique the given proposal based on topology."""
@@ -1425,15 +1440,19 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         # Pre-debate research phase
         if self.protocol.enable_research:
             try:
+                print("  [research] Performing web research on topic...")
                 research_context = await self._perform_research(self.env.task)
                 if research_context:
+                    print(f"  [research] Added {len(research_context)} chars of research context")
                     # Add research to environment context
                     if self.env.context:
                         self.env.context += "\n\n" + research_context
                     else:
                         self.env.context = research_context
+                else:
+                    print("  [research] No research context returned")
             except Exception as e:
-                print(f"Research phase failed: {e}")
+                print(f"  [research] Research phase failed: {e}")
                 # Continue without research - don't break the debate
 
         result = DebateResult(
@@ -2546,8 +2565,10 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         if not self.protocol.vote_grouping or not votes:
             return {}
 
-        # Get similarity backend
-        backend = get_similarity_backend("auto")
+        # Get similarity backend (cached to avoid expensive reinitialization)
+        if self._similarity_backend is None:
+            self._similarity_backend = get_similarity_backend("auto")
+        backend = self._similarity_backend
 
         # Extract unique choices
         choices = list(set(v.choice for v in votes if v.choice))
