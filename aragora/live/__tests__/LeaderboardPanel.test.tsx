@@ -68,8 +68,8 @@ const mockStatsData = {
 };
 
 const mockIntrospectionData = {
-  agents: [
-    {
+  agents: {
+    'claude-3-opus': {
       agent: 'claude-3-opus',
       self_model: { strengths: ['reasoning'], weaknesses: ['verbosity'], biases: ['formality'] },
       confidence_calibration: 0.82,
@@ -77,36 +77,60 @@ const mockIntrospectionData = {
       improvement_focus: ['conciseness'],
       last_updated: '2024-01-15T10:00:00Z',
     },
-  ],
+  },
+  count: 1,
+};
+
+// Consolidated endpoint response (primary endpoint used by LeaderboardPanel)
+const mockConsolidatedResponse = {
+  data: {
+    rankings: { agents: mockLeaderboardData.agents, count: mockLeaderboardData.agents.length },
+    matches: { matches: mockMatchesData.matches, count: mockMatchesData.matches.length },
+    reputation: { reputations: mockReputationData.reputations, count: mockReputationData.reputations.length },
+    teams: { combinations: mockTeamsData.combinations, count: mockTeamsData.combinations.length },
+    stats: mockStatsData,
+    introspection: mockIntrospectionData,
+  },
+  errors: {
+    partial_failure: false,
+    failed_sections: [],
+    messages: {},
+  },
 };
 
 function setupSuccessfulFetch() {
   mockFetch.mockImplementation((url: string) => {
+    const baseResponse = { ok: true, status: 200, url };
+    // Consolidated endpoint (primary) - must check before /api/leaderboard
+    if (url.includes('/api/leaderboard-view')) {
+      return Promise.resolve({ ...baseResponse, json: () => Promise.resolve(mockConsolidatedResponse) });
+    }
+    // Legacy individual endpoints (fallback)
     if (url.includes('/api/leaderboard')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockLeaderboardData) });
+      return Promise.resolve({ ...baseResponse, json: () => Promise.resolve(mockLeaderboardData) });
     }
     if (url.includes('/api/matches/recent')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockMatchesData) });
+      return Promise.resolve({ ...baseResponse, json: () => Promise.resolve(mockMatchesData) });
     }
     if (url.includes('/api/reputation/all')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockReputationData) });
+      return Promise.resolve({ ...baseResponse, json: () => Promise.resolve(mockReputationData) });
     }
     if (url.includes('/api/routing/best-teams')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockTeamsData) });
+      return Promise.resolve({ ...baseResponse, json: () => Promise.resolve(mockTeamsData) });
     }
     if (url.includes('/api/ranking/stats')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockStatsData) });
+      return Promise.resolve({ ...baseResponse, json: () => Promise.resolve(mockStatsData) });
     }
     if (url.includes('/api/introspection/all')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockIntrospectionData) });
+      return Promise.resolve({ ...baseResponse, json: () => Promise.resolve(mockIntrospectionData) });
     }
-    return Promise.resolve({ ok: false, text: () => Promise.resolve('Not found') });
+    return Promise.resolve({ ok: false, status: 404, url, text: () => Promise.resolve('Not found') });
   });
 }
 
 describe('LeaderboardPanel', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
     jest.useFakeTimers();
   });
 
@@ -205,18 +229,27 @@ describe('LeaderboardPanel', () => {
   });
 
   it('handles partial endpoint failures gracefully', async () => {
-    mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/api/leaderboard')) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockLeaderboardData) });
-      }
-      if (url.includes('/api/matches/recent')) {
-        return Promise.resolve({ ok: false, text: () => Promise.resolve('503 Service Unavailable') });
-      }
-      if (url.includes('/api/reputation/all')) {
-        return Promise.resolve({ ok: false, text: () => Promise.resolve('503 Service Unavailable') });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
-    });
+    const partialFailureResponse = {
+      data: {
+        rankings: { agents: mockLeaderboardData.agents, count: mockLeaderboardData.agents.length },
+        matches: { matches: [], count: 0 },
+        reputation: { reputations: [], count: 0 },
+        teams: { combinations: mockTeamsData.combinations, count: mockTeamsData.combinations.length },
+        stats: mockStatsData,
+        introspection: { agents: {}, count: 0 },
+      },
+      errors: {
+        partial_failure: true,
+        failed_sections: ['matches', 'reputation'],
+        messages: { matches: '503 Service Unavailable', reputation: '503 Service Unavailable' },
+      },
+    };
+    mockFetch.mockImplementation((url: string) => Promise.resolve({
+      ok: true,
+      status: 200,
+      url,
+      json: () => Promise.resolve(partialFailureResponse)
+    }));
 
     await act(async () => {
       render(<LeaderboardPanel apiBase="http://localhost:3001" />);
@@ -227,38 +260,58 @@ describe('LeaderboardPanel', () => {
       expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
     });
 
-    // Should show partial error
-    expect(screen.getByText(/endpoint\(s\) unavailable/)).toBeInTheDocument();
+    // Should show partial error (consolidated uses "section(s)")
+    expect(screen.getByText(/section\(s\) unavailable/)).toBeInTheDocument();
   });
 
   it('handles complete API failure', async () => {
-    mockFetch.mockImplementation(() => {
-      return Promise.resolve({ ok: false, text: () => Promise.resolve('500 Internal Server Error') });
-    });
+    mockFetch.mockImplementation((url: string) => Promise.resolve({
+      ok: false,
+      status: 500,
+      url,
+      text: () => Promise.resolve('500 Internal Server Error')
+    }));
 
     await act(async () => {
       render(<LeaderboardPanel apiBase="http://localhost:3001" />);
     });
 
     await waitFor(() => {
-      expect(screen.getByText('All endpoints failed. Check server connection.')).toBeInTheDocument();
+      // Text may be split across elements
+      expect(screen.getByText('All endpoints failed.')).toBeInTheDocument();
     });
   });
 
   it('shows error details when expanded', async () => {
-    mockFetch.mockImplementation((url: string) => {
-      if (url.includes('/api/leaderboard')) {
-        return Promise.resolve({ ok: false, text: () => Promise.resolve('503: ELO system not available') });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
-    });
+    const errorResponse = {
+      data: {
+        rankings: { agents: [], count: 0 },
+        matches: { matches: [], count: 0 },
+        reputation: { reputations: [], count: 0 },
+        teams: { combinations: [], count: 0 },
+        stats: { mean_elo: 1500, median_elo: 1500, total_agents: 0, total_matches: 0 },
+        introspection: { agents: {}, count: 0 },
+      },
+      errors: {
+        partial_failure: true,
+        failed_sections: ['rankings'],
+        messages: { rankings: '503: ELO system not available' },
+      },
+    };
+    mockFetch.mockImplementation((url: string) => Promise.resolve({
+      ok: true,
+      status: 200,
+      url,
+      json: () => Promise.resolve(errorResponse)
+    }));
 
     await act(async () => {
       render(<LeaderboardPanel apiBase="http://localhost:3001" />);
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Show details')).toBeInTheDocument();
+      // Consolidated uses "section(s)" for partial failures
+      expect(screen.getByText(/section\(s\) unavailable/)).toBeInTheDocument();
     });
 
     await act(async () => {
@@ -277,14 +330,14 @@ describe('LeaderboardPanel', () => {
       expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
     });
 
-    expect(mockFetch).toHaveBeenCalledTimes(6); // 6 endpoints
+    expect(mockFetch).toHaveBeenCalledTimes(1); // 1 consolidated endpoint
 
     await act(async () => {
       fireEvent.click(screen.getByText('Refresh'));
     });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledTimes(12); // 6 more calls
+      expect(mockFetch).toHaveBeenCalledTimes(2); // 1 more call
     });
   });
 
@@ -298,7 +351,7 @@ describe('LeaderboardPanel', () => {
       expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
     });
 
-    expect(mockFetch).toHaveBeenCalledTimes(6);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
 
     // Advance timer by 30 seconds
     await act(async () => {
@@ -306,7 +359,7 @@ describe('LeaderboardPanel', () => {
     });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledTimes(12);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -321,7 +374,7 @@ describe('LeaderboardPanel', () => {
     });
 
     const leaderboardCall = mockFetch.mock.calls.find((call: string[]) =>
-      call[0].includes('/api/leaderboard')
+      call[0].includes('/api/leaderboard-view')
     );
     expect(leaderboardCall[0]).toContain('loop_id=test-loop-123');
   });

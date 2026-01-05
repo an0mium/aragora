@@ -50,9 +50,12 @@ class MockWebSocket {
   }
 
   send = jest.fn();
-  close = jest.fn(() => {
+  close = jest.fn((code?: number, reason?: string) => {
     this.readyState = MockWebSocket.CLOSED;
-    if (this.onclose) this.onclose();
+    if (this.onclose) {
+      // Pass a mock CloseEvent with the code
+      this.onclose({ code: code || 1000, reason: reason || '', wasClean: true } as CloseEvent);
+    }
   });
 
   // Helper to simulate incoming messages
@@ -73,11 +76,19 @@ class MockWebSocket {
 
 let mockWsInstance: MockWebSocket | null = null;
 
-// @ts-expect-error - mocking global WebSocket
-global.WebSocket = jest.fn((url: string) => {
+// Create WebSocket mock with static constants
+const WebSocketMock = jest.fn((url: string) => {
   mockWsInstance = new MockWebSocket(url);
   return mockWsInstance;
 });
+// Static constants required for cleanup logic in hooks
+(WebSocketMock as { CONNECTING: number }).CONNECTING = 0;
+(WebSocketMock as { OPEN: number }).OPEN = 1;
+(WebSocketMock as { CLOSING: number }).CLOSING = 2;
+(WebSocketMock as { CLOSED: number }).CLOSED = 3;
+
+// @ts-expect-error - mocking global WebSocket
+global.WebSocket = WebSocketMock;
 
 describe('DebateViewer', () => {
   beforeEach(() => {
