@@ -399,6 +399,7 @@ try:
         PulseHandler,
         AnalyticsHandler,
         MetricsHandler,
+        ConsensusHandler,
         HandlerResult,
     )
     HANDLERS_AVAILABLE = True
@@ -410,6 +411,7 @@ except ImportError:
     AgentsHandler = None
     PulseHandler = None
     AnalyticsHandler = None
+    ConsensusHandler = None
     HandlerResult = None
 
 # Track active ad-hoc debates
@@ -542,6 +544,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     _pulse_handler: Optional["PulseHandler"] = None
     _analytics_handler: Optional["AnalyticsHandler"] = None
     _metrics_handler: Optional["MetricsHandler"] = None
+    _consensus_handler: Optional["ConsensusHandler"] = None
     _handlers_initialized: bool = False
 
     # Thread pool for debate execution (prevents unbounded thread creation)
@@ -633,8 +636,9 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         cls._pulse_handler = PulseHandler(ctx)
         cls._analytics_handler = AnalyticsHandler(ctx)
         cls._metrics_handler = MetricsHandler(ctx)
+        cls._consensus_handler = ConsensusHandler(ctx)
         cls._handlers_initialized = True
-        logger.info("[handlers] Modular handlers initialized (6 handlers)")
+        logger.info("[handlers] Modular handlers initialized (7 handlers)")
 
     def _try_modular_handler(self, path: str, query: dict) -> bool:
         """Try to handle request via modular handlers.
@@ -658,6 +662,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._pulse_handler,
             self._analytics_handler,
             self._metrics_handler,
+            self._consensus_handler,
         ]
 
         for handler in handlers:
@@ -669,6 +674,9 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                         self.send_header('Content-Type', result.content_type)
                         for h_name, h_val in result.headers.items():
                             self.send_header(h_name, h_val)
+                        # Add CORS and security headers for modular handlers
+                        self._add_cors_headers()
+                        self._add_security_headers()
                         self.end_headers()
                         self.wfile.write(result.body)
                         return True
