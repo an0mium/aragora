@@ -98,6 +98,9 @@ class CritiqueHandler(BaseHandler):
     def _extract_agent_name(self, path: str) -> Optional[str]:
         """Extract and validate agent name from path."""
         # Pattern: /api/agent/{name}/reputation
+        # Block path traversal attempts
+        if '..' in path:
+            return None
         parts = path.split('/')
         if len(parts) >= 4:
             agent = parts[3]

@@ -1326,11 +1326,11 @@ prompt = best.to_debate_prompt()
 Prevents cascade failures when APIs are unavailable.
 
 ```python
-from aragora.pulse.ingestor import CircuitBreaker
+from aragora.resilience import CircuitBreaker
 
 breaker = CircuitBreaker(
-    failure_threshold=3,  # Open after 3 failures
-    reset_timeout=60.0,   # Auto-reset after 60 seconds
+    failure_threshold=3,   # Open after 3 failures
+    cooldown_seconds=60.0, # Auto-reset after 60 seconds
 )
 
 if breaker.can_proceed():

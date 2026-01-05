@@ -90,12 +90,18 @@ class GenesisHandler(BaseHandler):
             return self._get_genesis_events(nomic_dir, limit, event_type)
 
         if path.startswith("/api/genesis/lineage/"):
+            # Block path traversal attempts
+            if '..' in path:
+                return error_response("Invalid genome ID", 400)
             genome_id = path.split('/')[-1]
             if not genome_id or not re.match(SAFE_ID_PATTERN, genome_id):
                 return error_response("Invalid genome ID", 400)
             return self._get_genome_lineage(nomic_dir, genome_id)
 
         if path.startswith("/api/genesis/tree/"):
+            # Block path traversal attempts
+            if '..' in path:
+                return error_response("Invalid debate ID", 400)
             debate_id = path.split('/')[-1]
             if not debate_id or not re.match(SAFE_ID_PATTERN, debate_id):
                 return error_response("Invalid debate ID", 400)

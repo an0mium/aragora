@@ -437,3 +437,119 @@ class TestErrorHandling:
         msg = _safe_error_message(error, "test")
         assert "secret123" not in msg
         assert "password" not in msg
+
+
+# ============================================================================
+# CritiqueHandler Tests
+# ============================================================================
+
+class TestCritiqueHandler:
+    """Tests for CritiqueHandler."""
+
+    @pytest.fixture
+    def handler(self):
+        """Create handler with mock context."""
+        from aragora.server.handlers import CritiqueHandler
+        ctx = {
+            "nomic_dir": Path("/tmp/test"),
+        }
+        return CritiqueHandler(ctx)
+
+    def test_can_handle_patterns(self, handler):
+        """Test can_handle for patterns endpoint."""
+        assert handler.can_handle("/api/critiques/patterns") is True
+
+    def test_can_handle_archive(self, handler):
+        """Test can_handle for archive endpoint."""
+        assert handler.can_handle("/api/critiques/archive") is True
+
+    def test_can_handle_all_reputations(self, handler):
+        """Test can_handle for all reputations endpoint."""
+        assert handler.can_handle("/api/reputation/all") is True
+
+    def test_can_handle_agent_reputation(self, handler):
+        """Test can_handle for agent-specific reputation."""
+        assert handler.can_handle("/api/agent/claude/reputation") is True
+        assert handler.can_handle("/api/agent/gpt-4/reputation") is True
+
+    def test_cannot_handle_unrelated(self, handler):
+        """Test rejects unrelated endpoints."""
+        assert handler.can_handle("/api/consensus/stats") is False
+        assert handler.can_handle("/api/debates") is False
+
+    @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", False)
+    def test_returns_503_when_unavailable(self, handler):
+        """Test returns 503 when critique store unavailable."""
+        result = handler.handle("/api/critiques/patterns", {}, Mock())
+        assert result.status_code == 503
+
+    def test_extract_agent_name_valid(self, handler):
+        """Test agent name extraction."""
+        assert handler._extract_agent_name("/api/agent/claude/reputation") == "claude"
+        assert handler._extract_agent_name("/api/agent/gpt-4/reputation") == "gpt-4"
+
+    def test_extract_agent_name_invalid(self, handler):
+        """Test agent name extraction blocks invalid patterns."""
+        assert handler._extract_agent_name("/api/agent/../etc/reputation") is None
+        assert handler._extract_agent_name("/api/agent/a b c/reputation") is None
+
+
+# ============================================================================
+# GenesisHandler Tests
+# ============================================================================
+
+class TestGenesisHandler:
+    """Tests for GenesisHandler."""
+
+    @pytest.fixture
+    def handler(self):
+        """Create handler with mock context."""
+        from aragora.server.handlers import GenesisHandler
+        ctx = {
+            "nomic_dir": Path("/tmp/test"),
+        }
+        return GenesisHandler(ctx)
+
+    def test_can_handle_stats(self, handler):
+        """Test can_handle for stats endpoint."""
+        assert handler.can_handle("/api/genesis/stats") is True
+
+    def test_can_handle_events(self, handler):
+        """Test can_handle for events endpoint."""
+        assert handler.can_handle("/api/genesis/events") is True
+
+    def test_can_handle_lineage(self, handler):
+        """Test can_handle for lineage endpoint."""
+        assert handler.can_handle("/api/genesis/lineage/genome-123") is True
+
+    def test_can_handle_tree(self, handler):
+        """Test can_handle for tree endpoint."""
+        assert handler.can_handle("/api/genesis/tree/debate-456") is True
+
+    def test_cannot_handle_unrelated(self, handler):
+        """Test rejects unrelated endpoints."""
+        assert handler.can_handle("/api/consensus/stats") is False
+        assert handler.can_handle("/api/debates") is False
+
+    @patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False)
+    def test_returns_503_when_unavailable(self, handler):
+        """Test returns 503 when genesis module unavailable."""
+        result = handler.handle("/api/genesis/stats", {}, Mock())
+        assert result.status_code == 503
+
+    def test_lineage_validates_genome_id(self, handler):
+        """Test lineage validates genome_id format."""
+        # Valid genome ID
+        with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False):
+            result = handler.handle("/api/genesis/lineage/genome-123", {}, Mock())
+            assert result.status_code == 503  # Would fail due to unavailable module
+
+        # Invalid genome ID (path traversal)
+        result = handler.handle("/api/genesis/lineage/../etc/passwd", {}, Mock())
+        assert result.status_code == 400
+
+    def test_tree_validates_debate_id(self, handler):
+        """Test tree validates debate_id format."""
+        # Invalid debate ID
+        result = handler.handle("/api/genesis/tree/../etc/passwd", {}, Mock())
+        assert result.status_code == 400

@@ -237,6 +237,10 @@ class CircuitBreaker:
         """Return only entities with closed or half-open circuits."""
         return [e for e in entities if self.is_available(getattr(e, 'name', str(e)))]
 
+    def filter_available_agents(self, agents: list) -> list:
+        """Alias for filter_available_entities (backward compatibility)."""
+        return self.filter_available_entities(agents)
+
     def to_dict(self) -> dict:
         """Serialize to dict for persistence/debugging."""
         now = time.time()
