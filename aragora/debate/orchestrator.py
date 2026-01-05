@@ -1507,9 +1507,13 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         # Fetch historical context once at debate start (for institutional memory)
         if self.debate_embeddings:
             try:
-                self._historical_context_cache = await self._fetch_historical_context(
-                    self.env.task, limit=2  # Limit to 2 to avoid prompt bloat
+                self._historical_context_cache = await asyncio.wait_for(
+                    self._fetch_historical_context(self.env.task, limit=2),
+                    timeout=10.0  # 10 second timeout for context fetch
                 )
+            except asyncio.TimeoutError:
+                logger.warning("Historical context fetch timed out")
+                self._historical_context_cache = ""
             except Exception as e:
                 logger.debug(f"Historical context fetch error: {e}")
                 self._historical_context_cache = ""
@@ -1593,7 +1597,11 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         logger.info("round_start round=0 phase=proposals")
 
         # Filter proposers through circuit breaker
-        available_proposers = self.circuit_breaker.filter_available_agents(proposers)
+        try:
+            available_proposers = self.circuit_breaker.filter_available_agents(proposers)
+        except Exception as e:
+            logger.error(f"Circuit breaker filter error: {e}")
+            available_proposers = proposers  # Fall back to all proposers
         if len(available_proposers) < len(proposers):
             skipped = [a.name for a in proposers if a not in available_proposers]
             logger.info(f"circuit_breaker_skip agents={skipped}")
@@ -1714,7 +1722,11 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 critics = list(self.agents)
 
             # Filter critics through circuit breaker
-            available_critics = self.circuit_breaker.filter_available_agents(critics)
+            try:
+                available_critics = self.circuit_breaker.filter_available_agents(critics)
+            except Exception as e:
+                logger.error(f"Circuit breaker filter error for critics: {e}")
+                available_critics = critics  # Fall back to all critics
             if len(available_critics) < len(critics):
                 skipped = [c.name for c in critics if c not in available_critics]
                 logger.info(f"circuit_breaker_skip_critics skipped={skipped}")

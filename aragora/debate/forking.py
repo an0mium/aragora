@@ -338,8 +338,15 @@ class DebateForker:
             return branch
 
         # Run all branches in parallel
-        completed = await asyncio.gather(*[run_branch(b) for b in branches])
-        return list(completed)
+        results = await asyncio.gather(*[run_branch(b) for b in branches], return_exceptions=True)
+        # Filter out failed branches and log errors
+        completed = []
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"Branch execution failed: {type(result).__name__}: {result}")
+            else:
+                completed.append(result)
+        return completed
 
     def merge(self, branches: list[Branch]) -> MergeResult:
         """

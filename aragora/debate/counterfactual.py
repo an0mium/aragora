@@ -426,7 +426,11 @@ class CounterfactualOrchestrator:
                 self._run_branch(branch, context_messages, run_branch_fn)
                 for branch in branches
             ]
-            await asyncio.gather(*tasks)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            # Log any exceptions (branches are already updated in _run_branch)
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(f"Counterfactual branch {i} failed: {type(result).__name__}: {result}")
         else:
             # Run sequentially
             for branch in branches:

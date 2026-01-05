@@ -554,9 +554,12 @@ class MatrixDebateRunner:
                 batch_results = await asyncio.gather(*[
                     self._run_scenario_debate(task, s, base_context)
                     for s in batch
-                ])
+                ], return_exceptions=True)
 
                 for r in batch_results:
+                    if isinstance(r, Exception):
+                        logger.error(f"Scenario debate failed: {type(r).__name__}: {r}")
+                        continue  # Skip failed scenarios
                     result.results.append(r)
                     if on_scenario_complete:
                         on_scenario_complete(r)
