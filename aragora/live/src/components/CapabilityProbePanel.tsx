@@ -80,6 +80,7 @@ export function CapabilityProbePanel({
   apiBase = DEFAULT_API_BASE,
   onComplete,
 }: CapabilityProbePanelProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [availableAgents, setAvailableAgents] = useState<string[]>([]);
   const [selectedAgent, setSelectedAgent] = useState('');
   const [selectedProbes, setSelectedProbes] = useState<string[]>(['contradiction', 'hallucination']);
@@ -147,11 +148,36 @@ export function CapabilityProbePanel({
     return 'text-red-400';
   };
 
+  // Collapsed view
+  if (!isExpanded) {
+    return (
+      <div
+        className="border border-purple-500/30 bg-surface/50 p-3 cursor-pointer hover:border-purple-500/50 transition-colors"
+        onClick={() => setIsExpanded(true)}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-mono text-purple-400">
+            {'>'} CAPABILITY_PROBES {report ? `[${report.summary?.pass_rate ? Math.round(report.summary.pass_rate * 100) : 0}% pass]` : ''}
+          </h3>
+          <span className="text-xs text-text-muted">[EXPAND]</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4">
-      <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-        <span>🔬</span> Capability Probes
-      </h3>
+    <div className="border border-purple-500/30 bg-surface/50 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-mono text-purple-400 flex items-center gap-2">
+          <span>🔬</span> CAPABILITY_PROBES
+        </h3>
+        <button
+          onClick={() => setIsExpanded(false)}
+          className="text-xs text-text-muted hover:text-purple-400"
+        >
+          [COLLAPSE]
+        </button>
+      </div>
 
       {/* Configuration */}
       <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 mb-4">
@@ -329,6 +355,10 @@ export function CapabilityProbePanel({
           </div>
         </div>
       )}
+
+      <div className="mt-3 text-[10px] text-text-muted font-mono">
+        Adversarial capability testing for agent vulnerabilities
+      </div>
     </div>
   );
 }

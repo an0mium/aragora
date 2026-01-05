@@ -34,6 +34,7 @@ export function OperationalModesPanel({
   apiBase = DEFAULT_API_BASE,
   onModeSelect,
 }: OperationalModesPanelProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [modes, setModes] = useState<OperationalMode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,17 +72,41 @@ export function OperationalModesPanel({
     ? modes.filter((m) => m.category === selectedCategory)
     : modes;
 
+  // Collapsed view
+  if (!isExpanded) {
+    return (
+      <div
+        className="border border-green-500/30 bg-surface/50 p-3 cursor-pointer hover:border-green-500/50 transition-colors"
+        onClick={() => setIsExpanded(true)}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-mono text-green-400">
+            {'>'} OPERATIONAL_MODES [{modes.length}]
+          </h3>
+          <div className="flex items-center gap-2">
+            {categories.length > 0 && (
+              <span className="text-xs font-mono text-text-muted">
+                {categories.length} categories
+              </span>
+            )}
+            <span className="text-xs text-text-muted">[EXPAND]</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="p-4 text-zinc-500 text-center">
-        <div className="animate-pulse">Loading modes...</div>
+      <div className="border border-green-500/30 bg-surface/50 p-4">
+        <div className="text-zinc-500 text-center animate-pulse">Loading modes...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4">
+      <div className="border border-green-500/30 bg-surface/50 p-4">
         <div className="bg-red-900/20 border border-red-800 rounded p-3 text-red-400 text-sm">
           {error}
         </div>
@@ -96,8 +121,18 @@ export function OperationalModesPanel({
   }
 
   return (
-    <div className="p-4">
-      <h3 className="text-lg font-semibold text-white mb-4">Operational Modes</h3>
+    <div className="border border-green-500/30 bg-surface/50 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-mono text-green-400">
+          {'>'} OPERATIONAL_MODES
+        </h3>
+        <button
+          onClick={() => setIsExpanded(false)}
+          className="text-xs text-text-muted hover:text-green-400"
+        >
+          [COLLAPSE]
+        </button>
+      </div>
 
       {/* Category Filter */}
       <div className="flex gap-2 mb-4 flex-wrap">
@@ -197,6 +232,10 @@ export function OperationalModesPanel({
             </div>
           ))
         )}
+      </div>
+
+      <div className="mt-3 text-[10px] text-text-muted font-mono">
+        Available debate and operational mode configurations
       </div>
     </div>
   );

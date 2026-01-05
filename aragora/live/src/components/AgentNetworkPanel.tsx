@@ -29,6 +29,7 @@ export function AgentNetworkPanel({
   apiBase = DEFAULT_API_BASE,
   onAgentSelect,
 }: AgentNetworkPanelProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [network, setNetwork] = useState<AgentNetwork | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,9 +130,43 @@ export function AgentNetworkPanel({
     );
   };
 
+  // Collapsed view
+  if (!isExpanded) {
+    return (
+      <div
+        className="border border-blue-500/30 bg-surface/50 p-3 cursor-pointer hover:border-blue-500/50 transition-colors"
+        onClick={() => setIsExpanded(true)}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-mono text-blue-400">
+            {'>'} AGENT_NETWORK {network ? `[${network.agent}]` : ''}
+          </h3>
+          <div className="flex items-center gap-2">
+            {network && (
+              <span className="text-xs font-mono text-text-muted">
+                {network.rivals?.length || 0} rivals, {network.allies?.length || 0} allies
+              </span>
+            )}
+            <span className="text-xs text-text-muted">[EXPAND]</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4">
-      <h3 className="text-lg font-semibold text-white mb-4">Agent Network</h3>
+    <div className="border border-blue-500/30 bg-surface/50 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-mono text-blue-400">
+          {'>'} AGENT_NETWORK
+        </h3>
+        <button
+          onClick={() => setIsExpanded(false)}
+          className="text-xs text-text-muted hover:text-blue-400"
+        >
+          [COLLAPSE]
+        </button>
+      </div>
 
       {/* Agent Selector */}
       <div className="flex gap-2 mb-4">
@@ -238,6 +273,10 @@ export function AgentNetworkPanel({
           Select an agent to view their relationship network
         </div>
       )}
+
+      <div className="mt-3 text-[10px] text-text-muted font-mono">
+        Agent rivalry and alliance relationship visualization
+      </div>
     </div>
   );
 }

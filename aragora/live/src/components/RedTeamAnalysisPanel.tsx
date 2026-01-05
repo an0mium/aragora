@@ -46,6 +46,7 @@ export function RedTeamAnalysisPanel({
   apiBase = DEFAULT_API_BASE,
   onComplete,
 }: RedTeamAnalysisPanelProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [selectedAttacks, setSelectedAttacks] = useState<string[]>(['logical_fallacy', 'edge_case']);
   const [maxRounds, setMaxRounds] = useState(3);
   const [focusProposal, setFocusProposal] = useState('');
@@ -102,11 +103,43 @@ export function RedTeamAnalysisPanel({
     return 'text-red-400';
   };
 
+  // Collapsed view
+  if (!isExpanded) {
+    return (
+      <div
+        className="border border-red-500/30 bg-surface/50 p-3 cursor-pointer hover:border-red-500/50 transition-colors"
+        onClick={() => setIsExpanded(true)}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-mono text-red-400">
+            {'>'} RED_TEAM_ANALYSIS {result ? `[${Math.round(result.robustness_score * 100)}% robust]` : ''}
+          </h3>
+          <div className="flex items-center gap-2">
+            {result && (
+              <span className="text-xs font-mono text-text-muted">
+                {result.findings?.length || 0} findings
+              </span>
+            )}
+            <span className="text-xs text-text-muted">[EXPAND]</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4">
-      <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-        <span>🛡️</span> Red Team Analysis
-      </h3>
+    <div className="border border-red-500/30 bg-surface/50 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-mono text-red-400 flex items-center gap-2">
+          <span>🛡️</span> RED_TEAM_ANALYSIS
+        </h3>
+        <button
+          onClick={() => setIsExpanded(false)}
+          className="text-xs text-text-muted hover:text-red-400"
+        >
+          [COLLAPSE]
+        </button>
+      </div>
 
       {/* Configuration */}
       <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 mb-4">
@@ -234,6 +267,10 @@ export function RedTeamAnalysisPanel({
           </div>
         </div>
       )}
+
+      <div className="mt-3 text-[10px] text-text-muted font-mono">
+        Adversarial red team analysis for debate robustness
+      </div>
     </div>
   );
 }
