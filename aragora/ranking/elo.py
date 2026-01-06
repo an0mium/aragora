@@ -391,6 +391,75 @@ class EloSystem:
             )
             conn.commit()
 
+    def _save_ratings_batch(self, ratings: list[AgentRating]) -> None:
+        """Save multiple ratings in a single transaction.
+
+        More efficient than calling _save_rating() in a loop.
+        """
+        if not ratings:
+            return
+
+        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+            cursor = conn.cursor()
+            for rating in ratings:
+                cursor.execute(
+                    """
+                    INSERT INTO ratings (agent_name, elo, domain_elos, wins, losses, draws,
+                                        debates_count, critiques_accepted, critiques_total,
+                                        calibration_correct, calibration_total, calibration_brier_sum,
+                                        updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(agent_name) DO UPDATE SET
+                        elo = excluded.elo,
+                        domain_elos = excluded.domain_elos,
+                        wins = excluded.wins,
+                        losses = excluded.losses,
+                        draws = excluded.draws,
+                        debates_count = excluded.debates_count,
+                        critiques_accepted = excluded.critiques_accepted,
+                        critiques_total = excluded.critiques_total,
+                        calibration_correct = excluded.calibration_correct,
+                        calibration_total = excluded.calibration_total,
+                        calibration_brier_sum = excluded.calibration_brier_sum,
+                        updated_at = excluded.updated_at
+                    """,
+                    (
+                        rating.agent_name,
+                        rating.elo,
+                        json.dumps(rating.domain_elos),
+                        rating.wins,
+                        rating.losses,
+                        rating.draws,
+                        rating.debates_count,
+                        rating.critiques_accepted,
+                        rating.critiques_total,
+                        rating.calibration_correct,
+                        rating.calibration_total,
+                        rating.calibration_brier_sum,
+                        rating.updated_at,
+                    ),
+                )
+            conn.commit()
+
+    def _record_elo_history_batch(
+        self, entries: list[tuple[str, float, str | None]]
+    ) -> None:
+        """Record multiple ELO history entries in a single transaction.
+
+        Args:
+            entries: List of (agent_name, elo, debate_id) tuples
+        """
+        if not entries:
+            return
+
+        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+            cursor = conn.cursor()
+            cursor.executemany(
+                "INSERT INTO elo_history (agent_name, elo, debate_id) VALUES (?, ?, ?)",
+                entries,
+            )
+            conn.commit()
+
     def _expected_score(self, elo_a: float, elo_b: float) -> float:
         """Calculate expected score for player A against player B."""
         return 1 / (1 + 10 ** ((elo_b - elo_a) / 400))
@@ -471,12 +540,16 @@ class EloSystem:
                 elo_changes[agent_a] = elo_changes.get(agent_a, 0) + change_a
                 elo_changes[agent_b] = elo_changes.get(agent_b, 0) + change_b
 
-        # Apply changes and update stats
+        # Apply changes and update stats - collect for batch save
+        ratings_to_save = []
+        history_entries = []
+        now = datetime.now().isoformat()
+
         for agent_name, change in elo_changes.items():
             rating = ratings[agent_name]
             rating.elo += change
             rating.debates_count += 1
-            rating.updated_at = datetime.now().isoformat()
+            rating.updated_at = now
 
             if winner == agent_name:
                 rating.wins += 1
@@ -490,8 +563,12 @@ class EloSystem:
                 current_domain_elo = rating.domain_elos.get(domain, DEFAULT_ELO)
                 rating.domain_elos[domain] = current_domain_elo + change
 
-            self._save_rating(rating)
-            self._record_elo_history(agent_name, rating.elo, debate_id)
+            ratings_to_save.append(rating)
+            history_entries.append((agent_name, rating.elo, debate_id))
+
+        # Batch save all ratings and history (single transaction each)
+        self._save_ratings_batch(ratings_to_save)
+        self._record_elo_history_batch(history_entries)
 
         # Save match
         self._save_match(debate_id, winner, participants, domain, scores, elo_changes)
