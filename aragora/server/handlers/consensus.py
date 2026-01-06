@@ -70,6 +70,12 @@ class ConsensusHandler(BaseHandler):
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route consensus requests to appropriate methods."""
         if path == "/api/consensus/similar":
+            # Validate raw topic length before truncation
+            raw_topic = query_params.get('topic', '')
+            if isinstance(raw_topic, list):
+                raw_topic = raw_topic[0] if raw_topic else ''
+            if len(raw_topic) > 500:
+                return error_response("Topic too long (max 500 chars)", 400)
             topic = get_bounded_string_param(query_params, 'topic', '', max_length=500)
             if not topic:
                 return error_response("Topic required (max 500 chars)", 400)
