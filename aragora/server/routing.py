@@ -295,7 +295,7 @@ class RouteRegistry:
 
         return None
 
-    def get_routes(self, method: str = None) -> List[Route]:
+    def get_routes(self, method: str | None = None) -> List[Route]:
         """Get all registered routes, optionally filtered by method."""
         if method:
             method = method.upper()
@@ -464,6 +464,9 @@ def create_default_routes() -> List[Route]:
         # Metrics
         api_route("/api/metrics", "MetricsHandler"),
         api_route("/api/metrics/cache", "MetricsHandler"),
+
+        # Dashboard
+        api_route("/api/dashboard/debates", "DashboardHandler"),
     ]
 
 

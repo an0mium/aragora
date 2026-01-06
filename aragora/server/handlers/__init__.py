@@ -43,6 +43,7 @@ from .moments import MomentsHandler
 from .documents import DocumentHandler
 from .verification import VerificationHandler
 from .auditing import AuditingHandler
+from .dashboard import DashboardHandler
 
 __all__ = [
     # Base utilities
@@ -70,4 +71,5 @@ __all__ = [
     "DocumentHandler",
     "VerificationHandler",
     "AuditingHandler",
+    "DashboardHandler",
 ]
