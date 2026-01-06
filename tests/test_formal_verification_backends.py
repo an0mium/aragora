@@ -103,7 +103,7 @@ class TestZ3BackendCanVerify:
 
     def test_can_verify_when_unavailable(self, backend):
         """Should return False when Z3 is not available."""
-        with patch.object(Z3Backend, 'is_available', new_callable=PropertyMock, return_value=False):
+        with patch.object(backend, 'is_available', new_callable=PropertyMock, return_value=False):
             assert backend.can_verify("x > y") is False
 
 

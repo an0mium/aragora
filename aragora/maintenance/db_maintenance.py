@@ -79,7 +79,7 @@ class DatabaseMaintenance:
         Safe to run frequently, very fast operation.
         """
         if not db_path.exists():
-            logger.warning(f"WAL checkpoint skipped for {db_path.name}: file not found")
+            logger.debug(f"WAL checkpoint skipped for {db_path.name}: file not found")
             return False
         try:
             with sqlite3.connect(str(db_path), timeout=30) as conn:
