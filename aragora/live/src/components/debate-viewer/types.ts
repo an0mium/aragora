@@ -26,7 +26,11 @@ export interface LiveDebateViewProps {
   onSuggest: (suggestion: string) => void;
   onAck: (callback: (msgType: string) => void) => () => void;
   onError: (callback: (message: string) => void) => () => void;
-  messagesEndRef: React.RefObject<HTMLDivElement>;
+  // Scroll handling props
+  scrollContainerRef: React.RefObject<HTMLDivElement>;
+  onScroll: () => void;
+  userScrolled: boolean;
+  onResumeAutoScroll: () => void;
 }
 
 export interface ArchivedDebateViewProps {

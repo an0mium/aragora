@@ -263,6 +263,47 @@
 - **Key Gap**: Frontend uses WebSocket events, bypasses most REST endpoints
 - **New APIs**: Introspection (3), Plugins (3), Genesis (4), Graph (3), Audience (1), Replay (2)
 
+### Handler Integration Status (29 handlers)
+| Handler | File | Routes | Status |
+|---------|------|--------|--------|
+| DebatesHandler | debates.py | 9+ | ✅ Active |
+| AgentsHandler | agents.py | 6+ | ✅ Active |
+| SystemHandler | system.py | 4 | ✅ Active |
+| PulseHandler | pulse.py | 3 | ✅ Active |
+| AnalyticsHandler | analytics.py | 4 | ✅ Active |
+| MetricsHandler | metrics.py | 2 | ✅ Active |
+| ConsensusHandler | consensus.py | 4 | ✅ Active |
+| BeliefHandler | belief.py | 6 | ✅ Active |
+| CritiqueHandler | critique.py | 3 | ✅ Active |
+| GenesisHandler | genesis.py | 5 | ✅ Active |
+| ReplaysHandler | replays.py | 4 | ✅ Active |
+| TournamentHandler | tournaments.py | 3 | ✅ Active |
+| MemoryHandler | memory.py | 5 | ✅ Active |
+| LeaderboardViewHandler | leaderboard.py | 2 | ✅ Active |
+| RelationshipHandler | relationship.py | 3 | ✅ Active |
+| MomentsHandler | moments.py | 2 | ✅ Active |
+| DocumentHandler | documents.py | 4 | ✅ Active |
+| VerificationHandler | verification.py | 2 | ✅ Active |
+| AuditingHandler | auditing.py | 3 | ✅ Active |
+| DashboardHandler | dashboard.py | 3 | ✅ Active |
+| PersonaHandler | persona.py | 4 | ✅ Active |
+| IntrospectionHandler | introspection.py | 3 | ✅ Active |
+| CalibrationHandler | calibration.py | 3 | ✅ Active |
+| RoutingHandler | routing.py | 2 | ✅ Active |
+| EvolutionHandler | evolution.py | 3 | ✅ Active |
+| PluginsHandler | plugins.py | 3 | ✅ Active |
+| BroadcastHandler | broadcast.py | 4 | ✅ Active |
+| LaboratoryHandler | laboratory.py | 4 | ✅ Active |
+| ProbesHandler | probes.py | 2 | ✅ Active |
+
+**Handler Architecture**: All handlers inherit from `BaseHandler` with:
+- `can_handle(path)` - Route matching
+- `handle(path, query_params, http_handler)` - GET processing
+- `handle_post(path, query_params, http_handler)` - POST processing
+- `read_json_body(handler)` - Request body parsing
+- `ttl_cache` decorator - Response caching
+- `handle_errors` decorator - Centralized error handling
+
 ## Security Status
 
 ### Fixed (2026-01-04)

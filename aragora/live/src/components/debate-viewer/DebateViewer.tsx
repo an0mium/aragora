@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { fetchDebateById } from '@/utils/supabase';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -20,7 +20,8 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   const [copied, setCopied] = useState(false);
   const [showParticipation, setShowParticipation] = useState(true);
   const [showCitations, setShowCitations] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [userScrolled, setUserScrolled] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const isLiveDebate = debateId.startsWith('adhoc_');
 
@@ -48,9 +49,28 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
     }
   }, [hasCitations]);
 
+  // Detect when user manually scrolls up
+  const handleScroll = useCallback(() => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setUserScrolled(!isNearBottom);
+  }, []);
+
+  // Resume auto-scroll handler
+  const handleResumeAutoScroll = useCallback(() => {
+    setUserScrolled(false);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, []);
+
+  // Smart auto-scroll: only scroll if user hasn't manually scrolled up
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [liveMessages, streamingMessages]);
+    if (!userScrolled && scrollContainerRef.current && liveStatus === 'streaming') {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, [liveMessages, streamingMessages, userScrolled, liveStatus]);
 
   useEffect(() => {
     if (isLiveDebate) {
@@ -120,14 +140,18 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
               onSuggest={sendSuggestion}
               onAck={registerAckCallback}
               onError={registerErrorCallback}
-              messagesEndRef={messagesEndRef}
+              scrollContainerRef={scrollContainerRef}
+              onScroll={handleScroll}
+              userScrolled={userScrolled}
+              onResumeAutoScroll={handleResumeAutoScroll}
             />
           )}
 
           {debate && <ArchivedDebateView debate={debate} onShare={handleShare} copied={copied} />}
         </div>
 
-        <Footer />
+        {/* Hide footer during active streaming to maximize content area */}
+        {(!isLiveDebate || liveStatus === 'complete' || liveStatus === 'error') && <Footer />}
       </main>
     </>
   );

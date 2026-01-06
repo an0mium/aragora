@@ -33,7 +33,10 @@ export function LiveDebateView({
   onSuggest,
   onAck,
   onError,
-  messagesEndRef,
+  scrollContainerRef,
+  onScroll,
+  userScrolled,
+  onResumeAutoScroll,
 }: LiveDebateViewProps) {
   const statusConfig = STATUS_CONFIG[status];
 
@@ -104,7 +107,15 @@ export function LiveDebateView({
               </button>
             </div>
           </div>
-          <div className="p-4 space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto">
+          <div
+            ref={scrollContainerRef}
+            onScroll={onScroll}
+            className={`p-4 space-y-4 overflow-y-auto ${
+              status === 'streaming'
+                ? 'h-[calc(100vh-200px)]'  // Fixed height during streaming for better scroll control
+                : 'max-h-[calc(100vh-280px)]'
+            }`}
+          >
             {messages.length === 0 && streamingMessages.size === 0 && status === 'streaming' && (
               <div className="text-center py-8 text-text-muted font-mono">
                 <div className="animate-pulse">Waiting for agents to respond...</div>
@@ -116,7 +127,6 @@ export function LiveDebateView({
             {Array.from(streamingMessages.values()).map((streamMsg) => (
               <StreamingMessageCard key={`streaming-${streamMsg.agent}`} message={streamMsg} />
             ))}
-            <div ref={messagesEndRef} />
           </div>
         </div>
 
@@ -161,6 +171,17 @@ export function LiveDebateView({
         <div className="text-center text-xs font-mono text-text-muted py-2 border-t border-acid-green/20">
           ID: {debateId}
         </div>
+      )}
+
+      {/* Resume auto-scroll button - appears when user scrolls up during streaming */}
+      {userScrolled && status === 'streaming' && (
+        <button
+          onClick={onResumeAutoScroll}
+          className="fixed bottom-4 right-4 px-3 py-2 bg-acid-green text-bg font-mono text-xs z-50
+                     hover:bg-acid-green/80 transition-colors shadow-lg border border-acid-green/50"
+        >
+          {'>'} RESUME AUTO-SCROLL
+        </button>
       )}
     </div>
   );

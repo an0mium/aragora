@@ -32,6 +32,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, List, Callable, Any
@@ -1392,6 +1393,7 @@ class NomicLoop:
         self._phase_progress: dict = {}  # Progress tracking within phases
         self._design_recovery_attempts: set = set()  # Track recovery strategies tried
         self._deadlock_count: int = 0  # Consecutive deadlocks
+        self._consensus_threshold_decay: int = 0  # Number of threshold decreases (0, 1, or 2)
         self._warned_50: bool = False  # Timeout warning flags
         self._warned_75: bool = False
         self._warned_90: bool = False
@@ -1872,10 +1874,30 @@ class NomicLoop:
             self._design_recovery_attempts = set()
             self._log("  [DEADLOCK] Cleared cached state for fresh attempt")
 
+            # Try NomicIntegration counterfactual resolution if belief network available
+            if self.nomic_integration and self.nomic_integration._belief_network:
+                try:
+                    self._log("  [DEADLOCK] Attempting counterfactual resolution via belief network...")
+                    belief_network = self.nomic_integration._belief_network
+                    contested = belief_network.get_contested_claims()
+                    if contested:
+                        # Convert BeliefNode list to list for resolve_deadlock
+                        self._log(f"  [DEADLOCK] Found {len(contested)} contested claims for resolution")
+                        # Store contested claims for use in next debate phase
+                        self._cached_cruxes = contested
+                except Exception as e:
+                    self._log(f"  [DEADLOCK] Counterfactual resolution failed: {e}")
+
             # Try different agent configuration after multiple deadlocks
             if self._deadlock_count >= 2:
                 self._log("  [DEADLOCK] Will rotate agent roles for fresh perspective")
                 self._force_judge_consensus = True  # Force judge to break ties
+
+            # Increase consensus threshold decay to lower the bar
+            if self._consensus_threshold_decay < 2:
+                self._consensus_threshold_decay += 1
+                new_threshold = self._get_adaptive_consensus_threshold()
+                self._log(f"  [DEADLOCK] Lowered consensus threshold to {new_threshold:.0%}")
 
             self._deadlock_count += 1
             return "retry_with_reset"
@@ -1892,6 +1914,23 @@ class NomicLoop:
             return "skip"
 
         return "continue"
+
+    def _get_adaptive_consensus_threshold(self) -> float:
+        """
+        Get consensus threshold adjusted for repeated failures.
+
+        Decay path: 0.6 -> 0.5 -> 0.4 (after consecutive no-consensus cycles)
+        This allows the system to break deadlocks by accepting lower agreement.
+        """
+        base_threshold = 0.6
+        decay_steps = [0.6, 0.5, 0.4]  # 60% -> 50% -> 40%
+        idx = min(self._consensus_threshold_decay, len(decay_steps) - 1)
+        threshold = decay_steps[idx]
+
+        if threshold < base_threshold:
+            self._log(f"  [consensus] Using adaptive threshold: {threshold:.0%} (decay level {self._consensus_threshold_decay})")
+
+        return threshold
 
     def _reset_cycle_state(self):
         """Reset per-cycle state at the start of each cycle."""
@@ -5567,6 +5606,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             protocol = DebateProtocol(
                 rounds=2,
                 consensus="majority",
+                consensus_threshold=self._get_adaptive_consensus_threshold(),  # Adaptive threshold
                 judge_selection="elo_ranked",  # Use ELO-based judge selection
                 role_rotation=True,
                 role_rotation_config=RoleRotationConfig(
@@ -5645,6 +5685,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             protocol = DebateProtocol(
                 rounds=2,
                 consensus="majority",
+                consensus_threshold=self._get_adaptive_consensus_threshold(),  # Adaptive threshold
                 judge_selection="elo_ranked",  # Use ELO-based judge selection
                 role_rotation=True,
                 role_rotation_config=RoleRotationConfig(
@@ -8857,9 +8898,12 @@ Working directory: {self.aragora_path}
             except Exception as e:
                 self._log(f"  [continuum] Failed to record outcome: {e}")
 
-        # Reset deadlock counter on success
+        # Reset deadlock counter and consensus decay on success
         if cycle_result.get("outcome") == "success":
             self._deadlock_count = 0
+            if self._consensus_threshold_decay > 0:
+                self._log(f"  [consensus] Resetting threshold decay (was level {self._consensus_threshold_decay})")
+                self._consensus_threshold_decay = 0
 
         return cycle_result
 

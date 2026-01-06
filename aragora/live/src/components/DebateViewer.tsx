@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { fetchDebateById, type DebateArtifact } from '@/utils/supabase';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -27,7 +27,8 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   // UI state
   const [showParticipation, setShowParticipation] = useState(true);
   const [showCitations, setShowCitations] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [userScrolled, setUserScrolled] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Determine if this is a live debate
   const isLiveDebate = debateId.startsWith('adhoc_');
@@ -58,10 +59,28 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
     }
   }, [hasCitations]);
 
-  // Auto-scroll to bottom on new messages
+  // Detect when user manually scrolls up
+  const handleScroll = useCallback(() => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setUserScrolled(!isNearBottom);
+  }, []);
+
+  // Resume auto-scroll handler
+  const handleResumeAutoScroll = useCallback(() => {
+    setUserScrolled(false);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, []);
+
+  // Smart auto-scroll: only scroll if user hasn't manually scrolled up
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [liveMessages, streamingMessages]);
+    if (!userScrolled && scrollContainerRef.current && liveStatus === 'streaming') {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, [liveMessages, streamingMessages, userScrolled, liveStatus]);
 
   // Fetch completed debate from Supabase (non-live debates)
   useEffect(() => {
@@ -167,7 +186,10 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
               onSuggest={sendSuggestion}
               onAck={registerAckCallback}
               onError={registerErrorCallback}
-              messagesEndRef={messagesEndRef}
+              scrollContainerRef={scrollContainerRef}
+              onScroll={handleScroll}
+              userScrolled={userScrolled}
+              onResumeAutoScroll={handleResumeAutoScroll}
             />
           )}
 
@@ -181,28 +203,30 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
           )}
         </div>
 
-        {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
-            {'═'.repeat(40)}
-          </div>
-          <p className="text-text-muted">
-            {'>'} AGORA DEBATE VIEWER // PERMALINK
-          </p>
-          <p className="text-acid-cyan mt-2">
-            <a
-              href="https://aragora.ai"
-              className="hover:text-acid-green transition-colors"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              [ ARAGORA.AI ]
-            </a>
-          </p>
-          <div className="text-acid-green/50 mt-4">
-            {'═'.repeat(40)}
-          </div>
-        </footer>
+        {/* Footer - Hide during active streaming to maximize content area */}
+        {(!isLiveDebate || liveStatus === 'complete' || liveStatus === 'error') && (
+          <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
+            <div className="text-acid-green/50 mb-2">
+              {'═'.repeat(40)}
+            </div>
+            <p className="text-text-muted">
+              {'>'} AGORA DEBATE VIEWER // PERMALINK
+            </p>
+            <p className="text-acid-cyan mt-2">
+              <a
+                href="https://aragora.ai"
+                className="hover:text-acid-green transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                [ ARAGORA.AI ]
+              </a>
+            </p>
+            <div className="text-acid-green/50 mt-4">
+              {'═'.repeat(40)}
+            </div>
+          </footer>
+        )}
       </main>
     </>
   );
@@ -228,7 +252,10 @@ interface LiveDebateViewProps {
   onSuggest: (suggestion: string) => void;
   onAck: (callback: (msgType: string) => void) => () => void;
   onError: (callback: (message: string) => void) => () => void;
-  messagesEndRef: React.RefObject<HTMLDivElement>;
+  scrollContainerRef: React.RefObject<HTMLDivElement>;
+  onScroll: () => void;
+  userScrolled: boolean;
+  onResumeAutoScroll: () => void;
 }
 
 function LiveDebateView({
@@ -250,7 +277,10 @@ function LiveDebateView({
   onSuggest,
   onAck,
   onError,
-  messagesEndRef,
+  scrollContainerRef,
+  onScroll,
+  userScrolled,
+  onResumeAutoScroll,
 }: LiveDebateViewProps) {
   return (
     <div className="space-y-6">
@@ -331,7 +361,15 @@ function LiveDebateView({
               </button>
             </div>
           </div>
-          <div className="p-4 space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto">
+          <div
+            ref={scrollContainerRef}
+            onScroll={onScroll}
+            className={`p-4 space-y-4 overflow-y-auto ${
+              status === 'streaming'
+                ? 'h-[calc(100vh-200px)]'  // Fixed height during streaming for better scroll control
+                : 'max-h-[calc(100vh-280px)]'
+            }`}
+          >
             {messages.length === 0 && streamingMessages.size === 0 && status === 'streaming' && (
               <div className="text-center py-8 text-text-muted font-mono">
                 <div className="animate-pulse">Waiting for agents to respond...</div>
@@ -344,7 +382,6 @@ function LiveDebateView({
             {Array.from(streamingMessages.values()).map((streamMsg) => (
               <StreamingMessageCard key={`streaming-${streamMsg.agent}`} message={streamMsg} />
             ))}
-            <div ref={messagesEndRef} />
           </div>
         </div>
 
@@ -389,6 +426,17 @@ function LiveDebateView({
         <div className="text-center text-xs font-mono text-text-muted py-2 border-t border-acid-green/20">
           ID: {debateId}
         </div>
+      )}
+
+      {/* Resume auto-scroll button - appears when user scrolls up during streaming */}
+      {userScrolled && status === 'streaming' && (
+        <button
+          onClick={onResumeAutoScroll}
+          className="fixed bottom-4 right-4 px-3 py-2 bg-acid-green text-bg font-mono text-xs z-50
+                     hover:bg-acid-green/80 transition-colors shadow-lg border border-acid-green/50"
+        >
+          {'>'} RESUME AUTO-SCROLL
+        </button>
       )}
     </div>
   );

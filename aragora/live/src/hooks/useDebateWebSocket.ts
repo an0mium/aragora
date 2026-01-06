@@ -18,6 +18,8 @@ export interface StreamingMessage {
   content: string;
   isComplete: boolean;
   startTime: number;
+  expectedSeq: number;  // Next expected agent_seq for ordering
+  pendingTokens: Map<number, string>;  // Buffer for out-of-order tokens
 }
 
 export type DebateConnectionStatus = 'connecting' | 'streaming' | 'complete' | 'error';
@@ -304,7 +306,7 @@ export function useDebateWebSocket({
         }
       }
 
-      // Token streaming events
+      // Token streaming events with sequence-based ordering
       else if (data.type === 'token_start') {
         const agent = data.agent || data.data?.agent;
         if (agent) {
@@ -315,6 +317,8 @@ export function useDebateWebSocket({
               content: '',
               isComplete: false,
               startTime: Date.now(),
+              expectedSeq: 1,  // First token should have agent_seq=1
+              pendingTokens: new Map(),
             });
             return updated;
           });
@@ -323,21 +327,62 @@ export function useDebateWebSocket({
       } else if (data.type === 'token_delta') {
         const agent = data.agent || data.data?.agent;
         const token = data.data?.token || '';
+        const agentSeq = data.agent_seq || 0;  // Per-agent sequence number
+
         if (agent && token) {
           setStreamingMessages(prev => {
             const updated = new Map(prev);
             const existing = updated.get(agent);
+
             if (existing) {
-              updated.set(agent, {
-                ...existing,
-                content: existing.content + token,
-              });
+              // If we have sequence info, use it for ordering
+              if (agentSeq > 0) {
+                // Check if this is the expected sequence
+                if (agentSeq === existing.expectedSeq) {
+                  // Token is in order - append it
+                  let newContent = existing.content + token;
+                  let nextExpected = agentSeq + 1;
+
+                  // Check if we have buffered tokens that can now be appended
+                  const pending = new Map(existing.pendingTokens);
+                  while (pending.has(nextExpected)) {
+                    newContent += pending.get(nextExpected)!;
+                    pending.delete(nextExpected);
+                    nextExpected++;
+                  }
+
+                  updated.set(agent, {
+                    ...existing,
+                    content: newContent,
+                    expectedSeq: nextExpected,
+                    pendingTokens: pending,
+                  });
+                } else if (agentSeq > existing.expectedSeq) {
+                  // Token arrived out of order - buffer it
+                  const pending = new Map(existing.pendingTokens);
+                  pending.set(agentSeq, token);
+                  updated.set(agent, {
+                    ...existing,
+                    pendingTokens: pending,
+                  });
+                }
+                // Ignore tokens with seq < expectedSeq (duplicate/old)
+              } else {
+                // No sequence info - fall back to simple append (backward compat)
+                updated.set(agent, {
+                  ...existing,
+                  content: existing.content + token,
+                });
+              }
             } else {
+              // First token for this agent (no token_start received)
               updated.set(agent, {
                 agent,
                 content: token,
                 isComplete: false,
                 startTime: Date.now(),
+                expectedSeq: agentSeq > 0 ? agentSeq + 1 : 1,
+                pendingTokens: new Map(),
               });
             }
             return updated;
@@ -349,17 +394,28 @@ export function useDebateWebSocket({
           setStreamingMessages(prev => {
             const updated = new Map(prev);
             const existing = updated.get(agent);
-            if (existing && existing.content) {
-              const msg: TranscriptMessage = {
-                agent,
-                content: existing.content,
-                timestamp: Date.now() / 1000,
-              };
-              // Deduplication check
-              const msgKey = `${msg.agent}-${msg.timestamp}-${msg.content.slice(0, 50)}`;
-              if (!seenMessagesRef.current.has(msgKey)) {
-                seenMessagesRef.current.add(msgKey);
-                setMessages(prevMsgs => [...prevMsgs, msg]);
+            if (existing) {
+              // Flush any remaining buffered tokens in order
+              let finalContent = existing.content;
+              if (existing.pendingTokens.size > 0) {
+                const sortedSeqs = Array.from(existing.pendingTokens.keys()).sort((a, b) => a - b);
+                for (const seq of sortedSeqs) {
+                  finalContent += existing.pendingTokens.get(seq)!;
+                }
+              }
+
+              if (finalContent) {
+                const msg: TranscriptMessage = {
+                  agent,
+                  content: finalContent,
+                  timestamp: Date.now() / 1000,
+                };
+                // Deduplication check
+                const msgKey = `${msg.agent}-${msg.timestamp}-${msg.content.slice(0, 50)}`;
+                if (!seenMessagesRef.current.has(msgKey)) {
+                  seenMessagesRef.current.add(msgKey);
+                  setMessages(prevMsgs => [...prevMsgs, msg]);
+                }
               }
             }
             updated.delete(agent);

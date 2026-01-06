@@ -65,6 +65,8 @@ interface StreamEventBase {
   timestamp: number;
   round?: number;
   agent?: string;
+  seq?: number;  // Global sequence number for ordering
+  agent_seq?: number;  // Per-agent sequence number for token stream ordering
 }
 
 // Specific event data types for type-safe access

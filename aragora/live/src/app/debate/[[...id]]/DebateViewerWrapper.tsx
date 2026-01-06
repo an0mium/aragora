@@ -6,6 +6,12 @@ import { CruxPanel } from '@/components/CruxPanel';
 import { AnalyticsPanel } from '@/components/AnalyticsPanel';
 import { RedTeamAnalysisPanel } from '@/components/RedTeamAnalysisPanel';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { ImpasseDetectionPanel } from '@/components/ImpasseDetectionPanel';
+import { CalibrationPanel } from '@/components/CalibrationPanel';
+import { ConsensusKnowledgeBase } from '@/components/ConsensusKnowledgeBase';
+import { TrendingTopicsPanel } from '@/components/TrendingTopicsPanel';
+import { MemoryInspector } from '@/components/MemoryInspector';
+import { MetricsPanel } from '@/components/MetricsPanel';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -16,6 +22,7 @@ export function DebateViewerWrapper() {
   const [debateId, setDebateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [showDeepAnalysis, setShowDeepAnalysis] = useState(false);
   const { config } = useBackend();
 
   useEffect(() => {
@@ -61,6 +68,9 @@ export function DebateViewerWrapper() {
     );
   }
 
+  // Live debates start with 'adhoc_' - hide analysis during streaming for better UX
+  const isLiveDebate = debateId.startsWith('adhoc_');
+
   return (
     <div className="min-h-screen bg-bg">
       {/* Main Debate Viewer */}
@@ -68,18 +78,20 @@ export function DebateViewerWrapper() {
         <DebateViewer debateId={debateId} wsUrl={config.ws} />
       </PanelErrorBoundary>
 
-      {/* Analysis Panels Toggle */}
-      <div className="container mx-auto px-4 py-4">
-        <button
-          onClick={() => setShowAnalysis(!showAnalysis)}
-          className="w-full py-3 border border-acid-green/30 bg-surface hover:bg-surface/80 transition-colors font-mono text-sm text-acid-green"
-        >
-          {showAnalysis ? '[-] HIDE ANALYSIS PANELS' : '[+] SHOW ANALYSIS PANELS'}
-        </button>
-      </div>
+      {/* Analysis Panels Toggle - hidden during live debates for maximum viewport space */}
+      {!isLiveDebate && (
+        <div className="container mx-auto px-4 py-4">
+          <button
+            onClick={() => setShowAnalysis(!showAnalysis)}
+            className="w-full py-3 border border-acid-green/30 bg-surface hover:bg-surface/80 transition-colors font-mono text-sm text-acid-green"
+          >
+            {showAnalysis ? '[-] HIDE ANALYSIS PANELS' : '[+] SHOW ANALYSIS PANELS'}
+          </button>
+        </div>
+      )}
 
-      {/* Collapsible Analysis Section */}
-      {showAnalysis && (
+      {/* Collapsible Analysis Section - only for archived debates */}
+      {!isLiveDebate && showAnalysis && (
         <div className="container mx-auto px-4 pb-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Crux Analysis Panel */}
@@ -103,6 +115,38 @@ export function DebateViewerWrapper() {
               </PanelErrorBoundary>
             </div>
           </div>
+
+          {/* Deep Analysis Toggle */}
+          <button
+            onClick={() => setShowDeepAnalysis(!showDeepAnalysis)}
+            className="w-full py-2 mt-4 border border-acid-cyan/30 bg-surface hover:bg-surface/80 transition-colors font-mono text-xs text-acid-cyan"
+          >
+            {showDeepAnalysis ? '[-] HIDE DEEP ANALYSIS' : '[+] SHOW DEEP ANALYSIS'}
+          </button>
+
+          {/* Deep Analysis Panels */}
+          {showDeepAnalysis && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+              <PanelErrorBoundary panelName="Impasse Detection">
+                <ImpasseDetectionPanel debateId={debateId} apiBase={config.api} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Calibration">
+                <CalibrationPanel apiBase={config.api} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Consensus Knowledge">
+                <ConsensusKnowledgeBase apiBase={config.api} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Trending Topics">
+                <TrendingTopicsPanel apiBase={config.api} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Memory Inspector">
+                <MemoryInspector apiBase={config.api} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Metrics">
+                <MetricsPanel apiBase={config.api} />
+              </PanelErrorBoundary>
+            </div>
+          )}
         </div>
       )}
     </div>
