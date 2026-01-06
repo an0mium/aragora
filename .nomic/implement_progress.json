@@ -1,0 +1,19 @@
+{
+  "plan": {
+    "design_hash": "9aed67a1dac329226e7f9d4fbeb9f927",
+    "tasks": [
+      {
+        "id": "task-1",
+        "description": "Implement the complete design",
+        "files": [],
+        "complexity": "complex",
+        "dependencies": []
+      }
+    ],
+    "created_at": "2026-01-05T15:11:35.808178"
+  },
+  "completed_tasks": [],
+  "current_task": null,
+  "git_stash_ref": "aa395848019e1c3c93914e4f8caa2c7e7a329a94",
+  "results": []
+}

@@ -1,8 +1,10 @@
 {
-  "failures": {},
+  "failures": {
+    "claude": 0
+  },
   "cooldowns": {},
   "task_failures": {},
   "task_cooldowns": {},
   "task_success_rate": {},
-  "saved_at": "2026-01-04T22:59:26.191304"
+  "saved_at": "2026-01-06T15:45:42.228774"
 }
