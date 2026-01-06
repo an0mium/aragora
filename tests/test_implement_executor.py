@@ -303,7 +303,8 @@ class TestHybridExecutorGitDiff:
     def test_get_git_diff_handles_error(self, executor):
         """_get_git_diff returns empty string on error."""
         with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = Exception("git not found")
+            # Use OSError which is what actually happens when git is not found
+            mock_run.side_effect = OSError("git not found")
             result = executor._get_git_diff()
             assert result == ""
 

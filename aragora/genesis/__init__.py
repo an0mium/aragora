@@ -40,6 +40,7 @@ from aragora.genesis.genome import (
     generate_genome_id,
 )
 
+from aragora.genesis import breeding  # Expose submodule for patching
 from aragora.genesis.breeding import (
     Population,
     GenomeBreeder,

@@ -643,38 +643,38 @@ class CritiqueStore:
 
     @ttl_cache(ttl_seconds=300, key_prefix="critique_stats", skip_first=True)
     def get_stats(self) -> dict:
-        """Get statistics about stored patterns and debates."""
+        """Get statistics about stored patterns and debates.
+
+        Uses consolidated queries to reduce database round-trips from 6 to 2.
+        """
         # Ensure tables exist
         self._init_db()
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            stats = {}
-
-            cursor.execute("SELECT COUNT(*) FROM debates")
+            # Consolidated query: All counts and averages in one query using subqueries
+            cursor.execute("""
+                SELECT
+                    (SELECT COUNT(*) FROM debates) as total_debates,
+                    (SELECT COUNT(*) FROM debates WHERE consensus_reached = 1) as consensus_debates,
+                    (SELECT COUNT(*) FROM critiques) as total_critiques,
+                    (SELECT COUNT(*) FROM patterns) as total_patterns,
+                    (SELECT AVG(confidence) FROM debates WHERE consensus_reached = 1) as avg_confidence
+            """)
             row = cursor.fetchone()
-            stats["total_debates"] = row[0] if row else 0
 
-            cursor.execute("SELECT COUNT(*) FROM debates WHERE consensus_reached = 1")
-            row = cursor.fetchone()
-            stats["consensus_debates"] = row[0] if row else 0
+            stats = {
+                "total_debates": row[0] if row[0] else 0,
+                "consensus_debates": row[1] if row[1] else 0,
+                "total_critiques": row[2] if row[2] else 0,
+                "total_patterns": row[3] if row[3] else 0,
+                "avg_consensus_confidence": row[4] if row[4] else 0.0,
+            }
 
-            cursor.execute("SELECT COUNT(*) FROM critiques")
-            row = cursor.fetchone()
-            stats["total_critiques"] = row[0] if row else 0
-
-            cursor.execute("SELECT COUNT(*) FROM patterns")
-            row = cursor.fetchone()
-            stats["total_patterns"] = row[0] if row else 0
-
+            # Second query: patterns by type (GROUP BY can't easily combine)
             cursor.execute("SELECT issue_type, COUNT(*) FROM patterns GROUP BY issue_type")
             stats["patterns_by_type"] = dict(cursor.fetchall())
-
-            cursor.execute("SELECT AVG(confidence) FROM debates WHERE consensus_reached = 1")
-            row = cursor.fetchone()
-            avg_conf = row[0] if row else None
-            stats["avg_consensus_confidence"] = avg_conf if avg_conf else 0.0
 
             return stats
 

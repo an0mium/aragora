@@ -17,6 +17,7 @@ Provides two complementary mode systems:
 from aragora.modes.tool_groups import ToolGroup, can_use_tool, get_required_group
 from aragora.modes.base import Mode, ModeRegistry
 from aragora.modes.handoff import HandoffContext, ModeHandoff
+from aragora.modes import custom  # Expose submodule for patching
 from aragora.modes.custom import CustomMode, CustomModeLoader
 
 # Built-in operational modes (auto-registered on import)
