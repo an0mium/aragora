@@ -7,6 +7,7 @@ Uses OpenAI, Gemini, or local embeddings depending on availability.
 
 import asyncio
 import aiohttp
+from collections import OrderedDict
 import hashlib
 import json
 import logging
@@ -23,10 +24,14 @@ logger = logging.getLogger(__name__)
 
 
 class EmbeddingCache:
-    """Simple async-compatible TTL cache for embeddings."""
+    """Simple async-compatible TTL cache for embeddings.
+
+    Uses OrderedDict for O(1) LRU eviction instead of O(n) min() scan.
+    """
 
     def __init__(self, ttl_seconds: float = 3600, max_size: int = 1000):
-        self._cache: dict[str, tuple[float, list[float]]] = {}
+        # OrderedDict maintains insertion order - oldest first for O(1) eviction
+        self._cache: OrderedDict[str, tuple[float, list[float]]] = OrderedDict()
         self._ttl = ttl_seconds
         self._max_size = max_size
 
@@ -40,6 +45,8 @@ class EmbeddingCache:
         if key in self._cache:
             timestamp, embedding = self._cache[key]
             if time.time() - timestamp < self._ttl:
+                # Move to end to mark as recently used (LRU)
+                self._cache.move_to_end(key)
                 return embedding
             # Expired - remove
             del self._cache[key]
@@ -47,11 +54,15 @@ class EmbeddingCache:
 
     def set(self, text: str, embedding: list[float]) -> None:
         """Cache an embedding."""
-        # Evict oldest entries if at capacity
-        if len(self._cache) >= self._max_size:
-            oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k][0])
-            del self._cache[oldest_key]
         key = self._make_key(text)
+        # If key exists, update timestamp and move to end
+        if key in self._cache:
+            self._cache[key] = (time.time(), embedding)
+            self._cache.move_to_end(key)
+            return
+        # Evict oldest entry if at capacity - O(1) with popitem(last=False)
+        if len(self._cache) >= self._max_size:
+            self._cache.popitem(last=False)
         self._cache[key] = (time.time(), embedding)
 
     def stats(self) -> dict:

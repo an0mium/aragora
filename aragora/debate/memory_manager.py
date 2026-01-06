@@ -8,12 +8,15 @@ across ContinuumMemory, CritiqueStore, and DebateEmbeddings systems.
 
 import hashlib
 import logging
+import time
 from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
     from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.critique_store import CritiqueStore
+
+from aragora.memory.continuum import MemoryTier
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +62,10 @@ class MemoryManager:
         # Track retrieved memory IDs for outcome updates
         self._retrieved_ids: list = []
 
+        # Pattern cache: (timestamp, formatted_patterns) - TTL 5 minutes
+        self._patterns_cache: tuple[float, str] | None = None
+        self._patterns_cache_ttl: float = 300.0  # 5 minutes
+
     def _get_domain(self) -> str:
         """Get current debate domain from extractor or default."""
         if self._domain_extractor:
@@ -86,11 +93,11 @@ class MemoryManager:
             # Determine tier based on debate quality
             # Multi-round debates with high confidence go to faster tiers
             if result.rounds_used >= 2 and result.confidence > 0.7:
-                tier = "fast"
+                tier = MemoryTier.FAST
             elif result.rounds_used >= 1 and result.confidence > 0.5:
-                tier = "medium"
+                tier = MemoryTier.MEDIUM
             else:
-                tier = "slow"
+                tier = MemoryTier.SLOW
 
             # Store the winning approach with domain context
             domain = self._get_domain()
@@ -269,6 +276,9 @@ class MemoryManager:
         Injecting them into debate context helps agents avoid past mistakes
         and reuse successful approaches.
 
+        Uses a 5-minute TTL cache to avoid repeated database queries for the
+        same patterns across multiple debates in a short time window.
+
         Args:
             limit: Maximum number of patterns to retrieve
 
@@ -278,14 +288,22 @@ class MemoryManager:
         if not self.critique_store:
             return ""
 
+        # Check cache first
+        now = time.time()
+        if self._patterns_cache is not None:
+            cache_time, cached_patterns = self._patterns_cache
+            if now - cache_time < self._patterns_cache_ttl:
+                return cached_patterns
+
         try:
             # CritiqueStore.retrieve_patterns returns Pattern objects
             patterns = self.critique_store.retrieve_patterns(min_success=1, limit=limit)
             if not patterns:
+                self._patterns_cache = (now, "")
                 return ""
 
             # Convert Pattern objects to dict format and format for prompt
-            return self._format_patterns_for_prompt([
+            result = self._format_patterns_for_prompt([
                 {
                     "category": p.issue_type,
                     "pattern": f"{p.issue_text} → {p.suggestion_text}" if p.suggestion_text else p.issue_text,
@@ -294,6 +312,10 @@ class MemoryManager:
                 }
                 for p in patterns
             ])
+
+            # Cache the result
+            self._patterns_cache = (now, result)
+            return result
         except Exception as e:
             logger.debug(f"Failed to retrieve patterns: {e}")
             return ""

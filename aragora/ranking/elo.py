@@ -1213,6 +1213,62 @@ class EloSystem:
             )
             conn.commit()
 
+    def update_relationships_batch(
+        self,
+        updates: list[dict],
+    ) -> None:
+        """Batch update multiple agent relationships in a single transaction.
+
+        This is more efficient than calling update_relationship() in a loop,
+        as it uses a single database connection and transaction.
+
+        Args:
+            updates: List of dicts, each containing:
+                - agent_a: str
+                - agent_b: str
+                - debate_increment: int (default 0)
+                - agreement_increment: int (default 0)
+                - a_win: int (default 0)
+                - b_win: int (default 0)
+        """
+        if not updates:
+            return
+
+        now = datetime.now().isoformat()
+
+        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+            cursor = conn.cursor()
+            for upd in updates:
+                agent_a = upd.get("agent_a", "")
+                agent_b = upd.get("agent_b", "")
+                if not agent_a or not agent_b:
+                    continue
+
+                debate_increment = upd.get("debate_increment", 0)
+                agreement_increment = upd.get("agreement_increment", 0)
+                a_win = upd.get("a_win", 0)
+                b_win = upd.get("b_win", 0)
+
+                # Maintain canonical ordering (a < b)
+                if agent_a > agent_b:
+                    agent_a, agent_b = agent_b, agent_a
+                    a_win, b_win = b_win, a_win
+
+                cursor.execute(
+                    """
+                    INSERT INTO agent_relationships (agent_a, agent_b, debate_count, agreement_count,
+                        critique_count_a_to_b, critique_count_b_to_a, critique_accepted_a_to_b, critique_accepted_b_to_a,
+                        position_changes_a_after_b, position_changes_b_after_a, a_wins_over_b, b_wins_over_a, updated_at)
+                    VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0, 0, ?, ?, ?)
+                    ON CONFLICT(agent_a, agent_b) DO UPDATE SET
+                        debate_count = debate_count + ?, agreement_count = agreement_count + ?,
+                        a_wins_over_b = a_wins_over_b + ?, b_wins_over_a = b_wins_over_a + ?, updated_at = ?
+                    """,
+                    (agent_a, agent_b, debate_increment, agreement_increment, a_win, b_win, now,
+                     debate_increment, agreement_increment, a_win, b_win, now),
+                )
+            conn.commit()
+
     def get_relationship_raw(self, agent_a: str, agent_b: str) -> Optional[dict]:
         """Get raw relationship data between two agents."""
         if agent_a > agent_b:

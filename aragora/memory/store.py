@@ -15,6 +15,7 @@ from typing import Optional, Generator
 
 from aragora.core import Critique, DebateResult
 from aragora.utils.json_helpers import safe_json_loads
+from aragora.server.handlers.base import ttl_cache
 
 
 # Import WAL connection helper and safe column operations from storage module
@@ -579,6 +580,7 @@ class CritiqueStore:
             (surprise, issue_type, pattern_id),
         )
 
+    @ttl_cache(ttl_seconds=120, key_prefix="critique_patterns", skip_first=True)
     def retrieve_patterns(
         self,
         issue_type: Optional[str] = None,
@@ -639,6 +641,7 @@ class CritiqueStore:
 
             return patterns
 
+    @ttl_cache(ttl_seconds=300, key_prefix="critique_stats", skip_first=True)
     def get_stats(self) -> dict:
         """Get statistics about stored patterns and debates."""
         # Ensure tables exist
@@ -706,6 +709,7 @@ class CritiqueStore:
     # Agent Reputation Tracking
     # =========================================================================
 
+    @ttl_cache(ttl_seconds=120, key_prefix="agent_reputation", skip_first=True)
     def get_reputation(self, agent_name: str) -> Optional[AgentReputation]:
         """Get reputation for an agent."""
         with self._get_connection() as conn:
@@ -804,6 +808,7 @@ class CritiqueStore:
 
             conn.commit()
 
+    @ttl_cache(ttl_seconds=300, key_prefix="all_reputations", skip_first=True)
     def get_all_reputations(self) -> list[AgentReputation]:
         """Get all agent reputations, ordered by score."""
         with self._get_connection() as conn:
@@ -904,6 +909,7 @@ class CritiqueStore:
             conn.commit()
             return pruned
 
+    @ttl_cache(ttl_seconds=600, key_prefix="archive_stats", skip_first=True)
     def get_archive_stats(self) -> dict:
         """Get statistics about archived patterns."""
         with self._get_connection() as conn:

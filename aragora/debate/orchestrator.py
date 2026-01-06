@@ -11,7 +11,7 @@ import logging
 import queue
 import random
 import time
-from collections import Counter
+from collections import Counter, deque
 from dataclasses import dataclass, field
 from typing import Literal, Optional
 
@@ -236,8 +236,9 @@ class Arena:
 
         # User participation tracking (thread-safe mailbox pattern)
         self._user_event_queue: queue.Queue = queue.Queue(maxsize=USER_EVENT_QUEUE_SIZE)
-        self.user_votes: list[dict] = []  # Populated via _drain_user_events()
-        self.user_suggestions: list[dict] = []  # Populated via _drain_user_events()
+        # Use deque with maxlen for O(1) bounded queue operations
+        self.user_votes: deque[dict] = deque(maxlen=USER_EVENT_QUEUE_SIZE)
+        self.user_suggestions: deque[dict] = deque(maxlen=USER_EVENT_QUEUE_SIZE)
 
         # Cognitive role rotation (Heavy3-inspired)
         self.role_rotator: Optional[RoleRotator] = None
@@ -621,15 +622,9 @@ class Arena:
             try:
                 event_type, event_data = self._user_event_queue.get_nowait()
                 if event_type == StreamEventType.USER_VOTE:
-                    self.user_votes.append(event_data)
-                    # Prevent unbounded memory growth - keep last N votes
-                    if len(self.user_votes) > USER_EVENT_QUEUE_SIZE:
-                        self.user_votes = self.user_votes[-USER_EVENT_QUEUE_SIZE:]
+                    self.user_votes.append(event_data)  # deque auto-evicts oldest
                 elif event_type == StreamEventType.USER_SUGGESTION:
-                    self.user_suggestions.append(event_data)
-                    # Prevent unbounded memory growth - keep last N suggestions
-                    if len(self.user_suggestions) > USER_EVENT_QUEUE_SIZE:
-                        self.user_suggestions = self.user_suggestions[-USER_EVENT_QUEUE_SIZE:]
+                    self.user_suggestions.append(event_data)  # deque auto-evicts oldest
                 drained_count += 1
             except queue.Empty:
                 break
@@ -781,20 +776,31 @@ class Arena:
             logger.warning(f"Position ledger error (non-fatal): {e}")
 
     def _update_agent_relationships(self, debate_id: str, participants: list[str], winner: Optional[str], votes: list):
-        """Update agent relationships after debate completion."""
+        """Update agent relationships after debate completion.
+
+        Uses batch update for O(1) database connections instead of O(n²) for n participants.
+        """
         if not self.elo_system:
             return
         try:
             vote_choices = {v.agent: v.choice for v in votes if hasattr(v, 'agent') and hasattr(v, 'choice')}
+            # Build batch of relationship updates
+            updates = []
             for i, agent_a in enumerate(participants):
                 for agent_b in participants[i + 1:]:
                     agreed = agent_a in vote_choices and agent_b in vote_choices and vote_choices[agent_a] == vote_choices[agent_b]
                     a_win = 1 if winner == agent_a else 0
                     b_win = 1 if winner == agent_b else 0
-                    self.elo_system.update_relationship(
-                        agent_a=agent_a, agent_b=agent_b, debate_increment=1,
-                        agreement_increment=1 if agreed else 0, a_win=a_win, b_win=b_win,
-                    )
+                    updates.append({
+                        "agent_a": agent_a,
+                        "agent_b": agent_b,
+                        "debate_increment": 1,
+                        "agreement_increment": 1 if agreed else 0,
+                        "a_win": a_win,
+                        "b_win": b_win,
+                    })
+            # Single transaction for all updates
+            self.elo_system.update_relationships_batch(updates)
         except Exception as e:
             logger.warning(f"Relationship update error (non-fatal): {e}")
 
@@ -2623,10 +2629,11 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 for agent in self.agents:
                     positions = self.position_ledger.get_agent_positions(agent.name)
                     for pos in positions[-5:]:  # Last 5 positions from this debate
-                        if pos.get('debate_id') == debate_id:
+                        # Position is a dataclass, access attributes directly
+                        if pos.debate_id == debate_id:
                             outcome = "correct" if agent.name == result.winner else "contested"
                             self.position_ledger.resolve_position(
-                                position_id=pos.get('id'),
+                                position_id=pos.id,
                                 outcome=outcome,
                                 resolution_source=f"debate:{debate_id}",
                             )
@@ -3058,7 +3065,8 @@ Respond with only: CONTINUE or STOP
             prompt = self._build_judge_vote_prompt(other_agents, proposals)
 
             try:
-                response = await agent.generate(prompt, context)
+                raw_response = await agent.generate(prompt, context)
+                response = OutputSanitizer.sanitize_agent_output(raw_response, agent.name)
                 # Parse vote from response - look for agent names
                 for other in other_agents:
                     if other.name.lower() in response.lower():
