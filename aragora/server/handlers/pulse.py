@@ -6,7 +6,12 @@ Endpoints:
 - GET /api/pulse/suggest - Suggest a trending topic for debate
 """
 
+import logging
 from typing import Optional
+
+from aragora.config import DB_TIMEOUT_SECONDS
+
+logger = logging.getLogger(__name__)
 from .base import (
     BaseHandler, HandlerResult, json_response, error_response,
     get_int_param, get_string_param, validate_path_segment, SAFE_ID_PATTERN,
@@ -79,7 +84,14 @@ class PulseHandler(BaseHandler):
                 if loop.is_running():
                     import concurrent.futures
                     with concurrent.futures.ThreadPoolExecutor() as pool:
-                        topics = pool.submit(asyncio.run, fetch()).result()
+                        try:
+                            topics = pool.submit(asyncio.run, fetch()).result(timeout=DB_TIMEOUT_SECONDS)
+                        except concurrent.futures.TimeoutError:
+                            logger.warning("Trending topics fetch timed out")
+                            topics = []
+                        except Exception as e:
+                            logger.warning(f"Trending topics fetch failed: {e}")
+                            topics = []
                 else:
                     topics = asyncio.run(fetch())
             except RuntimeError:
@@ -106,7 +118,7 @@ class PulseHandler(BaseHandler):
         except Exception as e:
             return error_response(f"Failed to fetch trending topics: {e}", 500)
 
-    def _suggest_debate_topic(self, category: str = None) -> HandlerResult:
+    def _suggest_debate_topic(self, category: str | None = None) -> HandlerResult:
         """Suggest a trending topic for debate.
 
         Args:
@@ -141,7 +153,14 @@ class PulseHandler(BaseHandler):
                 if loop.is_running():
                     import concurrent.futures
                     with concurrent.futures.ThreadPoolExecutor() as pool:
-                        topics = pool.submit(asyncio.run, fetch()).result()
+                        try:
+                            topics = pool.submit(asyncio.run, fetch()).result(timeout=DB_TIMEOUT_SECONDS)
+                        except concurrent.futures.TimeoutError:
+                            logger.warning("Trending topics fetch timed out")
+                            topics = []
+                        except Exception as e:
+                            logger.warning(f"Trending topics fetch failed: {e}")
+                            topics = []
                 else:
                     topics = asyncio.run(fetch())
             except RuntimeError:

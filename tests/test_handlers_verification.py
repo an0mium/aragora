@@ -73,6 +73,77 @@ class TestVerificationStatusEndpoint:
                 assert "error" in data
 
 
+class TestVerificationFormalVerifyEndpoint:
+    """Test /api/verification/formal-verify POST endpoint."""
+
+    @pytest.fixture
+    def handler(self):
+        from aragora.server.handlers.verification import VerificationHandler
+        ctx = {}
+        return VerificationHandler(ctx)
+
+    @pytest.fixture
+    def mock_handler(self):
+        """Create a mock HTTP handler with request body."""
+        handler = Mock()
+        handler.headers = {"Content-Length": "50"}
+        return handler
+
+    def test_can_handle_formal_verify(self, handler):
+        """Handler can handle formal-verify route."""
+        assert handler.can_handle("/api/verification/formal-verify") is True
+
+    def test_formal_verify_unavailable(self, handler, mock_handler):
+        """Returns 503 when verification not available."""
+        mock_handler.rfile = Mock()
+        mock_handler.rfile.read.return_value = b'{"claim": "test"}'
+
+        with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", False):
+            result = handler.handle_post("/api/verification/formal-verify", {}, mock_handler)
+            assert result.status_code == 503
+            data = json.loads(result.body)
+            assert "error" in data
+
+    def test_formal_verify_missing_claim(self, handler, mock_handler):
+        """Returns 400 when claim is missing."""
+        mock_handler.rfile = Mock()
+        mock_handler.rfile.read.return_value = b'{}'
+
+        with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", True):
+            result = handler.handle_post("/api/verification/formal-verify", {}, mock_handler)
+            assert result.status_code == 400
+            data = json.loads(result.body)
+            assert "error" in data
+            assert "claim" in data["error"].lower()
+
+    def test_formal_verify_success(self, handler, mock_handler):
+        """Returns verification result on success."""
+        mock_handler.rfile = Mock()
+        mock_handler.rfile.read.return_value = b'{"claim": "All integers greater than 0 are positive"}'
+
+        mock_result = Mock()
+        mock_result.to_dict.return_value = {
+            "status": "proof_found",
+            "is_verified": True,
+        }
+
+        mock_manager = Mock()
+        mock_manager.status_report.return_value = {"any_available": True}
+        mock_manager.attempt_formal_verification = Mock(return_value=mock_result)
+
+        import asyncio
+        async def mock_verify(*args, **kwargs):
+            return mock_result
+        mock_manager.attempt_formal_verification = mock_verify
+
+        with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", True):
+            with patch("aragora.server.handlers.verification.get_formal_verification_manager", return_value=mock_manager):
+                result = handler.handle_post("/api/verification/formal-verify", {}, mock_handler)
+                assert result.status_code == 200
+                data = json.loads(result.body)
+                assert data["status"] == "proof_found"
+
+
 class TestVerificationHandlerImport:
     """Test VerificationHandler import and export."""
 

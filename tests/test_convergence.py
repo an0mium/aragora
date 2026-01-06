@@ -14,6 +14,19 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
+# Check if sentence_transformers is actually usable (not just installed)
+try:
+    import sentence_transformers
+    HAS_SENTENCE_TRANSFORMERS = True
+except (ImportError, RuntimeError):
+    # RuntimeError occurs when Keras 3 is installed without tf-keras
+    HAS_SENTENCE_TRANSFORMERS = False
+
+requires_sentence_transformers = pytest.mark.skipif(
+    not HAS_SENTENCE_TRANSFORMERS,
+    reason="sentence-transformers not available or Keras 3 compatibility issue"
+)
+
 from aragora.debate.convergence import (
     JaccardBackend,
     TFIDFBackend,
@@ -175,6 +188,7 @@ class TestTFIDFBackend:
 # =============================================================================
 
 
+@requires_sentence_transformers
 class TestSentenceTransformerBackend:
     """Tests for SentenceTransformer similarity backend."""
 
@@ -190,7 +204,6 @@ class TestSentenceTransformerBackend:
 
     def test_identical_text_returns_near_one(self):
         """Identical text should have similarity very close to 1.0."""
-        pytest.importorskip("sentence_transformers")
         backend = SentenceTransformerBackend()
         text = "The quick brown fox"
         similarity = backend.compute_similarity(text, text)
@@ -198,7 +211,6 @@ class TestSentenceTransformerBackend:
 
     def test_semantic_similarity_captured(self):
         """Should understand semantic similarity."""
-        pytest.importorskip("sentence_transformers")
         backend = SentenceTransformerBackend()
         text1 = "I prefer TypeScript for type safety"
         text2 = "TypeScript is better because it has types"
@@ -208,7 +220,6 @@ class TestSentenceTransformerBackend:
 
     def test_model_caching(self):
         """Model should be cached and reused."""
-        pytest.importorskip("sentence_transformers")
         # Reset cache
         SentenceTransformerBackend._model_cache = None
         SentenceTransformerBackend._model_name_cache = None
@@ -224,14 +235,12 @@ class TestSentenceTransformerBackend:
 
     def test_empty_string_first_returns_zero(self):
         """Empty first string should return 0.0."""
-        pytest.importorskip("sentence_transformers")
         backend = SentenceTransformerBackend()
         similarity = backend.compute_similarity("", "some text")
         assert similarity == 0.0
 
     def test_empty_string_second_returns_zero(self):
         """Empty second string should return 0.0."""
-        pytest.importorskip("sentence_transformers")
         backend = SentenceTransformerBackend()
         similarity = backend.compute_similarity("some text", "")
         assert similarity == 0.0
@@ -352,7 +361,7 @@ class TestConvergenceDetector:
         assert result is not None
         assert result.converged is True
         assert result.status == "converged"
-        assert result.min_similarity == 1.0
+        assert result.min_similarity == pytest.approx(1.0, rel=1e-9)
 
     def test_check_convergence_detects_refining(self):
         """Should detect refining when similarity is intermediate."""
@@ -479,8 +488,8 @@ class TestConvergenceDetector:
         assert result is not None
         assert "claude" in result.per_agent_similarity
         assert "codex" in result.per_agent_similarity
-        assert result.per_agent_similarity["claude"] == 1.0
-        assert result.per_agent_similarity["codex"] == 1.0
+        assert result.per_agent_similarity["claude"] == pytest.approx(1.0, rel=1e-9)
+        assert result.per_agent_similarity["codex"] == pytest.approx(1.0, rel=1e-9)
 
 
 # =============================================================================
@@ -502,9 +511,9 @@ class TestGetSimilarityBackend:
         backend = get_similarity_backend("tfidf")
         assert isinstance(backend, TFIDFBackend)
 
+    @requires_sentence_transformers
     def test_sentence_transformer_returns_st_backend(self):
         """'sentence-transformer' should return SentenceTransformerBackend if available."""
-        pytest.importorskip("sentence_transformers")
         backend = get_similarity_backend("sentence-transformer")
         assert isinstance(backend, SentenceTransformerBackend)
 

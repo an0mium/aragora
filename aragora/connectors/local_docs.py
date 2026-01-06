@@ -65,6 +65,16 @@ class LocalDocsConnector(BaseConnector):
 
     def _should_search_file(self, path: Path) -> bool:
         """Check if file should be searched."""
+        # SECURITY: Check for symlinks that could escape root_path
+        if path.is_symlink():
+            return False
+
+        # SECURITY: Verify resolved path stays within root_path
+        try:
+            path.resolve().relative_to(self.root_path.resolve())
+        except ValueError:
+            return False
+
         # Skip hidden files and directories
         if any(part.startswith(".") for part in path.parts):
             return False
@@ -208,6 +218,19 @@ class LocalDocsConnector(BaseConnector):
 
         # Treat as file path
         path = self.root_path / evidence_id
+
+        # SECURITY: Validate path stays within root_path (prevent directory traversal)
+        try:
+            path.resolve().relative_to(self.root_path.resolve())
+        except ValueError:
+            logger.warning(f"[local_docs] Path traversal attempt blocked: {evidence_id}")
+            return None
+
+        # SECURITY: Reject symlinks that could escape root_path
+        if path.is_symlink():
+            logger.warning(f"[local_docs] Symlink access blocked: {evidence_id}")
+            return None
+
         if not path.exists():
             return None
 

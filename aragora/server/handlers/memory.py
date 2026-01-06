@@ -4,6 +4,8 @@ Memory-related endpoint handlers.
 Endpoints:
 - GET /api/memory/continuum/retrieve - Retrieve memories from continuum
 - POST /api/memory/continuum/consolidate - Trigger memory consolidation
+- POST /api/memory/continuum/cleanup - Cleanup expired memories
+- GET /api/memory/tier-stats - Get tier statistics
 """
 
 from typing import Optional
@@ -14,7 +16,8 @@ from .base import (
     json_response,
     error_response,
     get_int_param,
-    get_bool_param,
+    get_float_param,
+    get_string_param,
 )
 
 # Optional import for memory functionality
@@ -33,6 +36,9 @@ class MemoryHandler(BaseHandler):
     ROUTES = [
         "/api/memory/continuum/retrieve",
         "/api/memory/continuum/consolidate",
+        "/api/memory/continuum/cleanup",
+        "/api/memory/tier-stats",
+        "/api/memory/archive-stats",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -47,6 +53,15 @@ class MemoryHandler(BaseHandler):
         if path == "/api/memory/continuum/consolidate":
             return self._trigger_consolidation()
 
+        if path == "/api/memory/continuum/cleanup":
+            return self._trigger_cleanup(query_params)
+
+        if path == "/api/memory/tier-stats":
+            return self._get_tier_stats()
+
+        if path == "/api/memory/archive-stats":
+            return self._get_archive_stats()
+
         return None
 
     def _get_continuum_memories(self, params: dict) -> HandlerResult:
@@ -59,10 +74,10 @@ class MemoryHandler(BaseHandler):
             return error_response("Continuum memory not initialized", 503)
 
         try:
-            query = params.get("query", [""])[0] if isinstance(params.get("query"), list) else params.get("query", "")
-            tiers_param = params.get("tiers", ["fast,medium,slow,glacial"])[0] if isinstance(params.get("tiers"), list) else params.get("tiers", "fast,medium,slow,glacial")
+            query = get_string_param(params, "query", "")
+            tiers_param = get_string_param(params, "tiers", "fast,medium,slow,glacial")
             limit = get_int_param(params, "limit", 10)
-            min_importance = float(params.get("min_importance", ["0.0"])[0] if isinstance(params.get("min_importance"), list) else params.get("min_importance", "0.0"))
+            min_importance = get_float_param(params, "min_importance", 0.0)
 
             # Parse tiers
             tier_names = [t.strip() for t in tiers_param.split(",")]
@@ -133,3 +148,89 @@ class MemoryHandler(BaseHandler):
             })
         except Exception as e:
             return error_response(f"Failed to consolidate memories: {e}", 500)
+
+    def _trigger_cleanup(self, params: dict) -> HandlerResult:
+        """Trigger memory cleanup with optional parameters."""
+        if not CONTINUUM_AVAILABLE:
+            return error_response("Continuum memory system not available", 503)
+
+        continuum = self.ctx.get("continuum_memory")
+        if not continuum:
+            return error_response("Continuum memory not initialized", 503)
+
+        try:
+            import time
+            start = time.time()
+
+            # Parse parameters
+            tier_param = get_string_param(params, "tier", "")
+            archive_param = get_string_param(params, "archive", "true")
+            max_age = get_float_param(params, "max_age_hours", 0)
+
+            # Convert tier parameter
+            tier = None
+            if tier_param:
+                try:
+                    tier = MemoryTier[tier_param.upper()]
+                except KeyError:
+                    return error_response(f"Invalid tier: {tier_param}", 400)
+
+            archive = archive_param.lower() == "true"
+
+            # Run cleanup
+            expired_result = continuum.cleanup_expired_memories(
+                tier=tier,
+                archive=archive,
+                max_age_hours=max_age if max_age > 0 else None,
+            )
+
+            # Enforce tier limits
+            limits_result = continuum.enforce_tier_limits(
+                tier=tier,
+                archive=archive,
+            )
+
+            duration = time.time() - start
+
+            return json_response({
+                "success": True,
+                "expired": expired_result,
+                "tier_limits": limits_result,
+                "duration_seconds": round(duration, 2),
+            })
+        except Exception as e:
+            return error_response(f"Cleanup failed: {e}", 500)
+
+    def _get_tier_stats(self) -> HandlerResult:
+        """Get statistics for each memory tier."""
+        if not CONTINUUM_AVAILABLE:
+            return error_response("Continuum memory system not available", 503)
+
+        continuum = self.ctx.get("continuum_memory")
+        if not continuum:
+            return error_response("Continuum memory not initialized", 503)
+
+        try:
+            stats = continuum.get_stats()
+            return json_response({
+                "tiers": stats.get("by_tier", {}),
+                "total_memories": stats.get("total_memories", 0),
+                "transitions": stats.get("transitions", []),
+            })
+        except Exception as e:
+            return error_response(f"Failed to get tier stats: {e}", 500)
+
+    def _get_archive_stats(self) -> HandlerResult:
+        """Get statistics for archived memories."""
+        if not CONTINUUM_AVAILABLE:
+            return error_response("Continuum memory system not available", 503)
+
+        continuum = self.ctx.get("continuum_memory")
+        if not continuum:
+            return error_response("Continuum memory not initialized", 503)
+
+        try:
+            stats = continuum.get_archive_stats()
+            return json_response(stats)
+        except Exception as e:
+            return error_response(f"Failed to get archive stats: {e}", 500)

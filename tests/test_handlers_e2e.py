@@ -1197,8 +1197,8 @@ class TestDebatesHandlerEdgeCases:
 
         result = handler.handle("/api/debates/empty/export/csv", {"table": "messages"}, None)
 
-        assert result[1] == 200  # status code
-        assert b"round,agent,role,content,timestamp" in result[0]  # header row only
+        assert result.status_code == 200
+        assert b"round,agent,role,content,timestamp" in result.body  # header row only
 
     def test_export_html_format(self, debates_handler_with_mock):
         """Test HTML export generates valid HTML."""
@@ -1216,8 +1216,8 @@ class TestDebatesHandlerEdgeCases:
 
         result = handler.handle("/api/debates/test/export/html", {}, None)
 
-        assert result[1] == 200
-        html_content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        html_content = result.body.decode("utf-8")
         assert "<!DOCTYPE html>" in html_content
         assert "Test Debate" in html_content
         assert "claude" in html_content

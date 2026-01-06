@@ -44,6 +44,49 @@ from .documents import DocumentHandler
 from .verification import VerificationHandler
 from .auditing import AuditingHandler
 from .dashboard import DashboardHandler
+from .persona import PersonaHandler
+from .introspection import IntrospectionHandler
+from .calibration import CalibrationHandler
+from .routing import RoutingHandler
+from .evolution import EvolutionHandler
+from .plugins import PluginsHandler
+from .broadcast import BroadcastHandler
+from .laboratory import LaboratoryHandler
+from .probes import ProbesHandler
+
+# List of all handler classes for automatic dispatch registration
+# Order matters: more specific handlers should come first
+ALL_HANDLERS = [
+    DebatesHandler,
+    AgentsHandler,
+    SystemHandler,
+    PulseHandler,
+    AnalyticsHandler,
+    MetricsHandler,
+    ConsensusHandler,
+    BeliefHandler,
+    CritiqueHandler,
+    GenesisHandler,
+    ReplaysHandler,
+    TournamentHandler,
+    MemoryHandler,
+    LeaderboardViewHandler,
+    RelationshipHandler,
+    MomentsHandler,
+    DocumentHandler,
+    VerificationHandler,
+    AuditingHandler,
+    DashboardHandler,
+    PersonaHandler,
+    IntrospectionHandler,
+    CalibrationHandler,
+    RoutingHandler,
+    EvolutionHandler,
+    PluginsHandler,
+    BroadcastHandler,
+    LaboratoryHandler,
+    ProbesHandler,
+]
 
 __all__ = [
     # Base utilities
@@ -51,7 +94,9 @@ __all__ = [
     "BaseHandler",
     "json_response",
     "error_response",
-    # Handlers
+    # Handler registry
+    "ALL_HANDLERS",
+    # Individual handlers
     "DebatesHandler",
     "AgentsHandler",
     "SystemHandler",
@@ -72,4 +117,13 @@ __all__ = [
     "VerificationHandler",
     "AuditingHandler",
     "DashboardHandler",
+    "PersonaHandler",
+    "IntrospectionHandler",
+    "CalibrationHandler",
+    "RoutingHandler",
+    "EvolutionHandler",
+    "PluginsHandler",
+    "BroadcastHandler",
+    "LaboratoryHandler",
+    "ProbesHandler",
 ]

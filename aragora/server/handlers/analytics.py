@@ -9,7 +9,12 @@ Endpoints:
 - GET /api/memory/stats - Get memory statistics
 """
 
+import logging
 from typing import Optional
+
+from aragora.config import DB_INSIGHTS_PATH
+
+logger = logging.getLogger(__name__)
 from .base import BaseHandler, HandlerResult, json_response, error_response, get_int_param, ttl_cache
 
 
@@ -175,7 +180,8 @@ class AnalyticsHandler(BaseHandler):
             return []
         try:
             return storage.list_debates(limit=limit)
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to list debates for analytics: %s: %s", type(e).__name__, e)
             return []
 
     @ttl_cache(ttl_seconds=1800, key_prefix="analytics_memory", skip_first=True)
@@ -196,7 +202,7 @@ class AnalyticsHandler(BaseHandler):
             if (nomic_dir / "debate_embeddings.db").exists():
                 stats["embeddings_db"] = True
 
-            if (nomic_dir / "aragora_insights.db").exists():
+            if (nomic_dir / DB_INSIGHTS_PATH).exists():
                 stats["insights_db"] = True
 
             if (nomic_dir / "continuum_memory.db").exists():

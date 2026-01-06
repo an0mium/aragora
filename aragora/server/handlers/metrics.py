@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from aragora.config import DB_ELO_PATH, DB_INSIGHTS_PATH
 from .base import BaseHandler, HandlerResult, json_response, error_response, _cache, get_cache_stats
 from ..prometheus import (
     get_metrics_output,
@@ -268,10 +269,10 @@ class MetricsHandler(BaseHandler):
 
         # Common database files
         db_files = [
-            "aragora_elo.db",
+            DB_ELO_PATH,
             "debate_storage.db",
             "debate_embeddings.db",
-            "aragora_insights.db",
+            DB_INSIGHTS_PATH,
             "continuum_memory.db",
             "grounded_positions.db",
         ]

@@ -55,18 +55,7 @@ try:
 except ImportError:
     pass
 
-
-def _safe_error_message(e: Exception, context: str = "") -> str:
-    """Return a sanitized error message for client responses."""
-    logger.error(f"Error in {context}: {type(e).__name__}: {e}", exc_info=True)
-    error_type = type(e).__name__
-    if error_type in ("FileNotFoundError", "OSError"):
-        return "Resource not found"
-    elif error_type in ("json.JSONDecodeError", "ValueError"):
-        return "Invalid data format"
-    elif error_type in ("TimeoutError", "asyncio.TimeoutError"):
-        return "Operation timed out"
-    return "An error occurred"
+from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 
 class AuditingHandler(BaseHandler):
@@ -139,7 +128,10 @@ class AuditingHandler(BaseHandler):
             probe_type_strs = data.get('probe_types', [
                 'contradiction', 'hallucination', 'sycophancy', 'persistence'
             ])
-            probes_per_type = min(int(data.get('probes_per_type', 3)), 10)
+            try:
+                probes_per_type = min(int(data.get('probes_per_type', 3)), 10)
+            except (ValueError, TypeError):
+                return error_response("probes_per_type must be an integer", 400)
             model_type = data.get('model_type', 'anthropic-api')
 
             from aragora.modes.prober import ProbeType, CapabilityProber
@@ -209,7 +201,7 @@ class AuditingHandler(BaseHandler):
                         "probe_id": result_dict.get('probe_id', ''),
                         "type": result_dict.get('probe_type', probe_type_key),
                         "passed": passed,
-                        "severity": result_dict.get('severity', '').lower() if result_dict.get('severity') else None,
+                        "severity": str(result_dict.get('severity', '')).lower() if result_dict.get('severity') else None,
                         "description": result_dict.get('vulnerability_description', ''),
                         "details": result_dict.get('evidence', ''),
                         "response_time_ms": result_dict.get('response_time_ms', 0),
@@ -228,8 +220,8 @@ class AuditingHandler(BaseHandler):
                         critical_vulnerabilities=report.critical_count,
                         session_id=report_id
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to record ELO result for capability probe: {e}")
 
             # Save results
             nomic_dir = self.ctx.get("nomic_dir")
@@ -240,8 +232,8 @@ class AuditingHandler(BaseHandler):
                     date_str = datetime.now().strftime("%Y-%m-%d")
                     probe_file = probes_dir / f"{date_str}_{report.report_id}.json"
                     probe_file.write_text(json.dumps(report.to_dict(), indent=2, default=str))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"Failed to save probe report to {nomic_dir}: {e}")
 
             # Calculate summary
             passed_count = report.probes_run - report.vulnerabilities_found
@@ -319,11 +311,18 @@ class AuditingHandler(BaseHandler):
             elif audit_type == 'code_architecture':
                 config = CODE_ARCHITECTURE_AUDIT
             else:
+                try:
+                    rounds = min(int(config_data.get('rounds', 6)), 10)
+                    cross_examination_depth = min(int(config_data.get('cross_examination_depth', 3)), 10)
+                    risk_threshold = float(config_data.get('risk_threshold', 0.7))
+                except (ValueError, TypeError) as e:
+                    return error_response(f"Invalid config parameter: {e}", 400)
+
                 config = DeepAuditConfig(
-                    rounds=min(int(config_data.get('rounds', 6)), 10),
+                    rounds=rounds,
                     enable_research=config_data.get('enable_research', True),
-                    cross_examination_depth=min(int(config_data.get('cross_examination_depth', 3)), 10),
-                    risk_threshold=float(config_data.get('risk_threshold', 0.7)),
+                    cross_examination_depth=cross_examination_depth,
+                    risk_threshold=risk_threshold,
                 )
 
             # Create agents
@@ -414,8 +413,8 @@ class AuditingHandler(BaseHandler):
                         "elo_adjustments": elo_adjustments,
                         "created_at": datetime.now().isoformat(),
                     }, indent=2, default=str))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"Failed to save deep audit report to {nomic_dir}: {e}")
 
             return json_response({
                 "audit_id": audit_id,
@@ -598,13 +597,7 @@ class AuditingHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "red_team_analysis"), 500)
 
+    # _read_json_body moved to BaseHandler.read_json_body
     def _read_json_body(self, handler) -> Optional[dict]:
-        """Read and parse JSON body from request handler."""
-        try:
-            content_length = int(handler.headers.get('Content-Length', 0))
-            if content_length > 0:
-                body = handler.rfile.read(content_length)
-                return json.loads(body) if body else {}
-            return {}
-        except (json.JSONDecodeError, ValueError):
-            return None
+        """Read and parse JSON body - delegates to base class."""
+        return self.read_json_body(handler)

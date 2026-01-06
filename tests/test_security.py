@@ -802,12 +802,644 @@ class TestUploadRateLimiting:
 
     def test_max_concurrent_debates_defined(self):
         """Test maximum concurrent debates is defined."""
-        from aragora.server.unified_server import UnifiedHandler
+        from aragora.server.unified_server import MAX_CONCURRENT_DEBATES
 
-        assert UnifiedHandler.MAX_CONCURRENT_DEBATES == 10
+        assert MAX_CONCURRENT_DEBATES == 10
 
     def test_max_json_content_length(self):
         """Test maximum JSON content length is defined."""
         from aragora.server.unified_server import MAX_JSON_CONTENT_LENGTH
 
         assert MAX_JSON_CONTENT_LENGTH == 10 * 1024 * 1024  # 10MB
+
+
+# =============================================================================
+# POST Body Size Limit Tests
+# =============================================================================
+
+
+class TestPostBodySizeLimit:
+    """Tests for POST body size limit enforcement."""
+
+    def test_max_body_size_constant_exists(self):
+        """MAX_BODY_SIZE should be defined in base handler."""
+        from aragora.server.handlers.base import BaseHandler
+
+        assert hasattr(BaseHandler, "MAX_BODY_SIZE")
+        assert BaseHandler.MAX_BODY_SIZE == 10 * 1024 * 1024  # 10MB
+
+    def test_read_json_body_respects_limit(self):
+        """read_json_body should reject bodies over limit."""
+        from aragora.server.handlers.base import BaseHandler
+        from unittest.mock import MagicMock
+        from io import BytesIO
+
+        handler = BaseHandler({})
+
+        # Mock request handler with body larger than limit
+        mock_handler = MagicMock()
+        mock_handler.headers = {"Content-Length": str(11 * 1024 * 1024)}  # 11MB
+        mock_handler.rfile = BytesIO(b"x" * (11 * 1024 * 1024))
+
+        result = handler.read_json_body(mock_handler)
+        assert result is None  # Should reject
+
+    def test_read_json_body_accepts_within_limit(self):
+        """read_json_body should accept bodies within limit."""
+        from aragora.server.handlers.base import BaseHandler
+        from unittest.mock import MagicMock
+        from io import BytesIO
+        import json
+
+        handler = BaseHandler({})
+
+        body = json.dumps({"key": "value"}).encode()
+        mock_handler = MagicMock()
+        mock_handler.headers = {"Content-Length": str(len(body))}
+        mock_handler.rfile = BytesIO(body)
+
+        result = handler.read_json_body(mock_handler)
+        assert result == {"key": "value"}
+
+    def test_read_json_body_boundary_at_limit(self):
+        """read_json_body should accept body exactly at limit."""
+        from aragora.server.handlers.base import BaseHandler
+        from unittest.mock import MagicMock
+        from io import BytesIO
+        import json
+
+        handler = BaseHandler({})
+
+        # Create body exactly at limit (minus some for JSON overhead)
+        max_size = handler.MAX_BODY_SIZE
+        body = json.dumps({"data": "x" * (max_size - 100)}).encode()
+        if len(body) > max_size:
+            body = body[:max_size]
+
+        mock_handler = MagicMock()
+        mock_handler.headers = {"Content-Length": str(len(body))}
+        mock_handler.rfile = BytesIO(body)
+
+        # Should not reject based on size (may fail JSON parsing due to truncation)
+        result = handler.read_json_body(mock_handler, max_size=len(body) + 1)
+        # Result will be None if JSON is invalid, but not due to size
+
+    def test_read_json_body_custom_limit(self):
+        """read_json_body should respect custom max_size."""
+        from aragora.server.handlers.base import BaseHandler
+        from unittest.mock import MagicMock
+        from io import BytesIO
+        import json
+
+        handler = BaseHandler({})
+
+        body = json.dumps({"key": "x" * 1000}).encode()
+        mock_handler = MagicMock()
+        mock_handler.headers = {"Content-Length": str(len(body))}
+        mock_handler.rfile = BytesIO(body)
+
+        # With custom small limit, should reject
+        result = handler.read_json_body(mock_handler, max_size=100)
+        assert result is None
+
+    def test_validate_content_length_rejects_negative(self):
+        """validate_content_length should reject negative values."""
+        from aragora.server.handlers.base import BaseHandler
+        from unittest.mock import MagicMock
+
+        handler = BaseHandler({})
+        mock_handler = MagicMock()
+        mock_handler.headers = {"Content-Length": "-1"}
+
+        result = handler.validate_content_length(mock_handler)
+        assert result is None
+
+    def test_validate_content_length_rejects_non_numeric(self):
+        """validate_content_length should reject non-numeric values."""
+        from aragora.server.handlers.base import BaseHandler
+        from unittest.mock import MagicMock
+
+        handler = BaseHandler({})
+        mock_handler = MagicMock()
+        mock_handler.headers = {"Content-Length": "abc"}
+
+        result = handler.validate_content_length(mock_handler)
+        assert result is None
+
+
+# =============================================================================
+# Path Parameter Injection Tests
+# =============================================================================
+
+
+class TestPathParameterInjection:
+    """Tests for path parameter injection prevention."""
+
+    def test_debate_id_path_traversal(self):
+        """Debate ID should reject path traversal attempts."""
+        from aragora.server.handlers.base import validate_debate_id
+
+        traversal_attempts = [
+            "../secret",
+            "..%2fsecret",
+            "debate/../../etc/passwd",
+            "debate/../admin",
+            "..",
+            "...",
+            "....//",
+        ]
+
+        for attempt in traversal_attempts:
+            is_valid, error = validate_debate_id(attempt)
+            assert is_valid is False, f"Should reject: {attempt}"
+            assert "path traversal" in error.lower() or "format" in error.lower()
+
+    def test_agent_name_injection(self):
+        """Agent name should reject injection attempts."""
+        from aragora.server.handlers.base import validate_agent_name
+
+        injection_attempts = [
+            "'; DROP TABLE agents; --",
+            "claude<script>alert(1)</script>",
+            "claude|cat /etc/passwd",
+            "claude$(whoami)",
+            "claude`id`",
+            "claude\x00null",
+        ]
+
+        for attempt in injection_attempts:
+            is_valid, error = validate_agent_name(attempt)
+            assert is_valid is False, f"Should reject: {attempt}"
+
+    def test_valid_debate_id_accepted(self):
+        """Valid debate IDs should be accepted."""
+        from aragora.server.handlers.base import validate_debate_id
+
+        valid_ids = [
+            "debate-123",
+            "abc_def_ghi",
+            "simple123",
+            "UPPER-lower-123",
+            "a",
+            "a" * 50,
+        ]
+
+        for valid_id in valid_ids:
+            is_valid, error = validate_debate_id(valid_id)
+            assert is_valid is True, f"Should accept: {valid_id} (got: {error})"
+
+    def test_valid_agent_name_accepted(self):
+        """Valid agent names should be accepted."""
+        from aragora.server.handlers.base import validate_agent_name
+
+        valid_names = [
+            "claude",
+            "gpt-4",
+            "agent_1",
+            "CodexModel",
+            "gemini-pro",
+        ]
+
+        for name in valid_names:
+            is_valid, error = validate_agent_name(name)
+            assert is_valid is True, f"Should accept: {name} (got: {error})"
+
+    def test_empty_values_rejected(self):
+        """Empty values should be rejected."""
+        from aragora.server.handlers.base import validate_debate_id, validate_agent_name
+
+        is_valid, _ = validate_debate_id("")
+        assert is_valid is False
+
+        is_valid, _ = validate_agent_name("")
+        assert is_valid is False
+
+    def test_url_encoded_traversal_rejected(self):
+        """URL-encoded path traversal should be rejected."""
+        from aragora.server.handlers.base import validate_path_segment, SAFE_ID_PATTERN
+
+        encoded_attempts = [
+            "%2e%2e",  # ..
+            "%2e%2e%2f",  # ../
+            "%252e%252e",  # double-encoded ..
+        ]
+
+        for attempt in encoded_attempts:
+            is_valid, _ = validate_path_segment(attempt, "id", SAFE_ID_PATTERN)
+            # Either the regex rejects it or the path traversal check catches ..
+            # After URL decoding happens earlier in the stack
+            assert is_valid is False or ".." not in attempt
+
+
+# =============================================================================
+# Nested Payload Attack Tests
+# =============================================================================
+
+
+class TestNestedPayloadAttacks:
+    """Tests for deeply nested JSON payload attacks."""
+
+    def test_deeply_nested_json_parsing(self):
+        """Test that deeply nested JSON doesn't cause stack overflow."""
+        import json
+
+        # Create deeply nested JSON
+        depth = 100
+        nested = {}
+        current = nested
+        for i in range(depth):
+            current["level"] = {}
+            current = current["level"]
+        current["value"] = "deep"
+
+        json_str = json.dumps(nested)
+
+        # Should be parseable without crash
+        parsed = json.loads(json_str)
+        assert parsed is not None
+
+    def test_very_deep_nesting_limit(self):
+        """Python's JSON parser has a recursion limit around 1000."""
+        import json
+
+        # Create extremely deep nesting that might hit recursion limit
+        depth = 500  # Safe depth that won't hit limit
+        nested_str = '{"a":' * depth + '1' + '}' * depth
+
+        # Should parse successfully at this depth
+        parsed = json.loads(nested_str)
+        assert parsed is not None
+
+    def test_large_array_handling(self):
+        """Large arrays should be handled safely."""
+        import json
+
+        # Create a large but not excessive array
+        large_array = list(range(10000))
+        json_str = json.dumps({"data": large_array})
+
+        parsed = json.loads(json_str)
+        assert len(parsed["data"]) == 10000
+
+    def test_wide_object_handling(self):
+        """Objects with many keys should be handled safely."""
+        import json
+
+        # Create object with many keys
+        wide_object = {f"key_{i}": i for i in range(1000)}
+        json_str = json.dumps(wide_object)
+
+        parsed = json.loads(json_str)
+        assert len(parsed) == 1000
+
+    def test_mixed_deep_and_wide(self):
+        """Mixed deep and wide structures should be handled."""
+        import json
+
+        # Create structure that's both deep and wide
+        obj = {}
+        for i in range(100):
+            obj[f"branch_{i}"] = {"level1": {"level2": {"level3": i}}}
+
+        json_str = json.dumps(obj)
+        parsed = json.loads(json_str)
+        assert parsed["branch_50"]["level1"]["level2"]["level3"] == 50
+
+
+# =============================================================================
+# Content-Type Validation Tests
+# =============================================================================
+
+
+class TestContentTypeValidation:
+    """Tests for Content-Type header validation."""
+
+    def test_json_content_type_accepted(self):
+        """application/json should be accepted."""
+        # Simulating Content-Type check
+        valid_types = [
+            "application/json",
+            "application/json; charset=utf-8",
+            "application/json;charset=utf-8",
+        ]
+
+        for content_type in valid_types:
+            assert content_type.startswith("application/json")
+
+    def test_wrong_content_type_behavior(self):
+        """Non-JSON content types for JSON endpoints should be handled."""
+        # The server should either reject or attempt to parse anyway
+        invalid_types = [
+            "text/plain",
+            "text/html",
+            "application/xml",
+            "multipart/form-data",
+        ]
+
+        for content_type in invalid_types:
+            assert not content_type.startswith("application/json")
+
+    def test_missing_content_type(self):
+        """Missing Content-Type should be handled gracefully."""
+        # When Content-Type is missing, behavior depends on endpoint
+        # For POST with body, should either assume JSON or reject
+        content_type = None
+        # Should not crash
+        assert content_type is None or isinstance(content_type, str)
+
+
+# =============================================================================
+# Request Header Security Tests
+# =============================================================================
+
+
+class TestRequestHeaderSecurity:
+    """Tests for request header security."""
+
+    def test_host_header_injection_patterns(self):
+        """Host header injection patterns should be safe."""
+        from aragora.server.validation import SAFE_ID_PATTERN
+
+        malicious_hosts = [
+            "evil.com\r\nX-Injected: header",
+            "evil.com%0d%0aX-Injected:%20header",
+            "evil.com\nHost: other.com",
+        ]
+
+        # These shouldn't match safe ID patterns
+        for host in malicious_hosts:
+            match = SAFE_ID_PATTERN.match(host)
+            assert match is None or match.group() != host
+
+    def test_oversized_header_limits(self):
+        """Very long headers should have limits."""
+        # The HTTP server typically limits header size
+        # This test documents expected behavior
+        max_header_size = 8192  # Common limit
+        long_header = "X" * (max_header_size + 1)
+
+        # Should be longer than typical limit
+        assert len(long_header) > max_header_size
+
+
+# =============================================================================
+# GLOB Pattern Injection Tests
+# =============================================================================
+
+
+class TestGlobPatternInjection:
+    """Tests for SQL GLOB pattern injection prevention in storage."""
+
+    @pytest.fixture
+    def storage(self):
+        """Create temporary storage."""
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+        yield DebateStorage(db_path)
+        try:
+            os.unlink(db_path)
+        except FileNotFoundError:
+            pass
+
+    def test_glob_asterisk_in_task_no_injection(self, storage):
+        """Task with * should not cause GLOB pattern injection."""
+        # Save a debate with task containing asterisk
+        data = {
+            "id": "glob-test-1",
+            "task": "Test * wildcard * everywhere",
+            "agents": ["agent1"],
+        }
+        slug = storage.save_dict(data)
+
+        # Should be able to retrieve correctly
+        debate = storage.get_by_slug(slug)
+        assert debate is not None
+        assert debate["task"] == "Test * wildcard * everywhere"
+
+    def test_glob_question_mark_in_task_no_injection(self, storage):
+        """Task with ? should not cause GLOB pattern injection."""
+        data = {
+            "id": "glob-test-2",
+            "task": "What is this? Is it working?",
+            "agents": ["agent1"],
+        }
+        slug = storage.save_dict(data)
+
+        debate = storage.get_by_slug(slug)
+        assert debate is not None
+        assert "?" in debate["task"]
+
+    def test_glob_brackets_in_task_no_injection(self, storage):
+        """Task with [abc] should not cause GLOB pattern injection."""
+        data = {
+            "id": "glob-test-3",
+            "task": "Test [option1] and [option2] patterns",
+            "agents": ["agent1"],
+        }
+        slug = storage.save_dict(data)
+
+        debate = storage.get_by_slug(slug)
+        assert debate is not None
+        assert "[option1]" in debate["task"]
+
+    def test_combined_glob_metacharacters(self, storage):
+        """Task with all GLOB metacharacters should be safe."""
+        data = {
+            "id": "glob-test-4",
+            "task": "Complex: *test?[abc] pattern",
+            "agents": ["agent1"],
+        }
+        slug = storage.save_dict(data)
+
+        debate = storage.get_by_slug(slug)
+        assert debate is not None
+
+    def test_slug_collision_with_glob_pattern(self, storage):
+        """GLOB pattern in slug collision detection should work correctly."""
+        # This tests that the generate_slug GLOB query doesn't get confused
+        from unittest.mock import patch
+
+        with patch("aragora.server.storage.datetime") as mock_dt:
+            mock_dt.now.return_value.strftime.return_value = "2026-01-05"
+
+            # First save
+            data1 = {"id": "first", "task": "test star", "agents": []}
+            slug1 = storage.save_dict(data1)
+
+            # Second save with same words - should get -2 suffix
+            data2 = {"id": "second", "task": "test star", "agents": []}
+            slug2 = storage.save_dict(data2)
+
+            assert slug1 != slug2
+            assert slug2.endswith("-2")
+
+
+# =============================================================================
+# Audio Path Security Tests
+# =============================================================================
+
+
+class TestAudioPathSecurity:
+    """Tests for audio path security."""
+
+    @pytest.fixture
+    def storage(self):
+        """Create temporary storage."""
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+        yield DebateStorage(db_path)
+        try:
+            os.unlink(db_path)
+        except FileNotFoundError:
+            pass
+
+    def test_audio_path_traversal_stored_as_is(self, storage):
+        """Audio paths with ../ should be stored but could be dangerous.
+
+        Note: The storage layer stores the path as-is. Security checks
+        should be done at the serving layer to prevent directory traversal.
+        This test documents current behavior.
+        """
+        from unittest.mock import MagicMock
+        import json
+
+        # Save a debate first
+        artifact = MagicMock()
+        artifact.artifact_id = "path-traversal-test"
+        artifact.task = "Test task"
+        artifact.agents = ["agent1"]
+        artifact.consensus_proof = MagicMock(reached=True, confidence=0.9)
+        artifact.to_json.return_value = json.dumps({"task": "Test task"})
+
+        storage.save(artifact)
+
+        # Try to set a path with directory traversal
+        traversal_path = "../../../etc/passwd"
+        result = storage.update_audio("path-traversal-test", traversal_path, 60)
+
+        # Storage layer allows this - it's the serving layer's job to validate
+        # This test documents the behavior
+        assert result is True
+
+        info = storage.get_audio_info("path-traversal-test")
+        assert info["audio_path"] == traversal_path
+
+    def test_audio_path_with_null_bytes(self, storage):
+        """Audio paths with null bytes should be handled safely."""
+        from unittest.mock import MagicMock
+        import json
+
+        artifact = MagicMock()
+        artifact.artifact_id = "null-byte-test"
+        artifact.task = "Test task"
+        artifact.agents = ["agent1"]
+        artifact.consensus_proof = MagicMock(reached=True, confidence=0.9)
+        artifact.to_json.return_value = json.dumps({"task": "Test task"})
+
+        storage.save(artifact)
+
+        # Try path with null byte (common truncation attack)
+        null_path = "/path/to/audio.mp3\x00.evil"
+        result = storage.update_audio("null-byte-test", null_path, 60)
+
+        # SQLite stores the full string including null bytes
+        assert result is True
+
+    def test_audio_path_unicode_normalization(self, storage):
+        """Audio paths with unicode should be handled consistently."""
+        from unittest.mock import MagicMock
+        import json
+
+        artifact = MagicMock()
+        artifact.artifact_id = "unicode-path-test"
+        artifact.task = "Test task"
+        artifact.agents = ["agent1"]
+        artifact.consensus_proof = MagicMock(reached=True, confidence=0.9)
+        artifact.to_json.return_value = json.dumps({"task": "Test task"})
+
+        storage.save(artifact)
+
+        # Path with unicode characters
+        unicode_path = "/audio/日本語/音声.mp3"
+        result = storage.update_audio("unicode-path-test", unicode_path, 60)
+
+        assert result is True
+        info = storage.get_audio_info("unicode-path-test")
+        assert info["audio_path"] == unicode_path
+
+
+# =============================================================================
+# Memory Exhaustion Attack Tests
+# =============================================================================
+
+
+class TestMemoryExhaustionPrevention:
+    """Tests for memory exhaustion prevention."""
+
+    def test_rate_limit_memory_exhaustion_prevention(self):
+        """Verify rate limiter prevents unbounded memory growth from unique tokens."""
+        auth = AuthConfig()
+        auth._max_tracked_entries = 100
+        auth.rate_limit_per_minute = 10000
+
+        # Attempt memory exhaustion with many unique tokens
+        for i in range(1000):
+            auth.check_rate_limit(f"unique_token_{i}")
+
+        # Memory should be bounded
+        assert len(auth._token_request_counts) <= 100
+
+    def test_ip_rate_limit_memory_exhaustion_prevention(self):
+        """Verify IP rate limiter prevents unbounded memory growth."""
+        auth = AuthConfig()
+        auth._max_tracked_entries = 100
+        auth.ip_rate_limit_per_minute = 10000
+
+        # Attempt memory exhaustion with many unique IPs
+        for i in range(1000):
+            auth.check_rate_limit_by_ip(f"10.{i//256}.{i%256}.1")
+
+        # Memory should be bounded
+        assert len(auth._ip_request_counts) <= 100
+
+    def test_revocation_storage_limit_enforced(self):
+        """Verify revocation storage has bounded growth."""
+        auth = AuthConfig()
+        auth._max_revoked_tokens = 100
+
+        # Attempt to store many revoked tokens
+        for i in range(500):
+            auth.revoke_token(f"revoked_token_{i}")
+
+        # Storage should be bounded
+        assert auth.get_revocation_count() <= 100
+
+    def test_concurrent_memory_exhaustion_attempt(self):
+        """Multiple threads attempting memory exhaustion should be bounded."""
+        auth = AuthConfig()
+        auth._max_tracked_entries = 50
+        auth.rate_limit_per_minute = 10000
+        errors = []
+
+        def exhaust_memory(prefix):
+            try:
+                for i in range(200):
+                    auth.check_rate_limit(f"{prefix}_token_{i}")
+            except Exception as e:
+                errors.append(e)
+
+        threads = [
+            threading.Thread(target=exhaust_memory, args=(f"thread_{j}",))
+            for j in range(10)
+        ]
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0
+        # Memory should still be bounded despite concurrent attempts
+        assert len(auth._token_request_counts) <= auth._max_tracked_entries

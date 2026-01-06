@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
+from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.connectors.base import BaseConnector, Evidence
 
 logger = logging.getLogger(__name__)
@@ -147,18 +148,26 @@ class WebConnector(BaseConnector):
     async def _get_http_client(self) -> "httpx.AsyncClient":
         """Get or create shared HTTP client with connection pooling."""
         if self._http_client is None:
-            self._http_client = httpx.AsyncClient(
-                timeout=self.timeout,
-                follow_redirects=True,
-                limits=httpx.Limits(max_connections=20, max_keepalive_connections=5),
-            )
+            try:
+                self._http_client = httpx.AsyncClient(
+                    timeout=self.timeout,
+                    follow_redirects=True,
+                    limits=httpx.Limits(max_connections=20, max_keepalive_connections=5),
+                )
+            except Exception as e:
+                logger.error(f"Failed to create HTTP client: {e}")
+                raise  # Fail fast instead of retrying infinitely
         return self._http_client
 
     async def cleanup(self) -> None:
         """Clean up HTTP client on shutdown."""
         if self._http_client:
-            await self._http_client.aclose()
-            self._http_client = None
+            try:
+                await self._http_client.aclose()
+            except Exception as e:
+                logger.warning(f"Error closing HTTP client: {e}")
+            finally:
+                self._http_client = None
 
     async def search(
         self,
@@ -213,11 +222,19 @@ class WebConnector(BaseConnector):
 
         try:
             # Run DuckDuckGo search in thread pool (it's synchronous)
+            # Add timeout to prevent indefinite blocking
             loop = asyncio.get_event_loop()
-            results = await loop.run_in_executor(
-                None,
-                lambda: list(DDGS().text(query, region=region, max_results=limit))
-            )
+            try:
+                results = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None,
+                        lambda: list(DDGS().text(query, region=region, max_results=limit))
+                    ),
+                    timeout=DB_TIMEOUT_SECONDS,  # 30 second timeout for DDGS
+                )
+            except asyncio.TimeoutError:
+                logger.warning(f"DDGS search timed out for query: {query[:50]}...")
+                return [self._create_error_evidence(f"Search timed out for: {query[:50]}")]
 
             evidence_list = []
             for result in results:
@@ -266,7 +283,7 @@ class WebConnector(BaseConnector):
         query_hash = hashlib.md5(query.encode()).hexdigest()
         return self.cache_dir / f"{query_hash}.json"
 
-    def _save_to_cache(self, query: str, results: list[Evidence]):
+    def _save_to_cache(self, query: str, results: list[Evidence]) -> None:
         """Save search results to cache with proper serialization."""
         cache_file = self._get_cache_file(query)
         cache_data = {
@@ -417,7 +434,7 @@ class WebConnector(BaseConnector):
             text_parts = []
             for p in paragraphs:
                 text = p.get_text(strip=True)
-                if len(text) > 20:  # Skip very short elements
+                if len(text) > 5:  # Skip very short elements (punctuation, whitespace)
                     text_parts.append(text)
             content = "\n\n".join(text_parts)
         else:
@@ -490,7 +507,7 @@ class WebConnector(BaseConnector):
             freshness=0.0,
         )
 
-    async def _rate_limit(self):
+    async def _rate_limit(self) -> None:
         """Apply rate limiting between requests."""
         import time
         now = time.time()

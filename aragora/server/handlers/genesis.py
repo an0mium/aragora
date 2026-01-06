@@ -21,12 +21,11 @@ from .base import (
     json_response,
     error_response,
     get_int_param,
+    DB_TIMEOUT_SECONDS,
 )
+from aragora.server.validation import SAFE_ID_PATTERN_WITH_DOTS as SAFE_ID_PATTERN
 
 logger = logging.getLogger(__name__)
-
-# Safe ID pattern
-SAFE_ID_PATTERN = r'^[a-zA-Z0-9_.-]+$'
 
 # Lazy imports for optional dependencies
 GENESIS_AVAILABLE = False
@@ -41,18 +40,7 @@ try:
 except ImportError:
     pass
 
-
-def _safe_error_message(e: Exception, context: str = "") -> str:
-    """Return a sanitized error message for client responses."""
-    logger.error(f"Error in {context}: {type(e).__name__}: {e}", exc_info=True)
-    error_type = type(e).__name__
-    if error_type in ("FileNotFoundError", "OSError"):
-        return "Resource not found"
-    elif error_type in ("json.JSONDecodeError", "ValueError"):
-        return "Invalid data format"
-    elif error_type in ("TimeoutError", "asyncio.TimeoutError"):
-        return "Operation timed out"
-    return "An error occurred"
+from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 
 class GenesisHandler(BaseHandler):
@@ -178,27 +166,25 @@ class GenesisHandler(BaseHandler):
                     return error_response(f"Unknown event type: {event_type}", 400)
 
             # Get all recent events
-            conn = sqlite3.connect(ledger_path)
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT event_id, event_type, timestamp, parent_event_id, content_hash, data
-                FROM genesis_events
-                ORDER BY timestamp DESC
-                LIMIT ?
-            """, (limit,))
+            with sqlite3.connect(ledger_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT event_id, event_type, timestamp, parent_event_id, content_hash, data
+                    FROM genesis_events
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                """, (limit,))
 
-            events = []
-            for row in cursor.fetchall():
-                events.append({
-                    "event_id": row[0],
-                    "event_type": row[1],
-                    "timestamp": row[2],
-                    "parent_event_id": row[3],
-                    "content_hash": row[4][:16] + "..." if row[4] else None,
-                    "data": json.loads(row[5]) if row[5] else {},
-                })
-
-            conn.close()
+                events = []
+                for row in cursor.fetchall():
+                    events.append({
+                        "event_id": row[0],
+                        "event_type": row[1],
+                        "timestamp": row[2],
+                        "parent_event_id": row[3],
+                        "content_hash": row[4][:16] + "..." if row[4] else None,
+                        "data": json.loads(row[5]) if row[5] else {},
+                    })
 
             return json_response({
                 "events": events,

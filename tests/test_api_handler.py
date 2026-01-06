@@ -74,9 +74,9 @@ class TestSafeIDPattern:
         assert SAFE_ID_PATTERN.match("foo/bar") is None
 
     def test_invalid_too_long(self):
-        """IDs over 200 chars should be invalid."""
-        assert SAFE_ID_PATTERN.match("a" * 200) is not None  # Exactly 200 is valid
-        assert SAFE_ID_PATTERN.match("a" * 201) is None  # 201 is invalid
+        """IDs over 128 chars should be invalid (security hardened in Round 9)."""
+        assert SAFE_ID_PATTERN.match("a" * 128) is not None  # Exactly 128 is valid
+        assert SAFE_ID_PATTERN.match("a" * 129) is None  # 129 is invalid
 
 
 # ============================================================================
@@ -191,12 +191,13 @@ class TestDebateAPIHandler:
         handler.send_error.assert_called_with(404, "Debate not found: nonexistent")
 
     def test_get_debate_no_storage(self, handler):
-        """Should return 500 when storage not configured."""
+        """Should return 503 JSON error when storage not configured (updated in Round 9)."""
         handler.storage = None
+        handler._send_json_error = Mock()
 
         handler._get_debate("test")
 
-        handler.send_error.assert_called_with(500, "Storage not configured")
+        handler._send_json_error.assert_called_with("Storage not configured", 503)
 
     def test_cors_headers_valid_origin(self, handler):
         """CORS headers should be added for valid origin."""
@@ -367,12 +368,13 @@ class TestReplayEndpoints:
         assert len(data["events"]) == 2
 
     def test_get_replay_no_storage(self, handler):
-        """Should return 500 when replay storage not configured."""
+        """Should return 503 JSON error when replay storage not configured (updated in Round 9)."""
         handler.replay_storage = None
+        handler._send_json_error = Mock()
 
         handler._get_replay("any-id")
 
-        handler.send_error.assert_called_with(500, "Replay storage not configured")
+        handler._send_json_error.assert_called_with("Replay storage not configured", 503)
 
 
 class TestForkReplay:

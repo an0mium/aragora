@@ -10,11 +10,20 @@ import logging
 import os
 import re
 import time
+import uuid
 from collections import OrderedDict
 from dataclasses import dataclass
 from functools import wraps
 from typing import Any, Callable, Optional, Tuple
 from urllib.parse import parse_qs
+
+from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.server.error_utils import safe_error_message
+from aragora.server.prometheus import record_cache_hit, record_cache_miss
+from aragora.server.validation import SAFE_ID_PATTERN, SAFE_AGENT_PATTERN, SAFE_SLUG_PATTERN
+
+# Re-export DB_TIMEOUT_SECONDS for backwards compatibility
+__all__ = ["DB_TIMEOUT_SECONDS"]
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +99,7 @@ class BoundedTTLCache:
             logger.debug(f"Cache evicted {evicted} entries (size: {len(self._cache)})")
         return evicted
 
-    def clear(self, key_prefix: str = None) -> int:
+    def clear(self, key_prefix: str | None = None) -> int:
         """Clear entries, optionally filtered by prefix."""
         if key_prefix is None:
             count = len(self._cache)
@@ -155,10 +164,12 @@ def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool 
 
             hit, cached_value = _cache.get(cache_key, ttl_seconds)
             if hit:
+                record_cache_hit(key_prefix or func.__name__)
                 logger.debug(f"Cache hit for {cache_key}")
                 return cached_value
 
             # Cache miss or expired
+            record_cache_miss(key_prefix or func.__name__)
             result = func(*args, **kwargs)
             _cache.set(cache_key, result)
             logger.debug(f"Cache miss, stored {cache_key}")
@@ -167,7 +178,7 @@ def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool 
     return decorator
 
 
-def clear_cache(key_prefix: str = None) -> int:
+def clear_cache(key_prefix: str | None = None) -> int:
     """Clear cached entries, optionally filtered by prefix.
 
     Returns number of entries cleared.
@@ -193,19 +204,280 @@ class HandlerResult:
             self.headers = {}
 
 
-def json_response(data: Any, status: int = 200) -> HandlerResult:
+def json_response(
+    data: Any,
+    status: int = 200,
+    headers: Optional[dict] = None,
+) -> HandlerResult:
     """Create a JSON response."""
     body = json.dumps(data, default=str).encode('utf-8')
     return HandlerResult(
         status_code=status,
         content_type="application/json",
         body=body,
+        headers=headers or {},
     )
 
 
-def error_response(message: str, status: int = 400) -> HandlerResult:
+def error_response(
+    message: str,
+    status: int = 400,
+    headers: Optional[dict] = None,
+) -> HandlerResult:
     """Create an error response."""
-    return json_response({"error": message}, status=status)
+    return json_response({"error": message}, status=status, headers=headers)
+
+
+# ============================================================================
+# Centralized Exception Handling
+# ============================================================================
+
+def generate_trace_id() -> str:
+    """Generate a unique trace ID for request tracking."""
+    return str(uuid.uuid4())[:8]
+
+
+# Exception to HTTP status code mapping
+_EXCEPTION_STATUS_MAP = {
+    "FileNotFoundError": 404,
+    "KeyError": 404,
+    "ValueError": 400,
+    "TypeError": 400,
+    "json.JSONDecodeError": 400,
+    "PermissionError": 403,
+    "TimeoutError": 504,
+    "asyncio.TimeoutError": 504,
+    "ConnectionError": 502,
+    "OSError": 500,
+}
+
+
+def _map_exception_to_status(e: Exception, default: int = 500) -> int:
+    """Map exception type to appropriate HTTP status code."""
+    error_type = type(e).__name__
+    return _EXCEPTION_STATUS_MAP.get(error_type, default)
+
+
+def handle_errors(context: str, default_status: int = 500):
+    """
+    Decorator for consistent exception handling with tracing.
+
+    Wraps handler methods to:
+    - Generate unique trace IDs for debugging
+    - Log full exception details server-side
+    - Return sanitized error messages to clients
+    - Map exceptions to appropriate HTTP status codes
+
+    Args:
+        context: Description of the operation (e.g., "debate creation")
+        default_status: Default HTTP status for unrecognized exceptions
+
+    Usage:
+        @handle_errors("leaderboard retrieval")
+        def _get_leaderboard(self, query_params: dict) -> HandlerResult:
+            ...
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            trace_id = generate_trace_id()
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                logger.error(
+                    f"[{trace_id}] Error in {context}: {type(e).__name__}: {e}",
+                    exc_info=True,
+                )
+                status = _map_exception_to_status(e, default_status)
+                message = safe_error_message(e, context)
+                return error_response(
+                    message,
+                    status=status,
+                    headers={"X-Trace-Id": trace_id},
+                )
+        return wrapper
+    return decorator
+
+
+def with_error_recovery(
+    fallback_value: Any = None,
+    log_errors: bool = True,
+    metrics_key: Optional[str] = None,
+):
+    """
+    Decorator for graceful error recovery with fallback values.
+
+    Unlike handle_errors which returns HTTP error responses, this decorator
+    returns a fallback value allowing the caller to continue operation.
+    Useful for non-critical operations where partial failure is acceptable.
+
+    Args:
+        fallback_value: Value to return on error (default: None)
+        log_errors: Whether to log errors (default: True)
+        metrics_key: Optional key for recording error metrics
+
+    Usage:
+        @with_error_recovery(fallback_value=[], log_errors=True)
+        def get_optional_data():
+            # May fail, but caller gets empty list instead of crash
+            ...
+
+        @with_error_recovery(fallback_value={"error": True})
+        def fetch_external_service():
+            # Returns error dict on failure instead of raising
+            ...
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                if log_errors:
+                    logger.error(
+                        f"Error in {func.__name__}: {type(e).__name__}: {e}",
+                        exc_info=True,
+                    )
+                if metrics_key:
+                    try:
+                        from aragora.server.prometheus import record_error
+                        record_error(metrics_key, str(type(e).__name__))
+                    except ImportError:
+                        pass
+                return fallback_value
+        return wrapper
+    return decorator
+
+
+@dataclass
+class ValidationResult:
+    """Result of parameter validation."""
+    is_valid: bool
+    error: Optional[str] = None
+    validated_params: Optional[dict] = None
+
+
+def validate_against_schema(params: dict, schema: dict) -> ValidationResult:
+    """
+    Validate request parameters against a simple schema.
+
+    Schema format:
+        {
+            "param_name": {
+                "type": "int" | "float" | "string" | "bool",
+                "required": True | False,
+                "min": <number>,  # For int/float
+                "max": <number>,  # For int/float
+                "pattern": <regex>,  # For strings
+                "choices": [<list>],  # Allowed values
+                "default": <value>,  # Default if not provided
+            },
+            ...
+        }
+
+    Args:
+        params: Dictionary of request parameters
+        schema: Validation schema
+
+    Returns:
+        ValidationResult with is_valid, error message, and validated params
+    """
+    validated = {}
+    errors = []
+
+    for param_name, rules in schema.items():
+        value = params.get(param_name)
+        required = rules.get("required", False)
+        default = rules.get("default")
+        param_type = rules.get("type", "string")
+
+        # Handle missing values
+        if value is None:
+            if required:
+                errors.append(f"Missing required parameter: {param_name}")
+                continue
+            elif default is not None:
+                value = default
+            else:
+                continue
+
+        # Type coercion and validation
+        try:
+            if param_type == "int":
+                value = int(value)
+                if "min" in rules and value < rules["min"]:
+                    errors.append(f"{param_name} must be >= {rules['min']}")
+                if "max" in rules and value > rules["max"]:
+                    errors.append(f"{param_name} must be <= {rules['max']}")
+
+            elif param_type == "float":
+                value = float(value)
+                if "min" in rules and value < rules["min"]:
+                    errors.append(f"{param_name} must be >= {rules['min']}")
+                if "max" in rules and value > rules["max"]:
+                    errors.append(f"{param_name} must be <= {rules['max']}")
+
+            elif param_type == "bool":
+                if isinstance(value, str):
+                    value = value.lower() in ("true", "1", "yes", "on")
+                else:
+                    value = bool(value)
+
+            elif param_type == "string":
+                value = str(value)
+                if "pattern" in rules:
+                    pattern = rules["pattern"]
+                    if isinstance(pattern, str):
+                        pattern = re.compile(pattern)
+                    if not pattern.match(value):
+                        errors.append(f"{param_name} has invalid format")
+
+            # Check choices
+            if "choices" in rules and value not in rules["choices"]:
+                errors.append(f"{param_name} must be one of: {rules['choices']}")
+
+            validated[param_name] = value
+
+        except (ValueError, TypeError) as e:
+            errors.append(f"Invalid {param_name}: {e}")
+
+    if errors:
+        return ValidationResult(is_valid=False, error="; ".join(errors))
+
+    return ValidationResult(is_valid=True, validated_params=validated)
+
+
+def validate_params(schema: dict):
+    """
+    Decorator to validate request parameters against a schema.
+
+    Validates query_params (second argument after self) and returns
+    error response if validation fails.
+
+    Args:
+        schema: Validation schema (see validate_against_schema for format)
+
+    Usage:
+        @validate_params({
+            "limit": {"type": "int", "min": 1, "max": 100, "default": 20},
+            "agent": {"type": "string", "required": True, "pattern": SAFE_AGENT_PATTERN},
+        })
+        def _get_agent_data(self, path, query_params, handler):
+            limit = query_params.get("limit")  # Already validated and converted
+            ...
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(self, path, query_params, *args, **kwargs):
+            result = validate_against_schema(query_params, schema)
+            if not result.is_valid:
+                return error_response(result.error, 400)
+            # Merge validated params back (with type conversions applied)
+            if result.validated_params:
+                query_params.update(result.validated_params)
+            return func(self, path, query_params, *args, **kwargs)
+        return wrapper
+    return decorator
 
 
 def parse_query_params(query_string: str) -> dict:
@@ -218,17 +490,23 @@ def parse_query_params(query_string: str) -> dict:
 
 
 def get_int_param(params: dict, key: str, default: int = 0) -> int:
-    """Safely get an integer parameter."""
+    """Safely get an integer parameter, handling list values from query strings."""
     try:
-        return int(params.get(key, default))
+        value = params.get(key, default)
+        if isinstance(value, list):
+            value = value[0] if value else default
+        return int(value)
     except (ValueError, TypeError):
         return default
 
 
 def get_float_param(params: dict, key: str, default: float = 0.0) -> float:
-    """Safely get a float parameter."""
+    """Safely get a float parameter, handling list values from query strings."""
     try:
-        return float(params.get(key, default))
+        value = params.get(key, default)
+        if isinstance(value, list):
+            value = value[0] if value else default
+        return float(value)
     except (ValueError, TypeError):
         return default
 
@@ -239,7 +517,7 @@ def get_bool_param(params: dict, key: str, default: bool = False) -> bool:
     return value in ('true', '1', 'yes', 'on')
 
 
-def get_string_param(params: dict, key: str, default: str = None) -> Optional[str]:
+def get_string_param(params: dict, key: str, default: str | None = None) -> Optional[str]:
     """Safely get a string parameter, handling list values from query strings."""
     value = params.get(key, default)
     if value is None:
@@ -249,10 +527,7 @@ def get_string_param(params: dict, key: str, default: str = None) -> Optional[st
     return str(value)
 
 
-# Validation patterns for path segments
-SAFE_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,64}$')
-SAFE_AGENT_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,32}$')
-SAFE_SLUG_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,128}$')
+# Note: SAFE_ID_PATTERN, SAFE_AGENT_PATTERN, SAFE_SLUG_PATTERN imported from validation.py
 
 
 def validate_path_segment(
@@ -340,6 +615,54 @@ class BaseHandler:
     def get_nomic_dir(self):
         """Get nomic directory path."""
         return self.ctx.get("nomic_dir")
+
+    # === POST Body Parsing Support ===
+
+    # Maximum request body size (10MB default)
+    MAX_BODY_SIZE = 10 * 1024 * 1024
+
+    def read_json_body(self, handler, max_size: int = None) -> Optional[dict]:
+        """Read and parse JSON body from request handler.
+
+        Args:
+            handler: The HTTP request handler with headers and rfile
+            max_size: Maximum body size to accept (default: MAX_BODY_SIZE)
+
+        Returns:
+            Parsed JSON dict, empty dict for no content, or None for parse errors
+        """
+        max_size = max_size or self.MAX_BODY_SIZE
+        try:
+            content_length = int(handler.headers.get('Content-Length', 0))
+            if content_length <= 0:
+                return {}
+            if content_length > max_size:
+                return None  # Body too large
+            body = handler.rfile.read(content_length)
+            return json.loads(body) if body else {}
+        except (json.JSONDecodeError, ValueError):
+            return None
+
+    def validate_content_length(self, handler, max_size: int = None) -> Optional[int]:
+        """Validate Content-Length header.
+
+        Args:
+            handler: The HTTP request handler
+            max_size: Maximum allowed size (default: MAX_BODY_SIZE)
+
+        Returns:
+            Content length if valid, None if invalid
+        """
+        max_size = max_size or self.MAX_BODY_SIZE
+        try:
+            content_length = int(handler.headers.get('Content-Length', '0'))
+        except ValueError:
+            return None
+
+        if content_length < 0 or content_length > max_size:
+            return None
+
+        return content_length
 
     def handle(self, path: str, query_params: dict) -> Optional[HandlerResult]:
         """

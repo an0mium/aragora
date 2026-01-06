@@ -1,0 +1,203 @@
+"""
+Introspection endpoint handlers.
+
+Provides agent self-awareness and introspection capabilities.
+
+Endpoints:
+- GET /api/introspection/all - Get introspection for all agents
+- GET /api/introspection/leaderboard - Get agents ranked by reputation
+- GET /api/introspection/agents/{name} - Get introspection for specific agent
+"""
+
+import logging
+from typing import Optional
+
+from .base import (
+    BaseHandler,
+    HandlerResult,
+    json_response,
+    error_response,
+    get_int_param,
+    validate_agent_name,
+)
+
+logger = logging.getLogger(__name__)
+
+# Lazy imports for optional dependencies
+INTROSPECTION_AVAILABLE = False
+get_agent_introspection = None
+
+try:
+    from aragora.introspection import get_agent_introspection as _gai
+    get_agent_introspection = _gai
+    INTROSPECTION_AVAILABLE = True
+except ImportError:
+    pass
+
+CRITIQUE_STORE_AVAILABLE = False
+CritiqueStore = None
+
+try:
+    from aragora.memory.store import CritiqueStore as _CS
+    CritiqueStore = _CS
+    CRITIQUE_STORE_AVAILABLE = True
+except ImportError:
+    pass
+
+PERSONA_MANAGER_AVAILABLE = False
+PersonaManager = None
+
+try:
+    from aragora.agents.personas import PersonaManager as _PM
+    PersonaManager = _PM
+    PERSONA_MANAGER_AVAILABLE = True
+except ImportError:
+    pass
+
+
+class IntrospectionHandler(BaseHandler):
+    """Handler for introspection-related endpoints."""
+
+    ROUTES = [
+        "/api/introspection/all",
+        "/api/introspection/leaderboard",
+        "/api/introspection/agents/*",
+    ]
+
+    DEFAULT_AGENTS = ["gemini", "claude", "codex", "grok", "deepseek"]
+
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can process the given path."""
+        if path in ("/api/introspection/all", "/api/introspection/leaderboard"):
+            return True
+        if path.startswith("/api/introspection/agents/"):
+            return True
+        return False
+
+    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+        """Route introspection requests to appropriate methods."""
+        if path == "/api/introspection/all":
+            return self._get_all_introspection()
+        elif path == "/api/introspection/leaderboard":
+            limit = get_int_param(query_params, 'limit', 10)
+            return self._get_introspection_leaderboard(min(limit, 50))
+        elif path.startswith("/api/introspection/agents/"):
+            agent = path.split("/")[-1]
+            is_valid, err = validate_agent_name(agent)
+            if not is_valid:
+                return error_response(err, 400)
+            return self._get_agent_introspection(agent)
+        return None
+
+    def _get_critique_store(self):
+        """Get or create a CritiqueStore instance."""
+        if not CRITIQUE_STORE_AVAILABLE or not CritiqueStore:
+            return None
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return None
+        db_path = nomic_dir / "debates.db"
+        if not db_path.exists():
+            return None
+        return CritiqueStore(str(db_path))
+
+    def _get_persona_manager(self):
+        """Get or create a PersonaManager instance."""
+        if not PERSONA_MANAGER_AVAILABLE or not PersonaManager:
+            return None
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return None
+        persona_db = nomic_dir / "personas.db"
+        if not persona_db.exists():
+            return None
+        return PersonaManager(str(persona_db))
+
+    def _get_known_agents(self, store) -> list:
+        """Get list of known agents from critique store or defaults."""
+        if store:
+            try:
+                reputations = store.get_all_reputations()
+                agents = [r.agent_name for r in reputations]
+                if agents:
+                    return agents
+            except Exception:
+                pass
+        return self.DEFAULT_AGENTS
+
+    def _get_agent_introspection(self, agent: str) -> HandlerResult:
+        """Get introspection data for a specific agent."""
+        if not INTROSPECTION_AVAILABLE or not get_agent_introspection:
+            return error_response("Introspection module not available", 503)
+
+        try:
+            memory = self._get_critique_store()
+            persona_manager = self._get_persona_manager()
+            snapshot = get_agent_introspection(
+                agent, memory=memory, persona_manager=persona_manager
+            )
+            return json_response(snapshot.to_dict())
+        except Exception as e:
+            logger.error(f"Error getting introspection for {agent}: {e}", exc_info=True)
+            return error_response("Failed to get introspection", 500)
+
+    def _get_all_introspection(self) -> HandlerResult:
+        """Get introspection data for all known agents."""
+        if not INTROSPECTION_AVAILABLE or not get_agent_introspection:
+            return error_response("Introspection module not available", 503)
+
+        try:
+            memory = self._get_critique_store()
+            persona_manager = self._get_persona_manager()
+            agents = self._get_known_agents(memory)
+
+            snapshots = {}
+            for agent in agents:
+                try:
+                    snapshot = get_agent_introspection(
+                        agent, memory=memory, persona_manager=persona_manager
+                    )
+                    snapshots[agent] = snapshot.to_dict()
+                except Exception as e:
+                    logger.debug(f"Error getting introspection for {agent}: {e}")
+                    continue
+
+            return json_response({
+                "agents": snapshots,
+                "count": len(snapshots),
+            })
+        except Exception as e:
+            logger.error(f"Error getting all introspection: {e}", exc_info=True)
+            return error_response("Failed to get introspection data", 500)
+
+    def _get_introspection_leaderboard(self, limit: int) -> HandlerResult:
+        """Get agents ranked by reputation score."""
+        if not INTROSPECTION_AVAILABLE or not get_agent_introspection:
+            return error_response("Introspection module not available", 503)
+
+        try:
+            memory = self._get_critique_store()
+            persona_manager = self._get_persona_manager()
+            agents = self._get_known_agents(memory)
+
+            snapshots = []
+            for agent in agents:
+                try:
+                    snapshot = get_agent_introspection(
+                        agent, memory=memory, persona_manager=persona_manager
+                    )
+                    snapshots.append(snapshot.to_dict())
+                except Exception as e:
+                    logger.debug(f"Error getting introspection for {agent}: {e}")
+                    continue
+
+            # Sort by reputation score descending
+            snapshots.sort(key=lambda x: x.get("reputation_score", 0), reverse=True)
+
+            return json_response({
+                "leaderboard": snapshots[:limit],
+                "total_agents": len(snapshots),
+            })
+        except Exception as e:
+            logger.error(f"Error getting introspection leaderboard: {e}", exc_info=True)
+            return error_response("Failed to get leaderboard", 500)

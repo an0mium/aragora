@@ -16,6 +16,7 @@ import logging
 import sqlite3
 from typing import Optional
 
+from aragora.config import DB_TIMEOUT_SECONDS
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -41,18 +42,7 @@ try:
 except ImportError:
     pass
 
-
-def _safe_error_message(e: Exception, context: str = "") -> str:
-    """Return a sanitized error message for client responses."""
-    logger.error(f"Error in {context}: {type(e).__name__}: {e}", exc_info=True)
-    error_type = type(e).__name__
-    if error_type in ("FileNotFoundError", "OSError"):
-        return "Resource not found"
-    elif error_type in ("json.JSONDecodeError", "ValueError"):
-        return "Invalid data format"
-    elif error_type in ("TimeoutError", "asyncio.TimeoutError"):
-        return "Operation timed out"
-    return "An error occurred"
+from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 
 class ConsensusHandler(BaseHandler):
@@ -180,7 +170,7 @@ class ConsensusHandler(BaseHandler):
 
         try:
             memory = ConsensusMemory()
-            with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
+            with sqlite3.connect(memory.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT topic, conclusion, confidence, strength, timestamp
@@ -218,13 +208,14 @@ class ConsensusHandler(BaseHandler):
             memory = ConsensusMemory()
             raw_stats = memory.get_statistics()
 
-            with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
+            with sqlite3.connect(memory.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT COUNT(*) FROM consensus WHERE confidence >= 0.7")
-                high_confidence_count = cursor.fetchone()[0]
+                row = cursor.fetchone()
+                high_confidence_count = row[0] if row else 0
                 cursor.execute("SELECT AVG(confidence) FROM consensus")
                 avg_row = cursor.fetchone()
-                avg_confidence = avg_row[0] if avg_row[0] else 0.0
+                avg_confidence = avg_row[0] if avg_row and avg_row[0] else 0.0
 
             return json_response({
                 "total_topics": raw_stats.get("total_consensus", 0),
@@ -248,7 +239,7 @@ class ConsensusHandler(BaseHandler):
         try:
             memory = ConsensusMemory()
 
-            with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
+            with sqlite3.connect(memory.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
                 cursor = conn.cursor()
                 query = """
                     SELECT d.data, c.topic, c.conclusion
@@ -297,7 +288,7 @@ class ConsensusHandler(BaseHandler):
                 retriever = DissentRetriever(memory)
                 records = retriever.find_contrarian_views(topic, domain=domain, limit=limit)
             else:
-                with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
+                with sqlite3.connect(memory.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
                     cursor = conn.cursor()
                     query = """
                         SELECT data FROM dissent
@@ -345,7 +336,7 @@ class ConsensusHandler(BaseHandler):
                 retriever = DissentRetriever(memory)
                 records = retriever.find_risk_warnings(topic, domain=domain, limit=limit)
             else:
-                with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
+                with sqlite3.connect(memory.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
                     cursor = conn.cursor()
                     query = """
                         SELECT data FROM dissent

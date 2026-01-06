@@ -6,7 +6,10 @@ Endpoints:
 - GET /api/tournaments/{id}/standings - Get tournament standings
 """
 
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Optional
 
@@ -84,8 +87,9 @@ class TournamentHandler(BaseHandler):
                             "total_matches": sum(s.wins + s.losses + s.draws for s in standings) // 2,
                             "top_agent": standings[0].agent if standings else None,
                         })
-                    except Exception:
+                    except Exception as e:
                         # Skip corrupted or invalid tournament files
+                        logger.warning("Failed to load tournament %s: %s: %s", tournament_id, type(e).__name__, e)
                         continue
 
             return json_response({

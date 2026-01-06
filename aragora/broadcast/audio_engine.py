@@ -5,9 +5,13 @@ Uses edge-tts for high-quality text-to-speech generation.
 """
 
 import asyncio
+import hashlib
+import logging
 import tempfile
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 from typing import Dict, Optional
 import subprocess
 from aragora.broadcast.script_gen import ScriptSegment
@@ -49,9 +53,16 @@ async def _generate_edge_tts(text: str, voice: str, output_path: Path) -> bool:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        await process.communicate()
+        try:
+            await asyncio.wait_for(process.communicate(), timeout=60)
+        except asyncio.TimeoutError:
+            process.kill()
+            await process.wait()
+            logger.warning("edge-tts timed out after 60s")
+            return False
         return process.returncode == 0 and output_path.exists()
-    except Exception:
+    except Exception as e:
+        logger.debug("edge-tts generation failed: %s", e)
         return False
 
 
@@ -65,7 +76,8 @@ def _generate_fallback_tts(text: str, output_path: Path) -> bool:
         engine.save_to_file(text, str(output_path))
         engine.runAndWait()
         return output_path.exists()
-    except Exception:
+    except Exception as e:
+        logger.debug("pyttsx3 fallback TTS failed: %s", e)
         return False
 
 
@@ -82,8 +94,9 @@ async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Op
     """
     voice = _get_voice_for_speaker(segment.speaker)
 
-    # Create safe filename
-    safe_name = f"{segment.speaker}_{hash(segment.text) % 10000}.mp3"
+    # Create safe filename using stable hash (sha256 is deterministic across sessions)
+    text_hash = hashlib.sha256(segment.text.encode('utf-8')).hexdigest()[:12]
+    safe_name = f"{segment.speaker}_{text_hash}.mp3"
     output_path = output_dir / safe_name
 
     # Try edge-tts first
@@ -103,10 +116,18 @@ async def generate_audio(segments: list[ScriptSegment], output_dir: Optional[Pat
 
     Args:
         segments: List of script segments
-        output_dir: Directory to save audio files (temp dir if None)
+        output_dir: Directory to save audio files. If None, creates a temp
+            directory. Caller is responsible for cleanup of this directory
+            after use (e.g., with shutil.rmtree).
 
     Returns:
         List of paths to generated audio files
+
+    Note:
+        When output_dir is None, a temporary directory is created that will
+        NOT be automatically cleaned up. Use broadcast_debate() instead for
+        automatic cleanup, or manually remove the parent directory of the
+        returned paths when done.
     """
     if output_dir is None:
         output_dir = Path(tempfile.mkdtemp(prefix="aragora_broadcast_"))

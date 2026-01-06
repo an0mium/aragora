@@ -96,7 +96,7 @@ class GitHubConnector(BaseConnector):
             )
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(),
-                timeout=60,  # Reasonable timeout for most gh operations
+                timeout=30,  # Reduced from 60s for faster debate flow
             )
 
             if proc.returncode == 0:

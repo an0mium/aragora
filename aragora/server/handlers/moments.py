@@ -48,16 +48,7 @@ try:
 except ImportError:
     pass
 
-
-def _safe_error_message(e: Exception, context: str = "") -> str:
-    """Return a sanitized error message for client responses."""
-    logger.error(f"Error in {context}: {type(e).__name__}: {e}", exc_info=True)
-    error_type = type(e).__name__
-    if error_type in ("FileNotFoundError", "OSError"):
-        return "Resource not found"
-    elif error_type in ("json.JSONDecodeError", "ValueError"):
-        return "Invalid data format"
-    return "An error occurred"
+from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 
 class MomentsHandler(BaseHandler):

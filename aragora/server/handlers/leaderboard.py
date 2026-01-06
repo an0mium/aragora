@@ -7,7 +7,10 @@ Consolidates 6 separate leaderboard-related endpoints into a single request:
 This reduces frontend latency by 80% (1 request instead of 6).
 """
 
+import logging
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -294,8 +297,9 @@ class LeaderboardViewHandler(BaseHandler):
             try:
                 snapshot = get_agent_introspection(agent, memory=memory, persona_manager=persona_manager)
                 snapshots[agent] = snapshot.to_dict()
-            except Exception:
+            except Exception as e:
                 # Skip agents that fail introspection
+                logger.warning("Agent introspection failed for %s: %s: %s", agent, type(e).__name__, e)
                 continue
 
         return {"agents": snapshots, "count": len(snapshots)}

@@ -21,11 +21,9 @@ from .base import (
     get_int_param,
     get_float_param,
 )
+from aragora.server.validation import SAFE_ID_PATTERN_WITH_DOTS as SAFE_ID_PATTERN
 
 logger = logging.getLogger(__name__)
-
-# Safe ID pattern
-SAFE_ID_PATTERN = r'^[a-zA-Z0-9_.-]+$'
 
 # Lazy import for optional dependency
 CRITIQUE_STORE_AVAILABLE = False
@@ -38,18 +36,7 @@ try:
 except ImportError:
     pass
 
-
-def _safe_error_message(e: Exception, context: str = "") -> str:
-    """Return a sanitized error message for client responses."""
-    logger.error(f"Error in {context}: {type(e).__name__}: {e}", exc_info=True)
-    error_type = type(e).__name__
-    if error_type in ("FileNotFoundError", "OSError"):
-        return "Resource not found"
-    elif error_type in ("json.JSONDecodeError", "ValueError"):
-        return "Invalid data format"
-    elif error_type in ("TimeoutError", "asyncio.TimeoutError"):
-        return "Operation timed out"
-    return "An error occurred"
+from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 
 class CritiqueHandler(BaseHandler):

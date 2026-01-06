@@ -22,22 +22,12 @@ from .base import (
     get_int_param,
     ttl_cache,
 )
+from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.server.validation import SAFE_ID_PATTERN
 
 logger = logging.getLogger(__name__)
 
-# Safe ID pattern for path segments
-SAFE_ID_PATTERN = r'^[a-zA-Z0-9_-]+$'
-
-
-def _safe_error_message(e: Exception, context: str = "") -> str:
-    """Return a sanitized error message for client responses."""
-    logger.error(f"Error in {context}: {type(e).__name__}: {e}", exc_info=True)
-    error_type = type(e).__name__
-    if error_type in ("FileNotFoundError", "OSError"):
-        return "Resource not found"
-    elif error_type in ("json.JSONDecodeError", "ValueError"):
-        return "Invalid data format"
-    return "An error occurred"
+from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 
 class ReplaysHandler(BaseHandler):
@@ -164,7 +154,7 @@ class ReplaysHandler(BaseHandler):
             if not db_path.exists():
                 return json_response({"patterns": [], "count": 0})
 
-            with sqlite3.connect(str(db_path), timeout=30.0) as conn:
+            with sqlite3.connect(str(db_path), timeout=DB_TIMEOUT_SECONDS) as conn:
                 conn.row_factory = sqlite3.Row
 
                 # Get recent patterns

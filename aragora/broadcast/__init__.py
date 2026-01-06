@@ -14,6 +14,7 @@ Usage:
 """
 
 import asyncio
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -62,22 +63,26 @@ async def broadcast_debate(
     # Create temp directory for intermediate files
     temp_dir = Path(tempfile.mkdtemp(prefix="aragora_broadcast_"))
 
-    # Generate audio for each segment
-    audio_files = await generate_audio(segments, temp_dir)
-    if not audio_files:
-        return None
+    try:
+        # Generate audio for each segment
+        audio_files = await generate_audio(segments, temp_dir)
+        if not audio_files:
+            return None
 
-    # Determine output path
-    if output_path is None:
-        output_path = Path(tempfile.gettempdir()) / f"aragora_debate_{trace.id}.{format}"
+        # Determine output path
+        if output_path is None:
+            output_path = Path(tempfile.gettempdir()) / f"aragora_debate_{trace.id}.{format}"
 
-    # Mix audio files
-    success = mix_audio(audio_files, output_path, format)
-    if not success:
-        # Try ffmpeg fallback
-        success = mix_audio_with_ffmpeg(audio_files, output_path)
+        # Mix audio files
+        success = mix_audio(audio_files, output_path, format)
+        if not success:
+            # Try ffmpeg fallback
+            success = mix_audio_with_ffmpeg(audio_files, output_path)
 
-    return output_path if success else None
+        return output_path if success else None
+    finally:
+        # Clean up temp directory to prevent disk exhaustion
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def broadcast_debate_sync(

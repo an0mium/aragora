@@ -21,12 +21,11 @@ from .base import (
     get_int_param,
     get_float_param,
     validate_agent_name,
+    DB_TIMEOUT_SECONDS,
 )
+from aragora.server.validation import SAFE_ID_PATTERN
 
 logger = logging.getLogger(__name__)
-
-# Safe ID pattern for path segments
-SAFE_ID_PATTERN = r'^[a-zA-Z0-9_-]+$'
 
 # Lazy imports for optional dependencies
 RELATIONSHIP_TRACKER_AVAILABLE = False
@@ -41,18 +40,7 @@ try:
 except ImportError:
     pass
 
-
-def _safe_error_message(e: Exception, context: str = "") -> str:
-    """Return a sanitized error message for client responses."""
-    logger.error(f"Error in {context}: {type(e).__name__}: {e}", exc_info=True)
-    error_type = type(e).__name__
-    if error_type in ("FileNotFoundError", "OSError"):
-        return "Resource not found"
-    elif error_type in ("json.JSONDecodeError", "ValueError"):
-        return "Invalid data format"
-    elif error_type in ("TimeoutError", "asyncio.TimeoutError"):
-        return "Operation timed out"
-    return "An error occurred"
+from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 
 class RelationshipHandler(BaseHandler):
@@ -140,32 +128,30 @@ class RelationshipHandler(BaseHandler):
             # We need to query the DB directly to get all relationships
             # Use a helper to get all pairs from the database
             import sqlite3
-            conn = sqlite3.connect(tracker.elo_db_path)
-            cursor = conn.cursor()
+            with sqlite3.connect(tracker.elo_db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+                cursor = conn.cursor()
 
-            # Check if table exists
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_relationships'"
-            )
-            if not cursor.fetchone():
-                conn.close()
-                return json_response({
-                    "total_relationships": 0,
-                    "strongest_rivalry": None,
-                    "strongest_alliance": None,
-                    "most_connected_agent": None,
-                    "avg_rivalry_score": 0.0,
-                    "avg_alliance_score": 0.0,
-                })
+                # Check if table exists
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_relationships'"
+                )
+                if not cursor.fetchone():
+                    return json_response({
+                        "total_relationships": 0,
+                        "strongest_rivalry": None,
+                        "strongest_alliance": None,
+                        "most_connected_agent": None,
+                        "avg_rivalry_score": 0.0,
+                        "avg_alliance_score": 0.0,
+                    })
 
-            cursor.execute("""
-                SELECT agent_a, agent_b, debate_count, agreement_count,
-                       a_wins_over_b, b_wins_over_a
-                FROM agent_relationships
-                WHERE debate_count >= 3
-            """)
-            rows = cursor.fetchall()
-            conn.close()
+                cursor.execute("""
+                    SELECT agent_a, agent_b, debate_count, agreement_count,
+                           a_wins_over_b, b_wins_over_a
+                    FROM agent_relationships
+                    WHERE debate_count >= 3
+                """)
+                rows = cursor.fetchall()
 
             if not rows:
                 return json_response({
@@ -245,28 +231,26 @@ class RelationshipHandler(BaseHandler):
                 return error_response("Failed to initialize relationship tracker", 503)
 
             import sqlite3
-            conn = sqlite3.connect(tracker.elo_db_path)
-            cursor = conn.cursor()
+            with sqlite3.connect(tracker.elo_db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+                cursor = conn.cursor()
 
-            # Check if table exists
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_relationships'"
-            )
-            if not cursor.fetchone():
-                conn.close()
-                return json_response({
-                    "nodes": [],
-                    "edges": [],
-                    "stats": {"node_count": 0, "edge_count": 0}
-                })
+                # Check if table exists
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_relationships'"
+                )
+                if not cursor.fetchone():
+                    return json_response({
+                        "nodes": [],
+                        "edges": [],
+                        "stats": {"node_count": 0, "edge_count": 0}
+                    })
 
-            cursor.execute("""
-                SELECT agent_a, agent_b, debate_count
-                FROM agent_relationships
-                WHERE debate_count >= ?
-            """, (min_debates,))
-            rows = cursor.fetchall()
-            conn.close()
+                cursor.execute("""
+                    SELECT agent_a, agent_b, debate_count
+                    FROM agent_relationships
+                    WHERE debate_count >= ?
+                """, (min_debates,))
+                rows = cursor.fetchall()
 
             if not rows:
                 return json_response({
@@ -415,32 +399,30 @@ class RelationshipHandler(BaseHandler):
                 return error_response("Failed to initialize relationship tracker", 503)
 
             import sqlite3
-            conn = sqlite3.connect(tracker.elo_db_path)
-            cursor = conn.cursor()
+            with sqlite3.connect(tracker.elo_db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+                cursor = conn.cursor()
 
-            # Check if table exists
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_relationships'"
-            )
-            if not cursor.fetchone():
-                conn.close()
-                return json_response({
-                    "total_tracked_pairs": 0,
-                    "total_debates_tracked": 0,
-                    "rivalries": {"count": 0, "avg_score": 0.0},
-                    "alliances": {"count": 0, "avg_score": 0.0},
-                    "neutral": {"count": 0},
-                    "most_debated_pair": None,
-                    "highest_agreement_pair": None,
-                })
+                # Check if table exists
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_relationships'"
+                )
+                if not cursor.fetchone():
+                    return json_response({
+                        "total_tracked_pairs": 0,
+                        "total_debates_tracked": 0,
+                        "rivalries": {"count": 0, "avg_score": 0.0},
+                        "alliances": {"count": 0, "avg_score": 0.0},
+                        "neutral": {"count": 0},
+                        "most_debated_pair": None,
+                        "highest_agreement_pair": None,
+                    })
 
-            # Get all relationships
-            cursor.execute("""
-                SELECT agent_a, agent_b, debate_count, agreement_count
-                FROM agent_relationships
-            """)
-            rows = cursor.fetchall()
-            conn.close()
+                # Get all relationships
+                cursor.execute("""
+                    SELECT agent_a, agent_b, debate_count, agreement_count
+                    FROM agent_relationships
+                """)
+                rows = cursor.fetchall()
 
             if not rows:
                 return json_response({

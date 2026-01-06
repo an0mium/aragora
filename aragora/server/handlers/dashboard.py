@@ -17,6 +17,7 @@ from .base import (
     get_int_param,
     ttl_cache,
 )
+from aragora.config import DB_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -288,15 +289,17 @@ class DashboardHandler(BaseHandler):
             # Get high confidence count from DB
             import sqlite3
 
-            with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
+            with sqlite3.connect(memory.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     "SELECT COUNT(*) FROM consensus WHERE confidence >= 0.7"
                 )
-                insights["high_confidence_count"] = cursor.fetchone()[0]
+                row = cursor.fetchone()
+                insights["high_confidence_count"] = row[0] if row else 0
 
                 cursor.execute("SELECT AVG(confidence) FROM consensus")
-                avg = cursor.fetchone()[0]
+                row = cursor.fetchone()
+                avg = row[0] if row else None
                 insights["avg_confidence"] = round(avg, 3) if avg else 0.0
 
         except ImportError:

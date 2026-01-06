@@ -236,9 +236,9 @@ class TestExportDebateEndpoint:
         """Should export debate as CSV."""
         result = debates_handler.handle("/api/debates/debate-001/export/csv", {}, None)
 
-        assert result[1] == 200  # status code
-        assert b"," in result[0]  # CSV content
-        assert result[2]["Content-Type"] == "text/csv; charset=utf-8"
+        assert result.status_code == 200
+        assert b"," in result.body  # CSV content
+        assert result.content_type == "text/csv; charset=utf-8"
 
     def test_export_csv_messages_table(self, debates_handler):
         """Should export messages table as CSV."""
@@ -248,8 +248,8 @@ class TestExportDebateEndpoint:
             None
         )
 
-        assert result[1] == 200
-        content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        content = result.body.decode("utf-8")
         assert "round" in content.lower()
         assert "agent" in content.lower()
 
@@ -261,8 +261,8 @@ class TestExportDebateEndpoint:
             None
         )
 
-        assert result[1] == 200
-        content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        content = result.body.decode("utf-8")
         assert "critic" in content.lower()
 
     def test_export_csv_votes_table(self, debates_handler):
@@ -273,19 +273,19 @@ class TestExportDebateEndpoint:
             None
         )
 
-        assert result[1] == 200
-        content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        content = result.body.decode("utf-8")
         assert "voter" in content.lower()
 
     def test_export_html_returns_html(self, debates_handler):
         """Should export debate as HTML."""
         result = debates_handler.handle("/api/debates/debate-001/export/html", {}, None)
 
-        assert result[1] == 200
-        content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        content = result.body.decode("utf-8")
         assert "<!DOCTYPE html>" in content
         assert "AI Safety" in content
-        assert result[2]["Content-Type"] == "text/html; charset=utf-8"
+        assert result.content_type == "text/html; charset=utf-8"
 
     def test_export_invalid_format_returns_400(self, debates_handler):
         """Should return 400 for invalid export format."""
@@ -628,8 +628,8 @@ class TestDebatesEdgeCases:
 
         result = debates_handler.handle("/api/debates/xss-test/export/html", {}, None)
 
-        assert result[1] == 200
-        content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        content = result.body.decode("utf-8")
         # Script tags should be escaped
         assert "<script>" not in content
         assert "&lt;script&gt;" in content
@@ -664,8 +664,8 @@ class TestCSVExportDetails:
             None
         )
 
-        assert result[1] == 200
-        content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        content = result.body.decode("utf-8")
         assert "field,value" in content.lower()
         assert "topic" in content.lower()
         assert "rounds_used" in content.lower()
@@ -693,8 +693,8 @@ class TestCSVExportDetails:
             None
         )
 
-        assert result[1] == 200
-        content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        content = result.body.decode("utf-8")
         assert "claude" in content
         assert "critic" in content
 
@@ -716,8 +716,8 @@ class TestCSVExportDetails:
             None
         )
 
-        assert result[1] == 200
-        content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        content = result.body.decode("utf-8")
         # Content should be truncated to 1000 chars
         assert len(content) < 2000 + 200  # Some overhead for headers
 
@@ -737,8 +737,8 @@ class TestCSVExportDetails:
             None
         )
 
-        assert result[1] == 200
-        content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        content = result.body.decode("utf-8")
         # Should get summary format
         assert "field,value" in content.lower()
 
@@ -760,8 +760,8 @@ class TestCSVExportDetails:
             None
         )
 
-        assert result[1] == 200
-        content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        content = result.body.decode("utf-8")
         assert "judge" in content
         assert "claude" in content
         assert "Better arguments" in content
@@ -788,8 +788,8 @@ class TestHTMLExportDetails:
 
         result = debates_handler.handle("/api/debates/stats-test/export/html", {}, None)
 
-        assert result[1] == 200
-        content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        content = result.body.decode("utf-8")
         assert "Messages" in content or "messages" in content.lower()
         assert "Critiques" in content or "critiques" in content.lower()
         assert "Rounds" in content or "rounds" in content.lower()
@@ -808,8 +808,8 @@ class TestHTMLExportDetails:
 
         result = debates_handler.handle("/api/debates/no-consensus-test/export/html", {}, None)
 
-        assert result[1] == 200
-        content = result[0].decode("utf-8")
+        assert result.status_code == 200
+        content = result.body.decode("utf-8")
         assert "No Consensus" in content or "no-consensus" in content
 
     def test_html_content_disposition(self, debates_handler, mock_storage):
@@ -826,9 +826,9 @@ class TestHTMLExportDetails:
 
         result = debates_handler.handle("/api/debates/download-test/export/html", {}, None)
 
-        assert result[1] == 200
-        assert "attachment" in result[2]["Content-Disposition"]
-        assert "download-test" in result[2]["Content-Disposition"]
+        assert result.status_code == 200
+        assert "attachment" in result.headers["Content-Disposition"]
+        assert "download-test" in result.headers["Content-Disposition"]
 
 
 # ============================================================================

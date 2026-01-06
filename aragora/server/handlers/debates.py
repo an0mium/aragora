@@ -9,6 +9,9 @@ Endpoints:
 - GET /api/debates/{id}/impasse - Detect debate impasse
 - GET /api/debates/{id}/convergence - Get convergence status
 - GET /api/debates/{id}/citations - Get evidence citations for debate
+- GET /api/debate/{id}/meta-critique - Get meta-level debate analysis
+- GET /api/debate/{id}/graph/stats - Get argument graph statistics
+- POST /api/debates/{id}/fork - Fork debate at a branch point
 """
 
 from typing import Optional
@@ -34,6 +37,7 @@ class DebatesHandler(BaseHandler):
         "/api/debates/*/impasse",
         "/api/debates/*/convergence",
         "/api/debates/*/citations",
+        "/api/debates/*/fork",  # POST - counterfactual fork
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -41,6 +45,11 @@ class DebatesHandler(BaseHandler):
         if path == "/api/debates":
             return True
         if path.startswith("/api/debates/"):
+            return True
+        # Also handle /api/debate/{id}/meta-critique and /api/debate/{id}/graph/stats
+        if path.startswith("/api/debate/") and (
+            path.endswith("/meta-critique") or path.endswith("/graph/stats")
+        ):
             return True
         return False
 
@@ -80,6 +89,26 @@ class DebatesHandler(BaseHandler):
                 return error_response(err, 400)
             if debate_id:
                 return self._get_citations(handler, debate_id)
+
+        if path.endswith("/meta-critique"):
+            # Handle both /api/debates/{id}/meta-critique and /api/debate/{id}/meta-critique
+            parts = path.split("/")
+            if len(parts) >= 4:
+                debate_id = parts[3]
+                is_valid, err = validate_debate_id(debate_id)
+                if not is_valid:
+                    return error_response(err, 400)
+                return self._get_meta_critique(debate_id)
+
+        if path.endswith("/graph/stats"):
+            # Handle both /api/debates/{id}/graph/stats and /api/debate/{id}/graph/stats
+            parts = path.split("/")
+            if len(parts) >= 5:
+                debate_id = parts[3]
+                is_valid, err = validate_debate_id(debate_id)
+                if not is_valid:
+                    return error_response(err, 400)
+                return self._get_graph_stats(debate_id)
 
         if "/export/" in path:
             parts = path.split("/")
@@ -286,13 +315,11 @@ class DebatesHandler(BaseHandler):
             writer.writerow(["vote_count", len(debate.get("votes", []))])
 
         csv_content = output.getvalue()
-        return (
-            csv_content.encode("utf-8"),
-            200,
-            {
-                "Content-Type": "text/csv; charset=utf-8",
-                "Content-Disposition": f'attachment; filename="debate-{debate.get("slug", "export")}-{table}.csv"',
-            }
+        return HandlerResult(
+            status_code=200,
+            content_type="text/csv; charset=utf-8",
+            body=csv_content.encode("utf-8"),
+            headers={"Content-Disposition": f'attachment; filename="debate-{debate.get("slug", "export")}-{table}.csv"'},
         )
 
     def _format_html(self, debate: dict) -> HandlerResult:
@@ -460,13 +487,11 @@ class DebatesHandler(BaseHandler):
 </body>
 </html>'''
 
-        return (
-            html_content.encode("utf-8"),
-            200,
-            {
-                "Content-Type": "text/html; charset=utf-8",
-                "Content-Disposition": f'attachment; filename="debate-{debate_id}.html"',
-            }
+        return HandlerResult(
+            status_code=200,
+            content_type="text/html; charset=utf-8",
+            body=html_content.encode("utf-8"),
+            headers={"Content-Disposition": f'attachment; filename="debate-{debate_id}.html"'},
         )
 
     def _get_citations(self, handler, debate_id: str) -> HandlerResult:
@@ -529,3 +554,272 @@ class DebatesHandler(BaseHandler):
 
         except Exception as e:
             return error_response(f"Failed to get citations: {e}", 500)
+
+    def _get_meta_critique(self, debate_id: str) -> HandlerResult:
+        """Get meta-level analysis of a debate (repetition, circular arguments, etc)."""
+        try:
+            from aragora.debate.meta import MetaCritiqueAnalyzer
+            from aragora.debate.traces import DebateTrace
+        except ImportError:
+            return error_response("Meta critique module not available", 503)
+
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+            if not trace_path.exists():
+                return error_response("Debate trace not found", 404)
+
+            trace = DebateTrace.load(trace_path)
+            result = trace.to_debate_result()
+
+            analyzer = MetaCritiqueAnalyzer()
+            critique = analyzer.analyze(result)
+
+            return json_response({
+                "debate_id": debate_id,
+                "overall_quality": critique.overall_quality,
+                "productive_rounds": critique.productive_rounds,
+                "unproductive_rounds": critique.unproductive_rounds,
+                "observations": [
+                    {
+                        "type": o.observation_type,
+                        "severity": o.severity,
+                        "agent": o.agent,
+                        "round": o.round_num,
+                        "description": o.description,
+                    }
+                    for o in critique.observations
+                ],
+                "recommendations": critique.recommendations,
+            })
+        except Exception as e:
+            return error_response(f"Failed to get meta critique: {e}", 500)
+
+    def _get_graph_stats(self, debate_id: str) -> HandlerResult:
+        """Get argument graph statistics for a debate.
+
+        Returns node counts, edge counts, depth, branching factor, and complexity.
+        """
+        try:
+            from aragora.visualization.mapper import ArgumentCartographer
+            from aragora.debate.traces import DebateTrace
+        except ImportError:
+            return error_response("Graph analysis module not available", 503)
+
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+
+            if not trace_path.exists():
+                # Try replays directory as fallback
+                replay_path = nomic_dir / "replays" / debate_id / "events.jsonl"
+                if replay_path.exists():
+                    return self._build_graph_from_replay(debate_id, replay_path)
+                return error_response("Debate not found", 404)
+
+            # Load from trace file
+            trace = DebateTrace.load(trace_path)
+            result = trace.to_debate_result()
+
+            # Build cartographer from debate result
+            cartographer = ArgumentCartographer()
+            cartographer.set_debate_context(debate_id, result.task or "")
+
+            # Process messages from the debate
+            for msg in result.messages:
+                cartographer.update_from_message(
+                    agent=msg.agent,
+                    content=msg.content,
+                    role=msg.role,
+                    round_num=msg.round,
+                )
+
+            # Process critiques
+            for critique in result.critiques:
+                cartographer.update_from_critique(
+                    critic_agent=critique.agent,
+                    target_agent=critique.target or "",
+                    severity=critique.severity,
+                    round_num=getattr(critique, 'round', 1),
+                    critique_text=critique.reasoning,
+                )
+
+            stats = cartographer.get_statistics()
+            return json_response(stats)
+
+        except Exception as e:
+            return error_response(f"Failed to get graph stats: {e}", 500)
+
+    def _build_graph_from_replay(self, debate_id: str, replay_path) -> HandlerResult:
+        """Build graph stats from replay events file."""
+        import json as json_mod
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        try:
+            from aragora.visualization.mapper import ArgumentCartographer
+        except ImportError:
+            return error_response("Graph analysis module not available", 503)
+
+        try:
+            cartographer = ArgumentCartographer()
+            cartographer.set_debate_context(debate_id, "")
+
+            with replay_path.open() as f:
+                for line_num, line in enumerate(f, 1):
+                    if line.strip():
+                        try:
+                            event = json_mod.loads(line)
+                        except json_mod.JSONDecodeError:
+                            logger.warning(f"Skipping malformed JSONL line {line_num}")
+                            continue
+
+                        if event.get("type") == "agent_message":
+                            cartographer.update_from_message(
+                                agent=event.get("agent", "unknown"),
+                                content=event.get("data", {}).get("content", ""),
+                                role=event.get("data", {}).get("role", "proposer"),
+                                round_num=event.get("round", 1),
+                            )
+                        elif event.get("type") == "critique":
+                            cartographer.update_from_critique(
+                                critic_agent=event.get("agent", "unknown"),
+                                target_agent=event.get("data", {}).get("target", "unknown"),
+                                severity=event.get("data", {}).get("severity", 0.5),
+                                round_num=event.get("round", 1),
+                                critique_text=event.get("data", {}).get("content", ""),
+                            )
+
+            stats = cartographer.get_statistics()
+            return json_response(stats)
+        except Exception as e:
+            return error_response(f"Failed to build graph from replay: {e}", 500)
+
+    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+        """Route POST requests to appropriate methods."""
+        if path.endswith("/fork"):
+            debate_id, err = self._extract_debate_id(path)
+            if err:
+                return error_response(err, 400)
+            if debate_id:
+                return self._fork_debate(handler, debate_id)
+
+        return None
+
+    def _fork_debate(self, handler, debate_id: str) -> HandlerResult:
+        """Create a counterfactual fork of a debate at a specific branch point.
+
+        Request body:
+            {
+                "branch_point": int,  # Round number to branch from
+                "modified_context": str  # Optional: context for the counterfactual
+            }
+
+        Returns:
+            Information about the created branch
+        """
+        from aragora.server.validation import FORK_REQUEST_SCHEMA, validate_against_schema
+
+        # Read and validate request body
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid or missing JSON body", 400)
+
+        validation = validate_against_schema(body, FORK_REQUEST_SCHEMA)
+        if not validation.is_valid:
+            return error_response(validation.error, 400)
+
+        branch_point = body.get("branch_point", 0)
+        modified_context = body.get("modified_context")
+
+        # Get the original debate
+        storage = self.get_storage()
+        if not storage:
+            return error_response("Storage not available", 503)
+
+        try:
+            debate = storage.get_debate(debate_id)
+            if not debate:
+                return error_response(f"Debate not found: {debate_id}", 404)
+
+            messages = debate.get("messages", [])
+            if branch_point > len(messages):
+                return error_response(
+                    f"Branch point {branch_point} exceeds message count {len(messages)}",
+                    400
+                )
+
+            # Import counterfactual module
+            try:
+                from aragora.debate.counterfactual import (
+                    CounterfactualOrchestrator,
+                    PivotClaim,
+                    CounterfactualBranch,
+                )
+            except ImportError:
+                return error_response("Counterfactual module not available", 503)
+
+            # Create a pivot claim from the context
+            import uuid as uuid_mod
+            pivot = PivotClaim(
+                claim_id=f"pivot-{uuid_mod.uuid4().hex[:8]}",
+                statement=modified_context or f"Branch at round {branch_point}",
+                author="user",
+                disagreement_score=1.0,
+                importance_score=1.0,
+                blocking_agents=[],
+                branch_reason=f"User-initiated fork at round {branch_point}",
+            )
+
+            # Create the branch record
+            branch_id = f"fork-{debate_id}-r{branch_point}-{uuid_mod.uuid4().hex[:8]}"
+
+            branch = CounterfactualBranch(
+                branch_id=branch_id,
+                parent_debate_id=debate_id,
+                pivot_claim=pivot,
+                assumption=True,  # Default to exploring the "true" branch
+                messages=messages[:branch_point] if branch_point > 0 else [],
+            )
+
+            # Store the branch info
+            branch_data = {
+                "branch_id": branch_id,
+                "parent_debate_id": debate_id,
+                "branch_point": branch_point,
+                "modified_context": modified_context,
+                "pivot_claim": pivot.statement,
+                "status": "created",
+                "messages_inherited": branch_point,
+            }
+
+            # Try to store in nomic dir
+            nomic_dir = self.get_nomic_dir()
+            if nomic_dir:
+                import json as json_mod
+                branches_dir = nomic_dir / "branches"
+                branches_dir.mkdir(exist_ok=True)
+                branch_file = branches_dir / f"{branch_id}.json"
+                with open(branch_file, "w") as f:
+                    json_mod.dump(branch_data, f, indent=2)
+
+            return json_response({
+                "success": True,
+                "branch_id": branch_id,
+                "parent_debate_id": debate_id,
+                "branch_point": branch_point,
+                "messages_inherited": branch_point,
+                "modified_context": modified_context,
+                "status": "created",
+                "message": f"Created fork '{branch_id}' from debate '{debate_id}' at round {branch_point}",
+            })
+
+        except Exception as e:
+            return error_response(f"Failed to create fork: {e}", 500)

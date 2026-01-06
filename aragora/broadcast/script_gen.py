@@ -25,7 +25,7 @@ def _summarize_code(text: str) -> str:
     return text
 
 
-def _extract_content_text(content) -> str:
+def _extract_content_text(content: dict | str) -> str:
     """Extract text content from event content (dict or string)."""
     if isinstance(content, dict):
         # Try common keys for content text
