@@ -1311,12 +1311,9 @@ class OpenRouterAgent(APIAgent):
         return prompt + "\n"
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using OpenRouter API with rate limiting."""
-
-        # Acquire rate limit token
-        limiter = get_openrouter_limiter()
-        if not await limiter.acquire(timeout=DB_TIMEOUT_SECONDS):
-            raise RuntimeError("OpenRouter rate limit exceeded, request timed out")
+        """Generate a response using OpenRouter API with rate limiting and retry."""
+        max_retries = 3
+        base_delay = 30  # Start with 30s backoff for rate limits
 
         full_prompt = prompt
         if context:
@@ -1341,32 +1338,67 @@ class OpenRouterAgent(APIAgent):
             "max_tokens": 4096,
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url,
-                headers=headers,
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=self.timeout),
-            ) as response:
-                # Update rate limit state from headers
-                limiter.update_from_headers(dict(response.headers))
+        last_error = None
+        for attempt in range(max_retries):
+            # Acquire rate limit token for each attempt
+            limiter = get_openrouter_limiter()
+            if not await limiter.acquire(timeout=DB_TIMEOUT_SECONDS):
+                raise RuntimeError("OpenRouter rate limit exceeded, request timed out")
 
-                if response.status == 429:
-                    # Rate limited by API - release token and wait
-                    limiter.release_on_error()
-                    retry_after = response.headers.get("Retry-After", "60")
-                    raise RuntimeError(f"OpenRouter rate limited (429), retry after {retry_after}s")
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        url,
+                        headers=headers,
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=self.timeout),
+                    ) as response:
+                        # Update rate limit state from headers
+                        limiter.update_from_headers(dict(response.headers))
 
-                if response.status != 200:
-                    error_text = await response.text()
-                    sanitized = _sanitize_error_message(error_text)
-                    raise RuntimeError(f"OpenRouter API error {response.status}: {sanitized}")
+                        if response.status == 429:
+                            # Rate limited by API - release token and calculate wait time
+                            limiter.release_on_error()
+                            retry_after_header = response.headers.get("Retry-After")
+                            if retry_after_header:
+                                try:
+                                    wait_time = float(retry_after_header)
+                                except ValueError:
+                                    wait_time = base_delay * (2 ** attempt)
+                            else:
+                                wait_time = base_delay * (2 ** attempt)
+                            wait_time = min(wait_time, 300)  # Cap at 5 minutes
 
-                data = await response.json()
-                try:
-                    return data["choices"][0]["message"]["content"]
-                except (KeyError, IndexError):
-                    raise RuntimeError(f"Unexpected OpenRouter response format: {data}")
+                            if attempt < max_retries - 1:
+                                logger.warning(
+                                    f"OpenRouter rate limited (429), waiting {wait_time:.0f}s before retry {attempt + 2}/{max_retries}"
+                                )
+                                await asyncio.sleep(wait_time)
+                                last_error = f"Rate limited (429)"
+                                continue
+                            else:
+                                raise RuntimeError(f"OpenRouter rate limited (429) after {max_retries} retries")
+
+                        if response.status != 200:
+                            error_text = await response.text()
+                            sanitized = _sanitize_error_message(error_text)
+                            raise RuntimeError(f"OpenRouter API error {response.status}: {sanitized}")
+
+                        data = await response.json()
+                        try:
+                            return data["choices"][0]["message"]["content"]
+                        except (KeyError, IndexError):
+                            raise RuntimeError(f"Unexpected OpenRouter response format: {data}")
+
+            except aiohttp.ClientError as e:
+                limiter.release_on_error()
+                last_error = str(e)
+                if attempt < max_retries - 1:
+                    wait_time = base_delay * (2 ** attempt)
+                    logger.warning(f"OpenRouter connection error, waiting {wait_time:.0f}s before retry: {e}")
+                    await asyncio.sleep(wait_time)
+                    continue
+                raise RuntimeError(f"OpenRouter connection failed after {max_retries} retries: {last_error}")
 
     async def generate_stream(self, prompt: str, context: list[Message] | None = None):
         """Stream tokens from OpenRouter API with rate limiting.
