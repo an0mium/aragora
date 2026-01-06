@@ -13,6 +13,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING, Generator
+import logging
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from aragora.export.artifact import DebateArtifact
@@ -20,6 +23,15 @@ if TYPE_CHECKING:
 
 # Database connection timeout in seconds
 DB_TIMEOUT = 30.0
+
+
+def _validate_sql_identifier(name: str) -> bool:
+    """Validate SQL identifier to prevent injection.
+
+    Only allows alphanumeric characters and underscores.
+    Must start with a letter or underscore.
+    """
+    return bool(re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name))
 
 
 def _escape_like_pattern(pattern: str) -> str:
@@ -115,7 +127,46 @@ class DebateStorage:
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_slug ON debates(slug)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_created ON debates(created_at)")
+
+            # Add audio columns (migration for existing databases)
+            self._safe_add_column(conn, "debates", "audio_path", "TEXT")
+            self._safe_add_column(conn, "debates", "audio_generated_at", "TIMESTAMP")
+            self._safe_add_column(conn, "debates", "audio_duration_seconds", "INTEGER")
+
             conn.commit()
+
+    def _safe_add_column(
+        self, conn: sqlite3.Connection, table: str, column: str, col_type: str
+    ) -> bool:
+        """
+        Safely add a column if it doesn't exist.
+
+        Args:
+            conn: Database connection
+            table: Table name
+            column: Column name to add
+            col_type: SQLite column type (must be in whitelist)
+
+        Returns:
+            True if column was added, False if it already existed or validation failed
+        """
+        # Validate identifiers to prevent SQL injection
+        if not _validate_sql_identifier(table) or not _validate_sql_identifier(column):
+            logger.warning("Invalid SQL identifier: table=%s, column=%s", table, column)
+            return False
+
+        # Validate col_type against whitelist
+        valid_types = {"TEXT", "INTEGER", "REAL", "BLOB", "TIMESTAMP"}
+        if col_type not in valid_types:
+            logger.warning("Invalid column type: %s (allowed: %s)", col_type, valid_types)
+            return False
+
+        cursor = conn.execute(f"PRAGMA table_info({table})")
+        columns = [row[1] for row in cursor.fetchall()]
+        if column not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+            return True
+        return False
 
     def generate_slug(self, task: str) -> str:
         """
@@ -139,14 +190,15 @@ class DebateStorage:
         date = datetime.now().strftime('%Y-%m-%d')
         slug = f"{base}-{date}"
 
-        # Handle collisions (escape LIKE pattern to prevent wildcard injection)
-        escaped_slug = _escape_like_pattern(slug)
+        # Handle collisions using GLOB for precise matching
+        # Matches: slug itself OR slug-N pattern (where N is digits)
         with self._get_connection() as conn:
             cursor = conn.execute(
-                "SELECT COUNT(*) FROM debates WHERE slug LIKE ? ESCAPE '\\'",
-                (f"{escaped_slug}%",)
+                "SELECT COUNT(*) FROM debates WHERE slug = ? OR slug GLOB ?",
+                (slug, f"{slug}-[0-9]*")
             )
-            count = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            count = row[0] if row else 0
 
         return f"{slug}-{count + 1}" if count > 0 else slug
 
@@ -181,6 +233,68 @@ class DebateStorage:
             conn.commit()
 
         return slug
+
+    def update_audio(
+        self,
+        debate_id: str,
+        audio_path: str,
+        duration_seconds: Optional[int] = None,
+    ) -> bool:
+        """
+        Update audio information for a debate.
+
+        Args:
+            debate_id: Debate identifier
+            audio_path: Path to the audio file
+            duration_seconds: Audio duration in seconds
+
+        Returns:
+            True if updated, False if debate not found
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE debates
+                SET audio_path = ?,
+                    audio_generated_at = ?,
+                    audio_duration_seconds = ?
+                WHERE id = ?
+                """,
+                (audio_path, datetime.now().isoformat(), duration_seconds, debate_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_audio_info(self, debate_id: str) -> Optional[dict]:
+        """
+        Get audio information for a debate.
+
+        Args:
+            debate_id: Debate identifier
+
+        Returns:
+            Dict with audio_path, audio_generated_at, audio_duration_seconds
+            or None if no audio exists
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT audio_path, audio_generated_at, audio_duration_seconds
+                FROM debates
+                WHERE id = ?
+                """,
+                (debate_id,),
+            )
+            row = cursor.fetchone()
+
+        if not row or not row[0]:
+            return None
+
+        return {
+            "audio_path": row[0],
+            "audio_generated_at": row[1],
+            "audio_duration_seconds": row[2],
+        }
 
     def save_dict(self, debate_data: dict) -> str:
         """

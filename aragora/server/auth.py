@@ -54,7 +54,7 @@ class AuthConfig:
         if origins:
             self.allowed_origins = [o.strip() for o in origins.split(",")]
 
-    def generate_token(self, loop_id: str = "", expires_in: int = None) -> str:
+    def generate_token(self, loop_id: str = "", expires_in: int | None = None) -> str:
         """Generate a signed token for access."""
         if not self.api_token:
             return ""

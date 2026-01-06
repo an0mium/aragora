@@ -23,7 +23,7 @@ import logging
 import os
 import threading
 import time
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from dataclasses import dataclass, field
 from functools import wraps
 from typing import Any, Callable, Dict, Optional, Tuple
@@ -43,7 +43,7 @@ class TokenBucket:
     Allows burst traffic up to burst_size, then limits to rate_per_minute.
     """
 
-    def __init__(self, rate_per_minute: float, burst_size: int = None):
+    def __init__(self, rate_per_minute: float, burst_size: int | None = None):
         """
         Initialize token bucket.
 
@@ -94,7 +94,7 @@ class TokenBucket:
 class RateLimitConfig:
     """Configuration for a rate limit rule."""
     requests_per_minute: int = DEFAULT_RATE_LIMIT
-    burst_size: int = None
+    burst_size: int | None = None
     key_type: str = "ip"  # "ip", "token", "endpoint", "combined"
     enabled: bool = True
 
@@ -129,10 +129,10 @@ class RateLimiter:
         self.cleanup_interval = cleanup_interval
         self.max_entries = max_entries
 
-        # Buckets by key type
-        self._ip_buckets: Dict[str, TokenBucket] = {}
-        self._token_buckets: Dict[str, TokenBucket] = {}
-        self._endpoint_buckets: Dict[str, Dict[str, TokenBucket]] = defaultdict(dict)
+        # Buckets by key type (OrderedDict for LRU eviction)
+        self._ip_buckets: OrderedDict[str, TokenBucket] = OrderedDict()
+        self._token_buckets: OrderedDict[str, TokenBucket] = OrderedDict()
+        self._endpoint_buckets: Dict[str, OrderedDict[str, TokenBucket]] = defaultdict(OrderedDict)
 
         # Per-endpoint configuration
         self._endpoint_configs: Dict[str, RateLimitConfig] = {}
@@ -144,7 +144,7 @@ class RateLimiter:
         self,
         endpoint: str,
         requests_per_minute: int,
-        burst_size: int = None,
+        burst_size: int | None = None,
         key_type: str = "ip",
     ) -> None:
         """
@@ -179,8 +179,8 @@ class RateLimiter:
     def allow(
         self,
         client_ip: str,
-        endpoint: str = None,
-        token: str = None,
+        endpoint: str | None = None,
+        token: str | None = None,
     ) -> RateLimitResult:
         """
         Check if a request should be allowed.
@@ -225,10 +225,18 @@ class RateLimiter:
         )
 
     def _get_or_create_ip_bucket(self, ip: str) -> TokenBucket:
-        """Get or create an IP-based bucket."""
+        """Get or create an IP-based bucket with LRU eviction."""
         with self._lock:
-            if ip not in self._ip_buckets:
-                self._ip_buckets[ip] = TokenBucket(self.ip_limit)
+            if ip in self._ip_buckets:
+                self._ip_buckets.move_to_end(ip)  # Mark as recently used
+                return self._ip_buckets[ip]
+
+            # Evict oldest entries if at capacity (1/3 of max for IP buckets)
+            max_ip_buckets = self.max_entries // 3
+            while len(self._ip_buckets) >= max_ip_buckets:
+                self._ip_buckets.popitem(last=False)  # Remove oldest
+
+            self._ip_buckets[ip] = TokenBucket(self.ip_limit)
             return self._ip_buckets[ip]
 
     def _get_or_create_token_bucket(
@@ -236,13 +244,21 @@ class RateLimiter:
         token: str,
         config: RateLimitConfig,
     ) -> TokenBucket:
-        """Get or create a token-based bucket."""
+        """Get or create a token-based bucket with LRU eviction."""
         with self._lock:
-            if token not in self._token_buckets:
-                self._token_buckets[token] = TokenBucket(
-                    config.requests_per_minute,
-                    config.burst_size,
-                )
+            if token in self._token_buckets:
+                self._token_buckets.move_to_end(token)  # Mark as recently used
+                return self._token_buckets[token]
+
+            # Evict oldest entries if at capacity (1/3 of max for token buckets)
+            max_token_buckets = self.max_entries // 3
+            while len(self._token_buckets) >= max_token_buckets:
+                self._token_buckets.popitem(last=False)  # Remove oldest
+
+            self._token_buckets[token] = TokenBucket(
+                config.requests_per_minute,
+                config.burst_size,
+            )
             return self._token_buckets[token]
 
     def _get_or_create_endpoint_bucket(
@@ -251,17 +267,28 @@ class RateLimiter:
         key: str,
         config: RateLimitConfig,
     ) -> TokenBucket:
-        """Get or create an endpoint-specific bucket."""
+        """Get or create an endpoint-specific bucket with LRU eviction."""
         with self._lock:
-            if key not in self._endpoint_buckets[endpoint]:
-                self._endpoint_buckets[endpoint][key] = TokenBucket(
-                    config.requests_per_minute,
-                    config.burst_size,
-                )
-            return self._endpoint_buckets[endpoint][key]
+            buckets = self._endpoint_buckets[endpoint]
+            if key in buckets:
+                buckets.move_to_end(key)  # Mark as recently used
+                return buckets[key]
+
+            # Evict oldest entries if at capacity (1/3 of max split across endpoints)
+            max_endpoint_buckets = self.max_entries // 3
+            total_endpoint_entries = sum(len(b) for b in self._endpoint_buckets.values())
+            while total_endpoint_entries >= max_endpoint_buckets and len(buckets) > 0:
+                buckets.popitem(last=False)  # Remove oldest from this endpoint
+                total_endpoint_entries -= 1
+
+            buckets[key] = TokenBucket(
+                config.requests_per_minute,
+                config.burst_size,
+            )
+            return buckets[key]
 
     def _maybe_cleanup(self) -> None:
-        """Cleanup stale entries periodically."""
+        """Periodic stats logging (size is now enforced by LRU eviction)."""
         now = time.monotonic()
         if now - self._last_cleanup < self.cleanup_interval:
             return
@@ -269,36 +296,19 @@ class RateLimiter:
         with self._lock:
             self._last_cleanup = now
 
-            # Count total entries
+            # Log stats periodically for monitoring
             total = (
                 len(self._ip_buckets) +
                 len(self._token_buckets) +
                 sum(len(v) for v in self._endpoint_buckets.values())
             )
 
-            if total > self.max_entries:
-                # Evict oldest entries (simple strategy: clear half)
-                logger.info(f"Rate limiter cleanup: {total} entries, evicting half")
-                cutoff = total // 2
-
-                # Clear IP buckets
-                if len(self._ip_buckets) > cutoff // 3:
-                    keys = list(self._ip_buckets.keys())[:cutoff // 3]
-                    for k in keys:
-                        del self._ip_buckets[k]
-
-                # Clear token buckets
-                if len(self._token_buckets) > cutoff // 3:
-                    keys = list(self._token_buckets.keys())[:cutoff // 3]
-                    for k in keys:
-                        del self._token_buckets[k]
-
-                # Clear endpoint buckets
-                for endpoint in list(self._endpoint_buckets.keys()):
-                    if len(self._endpoint_buckets[endpoint]) > cutoff // 3:
-                        keys = list(self._endpoint_buckets[endpoint].keys())[:cutoff // 6]
-                        for k in keys:
-                            del self._endpoint_buckets[endpoint][k]
+            if total > 0:
+                logger.debug(
+                    f"Rate limiter stats: {len(self._ip_buckets)} IP, "
+                    f"{len(self._token_buckets)} token, "
+                    f"{sum(len(v) for v in self._endpoint_buckets.values())} endpoint buckets"
+                )
 
     def get_stats(self) -> Dict[str, Any]:
         """Get rate limiter statistics."""
@@ -328,9 +338,12 @@ def get_limiter() -> RateLimiter:
         # Configure default endpoint limits
         _limiter.configure_endpoint("/api/debates", 30, key_type="ip")
         _limiter.configure_endpoint("/api/debates/*", 60, key_type="ip")
+        _limiter.configure_endpoint("/api/debates/*/fork", 5, key_type="ip")  # Fork is expensive
         _limiter.configure_endpoint("/api/agent/*", 120, key_type="ip")
         _limiter.configure_endpoint("/api/leaderboard*", 60, key_type="ip")
         _limiter.configure_endpoint("/api/pulse/*", 30, key_type="ip")
+        _limiter.configure_endpoint("/api/memory/continuum/cleanup", 2, key_type="ip")  # Cleanup is heavy
+        _limiter.configure_endpoint("/api/memory/*", 60, key_type="ip")
     return _limiter
 
 
@@ -353,8 +366,8 @@ def rate_limit_headers(result: RateLimitResult) -> Dict[str, str]:
 
 
 def rate_limit(
-    requests_per_minute: int = None,
-    burst_size: int = None,
+    requests_per_minute: int | None = None,
+    burst_size: int | None = None,
     key_type: str = "ip",
 ):
     """
@@ -397,8 +410,8 @@ def rate_limit(
 
 def check_rate_limit(
     client_ip: str,
-    endpoint: str = None,
-    token: str = None,
+    endpoint: str | None = None,
+    token: str | None = None,
 ) -> RateLimitResult:
     """Check rate limit without consuming a token (read-only check)."""
     limiter = get_limiter()
@@ -407,7 +420,7 @@ def check_rate_limit(
     return limiter.allow(client_ip, endpoint, token)
 
 
-def is_rate_limited(client_ip: str, endpoint: str = None) -> bool:
+def is_rate_limited(client_ip: str, endpoint: str | None = None) -> bool:
     """Quick check if a client is currently rate limited."""
     result = check_rate_limit(client_ip, endpoint)
     return not result.allowed

@@ -22,8 +22,9 @@ from .base import (
     HandlerResult,
     json_response,
     error_response,
-    get_int_param,
-    get_float_param,
+    get_clamped_int_param,
+    get_bounded_float_param,
+    get_bounded_string_param,
     ttl_cache,
 )
 
@@ -69,55 +70,48 @@ class ConsensusHandler(BaseHandler):
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route consensus requests to appropriate methods."""
         if path == "/api/consensus/similar":
-            topic = query_params.get('topic', '')
-            if not topic or len(topic) > 500:
+            topic = get_bounded_string_param(query_params, 'topic', '', max_length=500)
+            if not topic:
                 return error_response("Topic required (max 500 chars)", 400)
-            limit = get_int_param(query_params, 'limit', 5)
-            return self._get_similar_debates(topic.strip()[:500], min(limit, 20))
+            limit = get_clamped_int_param(query_params, 'limit', 5, min_val=1, max_val=20)
+            return self._get_similar_debates(topic.strip(), limit)
 
         if path == "/api/consensus/settled":
-            min_confidence = get_float_param(query_params, 'min_confidence', 0.8)
-            min_confidence = max(0.0, min(1.0, min_confidence))
-            limit = get_int_param(query_params, 'limit', 20)
-            return self._get_settled_topics(min_confidence, min(limit, 100))
+            min_confidence = get_bounded_float_param(query_params, 'min_confidence', 0.8, min_val=0.0, max_val=1.0)
+            limit = get_clamped_int_param(query_params, 'limit', 20, min_val=1, max_val=100)
+            return self._get_settled_topics(min_confidence, limit)
 
         if path == "/api/consensus/stats":
             return self._get_consensus_stats()
 
         if path == "/api/consensus/dissents":
-            topic = query_params.get('topic', '')
-            if topic and len(topic) > 500:
-                topic = topic[:500]
-            domain = query_params.get('domain')
-            limit = get_int_param(query_params, 'limit', 10)
+            topic = get_bounded_string_param(query_params, 'topic', '', max_length=500)
+            domain = get_bounded_string_param(query_params, 'domain', None, max_length=100)
+            limit = get_clamped_int_param(query_params, 'limit', 10, min_val=1, max_val=50)
             return self._get_recent_dissents(
                 topic.strip() if topic else None,
                 domain,
-                min(limit, 50)
+                limit
             )
 
         if path == "/api/consensus/contrarian-views":
-            topic = query_params.get('topic', '')
-            if topic and len(topic) > 500:
-                topic = topic[:500]
-            domain = query_params.get('domain')
-            limit = get_int_param(query_params, 'limit', 10)
+            topic = get_bounded_string_param(query_params, 'topic', '', max_length=500)
+            domain = get_bounded_string_param(query_params, 'domain', None, max_length=100)
+            limit = get_clamped_int_param(query_params, 'limit', 10, min_val=1, max_val=50)
             return self._get_contrarian_views(
                 topic.strip() if topic else None,
                 domain,
-                min(limit, 50)
+                limit
             )
 
         if path == "/api/consensus/risk-warnings":
-            topic = query_params.get('topic', '')
-            if topic and len(topic) > 500:
-                topic = topic[:500]
-            domain = query_params.get('domain')
-            limit = get_int_param(query_params, 'limit', 10)
+            topic = get_bounded_string_param(query_params, 'topic', '', max_length=500)
+            domain = get_bounded_string_param(query_params, 'domain', None, max_length=100)
+            limit = get_clamped_int_param(query_params, 'limit', 10, min_val=1, max_val=50)
             return self._get_risk_warnings(
                 topic.strip() if topic else None,
                 domain,
-                min(limit, 50)
+                limit
             )
 
         if path.startswith("/api/consensus/domain/"):
@@ -125,8 +119,8 @@ class ConsensusHandler(BaseHandler):
             parts = path.split('/')
             if len(parts) >= 5:
                 domain = parts[4]
-                limit = get_int_param(query_params, 'limit', 50)
-                return self._get_domain_history(domain, min(limit, 200))
+                limit = get_clamped_int_param(query_params, 'limit', 50, min_val=1, max_val=200)
+                return self._get_domain_history(domain, limit)
 
         return None
 

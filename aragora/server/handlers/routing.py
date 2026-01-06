@@ -16,7 +16,7 @@ from .base import (
     json_response,
     error_response,
     handle_errors,
-    get_int_param,
+    get_clamped_int_param,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,10 +45,8 @@ class RoutingHandler(BaseHandler):
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         if path == "/api/routing/best-teams":
-            min_debates = get_int_param(query_params, 'min_debates', 3)
-            min_debates = min(max(min_debates, 1), 20)
-            limit = get_int_param(query_params, 'limit', 10)
-            limit = min(max(limit, 1), 50)
+            min_debates = get_clamped_int_param(query_params, 'min_debates', 3, min_val=1, max_val=20)
+            limit = get_clamped_int_param(query_params, 'limit', 10, min_val=1, max_val=50)
             return self._get_best_team_combinations(min_debates, limit)
         return None
 

@@ -18,6 +18,7 @@ MAX_JSON_BODY_SIZE = 1 * 1024 * 1024
 
 # Safe string patterns
 SAFE_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,64}$')
+SAFE_ID_PATTERN_WITH_DOTS = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$')
 SAFE_SLUG_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,128}$')
 SAFE_AGENT_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,32}$')
 
@@ -388,6 +389,17 @@ PROBE_RUN_SCHEMA = {
     "agent": {"type": "string", "min_length": 1, "max_length": 64, "pattern": SAFE_AGENT_PATTERN, "required": True},
     "strategies": {"type": "list", "max_length": 10, "item_type": str, "required": False},
     "num_probes": {"type": "int", "min_value": 1, "max_value": 50, "required": False},
+}
+
+FORK_REQUEST_SCHEMA = {
+    "branch_point": {"type": "int", "min_value": 0, "max_value": 100, "required": True},
+    "modified_context": {"type": "string", "max_length": 5000, "required": False},
+}
+
+MEMORY_CLEANUP_SCHEMA = {
+    "tier": {"type": "enum", "allowed_values": {"fast", "medium", "slow", "glacial"}, "required": False},
+    "archive": {"type": "string", "max_length": 10, "required": False},  # "true" or "false"
+    "max_age_hours": {"type": "float", "min_value": 0.0, "max_value": 8760.0, "required": False},  # Max 1 year
 }
 
 

@@ -121,8 +121,8 @@ class IntrospectionHandler(BaseHandler):
                 agents = [r.agent_name for r in reputations]
                 if agents:
                     return agents
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Could not fetch agent reputations: {e}")
         return self.DEFAULT_AGENTS
 
     def _get_agent_introspection(self, agent: str) -> HandlerResult:

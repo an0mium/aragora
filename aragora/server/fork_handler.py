@@ -4,6 +4,7 @@ Provides handlers for starting debates from forked histories.
 """
 
 import asyncio
+import json
 import logging
 import threading
 import uuid
@@ -71,7 +72,7 @@ class ForkBridgeHandler:
         with self._fork_store_lock:
             return self.fork_store.get(fork_id)
 
-    async def handle_start_fork(self, ws, data: Dict[str, Any]) -> bool:
+    async def handle_start_fork(self, ws: Any, data: Dict[str, Any]) -> bool:
         """
         Handle a fork start request from WebSocket.
 
@@ -227,9 +228,8 @@ class ForkBridgeHandler:
             logger.error(f"Fork debate {loop_id} failed: {type(e).__name__}: {e}")
             raise  # Re-raise so callback can detect it
     
-    async def _send_json(self, ws, data: dict) -> None:
+    async def _send_json(self, ws: Any, data: dict) -> None:
         """Send JSON message to websocket (handles both aiohttp and websockets)."""
-        import json
         try:
             # Try aiohttp style first
             if hasattr(ws, 'send_json'):
@@ -240,7 +240,7 @@ class ForkBridgeHandler:
         except Exception as e:
             logger.error(f"Failed to send JSON message: {e}")
 
-    async def _send_error(self, ws, message: str) -> None:
+    async def _send_error(self, ws: Any, message: str) -> None:
         """Send error message to websocket."""
         await self._send_json(ws, {
             "type": "error",

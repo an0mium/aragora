@@ -197,12 +197,8 @@ class ProbesHandler(BaseHandler):
             )
 
         # Execute in event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            report = loop.run_until_complete(run_probes())
-        finally:
-            loop.close()
+        # Use asyncio.run() which properly manages event loop lifecycle
+        report = asyncio.run(run_probes())
 
         # Transform results for frontend (vulnerability_found -> passed)
         by_type_transformed = self._transform_results(report, probe_hooks)
@@ -263,8 +259,11 @@ class ProbesHandler(BaseHandler):
             if server and hasattr(server, 'stream_server') and server.stream_server:
                 from aragora.server.nomic_stream import create_nomic_hooks
                 return create_nomic_hooks(server.stream_server.emitter)
-        except Exception:
-            pass
+        except ImportError:
+            # nomic_stream module not available - this is expected in some deployments
+            logger.debug("nomic_stream module not available for probe hooks")
+        except Exception as e:
+            logger.warning("Failed to get probe hooks: %s: %s", type(e).__name__, e)
         return None
 
     def _transform_results(self, report, probe_hooks) -> dict:

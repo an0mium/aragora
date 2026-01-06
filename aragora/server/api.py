@@ -14,9 +14,8 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse, parse_qs
 
-# Safe ID pattern: alphanumeric, dash, underscore, dot (for slugs like "rate-limiter-2026-01-01")
-# Max 200 chars to prevent DoS via extremely long IDs
-SAFE_ID_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]{0,199}$')
+# Safe ID pattern for slugs (allows dots for slugs like "rate-limiter-2026-01-01")
+from aragora.server.validation import SAFE_ID_PATTERN_WITH_DOTS as SAFE_ID_PATTERN
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -104,7 +103,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
     def _get_debate(self, slug: str) -> None:
         """Get a single debate by slug."""
         if not self.storage:
-            self.send_error(500, "Storage not configured")
+            self._send_json_error("Storage not configured", 503)
             return
 
         debate = self.storage.get_by_slug(slug)
@@ -142,7 +141,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
     def _get_replay(self, debate_id: str) -> None:
         """Get a replay bundle by debate_id."""
         if not self.replay_storage:
-            self.send_error(500, "Replay storage not configured")
+            self._send_json_error("Replay storage not configured", 503)
             return
 
         session_dir = self.replay_storage.storage_dir / debate_id
@@ -318,6 +317,16 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(content)
 
+    def _send_json_error(self, message: str, status: int = 400) -> None:
+        """Send JSON error response (consistent with API handlers)."""
+        content = json.dumps({"error": message}).encode()
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', len(content))
+        self._add_cors_headers()
+        self.end_headers()
+        self.wfile.write(content)
+
     def _add_cors_headers(self) -> None:
         """Add CORS headers with origin validation for security."""
         request_origin = self.headers.get('Origin', '')
@@ -361,15 +370,15 @@ def run_api_server(
     DebateAPIHandler.static_dir = static_dir
 
     server = HTTPServer((host, port), DebateAPIHandler)
-    print(f"API server: http://localhost:{port}")
-    print(f"  - GET /api/debates - List recent debates")
-    print(f"  - GET /api/debates/<slug> - Get debate by slug")
-    print(f"  - GET /api/replays - List recent replays")
-    print(f"  - GET /api/replays/<debate_id> - Get replay bundle")
-    print(f"  - GET /viewer.html?id=<slug> - View debate")
+    logger.info(f"API server: http://localhost:{port}")
+    logger.info(f"  - GET /api/debates - List recent debates")
+    logger.info(f"  - GET /api/debates/<slug> - Get debate by slug")
+    logger.info(f"  - GET /api/replays - List recent replays")
+    logger.info(f"  - GET /api/replays/<debate_id> - Get replay bundle")
+    logger.info(f"  - GET /viewer.html?id=<slug> - View debate")
 
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nAPI server stopped")
+        logger.info("API server stopped")
         server.shutdown()

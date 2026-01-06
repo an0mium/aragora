@@ -182,11 +182,9 @@ class AuditingHandler(BaseHandler):
                 )
 
             # Execute in event loop
+            # Use asyncio.run() for proper event loop lifecycle management
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                report = loop.run_until_complete(run_probes())
-                loop.close()
+                report = asyncio.run(run_probes())
             except Exception as e:
                 return error_response(f"Probe execution failed: {str(e)}", 500)
 
@@ -351,11 +349,9 @@ class AuditingHandler(BaseHandler):
             async def run_audit():
                 return await orchestrator.run(task, context)
 
+            # Use asyncio.run() for proper event loop lifecycle management
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                verdict = loop.run_until_complete(run_audit())
-                loop.close()
+                verdict = asyncio.run(run_audit())
             except Exception as e:
                 return error_response(f"Deep audit execution failed: {str(e)}", 500)
 

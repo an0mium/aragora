@@ -18,8 +18,8 @@ from .base import (
     HandlerResult,
     json_response,
     error_response,
-    get_int_param,
-    get_float_param,
+    get_clamped_int_param,
+    get_bounded_float_param,
 )
 from aragora.server.validation import SAFE_ID_PATTERN_WITH_DOTS as SAFE_ID_PATTERN
 
@@ -62,10 +62,8 @@ class CritiqueHandler(BaseHandler):
         nomic_dir = self.ctx.get("nomic_dir")
 
         if path == "/api/critiques/patterns":
-            limit = get_int_param(query_params, 'limit', 10)
-            limit = min(limit, 50)
-            min_success = get_float_param(query_params, 'min_success', 0.5)
-            min_success = max(0.0, min(1.0, min_success))
+            limit = get_clamped_int_param(query_params, 'limit', 10, min_val=1, max_val=50)
+            min_success = get_bounded_float_param(query_params, 'min_success', 0.5, min_val=0.0, max_val=1.0)
             return self._get_critique_patterns(nomic_dir, limit, min_success)
 
         if path == "/api/critiques/archive":

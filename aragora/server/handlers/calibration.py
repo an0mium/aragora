@@ -17,7 +17,7 @@ from .base import (
     HandlerResult,
     json_response,
     error_response,
-    get_int_param,
+    get_clamped_int_param,
     get_string_param,
     validate_agent_name,
 )
@@ -70,10 +70,9 @@ class CalibrationHandler(BaseHandler):
         """Route calibration requests to appropriate methods."""
         # Handle leaderboard endpoint
         if path == "/api/calibration/leaderboard":
-            limit = get_int_param(query_params, 'limit', 20)
-            limit = min(max(limit, 1), 100)  # Clamp to [1, 100]
+            limit = get_clamped_int_param(query_params, 'limit', 20, min_val=1, max_val=100)
             metric = get_string_param(query_params, 'metric') or 'brier'
-            min_predictions = get_int_param(query_params, 'min_predictions', 5)
+            min_predictions = get_clamped_int_param(query_params, 'min_predictions', 5, min_val=1, max_val=1000)
             return self._get_calibration_leaderboard(limit, metric, min_predictions)
 
         if not path.startswith("/api/agent/"):
@@ -90,8 +89,7 @@ class CalibrationHandler(BaseHandler):
             return error_response(err, 400)
 
         if path.endswith("/calibration-curve"):
-            buckets = get_int_param(query_params, 'buckets', 10)
-            buckets = min(max(buckets, 5), 20)  # Clamp to [5, 20]
+            buckets = get_clamped_int_param(query_params, 'buckets', 10, min_val=5, max_val=20)
             domain = get_string_param(query_params, 'domain')
             return self._get_calibration_curve(agent, buckets, domain)
         elif path.endswith("/calibration-summary"):

@@ -152,12 +152,8 @@ class PluginsHandler(BaseHandler):
             return error_response(f"Plugin not found: {plugin_name}", 404)
 
         # Run plugin with timeout
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            result = loop.run_until_complete(
-                registry.run_plugin(plugin_name, input_data, config, working_dir)
-            )
-            return json_response(result.to_dict())
-        finally:
-            loop.close()
+        # Use asyncio.run() which properly manages event loop lifecycle
+        result = asyncio.run(
+            registry.run_plugin(plugin_name, input_data, config, working_dir)
+        )
+        return json_response(result.to_dict())

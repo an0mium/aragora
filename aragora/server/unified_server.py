@@ -14,12 +14,17 @@ import re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from threading import Thread
-from typing import Optional, Dict
+from typing import Any, Coroutine, Optional, Dict
 from urllib.parse import urlparse, parse_qs
 
 from .stream import DebateStreamServer, SyncEventEmitter, StreamEvent, StreamEventType, create_arena_hooks
 from .storage import DebateStorage
 from .documents import DocumentStore, parse_document, get_supported_formats, SUPPORTED_EXTENSIONS
+from ..broadcast.storage import AudioFileStore
+from ..broadcast.rss_gen import PodcastFeedGenerator, PodcastConfig, PodcastEpisode
+from ..connectors.twitter_poster import TwitterPosterConnector, DebateContentFormatter
+from ..connectors.youtube_uploader import YouTubeUploaderConnector, YouTubeVideoMetadata, create_video_metadata_from_debate
+from ..broadcast.video_gen import VideoGenerator
 from .auth import auth_config, check_auth
 from .cors_config import cors_config
 
@@ -33,30 +38,10 @@ import logging
 # Configure module logger
 logger = logging.getLogger(__name__)
 
-
-def _safe_error_message(e: Exception, context: str = "") -> str:
-    """Return a sanitized error message for client responses.
-
-    Logs the full error server-side while returning a generic message to clients.
-    This prevents information disclosure of internal details like file paths,
-    stack traces, or sensitive configuration.
-    """
-    # Log full details server-side for debugging
-    logger.error(f"Error in {context}: {type(e).__name__}: {e}", exc_info=True)
-
-    # Map common exceptions to user-friendly messages
-    error_type = type(e).__name__
-    if error_type in ("FileNotFoundError", "OSError"):
-        return "Resource not found"
-    elif error_type in ("json.JSONDecodeError", "ValueError"):
-        return "Invalid data format"
-    elif error_type in ("PermissionError",):
-        return "Access denied"
-    elif error_type in ("TimeoutError", "asyncio.TimeoutError"):
-        return "Operation timed out"
-    else:
-        return "An error occurred"
-
+# Import centralized config and error utilities
+from aragora.config import DB_INSIGHTS_PATH, DB_PERSONAS_PATH, DB_TIMEOUT_SECONDS, MAX_AGENTS_PER_DEBATE, MAX_CONCURRENT_DEBATES
+from aragora.server.error_utils import safe_error_message as _safe_error_message
+from aragora.server.validation import SAFE_ID_PATTERN
 
 # Valid agent types (allowlist for security)
 ALLOWED_AGENT_TYPES = frozenset({
@@ -68,22 +53,20 @@ ALLOWED_AGENT_TYPES = frozenset({
     "deepseek", "deepseek-r1", "llama", "mistral", "openrouter",
 })
 
-# Maximum number of agents per debate (DoS protection)
-MAX_AGENTS_PER_DEBATE = 10
+# DoS protection limits
 MAX_MULTIPART_PARTS = 10
 # Maximum content length for POST requests (100MB - DoS protection)
 MAX_CONTENT_LENGTH = 100 * 1024 * 1024
 # Maximum content length for JSON API requests (10MB)
 MAX_JSON_CONTENT_LENGTH = 10 * 1024 * 1024
 
-# Safe ID pattern for path segments (prevent path traversal)
-SAFE_ID_PATTERN = r'^[a-zA-Z0-9_-]+$'
+# Note: SAFE_ID_PATTERN imported from validation.py (prevent path traversal)
 
 # Trusted proxies for X-Forwarded-For header validation
 # Only trust X-Forwarded-For if request comes from these IPs
 import os
 TRUSTED_PROXIES = frozenset(
-    os.getenv('ARAGORA_TRUSTED_PROXIES', '127.0.0.1,::1,localhost').split(',')
+    p.strip() for p in os.getenv('ARAGORA_TRUSTED_PROXIES', '127.0.0.1,::1,localhost').split(',')
 )
 
 # Query parameter whitelist (security: reject unknown params to prevent injection)
@@ -135,261 +118,161 @@ def _validate_query_params(query: dict) -> tuple[bool, str]:
     return True, ""
 
 
+# Optional imports using utility for consistent handling
+from aragora.utils.optional_imports import try_import
+
 # Optional Supabase persistence
-try:
-    from aragora.persistence import SupabaseClient
-    PERSISTENCE_AVAILABLE = True
-except ImportError:
-    PERSISTENCE_AVAILABLE = False
-    SupabaseClient = None
+_imp, PERSISTENCE_AVAILABLE = try_import("aragora.persistence", "SupabaseClient")
+SupabaseClient = _imp["SupabaseClient"]
 
 # Optional InsightStore for debate insights
-try:
-    from aragora.insights.store import InsightStore
-    INSIGHTS_AVAILABLE = True
-except ImportError:
-    INSIGHTS_AVAILABLE = False
-    InsightStore = None
+_imp, INSIGHTS_AVAILABLE = try_import("aragora.insights.store", "InsightStore")
+InsightStore = _imp["InsightStore"]
 
 # Optional EloSystem for agent rankings
-try:
-    from aragora.ranking.elo import EloSystem
-    RANKING_AVAILABLE = True
-except ImportError:
-    RANKING_AVAILABLE = False
-    EloSystem = None
+_imp, RANKING_AVAILABLE = try_import("aragora.ranking.elo", "EloSystem")
+EloSystem = _imp["EloSystem"]
 
 # Optional FlipDetector for position reversal detection
-try:
-    from aragora.insights.flip_detector import (
-        FlipDetector,
-        format_flip_for_ui,
-        format_consistency_for_ui,
-    )
-    FLIP_DETECTOR_AVAILABLE = True
-except ImportError:
-    FLIP_DETECTOR_AVAILABLE = False
-    FlipDetector = None
+_imp, FLIP_DETECTOR_AVAILABLE = try_import(
+    "aragora.insights.flip_detector",
+    "FlipDetector", "format_flip_for_ui", "format_consistency_for_ui"
+)
+FlipDetector = _imp["FlipDetector"]
+format_flip_for_ui = _imp.get("format_flip_for_ui")
+format_consistency_for_ui = _imp.get("format_consistency_for_ui")
 
 # Optional debate orchestrator for ad-hoc debates
-try:
-    from aragora.debate.orchestrator import Arena, DebateProtocol
-    from aragora.agents.base import create_agent
-    from aragora.core import Environment
-    DEBATE_AVAILABLE = True
-except ImportError:
-    DEBATE_AVAILABLE = False
-    Arena = None
-    DebateProtocol = None
-    create_agent = None
-    Environment = None
+_imp1, _avail1 = try_import("aragora.debate.orchestrator", "Arena", "DebateProtocol")
+_imp2, _avail2 = try_import("aragora.agents.base", "create_agent")
+_imp3, _avail3 = try_import("aragora.core", "Environment")
+DEBATE_AVAILABLE = _avail1 and _avail2 and _avail3
+Arena = _imp1["Arena"]
+DebateProtocol = _imp1["DebateProtocol"]
+create_agent = _imp2["create_agent"]
+Environment = _imp3["Environment"]
 
 # Optional PersonaManager for agent specialization
-try:
-    from aragora.agents.personas import PersonaManager
-    PERSONAS_AVAILABLE = True
-except ImportError:
-    PERSONAS_AVAILABLE = False
-    PersonaManager = None
+_imp, PERSONAS_AVAILABLE = try_import("aragora.agents.personas", "PersonaManager")
+PersonaManager = _imp["PersonaManager"]
 
 # Optional DebateEmbeddingsDatabase for historical memory
-try:
-    from aragora.debate.embeddings import DebateEmbeddingsDatabase
-    EMBEDDINGS_AVAILABLE = True
-except ImportError:
-    EMBEDDINGS_AVAILABLE = False
-    DebateEmbeddingsDatabase = None
+_imp, EMBEDDINGS_AVAILABLE = try_import("aragora.debate.embeddings", "DebateEmbeddingsDatabase")
+DebateEmbeddingsDatabase = _imp["DebateEmbeddingsDatabase"]
 
 # Optional ConsensusMemory for historical consensus data
-try:
-    from aragora.memory.consensus import ConsensusMemory, DissentRetriever
-    CONSENSUS_MEMORY_AVAILABLE = True
-except ImportError:
-    CONSENSUS_MEMORY_AVAILABLE = False
-    ConsensusMemory = None
-    DissentRetriever = None
+_imp, CONSENSUS_MEMORY_AVAILABLE = try_import(
+    "aragora.memory.consensus", "ConsensusMemory", "DissentRetriever"
+)
+ConsensusMemory = _imp["ConsensusMemory"]
+DissentRetriever = _imp["DissentRetriever"]
 
 # Optional CalibrationTracker for agent calibration
-try:
-    from aragora.agents.calibration import CalibrationTracker
-    CALIBRATION_AVAILABLE = True
-except ImportError:
-    CALIBRATION_AVAILABLE = False
-    CalibrationTracker = None
+_imp, CALIBRATION_AVAILABLE = try_import("aragora.agents.calibration", "CalibrationTracker")
+CalibrationTracker = _imp["CalibrationTracker"]
 
 # Optional PulseManager for trending topics
-try:
-    from aragora.pulse.ingestor import PulseManager, TrendingTopic, TwitterIngestor
-    PULSE_AVAILABLE = True
-except ImportError:
-    PULSE_AVAILABLE = False
-    PulseManager = None
-    TrendingTopic = None
+_imp, PULSE_AVAILABLE = try_import(
+    "aragora.pulse.ingestor", "PulseManager", "TrendingTopic", "TwitterIngestor"
+)
+PulseManager = _imp["PulseManager"]
+TrendingTopic = _imp["TrendingTopic"]
 
 # Optional FormalVerificationManager for theorem proving
-try:
-    from aragora.verification.formal import (
-        FormalVerificationManager,
-        get_formal_verification_manager,
-    )
-    FORMAL_VERIFICATION_AVAILABLE = True
-except ImportError:
-    FORMAL_VERIFICATION_AVAILABLE = False
-    FormalVerificationManager = None
-    get_formal_verification_manager = None
+_imp, FORMAL_VERIFICATION_AVAILABLE = try_import(
+    "aragora.verification.formal",
+    "FormalVerificationManager", "get_formal_verification_manager"
+)
+FormalVerificationManager = _imp["FormalVerificationManager"]
+get_formal_verification_manager = _imp["get_formal_verification_manager"]
 
 # Optional Broadcast module for podcast generation
-try:
-    from aragora.broadcast import broadcast_debate
-    from aragora.debate.traces import DebateTrace
-    BROADCAST_AVAILABLE = True
-except ImportError:
-    BROADCAST_AVAILABLE = False
-    broadcast_debate = None
-    DebateTrace = None
+_imp1, _avail1 = try_import("aragora.broadcast", "broadcast_debate")
+_imp2, _avail2 = try_import("aragora.debate.traces", "DebateTrace")
+BROADCAST_AVAILABLE = _avail1 and _avail2
+broadcast_debate = _imp1["broadcast_debate"]
+DebateTrace = _imp2["DebateTrace"]
 
 # Optional RelationshipTracker for agent network analysis
-try:
-    from aragora.agents.grounded import RelationshipTracker
-    RELATIONSHIP_TRACKER_AVAILABLE = True
-except ImportError:
-    RELATIONSHIP_TRACKER_AVAILABLE = False
-    RelationshipTracker = None
+_imp, RELATIONSHIP_TRACKER_AVAILABLE = try_import("aragora.agents.grounded", "RelationshipTracker")
+RelationshipTracker = _imp["RelationshipTracker"]
 
 # Optional PositionLedger for truth-grounded personas
-try:
-    from aragora.agents.grounded import PositionLedger
-    POSITION_LEDGER_AVAILABLE = True
-except ImportError:
-    POSITION_LEDGER_AVAILABLE = False
-    PositionLedger = None
+_imp, POSITION_LEDGER_AVAILABLE = try_import("aragora.agents.grounded", "PositionLedger")
+PositionLedger = _imp["PositionLedger"]
 
 # Optional CritiqueStore for pattern retrieval
-try:
-    from aragora.memory.store import CritiqueStore
-    CRITIQUE_STORE_AVAILABLE = True
-except ImportError:
-    CRITIQUE_STORE_AVAILABLE = False
-    CritiqueStore = None
+_imp, CRITIQUE_STORE_AVAILABLE = try_import("aragora.memory.store", "CritiqueStore")
+CritiqueStore = _imp["CritiqueStore"]
 
 # Optional export module for debate artifact export
-try:
-    from aragora.export import DebateArtifact, CSVExporter, DOTExporter, StaticHTMLExporter
-    EXPORT_AVAILABLE = True
-except ImportError:
-    EXPORT_AVAILABLE = False
-    DebateArtifact = None
-    CSVExporter = None
-    DOTExporter = None
-    StaticHTMLExporter = None
+_imp, EXPORT_AVAILABLE = try_import(
+    "aragora.export", "DebateArtifact", "CSVExporter", "DOTExporter", "StaticHTMLExporter"
+)
+DebateArtifact = _imp["DebateArtifact"]
+CSVExporter = _imp["CSVExporter"]
+DOTExporter = _imp["DOTExporter"]
+StaticHTMLExporter = _imp["StaticHTMLExporter"]
 
 # Optional CapabilityProber for vulnerability detection
-try:
-    from aragora.modes.prober import CapabilityProber
-    PROBER_AVAILABLE = True
-except ImportError:
-    PROBER_AVAILABLE = False
-    CapabilityProber = None
+_imp, PROBER_AVAILABLE = try_import("aragora.modes.prober", "CapabilityProber")
+CapabilityProber = _imp["CapabilityProber"]
 
 # Optional RedTeamMode for adversarial testing
-try:
-    from aragora.modes.redteam import RedTeamMode
-    REDTEAM_AVAILABLE = True
-except ImportError:
-    REDTEAM_AVAILABLE = False
-    RedTeamMode = None
+_imp, REDTEAM_AVAILABLE = try_import("aragora.modes.redteam", "RedTeamMode")
+RedTeamMode = _imp["RedTeamMode"]
 
 # Optional PersonaLaboratory for emergent traits
-try:
-    from aragora.agents.laboratory import PersonaLaboratory
-    LABORATORY_AVAILABLE = True
-except ImportError:
-    LABORATORY_AVAILABLE = False
-    PersonaLaboratory = None
+_imp, LABORATORY_AVAILABLE = try_import("aragora.agents.laboratory", "PersonaLaboratory")
+PersonaLaboratory = _imp["PersonaLaboratory"]
 
 # Optional BeliefNetwork for debate cruxes
-try:
-    from aragora.reasoning.belief import BeliefNetwork, BeliefPropagationAnalyzer
-    BELIEF_NETWORK_AVAILABLE = True
-except ImportError:
-    BELIEF_NETWORK_AVAILABLE = False
-    BeliefNetwork = None
-    BeliefPropagationAnalyzer = None
+_imp, BELIEF_NETWORK_AVAILABLE = try_import(
+    "aragora.reasoning.belief", "BeliefNetwork", "BeliefPropagationAnalyzer"
+)
+BeliefNetwork = _imp["BeliefNetwork"]
+BeliefPropagationAnalyzer = _imp["BeliefPropagationAnalyzer"]
 
 # Optional ProvenanceTracker for claim support
-try:
-    from aragora.reasoning.provenance import ProvenanceTracker
-    PROVENANCE_AVAILABLE = True
-except ImportError:
-    PROVENANCE_AVAILABLE = False
-    ProvenanceTracker = None
+_imp, PROVENANCE_AVAILABLE = try_import("aragora.reasoning.provenance", "ProvenanceTracker")
+ProvenanceTracker = _imp["ProvenanceTracker"]
 
 # Optional MomentDetector for significant agent moments
-try:
-    from aragora.agents.grounded import MomentDetector
-    MOMENT_DETECTOR_AVAILABLE = True
-except ImportError:
-    MOMENT_DETECTOR_AVAILABLE = False
-    MomentDetector = None
+_imp, MOMENT_DETECTOR_AVAILABLE = try_import("aragora.agents.grounded", "MomentDetector")
+MomentDetector = _imp["MomentDetector"]
 
 # Optional ImpasseDetector for debate deadlock detection
-try:
-    from aragora.debate.counterfactual import ImpasseDetector
-    IMPASSE_DETECTOR_AVAILABLE = True
-except ImportError:
-    IMPASSE_DETECTOR_AVAILABLE = False
-    ImpasseDetector = None
+_imp, IMPASSE_DETECTOR_AVAILABLE = try_import("aragora.debate.counterfactual", "ImpasseDetector")
+ImpasseDetector = _imp["ImpasseDetector"]
 
 # Optional ConvergenceDetector for semantic position convergence
-try:
-    from aragora.debate.convergence import ConvergenceDetector
-    CONVERGENCE_DETECTOR_AVAILABLE = True
-except ImportError:
-    CONVERGENCE_DETECTOR_AVAILABLE = False
-    ConvergenceDetector = None
+_imp, CONVERGENCE_DETECTOR_AVAILABLE = try_import("aragora.debate.convergence", "ConvergenceDetector")
+ConvergenceDetector = _imp["ConvergenceDetector"]
 
 # Optional AgentSelector for routing recommendations and auto team selection
-try:
-    from aragora.routing.selection import AgentSelector, AgentProfile, TaskRequirements
-    ROUTING_AVAILABLE = True
-except ImportError:
-    ROUTING_AVAILABLE = False
-    AgentSelector = None
-    AgentProfile = None
-    TaskRequirements = None
+_imp, ROUTING_AVAILABLE = try_import(
+    "aragora.routing.selection", "AgentSelector", "AgentProfile", "TaskRequirements"
+)
+AgentSelector = _imp["AgentSelector"]
+AgentProfile = _imp["AgentProfile"]
+TaskRequirements = _imp["TaskRequirements"]
 
 # Optional TournamentManager for tournament standings
-try:
-    from aragora.tournaments.tournament import TournamentManager
-    TOURNAMENT_AVAILABLE = True
-except ImportError:
-    TOURNAMENT_AVAILABLE = False
-    TournamentManager = None
+_imp, TOURNAMENT_AVAILABLE = try_import("aragora.tournaments.tournament", "TournamentManager")
+TournamentManager = _imp["TournamentManager"]
 
 # Optional PromptEvolver for evolution history
-try:
-    from aragora.evolution.evolver import PromptEvolver
-    EVOLUTION_AVAILABLE = True
-except ImportError:
-    EVOLUTION_AVAILABLE = False
-    PromptEvolver = None
+_imp, EVOLUTION_AVAILABLE = try_import("aragora.evolution.evolver", "PromptEvolver")
+PromptEvolver = _imp["PromptEvolver"]
 
 # Optional ContinuumMemory for multi-timescale memory
-try:
-    from aragora.memory.continuum import ContinuumMemory, MemoryTier
-    CONTINUUM_AVAILABLE = True
-except ImportError:
-    CONTINUUM_AVAILABLE = False
-    ContinuumMemory = None
-    MemoryTier = None
+_imp, CONTINUUM_AVAILABLE = try_import("aragora.memory.continuum", "ContinuumMemory", "MemoryTier")
+ContinuumMemory = _imp["ContinuumMemory"]
+MemoryTier = _imp["MemoryTier"]
 
 # Optional InsightExtractor for debate insights
-try:
-    from aragora.insights.extractor import InsightExtractor
-    INSIGHT_EXTRACTOR_AVAILABLE = True
-except ImportError:
-    INSIGHT_EXTRACTOR_AVAILABLE = False
-    InsightExtractor = None
+_imp, INSIGHT_EXTRACTOR_AVAILABLE = try_import("aragora.insights.extractor", "InsightExtractor")
+InsightExtractor = _imp["InsightExtractor"]
 
 # Modular HTTP handlers for endpoint routing
 try:
@@ -413,6 +296,16 @@ try:
         AuditingHandler,
         RelationshipHandler,
         MomentsHandler,
+        PersonaHandler,
+        DashboardHandler,
+        IntrospectionHandler,
+        CalibrationHandler,
+        RoutingHandler,
+        EvolutionHandler,
+        PluginsHandler,
+        BroadcastHandler,
+        LaboratoryHandler,
+        ProbesHandler,
         HandlerResult,
     )
     HANDLERS_AVAILABLE = True
@@ -437,6 +330,16 @@ except ImportError:
     AuditingHandler = None
     RelationshipHandler = None
     MomentsHandler = None
+    PersonaHandler = None
+    DashboardHandler = None
+    IntrospectionHandler = None
+    CalibrationHandler = None
+    RoutingHandler = None
+    EvolutionHandler = None
+    PluginsHandler = None
+    BroadcastHandler = None
+    LaboratoryHandler = None
+    ProbesHandler = None
     HandlerResult = None
 
 # Track active ad-hoc debates
@@ -446,6 +349,22 @@ _debate_cleanup_counter = 0  # Counter for periodic cleanup
 
 # TTL for completed debates (24 hours)
 _DEBATE_TTL_SECONDS = 86400
+
+
+def _safe_float(value, default: float = 0.0) -> float:
+    """Safely convert value to float, returning default on failure."""
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_int(value, default: int = 0) -> int:
+    """Safely convert value to int, returning default on failure."""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
 
 
 def _update_debate_status(debate_id: str, status: str, **kwargs) -> None:
@@ -479,11 +398,19 @@ def _cleanup_stale_debates() -> None:
 _server_start_time: float = time.time()
 
 
-def _wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
+def _wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: str) -> Any:
     """Wrap an agent to emit token streaming events.
 
     If the agent has a generate_stream() method, we override its generate()
     to call generate_stream() and emit TOKEN_* events.
+
+    Args:
+        agent: Agent instance (duck-typed, must have generate method)
+        emitter: Event emitter for streaming events
+        debate_id: ID of the current debate
+
+    Returns:
+        The agent with wrapped generate method (or unchanged if no streaming support)
     """
     from datetime import datetime
 
@@ -494,7 +421,7 @@ def _wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
     # Store original generate method
     original_generate = agent.generate
 
-    async def streaming_generate(prompt: str, context=None):
+    async def streaming_generate(prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Streaming wrapper that emits TOKEN_* events."""
         # Emit start event
         emitter.emit(StreamEvent(
@@ -558,7 +485,7 @@ def _wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
     return agent
 
 
-def _run_async(coro):
+def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
     """Run async coroutine in HTTP handler thread (which may not have an event loop)."""
     try:
         loop = asyncio.get_event_loop()
@@ -585,6 +512,10 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     insight_store: Optional["InsightStore"] = None  # InsightStore for debate insights
     elo_system: Optional["EloSystem"] = None  # EloSystem for agent rankings
     document_store: Optional[DocumentStore] = None  # Document store for uploads
+    audio_store: Optional[AudioFileStore] = None  # Audio store for broadcasts
+    twitter_connector: Optional[TwitterPosterConnector] = None  # Twitter posting connector
+    youtube_connector: Optional[YouTubeUploaderConnector] = None  # YouTube upload connector
+    video_generator: Optional[VideoGenerator] = None  # Video generator for YouTube
     flip_detector: Optional["FlipDetector"] = None  # FlipDetector for position reversals
     persona_manager: Optional["PersonaManager"] = None  # PersonaManager for agent specialization
     debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None  # Historical memory
@@ -614,12 +545,20 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     _auditing_handler: Optional["AuditingHandler"] = None
     _relationship_handler: Optional["RelationshipHandler"] = None
     _moments_handler: Optional["MomentsHandler"] = None
+    _persona_handler: Optional["PersonaHandler"] = None
+    _dashboard_handler: Optional["DashboardHandler"] = None
+    _introspection_handler: Optional["IntrospectionHandler"] = None
+    _calibration_handler: Optional["CalibrationHandler"] = None
+    _routing_handler: Optional["RoutingHandler"] = None
+    _evolution_handler: Optional["EvolutionHandler"] = None
+    _plugins_handler: Optional["PluginsHandler"] = None
+    _broadcast_handler: Optional["BroadcastHandler"] = None
     _handlers_initialized: bool = False
 
     # Thread pool for debate execution (prevents unbounded thread creation)
     _debate_executor: Optional["ThreadPoolExecutor"] = None
     _debate_executor_lock = threading.Lock()  # Lock for thread-safe executor creation
-    MAX_CONCURRENT_DEBATES = 10  # Limit concurrent debates to prevent resource exhaustion
+    # MAX_CONCURRENT_DEBATES imported from aragora.config
 
     # Upload rate limiting (IP-based, independent of auth)
     _upload_counts: Dict[str, list] = {}  # IP -> list of upload timestamps
@@ -742,6 +681,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             "debate_embeddings": cls.debate_embeddings,
             "critique_store": getattr(cls, 'critique_store', None),
             "document_store": cls.document_store,
+            "persona_manager": getattr(cls, 'persona_manager', None),
+            "position_ledger": getattr(cls, 'position_ledger', None),
         }
 
         # Initialize handlers
@@ -764,8 +705,18 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         cls._auditing_handler = AuditingHandler(ctx)
         cls._relationship_handler = RelationshipHandler(ctx)
         cls._moments_handler = MomentsHandler(ctx)
+        cls._persona_handler = PersonaHandler(ctx)
+        cls._dashboard_handler = DashboardHandler(ctx)
+        cls._introspection_handler = IntrospectionHandler(ctx)
+        cls._calibration_handler = CalibrationHandler(ctx)
+        cls._routing_handler = RoutingHandler(ctx)
+        cls._evolution_handler = EvolutionHandler(ctx)
+        cls._plugins_handler = PluginsHandler(ctx)
+        cls._broadcast_handler = BroadcastHandler(ctx)
+        cls._laboratory_handler = LaboratoryHandler(ctx)
+        cls._probes_handler = ProbesHandler(ctx)
         cls._handlers_initialized = True
-        logger.info("[handlers] Modular handlers initialized (19 handlers)")
+        logger.info("[handlers] Modular handlers initialized (29 handlers)")
 
         # Log resource availability for observability
         cls._log_resource_availability(nomic_dir)
@@ -785,7 +736,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         if nomic_dir:
             db_files = [
                 ("positions_db", "aragora_positions.db"),
-                ("personas_db", "aragora_personas.db"),
+                ("personas_db", DB_PERSONAS_PATH),
                 ("grounded_db", "grounded_positions.db"),
                 ("insights_db", "insights.db"),
                 ("calibration_db", "agent_calibration.db"),
@@ -838,12 +789,30 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._auditing_handler,
             self._relationship_handler,
             self._moments_handler,
+            self._persona_handler,
+            self._dashboard_handler,
+            self._introspection_handler,
+            self._calibration_handler,
+            self._routing_handler,
+            self._evolution_handler,
+            self._plugins_handler,
+            self._broadcast_handler,
+            self._laboratory_handler,
+            self._probes_handler,
         ]
+
+        # Determine HTTP method for routing
+        method = getattr(self, 'command', 'GET')
 
         for handler in handlers:
             if handler and handler.can_handle(path):
                 try:
-                    result = handler.handle(path, query_dict, self)
+                    # Call handle() for GET, handle_post() for POST if available
+                    if method == 'POST' and hasattr(handler, 'handle_post'):
+                        result = handler.handle_post(path, query_dict, self)
+                    else:
+                        result = handler.handle(path, query_dict, self)
+
                     if result:
                         self.send_response(result.status_code)
                         self.send_header('Content-Type', result.content_type)
@@ -932,13 +901,14 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
         # Get client IP (validate proxy headers for security)
         remote_ip = self.client_address[0] if hasattr(self, 'client_address') else 'unknown'
+        client_ip = remote_ip  # Default to direct connection IP
         if remote_ip in TRUSTED_PROXIES:
             # Only trust X-Forwarded-For from trusted proxies
             forwarded = self.headers.get('X-Forwarded-For', '')
-            client_ip = forwarded.split(',')[0].strip() if forwarded else remote_ip
-        else:
-            # Untrusted source - use direct connection IP
-            client_ip = remote_ip
+            if forwarded:
+                first_ip = forwarded.split(',')[0].strip()
+                if first_ip:
+                    client_ip = first_ip
 
         now = time.time()
         one_minute_ago = now - 60
@@ -1146,44 +1116,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         # Document API - NOW HANDLED BY DocumentHandler
         # Replay API - NOW HANDLED BY ReplaysHandler
         # Flip Detection API - NOW HANDLED BY AgentsHandler
-
-        # Persona API
-        elif path == '/api/personas':
-            self._get_all_personas()
-        elif path.startswith('/api/agent/') and path.endswith('/persona'):
-            agent = self._extract_path_segment(path, 3, "agent")
-            if agent is None:
-                return
-            self._get_agent_persona(agent)
-        elif path.startswith('/api/agent/') and path.endswith('/performance'):
-            agent = self._extract_path_segment(path, 3, "agent")
-            if agent is None:
-                return
-            self._get_agent_performance(agent)
-        elif path.startswith('/api/agent/') and path.endswith('/domains'):
-            agent = self._extract_path_segment(path, 3, "agent")
-            if agent is None:
-                return
-            limit = self._safe_int(query, 'limit', 5, 20)
-            self._get_agent_domains(agent, limit)
-        elif path.startswith('/api/agent/') and path.endswith('/grounded-persona'):
-            agent = self._extract_path_segment(path, 3, "agent")
-            if agent is None:
-                return
-            self._get_grounded_persona(agent)
-        elif path.startswith('/api/agent/') and path.endswith('/identity-prompt'):
-            agent = self._extract_path_segment(path, 3, "agent")
-            if agent is None:
-                return
-            sections = query.get('sections', [None])[0]
-            self._get_identity_prompt(agent, sections)
-
-        # Agent Position Accuracy API (PositionTracker integration)
-        elif path.startswith('/api/agent/') and path.endswith('/accuracy'):
-            agent = self._extract_path_segment(path, 3, "agent")
-            if agent is None:
-                return
-            self._get_agent_accuracy(agent)
+        # Persona API - NOW HANDLED BY PersonaHandler
 
         # Consensus Memory API - NOW HANDLED BY ConsensusHandler
         # Combined Agent Profile API - NOW HANDLED BY AgentsHandler
@@ -1200,84 +1133,24 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         # Agent Comparison API - NOW HANDLED BY AgentsHandler
         # Head-to-Head API - NOW HANDLED BY AgentsHandler
         # Opponent Briefing API - NOW HANDLED BY AgentsHandler
-
-        # Introspection API (Agent Self-Awareness)
-        elif path == '/api/introspection/all':
-            self._get_all_introspection()
-        elif path == '/api/introspection/leaderboard':
-            limit = self._safe_int(query, 'limit', 10, 50)
-            self._get_introspection_leaderboard(limit)
-        elif path.startswith('/api/introspection/agents/'):
-            agent = path.split('/')[-1]
-            if not agent or not re.match(SAFE_ID_PATTERN, agent):
-                self._send_json({"error": "Invalid agent name"}, status=400)
-            else:
-                self._get_agent_introspection(agent)
-
-        # Calibration Curve API
-        elif path.startswith('/api/agent/') and path.endswith('/calibration-curve'):
-            agent = self._extract_path_segment(path, 3, "agent")
-            if agent is None:
-                return
-            buckets = self._safe_int(query, 'buckets', 10, 20)
-            domain = query.get('domain', [None])[0]
-            self._get_calibration_curve(agent, buckets, domain)
-
-        # Meta-Critique API
-        elif path.startswith('/api/debate/') and path.endswith('/meta-critique'):
-            debate_id = self._extract_path_segment(path, 3, "debate_id")
-            if debate_id is None:
-                return
-            self._get_meta_critique(debate_id)
-
-        # Debate Graph Stats API
-        elif path.startswith('/api/debate/') and path.endswith('/graph/stats'):
-            debate_id = self._extract_path_segment(path, 3, "debate_id")
-            if debate_id is None:
-                return
-            self._get_debate_graph_stats(debate_id)
+        # Introspection API - NOW HANDLED BY IntrospectionHandler
+        # Calibration Curve API - NOW HANDLED BY CalibrationHandler
+        # Meta-Critique API - NOW HANDLED BY DebatesHandler
+        # Debate Graph Stats API - NOW HANDLED BY DebatesHandler
 
         # Laboratory/Belief Network APIs - NOW HANDLED BY BeliefHandler
         # Tournament API - NOW HANDLED BY TournamentHandler
-
-        # Best Team Combinations API
-        elif path == '/api/routing/best-teams':
-            min_debates = self._safe_int(query, 'min_debates', 3, 20)
-            limit = self._safe_int(query, 'limit', 10, 50)
-            self._get_best_team_combinations(min_debates, limit)
-
-        # Evolution History API
-        elif path.startswith('/api/evolution/') and path.endswith('/history'):
-            agent = self._extract_path_segment(path, 3, "agent")
-            if agent is None:
-                return
-            limit = self._safe_int(query, 'limit', 10, 50)
-            self._get_evolution_history(agent, limit)
-
+        # Best Team Combinations API - NOW HANDLED BY RoutingHandler
+        # Evolution History API - NOW HANDLED BY EvolutionHandler
         # Load-Bearing Claims API - NOW HANDLED BY BeliefHandler
-
-        # Calibration Summary API
-        elif path.startswith('/api/agent/') and path.endswith('/calibration-summary'):
-            agent = self._extract_path_segment(path, 3, "agent")
-            if agent is None:
-                return
-            domain = query.get('domain', [None])[0]
-            self._get_calibration_summary(agent, domain)
-
+        # Calibration Summary API - NOW HANDLED BY CalibrationHandler
         # Continuum Memory API - NOW HANDLED BY MemoryHandler
         # Formal Verification Status API - NOW HANDLED BY VerificationHandler
-
-        # Plugins API
-        elif path == '/api/plugins':
-            self._list_plugins()
-        elif path.startswith('/api/plugins/') and not path.endswith('/run'):
-            plugin_name = path.split('/')[-1]
-            if not plugin_name or not re.match(SAFE_ID_PATTERN, plugin_name):
-                self._send_json({"error": "Invalid plugin name"}, status=400)
-            else:
-                self._get_plugin(plugin_name)
-
+        # Plugins API (GET) - NOW HANDLED BY PluginsHandler
         # Genesis API - NOW HANDLED BY GenesisHandler
+
+        # Audio file serving (for podcast broadcasts)
+        # NOTE: Audio, podcast, and YouTube routes are NOW HANDLED BY BroadcastHandler
 
         # Static file serving
         elif path in ('/', '/index.html'):
@@ -1325,39 +1198,16 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._upload_document()
         elif path == '/api/debate':
             self._start_debate()
-        elif path.startswith('/api/debates/') and path.endswith('/broadcast'):
-            debate_id = self._extract_path_segment(path, 3, "debate_id")
-            if debate_id is None:
-                return
-            self._generate_broadcast(debate_id)
-        elif path == '/api/laboratory/cross-pollinations/suggest':
-            self._suggest_cross_pollinations()
-        elif path == '/api/routing/recommendations':
-            self._get_routing_recommendations()
-        elif path == '/api/verification/formal-verify':
-            self._formal_verify_claim()
-        elif path == '/api/verification/status':
-            self._formal_verification_status()
+        # NOTE: Broadcast, publishing, laboratory, routing, verification, probes,
+        # plugins routes are NOW HANDLED BY modular handlers (BroadcastHandler,
+        # LaboratoryHandler, RoutingHandler, VerificationHandler, ProbesHandler,
+        # PluginsHandler, AuditingHandler)
         elif path == '/api/insights/extract-detailed':
             self._extract_detailed_insights()
-        elif path == '/api/probes/run':
-            self._run_capability_probe()
-        # Deep-audit and red-team routes are NOW HANDLED BY AuditingHandler
         elif path.startswith('/api/debates/') and path.endswith('/verify'):
             debate_id = self._extract_path_segment(path, 3, "debate_id")
             if debate_id:
                 self._verify_debate_outcome(debate_id)
-        elif path.startswith('/api/plugins/') and path.endswith('/run'):
-            # Pattern: /api/plugins/{name}/run
-            parts = path.split('/')
-            if len(parts) >= 4:
-                plugin_name = parts[3]
-                if not re.match(SAFE_ID_PATTERN, plugin_name):
-                    self._send_json({"error": "Invalid plugin name"}, status=400)
-                else:
-                    self._run_plugin(plugin_name)
-            else:
-                self._send_json({"error": "Invalid path format"}, status=400)
         elif path == '/api/auth/revoke':
             self._revoke_token()
         else:
@@ -1402,7 +1252,10 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             boundary = None
             for part in content_type.split(';'):
                 if 'boundary=' in part:
-                    boundary = part.split('=')[1].strip()
+                    # Use maxsplit=1 to handle boundaries containing '='
+                    parts = part.split('=', 1)
+                    if len(parts) == 2 and parts[1].strip():
+                        boundary = parts[1].strip()
                     break
 
             if not boundary:
@@ -1576,6 +1429,48 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             rounds = 3  # Default on invalid input
         consensus = data.get('consensus', 'majority')
 
+        # Parse optional trending topic parameter
+        trending_topic = None
+        use_trending = data.get('use_trending', False)
+        trending_category = data.get('trending_category', None)
+
+        if use_trending:
+            try:
+                from aragora.pulse.ingestor import (
+                    PulseManager,
+                    TwitterIngestor,
+                    HackerNewsIngestor,
+                    RedditIngestor,
+                )
+                import asyncio as _async
+
+                async def _fetch_topic():
+                    manager = PulseManager()
+                    manager.add_ingestor("twitter", TwitterIngestor())
+                    manager.add_ingestor("hackernews", HackerNewsIngestor())
+                    manager.add_ingestor("reddit", RedditIngestor())
+
+                    filters = {}
+                    if trending_category:
+                        filters["categories"] = [trending_category]
+
+                    topics = await manager.get_trending_topics(
+                        limit_per_platform=3, filters=filters if filters else None
+                    )
+                    return manager.select_topic_for_debate(topics)
+
+                # Run async in the current thread
+                loop = _async.new_event_loop()
+                try:
+                    trending_topic = loop.run_until_complete(_fetch_topic())
+                finally:
+                    loop.close()
+
+                if trending_topic:
+                    logger.info(f"Selected trending topic: {trending_topic.topic}")
+            except Exception as e:
+                logger.warning(f"Trending topic fetch failed (non-fatal): {e}")
+
         # Generate debate ID
         debate_id = f"adhoc_{uuid.uuid4().hex[:8]}"
 
@@ -1693,6 +1588,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                     dissent_retriever=self.dissent_retriever,
                     moment_detector=self.moment_detector,
                     loop_id=debate_id,
+                    trending_topic=trending_topic,
                 )
 
                 # Log and optionally reset circuit breaker for fresh debates
@@ -1749,17 +1645,17 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 ))
 
         # Use thread pool to prevent unbounded thread creation
-        # Double-checked locking for thread-safe executor creation
-        if UnifiedHandler._debate_executor is None:
-            with UnifiedHandler._debate_executor_lock:
-                if UnifiedHandler._debate_executor is None:
-                    UnifiedHandler._debate_executor = ThreadPoolExecutor(
-                        max_workers=UnifiedHandler.MAX_CONCURRENT_DEBATES,
-                        thread_name_prefix="debate-"
-                    )
+        # Capture executor reference under lock to prevent race with shutdown
+        with UnifiedHandler._debate_executor_lock:
+            if UnifiedHandler._debate_executor is None:
+                UnifiedHandler._debate_executor = ThreadPoolExecutor(
+                    max_workers=MAX_CONCURRENT_DEBATES,
+                    thread_name_prefix="debate-"
+                )
+            executor = UnifiedHandler._debate_executor
 
         try:
-            UnifiedHandler._debate_executor.submit(run_debate)
+            executor.submit(run_debate)
         except RuntimeError as e:
             # Thread pool full or shut down
             logger.warning(f"Cannot submit debate: {e}")
@@ -1797,332 +1693,6 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         docs = self.document_store.list_all()
         self._send_json({"documents": docs, "count": len(docs)})
 
-    def _get_document(self, doc_id: str) -> None:
-        """Get a document by ID."""
-        if not self.document_store:
-            self.send_error(500, "Document storage not configured")
-            return
-
-        doc = self.document_store.get(doc_id)
-        if doc:
-            self._send_json(doc.to_dict())
-        else:
-            self.send_error(404, f"Document not found: {doc_id}")
-
-    def _get_debate_by_slug(self, slug: str) -> None:
-        """Get debate metadata by human-readable slug for permalinks."""
-        if not self.storage:
-            self._send_json({"error": "Storage not configured"}, status=500)
-            return
-
-        debate = self.storage.get_by_slug(slug)
-        if not debate:
-            self._send_json({"error": "Debate not found"}, status=404)
-            return
-
-        # Return structured metadata for frontend lookup (including consensus metrics)
-        self._send_json({
-            "slug": slug,
-            "debate_id": debate.get("id", slug),
-            "task": debate.get("task", ""),
-            "agents": debate.get("agents", []),
-            "consensus_reached": debate.get("consensus_reached", False),
-            "confidence": debate.get("confidence", 0.0),
-            "consensus_strength": debate.get("consensus_strength", "none"),
-            "consensus_variance": debate.get("consensus_variance"),
-            "convergence_status": debate.get("convergence_status"),
-            "winner": debate.get("winner"),
-            "created_at": debate.get("created_at", ""),
-        })
-
-    def _get_debate(self, slug: str) -> None:
-        """Get a single debate by slug."""
-        if not self.storage:
-            self.send_error(500, "Storage not configured")
-            return
-
-        debate = self.storage.get_by_slug(slug)
-        if debate:
-            self._send_json(debate)
-        else:
-            self.send_error(404, f"Debate not found: {slug}")
-
-    def _list_debates(self, limit: int = 20) -> None:
-        """List recent debates."""
-        if not self.storage:
-            self._send_json([])
-            return
-
-        debates = self.storage.list_recent(limit)
-        self._send_json([{
-            "slug": d.slug,
-            "task": d.task[:100] + "..." if len(d.task) > 100 else d.task,
-            "agents": d.agents,
-            "consensus": d.consensus_reached,
-            "confidence": d.confidence,
-            "consensus_strength": getattr(d, 'consensus_strength', 'none'),
-            "winner": getattr(d, 'winner', None),
-            "views": d.view_count,
-            "created": d.created_at.isoformat(),
-        } for d in debates])
-
-    def _export_debate(self, debate_id: str, export_format: str, table: str = "summary") -> None:
-        """Export a debate in the specified format (json, csv, dot, html)."""
-        if not self._check_rate_limit():
-            return
-
-        if not EXPORT_AVAILABLE:
-            self._send_json({"error": "Export module not available"}, status=503)
-            return
-
-        # Validate format
-        valid_formats = {"json", "csv", "dot", "html"}
-        if export_format not in valid_formats:
-            self._send_json({"error": f"Invalid format. Use: {', '.join(valid_formats)}"}, status=400)
-            return
-
-        # Validate table (for CSV)
-        valid_tables = {"summary", "messages", "critiques", "votes", "verifications"}
-        if table not in valid_tables:
-            table = "summary"
-
-        # Load debate data
-        if not self.storage:
-            self._send_json({"error": "Storage not configured"}, status=500)
-            return
-
-        debate = self.storage.get_by_slug(debate_id)
-        if not debate:
-            self._send_json({"error": f"Debate not found: {debate_id}"}, status=404)
-            return
-
-        try:
-            # Build artifact from debate data
-            from aragora.export.artifact import ConsensusProof
-
-            artifact = DebateArtifact(
-                debate_id=debate.slug,
-                task=debate.task,
-                agents=debate.agents,
-                rounds=getattr(debate, 'rounds', 0),
-                message_count=len(debate.messages) if hasattr(debate, 'messages') else 0,
-                critique_count=len(debate.critiques) if hasattr(debate, 'critiques') else 0,
-                consensus_proof=ConsensusProof(
-                    reached=debate.consensus_reached,
-                    confidence=debate.confidence,
-                    vote_breakdown={v.agent: v.choice == debate.final_answer[:20]
-                                    for v in debate.votes} if hasattr(debate, 'votes') else {},
-                    final_answer=debate.final_answer,
-                    rounds_used=getattr(debate, 'rounds', 0),
-                ) if debate.consensus_reached else None,
-            )
-
-            # Add trace data if available
-            if hasattr(debate, 'messages'):
-                artifact.trace_data = {
-                    "events": [
-                        {
-                            "event_type": "message",
-                            "agent": msg.agent,
-                            "content": msg.content,
-                            "round": getattr(msg, 'round', i // len(debate.agents) + 1),
-                        }
-                        for i, msg in enumerate(debate.messages)
-                    ]
-                }
-
-            # Export based on format
-            if export_format == "json":
-                self._send_json(artifact.to_dict())
-            elif export_format == "csv":
-                exporter = CSVExporter(artifact)
-                if table == "messages":
-                    content = exporter.export_messages()
-                elif table == "critiques":
-                    content = exporter.export_critiques()
-                elif table == "votes":
-                    content = exporter.export_votes()
-                elif table == "verifications":
-                    content = exporter.export_verifications()
-                else:
-                    content = exporter.export_summary()
-                self._send_text(content, content_type="text/csv")
-            elif export_format == "dot":
-                exporter = DOTExporter(artifact)
-                content = exporter.export_flow()  # Default to flow view
-                self._send_text(content, content_type="text/vnd.graphviz")
-            elif export_format == "html":
-                exporter = StaticHTMLExporter(artifact)
-                content = exporter.generate()
-                self._send_text(content, content_type="text/html")
-
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "export_debate")}, status=500)
-
-    def _send_text(self, content: str, content_type: str = "text/plain") -> None:
-        """Send plain text response."""
-        data = content.encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", f"{content_type}; charset=utf-8")
-        self.send_header("Content-Length", len(data))
-        self.end_headers()
-        self.wfile.write(data)
-
-    def _health_check(self) -> None:
-        """Health check endpoint with comprehensive system status."""
-        global _active_debates, _server_start_time
-
-        # Count active debates by status
-        with _active_debates_lock:
-            active_count = sum(1 for d in _active_debates.values() if d.get("status") == "running")
-            pending_count = sum(1 for d in _active_debates.values() if d.get("status") == "pending")
-            total_debates = len(_active_debates)
-
-        # Calculate uptime
-        uptime_seconds = int(time.time() - _server_start_time)
-        hours, remainder = divmod(uptime_seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        uptime_str = f"{hours}h {minutes}m {seconds}s"
-
-        self._send_json({
-            "status": "ok",
-            "uptime": uptime_str,
-            "uptime_seconds": uptime_seconds,
-            "services": {
-                "storage": self.storage is not None,
-                "streaming": self.stream_emitter is not None,
-                "persistence": self.persistence is not None,
-                "elo_system": self.elo_system is not None,
-                "moment_detector": self.moment_detector is not None,
-                "position_ledger": self.position_ledger is not None,
-                "persona_manager": self.persona_manager is not None,
-                "debate_embeddings": self.debate_embeddings is not None,
-            },
-            "debates": {
-                "active": active_count,
-                "pending": pending_count,
-                "total_tracked": total_debates,
-            },
-            "agents": {
-                "default": ["anthropic-api", "openai-api", "gemini", "grok"],
-            },
-        })
-
-    def _get_nomic_state(self) -> None:
-        """Get current nomic loop state."""
-        if not self.nomic_state_file or not self.nomic_state_file.exists():
-            self._send_json({"status": "idle", "message": "No active nomic loop"})
-            return
-
-        try:
-            with open(self.nomic_state_file) as f:
-                state = json.load(f)
-            self._send_json(state)
-        except Exception as e:
-            self._send_json({"status": "error", "message": _safe_error_message(e, "nomic_state")})
-
-    def _get_nomic_log(self, lines: int = 100) -> None:
-        """Get last N lines of nomic loop log."""
-        if not self._check_rate_limit():
-            return
-        if not self.nomic_state_file:
-            self._send_json({"lines": []})
-            return
-
-        log_file = self.nomic_state_file.parent / "nomic_loop.log"
-        if not log_file.exists():
-            self._send_json({"lines": []})
-            return
-
-        try:
-            # Security: limit file read to prevent memory exhaustion
-            MAX_LOG_BYTES = 100 * 1024  # 100KB max
-            with open(log_file) as f:
-                f.seek(0, 2)  # Seek to end
-                file_size = f.tell()
-                start_pos = max(0, file_size - MAX_LOG_BYTES)
-                f.seek(start_pos)
-                if start_pos > 0:
-                    f.readline()  # Skip partial line
-                all_lines = f.readlines()
-            self._send_json({"lines": all_lines[-lines:]})
-        except Exception as e:
-            logger.error(f"Log read error: {type(e).__name__}: {e}")
-            self._send_json({"lines": []})
-
-    def _get_history_cycles(self, loop_id: Optional[str], limit: int) -> None:
-        """Get nomic cycles from Supabase."""
-        if not self.persistence:
-            self._send_json({"error": "Persistence not configured", "cycles": []})
-            return
-
-        try:
-            cycles = _run_async(
-                self.persistence.list_cycles(loop_id=loop_id, limit=limit)
-            )
-            self._send_json({
-                "cycles": [c.to_dict() for c in cycles],
-                "count": len(cycles),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "history_cycles"), "cycles": []})
-
-    def _get_history_events(self, loop_id: Optional[str], limit: int) -> None:
-        """Get stream events from Supabase."""
-        if not self.persistence:
-            self._send_json({"error": "Persistence not configured", "events": []})
-            return
-
-        if not loop_id:
-            self._send_json({"error": "loop_id required", "events": []})
-            return
-
-        try:
-            events = _run_async(
-                self.persistence.get_events(loop_id=loop_id, limit=limit)
-            )
-            self._send_json({
-                "events": [e.to_dict() for e in events],
-                "count": len(events),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "history_events"), "events": []})
-
-    def _get_history_debates(self, loop_id: Optional[str], limit: int) -> None:
-        """Get debate artifacts from Supabase."""
-        if not self.persistence:
-            self._send_json({"error": "Persistence not configured", "debates": []})
-            return
-
-        try:
-            debates = _run_async(
-                self.persistence.list_debates(loop_id=loop_id, limit=limit)
-            )
-            self._send_json({
-                "debates": [d.to_dict() for d in debates],
-                "count": len(debates),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "history_debates"), "debates": []})
-
-    def _get_history_summary(self, loop_id: Optional[str]) -> None:
-        """Get summary statistics for a loop."""
-        if not self.persistence:
-            self._send_json({"error": "Persistence not configured"})
-            return
-
-        if not loop_id:
-            self._send_json({"error": "loop_id required"})
-            return
-
-        try:
-            summary = _run_async(
-                self.persistence.get_loop_summary(loop_id)
-            )
-            self._send_json(summary)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "history_summary")})
-
     def _get_recent_insights(self, limit: int) -> None:
         """Get recent insights from InsightStore (debate consensus feature)."""
         if not self.insight_store:
@@ -2150,2343 +1720,6 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             })
         except Exception as e:
             self._send_json({"error": _safe_error_message(e, "insights"), "insights": []})
-
-    def _get_leaderboard(self, limit: int, domain: Optional[str]) -> None:
-        """Get agent leaderboard by ELO ranking (debate consensus feature)."""
-        if not self.elo_system:
-            self._send_json({"error": "Rankings not configured", "agents": []})
-            return
-
-        try:
-            agents = self.elo_system.get_leaderboard(limit=limit, domain=domain)
-            self._send_json({
-                "agents": [
-                    {
-                        "name": a.agent_name,
-                        "elo": round(a.elo),
-                        "wins": a.wins,
-                        "losses": a.losses,
-                        "draws": a.draws,
-                        "win_rate": round(a.win_rate * 100, 1),
-                        "games": a.games_played,
-                    }
-                    for a in agents
-                ],
-                "count": len(agents),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agents"), "agents": []})
-
-    def _get_recent_matches(self, limit: int, loop_id: Optional[str] = None) -> None:
-        """Get recent match results (debate consensus feature).
-
-        Args:
-            limit: Maximum number of matches to return
-            loop_id: Optional loop ID to filter matches by (multi-loop support)
-        """
-        if not self.elo_system:
-            self._send_json({"error": "Rankings not configured", "matches": []})
-            return
-
-        try:
-            # Use EloSystem's encapsulated method instead of raw SQL
-            matches = self.elo_system.get_recent_matches(limit=limit)
-            # Filter by loop_id if provided (multi-loop support)
-            if loop_id:
-                matches = [m for m in matches if m.get('loop_id') == loop_id]
-            self._send_json({"matches": matches, "count": len(matches)})
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "matches"), "matches": []})
-
-    def _get_agent_history(self, agent: str, limit: int) -> None:
-        """Get ELO history for an agent (debate consensus feature)."""
-        if not self.elo_system:
-            self._send_json({"error": "Rankings not configured", "history": []})
-            return
-
-        try:
-            history = self.elo_system.get_elo_history(agent, limit=limit)
-            self._send_json({
-                "agent": agent,
-                "history": [{"debate_id": h[0], "elo": h[1]} for h in history],
-                "count": len(history),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "elo_history"), "history": []})
-
-    def _get_calibration_leaderboard(self, limit: int) -> None:
-        """Get agents ranked by calibration score (accuracy vs confidence)."""
-        if not self.elo_system:
-            self._send_json({"error": "Rankings not configured", "agents": []})
-            return
-
-        try:
-            agents = self.elo_system.get_calibration_leaderboard(limit=limit)
-            self._send_json({
-                "agents": [
-                    {
-                        "name": a.agent_name,
-                        "elo": round(a.elo),
-                        "calibration_score": round(a.calibration_score, 3),
-                        "brier_score": round(a.calibration_brier_score, 3),
-                        "accuracy": round(a.calibration_accuracy, 3),
-                        "games": a.games_played,
-                    }
-                    for a in agents
-                ],
-                "count": len(agents),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agents"), "agents": []})
-
-    def _get_agent_calibration(self, agent: str, domain: Optional[str] = None) -> None:
-        """Get detailed calibration metrics for an agent."""
-        if not self.elo_system:
-            self._send_json({"error": "Rankings not configured"})
-            return
-
-        try:
-            # Get ECE (Expected Calibration Error)
-            ece = self.elo_system.get_expected_calibration_error(agent)
-
-            # Get confidence buckets
-            buckets = self.elo_system.get_calibration_by_bucket(agent, domain)
-
-            # Get domain-specific calibration if available
-            domain_calibration = self.elo_system.get_domain_calibration(agent, domain)
-
-            self._send_json({
-                "agent": agent,
-                "ece": round(ece, 3),
-                "buckets": buckets,
-                "domain_calibration": domain_calibration,
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "persona_update")})
-
-    def _get_trending_topics(self, limit: int) -> None:
-        """Get trending topics from pulse ingestors."""
-        if not PULSE_AVAILABLE:
-            self._send_json({"error": "Pulse ingestor not available", "topics": []}, status=503)
-            return
-
-        try:
-            # Create manager with default ingestors
-            manager = PulseManager()
-            manager.add_ingestor("twitter", TwitterIngestor())
-
-            # Fetch trending topics asynchronously
-            topics = _run_async(manager.get_trending_topics(limit_per_platform=limit))
-
-            self._send_json({
-                "topics": [
-                    {
-                        "topic": t.topic,
-                        "platform": t.platform,
-                        "volume": t.volume,
-                        "category": t.category,
-                    }
-                    for t in topics
-                ],
-                "count": len(topics),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "trending_topics"), "topics": []})
-
-    def _generate_broadcast(self, debate_id: str) -> None:
-        """Generate podcast audio from a debate trace.
-
-        POST /api/debates/:id/broadcast
-
-        Rate limited. Returns path to generated MP3 or error.
-        """
-        if not self._check_rate_limit():
-            return
-
-        if not BROADCAST_AVAILABLE:
-            self._send_json({"error": "Broadcast module not available"}, status=503)
-            return
-
-        if not self.storage:
-            self._send_json({"error": "Storage not configured"}, status=500)
-            return
-
-        try:
-            # Load debate from storage
-            debate_data = self.storage.get_by_slug(debate_id) or self.storage.get_by_id(debate_id)
-            if not debate_data:
-                self._send_json({"error": "Debate not found"}, status=404)
-                return
-
-            # Convert to DebateTrace format
-            # Try to extract trace data from artifact_json
-            trace_data = debate_data.get("trace") or debate_data
-            trace = DebateTrace(
-                trace_id=debate_id,
-                debate_id=debate_data.get("id", debate_id),
-                task=debate_data.get("task", ""),
-                agents=debate_data.get("agents", []),
-                random_seed=debate_data.get("random_seed", 0),
-                events=[],  # Events will be extracted from messages
-                metadata={"source": "storage"},
-            )
-
-            # Extract messages as trace events if available
-            messages = debate_data.get("messages", [])
-            if messages:
-                from aragora.debate.traces import TraceEvent, EventType
-                for i, msg in enumerate(messages):
-                    trace.events.append(TraceEvent(
-                        event_type=EventType.MESSAGE,
-                        timestamp=msg.get("timestamp", ""),
-                        agent=msg.get("agent", "unknown"),
-                        round_num=msg.get("round", i // 3),
-                        data={"content": msg.get("content", "")},
-                    ))
-
-            # Generate broadcast asynchronously
-            from pathlib import Path
-            output_path = _run_async(broadcast_debate(trace))
-
-            if output_path:
-                self._send_json({
-                    "success": True,
-                    "debate_id": debate_id,
-                    "audio_path": str(output_path),
-                    "format": "mp3",
-                })
-            else:
-                self._send_json({"error": "Failed to generate audio"}, status=500)
-
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "broadcast_generation")}, status=500)
-
-    # Note: _list_replays, _get_replay, _get_learning_evolution moved to ReplaysHandler
-
-    def _get_recent_flips(self, limit: int) -> None:
-        """Get recent position flips across all agents."""
-        if not self.flip_detector:
-            self._send_json({"error": "Flip detection not configured", "flips": []})
-            return
-
-        try:
-            flips = self.flip_detector.get_recent_flips(limit=limit)
-            self._send_json({
-                "flips": [format_flip_for_ui(f) for f in flips],
-                "count": len(flips),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "flips"), "flips": []})
-
-    def _get_flip_summary(self) -> None:
-        """Get summary of all flips for dashboard display."""
-        if not self.flip_detector:
-            self._send_json({"error": "Flip detection not configured", "summary": {}})
-            return
-
-        try:
-            summary = self.flip_detector.get_flip_summary()
-            self._send_json({"summary": summary})
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "flip_summary"), "summary": {}})
-
-    def _get_agent_consistency(self, agent: str) -> None:
-        """Get consistency score for an agent."""
-        if not self.flip_detector:
-            self._send_json({"error": "Flip detection not configured", "consistency": {}})
-            return
-
-        try:
-            score = self.flip_detector.get_agent_consistency(agent)
-            self._send_json({"consistency": format_consistency_for_ui(score)})
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agent_consistency"), "consistency": {}})
-
-    def _get_agent_flips(self, agent: str, limit: int) -> None:
-        """Get flips for a specific agent."""
-        if not self.flip_detector:
-            self._send_json({"error": "Flip detection not configured", "flips": []})
-            return
-
-        try:
-            flips = self.flip_detector.detect_flips_for_agent(agent, lookback_positions=limit)
-            self._send_json({
-                "agent": agent,
-                "flips": [format_flip_for_ui(f) for f in flips],
-                "count": len(flips),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "flips"), "flips": []})
-
-    def _get_all_personas(self) -> None:
-        """Get all agent personas."""
-        if not self.persona_manager:
-            self._send_json({"error": "Persona management not configured", "personas": []})
-            return
-
-        try:
-            personas = self.persona_manager.get_all_personas()
-            self._send_json({
-                "personas": [
-                    {
-                        "agent_name": p.agent_name,
-                        "description": p.description,
-                        "traits": p.traits,
-                        "expertise": p.expertise,
-                        "created_at": p.created_at,
-                        "updated_at": p.updated_at,
-                    }
-                    for p in personas
-                ],
-                "count": len(personas),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "personas"), "personas": []})
-
-    def _get_agent_persona(self, agent: str) -> None:
-        """Get persona for a specific agent."""
-        if not self.persona_manager:
-            self._send_json({"error": "Persona management not configured"})
-            return
-
-        try:
-            persona = self.persona_manager.get_persona(agent)
-            if persona:
-                self._send_json({
-                    "persona": {
-                        "agent_name": persona.agent_name,
-                        "description": persona.description,
-                        "traits": persona.traits,
-                        "expertise": persona.expertise,
-                        "created_at": persona.created_at,
-                        "updated_at": persona.updated_at,
-                    }
-                })
-            else:
-                self._send_json({"error": f"No persona found for agent '{agent}'", "persona": None})
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "get_persona")})
-
-    def _get_agent_performance(self, agent: str) -> None:
-        """Get performance summary for an agent."""
-        if not self.persona_manager:
-            self._send_json({"error": "Persona management not configured"})
-            return
-
-        try:
-            summary = self.persona_manager.get_performance_summary(agent)
-            self._send_json({
-                "agent": agent,
-                "performance": summary,
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agent_performance")})
-
-    def _get_agent_domains(self, agent: str, limit: int) -> None:
-        """Get agent's best expertise domains by calibration."""
-        if not self._check_rate_limit():
-            return
-
-        if not RANKING_AVAILABLE or not self.elo_system:
-            self._send_json({"error": "Ranking system not available"}, status=503)
-            return
-
-        try:
-            domains = self.elo_system.get_best_domains(agent, limit=limit)
-            self._send_json({
-                "agent": agent,
-                "domains": [
-                    {"domain": d[0], "calibration_score": d[1]}
-                    for d in domains
-                ],
-                "count": len(domains),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agent_domains")}, status=500)
-
-    def _get_grounded_persona(self, agent: str) -> None:
-        """Get truth-grounded persona synthesized from performance data."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.agents.grounded import PersonaSynthesizer
-
-            db_path = self.nomic_dir / "aragora_personas.db" if self.nomic_dir else None
-            synthesizer = PersonaSynthesizer(
-                persona_manager=self.persona_manager,
-                elo_system=self.elo_system,
-                position_ledger=getattr(self, 'position_ledger', None),
-                relationship_tracker=None,
-            )
-            persona = synthesizer.get_grounded_persona(agent)
-            if persona:
-                self._send_json({
-                    "agent": agent,
-                    "elo": persona.elo,
-                    "domain_elos": persona.domain_elos,
-                    "games_played": persona.games_played,
-                    "win_rate": persona.win_rate,
-                    "calibration_score": persona.calibration_score,
-                    "position_accuracy": persona.position_accuracy,
-                    "positions_taken": persona.positions_taken,
-                    "reversals": persona.reversals,
-                })
-            else:
-                self._send_json({"agent": agent, "message": "No grounded persona data"})
-        except ImportError:
-            self._send_json({"error": "Grounded personas module not available"}, status=503)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "grounded_persona")}, status=500)
-
-    def _get_identity_prompt(self, agent: str, sections: str | None = None) -> None:
-        """Get evidence-grounded identity prompt for agent initialization."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.agents.grounded import PersonaSynthesizer
-
-            synthesizer = PersonaSynthesizer(
-                persona_manager=self.persona_manager,
-                elo_system=self.elo_system,
-                position_ledger=getattr(self, 'position_ledger', None),
-                relationship_tracker=None,
-            )
-            include_sections = sections.split(',') if sections else None
-            prompt = synthesizer.synthesize_identity_prompt(agent, include_sections=include_sections)
-            self._send_json({
-                "agent": agent,
-                "identity_prompt": prompt,
-                "sections": include_sections,
-            })
-        except ImportError:
-            self._send_json({"error": "Grounded personas module not available"}, status=503)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "identity_prompt")}, status=500)
-
-    def _get_agent_accuracy(self, agent: str) -> None:
-        """Get position accuracy stats for an agent from PositionTracker."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.agents.truth_grounding import PositionTracker
-
-            # Use existing position_tracker or create one
-            if hasattr(self, 'position_tracker') and self.position_tracker:
-                tracker = self.position_tracker
-            else:
-                db_path = self.nomic_dir / "aragora_positions.db" if self.nomic_dir else None
-                if not db_path or not db_path.exists():
-                    self._send_json({"error": "Position tracking not configured"}, status=503)
-                    return
-                tracker = PositionTracker(db_path=str(db_path))
-
-            accuracy = tracker.get_agent_position_accuracy(agent)
-            if accuracy:
-                self._send_json({
-                    "agent": agent,
-                    "total_positions": accuracy.get("total_positions", 0),
-                    "verified_positions": accuracy.get("verified_positions", 0),
-                    "correct_positions": accuracy.get("correct_positions", 0),
-                    "accuracy_rate": accuracy.get("accuracy_rate", 0.0),
-                    "by_type": accuracy.get("by_type", {}),
-                })
-            else:
-                self._send_json({
-                    "agent": agent,
-                    "total_positions": 0,
-                    "verified_positions": 0,
-                    "accuracy_rate": 0.0,
-                    "message": "No position accuracy data available",
-                })
-        except ImportError:
-            self._send_json({"error": "PositionTracker module not available"}, status=503)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agent_accuracy")}, status=500)
-
-    # === Consensus Memory API ===
-
-    def _get_similar_debates(self, topic: str, limit: int) -> None:
-        """Find debates similar to a topic."""
-        if not CONSENSUS_MEMORY_AVAILABLE:
-            self._send_json({"error": "Consensus memory not available"}, status=503)
-            return
-
-        if not topic:
-            self._send_json({"error": "topic parameter required"}, status=400)
-            return
-
-        try:
-            memory = ConsensusMemory()
-            similar = memory.find_similar_debates(topic, limit=limit)
-            self._send_json({
-                "query": topic,
-                "similar": [
-                    {
-                        "topic": s.consensus.topic,
-                        "conclusion": s.consensus.conclusion,
-                        "strength": s.consensus.strength.value,
-                        "confidence": s.consensus.confidence,
-                        "similarity": s.similarity_score,
-                        "agents": s.consensus.participating_agents,
-                        "dissent_count": len(s.dissents),
-                        "timestamp": s.consensus.timestamp.isoformat(),
-                    }
-                    for s in similar
-                ],
-                "count": len(similar),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "similar_topics")}, status=500)
-
-    def _get_settled_topics(self, min_confidence: float, limit: int) -> None:
-        """Get high-confidence settled topics."""
-        if not CONSENSUS_MEMORY_AVAILABLE:
-            self._send_json({"error": "Consensus memory not available"}, status=503)
-            return
-
-        try:
-            memory = ConsensusMemory()
-            # Query for high-confidence topics
-            import sqlite3
-            with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT topic, conclusion, confidence, strength, timestamp
-                    FROM consensus
-                    WHERE confidence >= ?
-                    ORDER BY confidence DESC, timestamp DESC
-                    LIMIT ?
-                """, (min_confidence, limit))
-                rows = cursor.fetchall()
-
-            self._send_json({
-                "min_confidence": min_confidence,
-                "topics": [
-                    {
-                        "topic": row[0],
-                        "conclusion": row[1],
-                        "confidence": row[2],
-                        "strength": row[3],
-                        "timestamp": row[4],
-                    }
-                    for row in rows
-                ],
-                "count": len(rows),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "settled_topics")}, status=500)
-
-    def _get_consensus_stats(self) -> None:
-        """Get consensus memory statistics."""
-        if not CONSENSUS_MEMORY_AVAILABLE:
-            self._send_json({"error": "Consensus memory not available"}, status=503)
-            return
-
-        try:
-            memory = ConsensusMemory()
-            raw_stats = memory.get_statistics()
-
-            # Transform to match frontend ConsensusStats interface
-            # Count high confidence topics (>= 0.7)
-            import sqlite3
-            with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM consensus WHERE confidence >= 0.7")
-                high_confidence_count = cursor.fetchone()[0]
-                cursor.execute("SELECT AVG(confidence) FROM consensus")
-                avg_row = cursor.fetchone()
-                avg_confidence = avg_row[0] if avg_row[0] else 0.0
-
-            self._send_json({
-                "total_topics": raw_stats.get("total_consensus", 0),
-                "high_confidence_count": high_confidence_count,
-                "domains": list(raw_stats.get("by_domain", {}).keys()),
-                "avg_confidence": round(avg_confidence, 3),
-                # Include original stats for backwards compatibility
-                "total_dissents": raw_stats.get("total_dissents", 0),
-                "by_strength": raw_stats.get("by_strength", {}),
-                "by_domain": raw_stats.get("by_domain", {}),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "consensus_stats")}, status=500)
-
-    def _get_dissents_for_topic(self, topic: str, domain: Optional[str] = None) -> None:
-        """Get dissenting views relevant to a topic."""
-        if not CONSENSUS_MEMORY_AVAILABLE or DissentRetriever is None:
-            self._send_json({"error": "Dissent retriever not available"}, status=503)
-            return
-
-        try:
-            memory = ConsensusMemory()
-            retriever = DissentRetriever(memory)
-            context = retriever.retrieve_for_new_debate(topic, domain=domain)
-            self._send_json({
-                "topic": topic,
-                "domain": domain,
-                "similar_debates": context.get("similar_debates", []),
-                "dissents_by_type": context.get("dissent_by_type", {}),
-                "unacknowledged_dissents": len(context.get("unacknowledged", [])),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "dissent_retrieval")}, status=500)
-
-    def _get_recent_dissents(self, topic: Optional[str], domain: Optional[str], limit: int) -> None:
-        """Get recent dissents, optionally filtered by topic."""
-        if not CONSENSUS_MEMORY_AVAILABLE:
-            self._send_json({"error": "Consensus memory not available"}, status=503)
-            return
-
-        try:
-            memory = ConsensusMemory()
-            import sqlite3
-            import json
-
-            # Query recent dissents with their associated consensus topics
-            with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
-                cursor = conn.cursor()
-                # Join dissent with consensus to get topic and majority view
-                query = """
-                    SELECT d.data, c.topic, c.conclusion
-                    FROM dissent d
-                    LEFT JOIN consensus c ON d.debate_id = c.id
-                    ORDER BY d.timestamp DESC
-                    LIMIT ?
-                """
-                cursor.execute(query, (limit,))
-                rows = cursor.fetchall()
-
-            # Transform to match frontend DissentView interface
-            dissents = []
-            for row in rows:
-                try:
-                    from aragora.memory.consensus import DissentRecord
-                    record = DissentRecord.from_dict(json.loads(row[0]))
-                    topic_name = row[1] or "Unknown topic"
-                    majority_view = row[2] or "No consensus recorded"
-
-                    dissents.append({
-                        "topic": topic_name,
-                        "majority_view": majority_view,
-                        "dissenting_view": record.content,
-                        "dissenting_agent": record.agent_id,
-                        "confidence": record.confidence,
-                        "reasoning": record.reasoning if record.reasoning else None,
-                    })
-                except Exception as e:
-                    logger.warning(f"Failed to parse dissent record: {e}")
-
-            self._send_json({"dissents": dissents})
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "recent_dissents")}, status=500)
-
-    def _get_contrarian_views(self, topic: Optional[str], domain: Optional[str], limit: int) -> None:
-        """Get historical contrarian/dissenting views, optionally filtered by topic."""
-        if not CONSENSUS_MEMORY_AVAILABLE:
-            self._send_json({"error": "Consensus memory not available"}, status=503)
-            return
-
-        try:
-            memory = ConsensusMemory()
-            import sqlite3
-
-            # If topic provided, use DissentRetriever for similarity search
-            if topic and DissentRetriever is not None:
-                retriever = DissentRetriever(memory)
-                records = retriever.find_contrarian_views(topic, domain=domain, limit=limit)
-            else:
-                # Get recent contrarian views globally (FUNDAMENTAL_DISAGREEMENT, ALTERNATIVE_APPROACH)
-                with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
-                    cursor = conn.cursor()
-                    query = """
-                        SELECT data FROM dissent
-                        WHERE dissent_type IN ('fundamental_disagreement', 'alternative_approach')
-                        ORDER BY timestamp DESC
-                        LIMIT ?
-                    """
-                    cursor.execute(query, (limit,))
-                    rows = cursor.fetchall()
-
-                import json
-                records = []
-                for row in rows:
-                    try:
-                        from aragora.memory.consensus import DissentRecord
-                        records.append(DissentRecord.from_dict(json.loads(row[0])))
-                    except Exception as e:
-                        logger.warning(f"Failed to parse contrarian view record: {e} (data: {row[0][:100]}...)")
-
-            # Transform to match frontend ContraryView interface
-            self._send_json({
-                "views": [
-                    {
-                        "agent": r.agent_id,
-                        "position": r.content,
-                        "confidence": r.confidence,
-                        "reasoning": r.reasoning,
-                        "debate_id": r.debate_id,
-                    }
-                    for r in records
-                ],
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "contrarian_views")}, status=500)
-
-    def _get_risk_warnings(self, topic: Optional[str], domain: Optional[str], limit: int) -> None:
-        """Get risk warnings and edge case concerns, optionally filtered by topic."""
-        if not CONSENSUS_MEMORY_AVAILABLE:
-            self._send_json({"error": "Consensus memory not available"}, status=503)
-            return
-
-        try:
-            memory = ConsensusMemory()
-            import sqlite3
-
-            # If topic provided, use DissentRetriever for similarity search
-            if topic and DissentRetriever is not None:
-                retriever = DissentRetriever(memory)
-                records = retriever.find_risk_warnings(topic, domain=domain, limit=limit)
-            else:
-                # Get recent risk warnings globally (RISK_WARNING, EDGE_CASE_CONCERN)
-                with sqlite3.connect(memory.db_path, timeout=30.0) as conn:
-                    cursor = conn.cursor()
-                    query = """
-                        SELECT data FROM dissent
-                        WHERE dissent_type IN ('risk_warning', 'edge_case_concern')
-                        ORDER BY timestamp DESC
-                        LIMIT ?
-                    """
-                    cursor.execute(query, (limit,))
-                    rows = cursor.fetchall()
-
-                import json
-                records = []
-                for row in rows:
-                    try:
-                        from aragora.memory.consensus import DissentRecord
-                        records.append(DissentRecord.from_dict(json.loads(row[0])))
-                    except Exception as e:
-                        logger.warning(f"Failed to parse risk warning record: {e} (data: {row[0][:100]}...)")
-
-            # Transform to match frontend RiskWarning interface
-            # Map dissent_type to risk_type and infer severity from confidence
-            def infer_severity(confidence: float, dissent_type: str) -> str:
-                if dissent_type == "risk_warning":
-                    if confidence >= 0.8:
-                        return "critical"
-                    elif confidence >= 0.6:
-                        return "high"
-                    elif confidence >= 0.4:
-                        return "medium"
-                return "low"
-
-            self._send_json({
-                "warnings": [
-                    {
-                        "domain": r.metadata.get("domain", "general"),
-                        "risk_type": r.dissent_type.value.replace("_", " ").title(),
-                        "severity": infer_severity(r.confidence, r.dissent_type.value),
-                        "description": r.content,
-                        "mitigation": r.rebuttal if r.rebuttal else None,
-                        "detected_at": r.timestamp.isoformat(),
-                    }
-                    for r in records
-                ],
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "risk_warnings")}, status=500)
-
-    def _get_domain_history(self, domain: str, limit: int) -> None:
-        """Get consensus history for a domain."""
-        if not CONSENSUS_MEMORY_AVAILABLE:
-            self._send_json({"error": "Consensus memory not available"}, status=503)
-            return
-
-        try:
-            memory = ConsensusMemory()
-            records = memory.get_domain_consensus_history(domain, limit=limit)
-            self._send_json({
-                "domain": domain,
-                "history": [r.to_dict() for r in records],
-                "count": len(records),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "domain_history")}, status=500)
-
-    def _get_agent_full_profile(self, agent: str) -> None:
-        """Get combined profile for an agent (ELO + Persona + Flips + Calibration)."""
-        profile = {"agent": agent}
-
-        # ELO ranking
-        if self.elo_system:
-            try:
-                rating = self.elo_system.get_rating(agent)
-                history = self.elo_system.get_match_history(agent, limit=10)
-                profile["ranking"] = {
-                    "rating": rating,
-                    "recent_matches": len(history),
-                }
-            except Exception as e:
-                logger.debug(f"Agent ranking fetch failed: {e}")
-                profile["ranking"] = None
-        else:
-            profile["ranking"] = None
-
-        # Persona
-        if self.persona_manager:
-            try:
-                persona = self.persona_manager.get_persona(agent)
-                if persona:
-                    profile["persona"] = {
-                        "type": persona.persona_type.value,
-                        "primary_stance": persona.primary_stance,
-                        "specializations": persona.specializations[:3],
-                        "debate_count": persona.debate_count,
-                    }
-                else:
-                    profile["persona"] = None
-            except Exception as e:
-                logger.debug(f"Agent persona fetch failed: {e}")
-                profile["persona"] = None
-        else:
-            profile["persona"] = None
-
-        # Flip/consistency
-        if self.flip_detector:
-            try:
-                consistency = self.flip_detector.get_consistency_score(agent)
-                flips = self.flip_detector.get_agent_flips(agent, limit=5)
-                profile["consistency"] = {
-                    "score": consistency,
-                    "recent_flips": len(flips),
-                }
-            except Exception as e:
-                logger.debug(f"Agent consistency fetch failed: {e}")
-                profile["consistency"] = None
-        else:
-            profile["consistency"] = None
-
-        # Calibration
-        if CALIBRATION_AVAILABLE:
-            try:
-                tracker = CalibrationTracker()
-                cal = tracker.get_agent_calibration(agent)
-                if cal:
-                    profile["calibration"] = {
-                        "brier_score": cal.get("brier_score"),
-                        "prediction_count": cal.get("prediction_count", 0),
-                    }
-                else:
-                    profile["calibration"] = None
-            except Exception as e:
-                logger.debug(f"Agent calibration fetch failed: {e}")
-                profile["calibration"] = None
-        else:
-            profile["calibration"] = None
-
-        self._send_json(profile)
-
-    def _get_disagreement_report(self, limit: int) -> None:
-        """Get report of debates with significant disagreements."""
-        # Rate limit analytics queries
-        if not self._check_rate_limit():
-            return
-        if not self.storage:
-            self._send_json({"error": "Storage not configured", "disagreements": []})
-            return
-
-        try:
-            debates = self.storage.list_debates(limit=limit * 2)  # Fetch extra to filter
-            disagreements = []
-            for debate in debates:
-                # Check for low consensus or explicit dissent
-                if not debate.get("consensus_reached", True) or debate.get("dissent_count", 0) > 0:
-                    disagreements.append({
-                        "debate_id": debate.get("id", debate.get("slug", "")),
-                        "topic": debate.get("task", debate.get("topic", "")),
-                        "agents": debate.get("agents", []),
-                        "dissent_count": debate.get("dissent_count", 0),
-                        "consensus_reached": debate.get("consensus_reached", False),
-                        "confidence": debate.get("confidence", 0.0),
-                        "timestamp": debate.get("created_at", ""),
-                    })
-                if len(disagreements) >= limit:
-                    break
-            self._send_json({"disagreements": disagreements, "count": len(disagreements)})
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "disagreement_report"), "disagreements": []})
-
-    def _get_role_rotation_report(self, limit: int) -> None:
-        """Get report of agent role assignments across debates."""
-        # Rate limit analytics queries
-        if not self._check_rate_limit():
-            return
-        if not self.storage:
-            self._send_json({"error": "Storage not configured", "rotations": []})
-            return
-
-        try:
-            debates = self.storage.list_debates(limit=limit)
-            role_counts: dict = {}  # agent -> role -> count
-            rotations = []
-            for debate in debates:
-                agents = debate.get("agents", [])
-                roles = debate.get("roles", {})  # {agent: role} if available
-                for agent in agents:
-                    role = roles.get(agent, "participant")
-                    if agent not in role_counts:
-                        role_counts[agent] = {}
-                    role_counts[agent][role] = role_counts[agent].get(role, 0) + 1
-                    rotations.append({
-                        "debate_id": debate.get("id", debate.get("slug", "")),
-                        "agent": agent,
-                        "role": role,
-                        "timestamp": debate.get("created_at", ""),
-                    })
-            self._send_json({
-                "rotations": rotations[:limit],
-                "summary": role_counts,
-                "count": len(rotations),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "role_rotation"), "rotations": []})
-
-    def _get_early_stop_signals(self, limit: int) -> None:
-        """Get debates that were terminated early (before all rounds completed)."""
-        # Rate limit analytics queries
-        if not self._check_rate_limit():
-            return
-        if not self.storage:
-            self._send_json({"error": "Storage not configured", "early_stops": []})
-            return
-
-        try:
-            debates = self.storage.list_debates(limit=limit * 2)
-            early_stops = []
-            for debate in debates:
-                rounds_completed = debate.get("rounds_completed", 0)
-                rounds_planned = debate.get("rounds_planned", debate.get("rounds", 3))
-                early_stopped = debate.get("early_stopped", False)
-                # Detect early termination
-                if early_stopped or (rounds_planned > 0 and rounds_completed < rounds_planned):
-                    early_stops.append({
-                        "debate_id": debate.get("id", debate.get("slug", "")),
-                        "topic": debate.get("task", debate.get("topic", "")),
-                        "rounds_completed": rounds_completed,
-                        "rounds_planned": rounds_planned,
-                        "reason": debate.get("stop_reason", "unknown"),
-                        "consensus_early": debate.get("consensus_reached", False),
-                        "timestamp": debate.get("created_at", ""),
-                    })
-                if len(early_stops) >= limit:
-                    break
-            self._send_json({"early_stops": early_stops, "count": len(early_stops)})
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "early_stops"), "early_stops": []})
-
-    def _list_available_modes(self) -> None:
-        """List available debate and operational modes."""
-        try:
-            from aragora.modes import ModeRegistry
-            from aragora.modes.builtin import register_all_builtins
-
-            # Ensure builtins are registered
-            register_all_builtins()
-
-            modes = []
-            for name, mode_cls in ModeRegistry.list_modes().items():
-                mode_info = {
-                    "name": name,
-                    "description": (getattr(mode_cls, '__doc__', '') or '').strip().split('\n')[0],
-                    "category": "operational",
-                }
-                # Add tool groups if available
-                if hasattr(mode_cls, 'tool_groups'):
-                    mode_info["tool_groups"] = [g.value for g in mode_cls.tool_groups]
-                modes.append(mode_info)
-
-            # Add debate modes
-            debate_modes = [
-                {"name": "redteam", "description": "Adversarial red-teaming for security analysis", "category": "debate"},
-                {"name": "deep_audit", "description": "Heavy3-inspired intensive debate protocol", "category": "debate"},
-                {"name": "capability_probe", "description": "Agent capability and vulnerability probing", "category": "debate"},
-            ]
-            modes.extend(debate_modes)
-
-            self._send_json({"modes": modes, "count": len(modes)})
-        except ImportError:
-            # Modes module not available, return empty list
-            self._send_json({"modes": [], "count": 0, "warning": "Modes module not available"})
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "modes"), "modes": []})
-
-    def _get_agent_positions(self, agent: str, limit: int) -> None:
-        """Get position history for an agent from truth grounding system."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.agents.truth_grounding import PositionLedger
-
-            # Try to use existing position ledger or create one
-            if hasattr(self, 'position_ledger') and self.position_ledger:
-                ledger = self.position_ledger
-            else:
-                # Create a temporary ledger instance
-                db_path = self.nomic_dir / "aragora_personas.db" if self.nomic_dir else None
-                if not db_path or not db_path.exists():
-                    self._send_json({"error": "Position tracking not configured"}, status=503)
-                    return
-                ledger = PositionLedger(db_path=str(db_path))
-
-            # Get agent stats
-            stats = ledger.get_agent_stats(agent)
-            if stats:
-                self._send_json({
-                    "agent": agent,
-                    "total_positions": stats.get("total_positions", 0),
-                    "avg_confidence": stats.get("avg_confidence", 0.0),
-                    "reversal_count": stats.get("reversal_count", 0),
-                    "consistency_score": stats.get("consistency_score", 1.0),
-                    "positions_by_debate": stats.get("positions_by_debate", {}),
-                })
-            else:
-                self._send_json({"agent": agent, "total_positions": 0, "message": "No position data"})
-
-        except ImportError:
-            self._send_json({"error": "Position tracking module not available"}, status=503)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agent_positions")}, status=500)
-
-    def _get_agent_network(self, agent: str) -> None:
-        """Get complete influence/relationship network for an agent."""
-        if not self._check_rate_limit():
-            return
-
-        if not RELATIONSHIP_TRACKER_AVAILABLE:
-            self._send_json({"error": "Relationship tracking not available"}, status=503)
-            return
-
-        try:
-            db_path = self.nomic_dir / "grounded_positions.db" if self.nomic_dir else None
-            if not db_path or not db_path.exists():
-                self._send_json({"agent": agent, "message": "No relationship data"})
-                return
-
-            tracker = RelationshipTracker(str(db_path))
-            network = tracker.get_influence_network(agent)
-            rivals = tracker.get_rivals(agent, limit=5)
-            allies = tracker.get_allies(agent, limit=5)
-
-            self._send_json({
-                "agent": agent,
-                "influences": network.get("influences", []),
-                "influenced_by": network.get("influenced_by", []),
-                "rivals": rivals,
-                "allies": allies,
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agent_network")}, status=500)
-
-    def _get_agent_rivals(self, agent: str, limit: int) -> None:
-        """Get top rivals for an agent."""
-        if not self._check_rate_limit():
-            return
-
-        if not RELATIONSHIP_TRACKER_AVAILABLE:
-            self._send_json({"error": "Relationship tracking not available"}, status=503)
-            return
-
-        try:
-            db_path = self.nomic_dir / "grounded_positions.db" if self.nomic_dir else None
-            if not db_path or not db_path.exists():
-                self._send_json({"agent": agent, "rivals": []})
-                return
-
-            tracker = RelationshipTracker(str(db_path))
-            rivals = tracker.get_rivals(agent, limit=limit)
-            self._send_json({"agent": agent, "rivals": rivals, "count": len(rivals)})
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agent_rivals")}, status=500)
-
-    def _get_agent_allies(self, agent: str, limit: int) -> None:
-        """Get top allies for an agent."""
-        if not self._check_rate_limit():
-            return
-
-        if not RELATIONSHIP_TRACKER_AVAILABLE:
-            self._send_json({"error": "Relationship tracking not available"}, status=503)
-            return
-
-        try:
-            db_path = self.nomic_dir / "grounded_positions.db" if self.nomic_dir else None
-            if not db_path or not db_path.exists():
-                self._send_json({"agent": agent, "allies": []})
-                return
-
-            tracker = RelationshipTracker(str(db_path))
-            allies = tracker.get_allies(agent, limit=limit)
-            self._send_json({"agent": agent, "allies": allies, "count": len(allies)})
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agent_allies")}, status=500)
-
-    def _get_agent_moments(self, agent: str, limit: int) -> None:
-        """Get significant moments timeline for an agent."""
-        if not self._check_rate_limit():
-            return
-
-        if not MOMENT_DETECTOR_AVAILABLE or not self.moment_detector:
-            self._send_json({"agent": agent, "moments": [], "narrative": "MomentDetector not initialized"})
-            return
-
-        try:
-            moments = self.moment_detector.get_agent_moments(agent, limit=limit)
-            narrative = self.moment_detector.get_narrative_summary(agent) if moments else ""
-
-            self._send_json({
-                "agent": agent,
-                "moments": [
-                    {
-                        "type": m.moment_type,
-                        "description": m.description,
-                        "timestamp": m.created_at,
-                        "significance": m.significance_score,
-                        "context": m.metadata.get("topic", "") if m.metadata else "",
-                    }
-                    for m in moments
-                ],
-                "narrative": narrative,
-                "count": len(moments),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agent_moments")}, status=500)
-
-    def _get_debate_impasse(self, debate_id: str) -> None:
-        """Analyze debate for impasse/deadlock detection."""
-        if not self._check_rate_limit():
-            return
-
-        if not IMPASSE_DETECTOR_AVAILABLE:
-            self._send_json({"error": "ImpasseDetector not available"}, status=503)
-            return
-
-        try:
-            # Load debate from storage
-            if not self.storage:
-                self._send_json({"error": "Storage not configured"}, status=503)
-                return
-
-            debate = self.storage.get_debate(debate_id)
-            if not debate:
-                self._send_json({"error": "Debate not found"}, status=404)
-                return
-
-            # Extract messages for impasse analysis
-            transcript = debate.get("transcript", [])
-            if not transcript:
-                self._send_json({
-                    "debate_id": debate_id,
-                    "has_impasse": False,
-                    "pivot_claim": None,
-                    "should_branch": False,
-                })
-                return
-
-            # Run impasse detection
-            detector = ImpasseDetector()
-            pivot = detector.detect_impasse(transcript)
-
-            self._send_json({
-                "debate_id": debate_id,
-                "has_impasse": pivot is not None,
-                "pivot_claim": {
-                    "claim_id": pivot.claim_id if pivot else None,
-                    "statement": pivot.statement if pivot else None,
-                    "disagreement_score": pivot.disagreement_score if pivot else 0.0,
-                    "importance_score": pivot.importance_score if pivot else 0.0,
-                } if pivot else None,
-                "should_branch": pivot is not None and pivot.importance_score > 0.5,
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "debate_impasse")}, status=500)
-
-    def _get_debate_convergence(self, debate_id: str) -> None:
-        """Check semantic convergence of agent positions in a debate."""
-        if not self._check_rate_limit():
-            return
-
-        if not CONVERGENCE_DETECTOR_AVAILABLE:
-            self._send_json({"error": "ConvergenceDetector not available"}, status=503)
-            return
-
-        try:
-            # Load debate from storage
-            if not self.storage:
-                self._send_json({"error": "Storage not configured"}, status=503)
-                return
-
-            debate = self.storage.get_debate(debate_id)
-            if not debate:
-                self._send_json({"error": "Debate not found"}, status=404)
-                return
-
-            # Extract agent positions from transcript
-            transcript = debate.get("transcript", [])
-            positions = {}
-            for msg in transcript:
-                agent = msg.get("agent") or msg.get("speaker", "unknown")
-                content = msg.get("content", "")
-                if content:
-                    positions[agent] = content  # Use latest position
-
-            if len(positions) < 2:
-                self._send_json({
-                    "debate_id": debate_id,
-                    "convergence_score": 0.0,
-                    "is_converged": False,
-                    "recommendation": "Not enough positions to analyze",
-                })
-                return
-
-            # Run convergence detection
-            detector = ConvergenceDetector(threshold=0.85)
-            result = detector.check_convergence(list(positions.values()))
-
-            self._send_json({
-                "debate_id": debate_id,
-                "convergence_score": round(result.similarity, 3),
-                "is_converged": result.converged,
-                "threshold": 0.85,
-                "recommendation": (
-                    "Positions have converged; further rounds unlikely to produce new insights"
-                    if result.converged
-                    else "Positions still divergent; debate may continue productively"
-                ),
-                "positions_analyzed": len(positions),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "debate_convergence")}, status=500)
-
-    def _get_critique_patterns(self, limit: int, min_success: float) -> None:
-        """Get high-impact critique patterns for learning."""
-        if not self._check_rate_limit():
-            return
-
-        if not CRITIQUE_STORE_AVAILABLE:
-            self._send_json({"error": "Critique store not available"}, status=503)
-            return
-
-        try:
-            db_path = self.nomic_dir / "debates.db" if self.nomic_dir else None
-            if not db_path or not db_path.exists():
-                self._send_json({"patterns": [], "count": 0})
-                return
-
-            store = CritiqueStore(str(db_path))
-            patterns = store.retrieve_patterns(min_success_rate=min_success, limit=limit)
-            stats = store.get_stats()
-
-            self._send_json({
-                "patterns": [
-                    {
-                        "issue_type": p.issue_type,
-                        "pattern": p.pattern_text,
-                        "success_rate": p.success_rate,
-                        "usage_count": p.usage_count,
-                    }
-                    for p in patterns
-                ],
-                "count": len(patterns),
-                "stats": stats,
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "critique_patterns")}, status=500)
-
-    def _get_archive_stats(self) -> None:
-        """Get archive statistics from critique store."""
-        if not self._check_rate_limit():
-            return
-
-        if not CRITIQUE_STORE_AVAILABLE:
-            self._send_json({"error": "Critique store not available"}, status=503)
-            return
-
-        try:
-            db_path = self.nomic_dir / "debates.db" if self.nomic_dir else None
-            if not db_path or not db_path.exists():
-                self._send_json({"archived": 0, "by_type": {}})
-                return
-
-            store = CritiqueStore(str(db_path))
-            stats = store.get_archive_stats()
-            self._send_json(stats)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "archive_stats")}, status=500)
-
-    def _get_all_reputations(self) -> None:
-        """Get all agent reputations ranked by score."""
-        if not self._check_rate_limit():
-            return
-
-        if not CRITIQUE_STORE_AVAILABLE:
-            self._send_json({"error": "Critique store not available"}, status=503)
-            return
-
-        try:
-            db_path = self.nomic_dir / "debates.db" if self.nomic_dir else None
-            if not db_path or not db_path.exists():
-                self._send_json({"reputations": [], "count": 0})
-                return
-
-            store = CritiqueStore(str(db_path))
-            reputations = store.get_all_reputations()
-            self._send_json({
-                "reputations": [
-                    {
-                        "agent": r.agent_name,
-                        "score": r.reputation_score,
-                        "vote_weight": r.vote_weight,  # Use property directly (avoids N+1 query)
-                        "proposal_acceptance_rate": r.proposal_acceptance_rate,
-                        "critique_value": r.critique_value,
-                        "debates_participated": r.debates_participated,
-                    }
-                    for r in reputations
-                ],
-                "count": len(reputations),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "reputations")}, status=500)
-
-    def _get_agent_reputation(self, agent: str) -> None:
-        """Get reputation for a specific agent."""
-        if not self._check_rate_limit():
-            return
-
-        if not CRITIQUE_STORE_AVAILABLE:
-            self._send_json({"error": "Critique store not available"}, status=503)
-            return
-
-        try:
-            db_path = self.nomic_dir / "debates.db" if self.nomic_dir else None
-            if not db_path or not db_path.exists():
-                self._send_json({"agent": agent, "message": "No reputation data"})
-                return
-
-            store = CritiqueStore(str(db_path))
-            rep = store.get_reputation(agent)
-            if rep:
-                self._send_json({
-                    "agent": agent,
-                    "score": rep.reputation_score,
-                    "vote_weight": rep.vote_weight,  # Use property directly (avoids extra query)
-                    "proposal_acceptance_rate": rep.proposal_acceptance_rate,
-                    "critique_value": rep.critique_value,
-                    "debates_participated": rep.debates_participated,
-                })
-            else:
-                self._send_json({"agent": agent, "score": 0.5, "message": "No reputation data"})
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agent_reputation")}, status=500)
-
-    def _get_agent_introspection(self, agent: str) -> None:
-        """Get introspection data for a specific agent."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.introspection import get_agent_introspection, IntrospectionSnapshot
-        except ImportError:
-            self._send_json({"error": "Introspection module not available"}, status=503)
-            return
-
-        try:
-            # Get critique store if available
-            memory = None
-            if CRITIQUE_STORE_AVAILABLE:
-                db_path = self.nomic_dir / "debates.db" if self.nomic_dir else None
-                if db_path and db_path.exists():
-                    memory = CritiqueStore(str(db_path))
-
-            # Get persona manager if available
-            persona_manager = None
-            if PERSONA_MANAGER_AVAILABLE:
-                persona_db = self.nomic_dir / "personas.db" if self.nomic_dir else None
-                if persona_db and persona_db.exists():
-                    from aragora.agents.personas import PersonaManager
-                    persona_manager = PersonaManager(str(persona_db))
-
-            snapshot = get_agent_introspection(agent, memory=memory, persona_manager=persona_manager)
-            self._send_json(snapshot.to_dict())
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "introspection")}, status=500)
-
-    def _get_all_introspection(self) -> None:
-        """Get introspection data for all known agents."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.introspection import get_agent_introspection
-        except ImportError:
-            self._send_json({"error": "Introspection module not available"}, status=503)
-            return
-
-        try:
-            # Get all known agents from reputation store
-            agents = []
-            if CRITIQUE_STORE_AVAILABLE:
-                db_path = self.nomic_dir / "debates.db" if self.nomic_dir else None
-                if db_path and db_path.exists():
-                    store = CritiqueStore(str(db_path))
-                    reputations = store.get_all_reputations()
-                    agents = [r.agent_name for r in reputations]
-
-            if not agents:
-                # Default agents
-                agents = ["gemini", "claude", "codex", "grok", "deepseek"]
-
-            # Get critique store and persona manager
-            memory = None
-            persona_manager = None
-            if CRITIQUE_STORE_AVAILABLE:
-                db_path = self.nomic_dir / "debates.db" if self.nomic_dir else None
-                if db_path and db_path.exists():
-                    memory = CritiqueStore(str(db_path))
-            if PERSONA_MANAGER_AVAILABLE:
-                persona_db = self.nomic_dir / "personas.db" if self.nomic_dir else None
-                if persona_db and persona_db.exists():
-                    from aragora.agents.personas import PersonaManager
-                    persona_manager = PersonaManager(str(persona_db))
-
-            snapshots = {}
-            for agent in agents:
-                snapshot = get_agent_introspection(agent, memory=memory, persona_manager=persona_manager)
-                snapshots[agent] = snapshot.to_dict()
-
-            self._send_json({"agents": snapshots, "count": len(snapshots)})
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "all_introspection")}, status=500)
-
-    def _get_introspection_leaderboard(self, limit: int) -> None:
-        """Get agents ranked by reputation score."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.introspection import get_agent_introspection
-        except ImportError:
-            self._send_json({"error": "Introspection module not available"}, status=503)
-            return
-
-        try:
-            # Get all known agents from reputation store
-            agents = []
-            memory = None
-            if CRITIQUE_STORE_AVAILABLE:
-                db_path = self.nomic_dir / "debates.db" if self.nomic_dir else None
-                if db_path and db_path.exists():
-                    memory = CritiqueStore(str(db_path))
-                    reputations = memory.get_all_reputations()
-                    agents = [r.agent_name for r in reputations]
-
-            if not agents:
-                agents = ["gemini", "claude", "codex", "grok", "deepseek"]
-
-            persona_manager = None
-            if PERSONA_MANAGER_AVAILABLE:
-                persona_db = self.nomic_dir / "personas.db" if self.nomic_dir else None
-                if persona_db and persona_db.exists():
-                    from aragora.agents.personas import PersonaManager
-                    persona_manager = PersonaManager(str(persona_db))
-
-            snapshots = []
-            for agent in agents:
-                snapshot = get_agent_introspection(agent, memory=memory, persona_manager=persona_manager)
-                snapshots.append(snapshot.to_dict())
-
-            # Sort by reputation score descending
-            snapshots.sort(key=lambda x: x.get("reputation_score", 0), reverse=True)
-
-            self._send_json({
-                "leaderboard": snapshots[:limit],
-                "total_agents": len(snapshots),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "introspection_leaderboard")}, status=500)
-
-    # === Plugins API Implementation ===
-
-    def _list_plugins(self) -> None:
-        """List all available plugins."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.plugins.runner import get_registry
-            registry = get_registry()
-            plugins = registry.list_plugins()
-            self._send_json({
-                "plugins": [p.to_dict() for p in plugins],
-                "count": len(plugins),
-            })
-        except ImportError:
-            self._send_json({"error": "Plugins module not available"}, status=503)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "list_plugins")}, status=500)
-
-    def _get_plugin(self, plugin_name: str) -> None:
-        """Get details for a specific plugin."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.plugins.runner import get_registry
-            registry = get_registry()
-            manifest = registry.get(plugin_name)
-            if manifest:
-                # Also check if requirements are satisfied
-                runner = registry.get_runner(plugin_name)
-                if runner:
-                    valid, missing = runner._validate_requirements()
-                    self._send_json({
-                        **manifest.to_dict(),
-                        "requirements_satisfied": valid,
-                        "missing_requirements": missing,
-                    })
-                else:
-                    self._send_json(manifest.to_dict())
-            else:
-                self._send_json({"error": f"Plugin not found: {plugin_name}"}, status=404)
-        except ImportError:
-            self._send_json({"error": "Plugins module not available"}, status=503)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "get_plugin")}, status=500)
-
-    def _run_plugin(self, plugin_name: str) -> None:
-        """Run a plugin with provided input."""
-        if not self._check_rate_limit():
-            return
-
-        # Rate limit plugin execution more strictly
-        if not self._check_upload_rate_limit():
-            return
-
-        body = self._read_json_body()
-        if body is None:
-            return
-
-        input_data = body.get("input", {})
-        config = body.get("config", {})
-        working_dir = body.get("working_dir", ".")
-
-        # Validate working_dir (must be under current directory for security)
-        try:
-            from pathlib import Path
-            cwd = Path.cwd().resolve()
-            work_path = Path(working_dir).resolve()
-            if not str(work_path).startswith(str(cwd)):
-                self._send_json({"error": "Working directory must be under current directory"}, status=400)
-                return
-        except Exception:
-            self._send_json({"error": "Invalid working directory"}, status=400)
-            return
-
-        try:
-            from aragora.plugins.runner import get_registry
-            import asyncio
-
-            registry = get_registry()
-            manifest = registry.get(plugin_name)
-            if not manifest:
-                self._send_json({"error": f"Plugin not found: {plugin_name}"}, status=404)
-                return
-
-            # Run plugin with timeout
-            loop = asyncio.new_event_loop()
-            try:
-                result = loop.run_until_complete(
-                    registry.run_plugin(plugin_name, input_data, config, working_dir)
-                )
-                self._send_json(result.to_dict())
-            finally:
-                loop.close()
-
-        except ImportError:
-            self._send_json({"error": "Plugins module not available"}, status=503)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "run_plugin")}, status=500)
-
-    # === Genesis API Implementation ===
-
-    def _get_genesis_stats(self) -> None:
-        """Get overall genesis statistics for evolution visibility."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.genesis.ledger import GenesisLedger, GenesisEventType
-
-            ledger_path = ".nomic/genesis.db"
-            if self.nomic_dir:
-                ledger_path = str(self.nomic_dir / "genesis.db")
-
-            ledger = GenesisLedger(ledger_path)
-
-            # Count events by type
-            event_counts = {}
-            for event_type in GenesisEventType:
-                events = ledger.get_events_by_type(event_type)
-                event_counts[event_type.value] = len(events)
-
-            # Get recent births and deaths
-            births = ledger.get_events_by_type(GenesisEventType.AGENT_BIRTH)
-            deaths = ledger.get_events_by_type(GenesisEventType.AGENT_DEATH)
-
-            # Get fitness updates for trend
-            fitness_updates = ledger.get_events_by_type(GenesisEventType.FITNESS_UPDATE)
-            avg_fitness_change = 0.0
-            if fitness_updates:
-                changes = [e.data.get("change", 0) for e in fitness_updates[-50:]]
-                avg_fitness_change = sum(changes) / len(changes) if changes else 0.0
-
-            self._send_json({
-                "event_counts": event_counts,
-                "total_events": sum(event_counts.values()),
-                "total_births": len(births),
-                "total_deaths": len(deaths),
-                "net_population_change": len(births) - len(deaths),
-                "avg_fitness_change_recent": round(avg_fitness_change, 4),
-                "integrity_verified": ledger.verify_integrity(),
-                "merkle_root": ledger.get_merkle_root()[:32] + "...",
-            })
-        except ImportError:
-            self._send_json({"error": "Genesis module not available"}, status=503)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "genesis_stats")}, status=500)
-
-    def _get_genesis_events(self, limit: int, event_type: str | None = None) -> None:
-        """Get recent genesis events."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.genesis.ledger import GenesisLedger, GenesisEventType
-            import sqlite3
-            import json
-
-            ledger_path = ".nomic/genesis.db"
-            if self.nomic_dir:
-                ledger_path = str(self.nomic_dir / "genesis.db")
-
-            # Filter by type if specified
-            if event_type:
-                try:
-                    etype = GenesisEventType(event_type)
-                    ledger = GenesisLedger(ledger_path)
-                    events = ledger.get_events_by_type(etype)[-limit:]
-                    self._send_json({
-                        "events": [e.to_dict() for e in events],
-                        "count": len(events),
-                        "filter": event_type,
-                    })
-                    return
-                except ValueError:
-                    self._send_json({"error": f"Unknown event type: {event_type}"}, status=400)
-                    return
-
-            # Get all recent events
-            conn = sqlite3.connect(ledger_path)
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT event_id, event_type, timestamp, parent_event_id, content_hash, data
-                FROM genesis_events
-                ORDER BY timestamp DESC
-                LIMIT ?
-            """, (limit,))
-
-            events = []
-            for row in cursor.fetchall():
-                # Handle potentially malformed JSON in data column
-                try:
-                    data = json.loads(row[5]) if row[5] else {}
-                except json.JSONDecodeError:
-                    logger.warning(f"Malformed JSON in genesis event {row[0]}: {row[5][:100] if row[5] else 'None'}")
-                    data = {}
-                events.append({
-                    "event_id": row[0],
-                    "event_type": row[1],
-                    "timestamp": row[2],
-                    "parent_event_id": row[3],
-                    "content_hash": row[4][:16] + "...",
-                    "data": data,
-                })
-
-            conn.close()
-
-            self._send_json({
-                "events": events,
-                "count": len(events),
-            })
-        except ImportError:
-            self._send_json({"error": "Genesis module not available"}, status=503)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "genesis_events")}, status=500)
-
-    def _get_genome_lineage(self, genome_id: str) -> None:
-        """Get the lineage (ancestry) of a genome."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.genesis.ledger import GenesisLedger
-
-            ledger_path = ".nomic/genesis.db"
-            if self.nomic_dir:
-                ledger_path = str(self.nomic_dir / "genesis.db")
-
-            ledger = GenesisLedger(ledger_path)
-            lineage = ledger.get_lineage(genome_id)
-
-            if lineage:
-                self._send_json({
-                    "genome_id": genome_id,
-                    "lineage": lineage,
-                    "generations": len(lineage),
-                })
-            else:
-                self._send_json({"error": f"Genome not found: {genome_id}"}, status=404)
-
-        except ImportError:
-            self._send_json({"error": "Genesis module not available"}, status=503)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "genome_lineage")}, status=500)
-
-    def _get_debate_tree(self, debate_id: str) -> None:
-        """Get the fractal tree structure for a debate."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.genesis.ledger import GenesisLedger
-
-            ledger_path = ".nomic/genesis.db"
-            if self.nomic_dir:
-                ledger_path = str(self.nomic_dir / "genesis.db")
-
-            ledger = GenesisLedger(ledger_path)
-            tree = ledger.get_debate_tree(debate_id)
-
-            self._send_json({
-                "debate_id": debate_id,
-                "tree": tree.to_dict(),
-                "total_nodes": len(tree.nodes),
-            })
-
-        except ImportError:
-            self._send_json({"error": "Genesis module not available"}, status=503)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "debate_tree")}, status=500)
-
-    def _get_ranking_stats(self) -> None:
-        """Get ELO ranking system statistics."""
-        if not self._check_rate_limit():
-            return
-
-        if not RANKING_AVAILABLE or not self.elo_system:
-            self._send_json({"error": "Ranking system not available"}, status=503)
-            return
-
-        try:
-            stats = self.elo_system.get_stats()
-            self._send_json(stats)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "ranking_stats")}, status=500)
-
-    def _get_memory_stats(self) -> None:
-        """Get memory tier statistics from continuum memory."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.memory.continuum import ContinuumMemory
-
-            db_path = self.nomic_dir / "continuum_memory.db" if self.nomic_dir else None
-            if not db_path or not db_path.exists():
-                self._send_json({"message": "No memory data available", "tiers": {}})
-                return
-
-            memory = ContinuumMemory(db_path=str(db_path))
-            stats = memory.get_stats()
-            self._send_json(stats)
-        except ImportError:
-            self._send_json({"error": "Continuum memory module not available"}, status=503)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "memory_stats")}, status=500)
-
-    def _get_agent_comparison(self, agent_a: str, agent_b: str) -> None:
-        """Get head-to-head comparison between two agents."""
-        if not self._check_rate_limit():
-            return
-
-        if not RANKING_AVAILABLE or not self.elo_system:
-            self._send_json({"error": "Ranking system not available"}, status=503)
-            return
-
-        try:
-            comparison = self.elo_system.get_head_to_head(agent_a, agent_b)
-            if comparison:
-                self._send_json({
-                    "agent_a": agent_a,
-                    "agent_b": agent_b,
-                    **comparison
-                })
-            else:
-                self._send_json({
-                    "agent_a": agent_a,
-                    "agent_b": agent_b,
-                    "matches": 0,
-                    "message": "No head-to-head data available"
-                })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "agent_comparison")}, status=500)
-
-    def _get_head_to_head(self, agent: str, opponent: str) -> None:
-        """Get detailed head-to-head statistics between two agents."""
-        if not self._check_rate_limit():
-            return
-
-        if not RANKING_AVAILABLE or not self.elo_system:
-            self._send_json({"error": "Ranking system not available"}, status=503)
-            return
-
-        try:
-            h2h = self.elo_system.get_head_to_head(agent, opponent)
-            if h2h:
-                self._send_json({
-                    "agent": agent,
-                    "opponent": opponent,
-                    **h2h,
-                })
-            else:
-                self._send_json({
-                    "agent": agent,
-                    "opponent": opponent,
-                    "matches": 0,
-                    "message": "No head-to-head data available"
-                })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "head_to_head")}, status=500)
-
-    def _get_opponent_briefing(self, agent: str, opponent: str) -> None:
-        """Get strategic briefing about an opponent for an agent."""
-        if not self._check_rate_limit():
-            return
-
-        if not RELATIONSHIP_TRACKER_AVAILABLE:
-            self._send_json({"error": "Relationship tracker not available"}, status=503)
-            return
-
-        try:
-            from aragora.agents.grounded import PersonaSynthesizer
-            synthesizer = PersonaSynthesizer(
-                elo_system=self.elo_system,
-                calibration_tracker=CalibrationTracker() if CALIBRATION_AVAILABLE else None,
-                position_ledger=self.position_ledger,
-            )
-            briefing = synthesizer.get_opponent_briefing(agent, opponent)
-            if briefing:
-                self._send_json({
-                    "agent": agent,
-                    "opponent": opponent,
-                    "briefing": briefing,
-                })
-            else:
-                self._send_json({
-                    "agent": agent,
-                    "opponent": opponent,
-                    "briefing": None,
-                    "message": "No opponent data available"
-                })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "opponent_briefing")}, status=500)
-
-    def _get_calibration_curve(self, agent: str, buckets: int, domain: str | None = None) -> None:
-        """Get calibration curve (expected vs actual accuracy per bucket)."""
-        if not self._check_rate_limit():
-            return
-
-        if not CALIBRATION_AVAILABLE:
-            self._send_json({"error": "Calibration tracker not available"}, status=503)
-            return
-
-        try:
-            tracker = CalibrationTracker()
-            curve = tracker.get_calibration_curve(agent, num_buckets=buckets, domain=domain)
-            self._send_json({
-                "agent": agent,
-                "domain": domain,
-                "buckets": [
-                    {
-                        "range_start": b.range_start,
-                        "range_end": b.range_end,
-                        "total_predictions": b.total_predictions,
-                        "correct_predictions": b.correct_predictions,
-                        "accuracy": b.accuracy,
-                        "expected_accuracy": (b.range_start + b.range_end) / 2,
-                        "brier_score": b.brier_score,
-                    }
-                    for b in curve
-                ],
-                "count": len(curve),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "calibration_curve")}, status=500)
-
-    def _get_meta_critique(self, debate_id: str) -> None:
-        """Get meta-level analysis of a debate (repetition, circular arguments, etc)."""
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.debate.meta import MetaCritiqueAnalyzer
-            from aragora.debate.traces import DebateTrace
-
-            # Load debate trace
-            if not self.nomic_dir:
-                self._send_json({"error": "Nomic directory not configured"}, status=503)
-                return
-
-            trace_path = self.nomic_dir / "traces" / f"{debate_id}.json"
-            if not trace_path.exists():
-                self._send_json({"error": "Debate trace not found"}, status=404)
-                return
-
-            trace = DebateTrace.load(trace_path)
-            result = trace.to_debate_result()
-
-            analyzer = MetaCritiqueAnalyzer()
-            critique = analyzer.analyze(result)
-
-            self._send_json({
-                "debate_id": debate_id,
-                "overall_quality": critique.overall_quality,
-                "productive_rounds": critique.productive_rounds,
-                "unproductive_rounds": critique.unproductive_rounds,
-                "observations": [
-                    {
-                        "type": o.observation_type,
-                        "severity": o.severity,
-                        "agent": o.agent,
-                        "round": o.round_num,
-                        "description": o.description,
-                    }
-                    for o in critique.observations
-                ],
-                "recommendations": critique.recommendations,
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "meta_critique")}, status=500)
-
-    def _get_debate_graph_stats(self, debate_id: str) -> None:
-        """Get argument graph statistics for a debate.
-
-        Returns:
-            node_count, edge_count: Basic counts
-            max_depth: Maximum argument chain length
-            avg_branching: Average outgoing edges per node
-            complexity_score: 0-1 normalized complexity metric
-            claim_count, rebuttal_count: Type-specific counts
-        """
-        if not self._check_rate_limit():
-            return
-
-        try:
-            from aragora.visualization.mapper import ArgumentCartographer
-            from aragora.debate.traces import DebateTrace
-
-            # Load debate trace
-            if not self.nomic_dir:
-                self._send_json({"error": "Nomic directory not configured"}, status=503)
-                return
-
-            trace_path = self.nomic_dir / "traces" / f"{debate_id}.json"
-            if not trace_path.exists():
-                # Try replays directory as fallback
-                replay_path = self.nomic_dir / "replays" / debate_id / "events.jsonl"
-                if replay_path.exists():
-                    # Build cartographer from replay events
-                    cartographer = ArgumentCartographer()
-                    cartographer.set_debate_context(debate_id, "")
-                    with replay_path.open() as f:
-                        for line_num, line in enumerate(f, 1):
-                            if line.strip():
-                                try:
-                                    event = json.loads(line)
-                                except json.JSONDecodeError:
-                                    logger.warning(f"Skipping malformed JSONL line {line_num}: {line[:100]}")
-                                    continue
-                                if event.get("type") == "agent_message":
-                                    cartographer.update_from_message(
-                                        agent=event.get("agent", "unknown"),
-                                        content=event.get("data", {}).get("content", ""),
-                                        role=event.get("data", {}).get("role", "proposer"),
-                                        round_num=event.get("round", 1),
-                                    )
-                                elif event.get("type") == "critique":
-                                    cartographer.update_from_critique(
-                                        critic_agent=event.get("agent", "unknown"),
-                                        target_agent=event.get("data", {}).get("target", "unknown"),
-                                        severity=event.get("data", {}).get("severity", 0.5),
-                                        round_num=event.get("round", 1),
-                                        critique_text=event.get("data", {}).get("content", ""),
-                                    )
-                    stats = cartographer.get_statistics()
-                    self._send_json(stats)
-                    return
-                else:
-                    self._send_json({"error": "Debate not found"}, status=404)
-                    return
-
-            # Load from trace file
-            trace = DebateTrace.load(trace_path)
-            result = trace.to_debate_result()
-
-            # Build cartographer from debate result
-            cartographer = ArgumentCartographer()
-            cartographer.set_debate_context(debate_id, result.task or "")
-
-            # Process messages from the debate
-            for msg in result.messages:
-                cartographer.update_from_message(
-                    agent=msg.agent,
-                    content=msg.content,
-                    role=msg.role,
-                    round_num=msg.round,
-                )
-
-            # Process critiques
-            for critique in result.critiques:
-                cartographer.update_from_critique(
-                    critic_agent=critique.agent,
-                    target_agent=critique.target or "",
-                    severity=critique.severity,
-                    round_num=getattr(critique, 'round', 1),
-                    critique_text=critique.reasoning,
-                )
-
-            stats = cartographer.get_statistics()
-            self._send_json(stats)
-
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "debate_graph_stats")}, status=500)
-
-    def _get_emergent_traits(self, min_confidence: float, limit: int) -> None:
-        """Get emergent traits detected from agent performance patterns."""
-        if not self._check_rate_limit():
-            return
-
-        if not LABORATORY_AVAILABLE:
-            self._send_json({"error": "Persona laboratory not available"}, status=503)
-            return
-
-        try:
-            lab = PersonaLaboratory(
-                db_path=str(self.nomic_dir / "laboratory.db") if self.nomic_dir else None,
-                persona_manager=self.persona_manager,
-            )
-            traits = lab.detect_emergent_traits()
-            # Filter by confidence and limit
-            filtered = [t for t in traits if t.confidence >= min_confidence][:limit]
-            self._send_json({
-                "emergent_traits": [
-                    {
-                        "agent": t.agent_name,
-                        "trait": t.trait_name,
-                        "domain": t.domain,
-                        "confidence": t.confidence,
-                        "evidence": t.evidence,
-                        "detected_at": t.detected_at,
-                    }
-                    for t in filtered
-                ],
-                "count": len(filtered),
-                "min_confidence": min_confidence,
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "emergent_traits")}, status=500)
-
-    def _suggest_cross_pollinations(self) -> None:
-        """Suggest beneficial trait transfers for a target agent (POST)."""
-        if not self._check_rate_limit():
-            return
-
-        if not LABORATORY_AVAILABLE:
-            self._send_json({"error": "Persona laboratory not available"}, status=503)
-            return
-
-        content_length = self._validate_content_length()
-        if content_length is None:
-            return  # Error already sent
-
-        try:
-            body = self.rfile.read(content_length)
-            data = json.loads(body) if body else {}
-
-            target_agent = data.get('target_agent')
-            if not target_agent:
-                self._send_json({"error": "target_agent required"}, status=400)
-                return
-
-            lab = PersonaLaboratory(
-                db_path=str(self.nomic_dir / "laboratory.db") if self.nomic_dir else None,
-                persona_manager=self.persona_manager,
-            )
-            suggestions = lab.suggest_cross_pollinations(target_agent)
-            self._send_json({
-                "target_agent": target_agent,
-                "suggestions": [
-                    {
-                        "source_agent": s[0],
-                        "trait_or_domain": s[1],
-                        "reason": s[2],
-                    }
-                    for s in suggestions
-                ],
-                "count": len(suggestions),
-            })
-        except json.JSONDecodeError:
-            self._send_json({"error": "Invalid JSON body"}, status=400)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "cross_pollinations")}, status=500)
-
-    def _get_debate_cruxes(self, debate_id: str, top_k: int) -> None:
-        """Get key claims that would most impact the debate outcome."""
-        if not self._check_rate_limit():
-            return
-
-        if not BELIEF_NETWORK_AVAILABLE:
-            self._send_json({"error": "Belief network not available"}, status=503)
-            return
-
-        try:
-            from aragora.debate.traces import DebateTrace
-
-            if not self.nomic_dir:
-                self._send_json({"error": "Nomic directory not configured"}, status=503)
-                return
-
-            trace_path = self.nomic_dir / "traces" / f"{debate_id}.json"
-            if not trace_path.exists():
-                self._send_json({"error": "Debate trace not found"}, status=404)
-                return
-
-            trace = DebateTrace.load(trace_path)
-            result = trace.to_debate_result()
-
-            # Build belief network from debate
-            network = BeliefNetwork(debate_id=debate_id)
-            for msg in result.messages:
-                network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
-
-            analyzer = BeliefPropagationAnalyzer(network)
-            cruxes = analyzer.identify_debate_cruxes(top_k=top_k)
-
-            self._send_json({
-                "debate_id": debate_id,
-                "cruxes": cruxes,
-                "count": len(cruxes),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "debate_cruxes")}, status=500)
-
-    def _get_claim_support(self, debate_id: str, claim_id: str) -> None:
-        """Get verification status of all evidence supporting a claim."""
-        if not self._check_rate_limit():
-            return
-
-        if not PROVENANCE_AVAILABLE:
-            self._send_json({"error": "Provenance tracker not available"}, status=503)
-            return
-
-        try:
-            if not self.nomic_dir:
-                self._send_json({"error": "Nomic directory not configured"}, status=503)
-                return
-
-            provenance_path = self.nomic_dir / "provenance" / f"{debate_id}.json"
-            if not provenance_path.exists():
-                self._send_json({
-                    "debate_id": debate_id,
-                    "claim_id": claim_id,
-                    "support": None,
-                    "message": "No provenance data for this debate"
-                })
-                return
-
-            tracker = ProvenanceTracker.load(provenance_path)
-            support = tracker.get_claim_support(claim_id)
-
-            self._send_json({
-                "debate_id": debate_id,
-                "claim_id": claim_id,
-                "support": support,
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "claim_support")}, status=500)
-
-    def _get_routing_recommendations(self) -> None:
-        """Get agent recommendations for a task (POST)."""
-        if not self._check_rate_limit():
-            return
-
-        if not ROUTING_AVAILABLE:
-            self._send_json({"error": "Agent selector not available"}, status=503)
-            return
-
-        content_length = self._validate_content_length()
-        if content_length is None:
-            return  # Error already sent
-
-        try:
-            body = self.rfile.read(content_length)
-            data = json.loads(body) if body else {}
-
-            primary_domain = data.get('primary_domain', 'general')
-            secondary_domains = data.get('secondary_domains', [])
-            required_traits = data.get('required_traits', [])
-            limit = min(data.get('limit', 5), 20)
-
-            requirements = TaskRequirements(
-                task_id=data.get('task_id', 'ad-hoc'),
-                primary_domain=primary_domain,
-                secondary_domains=secondary_domains,
-                required_traits=required_traits,
-            )
-
-            selector = AgentSelector(
-                elo_system=self.elo_system,
-                persona_manager=self.persona_manager,
-            )
-            recommendations = selector.get_recommendations(requirements, limit=limit)
-
-            self._send_json({
-                "task_id": requirements.task_id,
-                "primary_domain": primary_domain,
-                "recommendations": recommendations,
-                "count": len(recommendations),
-            })
-        except json.JSONDecodeError:
-            self._send_json({"error": "Invalid JSON body"}, status=400)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "routing_recommendations")}, status=500)
-
-    def _formal_verify_claim(self) -> None:
-        """Attempt formal verification of a claim using Z3 SMT solver.
-
-        POST body:
-            claim: The claim to verify (required)
-            claim_type: Optional hint (assertion, logical, arithmetic, etc.)
-            context: Optional additional context
-            timeout: Timeout in seconds (default: 30, max: 120)
-
-        Returns:
-            status: proof_found, proof_failed, translation_failed, etc.
-            is_verified: True if claim was formally proven
-            formal_statement: The SMT-LIB2 translation (if successful)
-            proof_hash: Hash of the proof (if found)
-        """
-        if not self._check_rate_limit():
-            return
-
-        if not FORMAL_VERIFICATION_AVAILABLE:
-            self._send_json({
-                "error": "Formal verification not available",
-                "hint": "Install z3-solver: pip install z3-solver"
-            }, status=503)
-            return
-
-        content_length = self._validate_content_length()
-        if content_length is None:
-            return  # Error already sent
-
-        try:
-            body = self.rfile.read(content_length)
-            data = json.loads(body) if body else {}
-
-            claim = data.get('claim', '').strip()
-            if not claim:
-                self._send_json({"error": "Missing required field: claim"}, status=400)
-                return
-
-            claim_type = data.get('claim_type')
-            context = data.get('context', '')
-            timeout = min(float(data.get('timeout', 30)), 120)
-
-            # Get the formal verification manager
-            manager = get_formal_verification_manager()
-
-            # Check backend availability
-            status_report = manager.status_report()
-            if not status_report.get("any_available"):
-                self._send_json({
-                    "error": "No formal verification backends available",
-                    "backends": status_report.get("backends", []),
-                }, status=503)
-                return
-
-            # Run verification asynchronously
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(
-                    manager.attempt_formal_verification(
-                        claim=claim,
-                        claim_type=claim_type,
-                        context=context,
-                        timeout_seconds=timeout,
-                    )
-                )
-            finally:
-                loop.close()
-
-            # Build response
-            response = result.to_dict()
-            response["claim"] = claim
-            if claim_type:
-                response["claim_type"] = claim_type
-
-            self._send_json(response)
-
-        except json.JSONDecodeError:
-            self._send_json({"error": "Invalid JSON body"}, status=400)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "formal_verification")}, status=500)
-
-    def _formal_verification_status(self) -> None:
-        """Get status of formal verification backends.
-
-        Returns availability of Z3 and Lean backends.
-        """
-        if not FORMAL_VERIFICATION_AVAILABLE:
-            self._send_json({
-                "available": False,
-                "hint": "Install z3-solver: pip install z3-solver",
-                "backends": [],
-            })
-            return
-
-        try:
-            manager = get_formal_verification_manager()
-            status = manager.status_report()
-            self._send_json({
-                "available": status.get("any_available", False),
-                "backends": status.get("backends", []),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "formal_status")}, status=500)
 
     def _extract_detailed_insights(self) -> None:
         """Extract detailed insights from debate content.
@@ -4634,253 +1867,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
 
         return patterns
 
-    def _run_capability_probe(self) -> None:
-        """Run capability probes on an agent to find vulnerabilities.
-
-        POST body:
-            agent_name: Name of agent to probe (required)
-            probe_types: List of probe types (optional, default: all)
-                Options: contradiction, hallucination, sycophancy, persistence,
-                         confidence_calibration, reasoning_depth, edge_case
-            probes_per_type: Number of probes per type (default: 3, max: 10)
-            model_type: Agent model type (optional, default: anthropic-api)
-
-        Returns:
-            report_id: Unique report ID
-            target_agent: Name of probed agent
-            probes_run: Total probes executed
-            vulnerabilities_found: Count of vulnerabilities detected
-            vulnerability_rate: Fraction of probes that found vulnerabilities
-            elo_penalty: ELO penalty applied
-            by_type: Results grouped by probe type with passed/failed status
-            summary: Quick stats for UI display
-        """
-        if not self._check_rate_limit():
-            return
-
-        if not PROBER_AVAILABLE:
-            self._send_json({
-                "error": "Capability prober not available",
-                "hint": "Prober module failed to import"
-            }, status=503)
-            return
-
-        if not DEBATE_AVAILABLE or create_agent is None:
-            self._send_json({
-                "error": "Agent system not available",
-                "hint": "Debate module or create_agent failed to import"
-            }, status=503)
-            return
-
-        content_length = self._validate_content_length()
-        if content_length is None:
-            return  # Error already sent
-
-        try:
-            body = self.rfile.read(content_length)
-            data = json.loads(body) if body else {}
-
-            agent_name = data.get('agent_name', '').strip()
-            if not agent_name:
-                self._send_json({"error": "Missing required field: agent_name"}, status=400)
-                return
-
-            # Validate agent name
-            if not re.match(SAFE_ID_PATTERN, agent_name):
-                self._send_json({"error": "Invalid agent_name format"}, status=400)
-                return
-
-            probe_type_strs = data.get('probe_types', [
-                'contradiction', 'hallucination', 'sycophancy', 'persistence'
-            ])
-            probes_per_type = min(int(data.get('probes_per_type', 3)), 10)
-            model_type = data.get('model_type', 'anthropic-api')
-
-            from aragora.modes.prober import ProbeType, CapabilityProber
-            from datetime import datetime
-            import asyncio
-
-            # Convert string probe types to enum
-            probe_types = []
-            for pt_str in probe_type_strs:
-                try:
-                    probe_types.append(ProbeType(pt_str))
-                except ValueError:
-                    pass  # Skip invalid probe types
-
-            if not probe_types:
-                self._send_json({"error": "No valid probe types specified"}, status=400)
-                return
-
-            # Create agent for probing
-            try:
-                agent = create_agent(model_type, name=agent_name, role="proposer")
-            except Exception as e:
-                self._send_json({
-                    "error": f"Failed to create agent: {str(e)}",
-                    "hint": f"model_type '{model_type}' may not be available"
-                }, status=400)
-                return
-
-            # Create prober with optional ELO integration
-            prober = CapabilityProber(
-                elo_system=self.elo_system,
-                elo_penalty_multiplier=5.0
-            )
-
-            # Get stream hooks if available for real-time updates
-            probe_hooks = None
-            if hasattr(self.server, 'stream_server') and self.server.stream_server:
-                from .nomic_stream import create_nomic_hooks
-                probe_hooks = create_nomic_hooks(self.server.stream_server.emitter)
-
-            report_id = f"probe-report-{uuid.uuid4().hex[:8]}"
-
-            # Emit probe start event
-            if probe_hooks and 'on_probe_start' in probe_hooks:
-                probe_hooks['on_probe_start'](
-                    probe_id=report_id,
-                    target_agent=agent_name,
-                    probe_types=[pt.value for pt in probe_types],
-                    probes_per_type=probes_per_type
-                )
-
-            # Define run_agent_fn callback for prober
-            async def run_agent_fn(target_agent, prompt: str) -> str:
-                """Execute agent with probe prompt."""
-                try:
-                    if asyncio.iscoroutinefunction(target_agent.generate):
-                        return await target_agent.generate(prompt)
-                    else:
-                        return target_agent.generate(prompt)
-                except Exception as e:
-                    return f"[Agent Error: {str(e)}]"
-
-            # Run probes asynchronously
-            async def run_probes():
-                return await prober.probe_agent(
-                    target_agent=agent,
-                    run_agent_fn=run_agent_fn,
-                    probe_types=probe_types,
-                    probes_per_type=probes_per_type,
-                )
-
-            # Execute in event loop
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                report = loop.run_until_complete(run_probes())
-                loop.close()
-            except Exception as e:
-                self._send_json({
-                    "error": f"Probe execution failed: {str(e)}"
-                }, status=500)
-                return
-
-            # Transform results for frontend (vulnerability_found -> passed)
-            by_type_transformed = {}
-            for probe_type_key, results in report.by_type.items():
-                transformed_results = []
-                for r in results:
-                    result_dict = r.to_dict() if hasattr(r, 'to_dict') else r
-                    # Invert vulnerability_found to get passed
-                    passed = not result_dict.get('vulnerability_found', False)
-                    transformed_results.append({
-                        "probe_id": result_dict.get('probe_id', ''),
-                        "type": result_dict.get('probe_type', probe_type_key),
-                        "passed": passed,
-                        "severity": result_dict.get('severity', '').lower() if result_dict.get('severity') else None,
-                        "description": result_dict.get('vulnerability_description', ''),
-                        "details": result_dict.get('evidence', ''),
-                        "response_time_ms": result_dict.get('response_time_ms', 0),
-                    })
-
-                    # Emit individual probe result event
-                    if probe_hooks and 'on_probe_result' in probe_hooks:
-                        probe_hooks['on_probe_result'](
-                            probe_id=result_dict.get('probe_id', ''),
-                            probe_type=probe_type_key,
-                            passed=passed,
-                            severity=result_dict.get('severity', '').lower() if result_dict.get('severity') else None,
-                            description=result_dict.get('vulnerability_description', ''),
-                            response_time_ms=result_dict.get('response_time_ms', 0)
-                        )
-
-                by_type_transformed[probe_type_key] = transformed_results
-
-            # Record red team result in ELO system
-            if self.elo_system and report.probes_run > 0:
-                robustness_score = 1.0 - report.vulnerability_rate
-                try:
-                    self.elo_system.record_redteam_result(
-                        agent_name=agent_name,
-                        robustness_score=robustness_score,
-                        successful_attacks=report.vulnerabilities_found,
-                        total_attacks=report.probes_run,
-                        critical_vulnerabilities=report.critical_count,
-                        session_id=report_id
-                    )
-                except Exception:
-                    pass  # Don't fail probe if ELO update fails
-
-            # Save results to .nomic/probes/
-            if self.nomic_dir:
-                try:
-                    probes_dir = self.nomic_dir / "probes" / agent_name
-                    probes_dir.mkdir(parents=True, exist_ok=True)
-                    date_str = datetime.now().strftime("%Y-%m-%d")
-                    probe_file = probes_dir / f"{date_str}_{report.report_id}.json"
-                    probe_file.write_text(json.dumps(report.to_dict(), indent=2, default=str))
-                except Exception:
-                    pass  # Don't fail if storage fails
-
-            # Emit probe complete event
-            if probe_hooks and 'on_probe_complete' in probe_hooks:
-                probe_hooks['on_probe_complete'](
-                    report_id=report.report_id,
-                    target_agent=agent_name,
-                    probes_run=report.probes_run,
-                    vulnerabilities_found=report.vulnerabilities_found,
-                    vulnerability_rate=report.vulnerability_rate,
-                    elo_penalty=report.elo_penalty,
-                    by_severity={
-                        "critical": report.critical_count,
-                        "high": report.high_count,
-                        "medium": report.medium_count,
-                        "low": report.low_count,
-                    }
-                )
-
-            # Calculate summary for frontend
-            passed_count = report.probes_run - report.vulnerabilities_found
-            pass_rate = passed_count / report.probes_run if report.probes_run > 0 else 1.0
-
-            self._send_json({
-                "report_id": report.report_id,
-                "target_agent": agent_name,
-                "probes_run": report.probes_run,
-                "vulnerabilities_found": report.vulnerabilities_found,
-                "vulnerability_rate": round(report.vulnerability_rate, 3),
-                "elo_penalty": round(report.elo_penalty, 1),
-                "by_type": by_type_transformed,
-                "summary": {
-                    "total": report.probes_run,
-                    "passed": passed_count,
-                    "failed": report.vulnerabilities_found,
-                    "pass_rate": round(pass_rate, 3),
-                    "critical": report.critical_count,
-                    "high": report.high_count,
-                    "medium": report.medium_count,
-                    "low": report.low_count,
-                },
-                "recommendations": report.recommendations,
-                "created_at": report.created_at,
-            })
-
-        except json.JSONDecodeError:
-            self._send_json({"error": "Invalid JSON body"}, status=400)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "capability_probe")}, status=500)
+    # NOTE: _run_capability_probe moved to handlers/probes.py (ProbesHandler)
 
     def _run_deep_audit(self) -> None:
         """Run a deep audit (Heavy3-inspired intensive multi-round debate protocol).
@@ -4966,10 +1953,10 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             else:
                 # Build custom config
                 config = DeepAuditConfig(
-                    rounds=min(int(config_data.get('rounds', 6)), 10),
+                    rounds=min(_safe_int(config_data.get('rounds', 6), 6), 10),
                     enable_research=config_data.get('enable_research', True),
-                    cross_examination_depth=min(int(config_data.get('cross_examination_depth', 3)), 10),
-                    risk_threshold=float(config_data.get('risk_threshold', 0.7)),
+                    cross_examination_depth=min(_safe_int(config_data.get('cross_examination_depth', 3), 3), 10),
+                    risk_threshold=_safe_float(config_data.get('risk_threshold', 0.7), 0.7),
                 )
 
             # Create agents for the audit
@@ -5027,11 +2014,9 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 return await orchestrator.run(task, context)
 
             # Execute in event loop
+            # Use asyncio.run() for proper event loop lifecycle management
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                verdict = loop.run_until_complete(run_audit())
-                loop.close()
+                verdict = asyncio.run(run_audit())
             except Exception as e:
                 self._send_json({
                     "error": f"Deep audit execution failed: {str(e)}"
@@ -5063,8 +2048,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                                 critical_vulnerabilities=0,
                                 session_id=audit_id
                             )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning(f"Failed to record audit ELO result for {agent_name}: {e}")
 
             # Emit audit verdict event
             if audit_hooks and 'on_audit_verdict' in audit_hooks:
@@ -5125,8 +2110,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                         "elo_adjustments": elo_adjustments,
                         "created_at": datetime.now().isoformat(),
                     }, indent=2, default=str))
-                except Exception:
-                    pass  # Don't fail if storage fails
+                except Exception as e:
+                    logger.warning("Audit storage failed for %s (non-fatal): %s: %s", audit_id, type(e).__name__, e)
 
             # Build response
             self._send_json({
@@ -5298,7 +2283,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
                 'logical_fallacy', 'edge_case', 'unstated_assumption',
                 'counterexample', 'scalability', 'security'
             ])
-            max_rounds = min(int(data.get('max_rounds', 3)), 5)
+            max_rounds = min(_safe_int(data.get('max_rounds', 3), 3), 5)
 
             focus_proposal = data.get('focus_proposal') or (
                 debate_data.get('consensus_answer') or
@@ -5391,131 +2376,58 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._send_json({"error": _safe_error_message(e, "verify_debate")}, status=500)
 
     # Tournament methods moved to TournamentHandler
+    # Best team combinations moved to RoutingHandler
+    # Evolution history moved to EvolutionHandler
 
-    def _get_best_team_combinations(self, min_debates: int, limit: int) -> None:
-        """Get best-performing team combinations from history."""
-        if not self._check_rate_limit():
+    def _serve_audio(self, debate_id: str) -> None:
+        """Serve audio file for a debate with security checks.
+
+        GET /audio/{debate_id}.mp3
+        """
+        if not self.audio_store:
+            self.send_error(404, "Audio storage not configured")
             return
 
-        if not ROUTING_AVAILABLE:
-            self._send_json({"error": "Agent selector not available"}, status=503)
+        # Validate debate_id format (prevent path traversal)
+        if not debate_id or '..' in debate_id or '/' in debate_id or '\\' in debate_id:
+            self.send_error(400, "Invalid debate ID")
             return
 
+        # Get audio file path
+        audio_path = self.audio_store.get_path(debate_id)
+        if not audio_path or not audio_path.exists():
+            self.send_error(404, "Audio not found")
+            return
+
+        # Security: Ensure file is within audio storage directory
         try:
-            selector = AgentSelector(
-                elo_system=self.elo_system,
-                persona_manager=self.persona_manager,
-            )
-            combinations = selector.get_best_team_combinations(min_debates=min_debates)[:limit]
-
-            self._send_json({
-                "min_debates": min_debates,
-                "combinations": combinations,
-                "count": len(combinations),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "best_teams")}, status=500)
-
-    def _get_evolution_history(self, agent: str, limit: int) -> None:
-        """Get prompt evolution history for an agent."""
-        if not self._check_rate_limit():
-            return
-
-        if not EVOLUTION_AVAILABLE:
-            self._send_json({"error": "Prompt evolution not available"}, status=503)
-            return
-
-        try:
-            if not self.nomic_dir:
-                self._send_json({"error": "Nomic directory not configured"}, status=503)
+            audio_path_resolved = audio_path.resolve()
+            storage_dir_resolved = self.audio_store.storage_dir.resolve()
+            if not str(audio_path_resolved).startswith(str(storage_dir_resolved)):
+                logger.warning(f"Audio path traversal attempt: {debate_id}")
+                self.send_error(403, "Access denied")
                 return
-
-            evolver = PromptEvolver(db_path=str(self.nomic_dir / "prompt_evolution.db"))
-            history = evolver.get_evolution_history(agent, limit=limit)
-
-            self._send_json({
-                "agent": agent,
-                "history": history,
-                "count": len(history),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "evolution_history")}, status=500)
-
-    def _get_load_bearing_claims(self, debate_id: str, limit: int) -> None:
-        """Get claims with highest centrality (most load-bearing)."""
-        if not self._check_rate_limit():
-            return
-
-        if not BELIEF_NETWORK_AVAILABLE:
-            self._send_json({"error": "Belief network not available"}, status=503)
+        except (ValueError, OSError):
+            self.send_error(400, "Invalid path")
             return
 
         try:
-            from aragora.debate.traces import DebateTrace
-
-            if not self.nomic_dir:
-                self._send_json({"error": "Nomic directory not configured"}, status=503)
-                return
-
-            trace_path = self.nomic_dir / "traces" / f"{debate_id}.json"
-            if not trace_path.exists():
-                self._send_json({"error": "Debate trace not found"}, status=404)
-                return
-
-            trace = DebateTrace.load(trace_path)
-            result = trace.to_debate_result()
-
-            # Build belief network from debate
-            network = BeliefNetwork(debate_id=debate_id)
-            for msg in result.messages:
-                network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
-
-            load_bearing = network.get_load_bearing_claims(limit=limit)
-
-            self._send_json({
-                "debate_id": debate_id,
-                "load_bearing_claims": [
-                    {
-                        "claim_id": node.claim_id,
-                        "statement": node.claim_statement,
-                        "author": node.author,
-                        "centrality": centrality,
-                    }
-                    for node, centrality in load_bearing
-                ],
-                "count": len(load_bearing),
-            })
+            content = audio_path.read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type', 'audio/mpeg')
+            self.send_header('Content-Length', len(content))
+            self.send_header('Accept-Ranges', 'bytes')
+            self.send_header('Cache-Control', 'public, max-age=86400')  # Cache for 1 day
+            self._add_cors_headers()
+            self.end_headers()
+            self.wfile.write(content)
         except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "load_bearing_claims")}, status=500)
+            logger.error(f"Failed to serve audio {debate_id}: {e}")
+            self.send_error(500, "Failed to read audio file")
 
-    def _get_calibration_summary(self, agent: str, domain: str | None = None) -> None:
-        """Get comprehensive calibration summary for an agent."""
-        if not self._check_rate_limit():
-            return
-
-        if not CALIBRATION_AVAILABLE:
-            self._send_json({"error": "Calibration tracker not available"}, status=503)
-            return
-
-        try:
-            tracker = CalibrationTracker()
-            summary = tracker.get_calibration_summary(agent, domain=domain)
-
-            self._send_json({
-                "agent": summary.agent,
-                "domain": domain,
-                "total_predictions": summary.total_predictions,
-                "total_correct": summary.total_correct,
-                "accuracy": summary.accuracy,
-                "brier_score": summary.brier_score,
-                "ece": summary.ece,
-                "is_overconfident": summary.is_overconfident,
-                "is_underconfident": summary.is_underconfident,
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "calibration_summary")}, status=500)
-
-    # Continuum memory methods moved to MemoryHandler
+    # NOTE: Podcast and social publishing methods moved to handlers/broadcast.py (BroadcastHandler)
+    # _get_podcast_feed, _get_podcast_episodes, _publish_to_twitter
+    # _get_youtube_auth_url, _handle_youtube_callback, _get_youtube_status, _publish_to_youtube
 
     def _serve_file(self, filename: str) -> None:
         """Serve a static file with path traversal protection."""
@@ -5575,8 +2487,16 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._add_security_headers()
             self.end_headers()
             self.wfile.write(content)
-        except Exception:
+        except FileNotFoundError:
+            self.send_error(404, "File not found")
+        except PermissionError:
+            self.send_error(403, "Permission denied")
+        except (IOError, OSError) as e:
+            logger.error(f"File read error: {e}")
             self.send_error(500, "Failed to read file")
+        except (BrokenPipeError, ConnectionResetError):
+            # Client disconnected, no response needed
+            pass
 
     def _send_json(self, data, status: int = 200) -> None:
         """Send JSON response."""
@@ -5633,12 +2553,13 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         pass
 
 
-def _shutdown_debate_executor():
+def _shutdown_debate_executor() -> None:
     """Shutdown debate executor on process exit."""
-    if UnifiedHandler._debate_executor:
-        logger.info("Shutting down debate executor...")
-        UnifiedHandler._debate_executor.shutdown(wait=True, cancel_futures=False)
-        UnifiedHandler._debate_executor = None
+    with UnifiedHandler._debate_executor_lock:
+        if UnifiedHandler._debate_executor:
+            logger.info("Shutting down debate executor...")
+            UnifiedHandler._debate_executor.shutdown(wait=True, cancel_futures=False)
+            UnifiedHandler._debate_executor = None
 
 
 atexit.register(_shutdown_debate_executor)
@@ -5685,7 +2606,7 @@ class UnifiedServer:
         if enable_persistence and PERSISTENCE_AVAILABLE:
             self.persistence = SupabaseClient()
             if self.persistence.is_configured:
-                print("[server] Supabase persistence enabled")
+                logger.info("[server] Supabase persistence enabled")
             else:
                 self.persistence = None
 
@@ -5698,61 +2619,85 @@ class UnifiedServer:
             UnifiedHandler.nomic_state_file = nomic_dir / "nomic_state.json"
             # Initialize InsightStore from nomic directory
             if INSIGHTS_AVAILABLE:
-                insights_path = nomic_dir / "aragora_insights.db"
+                insights_path = nomic_dir / DB_INSIGHTS_PATH
                 if insights_path.exists():
                     UnifiedHandler.insight_store = InsightStore(str(insights_path))
-                    print("[server] InsightStore loaded for API access")
+                    logger.info("[server] InsightStore loaded for API access")
             # Initialize EloSystem from nomic directory
             if RANKING_AVAILABLE:
                 elo_path = nomic_dir / "agent_elo.db"
                 if elo_path.exists():
                     UnifiedHandler.elo_system = EloSystem(str(elo_path))
-                    print("[server] EloSystem loaded for leaderboard API")
+                    logger.info("[server] EloSystem loaded for leaderboard API")
 
             # Initialize FlipDetector from nomic directory
             if FLIP_DETECTOR_AVAILABLE:
                 positions_path = nomic_dir / "aragora_positions.db"
                 if positions_path.exists():
                     UnifiedHandler.flip_detector = FlipDetector(str(positions_path))
-                    print("[server] FlipDetector loaded for position reversal API")
+                    logger.info("[server] FlipDetector loaded for position reversal API")
 
             # Initialize DocumentStore for file uploads
             doc_dir = nomic_dir / "documents"
             UnifiedHandler.document_store = DocumentStore(doc_dir)
-            print(f"[server] DocumentStore initialized at {doc_dir}")
+            logger.info(f"[server] DocumentStore initialized at {doc_dir}")
+
+            # Initialize AudioFileStore for broadcast audio
+            audio_dir = nomic_dir / "audio"
+            UnifiedHandler.audio_store = AudioFileStore(audio_dir)
+            logger.info(f"[server] AudioFileStore initialized at {audio_dir}")
+
+            # Initialize Twitter connector for social posting
+            UnifiedHandler.twitter_connector = TwitterPosterConnector()
+            if UnifiedHandler.twitter_connector.is_configured:
+                logger.info("[server] TwitterPosterConnector initialized")
+            else:
+                logger.info("[server] TwitterPosterConnector created (credentials not configured)")
+
+            # Initialize YouTube connector for video uploads
+            UnifiedHandler.youtube_connector = YouTubeUploaderConnector()
+            if UnifiedHandler.youtube_connector.is_configured:
+                logger.info("[server] YouTubeUploaderConnector initialized")
+            else:
+                logger.info("[server] YouTubeUploaderConnector created (credentials not configured)")
+
+            # Initialize video generator for YouTube
+            video_dir = nomic_dir / "videos"
+            UnifiedHandler.video_generator = VideoGenerator(video_dir)
+            logger.info(f"[server] VideoGenerator initialized at {video_dir}")
 
             # Initialize PersonaManager for agent specialization
             if PERSONAS_AVAILABLE:
                 personas_path = nomic_dir / "personas.db"
                 UnifiedHandler.persona_manager = PersonaManager(str(personas_path))
-                print("[server] PersonaManager loaded for agent specialization")
+                logger.info("[server] PersonaManager loaded for agent specialization")
 
             # Initialize PositionLedger for truth-grounded personas
             if POSITION_LEDGER_AVAILABLE:
                 ledger_path = nomic_dir / "position_ledger.db"
                 try:
                     UnifiedHandler.position_ledger = PositionLedger(db_path=str(ledger_path))
-                    print("[server] PositionLedger loaded for truth-grounded personas")
+                    logger.info("[server] PositionLedger loaded for truth-grounded personas")
                 except Exception as e:
-                    print(f"[server] PositionLedger initialization failed: {e}")
+                    logger.warning(f"[server] PositionLedger initialization failed: {e}")
 
             # Initialize DebateEmbeddingsDatabase for historical memory
             if EMBEDDINGS_AVAILABLE:
                 embeddings_path = nomic_dir / "debate_embeddings.db"
                 try:
                     UnifiedHandler.debate_embeddings = DebateEmbeddingsDatabase(str(embeddings_path))
-                    print("[server] DebateEmbeddings loaded for historical memory")
+                    logger.info("[server] DebateEmbeddings loaded for historical memory")
                 except Exception as e:
-                    print(f"[server] DebateEmbeddings initialization failed: {e}")
+                    logger.warning(f"[server] DebateEmbeddings initialization failed: {e}")
 
             # Initialize ConsensusMemory and DissentRetriever for historical minority views
             if CONSENSUS_MEMORY_AVAILABLE and DissentRetriever is not None:
                 try:
                     UnifiedHandler.consensus_memory = ConsensusMemory()
                     UnifiedHandler.dissent_retriever = DissentRetriever(UnifiedHandler.consensus_memory)
-                    print("[server] DissentRetriever loaded for historical minority views")
+                    logger.info("[server] DissentRetriever loaded for historical minority views")
                 except Exception as e:
-                    print(f"[server] DissentRetriever initialization failed: {e}")
+                    logger.warning(f"[server] DissentRetriever initialization failed: {e}")
 
             # Initialize MomentDetector for significant agent moments (narrative storytelling)
             if MOMENT_DETECTOR_AVAILABLE and MomentDetector is not None:
@@ -5761,9 +2706,9 @@ class UnifiedServer:
                         elo_system=UnifiedHandler.elo_system,
                         position_ledger=UnifiedHandler.position_ledger,
                     )
-                    print("[server] MomentDetector loaded for agent moments API")
+                    logger.info("[server] MomentDetector loaded for agent moments API")
                 except Exception as e:
-                    print(f"[server] MomentDetector initialization failed: {e}")
+                    logger.warning(f"[server] MomentDetector initialization failed: {e}")
 
     @property
     def emitter(self) -> SyncEventEmitter:
@@ -5772,18 +2717,45 @@ class UnifiedServer:
 
     def _run_http_server(self) -> None:
         """Run HTTP server in a thread."""
-        server = HTTPServer((self.http_host, self.http_port), UnifiedHandler)
-        server.serve_forever()
+        max_retries = 3
+        retry_delay = 1.0
+
+        for attempt in range(max_retries):
+            try:
+                server = HTTPServer((self.http_host, self.http_port), UnifiedHandler)
+                logger.info(f"HTTP server listening on {self.http_host}:{self.http_port}")
+                server.serve_forever()
+                break  # Normal exit
+            except OSError as e:
+                if e.errno == 98 or "Address already in use" in str(e):  # EADDRINUSE
+                    if attempt < max_retries - 1:
+                        logger.warning(
+                            f"Port {self.http_port} in use, retrying in {retry_delay}s "
+                            f"(attempt {attempt + 1}/{max_retries})"
+                        )
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                    else:
+                        logger.error(
+                            f"Failed to bind HTTP server to port {self.http_port} "
+                            f"after {max_retries} attempts: {e}"
+                        )
+                else:
+                    logger.error(f"HTTP server failed to start: {e}")
+                    break
+            except Exception as e:
+                logger.error(f"HTTP server unexpected error: {e}")
+                break
 
     async def start(self) -> None:
         """Start both HTTP and WebSocket servers."""
-        print(f"Starting unified server...")
-        print(f"  HTTP API:   http://localhost:{self.http_port}")
-        print(f"  WebSocket:  ws://localhost:{self.ws_port}")
+        logger.info("Starting unified server...")
+        logger.info(f"  HTTP API:   http://localhost:{self.http_port}")
+        logger.info(f"  WebSocket:  ws://localhost:{self.ws_port}")
         if self.static_dir:
-            print(f"  Static dir: {self.static_dir}")
+            logger.info(f"  Static dir: {self.static_dir}")
         if self.nomic_dir:
-            print(f"  Nomic dir:  {self.nomic_dir}")
+            logger.info(f"  Nomic dir:  {self.nomic_dir}")
 
         # Start HTTP server in background thread
         http_thread = Thread(target=self._run_http_server, daemon=True)

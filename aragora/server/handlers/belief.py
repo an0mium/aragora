@@ -20,8 +20,8 @@ from .base import (
     HandlerResult,
     json_response,
     error_response,
-    get_int_param,
-    get_float_param,
+    get_clamped_int_param,
+    get_bounded_float_param,
 )
 from aragora.server.validation import SAFE_ID_PATTERN
 
@@ -90,24 +90,23 @@ class BeliefHandler(BaseHandler):
         persona_manager = self.ctx.get("persona_manager")
 
         if path == "/api/laboratory/emergent-traits":
-            min_confidence = get_float_param(query_params, 'min_confidence', 0.5)
-            min_confidence = max(0.0, min(1.0, min_confidence))
-            limit = get_int_param(query_params, 'limit', 10)
-            return self._get_emergent_traits(nomic_dir, persona_manager, min_confidence, min(limit, 50))
+            min_confidence = get_bounded_float_param(query_params, 'min_confidence', 0.5, min_val=0.0, max_val=1.0)
+            limit = get_clamped_int_param(query_params, 'limit', 10, min_val=1, max_val=50)
+            return self._get_emergent_traits(nomic_dir, persona_manager, min_confidence, limit)
 
         if path.startswith("/api/belief-network/") and path.endswith("/cruxes"):
             debate_id = self._extract_debate_id(path, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
-            top_k = get_int_param(query_params, 'top_k', 3)
-            return self._get_debate_cruxes(nomic_dir, debate_id, min(top_k, 10))
+            top_k = get_clamped_int_param(query_params, 'top_k', 3, min_val=1, max_val=10)
+            return self._get_debate_cruxes(nomic_dir, debate_id, top_k)
 
         if path.startswith("/api/belief-network/") and path.endswith("/load-bearing-claims"):
             debate_id = self._extract_debate_id(path, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
-            limit = get_int_param(query_params, 'limit', 5)
-            return self._get_load_bearing_claims(nomic_dir, debate_id, min(limit, 20))
+            limit = get_clamped_int_param(query_params, 'limit', 5, min_val=1, max_val=20)
+            return self._get_load_bearing_claims(nomic_dir, debate_id, limit)
 
         if "/claims/" in path and path.endswith("/support"):
             # Pattern: /api/provenance/:debate_id/claims/:claim_id/support

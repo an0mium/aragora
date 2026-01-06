@@ -158,8 +158,8 @@ class DashboardHandler(BaseHandler):
                                 recent.append(d)
                                 d_domain = d.get("domain", "general")
                                 domain_counts[d_domain] = domain_counts.get(d_domain, 0) + 1
-                        except Exception:
-                            pass
+                        except (ValueError, KeyError) as e:
+                            logger.debug(f"Skipping debate with invalid datetime: {e}")
 
                 activity["debates_last_period"] = len(recent)
                 activity["consensus_last_period"] = sum(

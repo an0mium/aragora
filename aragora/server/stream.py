@@ -18,6 +18,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from collections import OrderedDict
 from typing import Callable, Optional, Any, Dict
 from urllib.parse import parse_qs, urlparse
 from concurrent.futures import ThreadPoolExecutor
@@ -46,39 +47,35 @@ ALLOWED_AGENT_TYPES = frozenset({
     "deepseek", "deepseek-r1", "llama", "mistral", "openrouter",
 })
 
-# Maximum number of agents per debate (DoS protection)
-MAX_AGENTS_PER_DEBATE = 10
-MAX_CONCURRENT_DEBATES = 3
+# Import centralized config and error utilities
+from aragora.config import DB_INSIGHTS_PATH, DB_PERSONAS_PATH, MAX_AGENTS_PER_DEBATE, MAX_CONCURRENT_DEBATES
+from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 # Thread-safe debate tracking
 _active_debates: dict[str, dict] = {}
 _active_debates_lock = threading.Lock()
 _debate_executor: Optional[ThreadPoolExecutor] = None
 _debate_executor_lock = threading.Lock()
+_debate_cleanup_counter = 0
+_debate_cleanup_counter_lock = threading.Lock()
+
+# TTL for completed debates (24 hours)
+_DEBATE_TTL_SECONDS = 86400
 
 
-def _safe_error_message(e: Exception, context: str = "") -> str:
-    """Return a sanitized error message for client responses.
-
-    Logs the full error server-side while returning a generic message to clients.
-    This prevents information disclosure of internal details like file paths,
-    stack traces, or sensitive configuration.
-    """
-    # Log full details server-side for debugging
-    logger.error(f"Error in {context}: {type(e).__name__}: {e}", exc_info=True)
-
-    # Map common exceptions to user-friendly messages
-    error_type = type(e).__name__
-    if error_type in ("FileNotFoundError", "OSError"):
-        return "Resource not found"
-    elif error_type in ("json.JSONDecodeError", "ValueError"):
-        return "Invalid data format"
-    elif error_type in ("PermissionError",):
-        return "Access denied"
-    elif error_type in ("TimeoutError", "asyncio.TimeoutError"):
-        return "Operation timed out"
-    else:
-        return "An error occurred"
+def _cleanup_stale_debates_stream() -> None:
+    """Remove completed/errored debates older than TTL."""
+    now = time.time()
+    with _active_debates_lock:
+        stale_ids = [
+            debate_id for debate_id, debate in _active_debates.items()
+            if debate.get("status") in ("completed", "error")
+            and now - debate.get("completed_at", now) > _DEBATE_TTL_SECONDS
+        ]
+        for debate_id in stale_ids:
+            _active_debates.pop(debate_id, None)
+    if stale_ids:
+        logger.debug(f"Cleaned up {len(stale_ids)} stale debate entries")
 
 
 def _wrap_agent_for_streaming(agent, emitter: 'SyncEventEmitter', debate_id: str):
@@ -163,13 +160,13 @@ def _wrap_agent_for_streaming(agent, emitter: 'SyncEventEmitter', debate_id: str
 # Centralized CORS configuration
 from aragora.server.cors_config import WS_ALLOWED_ORIGINS
 
-# Maximum WebSocket message size (64KB) - prevents memory exhaustion attacks
-WS_MAX_MESSAGE_SIZE = int(os.getenv("ARAGORA_WS_MAX_SIZE", 65536))
+# Import WebSocket config from centralized location
+from aragora.config import WS_MAX_MESSAGE_SIZE
 
 # Trusted proxies for X-Forwarded-For header validation
 # Only trust X-Forwarded-For if request comes from these IPs
 TRUSTED_PROXIES = frozenset(
-    os.getenv('ARAGORA_TRUSTED_PROXIES', '127.0.0.1,::1,localhost').split(',')
+    p.strip() for p in os.getenv('ARAGORA_TRUSTED_PROXIES', '127.0.0.1,::1,localhost').split(',')
 )
 
 
@@ -262,6 +259,8 @@ class StreamEvent:
     round: int = 0
     agent: str = ""
     loop_id: str = ""  # For multi-loop tracking
+    seq: int = 0  # Global sequence number for ordering
+    agent_seq: int = 0  # Per-agent sequence number for token ordering
 
     def to_dict(self) -> dict:
         result = {
@@ -270,6 +269,8 @@ class StreamEvent:
             "timestamp": self.timestamp,
             "round": self.round,
             "agent": self.agent,
+            "seq": self.seq,
+            "agent_seq": self.agent_seq,
         }
         if self.loop_id:
             result["loop_id"] = self.loop_id
@@ -309,7 +310,7 @@ class TokenBucket:
         self.burst_size = burst_size
         self.tokens = float(burst_size)  # Start full
         self.last_refill = time.monotonic()
-        self._lock = __import__('threading').Lock()
+        self._lock = threading.Lock()
 
     def consume(self, tokens: int = 1) -> bool:
         """
@@ -336,7 +337,7 @@ class TokenBucket:
             return False
 
 
-def normalize_intensity(value: any, default: int = 5, min_val: int = 1, max_val: int = 10) -> int:
+def normalize_intensity(value: Any, default: int = 5, min_val: int = 1, max_val: int = 10) -> int:
     """
     Safely normalize vote intensity to a clamped integer.
 
@@ -370,7 +371,7 @@ class AudienceInbox:
 
     def __init__(self):
         self._messages: list[AudienceMessage] = []
-        self._lock = __import__('threading').Lock()
+        self._lock = threading.Lock()
 
     def put(self, message: AudienceMessage) -> None:
         """Add a message to the inbox (thread-safe)."""
@@ -389,7 +390,7 @@ class AudienceInbox:
             self._messages.clear()
             return messages
 
-    def get_summary(self, loop_id: str = None) -> dict:
+    def get_summary(self, loop_id: str | None = None) -> dict:
         """
         Get a summary of current inbox state without draining.
 
@@ -455,26 +456,56 @@ class SyncEventEmitter:
 
     Events are queued synchronously via emit() and consumed by async drain().
     This pattern avoids needing to rewrite Arena to be fully async.
+
+    Sequence numbers are automatically assigned to enable:
+    - Global ordering (seq) for detecting message reordering
+    - Per-agent ordering (agent_seq) for token stream integrity
     """
 
     # Maximum queue size to prevent memory exhaustion (DoS protection)
     MAX_QUEUE_SIZE = 10000
 
     def __init__(self, loop_id: str = ""):
-        self._queue: queue.Queue[StreamEvent] = queue.Queue()
+        self._queue: queue.Queue[StreamEvent] = queue.Queue(maxsize=self.MAX_QUEUE_SIZE)
         self._subscribers: list[Callable[[StreamEvent], None]] = []
         self._loop_id = loop_id  # Default loop_id for all events
         self._overflow_count = 0  # Track dropped events for monitoring
+        self._global_seq = 0  # Global sequence counter
+        self._agent_seqs: dict[str, int] = {}  # Per-agent sequence counters
+        self._seq_lock = threading.Lock()  # Thread-safe sequence assignment
 
     def set_loop_id(self, loop_id: str) -> None:
         """Set the loop_id to attach to all emitted events."""
         self._loop_id = loop_id
 
+    def reset_sequences(self) -> None:
+        """Reset sequence counters (call when starting a new debate)."""
+        with self._seq_lock:
+            self._global_seq = 0
+            self._agent_seqs.clear()
+
     def emit(self, event: StreamEvent) -> None:
-        """Emit event (safe to call from sync code)."""
+        """Emit event (safe to call from sync code).
+
+        Automatically assigns sequence numbers for ordering:
+        - seq: Global sequence across all events
+        - agent_seq: Per-agent sequence for token stream integrity
+        """
         # Add loop_id to event if not already set
         if self._loop_id and not event.loop_id:
             event.loop_id = self._loop_id
+
+        # Assign sequence numbers (thread-safe)
+        with self._seq_lock:
+            self._global_seq += 1
+            event.seq = self._global_seq
+
+            # Per-agent sequence for token events
+            if event.agent:
+                if event.agent not in self._agent_seqs:
+                    self._agent_seqs[event.agent] = 0
+                self._agent_seqs[event.agent] += 1
+                event.agent_seq = self._agent_seqs[event.agent]
 
         # Enforce queue size limit to prevent memory exhaustion
         if self._queue.qsize() >= self.MAX_QUEUE_SIZE:
@@ -482,6 +513,7 @@ class SyncEventEmitter:
             try:
                 self._queue.get_nowait()
                 self._overflow_count += 1
+                logger.warning(f"[stream] Queue overflow, dropped event (total: {self._overflow_count})")
             except queue.Empty:
                 pass
 
@@ -541,12 +573,20 @@ class DebateStreamServer:
         self.current_debate: Optional[dict] = None
         self._emitter = SyncEventEmitter()
         self._running = False
-        # Multi-loop tracking with thread safety
+        # Multi-loop tracking with thread safety and TTL cleanup
         self.active_loops: dict[str, LoopInstance] = {}  # loop_id -> LoopInstance
         self._active_loops_lock = threading.Lock()
-        # Debate state caching for late joiner sync
+        self._active_loops_last_access: dict[str, float] = {}  # loop_id -> last access time
+        self._ACTIVE_LOOPS_TTL = 86400  # 24 hour TTL for stale loops
+        self._MAX_ACTIVE_LOOPS = 1000  # Max concurrent loops
+
+        # Debate state caching for late joiner sync with TTL cleanup
         self.debate_states: dict[str, dict] = {}  # loop_id -> debate state
         self._debate_states_lock = threading.Lock()
+        self._debate_states_last_access: dict[str, float] = {}  # loop_id -> last access time
+        self._DEBATE_STATES_TTL = 3600  # 1 hour TTL for ended debates
+        self._MAX_DEBATE_STATES = 500  # Max cached states
+
         # Audience participation
         self.audience_inbox = AudienceInbox()
         self._rate_limiters: dict[str, TokenBucket] = {}  # client_id -> TokenBucket
@@ -555,8 +595,10 @@ class DebateStreamServer:
         self._rate_limiter_cleanup_counter = 0  # Counter for periodic cleanup
         self._RATE_LIMITER_TTL = 3600  # 1 hour TTL for rate limiters
         self._CLEANUP_INTERVAL = 100  # Cleanup every N accesses
-        # Secure client ID mapping (cryptographically random, not memory address)
-        self._client_ids: Dict[int, str] = {}  # websocket id -> secure client_id
+
+        # Secure client ID mapping with LRU eviction (cryptographically random, not memory address)
+        self._client_ids: OrderedDict[int, str] = OrderedDict()  # websocket id -> secure client_id
+        self._MAX_CLIENT_IDS = 10000  # Max tracked clients
 
         # Subscribe to emitter to maintain debate states
         self._emitter.subscribe(self._update_debate_state)
@@ -580,11 +622,50 @@ class DebateStreamServer:
         if stale_keys:
             logger.debug(f"Cleaned up {len(stale_keys)} stale rate limiters")
 
+    def _cleanup_stale_entries(self) -> None:
+        """Remove stale entries from all tracking dicts."""
+        now = time.time()
+        cleaned_count = 0
+
+        # Cleanup rate limiters
+        self._cleanup_stale_rate_limiters()
+
+        # Cleanup active_loops older than TTL
+        with self._active_loops_lock:
+            stale = [k for k, v in self._active_loops_last_access.items()
+                     if now - v > self._ACTIVE_LOOPS_TTL]
+            for k in stale:
+                self.active_loops.pop(k, None)
+                self._active_loops_last_access.pop(k, None)
+                cleaned_count += 1
+
+        # Cleanup debate_states older than TTL (only ended debates)
+        with self._debate_states_lock:
+            stale = [k for k, state in self.debate_states.items()
+                     if state.get("ended") and
+                        now - self._debate_states_last_access.get(k, 0) > self._DEBATE_STATES_TTL]
+            for k in stale:
+                self.debate_states.pop(k, None)
+                self._debate_states_last_access.pop(k, None)
+                cleaned_count += 1
+
+        if cleaned_count > 0:
+            logger.debug(f"Cleaned up {cleaned_count} stale entries")
+
     def _update_debate_state(self, event: StreamEvent) -> None:
         """Update cached debate state based on emitted events."""
         loop_id = event.loop_id
         with self._debate_states_lock:
             if event.type == StreamEventType.DEBATE_START:
+                # Enforce max size with LRU eviction (only evict ended debates)
+                if len(self.debate_states) >= self._MAX_DEBATE_STATES:
+                    # Find oldest ended debate to evict
+                    ended_states = [(k, self._debate_states_last_access.get(k, 0))
+                                    for k, v in self.debate_states.items() if v.get("ended")]
+                    if ended_states:
+                        oldest = min(ended_states, key=lambda x: x[1])[0]
+                        self.debate_states.pop(oldest, None)
+                        self._debate_states_last_access.pop(oldest, None)
                 self.debate_states[loop_id] = {
                     "id": loop_id,
                     "task": event.data["task"],
@@ -598,6 +679,7 @@ class DebateStreamServer:
                     "ended": False,
                     "duration": 0.0,
                 }
+                self._debate_states_last_access[loop_id] = time.time()
             elif event.type == StreamEventType.AGENT_MESSAGE:
                 if loop_id in self.debate_states:
                     state = self.debate_states[loop_id]
@@ -610,20 +692,24 @@ class DebateStreamServer:
                     # Cap at last 1000 messages to allow full debate history without truncation
                     if len(state["messages"]) > 1000:
                         state["messages"] = state["messages"][-1000:]
+                    self._debate_states_last_access[loop_id] = time.time()
             elif event.type == StreamEventType.CONSENSUS:
                 if loop_id in self.debate_states:
                     state = self.debate_states[loop_id]
                     state["consensus_reached"] = event.data["reached"]
                     state["consensus_confidence"] = event.data["confidence"]
                     state["consensus_answer"] = event.data["answer"]
+                    self._debate_states_last_access[loop_id] = time.time()
             elif event.type == StreamEventType.DEBATE_END:
                 if loop_id in self.debate_states:
                     state = self.debate_states[loop_id]
                     state["ended"] = True
                     state["duration"] = event.data["duration"]
                     state["rounds"] = event.data["rounds"]
+                    self._debate_states_last_access[loop_id] = time.time()
             elif event.type == StreamEventType.LOOP_UNREGISTER:
                 self.debate_states.pop(loop_id, None)
+                self._debate_states_last_access.pop(loop_id, None)
 
         # Update loop state for cycle/phase events (outside debate_states_lock)
         if event.type == StreamEventType.CYCLE_START:
@@ -657,6 +743,12 @@ class DebateStreamServer:
 
     def register_loop(self, loop_id: str, name: str, path: str = "") -> None:
         """Register a new nomic loop instance."""
+        # Trigger periodic cleanup
+        self._rate_limiter_cleanup_counter += 1
+        if self._rate_limiter_cleanup_counter >= self._CLEANUP_INTERVAL:
+            self._rate_limiter_cleanup_counter = 0
+            self._cleanup_stale_entries()
+
         instance = LoopInstance(
             loop_id=loop_id,
             name=name,
@@ -664,7 +756,15 @@ class DebateStreamServer:
             path=path,
         )
         with self._active_loops_lock:
+            # Enforce max size with LRU eviction
+            if len(self.active_loops) >= self._MAX_ACTIVE_LOOPS:
+                # Remove oldest by last access time
+                oldest = min(self._active_loops_last_access, key=self._active_loops_last_access.get, default=None)
+                if oldest:
+                    self.active_loops.pop(oldest, None)
+                    self._active_loops_last_access.pop(oldest, None)
             self.active_loops[loop_id] = instance
+            self._active_loops_last_access[loop_id] = time.time()
             loop_count = len(self.active_loops)
         # Emit registration event
         self._emitter.emit(StreamEvent(
@@ -683,6 +783,7 @@ class DebateStreamServer:
         with self._active_loops_lock:
             if loop_id in self.active_loops:
                 del self.active_loops[loop_id]
+                self._active_loops_last_access.pop(loop_id, None)
                 loop_count = len(self.active_loops)
             else:
                 return  # Loop not found, nothing to unregister
@@ -695,7 +796,7 @@ class DebateStreamServer:
             },
         ))
 
-    def update_loop_state(self, loop_id: str, cycle: int = None, phase: str = None) -> None:
+    def update_loop_state(self, loop_id: str, cycle: int | None = None, phase: str | None = None) -> None:
         """Update the state of an active loop instance."""
         with self._active_loops_lock:
             if loop_id in self.active_loops:
@@ -742,6 +843,9 @@ class DebateStreamServer:
         # Generate cryptographically secure client ID (not predictable memory address)
         ws_id = id(websocket)
         client_id = secrets.token_urlsafe(16)
+        # Enforce max size with LRU eviction
+        if len(self._client_ids) >= self._MAX_CLIENT_IDS:
+            self._client_ids.popitem(last=False)  # Remove oldest
         self._client_ids[ws_id] = client_id
 
         self.clients.add(websocket)
@@ -924,7 +1028,9 @@ class DebateStreamServer:
             )
 
         self._running = True
-        asyncio.create_task(self._drain_loop())
+        # Store task reference and add error callback to prevent silent failures
+        self._drain_task = asyncio.create_task(self._drain_loop())
+        self._drain_task.add_done_callback(self._handle_drain_task_error)
 
         async with websockets.serve(
             self.handler,
@@ -934,12 +1040,21 @@ class DebateStreamServer:
             ping_interval=30,  # Send ping every 30s
             ping_timeout=10,   # Close connection if no pong within 10s
         ):
-            print(f"WebSocket server: ws://{self.host}:{self.port} (max message size: {WS_MAX_MESSAGE_SIZE} bytes)")
+            logger.info(f"WebSocket server: ws://{self.host}:{self.port} (max message size: {WS_MAX_MESSAGE_SIZE} bytes)")
             await asyncio.Future()  # Run forever
 
     def stop(self) -> None:
         """Stop the server."""
         self._running = False
+
+    def _handle_drain_task_error(self, task: asyncio.Task) -> None:
+        """Handle errors from the drain loop task."""
+        try:
+            exc = task.exception()
+            if exc is not None:
+                logger.error(f"Drain loop task failed with exception: {exc}")
+        except asyncio.CancelledError:
+            pass  # Task was cancelled, not an error
 
     async def graceful_shutdown(self) -> None:
         """Gracefully close all client connections."""
@@ -955,6 +1070,14 @@ class DebateStreamServer:
             if close_tasks:
                 await asyncio.gather(*close_tasks, return_exceptions=True)
             self.clients.clear()
+
+        # Shutdown debate executor
+        global _debate_executor
+        with _debate_executor_lock:
+            if _debate_executor:
+                logger.info("Shutting down debate executor...")
+                _debate_executor.shutdown(wait=True, cancel_futures=False)
+                _debate_executor = None
 
 
 def create_arena_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
@@ -991,7 +1114,7 @@ def create_arena_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
 
     def on_critique(
         agent: str, target: str, issues: list[str], severity: float, round_num: int,
-        full_content: str = None
+        full_content: str | None = None
     ) -> None:
         emitter.emit(StreamEvent(
             type=StreamEventType.CRITIQUE,
@@ -1070,22 +1193,32 @@ class AiohttpUnifiedServer:
         self._emitter = SyncEventEmitter()
         self._running = False
 
-        # Multi-loop tracking
+        # Multi-loop tracking with TTL cleanup
         self.active_loops: dict[str, LoopInstance] = {}
         self._active_loops_lock = threading.Lock()
+        self._active_loops_last_access: dict[str, float] = {}
+        self._ACTIVE_LOOPS_TTL = 86400  # 24 hour TTL for stale loops
+        self._MAX_ACTIVE_LOOPS = 1000  # Max concurrent loops
 
-        # Debate state caching
+        # Debate state caching with TTL cleanup
         self.debate_states: dict[str, dict] = {}
         self._debate_states_lock = threading.Lock()
+        self._debate_states_last_access: dict[str, float] = {}
+        self._DEBATE_STATES_TTL = 3600  # 1 hour TTL for ended debates
+        self._MAX_DEBATE_STATES = 500  # Max cached states
 
         # Audience participation
         self.audience_inbox = AudienceInbox()
         self._rate_limiters: dict[str, TokenBucket] = {}
         self._rate_limiter_last_access: dict[str, float] = {}
         self._rate_limiters_lock = threading.Lock()
+        self._rate_limiter_cleanup_counter = 0
+        self._RATE_LIMITER_TTL = 3600  # 1 hour TTL
+        self._CLEANUP_INTERVAL = 100  # Cleanup every N accesses
 
-        # Secure client ID mapping
-        self._client_ids: Dict[int, str] = {}
+        # Secure client ID mapping with LRU eviction
+        self._client_ids: OrderedDict[int, str] = OrderedDict()
+        self._MAX_CLIENT_IDS = 10000  # Max tracked clients
 
         # Optional stores (initialized from nomic_dir)
         self.elo_system = None
@@ -1094,7 +1227,7 @@ class AiohttpUnifiedServer:
         self.persona_manager = None
         self.debate_embeddings = None
 
-        # ArgumentCartographer registry (loop_id -> cartographer instance)
+        # ArgumentCartographer registry with cleanup on loop unregister
         self.cartographers: Dict[str, Any] = {}
         self._cartographers_lock = threading.Lock()
 
@@ -1120,7 +1253,7 @@ class AiohttpUnifiedServer:
         # InsightStore for insights
         try:
             from aragora.insights.store import InsightStore
-            insights_path = nomic_dir / "aragora_insights.db"
+            insights_path = nomic_dir / DB_INSIGHTS_PATH
             if insights_path.exists():
                 self.insight_store = InsightStore(str(insights_path))
                 logger.info("[server] InsightStore loaded")
@@ -1162,27 +1295,93 @@ class AiohttpUnifiedServer:
         """Get the event emitter for nomic loop integration."""
         return self._emitter
 
+    def _cleanup_stale_entries(self) -> None:
+        """Remove stale entries from all tracking dicts."""
+        now = time.time()
+        cleaned_count = 0
+
+        # Cleanup rate limiters
+        with self._rate_limiters_lock:
+            stale = [k for k, v in self._rate_limiter_last_access.items()
+                     if now - v > self._RATE_LIMITER_TTL]
+            for k in stale:
+                self._rate_limiters.pop(k, None)
+                self._rate_limiter_last_access.pop(k, None)
+                cleaned_count += 1
+
+        # Cleanup active_loops older than TTL
+        with self._active_loops_lock:
+            stale = [k for k, v in self._active_loops_last_access.items()
+                     if now - v > self._ACTIVE_LOOPS_TTL]
+            for k in stale:
+                self.active_loops.pop(k, None)
+                self._active_loops_last_access.pop(k, None)
+                cleaned_count += 1
+
+        # Cleanup debate_states older than TTL (only ended debates)
+        with self._debate_states_lock:
+            stale = [k for k, state in self.debate_states.items()
+                     if state.get("ended") and
+                        now - self._debate_states_last_access.get(k, 0) > self._DEBATE_STATES_TTL]
+            for k in stale:
+                self.debate_states.pop(k, None)
+                self._debate_states_last_access.pop(k, None)
+                cleaned_count += 1
+
+        if cleaned_count > 0:
+            logger.debug(f"Cleaned up {cleaned_count} stale entries")
+
     def _update_debate_state(self, event: StreamEvent) -> None:
         """Update cached debate state based on emitted events."""
         loop_id = event.loop_id
         with self._debate_states_lock:
             if event.type == StreamEventType.DEBATE_START:
+                # Enforce max size with LRU eviction (only evict ended debates)
+                if len(self.debate_states) >= self._MAX_DEBATE_STATES:
+                    ended_states = [(k, self._debate_states_last_access.get(k, 0))
+                                    for k, v in self.debate_states.items() if v.get("ended")]
+                    if ended_states:
+                        oldest = min(ended_states, key=lambda x: x[1])[0]
+                        self.debate_states.pop(oldest, None)
+                        self._debate_states_last_access.pop(oldest, None)
                 self.debate_states[loop_id] = {
                     "id": loop_id,
                     "task": event.data.get("task"),
                     "agents": event.data.get("agents"),
                     "started_at": event.timestamp,
+                    "ended": False,
                 }
+                self._debate_states_last_access[loop_id] = time.time()
+            elif event.type == StreamEventType.DEBATE_END:
+                if loop_id in self.debate_states:
+                    self.debate_states[loop_id]["ended"] = True
+                    self._debate_states_last_access[loop_id] = time.time()
+            elif event.type == StreamEventType.LOOP_UNREGISTER:
+                self.debate_states.pop(loop_id, None)
+                self._debate_states_last_access.pop(loop_id, None)
 
     def register_loop(self, loop_id: str, name: str, path: str = "") -> None:
         """Register a new nomic loop instance."""
+        # Trigger periodic cleanup
+        self._rate_limiter_cleanup_counter += 1
+        if self._rate_limiter_cleanup_counter >= self._CLEANUP_INTERVAL:
+            self._rate_limiter_cleanup_counter = 0
+            self._cleanup_stale_entries()
+
         with self._active_loops_lock:
+            # Enforce max size with LRU eviction
+            if len(self.active_loops) >= self._MAX_ACTIVE_LOOPS:
+                oldest = min(self._active_loops_last_access, key=self._active_loops_last_access.get, default=None)
+                if oldest:
+                    self.active_loops.pop(oldest, None)
+                    self._active_loops_last_access.pop(oldest, None)
             self.active_loops[loop_id] = LoopInstance(
                 loop_id=loop_id,
                 name=name,
                 started_at=time.time(),
                 path=path,
             )
+            self._active_loops_last_access[loop_id] = time.time()
         # Broadcast loop registration
         self._emitter.emit(StreamEvent(
             type=StreamEventType.LOOP_REGISTER,
@@ -1194,6 +1393,9 @@ class AiohttpUnifiedServer:
         """Unregister a nomic loop instance."""
         with self._active_loops_lock:
             self.active_loops.pop(loop_id, None)
+            self._active_loops_last_access.pop(loop_id, None)
+        # Also cleanup associated cartographer to prevent memory leak
+        self.unregister_cartographer(loop_id)
         # Broadcast loop unregistration
         self._emitter.emit(StreamEvent(
             type=StreamEventType.LOOP_UNREGISTER,
@@ -1535,7 +1737,7 @@ class AiohttpUnifiedServer:
         try:
             from aragora.insights.flip_detector import FlipDetector
 
-            db_path = self.nomic_dir / "aragora_personas.db" if self.nomic_dir else "aragora_personas.db"
+            db_path = self.nomic_dir / DB_PERSONAS_PATH if self.nomic_dir else DB_PERSONAS_PATH
             detector = FlipDetector(db_path=str(db_path))
 
             # Get consistency score
@@ -1961,7 +2163,11 @@ class AiohttpUnifiedServer:
                 if replay_path.is_dir():
                     meta_file = replay_path / "meta.json"
                     if meta_file.exists():
-                        meta = json.loads(meta_file.read_text())
+                        try:
+                            meta = json.loads(meta_file.read_text())
+                        except json.JSONDecodeError as e:
+                            logger.warning("Failed to parse replay meta %s: %s", meta_file, e)
+                            meta = {}
                         replays.append({
                             "id": replay_path.name,
                             "topic": meta.get("topic", replay_path.name),
@@ -2041,10 +2247,19 @@ class AiohttpUnifiedServer:
             with events_file.open() as f:
                 for line in f:
                     if line.strip():
-                        events.append(json.loads(line))
+                        try:
+                            events.append(json.loads(line))
+                        except json.JSONDecodeError as e:
+                            logger.warning("Failed to parse event line: %s", e)
+                            continue
 
             # Create artifact from events
-            meta = json.loads(meta_file.read_text()) if meta_file.exists() else {}
+            meta = {}
+            if meta_file.exists():
+                try:
+                    meta = json.loads(meta_file.read_text())
+                except json.JSONDecodeError as e:
+                    logger.warning("Failed to parse replay meta %s: %s", meta_file, e)
             generator = ReplayGenerator()
 
             # Simple HTML generation from events
@@ -2163,6 +2378,18 @@ class AiohttpUnifiedServer:
                 "rounds": rounds,
             }
 
+        # Periodic cleanup of stale debates (every 100 debates)
+        # Use lock to prevent race condition on counter
+        should_cleanup = False
+        with _debate_cleanup_counter_lock:
+            global _debate_cleanup_counter
+            _debate_cleanup_counter += 1
+            if _debate_cleanup_counter >= 100:
+                _debate_cleanup_counter = 0
+                should_cleanup = True
+        if should_cleanup:
+            _cleanup_stale_debates_stream()
+
         # Set loop_id on emitter so events are tagged
         self.emitter.set_loop_id(debate_id)
 
@@ -2177,11 +2404,13 @@ class AiohttpUnifiedServer:
                     with _active_debates_lock:
                         _active_debates[debate_id]["status"] = "error"
                         _active_debates[debate_id]["error"] = f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
+                        _active_debates[debate_id]["completed_at"] = time.time()
                     return
                 if len(agent_list) < 2:
                     with _active_debates_lock:
                         _active_debates[debate_id]["status"] = "error"
                         _active_debates[debate_id]["error"] = "At least 2 agents required for a debate"
+                        _active_debates[debate_id]["completed_at"] = time.time()
                     return
 
                 agent_specs = []
@@ -2240,6 +2469,7 @@ class AiohttpUnifiedServer:
                 result = _asyncio.run(run_with_timeout())
                 with _active_debates_lock:
                     _active_debates[debate_id]["status"] = "completed"
+                    _active_debates[debate_id]["completed_at"] = time.time()
                     _active_debates[debate_id]["result"] = {
                         "final_answer": result.final_answer,
                         "consensus_reached": result.consensus_reached,
@@ -2252,6 +2482,7 @@ class AiohttpUnifiedServer:
                 error_trace = traceback.format_exc()
                 with _active_debates_lock:
                     _active_debates[debate_id]["status"] = "error"
+                    _active_debates[debate_id]["completed_at"] = time.time()
                     _active_debates[debate_id]["error"] = safe_msg
                 logger.error(f"[debate] Thread error in {debate_id}: {str(e)}\n{error_trace}")
                 # Emit error event to client
@@ -2261,16 +2492,16 @@ class AiohttpUnifiedServer:
                 ))
 
         # Use thread pool to prevent unbounded thread creation
-        if _debate_executor is None:
-            with _debate_executor_lock:
-                if _debate_executor is None:
-                    _debate_executor = ThreadPoolExecutor(
-                        max_workers=MAX_CONCURRENT_DEBATES,
-                        thread_name_prefix="debate-"
-                    )
+        with _debate_executor_lock:
+            if _debate_executor is None:
+                _debate_executor = ThreadPoolExecutor(
+                    max_workers=MAX_CONCURRENT_DEBATES,
+                    thread_name_prefix="debate-"
+                )
+            executor = _debate_executor
 
         try:
-            _debate_executor.submit(run_debate)
+            executor.submit(run_debate)
         except RuntimeError:
             return web.json_response({
                 "success": False,
@@ -2310,13 +2541,14 @@ class AiohttpUnifiedServer:
 
                 # Get client IP (validate proxy headers for security)
                 remote_ip = request.remote or ""
+                client_ip = remote_ip  # Default to direct connection IP
                 if remote_ip in TRUSTED_PROXIES:
                     # Only trust X-Forwarded-For from trusted proxies
                     forwarded = request.headers.get('X-Forwarded-For', '')
-                    client_ip = forwarded.split(',')[0].strip() if forwarded else remote_ip
-                else:
-                    # Untrusted source - use direct connection IP
-                    client_ip = remote_ip
+                    if forwarded:
+                        first_ip = forwarded.split(',')[0].strip()
+                        if first_ip:
+                            client_ip = first_ip
 
                 authenticated, remaining = check_auth(
                     headers, query_string, loop_id="", ip_address=client_ip
@@ -2336,9 +2568,13 @@ class AiohttpUnifiedServer:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
 
-        self.clients.add(ws)
+        # Initialize tracking variables before any operations that could fail
         ws_id = id(ws)
         client_id = secrets.token_hex(16)
+        self.clients.add(ws)
+        # Enforce max size with LRU eviction
+        if len(self._client_ids) >= self._MAX_CLIENT_IDS:
+            self._client_ids.popitem(last=False)  # Remove oldest
         self._client_ids[ws_id] = client_id
 
         # Initialize rate limiter for this client (thread-safe)
@@ -2475,11 +2711,34 @@ class AiohttpUnifiedServer:
                                 "data": {"message": "Message received", "msg_type": msg_type}
                             })
 
-                    except json.JSONDecodeError:
-                        logger.warning(f"[ws] Invalid JSON from client")
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"[ws] Invalid JSON: {e.msg} at pos {e.pos}")
+                        await ws.send_json({
+                            "type": "error",
+                            "data": {"code": "INVALID_JSON", "message": f"JSON parse error: {e.msg}"}
+                        })
 
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     logger.error(f'[ws] Error: {ws.exception()}')
+                    break
+
+                elif msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED):
+                    logger.debug(f'[ws] Client {client_id[:8]}... closed connection')
+                    break
+
+                elif msg.type == aiohttp.WSMsgType.BINARY:
+                    logger.warning(f'[ws] Binary message rejected from {client_id[:8]}...')
+                    await ws.send_json({
+                        "type": "error",
+                        "data": {"code": "BINARY_NOT_SUPPORTED", "message": "Binary messages not supported"}
+                    })
+
+                # PING/PONG handled automatically by aiohttp, but log if we see them
+                elif msg.type in (aiohttp.WSMsgType.PING, aiohttp.WSMsgType.PONG):
+                    pass  # Handled by aiohttp automatically
+
+                else:
+                    logger.warning(f'[ws] Unhandled message type: {msg.type}')
 
         finally:
             self.clients.discard(ws)
@@ -2522,11 +2781,14 @@ class AiohttpUnifiedServer:
                 for client in list(self.clients):
                     try:
                         await client.send_str(message)
-                    except Exception:
+                    except Exception as e:
+                        logger.debug("WebSocket client disconnected during broadcast: %s", type(e).__name__)
                         dead_clients.append(client)
 
-                for client in dead_clients:
-                    self.clients.discard(client)
+                if dead_clients:
+                    logger.info("Removed %d dead WebSocket client(s)", len(dead_clients))
+                    for client in dead_clients:
+                        self.clients.discard(client)
 
             except queue.Empty:
                 await asyncio.sleep(0.01)
@@ -2576,9 +2838,9 @@ class AiohttpUnifiedServer:
         await runner.setup()
         site = web.TCPSite(runner, self.host, self.port)
 
-        print(f"Unified server (HTTP+WS) running on http://{self.host}:{self.port}")
-        print(f"  WebSocket: ws://{self.host}:{self.port}/")
-        print(f"  HTTP API:  http://{self.host}:{self.port}/api/*")
+        logger.info(f"Unified server (HTTP+WS) running on http://{self.host}:{self.port}")
+        logger.info(f"  WebSocket: ws://{self.host}:{self.port}/")
+        logger.info(f"  HTTP API:  http://{self.host}:{self.port}/api/*")
 
         await site.start()
 

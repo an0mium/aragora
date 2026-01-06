@@ -15,9 +15,9 @@ from .base import (
     HandlerResult,
     json_response,
     error_response,
-    get_int_param,
-    get_float_param,
-    get_string_param,
+    get_clamped_int_param,
+    get_bounded_float_param,
+    get_bounded_string_param,
 )
 
 # Optional import for memory functionality
@@ -74,10 +74,10 @@ class MemoryHandler(BaseHandler):
             return error_response("Continuum memory not initialized", 503)
 
         try:
-            query = get_string_param(params, "query", "")
-            tiers_param = get_string_param(params, "tiers", "fast,medium,slow,glacial")
-            limit = get_int_param(params, "limit", 10)
-            min_importance = get_float_param(params, "min_importance", 0.0)
+            query = get_bounded_string_param(params, "query", "", max_length=500)
+            tiers_param = get_bounded_string_param(params, "tiers", "fast,medium,slow,glacial", max_length=100)
+            limit = get_clamped_int_param(params, "limit", 10, min_val=1, max_val=100)
+            min_importance = get_bounded_float_param(params, "min_importance", 0.0, min_val=0.0, max_val=1.0)
 
             # Parse tiers
             tier_names = [t.strip() for t in tiers_param.split(",")]
@@ -163,9 +163,9 @@ class MemoryHandler(BaseHandler):
             start = time.time()
 
             # Parse parameters
-            tier_param = get_string_param(params, "tier", "")
-            archive_param = get_string_param(params, "archive", "true")
-            max_age = get_float_param(params, "max_age_hours", 0)
+            tier_param = get_bounded_string_param(params, "tier", "", max_length=50)
+            archive_param = get_bounded_string_param(params, "archive", "true", max_length=10)
+            max_age = get_bounded_float_param(params, "max_age_hours", 0, min_val=0.0, max_val=8760.0)  # Max 1 year
 
             # Convert tier parameter
             tier = None

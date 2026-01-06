@@ -128,19 +128,15 @@ class VerificationHandler(BaseHandler):
             }, status=503)
 
         # Run verification asynchronously
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            result = loop.run_until_complete(
-                manager.attempt_formal_verification(
-                    claim=claim,
-                    claim_type=claim_type,
-                    context=context,
-                    timeout_seconds=timeout,
-                )
+        # Use asyncio.run() for proper event loop lifecycle management
+        result = asyncio.run(
+            manager.attempt_formal_verification(
+                claim=claim,
+                claim_type=claim_type,
+                context=context,
+                timeout_seconds=timeout,
             )
-        finally:
-            loop.close()
+        )
 
         # Build response
         response = result.to_dict()

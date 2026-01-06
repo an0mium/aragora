@@ -14,6 +14,8 @@ import asyncio
 import json
 import logging
 import os
+import threading
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -27,6 +29,40 @@ from .base import (
 )
 
 logger = logging.getLogger(__name__)
+
+# OAuth state storage for CSRF protection (with TTL cleanup)
+_oauth_states: dict[str, float] = {}  # state -> expiry_time
+_oauth_states_lock = threading.Lock()
+_OAUTH_STATE_TTL = 600  # 10 minutes
+
+# Allowed hosts for OAuth redirect URI (prevent open redirect)
+ALLOWED_OAUTH_HOSTS = frozenset(
+    h.strip() for h in os.getenv(
+        'ARAGORA_ALLOWED_OAUTH_HOSTS',
+        'localhost:8080,127.0.0.1:8080'
+    ).split(',')
+)
+
+
+def _store_oauth_state(state: str) -> None:
+    """Store OAuth state for later validation."""
+    with _oauth_states_lock:
+        # Cleanup expired states
+        now = time.time()
+        expired = [s for s, exp in _oauth_states.items() if exp < now]
+        for s in expired:
+            del _oauth_states[s]
+        # Store new state
+        _oauth_states[state] = now + _OAUTH_STATE_TTL
+
+
+def _validate_oauth_state(state: str) -> bool:
+    """Validate and consume OAuth state (one-time use)."""
+    with _oauth_states_lock:
+        if state in _oauth_states:
+            expiry = _oauth_states.pop(state)
+            return time.time() < expiry
+        return False
 
 # Optional imports for broadcast functionality
 try:
@@ -59,13 +95,12 @@ def _safe_error_message(e: Exception, context: str) -> str:
 
 
 def _run_async(coro):
-    """Run async coroutine in sync context."""
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
+    """Run async coroutine in sync context.
+
+    Uses asyncio.run() which properly creates and closes an event loop,
+    avoiding resource leaks and deprecation warnings.
+    """
+    return asyncio.run(coro)
 
 
 class BroadcastHandler(BaseHandler):
@@ -319,12 +354,20 @@ class BroadcastHandler(BaseHandler):
                 "hint": "Set YOUTUBE_CLIENT_ID environment variable"
             }, status=400)
 
+        # Validate Host header against whitelist (prevent open redirect)
         host = handler.headers.get('Host', 'localhost:8080') if handler else 'localhost:8080'
+        if host not in ALLOWED_OAUTH_HOSTS:
+            logger.warning(f"OAuth auth request with untrusted host: {host}")
+            return error_response("Untrusted host for OAuth redirect", status=400)
+
         scheme = 'https' if handler and handler.headers.get('X-Forwarded-Proto') == 'https' else 'http'
         redirect_uri = f"{scheme}://{host}/api/youtube/callback"
 
         import secrets
         state = secrets.token_urlsafe(32)
+
+        # Store state for CSRF validation in callback
+        _store_oauth_state(state)
 
         auth_url = youtube.get_auth_url(redirect_uri, state)
         return json_response({
@@ -339,11 +382,21 @@ class BroadcastHandler(BaseHandler):
         if not state:
             return error_response("Missing state parameter", status=400)
 
+        # Validate state parameter (CSRF protection)
+        if not _validate_oauth_state(state):
+            logger.warning(f"OAuth callback with invalid/expired state")
+            return error_response("Invalid or expired state parameter", status=400)
+
         youtube = self.ctx.get("youtube_connector")
         if not youtube:
             return error_response("YouTube connector not initialized", status=500)
 
+        # Validate Host header against whitelist (prevent open redirect)
         host = handler.headers.get('Host', 'localhost:8080') if handler else 'localhost:8080'
+        if host not in ALLOWED_OAUTH_HOSTS:
+            logger.warning(f"OAuth callback with untrusted host: {host}")
+            return error_response("Untrusted host for OAuth redirect", status=400)
+
         scheme = 'https' if handler and handler.headers.get('X-Forwarded-Proto') == 'https' else 'http'
         redirect_uri = f"{scheme}://{host}/api/youtube/callback"
 
@@ -457,8 +510,8 @@ class BroadcastHandler(BaseHandler):
                         try:
                             audio = MP3(temp_output_path)
                             duration_seconds = int(audio.info.length)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"Failed to extract audio metadata from {temp_output_path}: {e}")
 
                     stored_path = audio_store.save(
                         debate_id=actual_debate_id,
@@ -649,7 +702,8 @@ class BroadcastHandler(BaseHandler):
             if video_generator:
                 try:
                     video_path = video_generator.generate_waveform_video(audio_path)
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Waveform video generation failed, using static fallback: {e}")
                     video_path = video_generator.generate_static_video(
                         audio_path, task, agents
                     )

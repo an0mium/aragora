@@ -4,7 +4,9 @@ System and utility endpoint handlers.
 Endpoints:
 - GET /api/health - Health check
 - GET /api/nomic/state - Get nomic loop state
+- GET /api/nomic/health - Get nomic loop health with stall detection
 - GET /api/nomic/log - Get nomic loop logs
+- GET /api/nomic/risk-register - Get risk register entries
 - GET /api/modes - Get available operational modes
 - GET /api/history/cycles - Get cycle history
 - GET /api/history/events - Get event history
@@ -13,8 +15,12 @@ Endpoints:
 """
 
 import json
+import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 from .base import (
     BaseHandler, HandlerResult, json_response, error_response,
     get_int_param, get_string_param, validate_path_segment, SAFE_ID_PATTERN,
@@ -27,7 +33,9 @@ class SystemHandler(BaseHandler):
     ROUTES = [
         "/api/health",
         "/api/nomic/state",
+        "/api/nomic/health",
         "/api/nomic/log",
+        "/api/nomic/risk-register",
         "/api/modes",
         "/api/history/cycles",
         "/api/history/events",
@@ -47,9 +55,16 @@ class SystemHandler(BaseHandler):
         if path == "/api/nomic/state":
             return self._get_nomic_state()
 
+        if path == "/api/nomic/health":
+            return self._get_nomic_health()
+
         if path == "/api/nomic/log":
             lines = get_int_param(query_params, 'lines', 100)
             return self._get_nomic_log(min(lines, 1000))
+
+        if path == "/api/nomic/risk-register":
+            limit = get_int_param(query_params, 'limit', 50)
+            return self._get_risk_register(min(limit, 200))
 
         if path == "/api/modes":
             return self._get_modes()
@@ -149,18 +164,165 @@ class SystemHandler(BaseHandler):
         except Exception as e:
             return error_response(f"Failed to read log: {e}", 500)
 
+    def _get_nomic_health(self) -> HandlerResult:
+        """Get nomic loop health with stall detection.
+
+        Returns health status including:
+        - status: healthy | stalled | not_running | error
+        - cycle: current cycle number
+        - phase: current phase (debate, design, implement, verify)
+        - last_activity: ISO timestamp of last activity
+        - stall_duration_seconds: seconds since last activity if stalled
+        - warnings: any active warnings
+        """
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        state_file = nomic_dir / "nomic_state.json"
+        if not state_file.exists():
+            return json_response({
+                "status": "not_running",
+                "cycle": 0,
+                "phase": None,
+                "last_activity": None,
+                "stall_duration_seconds": None,
+                "warnings": [],
+            })
+
+        try:
+            with open(state_file) as f:
+                state = json.load(f)
+
+            # Check for stall (no activity in 30 min)
+            last_update = state.get("last_update") or state.get("updated_at")
+            stall_threshold = 1800  # 30 minutes
+            stalled = False
+            stall_duration = None
+
+            if last_update:
+                try:
+                    # Handle various ISO format variations
+                    last_update_clean = last_update.replace("Z", "+00:00")
+                    last_dt = datetime.fromisoformat(last_update_clean)
+                    # Make comparison timezone-naive if needed
+                    if last_dt.tzinfo is not None:
+                        elapsed = (datetime.now(last_dt.tzinfo) - last_dt).total_seconds()
+                    else:
+                        elapsed = (datetime.now() - last_dt).total_seconds()
+
+                    if elapsed > stall_threshold:
+                        stalled = True
+                        stall_duration = int(elapsed)
+                except (ValueError, TypeError):
+                    pass  # Invalid date format, can't determine stall
+
+            # Collect warnings
+            warnings = state.get("warnings", [])
+            if stalled:
+                warnings.append(f"No activity for {stall_duration // 60} minutes")
+
+            return json_response({
+                "status": "stalled" if stalled else "healthy",
+                "cycle": state.get("cycle", 0),
+                "phase": state.get("phase", "unknown"),
+                "last_activity": last_update,
+                "stall_duration_seconds": stall_duration,
+                "warnings": warnings,
+            })
+        except json.JSONDecodeError as e:
+            return json_response({
+                "status": "error",
+                "error": f"Invalid state file: {e}",
+                "cycle": 0,
+            })
+        except Exception as e:
+            return json_response({
+                "status": "error",
+                "error": str(e),
+                "cycle": 0,
+            })
+
+    def _get_risk_register(self, limit: int) -> HandlerResult:
+        """Get risk register entries.
+
+        The risk register tracks identified issues, blockers, and concerns
+        from the nomic loop execution.
+
+        Returns:
+            risks: List of recent risk entries
+            total: Total number of entries
+            critical_count: Number of critical severity risks
+            high_count: Number of high severity risks
+        """
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        risk_file = nomic_dir / "risk_register.jsonl"
+        if not risk_file.exists():
+            return json_response({
+                "risks": [],
+                "total": 0,
+                "critical_count": 0,
+                "high_count": 0,
+            })
+
+        try:
+            risks = []
+            with open(risk_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            risks.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            continue  # Skip malformed lines
+
+            # Count by severity
+            critical = sum(1 for r in risks if r.get("severity") == "critical")
+            high = sum(1 for r in risks if r.get("severity") == "high")
+
+            # Return most recent entries (last N)
+            recent_risks = risks[-limit:] if len(risks) > limit else risks
+
+            return json_response({
+                "risks": list(reversed(recent_risks)),  # Most recent first
+                "total": len(risks),
+                "critical_count": critical,
+                "high_count": high,
+            })
+        except Exception as e:
+            return error_response(f"Failed to read risk register: {e}", 500)
+
     def _get_modes(self) -> HandlerResult:
-        """Get available operational modes."""
+        """Get available operational modes (builtin + custom)."""
+        modes = []
+
+        # Add builtin modes
+        builtin_modes = [
+            {"name": "architect", "type": "builtin", "description": "Architecture planning mode"},
+            {"name": "coder", "type": "builtin", "description": "Code implementation mode"},
+            {"name": "debugger", "type": "builtin", "description": "Debugging and error analysis"},
+            {"name": "orchestrator", "type": "builtin", "description": "Multi-agent orchestration"},
+            {"name": "reviewer", "type": "builtin", "description": "Code review mode"},
+        ]
+        modes.extend(builtin_modes)
+
+        # Add custom modes from nomic directory
         try:
             from aragora.modes.custom import CustomModeLoader
             nomic_dir = self.get_nomic_dir()
             if nomic_dir:
                 loader = CustomModeLoader(str(nomic_dir / "modes"))
-                modes = loader.list_modes()
-                return json_response({"modes": modes})
-            return json_response({"modes": []})
+                custom = loader.list_modes()
+                for m in custom:
+                    m["type"] = "custom"
+                modes.extend(custom)
         except Exception as e:
-            return error_response(f"Failed to get modes: {e}", 500)
+            logger.debug(f"Could not load custom modes: {e}")
+
+        return json_response({"modes": modes, "total": len(modes)})
 
     def _get_history_cycles(self, loop_id: Optional[str], limit: int) -> HandlerResult:
         """Get cycle history from Supabase or local storage."""
