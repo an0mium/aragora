@@ -24,39 +24,26 @@ from .base import (
     get_bounded_float_param,
 )
 from aragora.server.validation import SAFE_ID_PATTERN
+from aragora.utils.optional_imports import try_import
 
 logger = logging.getLogger(__name__)
 
-# Lazy imports for optional dependencies
-BELIEF_NETWORK_AVAILABLE = False
-LABORATORY_AVAILABLE = False
-PROVENANCE_AVAILABLE = False
-BeliefNetwork = None
-BeliefPropagationAnalyzer = None
-PersonaLaboratory = None
-ProvenanceTracker = None
+# Lazy imports for optional dependencies using centralized utility
+_belief_imports, BELIEF_NETWORK_AVAILABLE = try_import(
+    "aragora.reasoning.belief", "BeliefNetwork", "BeliefPropagationAnalyzer"
+)
+BeliefNetwork = _belief_imports["BeliefNetwork"]
+BeliefPropagationAnalyzer = _belief_imports["BeliefPropagationAnalyzer"]
 
-try:
-    from aragora.reasoning.belief import BeliefNetwork as _BN, BeliefPropagationAnalyzer as _BPA
-    BeliefNetwork = _BN
-    BeliefPropagationAnalyzer = _BPA
-    BELIEF_NETWORK_AVAILABLE = True
-except ImportError:
-    pass
+_lab_imports, LABORATORY_AVAILABLE = try_import(
+    "aragora.agents.laboratory", "PersonaLaboratory"
+)
+PersonaLaboratory = _lab_imports["PersonaLaboratory"]
 
-try:
-    from aragora.agents.laboratory import PersonaLaboratory as _PL
-    PersonaLaboratory = _PL
-    LABORATORY_AVAILABLE = True
-except ImportError:
-    pass
-
-try:
-    from aragora.reasoning.provenance import ProvenanceTracker as _PT
-    ProvenanceTracker = _PT
-    PROVENANCE_AVAILABLE = True
-except ImportError:
-    pass
+_prov_imports, PROVENANCE_AVAILABLE = try_import(
+    "aragora.reasoning.provenance", "ProvenanceTracker"
+)
+ProvenanceTracker = _prov_imports["ProvenanceTracker"]
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 

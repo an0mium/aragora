@@ -16,10 +16,10 @@
     {
       "check": "tests",
       "passed": false,
-      "error": "Command '['python', '-m', 'pytest', 'tests/', '-x', '--tb=short', '-q']' timed out after 240 seconds",
-      "note": "Test execution failed"
+      "output": "//docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED tests/test_formal_verification_backends.py::TestZ3BackendCanVerify::test_can_verify_when_unavailable\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 2912 passed, 14 skipped, 7 warnings in 182.47s (0:03:02)\n",
+      "note": ""
     }
   ],
-  "saved_at": "2026-01-06T17:22:44.118780",
+  "saved_at": "2026-01-06T17:26:09.389543",
   "cycle": 1
 }

@@ -3319,6 +3319,7 @@ The most valuable proposals combine deep analysis with actionable implementation
                         ),
                     ),
                     position_tracker=self.position_tracker,
+                    calibration_tracker=self.calibration_tracker,
                     event_hooks=self._create_arena_hooks("tournament"),
                     event_emitter=self.stream_emitter,
                     loop_id=self.loop_id,
@@ -4205,6 +4206,7 @@ The most valuable proposals combine deep analysis with actionable implementation
                 arena = Arena(
                     env, agents, protocol,
                     position_tracker=self.position_tracker,
+                    calibration_tracker=self.calibration_tracker,
                     event_hooks=self._create_arena_hooks("scenario"),
                     event_emitter=self.stream_emitter,
                     loop_id=self.loop_id,
@@ -6174,6 +6176,7 @@ Recent changes:
             agent_weights=agent_weights,  # Use probed reliability weights for vote weighting
             position_tracker=self.position_tracker,
             position_ledger=self.position_ledger,
+            calibration_tracker=self.calibration_tracker,
             elo_system=self.elo_system,
             event_emitter=self.stream_emitter, loop_id=self.loop_id,
             event_hooks=self._create_arena_hooks("debate"),  # Enable real-time streaming
@@ -6898,6 +6901,7 @@ Designs missing any of these will be automatically rejected as non-viable.
             agent_weights=agent_weights,
             position_tracker=self.position_tracker,
             position_ledger=self.position_ledger,
+            calibration_tracker=self.calibration_tracker,
             elo_system=self.elo_system,
             event_emitter=self.stream_emitter, loop_id=self.loop_id,
             event_hooks=self._create_arena_hooks("design"),  # Enable real-time streaming

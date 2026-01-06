@@ -21,30 +21,15 @@ from .base import (
     get_string_param,
     validate_agent_name,
 )
-
-# Lazy imports for ELO system
-ELO_AVAILABLE = False
-EloSystem = None
-
-try:
-    from aragora.ranking.elo import EloSystem as _EloSystem
-    EloSystem = _EloSystem
-    ELO_AVAILABLE = True
-except ImportError:
-    pass
+from aragora.utils.optional_imports import try_import_class
 
 logger = logging.getLogger(__name__)
 
-# Lazy imports for optional dependencies
-CALIBRATION_AVAILABLE = False
-CalibrationTracker = None
-
-try:
-    from aragora.agents.calibration import CalibrationTracker as _CT
-    CalibrationTracker = _CT
-    CALIBRATION_AVAILABLE = True
-except ImportError:
-    pass
+# Lazy imports for optional dependencies using centralized utility
+EloSystem, ELO_AVAILABLE = try_import_class("aragora.ranking.elo", "EloSystem")
+CalibrationTracker, CALIBRATION_AVAILABLE = try_import_class(
+    "aragora.agents.calibration", "CalibrationTracker"
+)
 
 
 class CalibrationHandler(BaseHandler):

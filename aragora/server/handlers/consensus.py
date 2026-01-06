@@ -27,21 +27,16 @@ from .base import (
     get_bounded_string_param,
     ttl_cache,
 )
+from aragora.utils.optional_imports import try_import
 
 logger = logging.getLogger(__name__)
 
-# Lazy import flags
-CONSENSUS_MEMORY_AVAILABLE = False
-ConsensusMemory = None
-DissentRetriever = None
-
-try:
-    from aragora.memory.consensus import ConsensusMemory as _CM, DissentRetriever as _DR
-    ConsensusMemory = _CM
-    DissentRetriever = _DR
-    CONSENSUS_MEMORY_AVAILABLE = True
-except ImportError:
-    pass
+# Lazy imports for optional dependencies using centralized utility
+_consensus_imports, CONSENSUS_MEMORY_AVAILABLE = try_import(
+    "aragora.memory.consensus", "ConsensusMemory", "DissentRetriever"
+)
+ConsensusMemory = _consensus_imports["ConsensusMemory"]
+DissentRetriever = _consensus_imports["DissentRetriever"]
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 

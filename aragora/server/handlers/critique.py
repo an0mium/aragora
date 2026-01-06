@@ -22,19 +22,14 @@ from .base import (
     get_bounded_float_param,
 )
 from aragora.server.validation import SAFE_ID_PATTERN_WITH_DOTS as SAFE_ID_PATTERN
+from aragora.utils.optional_imports import try_import_class
 
 logger = logging.getLogger(__name__)
 
-# Lazy import for optional dependency
-CRITIQUE_STORE_AVAILABLE = False
-CritiqueStore = None
-
-try:
-    from aragora.memory.store import CritiqueStore as _CS
-    CritiqueStore = _CS
-    CRITIQUE_STORE_AVAILABLE = True
-except ImportError:
-    pass
+# Lazy import for optional dependency using centralized utility
+CritiqueStore, CRITIQUE_STORE_AVAILABLE = try_import_class(
+    "aragora.memory.store", "CritiqueStore"
+)
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 
