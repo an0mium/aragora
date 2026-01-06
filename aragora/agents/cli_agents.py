@@ -724,13 +724,19 @@ Provide structured feedback:
 
 
 class OpenAIAgent(CLIAgent):
-    """Agent that uses OpenAI CLI."""
+    """Agent that uses OpenAI CLI.
+
+    Falls back to OpenRouter (OpenAI GPT) on CLI failures if enabled.
+    """
 
     def __init__(self, name: str, model: str = "gpt-4o", role: str = "proposer", timeout: int = 120):
         super().__init__(name, model, role, timeout)
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using openai CLI."""
+        """Generate a response using openai CLI.
+
+        Automatically falls back to OpenRouter API on rate limits or CLI errors.
+        """
         full_prompt = prompt
         if context:
             full_prompt = self._build_context_prompt(context) + prompt
@@ -738,24 +744,37 @@ class OpenAIAgent(CLIAgent):
         if self.system_prompt:
             full_prompt = f"System context: {self.system_prompt}\n\n{full_prompt}"
 
-        # Use openai api chat.completions.create
-        messages = json.dumps([{"role": "user", "content": full_prompt}])
-
-        result = await self._run_cli([
-            "openai", "api", "chat.completions.create",
-            "-m", self.model,
-            "-g", "user", full_prompt,
-        ])
-
-        # Parse JSON response
         try:
-            data = json.loads(result)
-            choices = data.get("choices", [])
-            if choices:
-                return choices[0].get("message", {}).get("content", result)
-            return result
-        except json.JSONDecodeError:
-            return result
+            # Use openai api chat.completions.create
+            messages = json.dumps([{"role": "user", "content": full_prompt}])
+
+            result = await self._run_cli([
+                "openai", "api", "chat.completions.create",
+                "-m", self.model,
+                "-g", "user", full_prompt,
+            ])
+
+            # Parse JSON response
+            try:
+                data = json.loads(result)
+                choices = data.get("choices", [])
+                if choices:
+                    return choices[0].get("message", {}).get("content", result)
+                return result
+            except json.JSONDecodeError:
+                return result
+
+        except Exception as e:
+            if self._is_fallback_error(e):
+                fallback = self._get_fallback_agent()
+                if fallback:
+                    logger.warning(
+                        f"[{self.name}] CLI failed ({type(e).__name__}: {str(e)[:100]}), "
+                        f"falling back to OpenRouter"
+                    )
+                    self._fallback_used = True
+                    return await fallback.generate(prompt, context)
+            raise
 
     async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using openai."""
