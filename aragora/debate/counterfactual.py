@@ -331,7 +331,7 @@ class ImpactDetector:
             if overlap > 0.3:
                 mentions += 1
 
-        return min(1.0, mentions / len(messages))
+        return min(1.0, mentions / len(messages)) if messages else 0.0
 
 
 class CounterfactualOrchestrator:
@@ -355,6 +355,7 @@ class CounterfactualOrchestrator:
         self.impasse_detector = ImpactDetector()
         self.branches: dict[str, CounterfactualBranch] = {}
         self.conditional_consensuses: list[ConditionalConsensus] = []
+        self.max_history: int = 100  # Limit to prevent unbounded memory growth
 
         self._branch_counter = 0
 
@@ -651,6 +652,37 @@ class CounterfactualOrchestrator:
                 lines.append("")
 
         return "\n".join(lines)
+
+    def cleanup_debate(self, debate_id: str) -> int:
+        """
+        Clean up branches for a completed debate to prevent memory leaks.
+
+        Call this after a debate completes to free memory from old branches.
+
+        Args:
+            debate_id: The debate ID to clean up
+
+        Returns:
+            Number of branches removed
+        """
+        to_delete = [
+            bid for bid, b in self.branches.items()
+            if b.parent_debate_id == debate_id
+        ]
+        for bid in to_delete:
+            del self.branches[bid]
+
+        # Also trim conditional_consensuses to max_history
+        if len(self.conditional_consensuses) > self.max_history:
+            self.conditional_consensuses = self.conditional_consensuses[-self.max_history:]
+
+        return len(to_delete)
+
+    def clear_all(self) -> None:
+        """Clear all branches and consensuses. Use with caution."""
+        self.branches.clear()
+        self.conditional_consensuses.clear()
+        self._branch_counter = 0
 
 
 class CounterfactualIntegration:

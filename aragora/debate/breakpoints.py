@@ -9,11 +9,14 @@ Provides structured mechanics for human oversight in debates:
 """
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Callable, Any, Awaitable
 from enum import Enum
 import json
+
+logger = logging.getLogger(__name__)
 
 
 class BreakpointTrigger(Enum):
@@ -154,31 +157,28 @@ class HumanNotifier:
         return success
 
     def _cli_notify(self, breakpoint: Breakpoint):
-        """Print notification to CLI."""
+        """Log notification to CLI."""
         snapshot = breakpoint.debate_snapshot
-        print("\n" + "=" * 60)
-        print(f"🛑 BREAKPOINT TRIGGERED: {breakpoint.trigger.value}")
-        print("=" * 60)
-        print(f"Debate: {snapshot.debate_id}")
-        print(f"Task: {snapshot.task[:100]}...")
-        print(f"Round: {snapshot.current_round}/{snapshot.total_rounds}")
-        print(f"Confidence: {snapshot.confidence:.0%}")
-        print()
+        logger.info("=" * 60)
+        logger.info(f"BREAKPOINT TRIGGERED: {breakpoint.trigger.value}")
+        logger.info("=" * 60)
+        logger.info(f"Debate: {snapshot.debate_id}")
+        logger.info(f"Task: {snapshot.task[:100]}...")
+        logger.info(f"Round: {snapshot.current_round}/{snapshot.total_rounds}")
+        logger.info(f"Confidence: {snapshot.confidence:.0%}")
 
         if snapshot.key_disagreements:
-            print("Key disagreements:")
+            logger.info("Key disagreements:")
             for d in snapshot.key_disagreements[:3]:
-                print(f"  - {d}")
-        print()
+                logger.info(f"  - {d}")
 
-        print("Agent positions:")
+        logger.info("Agent positions:")
         for agent, position in snapshot.agent_positions.items():
-            print(f"  {agent}: {position[:80]}...")
-        print()
+            logger.info(f"  {agent}: {position[:80]}...")
 
-        print(f"Escalation level: {breakpoint.escalation_level}")
-        print(f"Timeout: {breakpoint.timeout_minutes} minutes")
-        print("=" * 60 + "\n")
+        logger.info(f"Escalation level: {breakpoint.escalation_level}")
+        logger.info(f"Timeout: {breakpoint.timeout_minutes} minutes")
+        logger.info("=" * 60)
 
 
 class BreakpointManager:
@@ -208,7 +208,7 @@ class BreakpointManager:
         confidence: float,
         round_num: int,
         max_rounds: int,
-        critiques: list[Any] = None,
+        critiques: list[Any] | None = None,
     ) -> Optional[Breakpoint]:
         """Check if any breakpoint should trigger."""
 

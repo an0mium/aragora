@@ -6,6 +6,7 @@ Handles storage and retrieval of debate outcomes, evidence, and patterns
 across ContinuumMemory, CritiqueStore, and DebateEmbeddings systems.
 """
 
+import hashlib
 import logging
 from typing import TYPE_CHECKING, Callable, Optional
 
@@ -146,7 +147,7 @@ class MemoryManager:
                 # Store as medium-tier memory with moderate importance
                 try:
                     self.continuum_memory.add(
-                        id=f"evidence_{hash(content) % 100000:05d}",
+                        id=f"evidence_{hashlib.sha256(content.encode()).hexdigest()[:10]}",
                         content=f"[Evidence:{domain}] {content} (Source: {source})",
                         tier="medium",
                         importance=min(0.7, relevance + 0.2),

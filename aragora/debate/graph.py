@@ -1087,7 +1087,7 @@ class GraphDebateOrchestrator:
         disagreement = min(1.0, variance * 4)
 
         # Find most divergent response
-        if disagreement > self.policy.disagreement_threshold:
+        if disagreement > self.policy.disagreement_threshold and responses:
             sorted_by_conf = sorted(responses, key=lambda x: x[2])
             return disagreement, sorted_by_conf[0][1]
 

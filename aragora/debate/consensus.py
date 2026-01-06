@@ -555,7 +555,7 @@ class ConsensusBuilder:
                     agent=agent,
                     vote=VoteType.DISAGREE,
                     confidence=1 - final_severity,
-                    reasoning=f"Raised concerns: {agent_critiques[-1].issues[0] if agent_critiques else 'Unknown'}",
+                    reasoning=f"Raised concerns: {agent_critiques[-1].issues[0] if agent_critiques and agent_critiques[-1].issues else 'Unknown'}",
                 )
                 builder.record_dissent(
                     agent=agent,

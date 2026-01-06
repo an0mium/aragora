@@ -19,7 +19,10 @@ from typing import Any, Callable, Optional
 import asyncio
 import itertools
 import json
+import logging
 import uuid
+
+logger = logging.getLogger(__name__)
 
 
 class ScenarioType(Enum):

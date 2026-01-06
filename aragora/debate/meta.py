@@ -13,6 +13,9 @@ from dataclasses import dataclass, field
 from typing import Optional
 from datetime import datetime
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 from aragora.core import Message, Critique, DebateResult
 from aragora.memory.embeddings import EmbeddingProvider, cosine_similarity
@@ -384,8 +387,8 @@ class MetaCritiqueAnalyzer:
         if self._embedding_provider:
             try:
                 return self._semantic_similarity(text1, text2)
-            except Exception:
-                pass  # Fall back to word-based
+            except Exception as e:
+                logger.debug(f"Semantic similarity failed, using word-based fallback: {e}")
 
         # Word-based Jaccard similarity (fallback)
         words1 = set(text1.lower().split())
@@ -406,14 +409,11 @@ class MetaCritiqueAnalyzer:
             cache_key = text[:500]  # Truncate for cache key
             if cache_key not in self._embedding_cache:
                 # Run async embed in sync context
-                loop = asyncio.new_event_loop()
-                try:
-                    embedding = loop.run_until_complete(
-                        self._embedding_provider.embed(text[:2000])
-                    )
-                    self._embedding_cache[cache_key] = embedding
-                finally:
-                    loop.close()
+                # Use asyncio.run() for proper event loop lifecycle management
+                embedding = asyncio.run(
+                    self._embedding_provider.embed(text[:2000])
+                )
+                self._embedding_cache[cache_key] = embedding
             return self._embedding_cache[cache_key]
 
         emb1 = get_embedding(text1)

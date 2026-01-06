@@ -15,13 +15,12 @@ Key concepts:
 """
 
 import asyncio
-import json
 import gzip
 import hashlib
+import json
 import logging
-import os
 import re
-import shutil
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -31,7 +30,6 @@ from enum import Enum
 
 # Git-safe ID pattern: alphanumeric, dash, underscore only (no path traversal or special chars)
 SAFE_CHECKPOINT_ID = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$')
-import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -223,12 +221,12 @@ class CheckpointStore(ABC):
     @abstractmethod
     async def save(self, checkpoint: DebateCheckpoint) -> str:
         """Save checkpoint, return storage path."""
-        pass
+        raise NotImplementedError("Subclasses must implement save")
 
     @abstractmethod
     async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
         """Load checkpoint by ID."""
-        pass
+        raise NotImplementedError("Subclasses must implement load")
 
     @abstractmethod
     async def list_checkpoints(
@@ -237,12 +235,12 @@ class CheckpointStore(ABC):
         limit: int = 100,
     ) -> list[dict]:
         """List available checkpoints."""
-        pass
+        raise NotImplementedError("Subclasses must implement list_checkpoints")
 
     @abstractmethod
     async def delete(self, checkpoint_id: str) -> bool:
         """Delete a checkpoint."""
-        pass
+        raise NotImplementedError("Subclasses must implement delete")
 
 
 class FileCheckpointStore(CheckpointStore):
@@ -303,7 +301,14 @@ class FileCheckpointStore(CheckpointStore):
 
             return DebateCheckpoint.from_dict(data)
 
-        except Exception as e:
+        except (json.JSONDecodeError, gzip.BadGzipFile) as e:
+            logger.warning(f"Corrupted checkpoint data {checkpoint_id}: {e}")
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            logger.warning(f"Invalid checkpoint structure {checkpoint_id}: {e}")
+            return None
+        except OSError as e:
+            logger.debug(f"Cannot read checkpoint file {checkpoint_id}: {e}")
             return None
 
     async def list_checkpoints(
@@ -326,7 +331,7 @@ class FileCheckpointStore(CheckpointStore):
                         "created_at": cp.created_at,
                         "status": cp.status.value,
                     })
-            except Exception as e:
+            except (json.JSONDecodeError, gzip.BadGzipFile, KeyError, ValueError, TypeError, OSError) as e:
                 logger.debug(f"Skipping invalid checkpoint file {path}: {e}")
                 continue
 
@@ -395,7 +400,17 @@ class S3CheckpointStore(CheckpointStore):
 
             return DebateCheckpoint.from_dict(data)
 
-        except Exception as e:
+        except (json.JSONDecodeError, gzip.BadGzipFile) as e:
+            logger.warning(f"Corrupted S3 checkpoint data {checkpoint_id}: {e}")
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            logger.warning(f"Invalid S3 checkpoint structure {checkpoint_id}: {e}")
+            return None
+        except ImportError:
+            logger.error("boto3 required for S3CheckpointStore")
+            return None
+        except OSError as e:
+            logger.warning(f"S3 connection error for {checkpoint_id}: {e}")
             return None
 
     async def list_checkpoints(
@@ -432,8 +447,11 @@ class S3CheckpointStore(CheckpointStore):
             key = self._get_key(checkpoint_id)
             client.delete_object(Bucket=self.bucket, Key=key)
             return True
-        except Exception as e:
-            logger.warning(f"Failed to delete S3 checkpoint {checkpoint_id}: {e}")
+        except ImportError:
+            logger.error("boto3 required for S3CheckpointStore")
+            return False
+        except OSError as e:
+            logger.warning(f"S3 connection error deleting {checkpoint_id}: {e}")
             return False
 
 
@@ -840,7 +858,7 @@ class CheckpointWebhook:
                 else:
                     handler(data)
             except Exception as e:
-                pass  # Log but don't fail
+                logger.warning(f"Checkpoint webhook handler failed for event '{event}': {e}")
 
         # Send to webhook if configured
         if self.webhook_url:

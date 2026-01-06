@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from aragora.agents.personas import PersonaManager
     from aragora.debate.roles import RoleRotator, RoleAssignment
     from aragora.core import Critique
+    from aragora.evidence.collector import EvidencePack
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ class PromptBuilder:
         role_rotator: Optional["RoleRotator"] = None,
         persona_manager: Optional["PersonaManager"] = None,
         flip_detector: Optional["FlipDetector"] = None,
+        evidence_pack: Optional["EvidencePack"] = None,
     ):
         """Initialize prompt builder with debate context.
 
@@ -52,6 +54,7 @@ class PromptBuilder:
             role_rotator: Optional cognitive role rotation
             persona_manager: Optional agent persona management
             flip_detector: Optional position consistency tracking
+            evidence_pack: Optional evidence pack with research snippets
         """
         self.protocol = protocol
         self.env = env
@@ -61,6 +64,7 @@ class PromptBuilder:
         self.role_rotator = role_rotator
         self.persona_manager = persona_manager
         self.flip_detector = flip_detector
+        self.evidence_pack = evidence_pack
 
         # Current state (set externally by Arena)
         self.current_role_assignments: dict[str, "RoleAssignment"] = {}
@@ -276,6 +280,48 @@ and building on others' ideas."""
         """Get cached continuum memory context."""
         return self._continuum_context_cache
 
+    def format_evidence_for_prompt(self, max_snippets: int = 5) -> str:
+        """Format evidence pack as citable references for agent prompts.
+
+        Returns a formatted string with evidence snippets that agents can
+        cite using [EVID-N] notation.
+        """
+        if not self.evidence_pack or not self.evidence_pack.snippets:
+            return ""
+
+        lines = ["## AVAILABLE EVIDENCE"]
+        lines.append("Reference these sources by ID when making factual claims:\n")
+
+        for i, snippet in enumerate(self.evidence_pack.snippets[:max_snippets], 1):
+            evid_id = f"[EVID-{i}]"
+            title = snippet.title[:80] if snippet.title else "Untitled"
+            source = snippet.source or "Unknown"
+            # Get reliability score with safe fallback (handles MagicMock, None, etc.)
+            reliability = getattr(snippet, 'reliability_score', 0.5)
+            if not isinstance(reliability, (int, float)):
+                reliability = 0.5
+
+            # Format the snippet
+            lines.append(f"{evid_id} \"{title}\" ({source})")
+            lines.append(f"  Reliability: {reliability:.0%}")
+            if snippet.url:
+                lines.append(f"  URL: {snippet.url}")
+
+            # Include truncated snippet content
+            content = snippet.snippet[:200] if snippet.snippet else ""
+            if content:
+                if len(snippet.snippet) > 200:
+                    content += "..."
+                lines.append(f"  > {content}")
+            lines.append("")  # Blank line between snippets
+
+        lines.append("When stating facts, cite evidence as [EVID-N]. Uncited claims may be challenged.")
+        return "\n".join(lines)
+
+    def set_evidence_pack(self, evidence_pack: Optional["EvidencePack"]) -> None:
+        """Update the evidence pack (called by orchestrator between rounds)."""
+        self.evidence_pack = evidence_pack
+
     def build_proposal_prompt(
         self,
         agent: "Agent",
@@ -346,12 +392,18 @@ and building on others' ideas."""
         if patterns:
             patterns_section = f"\n\n{patterns}"
 
+        # Include evidence citations if available
+        evidence_section = ""
+        evidence_context = self.format_evidence_for_prompt(max_snippets=5)
+        if evidence_context:
+            evidence_section = f"\n\n{evidence_context}"
+
         # Format audience section if provided
         if audience_section:
             audience_section = f"\n\n{audience_section}"
 
         return f"""You are acting as a {agent.role} in a multi-agent debate.{stance_section}{role_section}{persona_section}{flip_section}
-{historical_section}{continuum_section}{dissent_section}{patterns_section}{audience_section}
+{historical_section}{continuum_section}{dissent_section}{patterns_section}{evidence_section}{audience_section}
 Task: {self.env.task}{context_str}{research_status}
 
 IMPORTANT: If this task mentions a specific website, company, product, or current topic, you MUST:
@@ -405,13 +457,19 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if patterns:
             patterns_section = f"\n\n{patterns}"
 
+        # Include evidence for strengthening revised claims
+        evidence_section = ""
+        evidence_context = self.format_evidence_for_prompt(max_snippets=3)
+        if evidence_context:
+            evidence_section = f"\n\n{evidence_context}"
+
         # Format audience section if provided
         if audience_section:
             audience_section = f"\n\n{audience_section}"
 
         return f"""You are revising your proposal based on critiques from other agents.{role_section}{persona_section}{flip_section}
 
-{intensity_guidance}{stance_section}{patterns_section}{audience_section}
+{intensity_guidance}{stance_section}{patterns_section}{evidence_section}{audience_section}
 
 Original Task: {self.env.task}
 
@@ -422,6 +480,7 @@ Critiques Received:
 {critiques_str}
 
 Please provide a revised proposal that addresses the valid critiques.
+Use evidence citations [EVID-N] to support strengthened claims.
 Explain what you changed and why. If you disagree with a critique, explain your reasoning."""
 
     def build_judge_prompt(
@@ -438,10 +497,16 @@ Explain what you changed and why. If you disagree with a critique, explain your 
             f"- {c.agent}: {', '.join(c.issues[:2])}" for c in critiques[:5]
         )
 
+        # Include evidence for final synthesis
+        evidence_section = ""
+        evidence_context = self.format_evidence_for_prompt(max_snippets=5)
+        if evidence_context:
+            evidence_section = f"\n\n{evidence_context}\n"
+
         return f"""You are the synthesizer/judge in a multi-agent debate.
 
 Task: {task}
-
+{evidence_section}
 Proposals:
 {proposals_str}
 
@@ -449,6 +514,7 @@ Key Critiques:
 {critiques_str}
 
 Synthesize the best elements of all proposals into a final answer.
+Reference evidence [EVID-N] to support key claims in your synthesis.
 Address the most important critiques raised. Explain your synthesis."""
 
     def build_judge_vote_prompt(

@@ -15,6 +15,8 @@ from typing import Optional, Any, Iterator
 from enum import Enum
 import random
 
+from aragora.config import DB_TIMEOUT_SECONDS
+
 
 class EventType(Enum):
     """Types of debate events."""
@@ -145,7 +147,12 @@ class DebateTrace:
     @classmethod
     def load(cls, path: Path) -> "DebateTrace":
         """Load trace from file."""
-        return cls.from_json(path.read_text())
+        if not path.exists():
+            raise FileNotFoundError(f"Debate trace not found: {path}")
+        try:
+            return cls.from_json(path.read_text())
+        except OSError as e:
+            raise OSError(f"Failed to read debate trace {path}: {e}") from e
 
 
 class DebateTracer:
@@ -189,7 +196,7 @@ class DebateTracer:
 
     def _init_db(self):
         """Initialize trace database."""
-        with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -359,7 +366,7 @@ class DebateTracer:
 
     def _save_trace(self):
         """Save trace to database."""
-        with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -458,7 +465,7 @@ class DebateReplayer:
     @classmethod
     def from_database(cls, trace_id: str, db_path: str = "aragora_traces.db") -> "DebateReplayer":
         """Load replayer from database."""
-        with sqlite3.connect(db_path, timeout=30.0) as conn:
+        with sqlite3.connect(db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT trace_json FROM traces WHERE trace_id = ?", (trace_id,))
             row = cursor.fetchone()
@@ -638,7 +645,7 @@ class DebateReplayer:
 
 def list_traces(db_path: str = "aragora_traces.db", limit: int = 20) -> list[dict]:
     """List recent traces from database."""
-    with sqlite3.connect(db_path, timeout=30.0) as conn:
+    with sqlite3.connect(db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
         cursor = conn.cursor()
 
         cursor.execute("""

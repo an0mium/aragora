@@ -40,7 +40,7 @@ class SimilarityBackend(ABC):
         Returns:
             Similarity score between 0.0 (completely different) and 1.0 (identical)
         """
-        pass
+        raise NotImplementedError("Subclasses must implement compute_similarity")
 
     def compute_batch_similarity(self, texts: list[str]) -> float:
         """
@@ -206,6 +206,67 @@ class SentenceTransformerBackend(SimilarityBackend):
 
         return float(similarity)
 
+    def compute_batch_similarity(self, texts: list[str]) -> float:
+        """
+        Optimized batch similarity using single encode call.
+
+        Computes all embeddings at once, then calculates pairwise cosine similarities.
+        Much faster than O(n²) individual encode calls.
+        """
+        if len(texts) < 2:
+            return 1.0
+
+        # Single batch encode (O(n) instead of O(n²) encode calls)
+        embeddings = self.model.encode(texts)
+
+        # Compute all pairwise cosine similarities efficiently
+        total = 0.0
+        count = 0
+        for i in range(len(texts)):
+            for j in range(i + 1, len(texts)):
+                sim = self.cosine_similarity(
+                    embeddings[i].reshape(1, -1), embeddings[j].reshape(1, -1)
+                )[0][0]
+                total += float(sim)
+                count += 1
+
+        return total / count if count > 0 else 0.0
+
+    def compute_pairwise_similarities(
+        self, texts_a: list[str], texts_b: list[str]
+    ) -> list[float]:
+        """
+        Compute similarities for paired texts efficiently.
+
+        Args:
+            texts_a: First list of texts
+            texts_b: Second list of texts (must be same length)
+
+        Returns:
+            List of similarities for each pair (a[i], b[i])
+        """
+        if not texts_a or not texts_b or len(texts_a) != len(texts_b):
+            return []
+
+        # Batch encode both lists in one call
+        all_texts = texts_a + texts_b
+        embeddings = self.model.encode(all_texts)
+
+        # Split embeddings
+        n = len(texts_a)
+        emb_a = embeddings[:n]
+        emb_b = embeddings[n:]
+
+        # Compute pairwise similarities
+        similarities = []
+        for i in range(n):
+            sim = self.cosine_similarity(
+                emb_a[i].reshape(1, -1), emb_b[i].reshape(1, -1)
+            )[0][0]
+            similarities.append(float(sim))
+
+        return similarities
+
 
 # =============================================================================
 # Convergence Result
@@ -324,11 +385,23 @@ class ConvergenceDetector:
 
         # Compute similarity for each agent
         per_agent = {}
-        for agent in common_agents:
-            similarity = self.backend.compute_similarity(
-                current_responses[agent], previous_responses[agent]
+        agent_list = list(common_agents)
+
+        # Use batch method if available (SentenceTransformerBackend)
+        if hasattr(self.backend, 'compute_pairwise_similarities'):
+            texts_current = [current_responses[a] for a in agent_list]
+            texts_previous = [previous_responses[a] for a in agent_list]
+            similarities = self.backend.compute_pairwise_similarities(
+                texts_current, texts_previous
             )
-            per_agent[agent] = similarity
+            per_agent = dict(zip(agent_list, similarities))
+        else:
+            # Fallback to individual comparisons
+            for agent in agent_list:
+                similarity = self.backend.compute_similarity(
+                    current_responses[agent], previous_responses[agent]
+                )
+                per_agent[agent] = similarity
 
         # Compute aggregate metrics
         similarities = list(per_agent.values())

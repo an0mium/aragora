@@ -6,22 +6,26 @@ debate protocols and consensus mechanisms.
 """
 
 import asyncio
+import hashlib
 import logging
 import queue
 import random
 import time
-
-logger = logging.getLogger(__name__)
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Literal, Optional
-from collections import Counter
 
+from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
+from aragora.config import USER_EVENT_QUEUE_SIZE
 from aragora.core import Agent, Critique, DebateResult, DisagreementReport, Environment, Message, Vote
 from aragora.debate.convergence import (
     ConvergenceDetector,
     ConvergenceResult,
     get_similarity_backend,
 )
+from aragora.debate.memory_manager import MemoryManager
+from aragora.debate.prompt_builder import PromptBuilder
+from aragora.debate.protocol import CircuitBreaker, DebateProtocol, user_vote_multiplier
 from aragora.debate.roles import (
     CognitiveRole,
     RoleAssignment,
@@ -29,14 +33,11 @@ from aragora.debate.roles import (
     RoleRotator,
     inject_role_into_prompt,
 )
-from aragora.debate.protocol import CircuitBreaker, DebateProtocol, user_vote_multiplier
-from aragora.spectate.stream import SpectatorStream
-from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 from aragora.debate.sanitization import OutputSanitizer
-from aragora.debate.prompt_builder import PromptBuilder
-from aragora.debate.memory_manager import MemoryManager
-from aragora.config import USER_EVENT_QUEUE_SIZE
 from aragora.server.prometheus import record_debate_completed
+from aragora.spectate.stream import SpectatorStream
+
+logger = logging.getLogger(__name__)
 
 # Optional position tracking for truth-grounded personas
 PositionTracker = None
@@ -179,6 +180,7 @@ class Arena:
         strict_loop_scoping: bool = False,  # Drop events without loop_id when True
         circuit_breaker: CircuitBreaker = None,  # Optional CircuitBreaker for agent failure handling
         initial_messages: list = None,  # Optional initial conversation history (for fork debates)
+        trending_topic=None,  # Optional TrendingTopic to seed debate context
     ):
         self.env = environment
         self.agents = agents
@@ -221,6 +223,7 @@ class Arena:
         self.strict_loop_scoping = strict_loop_scoping  # Enforce loop_id on all events
         self.circuit_breaker = circuit_breaker or CircuitBreaker()
         self.initial_messages = initial_messages or []  # Fork debate initial context
+        self.trending_topic = trending_topic  # Optional trending topic to seed context
 
         # ArgumentCartographer for debate graph visualization
         AC = _get_argument_cartographer()
@@ -316,6 +319,16 @@ class Arena:
             spectator=self.spectator,
             loop_id=self.loop_id,
         )
+
+    def _require_agents(self) -> list[Agent]:
+        """Return agents list, raising error if empty.
+
+        Use this helper before accessing self.agents[0], self.agents[-1],
+        or random.choice(self.agents) to prevent IndexError on empty lists.
+        """
+        if not self.agents:
+            raise ValueError("No agents available - Arena requires at least one agent")
+        return self.agents
 
     def _sync_prompt_builder_state(self) -> None:
         """Sync Arena state to PromptBuilder before building prompts.
@@ -451,6 +464,56 @@ class Arena:
         self._debate_domain_cache = domain
         return domain
 
+    def _get_calibration_weight(self, agent_name: str) -> float:
+        """Get agent weight based on calibration score (0.5-1.5 range).
+
+        Uses calibration_score from ELO system to weight agent contributions.
+        Agents with better calibration (more accurate confidence estimates)
+        have higher weight in voting and selection decisions.
+
+        Returns:
+            Weight between 0.5 (uncalibrated/poor) and 1.5 (perfect calibration)
+        """
+        if not self.elo_system:
+            return 1.0
+
+        try:
+            rating = self.elo_system.get_rating(agent_name)
+            # calibration_score is 0-1, with 0 for agents with < MIN_COUNT predictions
+            cal_score = rating.calibration_score
+            # Map 0-1 to 0.5-1.5 range: uncalibrated gets 0.5, perfect gets 1.5
+            return 0.5 + cal_score
+        except Exception as e:
+            logger.debug(f"Calibration weight lookup failed for {agent_name}: {e}")
+            return 1.0
+
+    def _compute_composite_judge_score(self, agent_name: str) -> float:
+        """Compute composite score for judge selection (ELO + calibration).
+
+        Combines ELO ranking with calibration score for more nuanced judge selection.
+        Well-calibrated agents with high ELO make better judges.
+
+        Returns:
+            Composite score (higher is better)
+        """
+        if not self.elo_system:
+            return 0.0
+
+        try:
+            rating = self.elo_system.get_rating(agent_name)
+            # Normalize ELO: 1000 is baseline, 500 is typical deviation
+            elo_normalized = (rating.elo - 1000) / 500  # ~-1 to 3 range typically
+            elo_normalized = max(0, elo_normalized)  # Floor at 0
+
+            # Calibration score is already 0-1
+            cal_score = rating.calibration_score
+
+            # Weighted combination: 70% ELO, 30% calibration
+            return (elo_normalized * 0.7) + (cal_score * 0.3)
+        except Exception as e:
+            logger.debug(f"Composite score calculation failed for {agent_name}: {e}")
+            return 0.0
+
     def _select_critics_for_proposal(self, proposal_agent: str, all_critics: list[Agent]) -> list[Agent]:
         """Select which critics should critique the given proposal based on topology."""
         if self.protocol.topology == "all-to-all":
@@ -466,7 +529,9 @@ class Arena:
             # Sort critics by name for deterministic ordering
             eligible_critics_sorted = sorted(eligible_critics, key=lambda c: c.name)
             # Each proposal gets critiqued by the "next" critic based on hash
-            proposal_index = hash(proposal_agent) % len(eligible_critics_sorted)
+            # Use stable hash for deterministic critic assignment across Python sessions
+            proposal_hash = int(hashlib.sha256(proposal_agent.encode()).hexdigest(), 16)
+            proposal_index = proposal_hash % len(eligible_critics_sorted)
             return [eligible_critics_sorted[proposal_index]]
 
         elif self.protocol.topology == "ring":
@@ -491,7 +556,7 @@ class Arena:
                 hub = self.protocol.topology_hub_agent
             else:
                 # Default hub is first agent
-                hub = self.agents[0].name
+                hub = self._require_agents()[0].name
             if proposal_agent == hub:
                 # Hub's proposal gets critiqued by all others
                 return [c for c in all_critics if c.name != hub]
@@ -505,8 +570,9 @@ class Arena:
             if not available_critics:
                 return []
             num_to_select = max(1, int(len(available_critics) * self.protocol.topology_sparsity))
-            # Deterministic random based on proposal_agent for reproducibility
-            random.seed(hash(proposal_agent))
+            # Deterministic random based on proposal_agent for reproducibility (stable hash)
+            stable_seed = int(hashlib.sha256(proposal_agent.encode()).hexdigest(), 16) % (2**32)
+            random.seed(stable_seed)
             selected = random.sample(available_critics, min(num_to_select, len(available_critics)))
             random.seed()  # Reset seed
             return selected
@@ -556,8 +622,14 @@ class Arena:
                 event_type, event_data = self._user_event_queue.get_nowait()
                 if event_type == StreamEventType.USER_VOTE:
                     self.user_votes.append(event_data)
+                    # Prevent unbounded memory growth - keep last N votes
+                    if len(self.user_votes) > USER_EVENT_QUEUE_SIZE:
+                        self.user_votes = self.user_votes[-USER_EVENT_QUEUE_SIZE:]
                 elif event_type == StreamEventType.USER_SUGGESTION:
                     self.user_suggestions.append(event_data)
+                    # Prevent unbounded memory growth - keep last N suggestions
+                    if len(self.user_suggestions) > USER_EVENT_QUEUE_SIZE:
+                        self.user_suggestions = self.user_suggestions[-USER_EVENT_QUEUE_SIZE:]
                 drained_count += 1
             except queue.Empty:
                 break
@@ -750,7 +822,8 @@ class Arena:
         # Calculate agreement score
         if len(vote_choices) > 1:
             choice_counts = Counter(vote_choices.values())
-            most_common_count = choice_counts.most_common(1)[0][1] if choice_counts else 0
+            most_common_list = choice_counts.most_common(1) if choice_counts else []
+            most_common_count = most_common_list[0][1] if most_common_list else 0
             report.agreement_score = most_common_count / len(vote_choices)
 
         # Calculate per-agent alignment with winner
@@ -1074,6 +1147,53 @@ class Arena:
         """
         context_parts = []
 
+        # === Aragora-Specific Context ===
+        # Auto-inject aragora documentation when debate mentions aragora
+        task_lower = task.lower()
+        is_aragora_topic = any(kw in task_lower for kw in ["aragora", "multi-agent debate", "nomic loop", "debate framework"])
+
+        if is_aragora_topic:
+            try:
+                from pathlib import Path
+                import os
+
+                # Find project root (where CLAUDE.md and docs/ are)
+                project_root = Path(__file__).parent.parent.parent
+                docs_dir = project_root / "docs"
+
+                aragora_context_parts = []
+
+                # Read key documentation files
+                key_docs = ["FEATURES.md", "ARCHITECTURE.md", "QUICKSTART.md", "STATUS.md"]
+                for doc_name in key_docs:
+                    doc_path = docs_dir / doc_name
+                    if doc_path.exists():
+                        try:
+                            content = doc_path.read_text()[:3000]  # Limit per file
+                            aragora_context_parts.append(f"### {doc_name}\n{content}")
+                        except Exception as e:
+                            logger.debug(f"Failed to read {doc_name}: {e}")
+
+                # Also include CLAUDE.md for project overview
+                claude_md = project_root / "CLAUDE.md"
+                if claude_md.exists():
+                    try:
+                        content = claude_md.read_text()[:2000]
+                        aragora_context_parts.insert(0, f"### Project Overview (CLAUDE.md)\n{content}")
+                    except Exception:
+                        pass
+
+                if aragora_context_parts:
+                    context_parts.append(
+                        "## ARAGORA PROJECT CONTEXT\n"
+                        "The following is internal documentation about the Aragora project:\n\n"
+                        + "\n\n---\n\n".join(aragora_context_parts[:4])  # Limit to 4 docs
+                    )
+                    logger.info("Injected Aragora project documentation context")
+
+            except Exception as e:
+                logger.debug(f"Failed to load Aragora context: {e}")
+
         # === Evidence Collection ===
         try:
             from aragora.evidence.collector import EvidenceCollector
@@ -1100,6 +1220,20 @@ class Arena:
             except ImportError:
                 pass
 
+            # Add local docs connector for project-specific knowledge
+            try:
+                from aragora.connectors.local_docs import LocalDocsConnector
+                from pathlib import Path
+
+                project_root = Path(__file__).parent.parent.parent
+                collector.add_connector("local_docs", LocalDocsConnector(
+                    root_path=str(project_root / "docs"),
+                    file_types="docs"
+                ))
+                enabled_connectors.append("local_docs")
+            except ImportError:
+                pass
+
             # Collect evidence from all available connectors
             if enabled_connectors:
                 evidence_pack = await collector.collect_evidence(task, enabled_connectors=enabled_connectors)
@@ -1107,6 +1241,9 @@ class Arena:
                 if evidence_pack.snippets:
                     # Store evidence pack for grounding verdict with citations
                     self._research_evidence_pack = evidence_pack
+                    # Update prompt_builder with evidence for per-round citation support
+                    if hasattr(self, 'prompt_builder') and self.prompt_builder:
+                        self.prompt_builder.set_evidence_pack(evidence_pack)
                     # Store evidence in ContinuumMemory for future debates
                     self._store_evidence_in_memory(evidence_pack.snippets, task)
                     context_parts.append(f"## EVIDENCE CONTEXT\n{evidence_pack.to_context_string()}")
@@ -1116,16 +1253,23 @@ class Arena:
 
         # === Pulse/Trending Context ===
         try:
-            from aragora.pulse.ingestor import PulseManager, TwitterIngestor
+            from aragora.pulse.ingestor import (
+                PulseManager,
+                TwitterIngestor,
+                HackerNewsIngestor,
+                RedditIngestor,
+            )
 
             manager = PulseManager()
             manager.add_ingestor("twitter", TwitterIngestor())
+            manager.add_ingestor("hackernews", HackerNewsIngestor())
+            manager.add_ingestor("reddit", RedditIngestor())
 
             topics = await manager.get_trending_topics(limit_per_platform=3)
 
             if topics:
                 trending_context = "## TRENDING CONTEXT\nCurrent trending topics that may be relevant:\n"
-                for t in topics[:3]:
+                for t in topics[:5]:  # Show top 5 from all platforms
                     trending_context += f"- {t.topic} ({t.platform}, {t.volume:,} engagement, {t.category})\n"
                 context_parts.append(trending_context)
 
@@ -1335,6 +1479,25 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                         round=msg.get("round", 0),
                     ))
 
+        # Inject trending topic context if provided
+        if self.trending_topic:
+            try:
+                topic_context = f"## TRENDING TOPIC\nThis debate was initiated based on trending topic:\n"
+                topic_context += f"- **{self.trending_topic.topic}** ({self.trending_topic.platform})\n"
+                if hasattr(self.trending_topic, 'category') and self.trending_topic.category:
+                    topic_context += f"- Category: {self.trending_topic.category}\n"
+                if hasattr(self.trending_topic, 'volume') and self.trending_topic.volume:
+                    topic_context += f"- Engagement: {self.trending_topic.volume:,}\n"
+                if hasattr(self.trending_topic, 'to_debate_prompt'):
+                    topic_context += f"\n{self.trending_topic.to_debate_prompt()}"
+
+                if self.env.context:
+                    self.env.context = topic_context + "\n\n" + self.env.context
+                else:
+                    self.env.context = topic_context
+            except Exception as e:
+                logger.debug(f"Trending topic injection failed: {e}")
+
         # Start recording if recorder is provided
         if self.recorder:
             try:
@@ -1429,7 +1592,7 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         # === ROUND 0: Initial Proposals ===
         proposers = [a for a in self.agents if a.role == "proposer"]
         if not proposers:
-            proposers = [self.agents[0]]  # Default to first agent
+            proposers = [self._require_agents()[0]]  # Default to first agent
 
         # Update cognitive role assignments for round 0
         self._update_role_assignments(round_num=0)
@@ -1477,7 +1640,13 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         tasks = [asyncio.create_task(generate_proposal(agent)) for agent in available_proposers]
 
         for completed_task in asyncio.as_completed(tasks):
-            agent, result_or_error = await completed_task
+            try:
+                agent, result_or_error = await completed_task
+            except asyncio.CancelledError:
+                raise  # Propagate cancellation
+            except Exception as e:
+                logger.error(f"task_exception phase=proposal error={e}")
+                continue  # Skip this task, continue with others
 
             if isinstance(result_or_error, Exception):
                 logger.error(f"agent_error agent={agent.name} phase=proposal error={result_or_error}")
@@ -1609,7 +1778,13 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
 
             # Stream output as each critique completes
             for completed_task in asyncio.as_completed(critique_tasks):
-                critic, proposal_agent, crit_result = await completed_task
+                try:
+                    critic, proposal_agent, crit_result = await completed_task
+                except asyncio.CancelledError:
+                    raise  # Propagate cancellation
+                except Exception as e:
+                    logger.error(f"task_exception phase=critique error={e}")
+                    continue  # Skip this task, continue with others
 
                 if isinstance(crit_result, Exception):
                     logger.error(f"critique_error critic={critic.name} target={proposal_agent} error={crit_result}")
@@ -1818,7 +1993,13 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in self.agents]
 
             for completed_task in asyncio.as_completed(vote_tasks):
-                agent, vote_result = await completed_task
+                try:
+                    agent, vote_result = await completed_task
+                except asyncio.CancelledError:
+                    raise  # Propagate cancellation
+                except Exception as e:
+                    logger.error(f"task_exception phase=vote error={e}")
+                    continue  # Skip this task, continue with others
 
                 if isinstance(vote_result, Exception):
                     logger.error(f"vote_error agent={agent.name} error={vote_result}")
@@ -1868,6 +2049,16 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
 
             # Pre-compute vote weights for all agents (batch fetch optimization)
             _vote_weight_cache: dict[str, float] = {}
+
+            # Batch fetch all agent ratings to avoid N+1 queries
+            _ratings_cache: dict[str, "AgentRating"] = {}
+            if self.elo_system:
+                try:
+                    agent_names = [agent.name for agent in self.agents]
+                    _ratings_cache = self.elo_system.get_ratings_batch(agent_names)
+                except Exception as e:
+                    logger.debug(f"Batch ratings fetch failed, falling back to individual: {e}")
+
             for agent in self.agents:
                 agent_weight = 1.0
 
@@ -1887,6 +2078,15 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                         agent_weight *= consistency_weight
                     except Exception as e:
                         logger.debug(f"FlipDetector consistency error: {e}")
+
+                # Apply calibration weight from ELO system (0.5-1.5 multiplier)
+                # Well-calibrated agents' votes count more - use pre-fetched cache
+                if agent.name in _ratings_cache:
+                    cal_score = _ratings_cache[agent.name].calibration_score
+                    calibration_weight = 0.5 + cal_score  # Map 0-1 to 0.5-1.5
+                else:
+                    calibration_weight = self._get_calibration_weight(agent.name)
+                agent_weight *= calibration_weight
 
                 _vote_weight_cache[agent.name] = agent_weight
 
@@ -1923,9 +2123,10 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             # Update vote tally for recording
             vote_tally = dict(vote_counts)
 
-            if vote_counts:
-                winner, count = vote_counts.most_common(1)[0]
-                result.final_answer = proposals.get(winner, list(proposals.values())[0])
+            most_common_votes = vote_counts.most_common(1) if vote_counts else []
+            if most_common_votes:
+                winner, count = most_common_votes[0]
+                result.final_answer = proposals.get(winner, list(proposals.values())[0] if proposals else "")
                 result.consensus_reached = count / total_votes >= self.protocol.consensus_threshold
                 result.confidence = count / total_votes
 
@@ -2047,7 +2248,14 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             voting_errors = 0  # Track voting failures for unanimity calculation
 
             for completed_task in asyncio.as_completed(vote_tasks):
-                agent, vote_result = await completed_task
+                try:
+                    agent, vote_result = await completed_task
+                except asyncio.CancelledError:
+                    raise  # Propagate cancellation
+                except Exception as e:
+                    logger.error(f"task_exception phase=unanimous_vote error={e}")
+                    voting_errors += 1  # Count task failure as voting error
+                    continue  # Skip this task, continue with others
 
                 if isinstance(vote_result, Exception):
                     logger.error(f"vote_error_unanimous agent={agent.name} error={vote_result}")
@@ -2104,15 +2312,16 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
             # Include voting errors in total - they count as dissent in unanimous mode
             total_voters = len(result.votes) + voting_errors + (len(self.user_votes) if user_vote_weight > 0 else 0)
 
-            if vote_counts and total_voters > 0:
-                winner, count = vote_counts.most_common(1)[0]
+            most_common_votes = vote_counts.most_common(1) if vote_counts else []
+            if most_common_votes and total_voters > 0:
+                winner, count = most_common_votes[0]
                 unanimity_ratio = count / total_voters
 
                 # Unanimous requires 100% agreement - no exceptions
                 unanimous_threshold = 1.0
 
                 if unanimity_ratio >= unanimous_threshold:
-                    result.final_answer = proposals.get(winner, list(proposals.values())[0])
+                    result.final_answer = proposals.get(winner, list(proposals.values())[0] if proposals else "")
                     result.consensus_reached = True
                     result.confidence = unanimity_ratio
                     result.consensus_strength = "unanimous"
@@ -2369,14 +2578,12 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                 if self.event_emitter:
                     try:
                         from aragora.server.stream import StreamEvent, StreamEventType
-                        elo_changes = {}
-                        for agent_name in participants:
-                            try:
-                                rating = self.elo_system.get_rating(agent_name)
-                                elo_changes[agent_name] = rating.elo if rating else 1500.0
-                            except Exception as e:
-                                logger.debug(f"ELO rating fetch error for {agent_name}: {e}")
-                                elo_changes[agent_name] = 1500.0
+                        # Batch fetch all ratings to avoid N+1 queries
+                        ratings_batch = self.elo_system.get_ratings_batch(participants)
+                        elo_changes = {
+                            name: ratings_batch[name].elo if name in ratings_batch else 1500.0
+                            for name in participants
+                        }
                         self.event_emitter.emit(StreamEvent(
                             type=StreamEventType.MATCH_RECORDED,
                             loop_id=getattr(self, 'loop_id', None),
@@ -2778,11 +2985,11 @@ Respond with only: CONTINUE or STOP
         if self.protocol.judge_selection == "last":
             # Legacy behavior - use synthesizer or last agent
             synthesizers = [a for a in self.agents if a.role == "synthesizer"]
-            return synthesizers[0] if synthesizers else self.agents[-1]
+            return synthesizers[0] if synthesizers else self._require_agents()[-1]
 
         elif self.protocol.judge_selection == "random":
             # Random selection from all agents
-            return random.choice(self.agents)
+            return random.choice(self._require_agents())
 
         elif self.protocol.judge_selection == "voted":
             # Agents vote on who should judge
@@ -2792,7 +2999,7 @@ Respond with only: CONTINUE or STOP
             # Select highest ELO-rated agent as judge
             if not self.elo_system:
                 logger.warning("elo_ranked judge selection requires elo_system; falling back to random")
-                return random.choice(self.agents)
+                return random.choice(self._require_agents())
 
             # Get agent names participating in this debate
             agent_names = [a.name for a in self.agents]
@@ -2813,10 +3020,33 @@ Respond with only: CONTINUE or STOP
                 logger.warning(f"ELO query failed: {e}; falling back to random")
 
             # Fallback if no ELO data
-            return random.choice(self.agents)
+            return random.choice(self._require_agents())
+
+        elif self.protocol.judge_selection == "calibrated":
+            # Select based on composite score (ELO + calibration)
+            # Prefers well-calibrated agents with high ELO
+            if not self.elo_system:
+                logger.warning("calibrated judge selection requires elo_system; falling back to random")
+                return random.choice(self._require_agents())
+
+            # Score all agents and pick highest
+            agent_scores = []
+            for agent in self.agents:
+                score = self._compute_composite_judge_score(agent.name)
+                agent_scores.append((agent, score))
+
+            if agent_scores:
+                # Sort by composite score descending
+                agent_scores.sort(key=lambda x: x[1], reverse=True)
+                best_agent, best_score = agent_scores[0]
+                logger.debug(f"Selected {best_agent.name} (composite: {best_score:.3f}) as judge via calibration")
+                return best_agent
+
+            # Fallback if scoring failed
+            return random.choice(self._require_agents())
 
         # Default fallback
-        return random.choice(self.agents)
+        return random.choice(self._require_agents())
 
     async def _vote_for_judge(self, proposals: dict[str, str], context: list[Message]) -> Agent:
         """Have agents vote on who should be the judge."""
@@ -2848,7 +3078,7 @@ Respond with only: CONTINUE or STOP
             logger.warning(f"vote_for_judge_winner_not_found name={winner_name}")
 
         # Fallback to random if voting fails or winner not found
-        return random.choice(self.agents)
+        return random.choice(self._require_agents())
 
     def _build_judge_vote_prompt(self, candidates: list[Agent], proposals: dict[str, str]) -> str:
         """Build prompt for voting on who should judge."""
