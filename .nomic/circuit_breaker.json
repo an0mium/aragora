@@ -3,8 +3,16 @@
     "claude": 0
   },
   "cooldowns": {},
-  "task_failures": {},
+  "task_failures": {
+    "claude": {
+      "implement": 0
+    }
+  },
   "task_cooldowns": {},
-  "task_success_rate": {},
-  "saved_at": "2026-01-06T16:56:14.214229"
+  "task_success_rate": {
+    "claude": {
+      "implement": 0.6000000000000001
+    }
+  },
+  "saved_at": "2026-01-06T17:22:44.119025"
 }

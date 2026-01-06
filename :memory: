@@ -1,0 +1,5 @@
+2026-01-06 17:24:29,605 - INFO - Agent attempt: test_agent
+2026-01-06 17:24:29,606 - INFO - Agent attempt: test_agent
+2026-01-06 17:24:29,606 - WARNING - Null bytes in test_agent output
+2026-01-06 17:24:29,607 - INFO - Agent attempt: test_agent
+2026-01-06 17:24:29,607 - ERROR - Agent test_agent failed: Timeout

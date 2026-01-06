@@ -12,6 +12,7 @@ Endpoints:
 - GET /api/history/events - Get event history
 - GET /api/history/debates - Get debate history
 - GET /api/history/summary - Get history summary
+- GET /api/system/maintenance?task=<task> - Run database maintenance (status|vacuum|analyze|checkpoint|full)
 """
 
 import json
@@ -41,6 +42,7 @@ class SystemHandler(BaseHandler):
         "/api/history/events",
         "/api/history/debates",
         "/api/history/summary",
+        "/api/system/maintenance",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -103,6 +105,12 @@ class SystemHandler(BaseHandler):
                 if not is_valid:
                     return error_response(err, 400)
             return self._get_history_summary(loop_id)
+
+        if path == "/api/system/maintenance":
+            task = get_string_param(query_params, 'task', 'status')
+            if task not in ('status', 'vacuum', 'analyze', 'checkpoint', 'full'):
+                return error_response("Invalid task. Use: status, vacuum, analyze, checkpoint, full", 400)
+            return self._run_maintenance(task)
 
         return None
 
@@ -396,3 +404,52 @@ class SystemHandler(BaseHandler):
             return json_response(summary)
         except Exception as e:
             return error_response(f"Failed to get summary: {e}", 500)
+
+    def _run_maintenance(self, task: str) -> HandlerResult:
+        """Run database maintenance tasks.
+
+        Args:
+            task: One of 'status', 'vacuum', 'analyze', 'checkpoint', 'full'
+
+        Returns:
+            Maintenance results including affected databases and stats.
+        """
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            from aragora.maintenance import DatabaseMaintenance
+
+            maintenance = DatabaseMaintenance(nomic_dir)
+            result = {"task": task}
+
+            if task == "status":
+                result["stats"] = maintenance.get_stats()
+
+            elif task == "checkpoint":
+                result["checkpoint"] = maintenance.checkpoint_all_wal()
+                result["stats"] = maintenance.get_stats()
+
+            elif task == "analyze":
+                result["analyze"] = maintenance.analyze_all()
+                result["stats"] = maintenance.get_stats()
+
+            elif task == "vacuum":
+                result["vacuum"] = maintenance.vacuum_all()
+                result["stats"] = maintenance.get_stats()
+
+            elif task == "full":
+                # Run all maintenance tasks
+                result["checkpoint"] = maintenance.checkpoint_all_wal()
+                result["analyze"] = maintenance.analyze_all()
+                result["vacuum"] = maintenance.vacuum_all()
+                result["stats"] = maintenance.get_stats()
+
+            return json_response(result)
+
+        except ImportError:
+            return error_response("Maintenance module not available", 503)
+        except Exception as e:
+            logger.exception(f"Maintenance task '{task}' failed: {e}")
+            return error_response(f"Maintenance failed: {e}", 500)

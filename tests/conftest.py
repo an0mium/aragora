@@ -398,3 +398,78 @@ def sample_critique() -> dict:
         "severity": "medium",
         "accepted": False,
     }
+
+
+# ============================================================================
+# Global State Reset Fixtures
+# ============================================================================
+
+@pytest.fixture(autouse=True)
+def reset_lazy_globals():
+    """Reset lazy-loaded globals between tests.
+
+    This fixture prevents test pollution from global state that persists
+    between tests. It runs automatically after each test (autouse=True).
+
+    Affected modules:
+    - aragora.debate.orchestrator (9 globals)
+    - aragora.server.handlers.* (2-4 globals each)
+    """
+    yield  # Run the test first
+
+    # Reset orchestrator globals
+    try:
+        import aragora.debate.orchestrator as orch
+        orch.PositionTracker = None
+        orch.CalibrationTracker = None
+        orch.InsightExtractor = None
+        orch.InsightStore = None
+        orch.CitationExtractor = None
+        orch.BeliefNetwork = None
+        orch.BeliefPropagationAnalyzer = None
+        orch.CritiqueStore = None
+        orch.ArgumentCartographer = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset handler globals (belief)
+    try:
+        import aragora.server.handlers.belief as belief_handler
+        if hasattr(belief_handler, 'BeliefNetwork'):
+            belief_handler.BeliefNetwork = None
+        if hasattr(belief_handler, 'BeliefPropagationAnalyzer'):
+            belief_handler.BeliefPropagationAnalyzer = None
+        if hasattr(belief_handler, 'PersonaLaboratory'):
+            belief_handler.PersonaLaboratory = None
+        if hasattr(belief_handler, 'ProvenanceTracker'):
+            belief_handler.ProvenanceTracker = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset handler globals (consensus)
+    try:
+        import aragora.server.handlers.consensus as consensus_handler
+        if hasattr(consensus_handler, 'ConsensusMemory'):
+            consensus_handler.ConsensusMemory = None
+        if hasattr(consensus_handler, 'DissentRetriever'):
+            consensus_handler.DissentRetriever = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset handler globals (critique)
+    try:
+        import aragora.server.handlers.critique as critique_handler
+        if hasattr(critique_handler, 'CritiqueStore'):
+            critique_handler.CritiqueStore = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset handler globals (calibration)
+    try:
+        import aragora.server.handlers.calibration as cal_handler
+        if hasattr(cal_handler, 'CalibrationTracker'):
+            cal_handler.CalibrationTracker = None
+        if hasattr(cal_handler, 'EloSystem'):
+            cal_handler.EloSystem = None
+    except (ImportError, AttributeError):
+        pass

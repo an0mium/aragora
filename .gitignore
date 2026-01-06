@@ -108,3 +108,4 @@ tsconfig.tsbuildinfo
 
 # Local backups
 backups/
+:memory:

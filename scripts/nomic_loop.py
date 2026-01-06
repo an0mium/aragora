@@ -8981,6 +8981,15 @@ Working directory: {self.aragora_path}
         # Validate fallback configuration before starting
         self._validate_openrouter_fallback()
 
+        # Run database maintenance on startup (WAL checkpoint, ANALYZE if due)
+        try:
+            from aragora.maintenance import run_startup_maintenance
+            maintenance_results = run_startup_maintenance(self.nomic_dir)
+            db_count = maintenance_results.get("stats", {}).get("database_count", 0)
+            self._log(f"[maintenance] Startup complete: {db_count} databases checked")
+        except Exception as e:
+            self._log(f"[maintenance] Startup maintenance failed (non-fatal): {e}")
+
         try:
             while self.cycle_count < self.max_cycles:
                 result = await self.run_cycle()
