@@ -731,22 +731,43 @@ class EloSystem:
         self._save_rating(rating)
 
     def get_leaderboard(self, limit: int = 20, domain: str | None = None) -> list[AgentRating]:
-        """Get top agents by ELO."""
+        """Get top agents by ELO.
+
+        Args:
+            limit: Maximum number of agents to return
+            domain: Optional domain to sort by. If provided, sorts by domain-specific ELO
+                   using SQLite JSON extraction for efficiency.
+        """
         with self._db.connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT agent_name, elo, domain_elos, wins, losses, draws,
-                       debates_count, critiques_accepted, critiques_total, updated_at
-                FROM ratings
-                ORDER BY elo DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
+
+            if domain:
+                # Use SQLite JSON extraction for domain-specific leaderboard
+                # COALESCE handles missing domain entries by falling back to global ELO
+                cursor.execute(
+                    """
+                    SELECT agent_name, elo, domain_elos, wins, losses, draws,
+                           debates_count, critiques_accepted, critiques_total, updated_at
+                    FROM ratings
+                    ORDER BY COALESCE(json_extract(domain_elos, ?), elo) DESC
+                    LIMIT ?
+                    """,
+                    (f'$."{domain}"', limit),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT agent_name, elo, domain_elos, wins, losses, draws,
+                           debates_count, critiques_accepted, critiques_total, updated_at
+                    FROM ratings
+                    ORDER BY elo DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                )
             rows = cursor.fetchall()
 
-        ratings = [
+        return [
             AgentRating(
                 agent_name=row[0],
                 elo=row[1],
@@ -761,15 +782,6 @@ class EloSystem:
             )
             for row in rows
         ]
-
-        # Re-sort by domain ELO if specified
-        if domain:
-            ratings.sort(
-                key=lambda r: r.domain_elos.get(domain, DEFAULT_ELO),
-                reverse=True,
-            )
-
-        return ratings
 
     def get_top_agents_for_domain(self, domain: str, limit: int = 5) -> list[AgentRating]:
         """Get agents ranked by domain-specific performance.

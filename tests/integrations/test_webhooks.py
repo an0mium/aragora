@@ -149,7 +149,7 @@ class TestLoadWebhookConfigs(unittest.TestCase):
 class TestEventFiltering(unittest.TestCase):
     def test_matches_by_event_type(self):
         cfg = WebhookConfig(name="t", url="http://x", event_types={"debate_start", "consensus"})
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
 
         self.assertTrue(dispatcher._matches_config(cfg, "debate_start", ""))
         self.assertTrue(dispatcher._matches_config(cfg, "consensus", ""))
@@ -157,14 +157,14 @@ class TestEventFiltering(unittest.TestCase):
 
     def test_matches_by_loop_id(self):
         cfg = WebhookConfig(name="t", url="http://x", loop_ids={"loop-abc"})
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
 
         self.assertTrue(dispatcher._matches_config(cfg, "debate_start", "loop-abc"))
         self.assertFalse(dispatcher._matches_config(cfg, "debate_start", "loop-xyz"))
 
     def test_none_loop_ids_matches_all(self):
         cfg = WebhookConfig(name="t", url="http://x", loop_ids=None)
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
 
         self.assertTrue(dispatcher._matches_config(cfg, "debate_start", "any-loop"))
 
@@ -172,14 +172,14 @@ class TestEventFiltering(unittest.TestCase):
 class TestQueueBehavior(unittest.TestCase):
     def test_enqueue_returns_false_when_no_matching_config(self):
         cfg = WebhookConfig(name="t", url="http://x", event_types={"consensus"})
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
 
         result = dispatcher.enqueue({"type": "agent_message"})
         self.assertFalse(result)
 
     def test_queue_overflow_drops_events(self):
         cfg = WebhookConfig(name="t", url="http://x")
-        dispatcher = WebhookDispatcher([cfg], queue_max_size=3)
+        dispatcher = WebhookDispatcher([cfg], queue_max_size=3, allow_localhost=True)
         dispatcher.start()  # Must start before enqueue works
 
         # Fill queue
@@ -193,7 +193,7 @@ class TestQueueBehavior(unittest.TestCase):
     def test_queue_size_from_env(self):
         with patch.dict(os.environ, {"ARAGORA_WEBHOOK_QUEUE_SIZE": "50"}, clear=False):
             cfg = WebhookConfig(name="t", url="http://x")
-            dispatcher = WebhookDispatcher([cfg])
+            dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
             self.assertEqual(dispatcher._queue.maxsize, 50)
 
 
@@ -249,7 +249,7 @@ class TestWebhookDelivery(unittest.TestCase):
             url=f"http://127.0.0.1:{self.port}/webhook",
             secret="my-secret",
         )
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         dispatcher.enqueue({
@@ -274,7 +274,7 @@ class TestWebhookDelivery(unittest.TestCase):
         self._start_server(200)
 
         cfg = WebhookConfig(name="t", url=f"http://127.0.0.1:{self.port}/x")
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         dispatcher.enqueue({
@@ -295,7 +295,7 @@ class TestWebhookDelivery(unittest.TestCase):
         self._start_server(200)
 
         cfg = WebhookConfig(name="t", url=f"http://127.0.0.1:{self.port}/x")
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
@@ -370,7 +370,7 @@ class TestRetryLogic(unittest.TestCase):
             max_retries=3,
             backoff_base_s=0.05,  # Fast for testing
         )
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
@@ -392,7 +392,7 @@ class TestRetryLogic(unittest.TestCase):
             max_retries=3,
             backoff_base_s=0.05,
         )
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
@@ -413,7 +413,7 @@ class TestRetryLogic(unittest.TestCase):
             max_retries=3,
             backoff_base_s=0.01,  # Would be very fast without Retry-After
         )
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
@@ -436,7 +436,7 @@ class TestRetryLogic(unittest.TestCase):
             max_retries=3,
             backoff_base_s=0.05,
         )
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
@@ -458,7 +458,7 @@ class TestRetryLogic(unittest.TestCase):
             max_retries=3,
             backoff_base_s=0.02,
         )
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
@@ -480,7 +480,7 @@ class TestRetryLogic(unittest.TestCase):
             backoff_base_s=0.02,
             timeout_s=0.1,
         )
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
@@ -540,7 +540,7 @@ class TestTimeoutBehavior(unittest.TestCase):
             timeout_s=0.2,  # 200ms timeout
             max_retries=1,  # No retries
         )
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
@@ -607,7 +607,7 @@ class TestConcurrency(unittest.TestCase):
         self._start_server()
 
         cfg = WebhookConfig(name="t", url=f"http://127.0.0.1:{self.port}/x")
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         num_threads = 10
@@ -643,7 +643,7 @@ class TestConcurrency(unittest.TestCase):
         self._start_server()
 
         cfg = WebhookConfig(name="t", url=f"http://127.0.0.1:{self.port}/x")
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         num_events = 50
@@ -694,7 +694,7 @@ class TestLifecycle(unittest.TestCase):
     def test_stop_sets_running_false(self):
         """Stop should prevent further enqueueing."""
         cfg = WebhookConfig(name="t", url=f"http://127.0.0.1:{self.port}/x")
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         self.assertTrue(dispatcher._running)
@@ -710,7 +710,7 @@ class TestLifecycle(unittest.TestCase):
         self._start_server()
 
         cfg = WebhookConfig(name="t", url=f"http://127.0.0.1:{self.port}/x")
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
         dispatcher.enqueue({"type": "debate_start"})
@@ -723,7 +723,7 @@ class TestLifecycle(unittest.TestCase):
     def test_start_is_idempotent(self):
         """Calling start() twice should not create duplicate workers."""
         cfg = WebhookConfig(name="t", url=f"http://127.0.0.1:{self.port}/x")
-        dispatcher = WebhookDispatcher([cfg])
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
 
         dispatcher.start()
         worker1 = dispatcher._worker

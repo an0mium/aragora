@@ -208,7 +208,8 @@ class ContinuumMemory:
                     last_promotion_at TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    metadata TEXT DEFAULT '{}'
+                    metadata TEXT DEFAULT '{}',
+                    expires_at TEXT
                 );
 
                 -- Indexes for efficient tier-based retrieval
@@ -219,6 +220,8 @@ class ContinuumMemory:
                 CREATE INDEX IF NOT EXISTS idx_continuum_tier_updated ON continuum_memory(tier, updated_at);
                 -- Composite index for tier-filtered retrieval by importance
                 CREATE INDEX IF NOT EXISTS idx_continuum_tier_importance ON continuum_memory(tier, importance DESC);
+                -- Index for TTL-based cleanup queries
+                CREATE INDEX IF NOT EXISTS idx_continuum_expires ON continuum_memory(expires_at);
 
                 -- Meta-learning state table for hyperparameter tracking
                 CREATE TABLE IF NOT EXISTS meta_learning_state (
@@ -560,7 +563,12 @@ class ContinuumMemory:
                     )
 
                 cursor.execute("COMMIT")
+            except sqlite3.Error as e:
+                logger.error(f"Database error updating surprise score: {e}", exc_info=True)
+                cursor.execute("ROLLBACK")
+                raise
             except Exception:
+                # Rollback on any exception, then re-raise unchanged
                 cursor.execute("ROLLBACK")
                 raise
 
@@ -692,38 +700,203 @@ class ContinuumMemory:
 
         return new_tier
 
+    def _promote_batch(
+        self,
+        from_tier: MemoryTier,
+        to_tier: MemoryTier,
+        ids: List[str],
+    ) -> int:
+        """
+        Batch promote memories from one tier to another.
+
+        Uses executemany for efficient batch updates instead of N+1 queries.
+
+        Args:
+            from_tier: Source tier
+            to_tier: Target tier (must be one level faster)
+            ids: List of memory IDs to promote
+
+        Returns:
+            Number of successfully promoted entries
+        """
+        if not ids:
+            return 0
+
+        now = datetime.now().isoformat()
+        cooldown_hours = self.hyperparams["promotion_cooldown_hours"]
+        cutoff_time = (datetime.now() - timedelta(hours=cooldown_hours)).isoformat()
+
+        with get_wal_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # Batch UPDATE with cooldown check
+            # Only promote entries where last_promotion_at is NULL or older than cooldown
+            placeholders = ",".join("?" * len(ids))
+            cursor.execute(
+                f"""
+                UPDATE continuum_memory
+                SET tier = ?, last_promotion_at = ?, updated_at = ?
+                WHERE id IN ({placeholders})
+                  AND tier = ?
+                  AND (last_promotion_at IS NULL OR last_promotion_at < ?)
+                """,
+                (to_tier.value, now, now, *ids, from_tier.value, cutoff_time),
+            )
+            promoted_count = cursor.rowcount
+
+            # Batch INSERT tier transitions for promoted entries
+            # Only insert for entries that were actually updated
+            if promoted_count > 0:
+                cursor.execute(
+                    f"""
+                    SELECT id, surprise_score FROM continuum_memory
+                    WHERE id IN ({placeholders}) AND tier = ?
+                    """,
+                    (*ids, to_tier.value),
+                )
+                promoted_entries = cursor.fetchall()
+
+                if promoted_entries:
+                    cursor.executemany(
+                        """
+                        INSERT INTO tier_transitions
+                        (memory_id, from_tier, to_tier, reason, surprise_score)
+                        VALUES (?, ?, ?, 'high_surprise', ?)
+                        """,
+                        [
+                            (entry[0], from_tier.value, to_tier.value, entry[1])
+                            for entry in promoted_entries
+                        ],
+                    )
+
+            conn.commit()
+
+        return promoted_count
+
+    def _demote_batch(
+        self,
+        from_tier: MemoryTier,
+        to_tier: MemoryTier,
+        ids: List[str],
+    ) -> int:
+        """
+        Batch demote memories from one tier to another.
+
+        Uses executemany for efficient batch updates instead of N+1 queries.
+
+        Args:
+            from_tier: Source tier
+            to_tier: Target tier (must be one level slower)
+            ids: List of memory IDs to demote
+
+        Returns:
+            Number of successfully demoted entries
+        """
+        if not ids:
+            return 0
+
+        now = datetime.now().isoformat()
+
+        with get_wal_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # Batch UPDATE - update_count check is already done in candidate selection
+            placeholders = ",".join("?" * len(ids))
+            cursor.execute(
+                f"""
+                UPDATE continuum_memory
+                SET tier = ?, updated_at = ?
+                WHERE id IN ({placeholders}) AND tier = ?
+                """,
+                (to_tier.value, now, *ids, from_tier.value),
+            )
+            demoted_count = cursor.rowcount
+
+            # Batch INSERT tier transitions for demoted entries
+            if demoted_count > 0:
+                cursor.execute(
+                    f"""
+                    SELECT id, surprise_score FROM continuum_memory
+                    WHERE id IN ({placeholders}) AND tier = ?
+                    """,
+                    (*ids, to_tier.value),
+                )
+                demoted_entries = cursor.fetchall()
+
+                if demoted_entries:
+                    cursor.executemany(
+                        """
+                        INSERT INTO tier_transitions
+                        (memory_id, from_tier, to_tier, reason, surprise_score)
+                        VALUES (?, ?, ?, 'high_stability', ?)
+                        """,
+                        [
+                            (entry[0], from_tier.value, to_tier.value, entry[1])
+                            for entry in demoted_entries
+                        ],
+                    )
+
+            conn.commit()
+
+        return demoted_count
+
     def consolidate(self) -> Dict[str, int]:
         """
         Run tier consolidation: promote/demote memories based on surprise.
 
         This should be called periodically (e.g., after each nomic cycle).
 
+        Uses batch operations to avoid N+1 query patterns for better performance
+        with large memory stores.
+
+        Each entry is only promoted/demoted once per consolidate call (one level
+        at a time), matching the behavior of the individual promote/demote methods.
+
         Returns:
             Dict with counts of promotions and demotions
         """
         promotions = 0
         demotions = 0
-        promotion_ids: List[str] = []
-        demotion_ids: List[str] = []
+
+        # Tier order for promotions: glacial -> slow -> medium -> fast
+        promotion_pairs = [
+            (MemoryTier.GLACIAL, MemoryTier.SLOW),
+            (MemoryTier.SLOW, MemoryTier.MEDIUM),
+            (MemoryTier.MEDIUM, MemoryTier.FAST),
+        ]
+
+        # Tier order for demotions: fast -> medium -> slow -> glacial
+        demotion_pairs = [
+            (MemoryTier.FAST, MemoryTier.MEDIUM),
+            (MemoryTier.MEDIUM, MemoryTier.SLOW),
+            (MemoryTier.SLOW, MemoryTier.GLACIAL),
+        ]
+
+        # Collect ALL candidates upfront before any processing
+        # This ensures each entry only moves one level per consolidate call
+        promotion_candidates: Dict[tuple, List[str]] = {}
+        demotion_candidates: Dict[tuple, List[str]] = {}
 
         with get_wal_connection(self.db_path) as conn:
             cursor = conn.cursor()
 
-            # Find candidates for promotion (high surprise)
-            for tier in [MemoryTier.GLACIAL, MemoryTier.SLOW, MemoryTier.MEDIUM]:
-                config = TIER_CONFIGS[tier]
+            # Collect promotion candidates for all tier pairs
+            for from_tier, to_tier in promotion_pairs:
+                config = TIER_CONFIGS[from_tier]
                 cursor.execute(
                     """
                     SELECT id FROM continuum_memory
                     WHERE tier = ? AND surprise_score > ?
                     """,
-                    (tier.value, config.promotion_threshold),
+                    (from_tier.value, config.promotion_threshold),
                 )
-                promotion_ids.extend(row[0] for row in cursor.fetchall())
+                ids = [row[0] for row in cursor.fetchall()]
+                if ids:
+                    promotion_candidates[(from_tier, to_tier)] = ids
 
-            # Find candidates for demotion (high stability)
-            for tier in [MemoryTier.FAST, MemoryTier.MEDIUM, MemoryTier.SLOW]:
-                config = TIER_CONFIGS[tier]
+            # Collect demotion candidates for all tier pairs
+            for from_tier, to_tier in demotion_pairs:
+                config = TIER_CONFIGS[from_tier]
                 cursor.execute(
                     """
                     SELECT id FROM continuum_memory
@@ -731,17 +904,27 @@ class ContinuumMemory:
                       AND (1.0 - surprise_score) > ?
                       AND update_count > 10
                     """,
-                    (tier.value, config.demotion_threshold),
+                    (from_tier.value, config.demotion_threshold),
                 )
-                demotion_ids.extend(row[0] for row in cursor.fetchall())
+                ids = [row[0] for row in cursor.fetchall()]
+                if ids:
+                    demotion_candidates[(from_tier, to_tier)] = ids
 
-        # Process promotions/demotions outside the connection context
-        for id in promotion_ids:
-            if self.promote(id):
-                promotions += 1
-        for id in demotion_ids:
-            if self.demote(id):
-                demotions += 1
+        # Process all promotions (outside the collection connection)
+        for (from_tier, to_tier), ids in promotion_candidates.items():
+            count = self._promote_batch(from_tier, to_tier, ids)
+            promotions += count
+            logger.debug(
+                f"Promoted {count}/{len(ids)} entries from {from_tier.value} to {to_tier.value}"
+            )
+
+        # Process all demotions (outside the collection connection)
+        for (from_tier, to_tier), ids in demotion_candidates.items():
+            count = self._demote_batch(from_tier, to_tier, ids)
+            demotions += count
+            logger.debug(
+                f"Demoted {count}/{len(ids)} entries from {from_tier.value} to {to_tier.value}"
+            )
 
         return {"promotions": promotions, "demotions": demotions}
 
@@ -770,7 +953,8 @@ class ContinuumMemory:
 
             # Total counts
             cursor.execute("SELECT COUNT(*) FROM continuum_memory")
-            stats["total_memories"] = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            stats["total_memories"] = row[0] if row else 0
 
             # Transition history
             cursor.execute("""
@@ -926,7 +1110,8 @@ class ContinuumMemory:
                     "SELECT COUNT(*) FROM continuum_memory WHERE tier = ?",
                     (tier_name,),
                 )
-                count = cursor.fetchone()[0]
+                row = cursor.fetchone()
+                count = row[0] if row else 0
 
                 if count <= limit:
                     results[tier_name] = 0
@@ -1004,7 +1189,8 @@ class ContinuumMemory:
 
             # Total archived
             cursor.execute("SELECT COUNT(*) FROM continuum_memory_archive")
-            stats["total_archived"] = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            stats["total_archived"] = row[0] if row else 0
 
             # Oldest and newest archived
             cursor.execute("""

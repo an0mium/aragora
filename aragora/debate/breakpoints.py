@@ -146,7 +146,8 @@ class HumanNotifier:
                 try:
                     await self._handlers[channel](breakpoint)
                     success = True
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"Notification handler '{channel}' failed: {type(e).__name__}: {e}")
                     continue
 
         # Fallback to CLI if no handlers

@@ -5,9 +5,12 @@ Provides functions to aggregate introspection data from various sources
 (reputation, personas, etc.) into a unified snapshot for prompt injection.
 """
 
+import logging
 from typing import Optional, TYPE_CHECKING
 
 from .types import IntrospectionSnapshot
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from aragora.memory.store import CritiqueStore
@@ -52,9 +55,9 @@ def get_agent_introspection(
                 snapshot.critiques_given = rep.critiques_given
                 snapshot.critiques_valuable = rep.critiques_valuable
                 snapshot.calibration_score = rep.calibration_score
-        except Exception:
+        except Exception as e:
             # Graceful degradation - continue with defaults
-            pass
+            logger.debug(f"Could not get reputation for {agent_name}: {type(e).__name__}: {e}")
 
     # 2. Persona data (enrichment)
     if persona_manager is not None:
@@ -80,9 +83,9 @@ def get_agent_introspection(
                 # Get personality traits
                 if hasattr(persona, "traits") and persona.traits:
                     snapshot.traits = persona.traits[:3]
-        except Exception:
+        except Exception as e:
             # Graceful degradation - continue with defaults
-            pass
+            logger.debug(f"Could not get persona for {agent_name}: {type(e).__name__}: {e}")
 
     return snapshot
 

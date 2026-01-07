@@ -1,28 +1,31 @@
 """
 Database abstraction for the ELO ranking system.
 
-Provides centralized connection management to eliminate repeated
-sqlite3.connect() boilerplate throughout elo.py.
+Provides thread-safe database access by delegating to DatabaseManager
+with per-operation connections for concurrent access patterns.
 
-Note: This uses per-operation connections (not connection pooling) to
-maintain thread safety for concurrent access patterns in elo.py.
+Note: This uses per-operation connections (via fresh_connection) to
+maintain thread safety since SQLite connections cannot be shared across threads.
 """
 
+import logging
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator, Optional, Union
 
-from aragora.storage.schema import get_wal_connection
+from aragora.storage.schema import DatabaseManager
 from aragora.config import DB_TIMEOUT_SECONDS
+
+logger = logging.getLogger(__name__)
 
 
 class EloDatabase:
     """
     Database wrapper for ELO system operations.
 
-    Creates fresh connections per operation for thread safety (SQLite
-    connections cannot be shared across threads). Uses WAL mode for
+    Provides thread-safe access via DatabaseManager.fresh_connection(),
+    which creates a new connection per operation. Uses WAL mode for
     better concurrent read/write performance.
 
     Usage:
@@ -46,6 +49,8 @@ class EloDatabase:
         """
         self.db_path = Path(db_path)
         self._timeout = timeout
+        # Use DatabaseManager singleton for connection management
+        self._manager = DatabaseManager.get_instance(db_path, timeout)
 
     @contextmanager
     def connection(self) -> Generator[sqlite3.Connection, None, None]:
@@ -57,35 +62,26 @@ class EloDatabase:
         Yields:
             sqlite3.Connection for database operations
         """
-        conn = get_wal_connection(str(self.db_path), self._timeout)
-        try:
+        with self._manager.fresh_connection() as conn:
             yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
 
     @contextmanager
     def transaction(self) -> Generator[sqlite3.Connection, None, None]:
         """Explicit transaction context manager.
 
-        Same as connection() but uses explicit BEGIN/COMMIT for clarity.
+        Creates a fresh connection with explicit BEGIN/COMMIT for clarity.
 
         Yields:
             sqlite3.Connection within a transaction
         """
-        conn = get_wal_connection(str(self.db_path), self._timeout)
-        try:
+        with self._manager.fresh_connection() as conn:
             conn.execute("BEGIN")
-            yield conn
-            conn.execute("COMMIT")
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
-        finally:
-            conn.close()
+            try:
+                yield conn
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
 
     def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
         """Execute query and fetch single row.

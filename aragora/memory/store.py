@@ -680,8 +680,18 @@ class CritiqueStore:
 
             return stats
 
-    def export_for_training(self) -> list[dict]:
-        """Export successful patterns for potential fine-tuning."""
+    def export_for_training(
+        self, limit: int = 1000, offset: int = 0
+    ) -> list[dict]:
+        """Export successful patterns for potential fine-tuning.
+
+        Args:
+            limit: Maximum number of records to return (default 1000)
+            offset: Number of records to skip (for pagination)
+
+        Returns:
+            List of training data dictionaries
+        """
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
@@ -691,7 +701,9 @@ class CritiqueStore:
                 FROM critiques c
                 JOIN debates d ON c.debate_id = d.id
                 WHERE d.consensus_reached = 1
-            """
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
             )
 
             training_data = []
@@ -876,8 +888,15 @@ class CritiqueStore:
             conn.commit()
 
     @ttl_cache(ttl_seconds=300, key_prefix="all_reputations", skip_first=True)
-    def get_all_reputations(self) -> list[AgentReputation]:
-        """Get all agent reputations, ordered by score."""
+    def get_all_reputations(self, limit: int = 500) -> list[AgentReputation]:
+        """Get agent reputations, ordered by score.
+
+        Args:
+            limit: Maximum number of agents to return (default 500)
+
+        Returns:
+            List of AgentReputation objects
+        """
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
@@ -890,7 +909,9 @@ class CritiqueStore:
                        COALESCE(calibration_score, 0.5)
                 FROM agent_reputation
                 ORDER BY proposals_accepted DESC
-            """
+                LIMIT ?
+                """,
+                (limit,),
             )
 
             reputations = [
@@ -983,7 +1004,8 @@ class CritiqueStore:
             cursor = conn.cursor()
 
             cursor.execute("SELECT COUNT(*) FROM patterns_archive")
-            total = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            total = row[0] if row else 0
 
             cursor.execute(
                 """

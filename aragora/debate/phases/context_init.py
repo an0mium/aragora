@@ -53,6 +53,7 @@ class ContextInitializer:
         insight_store: Any = None,
         memory: Any = None,
         protocol: Any = None,
+        evidence_collector: Any = None,
         # Callbacks for orchestrator methods
         fetch_historical_context: Optional[Callable] = None,
         format_patterns_for_prompt: Optional[Callable] = None,
@@ -70,6 +71,7 @@ class ContextInitializer:
             insight_store: Optional InsightStore for pattern injection
             memory: Optional CritiqueStore for memory patterns
             protocol: DebateProtocol configuration
+            evidence_collector: Optional EvidenceCollector for auto-collecting evidence
             fetch_historical_context: Async callback to fetch historical context
             format_patterns_for_prompt: Callback to format patterns for prompts
             get_successful_patterns_from_memory: Callback to get memory patterns
@@ -82,6 +84,7 @@ class ContextInitializer:
         self.insight_store = insight_store
         self.memory = memory
         self.protocol = protocol
+        self.evidence_collector = evidence_collector
 
         # Callbacks
         self._fetch_historical_context = fetch_historical_context
@@ -101,8 +104,9 @@ class ContextInitializer:
         5. Inject learned patterns
         6. Inject memory patterns
         7. Perform pre-debate research
-        8. Initialize context messages
-        9. Select proposers
+        8. Collect evidence (auto-collection)
+        9. Initialize context messages
+        10. Select proposers
 
         Args:
             ctx: The DebateContext to initialize
@@ -130,7 +134,10 @@ class ContextInitializer:
         # 7. Perform pre-debate research (async)
         await self._perform_pre_debate_research(ctx)
 
-        # 8. Initialize DebateResult
+        # 8. Collect evidence (auto-collection from connectors)
+        await self._collect_evidence(ctx)
+
+        # 9. Initialize DebateResult
         ctx.result = DebateResult(
             task=ctx.env.task,
             messages=[],
@@ -139,10 +146,10 @@ class ContextInitializer:
             dissenting_views=[],
         )
 
-        # 9. Initialize context messages for fork debates
+        # 10. Initialize context messages for fork debates
         self._init_context_messages(ctx)
 
-        # 10. Select proposers
+        # 11. Select proposers
         self._select_proposers(ctx)
 
     def _inject_fork_history(self, ctx: "DebateContext") -> None:
@@ -273,6 +280,51 @@ class ContextInitializer:
         except Exception as e:
             logger.warning(f"research_error error={e}")
             # Continue without research - don't break the debate
+
+    async def _collect_evidence(self, ctx: "DebateContext") -> None:
+        """Collect evidence from configured connectors for debate grounding.
+
+        This auto-collects citations and snippets from connectors like:
+        - local_docs: Local documentation
+        - github: Code and documentation from GitHub
+        - web: Web search results
+
+        Evidence is stored in ctx.evidence_pack and injected into env.context.
+        """
+        if not self.evidence_collector:
+            return
+
+        if not self.protocol or not getattr(self.protocol, 'enable_evidence_collection', True):
+            return
+
+        try:
+            logger.info("evidence_collection_start phase=evidence")
+            evidence_pack = await asyncio.wait_for(
+                self.evidence_collector.collect_evidence(ctx.env.task),
+                timeout=15.0  # 15 second timeout for evidence collection
+            )
+
+            if evidence_pack and evidence_pack.snippets:
+                ctx.evidence_pack = evidence_pack
+                evidence_context = evidence_pack.to_context_string()
+                logger.info(
+                    f"evidence_collection_complete snippets={len(evidence_pack.snippets)} "
+                    f"sources={evidence_pack.total_searched}"
+                )
+
+                # Inject evidence into environment context
+                if ctx.env.context:
+                    ctx.env.context += "\n\n" + evidence_context
+                else:
+                    ctx.env.context = evidence_context
+            else:
+                logger.info("evidence_collection_empty")
+
+        except asyncio.TimeoutError:
+            logger.warning("evidence_collection_timeout")
+        except Exception as e:
+            logger.warning(f"evidence_collection_error error={e}")
+            # Continue without evidence - don't break the debate
 
     def _init_context_messages(self, ctx: "DebateContext") -> None:
         """Initialize context messages for fork debates."""

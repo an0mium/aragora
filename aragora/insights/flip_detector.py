@@ -342,7 +342,8 @@ class FlipDetector:
             cursor = conn.execute(
                 "SELECT COUNT(*) FROM positions WHERE agent_name = ?", (agent_name,)
             )
-            total_positions = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            total_positions = row[0] if row else 0
 
             # Count flips by type
             cursor = conn.execute(
@@ -505,7 +506,8 @@ class FlipDetector:
         with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             # Total flips
             cursor = conn.execute("SELECT COUNT(*) FROM detected_flips")
-            total_flips = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            total_flips = row[0] if row else 0
 
             # Flips by type
             cursor = conn.execute(
@@ -526,7 +528,8 @@ class FlipDetector:
                 WHERE detected_at > datetime('now', '-1 day')
                 """
             )
-            recent_24h = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            recent_24h = row[0] if row else 0
 
         return {
             "total_flips": total_flips,

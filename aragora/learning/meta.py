@@ -261,7 +261,8 @@ class MetaLearner:
                 SELECT COUNT(*) FROM continuum_memory
                 WHERE (success_count * 1.0 / NULLIF(success_count + failure_count, 0)) > 0.5
             """)
-            useful_count = cursor.fetchone()[0] or 0
+            row = cursor.fetchone()
+            useful_count = (row[0] if row else 0) or 0
             metrics.pattern_retention_rate = useful_count / total_memories if total_memories > 0 else 0
 
             # Forgetting rate: % of patterns that became less useful over time
@@ -270,7 +271,8 @@ class MetaLearner:
                 WHERE failure_count > success_count
                   AND update_count > 5
             """)
-            forgotten_count = cursor.fetchone()[0] or 0
+            row = cursor.fetchone()
+            forgotten_count = (row[0] if row else 0) or 0
             metrics.forgetting_rate = forgotten_count / total_memories if total_memories > 0 else 0
 
             # Tier efficiency: success rate per tier
@@ -283,7 +285,8 @@ class MetaLearner:
                     """,
                     (tier,),
                 )
-                result = cursor.fetchone()[0]
+                row = cursor.fetchone()
+                result = row[0] if row else None
                 metrics.tier_efficiency[tier] = result or 0.5
 
             # Learning velocity: new patterns per cycle
@@ -291,7 +294,8 @@ class MetaLearner:
                 SELECT COUNT(*) FROM continuum_memory
                 WHERE julianday('now') - julianday(created_at) < 1
             """)
-            metrics.learning_velocity = cursor.fetchone()[0] or 0
+            row = cursor.fetchone()
+            metrics.learning_velocity = (row[0] if row else 0) or 0
 
         # Extract from cycle results
         metrics.cycles_evaluated = cycle_results.get("cycle", 0)

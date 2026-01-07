@@ -397,18 +397,21 @@ class SuggestionFeedbackTracker:
 
             # Total suggestions
             cursor.execute("SELECT COUNT(*) FROM suggestion_injections")
-            stats["total_suggestions"] = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            stats["total_suggestions"] = row[0] if row else 0
 
             # Completed debates with suggestions
             cursor.execute("SELECT COUNT(DISTINCT debate_id) FROM suggestion_injections WHERE debate_completed = 1")
-            stats["debates_with_suggestions"] = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            stats["debates_with_suggestions"] = row[0] if row else 0
 
             # Consensus rate for debates with suggestions
             cursor.execute("""
                 SELECT AVG(consensus_reached) FROM suggestion_injections
                 WHERE debate_completed = 1
             """)
-            avg = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            avg = row[0] if row else None
             stats["consensus_rate"] = avg if avg else 0.0
 
             # Average effectiveness
@@ -416,12 +419,14 @@ class SuggestionFeedbackTracker:
                 SELECT AVG(effectiveness_score) FROM suggestion_injections
                 WHERE debate_completed = 1
             """)
-            avg = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            avg = row[0] if row else None
             stats["avg_effectiveness"] = avg if avg else 0.0
 
             # Total contributors
             cursor.execute("SELECT COUNT(*) FROM contributor_stats")
-            stats["total_contributors"] = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            stats["total_contributors"] = row[0] if row else 0
 
             # Top effectiveness suggestions
             cursor.execute("""

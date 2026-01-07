@@ -1846,6 +1846,8 @@ class AiohttpUnifiedServer:
             agents: Comma-separated agent list (optional, default: "anthropic-api,openai-api,gemini,grok")
             rounds: Number of debate rounds (optional, default: 3)
             consensus: Consensus method (optional, default: "majority")
+            use_trending: If true, fetch a trending topic to seed the debate (optional)
+            trending_category: Filter trending topics by category (optional)
 
         All agents participate as proposers for full participation in all rounds.
         """
@@ -1894,6 +1896,39 @@ class AiohttpUnifiedServer:
         except (ValueError, TypeError):
             rounds = 3
         consensus = data.get('consensus', 'majority')
+
+        # Parse optional trending topic parameters
+        trending_topic = None
+        use_trending = data.get('use_trending', False)
+        trending_category = data.get('trending_category', None)
+
+        if use_trending:
+            try:
+                from aragora.pulse.ingestor import (
+                    PulseManager,
+                    TwitterIngestor,
+                    HackerNewsIngestor,
+                    RedditIngestor,
+                )
+
+                manager = PulseManager()
+                manager.add_ingestor("twitter", TwitterIngestor())
+                manager.add_ingestor("hackernews", HackerNewsIngestor())
+                manager.add_ingestor("reddit", RedditIngestor())
+
+                filters = {}
+                if trending_category:
+                    filters["categories"] = [trending_category]
+
+                topics = await manager.get_trending_topics(
+                    limit_per_platform=3, filters=filters if filters else None
+                )
+                trending_topic = manager.select_topic_for_debate(topics)
+
+                if trending_topic:
+                    logger.info(f"Selected trending topic: {trending_topic.topic}")
+            except Exception as e:
+                logger.warning(f"Trending topic fetch failed (non-fatal): {e}")
 
         # Generate debate ID
         debate_id = f"adhoc_{uuid.uuid4().hex[:8]}"
@@ -1987,6 +2022,7 @@ class AiohttpUnifiedServer:
                     event_hooks=hooks,
                     event_emitter=self.emitter,
                     loop_id=debate_id,
+                    trending_topic=trending_topic,
                 )
 
                 # Run debate with timeout protection (10 minutes max)

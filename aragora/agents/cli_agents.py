@@ -18,7 +18,15 @@ import re
 from typing import Optional, TYPE_CHECKING
 
 from aragora.agents.base import CritiqueMixin, MAX_CONTEXT_CHARS, MAX_MESSAGE_CHARS
-from aragora.agents.errors import AgentCircuitOpenError
+from aragora.agents.errors import (
+    AgentCircuitOpenError,
+    ErrorClassifier,
+    # Re-export patterns for backward compatibility
+    RATE_LIMIT_PATTERNS,
+    NETWORK_ERROR_PATTERNS,
+    CLI_ERROR_PATTERNS,
+    ALL_FALLBACK_PATTERNS,
+)
 from aragora.agents.registry import AgentRegistry
 from aragora.core import Agent, Critique, Message
 from aragora.resilience import CircuitBreaker, get_circuit_breaker
@@ -31,50 +39,10 @@ __all__ = [
     "CLIAgent", "CodexAgent", "ClaudeAgent", "OpenAIAgent",
     "GeminiCLIAgent", "GrokCLIAgent", "QwenCLIAgent", "DeepseekCLIAgent", "KiloCodeAgent",
     "MAX_CONTEXT_CHARS", "MAX_MESSAGE_CHARS",
+    "RATE_LIMIT_PATTERNS",  # Re-exported from errors.py
 ]
 
 logger = logging.getLogger(__name__)
-
-# Patterns that indicate rate limiting, quota errors, or service issues in CLI output
-RATE_LIMIT_PATTERNS = [
-    # Rate limiting
-    "rate limit", "rate_limit", "ratelimit",
-    "429", "too many requests",
-    "throttl",  # throttled, throttling
-    # Quota/usage limit errors
-    "quota exceeded", "quota_exceeded",
-    "resource exhausted", "resource_exhausted",
-    "insufficient_quota", "limit exceeded",
-    "usage_limit", "usage limit",  # OpenAI/Codex usage limits
-    "limit has been reached",
-    # Billing errors
-    "billing", "credit balance", "payment required",
-    "purchase credits", "402",
-    # Capacity/availability errors
-    "503", "service unavailable",
-    "502", "bad gateway",
-    "overloaded", "capacity",
-    "temporarily unavailable", "try again later",
-    "server busy", "high demand",
-    # Connection errors
-    "connection refused", "connection reset",
-    "timed out", "timeout",
-    "network error", "socket error",
-    "could not resolve host", "name or service not known",
-    "econnrefused", "econnreset", "etimedout",
-    "no route to host", "network is unreachable",
-    # API-specific errors
-    "model overloaded", "model is currently overloaded",
-    "engine is currently overloaded",
-    "model_not_found", "model not found",
-    "invalid_api_key", "invalid api key", "unauthorized",
-    "authentication failed", "auth error",
-    # CLI-specific errors
-    "argument list too long",  # E2BIG - prompt too large for CLI
-    "command not found", "no such file or directory",
-    "permission denied", "access denied",
-    "broken pipe",  # EPIPE - connection closed unexpectedly
-]
 
 
 class CLIAgent(CritiqueMixin, Agent):
@@ -191,56 +159,17 @@ class CLIAgent(CritiqueMixin, Agent):
     def _is_fallback_error(self, error: Exception) -> bool:
         """Check if the error should trigger a fallback to OpenRouter.
 
-        Detects rate limits, timeouts, CLI-specific errors, and network issues.
+        Uses centralized ErrorClassifier for consistent error classification
+        across all agent types. Detects rate limits, timeouts, CLI-specific
+        errors, and network issues.
+
         This method is intentionally permissive to maximize fallback opportunities.
         """
-        error_str = str(error).lower()
-
-        # Check for rate limit and service error patterns
-        for pattern in RATE_LIMIT_PATTERNS:
-            if pattern in error_str:
-                logger.debug(f"[{self.name}] Detected fallback pattern: {pattern}")
-                return True
-
-        # Timeout errors should trigger fallback
-        if isinstance(error, (TimeoutError, asyncio.TimeoutError)):
-            logger.debug(f"[{self.name}] Detected timeout error")
-            return True
-
-        # Connection errors should trigger fallback
-        if isinstance(error, (ConnectionError, ConnectionRefusedError, ConnectionResetError, BrokenPipeError)):
-            logger.debug(f"[{self.name}] Detected connection error")
-            return True
-
-        # OS-level errors (file not found for CLI, etc.)
-        if isinstance(error, OSError) and error.errno in (
-            7,    # E2BIG - Argument list too long (prompt too large for CLI)
-            32,   # EPIPE - Broken pipe (connection closed)
-            111,  # ECONNREFUSED
-            104,  # ECONNRESET
-            110,  # ETIMEDOUT
-            113,  # EHOSTUNREACH
-        ):
-            logger.debug(f"[{self.name}] Detected OS-level connection error")
-            return True
-
-        # CLI command failures (non-zero exit, process errors)
-        if isinstance(error, RuntimeError):
-            # Always fallback on CLI failures - the CLI might be broken
-            if "cli command failed" in error_str or "cli" in error_str:
-                logger.debug(f"[{self.name}] Detected CLI error")
-                return True
-            # Also check for API-related runtime errors
-            if any(kw in error_str for kw in ["api error", "http error", "status"]):
-                logger.debug(f"[{self.name}] Detected API error in RuntimeError")
-                return True
-
-        # Subprocess errors
-        if isinstance(error, subprocess.SubprocessError):
-            logger.debug(f"[{self.name}] Detected subprocess error")
-            return True
-
-        return False
+        should_fallback = ErrorClassifier.should_fallback(error)
+        if should_fallback:
+            category = ErrorClassifier.get_error_category(error)
+            logger.debug(f"[{self.name}] Detected fallback error ({category}): {str(error)[:100]}")
+        return should_fallback
 
     def _sanitize_cli_arg(self, arg: str) -> str:
         """Sanitize a string for use as a CLI argument.

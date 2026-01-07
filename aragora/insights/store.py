@@ -481,22 +481,27 @@ class InsightStore:
             stats = {}
 
             cursor.execute("SELECT COUNT(*) FROM insights")
-            stats["total_insights"] = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            stats["total_insights"] = row[0] if row else 0
 
             cursor.execute("SELECT COUNT(*) FROM debate_summaries")
-            stats["total_debates"] = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            stats["total_debates"] = row[0] if row else 0
 
             cursor.execute("SELECT COUNT(*) FROM debate_summaries WHERE consensus_reached = 1")
-            stats["consensus_debates"] = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            stats["consensus_debates"] = row[0] if row else 0
 
             cursor.execute("SELECT type, COUNT(*) FROM insights GROUP BY type")
             stats["insights_by_type"] = dict(cursor.fetchall())
 
             cursor.execute("SELECT COUNT(DISTINCT agent_name) FROM agent_performance_history")
-            stats["unique_agents"] = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            stats["unique_agents"] = row[0] if row else 0
 
             cursor.execute("SELECT AVG(total_insights) FROM debate_summaries")
-            avg = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            avg = row[0] if row else None
             stats["avg_insights_per_debate"] = avg if avg else 0
 
         return stats

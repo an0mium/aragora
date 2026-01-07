@@ -51,6 +51,10 @@ class DebatesHandler(BaseHandler):
         "/fork",  # Fork debate
     ]
 
+    # Allowed export formats and tables for input validation
+    ALLOWED_EXPORT_FORMATS = {"json", "csv", "html"}
+    ALLOWED_EXPORT_TABLES = {"summary", "messages", "critiques", "votes"}
+
     def _check_auth(self, handler) -> Optional[HandlerResult]:
         """Check authentication for sensitive endpoints.
 
@@ -179,7 +183,17 @@ class DebatesHandler(BaseHandler):
                 if not is_valid:
                     return error_response(err, 400)
                 export_format = parts[5]
+                # Validate export format
+                if export_format not in self.ALLOWED_EXPORT_FORMATS:
+                    return error_response(
+                        f"Invalid format '{export_format}'. Allowed: {sorted(self.ALLOWED_EXPORT_FORMATS)}", 400
+                    )
                 table = query_params.get('table', 'summary')
+                # Validate table parameter
+                if table not in self.ALLOWED_EXPORT_TABLES:
+                    return error_response(
+                        f"Invalid table '{table}'. Allowed: {sorted(self.ALLOWED_EXPORT_TABLES)}", 400
+                    )
                 return self._export_debate(handler, debate_id, export_format, table)
 
         # Default: treat as slug lookup

@@ -46,18 +46,52 @@ class EndpointGroup:
     endpoints: list[Endpoint] = field(default_factory=list)
 
 
-# Handler modules to scan
-HANDLER_MODULES = [
-    "aragora.server.handlers.system",
-    "aragora.server.handlers.auditing",
-    "aragora.server.handlers.broadcast",
-    "aragora.server.handlers.dashboard",
-    "aragora.server.handlers.introspection",
-    "aragora.server.handlers.memory",
-    "aragora.server.handlers.plugins",
-    "aragora.server.handlers.probes",
-    "aragora.server.handlers.verification",
-]
+# Handler modules to scan - dynamically discovered
+def discover_handler_modules() -> list[str]:
+    """Discover all handler modules in aragora.server.handlers."""
+    handlers_dir = Path(__file__).parent.parent / "aragora" / "server" / "handlers"
+    modules = []
+    for py_file in sorted(handlers_dir.glob("*.py")):
+        if py_file.stem.startswith("_") or py_file.stem in ("base", "routing"):
+            continue
+        modules.append(f"aragora.server.handlers.{py_file.stem}")
+    return modules
+
+HANDLER_MODULES = discover_handler_modules()
+
+
+def extract_endpoints_from_module_docstring(module) -> list[tuple[str, str, str]]:
+    """Extract endpoints from module docstring.
+
+    Module docstrings follow the format:
+        Endpoints:
+        - GET /api/path - Description
+        - POST /api/path/{param} - Description
+
+    Returns:
+        List of (method, path, description) tuples
+    """
+    docstring = module.__doc__
+    if not docstring:
+        return []
+
+    endpoints = []
+    match = re.search(r'Endpoints:\s*\n((?:- [A-Z]+ /\S+.*\n?)+)', docstring)
+    if not match:
+        return []
+
+    endpoint_block = match.group(1)
+    for line in endpoint_block.strip().split('\n'):
+        endpoint_match = re.match(
+            r'^-\s*([A-Z]+)\s+(/\S+)\s*(?:-\s*(.*))?$', line.strip()
+        )
+        if endpoint_match:
+            method = endpoint_match.group(1)
+            path = endpoint_match.group(2)
+            description = (endpoint_match.group(3) or "").strip()
+            endpoints.append((method, path, description))
+
+    return endpoints
 
 
 def extract_routes_from_handler(handler_class) -> list[str]:
@@ -161,7 +195,52 @@ def discover_endpoints() -> list[EndpointGroup]:
             print(f"Warning: Could not import {module_name}: {e}", file=sys.stderr)
             continue
 
+        # First try to extract endpoints from module docstring
+        module_endpoints = extract_endpoints_from_module_docstring(module)
+
+        # Get module description from first paragraph before "Endpoints:"
+        module_doc = module.__doc__ or ""
+        module_desc = ""
+        if module_doc:
+            desc_match = re.match(r'^(.+?)(?=\n\s*Endpoints:|$)', module_doc, re.DOTALL)
+            if desc_match:
+                module_desc = desc_match.group(1).strip().split('\n')[0]
+
         # Find handler classes in the module
+        handler_class_name = None
+        auth_endpoints = []
+        post_routes = []
+
+        for name, obj in inspect.getmembers(module, inspect.isclass):
+            if name.endswith('Handler') and hasattr(obj, 'ROUTES'):
+                handler_class_name = name
+                auth_endpoints = getattr(obj, 'AUTH_REQUIRED_ENDPOINTS', [])
+                post_routes = getattr(obj, 'POST_ROUTES', [])
+                break
+
+        # If we have module docstring endpoints, use those (preferred)
+        if module_endpoints:
+            group_name = module_name.split('.')[-1].title().replace('_', ' ')
+            group = EndpointGroup(name=group_name, description=module_desc)
+
+            for method, path, description in module_endpoints:
+                auth_required = any(auth_pattern in path for auth_pattern in auth_endpoints)
+                endpoint = Endpoint(
+                    path=path,
+                    method=method,
+                    description=description,
+                    handler_class=handler_class_name or "",
+                    handler_method="",
+                    parameters=[],
+                    auth_required=auth_required,
+                )
+                group.endpoints.append(endpoint)
+
+            if group.endpoints:
+                groups.append(group)
+            continue
+
+        # Fall back to ROUTES attribute
         for name, obj in inspect.getmembers(module, inspect.isclass):
             if name.endswith('Handler') and hasattr(obj, 'ROUTES'):
                 group_name = name.replace('Handler', '')

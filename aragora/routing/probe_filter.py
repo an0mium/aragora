@@ -203,7 +203,8 @@ class ProbeFilter:
             try:
                 last_dt = datetime.fromisoformat(latest_date.replace("Z", "+00:00"))
                 profile.days_since_probe = (datetime.now() - last_dt.replace(tzinfo=None)).days
-            except Exception:
+            except (ValueError, AttributeError) as e:
+                logger.debug(f"Could not parse probe date '{latest_date}': {e}")
                 profile.days_since_probe = 999
 
         return profile

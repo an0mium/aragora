@@ -721,8 +721,8 @@ class TestCSVExportDetails:
         # Content should be truncated to 1000 chars
         assert len(content) < 2000 + 200  # Some overhead for headers
 
-    def test_csv_invalid_table_falls_back_to_summary(self, debates_handler, mock_storage):
-        """Should fall back to summary for invalid table."""
+    def test_csv_invalid_table_returns_400(self, debates_handler, mock_storage):
+        """Should return 400 for invalid table parameter."""
         mock_storage.get_debate.return_value = {
             "slug": "fallback-test",
             "topic": "Test",
@@ -737,10 +737,11 @@ class TestCSVExportDetails:
             None
         )
 
-        assert result.status_code == 200
+        assert result.status_code == 400
         content = result.body.decode("utf-8")
-        # Should get summary format
-        assert "field,value" in content.lower()
+        # Should have error message with allowed values
+        assert "invalid" in content.lower()
+        assert "table" in content.lower()
 
     def test_csv_votes_export(self, debates_handler, mock_storage):
         """Should export votes correctly."""

@@ -649,10 +649,12 @@ class ConsensusMemory:
 
             # Total counts
             cursor.execute("SELECT COUNT(*) FROM consensus")
-            stats["total_consensus"] = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            stats["total_consensus"] = row[0] if row else 0
 
             cursor.execute("SELECT COUNT(*) FROM dissent")
-            stats["total_dissents"] = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            stats["total_dissents"] = row[0] if row else 0
 
             # By strength
             cursor.execute(
@@ -674,7 +676,8 @@ class ConsensusMemory:
 
             # Average confidence
             cursor.execute("SELECT AVG(confidence) FROM consensus")
-            stats["avg_confidence"] = cursor.fetchone()[0] or 0.0
+            row = cursor.fetchone()
+            stats["avg_confidence"] = (row[0] if row else None) or 0.0
 
         return stats
 

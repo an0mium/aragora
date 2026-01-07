@@ -414,7 +414,8 @@ class Z3Backend:
             ctx = z3.Context()
             z3.parse_smt2_string(smtlib, ctx=ctx)
             return True
-        except Exception:
+        except Exception as e:
+            logger.debug(f"SMT-LIB2 validation failed: {type(e).__name__}: {e}")
             return False
 
     def _simple_translate(self, claim: str) -> Optional[str]:

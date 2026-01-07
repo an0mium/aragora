@@ -17,6 +17,9 @@ import threading
 import time
 import urllib.request
 import urllib.error
+import socket
+import ipaddress
+from urllib.parse import urlparse
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Set, List, Dict, Any
@@ -216,8 +219,19 @@ class WebhookDispatcher:
     DEFAULT_QUEUE_SIZE = 1000
     DROP_LOG_INTERVAL_S = 10.0
 
-    def __init__(self, configs: List[WebhookConfig], queue_max_size: Optional[int] = None):
+    def __init__(
+        self,
+        configs: List[WebhookConfig],
+        queue_max_size: Optional[int] = None,
+        allow_localhost: Optional[bool] = None,
+    ):
         self.configs = configs
+
+        # Allow localhost for testing (via constructor or env var)
+        if allow_localhost is None:
+            self._allow_localhost = os.environ.get("ARAGORA_WEBHOOK_ALLOW_LOCALHOST", "").lower() in ("1", "true", "yes")
+        else:
+            self._allow_localhost = allow_localhost
 
         # Allow queue size override via env var
         if queue_max_size is None:
@@ -305,6 +319,51 @@ class WebhookDispatcher:
             return False
         return True
 
+    def _validate_webhook_url(self, url: str) -> tuple[bool, str]:
+        """Validate webhook URL is not pointing to internal services (SSRF protection).
+
+        Returns:
+            Tuple of (is_valid, error_message). If valid, error_message is empty.
+        """
+        try:
+            parsed = urlparse(url)
+        except Exception:
+            return False, "Invalid URL format"
+
+        # Only allow HTTP/HTTPS
+        if parsed.scheme not in ("http", "https"):
+            return False, f"Only HTTP/HTTPS allowed, got: {parsed.scheme}"
+
+        if not parsed.hostname:
+            return False, "URL must have a hostname"
+
+        # Skip IP validation if localhost is allowed (for testing)
+        if self._allow_localhost:
+            return True, ""
+
+        # Resolve hostname to IP and check for private ranges
+        try:
+            ip = socket.gethostbyname(parsed.hostname)
+            ip_obj = ipaddress.ip_address(ip)
+
+            if ip_obj.is_private:
+                return False, f"Private IP not allowed: {ip}"
+            if ip_obj.is_loopback:
+                return False, f"Loopback IP not allowed: {ip}"
+            if ip_obj.is_link_local:
+                return False, f"Link-local IP not allowed: {ip}"
+            if ip_obj.is_reserved:
+                return False, f"Reserved IP not allowed: {ip}"
+            # Block AWS/cloud metadata endpoints
+            if str(ip_obj) in ("169.254.169.254", "fd00:ec2::254"):
+                return False, "Cloud metadata endpoint not allowed"
+
+        except socket.gaierror:
+            # DNS resolution failed - let the request fail naturally
+            pass
+
+        return True, ""
+
     def _worker_loop(self) -> None:
         """Background thread that delivers events to webhooks."""
         while self._running:
@@ -337,6 +396,12 @@ class WebhookDispatcher:
 
         Returns True on success, False on final failure.
         """
+        # SSRF protection: validate URL before making request
+        is_valid, error_msg = self._validate_webhook_url(cfg.url)
+        if not is_valid:
+            logger.warning(f"Webhook {cfg.name} blocked (SSRF): {error_msg}")
+            return False
+
         # Use custom encoder for proper set/datetime handling
         body = json.dumps(event_dict, cls=AragoraJSONEncoder).encode("utf-8")
         signature = sign_payload(cfg.secret, body)

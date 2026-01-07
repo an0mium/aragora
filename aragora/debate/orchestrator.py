@@ -23,6 +23,7 @@ from aragora.debate.convergence import (
     ConvergenceResult,
     get_similarity_backend,
 )
+from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.memory_manager import MemoryManager
 from aragora.debate.optional_imports import OptionalImports
 from aragora.debate.prompt_builder import PromptBuilder
@@ -94,6 +95,7 @@ class Arena:
         circuit_breaker: CircuitBreaker = None,  # Optional CircuitBreaker for agent failure handling
         initial_messages: list = None,  # Optional initial conversation history (for fork debates)
         trending_topic=None,  # Optional TrendingTopic to seed debate context
+        evidence_collector=None,  # Optional EvidenceCollector for auto-collecting evidence
     ):
         self.env = environment
         self.agents = agents
@@ -137,6 +139,7 @@ class Arena:
         self.circuit_breaker = circuit_breaker or CircuitBreaker()
         self.initial_messages = initial_messages or []  # Fork debate initial context
         self.trending_topic = trending_topic  # Optional trending topic to seed context
+        self.evidence_collector = evidence_collector  # Optional evidence auto-collection
 
         # ArgumentCartographer for debate graph visualization
         AC = OptionalImports.get_argument_cartographer()
@@ -253,6 +256,7 @@ class Arena:
             insight_store=self.insight_store,
             memory=self.memory,
             protocol=self.protocol,
+            evidence_collector=self.evidence_collector,
             fetch_historical_context=self._fetch_historical_context,
             format_patterns_for_prompt=self._format_patterns_for_prompt,
             get_successful_patterns_from_memory=self._get_successful_patterns_from_memory,
@@ -847,97 +851,10 @@ class Arena:
         """
         Generate a DisagreementReport from debate votes and critiques.
 
-        Inspired by Heavy3.ai: surfaces unanimous critiques (high confidence issues)
-        and split opinions (risk areas requiring attention).
+        Delegates to DisagreementReporter for the actual analysis.
         """
-        report = DisagreementReport()
-
-        if not votes and not critiques:
-            return report
-
-        # 1. Analyze vote alignment
-        agent_names = list(set(v.agent for v in votes))
-        vote_choices = {v.agent: v.choice for v in votes}
-
-        # Calculate agreement score
-        if len(vote_choices) > 1:
-            choice_counts = Counter(vote_choices.values())
-            most_common_list = choice_counts.most_common(1) if choice_counts else []
-            most_common_count = most_common_list[0][1] if most_common_list else 0
-            report.agreement_score = most_common_count / len(vote_choices)
-
-        # Calculate per-agent alignment with winner
-        if winner:
-            for agent, choice in vote_choices.items():
-                report.agent_alignment[agent] = 1.0 if choice == winner else 0.0
-
-        # 2. Find unanimous critiques (all critics agree on an issue)
-        issue_agents: dict[str, set[str]] = {}  # issue text -> set of agents who raised it
-        for critique in critiques:
-            for issue in critique.issues:
-                issue_key = issue.lower().strip()[:100]  # Normalize for matching
-                if issue_key not in issue_agents:
-                    issue_agents[issue_key] = set()
-                issue_agents[issue_key].add(critique.agent)
-
-        # Unanimous = raised by all critics
-        critic_agents = set(c.agent for c in critiques)
-        if len(critic_agents) > 1:
-            for issue, agents in issue_agents.items():
-                if agents == critic_agents:
-                    # Find the original full issue text
-                    for critique in critiques:
-                        for orig_issue in critique.issues:
-                            if orig_issue.lower().strip()[:100] == issue:
-                                report.unanimous_critiques.append(orig_issue)
-                                break
-                        if issue in [uc.lower().strip()[:100] for uc in report.unanimous_critiques]:
-                            break
-
-        # 3. Find split opinions from votes
-        if len(vote_choices) > 1:
-            unique_choices = set(vote_choices.values())
-            if len(unique_choices) > 1:
-                # Group agents by their choice
-                choice_to_agents: dict[str, list[str]] = {}
-                for agent, choice in vote_choices.items():
-                    if choice not in choice_to_agents:
-                        choice_to_agents[choice] = []
-                    choice_to_agents[choice].append(agent)
-
-                # Create split opinion entries
-                sorted_choices = sorted(choice_to_agents.items(), key=lambda x: -len(x[1]))
-                if len(sorted_choices) >= 2:
-                    majority_choice, majority_agents = sorted_choices[0]
-                    for minority_choice, minority_agents in sorted_choices[1:]:
-                        report.split_opinions.append((
-                            f"Vote split: '{majority_choice[:50]}...' vs '{minority_choice[:50]}...'",
-                            majority_agents,
-                            minority_agents,
-                        ))
-
-        # 4. Identify risk areas from low-confidence votes
-        low_confidence_topics = []
-        for vote in votes:
-            if vote.confidence < 0.6:
-                low_confidence_topics.append(
-                    f"{vote.agent} has low confidence ({vote.confidence:.0%}) in '{vote.choice[:50]}...'"
-                )
-        report.risk_areas.extend(low_confidence_topics[:5])
-
-        # 5. Add risk areas from high-severity critiques that weren't addressed
-        severe_unaddressed = []
-        for critique in critiques:
-            if critique.severity >= 0.7:
-                # Check if the critique target won (meaning issues may remain)
-                if winner and critique.target_agent == winner:
-                    severe_unaddressed.append(
-                        f"High-severity ({critique.severity:.0%}) critique of winner {critique.target_agent}: "
-                        f"{critique.issues[0][:100] if critique.issues else 'various issues'}"
-                    )
-        report.risk_areas.extend(severe_unaddressed[:3])
-
-        return report
+        reporter = DisagreementReporter()
+        return reporter.generate_report(votes, critiques, winner)
 
     def _link_evidence_to_claim(self, claim_text: str) -> tuple[list, float]:
         """Link evidence snippets to a claim based on keyword matching.
@@ -1449,35 +1366,11 @@ class Arena:
             agent.stance = stances[stance_idx]
 
     def _get_stance_guidance(self, agent) -> str:
-        """Generate prompt guidance based on agent's debate stance."""
-        if not self.protocol.asymmetric_stances:
-            return ""
+        """Generate prompt guidance based on agent's debate stance.
 
-        if agent.stance == "affirmative":
-            return """DEBATE STANCE: AFFIRMATIVE
-You are assigned to DEFEND and SUPPORT proposals. Your role is to:
-- Find strengths and merits in arguments
-- Build upon existing ideas
-- Advocate for the proposal's value
-- Counter criticisms constructively
-Even if you personally disagree, argue the affirmative position."""
-
-        elif agent.stance == "negative":
-            return """DEBATE STANCE: NEGATIVE
-You are assigned to CHALLENGE and CRITIQUE proposals. Your role is to:
-- Identify weaknesses, flaws, and risks
-- Play devil's advocate
-- Raise objections and counterarguments
-- Stress-test the proposal
-Even if you personally agree, argue the negative position."""
-
-        else:  # neutral
-            return """DEBATE STANCE: NEUTRAL
-You are assigned to EVALUATE FAIRLY. Your role is to:
-- Weigh arguments from both sides impartially
-- Identify the strongest and weakest points
-- Seek balanced synthesis
-- Judge on merit, not position"""
+        Delegates to PromptBuilder for the actual implementation.
+        """
+        return self.prompt_builder.get_stance_guidance(agent)
 
     async def run(self) -> DebateResult:
         """Run the full debate and return results.

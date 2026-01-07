@@ -403,7 +403,8 @@ class CircuitBreaker:
         try:
             yield
             self.record_success(entity)
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Circuit breaker recorded failure for {name}: {type(e).__name__}: {e}")
             self.record_failure(entity)
             raise
 
@@ -436,6 +437,7 @@ class CircuitBreaker:
         try:
             yield
             self.record_success(entity)
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Circuit breaker (sync) recorded failure for {name}: {type(e).__name__}: {e}")
             self.record_failure(entity)
             raise

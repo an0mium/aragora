@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Optional
+import ast
 import asyncio
 import hashlib
 import json
@@ -253,9 +254,10 @@ def _exec_with_timeout(code: str, namespace: dict, timeout: float = EXEC_TIMEOUT
     # Parse result back into namespace
     if result.get("result"):
         try:
-            # Try to eval the repr'd result (safe for simple types)
-            namespace["__result__"] = eval(result["result"], {"__builtins__": {}})
-        except Exception:
+            # Safely parse repr'd result using ast.literal_eval (only allows literals)
+            namespace["__result__"] = ast.literal_eval(result["result"])
+        except (ValueError, SyntaxError):
+            # If not a valid literal, keep as string
             namespace["__result__"] = result["result"]
 
     if result.get("stdout"):

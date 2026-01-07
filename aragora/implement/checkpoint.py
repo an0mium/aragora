@@ -46,8 +46,14 @@ def save_progress(progress: ImplementProgress, repo_path: Path) -> None:
             json.dump(progress.to_dict(), f, indent=2)
         # Atomic rename
         os.rename(temp_path, progress_path)
-    except Exception:
+    except (OSError, IOError) as e:
+        logger.error(f"Failed to save checkpoint to {progress_path}: {e}")
         # Clean up temp file on error
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        raise
+    except Exception:
+        # Clean up temp file on any other error, then re-raise
         if os.path.exists(temp_path):
             os.unlink(temp_path)
         raise

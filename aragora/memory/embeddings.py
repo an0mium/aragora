@@ -451,7 +451,8 @@ class SemanticRetriever:
             cursor = conn.cursor()
 
             cursor.execute("SELECT COUNT(*) FROM embeddings")
-            total = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            total = row[0] if row else 0
 
             cursor.execute("SELECT provider, COUNT(*) FROM embeddings GROUP BY provider")
             by_provider = dict(cursor.fetchall())

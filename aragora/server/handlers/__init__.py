@@ -55,6 +55,7 @@ from .audio import AudioHandler
 from .social import SocialMediaHandler
 from .laboratory import LaboratoryHandler
 from .probes import ProbesHandler
+from .insights import InsightsHandler
 
 # List of all handler classes for automatic dispatch registration
 # Order matters: more specific handlers should come first
@@ -90,6 +91,7 @@ ALL_HANDLERS = [
     BroadcastHandler,
     LaboratoryHandler,
     ProbesHandler,
+    InsightsHandler,
 ]
 
 __all__ = [
@@ -132,4 +134,5 @@ __all__ = [
     "BroadcastHandler",
     "LaboratoryHandler",
     "ProbesHandler",
+    "InsightsHandler",
 ]

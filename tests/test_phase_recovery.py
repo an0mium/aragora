@@ -5,7 +5,11 @@ import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
 import sys
-sys.path.insert(0, "scripts")
+from pathlib import Path
+
+# Add scripts directory to path for nomic_loop import
+scripts_dir = Path(__file__).parent.parent / "scripts"
+sys.path.insert(0, str(scripts_dir))
 
 from nomic_loop import PhaseRecovery
 

@@ -50,6 +50,26 @@ from aragora.config import (
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.server.validation import SAFE_ID_PATTERN
 
+# Import utilities from extracted modules
+from aragora.server.http_utils import (
+    ALLOWED_QUERY_PARAMS,
+    validate_query_params as _validate_query_params,
+    safe_float as _safe_float,
+    safe_int as _safe_int,
+    run_async as _run_async,
+)
+from aragora.server.debate_utils import (
+    get_active_debates,
+    get_active_debates_lock,
+    update_debate_status as _update_debate_status,
+    cleanup_stale_debates as _cleanup_stale_debates,
+    increment_cleanup_counter,
+    wrap_agent_for_streaming as _wrap_agent_for_streaming,
+    _DEBATE_TTL_SECONDS,
+    _active_debates,
+    _active_debates_lock,
+)
+
 # DoS protection limits
 MAX_MULTIPART_PARTS = 10
 # Maximum content length for POST requests (100MB - DoS protection)
@@ -65,71 +85,6 @@ import os
 TRUSTED_PROXIES = frozenset(
     p.strip() for p in os.getenv('ARAGORA_TRUSTED_PROXIES', '127.0.0.1,::1,localhost').split(',')
 )
-
-# Query parameter whitelist (security: reject unknown params to prevent injection)
-# Maps param name -> validation rule:
-#   - None: numeric/short params (no length limit, validated elsewhere)
-#   - set: restricted to specific values
-#   - int: max length for string params (DoS protection)
-ALLOWED_QUERY_PARAMS = {
-    # Pagination (numeric, validated by int parsing)
-    "limit": None,
-    "offset": None,
-    # Filtering (string, need length limits)
-    "domain": 100,
-    "loop_id": 100,
-    "topic": 500,
-    "query": 1000,
-    # Export
-    "table": {"summary", "debates", "proposals", "votes", "critiques", "messages"},
-    # Agent queries
-    "agent": 100,
-    "agent_a": 100,
-    "agent_b": 100,
-    "sections": {"identity", "performance", "relationships", "all"},
-    # Calibration
-    "buckets": None,
-    # Memory
-    "tiers": 100,
-    "min_importance": None,
-    # Genesis
-    "event_type": {"mutation", "crossover", "selection", "extinction", "speciation"},
-    # Logs
-    "lines": None,
-}
-
-
-def _validate_query_params(query: dict) -> tuple[bool, str]:
-    """Validate query parameters against whitelist.
-
-    Returns (is_valid, error_message).
-
-    Validation rules:
-    - None: no length validation (for numeric params)
-    - set: value must be in the set
-    - int: max length for string params
-    """
-    for param, values in query.items():
-        if param not in ALLOWED_QUERY_PARAMS:
-            return False, f"Unknown query parameter: {param}"
-
-        allowed = ALLOWED_QUERY_PARAMS[param]
-        if allowed is None:
-            # No validation needed (numeric params validated elsewhere)
-            continue
-
-        if isinstance(allowed, set):
-            # Check if value is in the allowed set
-            for val in values:
-                if val not in allowed:
-                    return False, f"Invalid value for {param}: {val}"
-        elif isinstance(allowed, int):
-            # Check length limit
-            for val in values:
-                if len(val) > allowed:
-                    return False, f"Parameter {param} exceeds max length ({allowed})"
-
-    return True, ""
 
 
 # Optional imports using utility for consistent handling
@@ -322,6 +277,7 @@ try:
         SocialMediaHandler,
         LaboratoryHandler,
         ProbesHandler,
+        InsightsHandler,
         HandlerResult,
     )
     HANDLERS_AVAILABLE = True
@@ -356,168 +312,11 @@ except ImportError:
     BroadcastHandler = None
     LaboratoryHandler = None
     ProbesHandler = None
+    InsightsHandler = None
     HandlerResult = None
-
-# Track active ad-hoc debates
-_active_debates: dict[str, dict] = {}
-_active_debates_lock = threading.Lock()  # Thread-safe access to _active_debates
-_debate_cleanup_counter = 0  # Counter for periodic cleanup
-
-# TTL for completed debates (24 hours)
-_DEBATE_TTL_SECONDS = 86400
-
-
-def _safe_float(value, default: float = 0.0) -> float:
-    """Safely convert value to float, returning default on failure."""
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return default
-
-
-def _safe_int(value, default: int = 0) -> int:
-    """Safely convert value to int, returning default on failure."""
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return default
-
-
-def _update_debate_status(debate_id: str, status: str, **kwargs) -> None:
-    """Atomic debate status update with consistent locking."""
-    with _active_debates_lock:
-        if debate_id in _active_debates:
-            _active_debates[debate_id]["status"] = status
-            # Record completion time for TTL cleanup
-            if status in ("completed", "error"):
-                _active_debates[debate_id]["completed_at"] = time.time()
-            for key, value in kwargs.items():
-                _active_debates[debate_id][key] = value
-
-
-def _cleanup_stale_debates() -> None:
-    """Remove completed/errored debates older than TTL."""
-    now = time.time()
-    with _active_debates_lock:
-        stale_ids = [
-            debate_id for debate_id, debate in _active_debates.items()
-            if debate.get("status") in ("completed", "error")
-            and now - debate.get("completed_at", now) > _DEBATE_TTL_SECONDS
-        ]
-        for debate_id in stale_ids:
-            _active_debates.pop(debate_id, None)
-    if stale_ids:
-        logger.debug(f"Cleaned up {len(stale_ids)} stale debate entries")
-
 
 # Server startup time for uptime tracking
 _server_start_time: float = time.time()
-
-
-def _wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: str) -> Any:
-    """Wrap an agent to emit token streaming events.
-
-    If the agent has a generate_stream() method, we override its generate()
-    to call generate_stream() and emit TOKEN_* events.
-
-    Args:
-        agent: Agent instance (duck-typed, must have generate method)
-        emitter: Event emitter for streaming events
-        debate_id: ID of the current debate
-
-    Returns:
-        The agent with wrapped generate method (or unchanged if no streaming support)
-    """
-    from datetime import datetime
-
-    # Check if agent supports streaming
-    if not hasattr(agent, 'generate_stream'):
-        return agent
-
-    # Store original generate method
-    original_generate = agent.generate
-
-    async def streaming_generate(prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
-        """Streaming wrapper that emits TOKEN_* events."""
-        # Emit start event
-        emitter.emit(StreamEvent(
-            type=StreamEventType.TOKEN_START,
-            data={
-                "debate_id": debate_id,
-                "agent": agent.name,
-                "timestamp": datetime.now().isoformat(),
-            },
-            agent=agent.name,
-        ))
-
-        full_response = ""
-        try:
-            # Stream tokens from the agent
-            async for token in agent.generate_stream(prompt, context):
-                full_response += token
-                # Emit token delta event
-                emitter.emit(StreamEvent(
-                    type=StreamEventType.TOKEN_DELTA,
-                    data={
-                        "debate_id": debate_id,
-                        "agent": agent.name,
-                        "token": token,
-                    },
-                    agent=agent.name,
-                ))
-
-            # Emit end event
-            emitter.emit(StreamEvent(
-                type=StreamEventType.TOKEN_END,
-                data={
-                    "debate_id": debate_id,
-                    "agent": agent.name,
-                    "full_response": full_response,
-                },
-                agent=agent.name,
-            ))
-
-            return full_response
-
-        except Exception as e:
-            # Emit error as end event
-            emitter.emit(StreamEvent(
-                type=StreamEventType.TOKEN_END,
-                data={
-                    "debate_id": debate_id,
-                    "agent": agent.name,
-                    "error": _safe_error_message(e, f"token streaming for {agent.name}"),
-                    "full_response": full_response,
-                },
-                agent=agent.name,
-            ))
-            # Fall back to non-streaming
-            if full_response:
-                return full_response
-            return await original_generate(prompt, context)
-
-    # Replace the generate method
-    agent.generate = streaming_generate
-    return agent
-
-
-def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
-    """Run async coroutine in HTTP handler thread (which may not have an event loop)."""
-    try:
-        # Check if there's a running loop (avoids deprecation warning)
-        try:
-            loop = asyncio.get_running_loop()
-            # If we get here, there's a running loop - can't use run_until_complete
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, coro)
-                return future.result(timeout=30)
-        except RuntimeError:
-            # No running loop, safe to use asyncio.run()
-            return asyncio.run(coro)
-    except Exception:
-        # Fallback: create new event loop
-        return asyncio.run(coro)
 
 
 class UnifiedHandler(BaseHTTPRequestHandler):
@@ -574,6 +373,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     _broadcast_handler: Optional["BroadcastHandler"] = None
     _audio_handler: Optional["AudioHandler"] = None
     _social_handler: Optional["SocialMediaHandler"] = None
+    _insights_handler: Optional["InsightsHandler"] = None
     _handlers_initialized: bool = False
 
     # Thread pool for debate execution (prevents unbounded thread creation)
@@ -738,8 +538,9 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         cls._social_handler = SocialMediaHandler(ctx)
         cls._laboratory_handler = LaboratoryHandler(ctx)
         cls._probes_handler = ProbesHandler(ctx)
+        cls._insights_handler = InsightsHandler(ctx)
         cls._handlers_initialized = True
-        logger.info("[handlers] Modular handlers initialized (31 handlers)")
+        logger.info("[handlers] Modular handlers initialized (32 handlers)")
 
         # Log resource availability for observability
         cls._log_resource_availability(nomic_dir)
@@ -824,6 +625,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._broadcast_handler,
             self._laboratory_handler,
             self._probes_handler,
+            self._insights_handler,
         ]
 
         # Determine HTTP method for routing
@@ -1126,12 +928,9 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             if self._try_modular_handler(path, query):
                 return
 
-        # Insights API (debate consensus feature)
+        # Insights API - NOW HANDLED BY InsightsHandler
         # Note: /api/debates/*, /api/health, /api/nomic/*, /api/history/*
         # are now handled by modular handlers (DebatesHandler, SystemHandler)
-        if path == '/api/insights/recent':
-            limit = self._safe_int(query, 'limit', 20, 100)
-            self._get_recent_insights(limit)
 
         # Note: /api/leaderboard, /api/matches/recent, /api/agent/*/history,
         # /api/calibration/leaderboard, /api/agent/*/calibration
@@ -1224,11 +1023,9 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         elif path == '/api/debate':
             self._start_debate()
         # NOTE: Broadcast, publishing, laboratory, routing, verification, probes,
-        # plugins routes are NOW HANDLED BY modular handlers (BroadcastHandler,
+        # plugins, insights routes are NOW HANDLED BY modular handlers (BroadcastHandler,
         # LaboratoryHandler, RoutingHandler, VerificationHandler, ProbesHandler,
-        # PluginsHandler, AuditingHandler)
-        elif path == '/api/insights/extract-detailed':
-            self._extract_detailed_insights()
+        # PluginsHandler, AuditingHandler, InsightsHandler)
         elif path.startswith('/api/debates/') and path.endswith('/verify'):
             debate_id = self._extract_path_segment(path, 3, "debate_id")
             if debate_id:
@@ -1718,180 +1515,7 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         docs = self.document_store.list_all()
         self._send_json({"documents": docs, "count": len(docs)})
 
-    def _get_recent_insights(self, limit: int) -> None:
-        """Get recent insights from InsightStore (debate consensus feature)."""
-        if not self.insight_store:
-            self._send_json({"error": "Insights not configured", "insights": []})
-            return
-
-        try:
-            insights = _run_async(
-                self.insight_store.get_recent_insights(limit=limit)
-            )
-            self._send_json({
-                "insights": [
-                    {
-                        "id": i.id,
-                        "type": i.type.value,
-                        "title": i.title,
-                        "description": i.description,
-                        "confidence": i.confidence,
-                        "agents_involved": i.agents_involved,
-                        "evidence": i.evidence[:3] if i.evidence else [],
-                    }
-                    for i in insights
-                ],
-                "count": len(insights),
-            })
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "insights"), "insights": []})
-
-    def _extract_detailed_insights(self) -> None:
-        """Extract detailed insights from debate content.
-
-        POST body:
-            content: The debate content to analyze (required)
-            debate_id: Optional debate ID for context
-            extract_claims: Whether to extract claims (default: True)
-            extract_evidence: Whether to extract evidence chains (default: True)
-            extract_patterns: Whether to extract argumentation patterns (default: True)
-
-        Returns detailed analysis of the debate content.
-        """
-        if not self._check_rate_limit():
-            return
-
-        content_length = self._validate_content_length()
-        if content_length is None:
-            return  # Error already sent
-
-        try:
-            body = self.rfile.read(content_length)
-            data = json.loads(body) if body else {}
-
-            content = data.get('content', '').strip()
-            if not content:
-                self._send_json({"error": "Missing required field: content"}, status=400)
-                return
-
-            debate_id = data.get('debate_id', '')
-            extract_claims = data.get('extract_claims', True)
-            extract_evidence = data.get('extract_evidence', True)
-            extract_patterns = data.get('extract_patterns', True)
-
-            result = {
-                "debate_id": debate_id,
-                "content_length": len(content),
-            }
-
-            # Extract claims if requested
-            if extract_claims:
-                claims = self._extract_claims_from_content(content)
-                result["claims"] = claims
-
-            # Extract evidence chains if requested
-            if extract_evidence:
-                evidence = self._extract_evidence_from_content(content)
-                result["evidence_chains"] = evidence
-
-            # Extract patterns if requested
-            if extract_patterns:
-                patterns = self._extract_patterns_from_content(content)
-                result["patterns"] = patterns
-
-            self._send_json(result)
-
-        except json.JSONDecodeError:
-            self._send_json({"error": "Invalid JSON body"}, status=400)
-        except Exception as e:
-            self._send_json({"error": _safe_error_message(e, "insight_extraction")}, status=500)
-
-    def _extract_claims_from_content(self, content: str) -> list:
-        """Extract claims from content using simple heuristics."""
-        import re
-
-        claims = []
-        sentences = re.split(r'[.!?]+', content)
-
-        # Claim indicators
-        claim_patterns = [
-            r'\b(therefore|thus|hence|consequently|as a result)\b',
-            r'\b(I believe|we argue|it is clear|evidence shows)\b',
-            r'\b(should|must|need to|ought to)\b',
-            r'\b(is better|is worse|is more|is less)\b',
-        ]
-
-        for i, sentence in enumerate(sentences):
-            sentence = sentence.strip()
-            if len(sentence) < 10:
-                continue
-
-            for pattern in claim_patterns:
-                if re.search(pattern, sentence, re.IGNORECASE):
-                    claims.append({
-                        "text": sentence[:500],
-                        "position": i,
-                        "type": "argument" if "should" in sentence.lower() else "assertion",
-                    })
-                    break
-
-        return claims[:20]  # Limit to 20 claims
-
-    def _extract_evidence_from_content(self, content: str) -> list:
-        """Extract evidence chains from content."""
-        import re
-
-        evidence = []
-
-        # Evidence indicators
-        evidence_patterns = [
-            (r'according to ([^,.]+)', 'citation'),
-            (r'research shows ([^.]+)', 'research'),
-            (r'data indicates ([^.]+)', 'data'),
-            (r'for example,? ([^.]+)', 'example'),
-            (r'studies have shown ([^.]+)', 'study'),
-        ]
-
-        for pattern, etype in evidence_patterns:
-            matches = re.finditer(pattern, content, re.IGNORECASE)
-            for match in matches:
-                evidence.append({
-                    "text": match.group(0)[:300],
-                    "type": etype,
-                    "source": match.group(1)[:100] if match.groups() else None,
-                })
-
-        return evidence[:15]  # Limit to 15 evidence items
-
-    def _extract_patterns_from_content(self, content: str) -> list:
-        """Extract argumentation patterns from content."""
-        patterns = []
-
-        content_lower = content.lower()
-
-        # Pattern detection
-        if 'on one hand' in content_lower and 'on the other hand' in content_lower:
-            patterns.append({"type": "balanced_comparison", "strength": "strong"})
-
-        if 'while' in content_lower and 'however' in content_lower:
-            patterns.append({"type": "concession_rebuttal", "strength": "medium"})
-
-        if content_lower.count('first') > 0 and content_lower.count('second') > 0:
-            patterns.append({"type": "enumerated_argument", "strength": "medium"})
-
-        if 'if' in content_lower and 'then' in content_lower:
-            patterns.append({"type": "conditional_reasoning", "strength": "medium"})
-
-        if 'because' in content_lower:
-            count = content_lower.count('because')
-            patterns.append({
-                "type": "causal_reasoning",
-                "strength": "strong" if count > 2 else "medium",
-                "instances": count,
-            })
-
-        return patterns
-
+    # NOTE: Insights methods moved to handlers/insights.py (InsightsHandler)
     # NOTE: _run_capability_probe moved to handlers/probes.py (ProbesHandler)
 
     def _run_deep_audit(self) -> None:

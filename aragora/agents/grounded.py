@@ -408,7 +408,8 @@ class PositionLedger:
             cursor = conn.execute(
                 "SELECT COUNT(*) FROM positions WHERE agent_name = ?", (agent_name,)
             )
-            total = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            total = row[0] if row else 0
 
             # By outcome
             cursor = conn.execute(
@@ -427,7 +428,8 @@ class PositionLedger:
                 "SELECT COUNT(*) FROM positions WHERE agent_name = ? AND reversed = 1",
                 (agent_name,),
             )
-            reversals = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            reversals = row[0] if row else 0
 
             # Average confidence by outcome
             cursor = conn.execute(

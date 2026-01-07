@@ -128,6 +128,9 @@ class DebateContext:
     research_context: Optional[str] = None
     """Pre-debate research results."""
 
+    evidence_pack: Any = None
+    """Collected evidence pack from EvidenceCollector."""
+
     ratings_cache: dict[str, Any] = field(default_factory=dict)
     """Batch-fetched AgentRating objects by agent name."""
 

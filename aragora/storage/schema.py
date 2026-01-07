@@ -494,7 +494,12 @@ class DatabaseManager:
         try:
             yield conn
             conn.commit()
+        except sqlite3.Error as e:
+            logger.error(f"Database error in DatabaseManager.connection(): {e}", exc_info=True)
+            conn.rollback()
+            raise
         except Exception:
+            # Rollback on any exception from user code, then re-raise unchanged
             conn.rollback()
             raise
 
@@ -512,9 +517,41 @@ class DatabaseManager:
             conn.execute("BEGIN")
             yield conn
             conn.execute("COMMIT")
-        except Exception:
+        except sqlite3.Error as e:
+            logger.error(f"Database error in DatabaseManager.transaction(): {e}", exc_info=True)
             conn.execute("ROLLBACK")
             raise
+        except Exception:
+            # Rollback on any exception from user code, then re-raise unchanged
+            conn.execute("ROLLBACK")
+            raise
+
+    @contextmanager
+    def fresh_connection(self) -> Generator[sqlite3.Connection, None, None]:
+        """Context manager for a fresh per-operation connection.
+
+        Creates a new connection that is closed after use. This is thread-safe
+        and suitable for multi-threaded access patterns where connections
+        cannot be shared across threads.
+
+        For single-threaded use with connection reuse, use connection() instead.
+
+        Yields:
+            sqlite3.Connection for database operations (closed on exit)
+        """
+        conn = get_wal_connection(self.db_path, self.timeout)
+        try:
+            yield conn
+            conn.commit()
+        except sqlite3.Error as e:
+            logger.error(f"Database error in DatabaseManager.fresh_connection(): {e}", exc_info=True)
+            conn.rollback()
+            raise
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
         """Execute a SQL statement.
@@ -542,6 +579,55 @@ class DatabaseManager:
             sqlite3.Cursor with the results
         """
         return self.get_connection().executemany(sql, params_list)
+
+    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+        """Execute query and fetch single row.
+
+        Convenience method for simple SELECT queries that expect one row.
+
+        Args:
+            sql: SQL query to execute
+            params: Parameters for the SQL statement
+
+        Returns:
+            Single row as tuple, or None if no results
+        """
+        with self.connection() as conn:
+            cursor = conn.execute(sql, params)
+            return cursor.fetchone()
+
+    def fetch_all(self, sql: str, params: tuple = ()) -> list[tuple]:
+        """Execute query and fetch all rows.
+
+        Convenience method for SELECT queries returning multiple rows.
+
+        Args:
+            sql: SQL query to execute
+            params: Parameters for the SQL statement
+
+        Returns:
+            List of rows as tuples
+        """
+        with self.connection() as conn:
+            cursor = conn.execute(sql, params)
+            return cursor.fetchall()
+
+    def fetch_many(self, sql: str, params: tuple = (), size: int = 100) -> list[tuple]:
+        """Execute query and fetch up to 'size' rows.
+
+        Convenience method for paginated queries.
+
+        Args:
+            sql: SQL query to execute
+            params: Parameters for the SQL statement
+            size: Maximum number of rows to return
+
+        Returns:
+            List of up to 'size' rows as tuples
+        """
+        with self.connection() as conn:
+            cursor = conn.execute(sql, params)
+            return cursor.fetchmany(size)
 
     def close(self) -> None:
         """Close the database connection.
@@ -810,8 +896,8 @@ class ConnectionPool:
                 # Pool is closed, close the connection
                 try:
                     conn.close()
-                except Exception:
-                    pass
+                except sqlite3.Error as e:
+                    logger.debug(f"Error closing connection on pool release: {e}")
             else:
                 # Return to idle pool
                 self._idle.append(conn)
@@ -830,7 +916,12 @@ class ConnectionPool:
         try:
             yield conn
             conn.commit()
+        except sqlite3.Error as e:
+            logger.error(f"Database error in ConnectionPool.connection(): {e}", exc_info=True)
+            conn.rollback()
+            raise
         except Exception:
+            # Rollback on any exception from user code, then re-raise unchanged
             conn.rollback()
             raise
         finally:

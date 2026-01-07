@@ -269,8 +269,8 @@ class SystemHandler(BaseHandler):
             }
         except ImportError:
             pass
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not get memory stats: {type(e).__name__}: {e}")
 
         return json_response(health)
 
