@@ -14,14 +14,10 @@ from aragora.exceptions import (
     ConsensusError,
     RoundLimitExceededError,
     EarlyStopError,
-    # Agent
-    AgentError,
+    # Agent config errors (from exceptions.py)
     AgentNotFoundError,
     AgentConfigurationError,
-    AgentResponseError,
-    AgentTimeoutError,
     APIKeyError,
-    RateLimitError,
     # Validation
     ValidationError,
     InputValidationError,
@@ -56,6 +52,17 @@ from aragora.exceptions import (
     Z3NotAvailableError,
     VerificationTimeoutError,
 )
+
+# Agent runtime errors are in aragora.agents.errors
+from aragora.agents.errors import (
+    AgentError,
+    AgentResponseError,
+    AgentTimeoutError,
+    AgentRateLimitError,
+)
+
+# Alias for backwards compatibility in tests
+RateLimitError = AgentRateLimitError
 
 
 class TestAragoraError:
@@ -134,16 +141,14 @@ class TestAgentErrors:
 
     def test_agent_response_error(self):
         """Test AgentResponseError."""
-        err = AgentResponseError("gemini", "Connection timeout")
+        err = AgentResponseError("Connection timeout", agent_name="gemini")
 
         assert err.agent_name == "gemini"
-        assert err.reason == "Connection timeout"
-        assert "gemini" in str(err)
         assert "timeout" in str(err).lower()
 
     def test_agent_timeout(self):
         """Test AgentTimeoutError."""
-        err = AgentTimeoutError("gpt4", 30.0)
+        err = AgentTimeoutError("Request timed out", agent_name="gpt4", timeout_seconds=30.0)
 
         assert err.agent_name == "gpt4"
         assert err.timeout_seconds == 30.0
@@ -156,10 +161,10 @@ class TestAgentErrors:
         assert "anthropic" in str(err)
 
     def test_rate_limit(self):
-        """Test RateLimitError."""
-        err = RateLimitError("openai", retry_after=60.0)
+        """Test RateLimitError (AgentRateLimitError)."""
+        err = RateLimitError("Rate limit exceeded", agent_name="openai", retry_after=60.0)
 
-        assert err.provider == "openai"
+        assert err.agent_name == "openai"
         assert err.retry_after == 60.0
 
 
