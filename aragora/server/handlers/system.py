@@ -149,7 +149,7 @@ class SystemHandler(BaseHandler):
             storage = self.get_storage()
             if storage is not None:
                 # Try to execute a simple query to verify DB is responsive
-                storage.list_debates(limit=1)
+                storage.list_recent(limit=1)
                 checks["database"] = {"healthy": True, "latency_ms": 0}
             else:
                 checks["database"] = {"healthy": False, "error": "Storage not initialized"}
@@ -525,7 +525,8 @@ class SystemHandler(BaseHandler):
             return json_response({"debates": []})
 
         try:
-            debates = storage.list_debates(limit=limit)
+            debate_metadata = storage.list_recent(limit=limit)
+            debates = [d.__dict__ if hasattr(d, '__dict__') else d for d in debate_metadata]
             if loop_id:
                 debates = [d for d in debates if d.get("loop_id") == loop_id]
             return json_response({"debates": debates})
@@ -545,7 +546,7 @@ class SystemHandler(BaseHandler):
 
         try:
             if storage:
-                debates = storage.list_debates(limit=1000)
+                debates = storage.list_recent(limit=1000)
                 summary["total_debates"] = len(debates)
 
             if elo:
