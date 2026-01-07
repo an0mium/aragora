@@ -1162,3 +1162,81 @@ class TestSecurityEdgeCases:
 
         # Should have cleaned up
         assert len(auth_config._ip_request_counts) <= 100
+
+
+# =============================================================================
+# Test Loop ID Extraction and Validation
+# =============================================================================
+
+
+class TestLoopIdExtraction:
+    """Tests for extract_loop_id_from_token."""
+
+    def test_extract_loop_id_from_valid_token(self, auth_config):
+        """Should extract loop_id from a valid token."""
+        token = auth_config.generate_token("my_loop_123")
+        loop_id = auth_config.extract_loop_id_from_token(token)
+        assert loop_id == "my_loop_123"
+
+    def test_extract_loop_id_empty_token(self, auth_config):
+        """Should return None for empty token."""
+        assert auth_config.extract_loop_id_from_token("") is None
+        assert auth_config.extract_loop_id_from_token(None) is None
+
+    def test_extract_loop_id_invalid_format(self, auth_config):
+        """Should return None for malformed tokens."""
+        assert auth_config.extract_loop_id_from_token("invalid") is None
+        assert auth_config.extract_loop_id_from_token("one:two") is None
+        assert auth_config.extract_loop_id_from_token(":::") is None
+
+
+class TestValidateTokenForLoop:
+    """Tests for validate_token_for_loop."""
+
+    def test_valid_token_for_correct_loop(self, auth_config):
+        """Should validate token for the correct loop."""
+        token = auth_config.generate_token("loop_abc")
+        is_valid, err = auth_config.validate_token_for_loop(token, "loop_abc")
+        assert is_valid is True
+        assert err == ""
+
+    def test_valid_token_for_wrong_loop(self, auth_config):
+        """Should reject token for a different loop."""
+        token = auth_config.generate_token("loop_abc")
+        is_valid, err = auth_config.validate_token_for_loop(token, "loop_xyz")
+        assert is_valid is False
+        assert "not authorized for loop" in err
+
+    def test_revoked_token_rejected(self, auth_config):
+        """Should reject revoked tokens."""
+        token = auth_config.generate_token("loop_abc")
+        auth_config.revoke_token(token)
+        is_valid, err = auth_config.validate_token_for_loop(token, "loop_abc")
+        assert is_valid is False
+        assert "revoked" in err.lower()
+
+    def test_missing_token_rejected(self, auth_config):
+        """Should reject missing tokens."""
+        is_valid, err = auth_config.validate_token_for_loop("", "loop_abc")
+        assert is_valid is False
+        assert "Authentication required" in err
+
+    def test_missing_loop_id_rejected(self, auth_config):
+        """Should reject missing loop_id."""
+        token = auth_config.generate_token("loop_abc")
+        is_valid, err = auth_config.validate_token_for_loop(token, "")
+        assert is_valid is False
+        assert "Loop ID required" in err
+
+    def test_disabled_auth_allows_all(self, disabled_auth_config):
+        """Should allow all when auth is disabled."""
+        is_valid, err = disabled_auth_config.validate_token_for_loop("any_token", "any_loop")
+        assert is_valid is True
+        assert err == ""
+
+    def test_expired_token_rejected(self, auth_config):
+        """Should reject expired tokens."""
+        token = auth_config.generate_token("loop_abc", expires_in=-1)
+        is_valid, err = auth_config.validate_token_for_loop(token, "loop_abc")
+        assert is_valid is False
+        assert "Invalid or expired" in err

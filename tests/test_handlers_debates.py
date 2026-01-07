@@ -9,6 +9,7 @@ Endpoints tested:
 - GET /api/debates/{id}/impasse - Detect debate impasse
 - GET /api/debates/{id}/convergence - Get convergence status
 - GET /api/debates/{id}/citations - Get evidence citations for debate
+- GET /api/debates/{id}/evidence - Get comprehensive evidence trail
 """
 
 import json
@@ -947,6 +948,97 @@ class TestCitationsAdditional:
         data = json.loads(result.body)
         # Empty dict is falsy, so should report no citations
         assert data["has_citations"] is False
+
+
+# ============================================================================
+# Evidence Endpoint Tests
+# ============================================================================
+
+class TestEvidenceEndpoint:
+    """Tests for /api/debates/{id}/evidence endpoint."""
+
+    def test_evidence_no_evidence(self, debates_handler):
+        """Should return no evidence when not available."""
+        result = debates_handler.handle("/api/debates/debate-001/evidence", {}, None)
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert "debate_id" in data
+        assert data["has_evidence"] is False
+        assert data["claims"] == []
+        assert data["citations"] == []
+        assert data["related_evidence"] == []
+
+    def test_evidence_with_grounded_verdict(self, debates_handler, mock_storage):
+        """Should return evidence when grounded_verdict exists."""
+        mock_storage.get_debate.return_value = {
+            "slug": "evidence-debate",
+            "task": "Test task for evidence",
+            "grounded_verdict": {
+                "grounding_score": 0.85,
+                "confidence": 0.9,
+                "claims": [{"claim": "Test claim", "evidence": "Test evidence"}],
+                "all_citations": [{"source": "test.com", "title": "Test"}],
+                "verdict": "Well grounded",
+            },
+        }
+
+        result = debates_handler.handle("/api/debates/evidence-debate/evidence", {}, None)
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["has_evidence"] is True
+        assert data["grounded_verdict"]["grounding_score"] == 0.85
+        assert data["grounded_verdict"]["claims_count"] == 1
+        assert data["grounded_verdict"]["citations_count"] == 1
+        assert len(data["claims"]) == 1
+        assert len(data["citations"]) == 1
+        assert data["task"] == "Test task for evidence"
+
+    def test_evidence_with_json_string_verdict(self, debates_handler, mock_storage):
+        """Should parse JSON string grounded_verdict."""
+        mock_storage.get_debate.return_value = {
+            "slug": "json-evidence",
+            "task": "JSON task",
+            "grounded_verdict": json.dumps({
+                "grounding_score": 0.75,
+                "confidence": 0.8,
+                "claims": [],
+                "all_citations": [],
+                "verdict": "Partially grounded",
+            }),
+        }
+
+        result = debates_handler.handle("/api/debates/json-evidence/evidence", {}, None)
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["has_evidence"] is True
+        assert data["grounded_verdict"]["grounding_score"] == 0.75
+        assert data["grounded_verdict"]["verdict"] == "Partially grounded"
+
+    def test_evidence_debate_not_found(self, debates_handler, mock_storage):
+        """Should return 404 for nonexistent debate."""
+        mock_storage.get_debate.return_value = None
+
+        result = debates_handler.handle("/api/debates/nonexistent/evidence", {}, None)
+
+        assert result.status_code == 404
+
+    def test_evidence_invalid_json_string(self, debates_handler, mock_storage):
+        """Should handle invalid JSON string gracefully."""
+        mock_storage.get_debate.return_value = {
+            "slug": "invalid-evidence",
+            "task": "Invalid task",
+            "grounded_verdict": "not valid json {",
+        }
+
+        result = debates_handler.handle("/api/debates/invalid-evidence/evidence", {}, None)
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["has_evidence"] is False
+        assert data["grounded_verdict"] is None
 
 
 # ============================================================================

@@ -573,6 +573,9 @@ class DebateStreamServer:
         # Read operations are allowed without auth, but write operations require it
         is_authenticated = self._validate_ws_auth(websocket)
 
+        # Store token for loop_id validation on write operations
+        ws_token = self._extract_ws_token(websocket)
+
         # Generate cryptographically secure client ID (not predictable memory address)
         ws_id = id(websocket)
         client_id = secrets.token_urlsafe(16)
@@ -673,6 +676,16 @@ class DebateStreamServer:
                                 "data": {"message": f"Invalid or inactive loop_id: {loop_id}"}
                             }))
                             continue
+
+                        # Validate token is authorized for this specific loop_id
+                        if auth_config.enabled and ws_token:
+                            is_valid, err_msg = auth_config.validate_token_for_loop(ws_token, loop_id)
+                            if not is_valid:
+                                await websocket.send(json.dumps({
+                                    "type": "error",
+                                    "data": {"message": err_msg, "code": 403}
+                                }))
+                                continue
 
                         # Validate payload
                         payload, error = self._validate_audience_payload(data)

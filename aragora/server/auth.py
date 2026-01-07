@@ -163,6 +163,62 @@ class AuthConfig:
         except (ValueError, IndexError):
             return False
 
+    def extract_loop_id_from_token(self, token: str) -> Optional[str]:
+        """Extract the loop_id embedded in a token.
+
+        Args:
+            token: The signed token
+
+        Returns:
+            The loop_id from the token, or None if extraction fails
+        """
+        if not token:
+            return None
+
+        try:
+            # Token format: "loop_id:expires:signature"
+            payload, _ = token.rsplit(":", 1)
+            loop_part, _ = payload.rsplit(":", 1)
+            return loop_part if loop_part else None
+        except (ValueError, IndexError):
+            return None
+
+    def validate_token_for_loop(self, token: str, loop_id: str) -> tuple[bool, str]:
+        """Validate a token specifically for a given loop_id.
+
+        This ensures the token was generated for the specific loop being accessed,
+        preventing cross-loop access attacks.
+
+        Args:
+            token: The token to validate
+            loop_id: The loop_id being accessed
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if not self.enabled:
+            return True, ""
+
+        if not token:
+            return False, "Authentication required"
+
+        if not loop_id:
+            return False, "Loop ID required"
+
+        # Check revocation
+        if self.is_revoked(token):
+            return False, "Token has been revoked"
+
+        # Full token validation with loop_id
+        if not self.validate_token(token, loop_id):
+            # Get more specific error
+            token_loop_id = self.extract_loop_id_from_token(token)
+            if token_loop_id and token_loop_id != loop_id:
+                return False, f"Token not authorized for loop {loop_id}"
+            return False, "Invalid or expired token"
+
+        return True, ""
+
     def _cleanup_stale_entries(self, entries_dict: Dict[str, list], window_start: float) -> None:
         """Remove stale entries to prevent memory exhaustion.
 

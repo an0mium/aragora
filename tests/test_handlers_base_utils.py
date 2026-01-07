@@ -26,9 +26,6 @@ from aragora.server.handlers.base import (
     generate_trace_id,
     handle_errors,
     with_error_recovery,
-    ValidationResult,
-    validate_against_schema,
-    validate_params,
     parse_query_params,
     get_int_param,
     get_float_param,
@@ -41,6 +38,10 @@ from aragora.server.handlers.base import (
     validate_agent_name,
     validate_debate_id,
     _map_exception_to_status,
+)
+from aragora.server.validation import (
+    ValidationResult,
+    validate_against_schema,
 )
 
 

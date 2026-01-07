@@ -364,25 +364,22 @@ class StateManager:
         }
 
 
-# Singleton instance
-_state_manager: Optional[StateManager] = None
-_state_manager_lock = threading.Lock()
+# Use ServiceRegistry for singleton management
+from aragora.services import ServiceRegistry
 
 
 def get_state_manager() -> StateManager:
     """
     Get the singleton StateManager instance.
 
-    Thread-safe initialization.
+    Thread-safe initialization via ServiceRegistry.
     """
-    global _state_manager
+    registry = ServiceRegistry.get()
 
-    if _state_manager is None:
-        with _state_manager_lock:
-            if _state_manager is None:
-                _state_manager = StateManager()
+    if not registry.has(StateManager):
+        registry.register_factory(StateManager, StateManager)
 
-    return _state_manager
+    return registry.resolve(StateManager)
 
 
 def reset_state_manager() -> None:
@@ -391,9 +388,12 @@ def reset_state_manager() -> None:
 
     Warning: Only use in tests!
     """
-    global _state_manager
+    registry = ServiceRegistry.get()
 
-    with _state_manager_lock:
-        if _state_manager is not None:
-            _state_manager.shutdown()
-        _state_manager = None
+    if registry.has(StateManager):
+        try:
+            manager = registry.resolve(StateManager)
+            manager.shutdown()
+        except Exception:
+            pass
+        registry.unregister(StateManager)
