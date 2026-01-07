@@ -177,6 +177,7 @@ from aragora.server.initialization import (
     # Insights
     InsightExtractor,
     # Initialization functions
+    init_persistence,
     initialize_subsystems,
     SubsystemRegistry,
 )
@@ -1723,13 +1724,7 @@ class UnifiedServer:
         self.stream_server = DebateStreamServer(host=ws_host, port=ws_port)
 
         # Initialize Supabase persistence if available
-        self.persistence = None
-        if enable_persistence and PERSISTENCE_AVAILABLE:
-            self.persistence = SupabaseClient()
-            if self.persistence.is_configured:
-                logger.info("[server] Supabase persistence enabled")
-            else:
-                self.persistence = None
+        self.persistence = init_persistence(enable_persistence)
 
         # Setup HTTP handler
         UnifiedHandler.storage = storage
