@@ -184,8 +184,14 @@ from aragora.server.initialization import (
     init_persona_manager,
     init_position_ledger,
     init_debate_embeddings,
+    init_consensus_memory,
+    init_moment_detector,
     initialize_subsystems,
     SubsystemRegistry,
+    # Classes that need explicit checks
+    ConsensusMemory,
+    DissentRetriever,
+    MomentDetector,
 )
 
 # Import static file serving utilities
