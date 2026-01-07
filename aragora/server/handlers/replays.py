@@ -71,7 +71,10 @@ class ReplaysHandler(BaseHandler):
             replay_id = path.split('/')[-1]
             if not replay_id or not re.match(SAFE_ID_PATTERN, replay_id):
                 return error_response("Invalid replay ID format", 400)
-            return self._get_replay(nomic_dir, replay_id)
+            # Support pagination for large replay files
+            offset = get_int_param(query_params, 'offset', 0)
+            limit = get_int_param(query_params, 'limit', 1000)
+            return self._get_replay(nomic_dir, replay_id, offset, min(limit, 5000))
 
         return None
 
@@ -107,9 +110,20 @@ class ReplaysHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "list_replays"), 500)
 
-    @ttl_cache(ttl_seconds=300, key_prefix="replay_detail", skip_first=True)
-    def _get_replay(self, nomic_dir: Optional[Path], replay_id: str) -> HandlerResult:
-        """Get a specific replay with events."""
+    def _get_replay(
+        self, nomic_dir: Optional[Path], replay_id: str, offset: int = 0, limit: int = 1000
+    ) -> HandlerResult:
+        """Get a specific replay with events (streaming with pagination).
+
+        Args:
+            nomic_dir: Base directory for nomic data
+            replay_id: ID of the replay to fetch
+            offset: Number of events to skip (for pagination)
+            limit: Maximum number of events to return
+
+        Returns:
+            Replay metadata and paginated events
+        """
         if not nomic_dir:
             return error_response("Replays not configured", 503)
 
@@ -127,22 +141,36 @@ class ReplaysHandler(BaseHandler):
                 except json.JSONDecodeError:
                     meta = {"error": "Failed to parse meta.json"}
 
-            # Load events
+            # Stream events with pagination (bounded memory usage)
             events_file = replay_dir / "events.jsonl"
             events = []
+            total_events = 0
             if events_file.exists():
-                for line in events_file.read_text().strip().split("\n"):
-                    if line:
-                        try:
-                            events.append(json.loads(line))
-                        except json.JSONDecodeError:
+                with open(events_file, 'r') as f:
+                    for i, line in enumerate(f):
+                        total_events += 1
+                        # Skip until we reach offset
+                        if i < offset:
                             continue
+                        # Stop after limit
+                        if len(events) >= limit:
+                            continue  # Keep counting total
+                        line = line.strip()
+                        if line:
+                            try:
+                                events.append(json.loads(line))
+                            except json.JSONDecodeError:
+                                continue
 
             return json_response({
                 "id": replay_id,
                 "meta": meta,
                 "events": events,
                 "event_count": len(events),
+                "total_events": total_events,
+                "offset": offset,
+                "limit": limit,
+                "has_more": offset + len(events) < total_events,
             })
         except Exception as e:
             return error_response(_safe_error_message(e, "get_replay"), 500)

@@ -41,6 +41,7 @@ from aragora.debate.phases.critique import CritiquePhase
 from aragora.debate.phases.judgment import JudgmentPhase
 from aragora.debate.phases.roles_manager import RolesManager
 from aragora.debate.phases.spectator import SpectatorMixin
+from aragora.debate.phases.metrics import MetricsHelper, build_relationship_updates
 
 __all__ = [
     "DebateContext",
@@ -59,4 +60,6 @@ __all__ = [
     "JudgmentPhase",
     "RolesManager",
     "SpectatorMixin",
+    "MetricsHelper",
+    "build_relationship_updates",
 ]

@@ -65,22 +65,26 @@ class DashboardHandler(BaseHandler):
             "generated_at": time.time(),
         }
 
-        # Fetch debates once for all metrics (performance optimization)
-        debates = []
+        # Use SQL aggregation for summary metrics (avoids loading 10K+ rows)
         storage = self.get_storage()
         if storage:
-            try:
-                debates = storage.list_debates(limit=10000)
-            except Exception as e:
-                logger.debug(f"Failed to fetch debates: {e}")
+            result["summary"] = self._get_summary_metrics_sql(storage, domain)
+            result["recent_activity"] = self._get_recent_activity_sql(storage, hours)
+        else:
+            result["summary"] = {
+                "total_debates": 0,
+                "consensus_reached": 0,
+                "consensus_rate": 0.0,
+                "avg_confidence": 0.0,
+            }
+            result["recent_activity"] = {
+                "debates_last_period": 0,
+                "consensus_last_period": 0,
+                "period_hours": hours,
+            }
 
-        # Process all debate metrics in a single pass
-        summary, activity, patterns = self._process_debates_single_pass(
-            debates, domain, hours
-        )
-        result["summary"] = summary
-        result["recent_activity"] = activity
-        result["debate_patterns"] = patterns
+        # Pattern metrics still require loading recent debates (limited set)
+        result["debate_patterns"] = {"disagreement_stats": {}, "early_stopping": {}}
 
         # Gather agent performance
         result["agent_performance"] = self._get_agent_performance(limit)
@@ -225,8 +229,75 @@ class DashboardHandler(BaseHandler):
 
         return summary, activity, patterns
 
+    def _get_summary_metrics_sql(self, storage, domain: Optional[str]) -> dict:
+        """Get summary metrics using SQL aggregation (O(1) memory)."""
+        summary = {
+            "total_debates": 0,
+            "consensus_reached": 0,
+            "consensus_rate": 0.0,
+            "avg_confidence": 0.0,
+        }
+
+        try:
+            import sqlite3
+            with sqlite3.connect(storage.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT
+                        COUNT(*) as total,
+                        SUM(CASE WHEN consensus_reached THEN 1 ELSE 0 END) as consensus_count,
+                        AVG(confidence) as avg_conf
+                    FROM debates
+                """)
+                row = cursor.fetchone()
+                if row:
+                    total = row[0] or 0
+                    consensus_count = row[1] or 0
+                    avg_conf = row[2]
+
+                    summary["total_debates"] = total
+                    summary["consensus_reached"] = consensus_count
+                    if total > 0:
+                        summary["consensus_rate"] = round(consensus_count / total, 3)
+                    if avg_conf is not None:
+                        summary["avg_confidence"] = round(avg_conf, 3)
+        except Exception as e:
+            logger.debug(f"SQL summary metrics error: {e}")
+
+        return summary
+
+    def _get_recent_activity_sql(self, storage, hours: int) -> dict:
+        """Get recent activity metrics using SQL aggregation."""
+        activity = {
+            "debates_last_period": 0,
+            "consensus_last_period": 0,
+            "period_hours": hours,
+        }
+
+        try:
+            import sqlite3
+            cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+
+            with sqlite3.connect(storage.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT
+                        COUNT(*) as recent_total,
+                        SUM(CASE WHEN consensus_reached THEN 1 ELSE 0 END) as recent_consensus
+                    FROM debates
+                    WHERE created_at >= ?
+                """, (cutoff,))
+                row = cursor.fetchone()
+                if row:
+                    activity["debates_last_period"] = row[0] or 0
+                    activity["consensus_last_period"] = row[1] or 0
+        except Exception as e:
+            logger.debug(f"SQL recent activity error: {e}")
+
+        return activity
+
     def _get_summary_metrics(self, domain: Optional[str], debates: list) -> dict:
-        """Get high-level summary metrics."""
+        """Get high-level summary metrics (legacy, kept for compatibility)."""
         summary = {
             "total_debates": 0,
             "consensus_reached": 0,

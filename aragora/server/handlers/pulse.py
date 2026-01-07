@@ -78,10 +78,12 @@ class PulseHandler(BaseHandler):
             async def fetch():
                 return await manager.get_trending_topics(limit_per_platform=limit)
 
-            # Run in event loop
+            # Run in event loop - use get_running_loop check to avoid deprecation warning
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
+                # Check if we're in an async context
+                try:
+                    asyncio.get_running_loop()
+                    # If we get here, there's a running loop - use thread pool
                     import concurrent.futures
                     with concurrent.futures.ThreadPoolExecutor() as pool:
                         try:
@@ -92,10 +94,12 @@ class PulseHandler(BaseHandler):
                         except Exception as e:
                             logger.warning(f"Trending topics fetch failed: {e}")
                             topics = []
-                else:
+                except RuntimeError:
+                    # No running loop, safe to use asyncio.run()
                     topics = asyncio.run(fetch())
-            except RuntimeError:
-                topics = asyncio.run(fetch())
+            except Exception as e:
+                logger.warning(f"Trending topics fetch failed: {e}")
+                topics = []
 
             # Normalize scores: find max volume and scale to 0-1
             max_volume = max((t.volume for t in topics), default=1) or 1
@@ -147,10 +151,12 @@ class PulseHandler(BaseHandler):
                 filters = {"categories": [category]} if category else None
                 return await manager.get_trending_topics(limit_per_platform=10, filters=filters)
 
-            # Run in event loop
+            # Run in event loop - use get_running_loop check to avoid deprecation warning
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
+                # Check if we're in an async context
+                try:
+                    asyncio.get_running_loop()
+                    # If we get here, there's a running loop - use thread pool
                     import concurrent.futures
                     with concurrent.futures.ThreadPoolExecutor() as pool:
                         try:
@@ -161,10 +167,12 @@ class PulseHandler(BaseHandler):
                         except Exception as e:
                             logger.warning(f"Trending topics fetch failed: {e}")
                             topics = []
-                else:
+                except RuntimeError:
+                    # No running loop, safe to use asyncio.run()
                     topics = asyncio.run(fetch())
-            except RuntimeError:
-                topics = asyncio.run(fetch())
+            except Exception as e:
+                logger.warning(f"Trending topics fetch failed: {e}")
+                topics = []
 
             # Select best topic for debate
             selected = manager.select_topic_for_debate(topics)

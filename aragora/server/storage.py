@@ -23,12 +23,22 @@ if TYPE_CHECKING:
     from aragora.export.artifact import DebateArtifact
 
 
-def _validate_sql_identifier(name: str) -> bool:
+def _validate_sql_identifier(name: str, max_length: int = 64) -> bool:
     """Validate SQL identifier to prevent injection.
 
     Only allows alphanumeric characters and underscores.
     Must start with a letter or underscore.
+    Limited to max_length characters (default 64, SQLite limit is 255).
+
+    Args:
+        name: Identifier to validate
+        max_length: Maximum allowed length (default 64)
+
+    Returns:
+        True if valid identifier, False otherwise
     """
+    if not name or len(name) > max_length:
+        return False
     return bool(re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name))
 
 
@@ -127,32 +137,48 @@ class DebateStorage:
 
             conn.commit()
 
+    # Known table names for this storage class (defense-in-depth)
+    _KNOWN_TABLES = frozenset({"debates"})
+
     def _safe_add_column(
         self, conn: sqlite3.Connection, table: str, column: str, col_type: str
     ) -> bool:
         """
         Safely add a column if it doesn't exist.
 
+        Uses multiple layers of defense against SQL injection:
+        1. Table name must be in _KNOWN_TABLES whitelist
+        2. Table and column names must match identifier regex
+        3. Column type must be in type whitelist
+
         Args:
             conn: Database connection
-            table: Table name
+            table: Table name (must be in _KNOWN_TABLES)
             column: Column name to add
             col_type: SQLite column type (must be in whitelist)
 
         Returns:
             True if column was added, False if it already existed or validation failed
         """
-        # Validate identifiers to prevent SQL injection
+        # Defense layer 1: Table must be in known tables whitelist
+        if table not in self._KNOWN_TABLES:
+            logger.warning(
+                "Table not in whitelist: %s (allowed: %s)", table, self._KNOWN_TABLES
+            )
+            return False
+
+        # Defense layer 2: Validate identifier patterns
         if not _validate_sql_identifier(table) or not _validate_sql_identifier(column):
             logger.warning("Invalid SQL identifier: table=%s, column=%s", table, column)
             return False
 
-        # Validate col_type against whitelist
-        valid_types = {"TEXT", "INTEGER", "REAL", "BLOB", "TIMESTAMP"}
+        # Defense layer 3: Validate col_type against whitelist
+        valid_types = frozenset({"TEXT", "INTEGER", "REAL", "BLOB", "TIMESTAMP"})
         if col_type not in valid_types:
             logger.warning("Invalid column type: %s (allowed: %s)", col_type, valid_types)
             return False
 
+        # Safe to execute - all inputs validated
         cursor = conn.execute(f"PRAGMA table_info({table})")
         columns = [row[1] for row in cursor.fetchall()]
         if column not in columns:

@@ -1,0 +1,436 @@
+"""
+OpenRouter agent and provider-specific subclasses.
+"""
+
+import aiohttp
+import asyncio
+import json
+import logging
+from typing import AsyncGenerator
+
+from aragora.agents.api_agents.base import APIAgent
+from aragora.agents.api_agents.common import (
+    Message,
+    Critique,
+    get_api_key,
+    _sanitize_error_message,
+)
+from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
+from aragora.agents.registry import AgentRegistry
+from aragora.config import DB_TIMEOUT_SECONDS
+
+logger = logging.getLogger(__name__)
+
+
+@AgentRegistry.register(
+    "openrouter",
+    default_model="deepseek/deepseek-chat-v3-0324",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Generic OpenRouter - specify model via 'model' parameter",
+)
+class OpenRouterAgent(APIAgent):
+    """Agent that uses OpenRouter API for access to many models.
+
+    OpenRouter provides unified access to models like DeepSeek, Llama, Mistral,
+    and others through an OpenAI-compatible API.
+
+    Supported models (via model parameter):
+    - deepseek/deepseek-chat (DeepSeek V3)
+    - deepseek/deepseek-reasoner (DeepSeek R1)
+    - meta-llama/llama-3.3-70b-instruct
+    - mistralai/mistral-large-2411
+    - google/gemini-2.0-flash-exp:free
+    - anthropic/claude-3.5-sonnet
+    - openai/gpt-4o
+    """
+
+    def __init__(
+        self,
+        name: str = "openrouter",
+        role: str = "analyst",
+        model: str = "deepseek/deepseek-chat",
+        system_prompt: str | None = None,
+        timeout: int = 300,
+    ):
+        super().__init__(
+            name=name,
+            model=model,
+            role=role,
+            timeout=timeout,
+            api_key=get_api_key("OPENROUTER_API_KEY"),
+            base_url="https://openrouter.ai/api/v1",
+        )
+        self.agent_type = "openrouter"
+        if system_prompt:
+            self.system_prompt = system_prompt
+
+    def _build_context_prompt(self, context: list[Message]) -> str:
+        """Build context prompt from message history."""
+        if not context:
+            return ""
+        prompt = "Previous discussion:\n"
+        for msg in context[-5:]:
+            prompt += f"- {msg.agent} ({msg.role}): {msg.content[:500]}...\n"
+        return prompt + "\n"
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response using OpenRouter API with rate limiting and retry."""
+        max_retries = 3
+        base_delay = 30  # Start with 30s backoff for rate limits
+
+        full_prompt = prompt
+        if context:
+            full_prompt = self._build_context_prompt(context) + prompt
+
+        url = f"{self.base_url}/chat/completions"
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://aragora.ai",
+            "X-Title": "Aragora Multi-Agent Debate",
+        }
+
+        messages = [{"role": "user", "content": full_prompt}]
+        if self.system_prompt:
+            messages.insert(0, {"role": "system", "content": self.system_prompt})
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": 4096,
+        }
+
+        last_error = None
+        for attempt in range(max_retries):
+            # Acquire rate limit token for each attempt
+            limiter = get_openrouter_limiter()
+            if not await limiter.acquire(timeout=DB_TIMEOUT_SECONDS):
+                raise RuntimeError("OpenRouter rate limit exceeded, request timed out")
+
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        url,
+                        headers=headers,
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=self.timeout),
+                    ) as response:
+                        # Update rate limit state from headers
+                        limiter.update_from_headers(dict(response.headers))
+
+                        if response.status == 429:
+                            # Rate limited by API - release token and calculate wait time
+                            limiter.release_on_error()
+                            retry_after_header = response.headers.get("Retry-After")
+                            if retry_after_header:
+                                try:
+                                    wait_time = float(retry_after_header)
+                                except ValueError:
+                                    wait_time = base_delay * (2 ** attempt)
+                            else:
+                                wait_time = base_delay * (2 ** attempt)
+                            wait_time = min(wait_time, 300)  # Cap at 5 minutes
+
+                            if attempt < max_retries - 1:
+                                logger.warning(
+                                    f"OpenRouter rate limited (429), waiting {wait_time:.0f}s before retry {attempt + 2}/{max_retries}"
+                                )
+                                await asyncio.sleep(wait_time)
+                                last_error = f"Rate limited (429)"
+                                continue
+                            else:
+                                raise RuntimeError(f"OpenRouter rate limited (429) after {max_retries} retries")
+
+                        if response.status != 200:
+                            error_text = await response.text()
+                            sanitized = _sanitize_error_message(error_text)
+                            raise RuntimeError(f"OpenRouter API error {response.status}: {sanitized}")
+
+                        data = await response.json()
+                        try:
+                            return data["choices"][0]["message"]["content"]
+                        except (KeyError, IndexError):
+                            raise RuntimeError(f"Unexpected OpenRouter response format: {data}")
+
+            except aiohttp.ClientError as e:
+                limiter.release_on_error()
+                last_error = str(e)
+                if attempt < max_retries - 1:
+                    wait_time = base_delay * (2 ** attempt)
+                    logger.warning(f"OpenRouter connection error, waiting {wait_time:.0f}s before retry: {e}")
+                    await asyncio.sleep(wait_time)
+                    continue
+                raise RuntimeError(f"OpenRouter connection failed after {max_retries} retries: {last_error}")
+
+    async def generate_stream(self, prompt: str, context: list[Message] | None = None) -> AsyncGenerator[str, None]:
+        """Stream tokens from OpenRouter API with rate limiting and retry.
+
+        Yields chunks of text as they arrive from the API using SSE.
+        Implements retry logic with exponential backoff for 429 rate limit errors.
+        """
+        max_retries = 3
+        base_delay = 2.0
+
+        full_prompt = prompt
+        if context:
+            full_prompt = self._build_context_prompt(context) + prompt
+
+        url = f"{self.base_url}/chat/completions"
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://aragora.ai",
+            "X-Title": "Aragora Multi-Agent Debate",
+        }
+
+        messages = [{"role": "user", "content": full_prompt}]
+        if self.system_prompt:
+            messages.insert(0, {"role": "system", "content": self.system_prompt})
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": 4096,
+            "stream": True,
+        }
+
+        last_error = None
+        for attempt in range(max_retries):
+            # Acquire rate limit token for each attempt
+            limiter = get_openrouter_limiter()
+            if not await limiter.acquire(timeout=DB_TIMEOUT_SECONDS):
+                raise RuntimeError("OpenRouter rate limit exceeded, request timed out")
+
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        url,
+                        headers=headers,
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=self.timeout),
+                    ) as response:
+                        # Update rate limit state from headers
+                        limiter.update_from_headers(dict(response.headers))
+
+                        if response.status == 429:
+                            # Rate limited by API - release token and calculate wait time
+                            limiter.release_on_error()
+                            retry_after_header = response.headers.get("Retry-After")
+                            if retry_after_header:
+                                try:
+                                    wait_time = float(retry_after_header)
+                                except ValueError:
+                                    wait_time = base_delay * (2 ** attempt)
+                            else:
+                                wait_time = base_delay * (2 ** attempt)
+                            wait_time = min(wait_time, 300)  # Cap at 5 minutes
+
+                            if attempt < max_retries - 1:
+                                logger.warning(
+                                    f"OpenRouter streaming rate limited (429), waiting {wait_time:.0f}s before retry {attempt + 2}/{max_retries}"
+                                )
+                                await asyncio.sleep(wait_time)
+                                last_error = f"Rate limited (429)"
+                                continue
+                            else:
+                                raise RuntimeError(f"OpenRouter streaming rate limited (429) after {max_retries} retries")
+
+                        if response.status != 200:
+                            error_text = await response.text()
+                            sanitized = _sanitize_error_message(error_text)
+                            raise RuntimeError(f"OpenRouter streaming API error {response.status}: {sanitized}")
+
+                        # OpenRouter uses SSE format (OpenAI-compatible)
+                        buffer = ""
+                        async for chunk in response.content.iter_any():
+                            buffer += chunk.decode('utf-8', errors='ignore')
+
+                            while '\n' in buffer:
+                                line, buffer = buffer.split('\n', 1)
+                                line = line.strip()
+
+                                if not line or not line.startswith('data: '):
+                                    continue
+
+                                data_str = line[6:]
+
+                                if data_str == '[DONE]':
+                                    return
+
+                                try:
+                                    event = json.loads(data_str)
+                                    choices = event.get('choices', [])
+                                    if choices:
+                                        delta = choices[0].get('delta', {})
+                                        content = delta.get('content', '')
+                                        if content:
+                                            yield content
+
+                                except json.JSONDecodeError:
+                                    continue
+
+                        # Successfully streamed - exit retry loop
+                        return
+
+            except aiohttp.ClientError as e:
+                limiter.release_on_error()
+                last_error = str(e)
+                if attempt < max_retries - 1:
+                    wait_time = base_delay * (2 ** attempt)
+                    logger.warning(f"OpenRouter streaming connection error, waiting {wait_time:.0f}s before retry: {e}")
+                    await asyncio.sleep(wait_time)
+                    continue
+                raise RuntimeError(f"OpenRouter streaming failed after {max_retries} retries: {last_error}")
+
+    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
+        """Critique a proposal using OpenRouter API."""
+        critique_prompt = f"""Critically analyze this proposal:
+
+Task: {task}
+Proposal: {proposal}
+
+Format your response as:
+ISSUES:
+- issue 1
+- issue 2
+
+SUGGESTIONS:
+- suggestion 1
+- suggestion 2
+
+SEVERITY: X.X
+REASONING: explanation"""
+
+        response = await self.generate(critique_prompt, context)
+        return self._parse_critique(response, "proposal", proposal)
+
+
+# Convenience aliases for specific OpenRouter models
+@AgentRegistry.register(
+    "deepseek",
+    default_model="deepseek/deepseek-chat-v3-0324",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="DeepSeek V3 - excellent for coding/math, very cost-effective",
+)
+class DeepSeekAgent(OpenRouterAgent):
+    """DeepSeek V3.2 via OpenRouter - latest model with integrated thinking + tool-use."""
+
+    def __init__(
+        self,
+        name: str = "deepseek",
+        role: str = "analyst",
+        model: str = "deepseek/deepseek-v3.2",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "deepseek"
+
+
+@AgentRegistry.register(
+    "deepseek-r1",
+    default_model="deepseek/deepseek-r1",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="DeepSeek R1 - chain-of-thought reasoning model",
+)
+class DeepSeekReasonerAgent(OpenRouterAgent):
+    """DeepSeek R1 via OpenRouter - reasoning model with chain-of-thought."""
+
+    def __init__(
+        self,
+        name: str = "deepseek-r1",
+        role: str = "analyst",
+        model: str = "deepseek/deepseek-reasoner",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "deepseek-r1"
+
+
+class DeepSeekV3Agent(OpenRouterAgent):
+    """DeepSeek V3.2 via OpenRouter - integrated thinking + tool-use, GPT-5 class reasoning."""
+
+    def __init__(self, name: str = "deepseek-v3", role: str = "analyst", system_prompt: str | None = None):
+        super().__init__(
+            name=name,
+            role=role,
+            model="deepseek/deepseek-v3.2",  # V3.2 with integrated thinking + tool-use
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "deepseek-v3"
+
+
+@AgentRegistry.register(
+    "llama",
+    default_model="meta-llama/llama-3.3-70b-instruct",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Llama 3.3 70B Instruct",
+)
+class LlamaAgent(OpenRouterAgent):
+    """Llama 3.3 70B via OpenRouter."""
+
+    def __init__(
+        self,
+        name: str = "llama",
+        role: str = "analyst",
+        model: str = "meta-llama/llama-3.3-70b-instruct",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "llama"
+
+
+@AgentRegistry.register(
+    "mistral",
+    default_model="mistralai/mistral-large-2411",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Mistral Large",
+)
+class MistralAgent(OpenRouterAgent):
+    """Mistral Large via OpenRouter."""
+
+    def __init__(
+        self,
+        name: str = "mistral",
+        role: str = "analyst",
+        model: str = "mistralai/mistral-large-2411",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "mistral"
+
+
+__all__ = [
+    "OpenRouterAgent",
+    "DeepSeekAgent",
+    "DeepSeekReasonerAgent",
+    "DeepSeekV3Agent",
+    "LlamaAgent",
+    "MistralAgent",
+]

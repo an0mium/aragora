@@ -29,6 +29,7 @@ MAX_REQUEST_SIZE = 50 * 1024 * 1024
 from aragora.server.storage import DebateStorage
 from aragora.replay.storage import ReplayStorage
 from aragora.replay.reader import ReplayReader
+from aragora.utils.paths import safe_path, PathTraversalError
 
 
 class DebateAPIHandler(BaseHTTPRequestHandler):
@@ -144,7 +145,13 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
             self._send_json_error("Replay storage not configured", 503)
             return
 
-        session_dir = self.replay_storage.storage_dir / debate_id
+        # SECURITY: Validate path to prevent directory traversal
+        try:
+            session_dir = safe_path(self.replay_storage.storage_dir, debate_id)
+        except PathTraversalError:
+            self.send_error(400, "Invalid debate ID")
+            return
+
         meta_path = session_dir / "meta.json"
         events_path = session_dir / "events.jsonl"
 
@@ -214,8 +221,13 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
             self.send_error(400, "Missing event_id")
             return
 
-        # Load replay
-        session_dir = self.replay_storage.storage_dir / debate_id
+        # Load replay with path traversal protection
+        try:
+            session_dir = safe_path(self.replay_storage.storage_dir, debate_id)
+        except PathTraversalError:
+            self.send_error(400, "Invalid debate ID")
+            return
+
         meta_path = session_dir / "meta.json"
         events_path = session_dir / "events.jsonl"
 

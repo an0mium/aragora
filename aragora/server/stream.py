@@ -50,8 +50,31 @@ from aragora.config import (
 )
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 
-# Thread-safe debate tracking
-_active_debates: dict[str, dict] = {}
+# Bounded dictionary to prevent unbounded memory growth
+class BoundedDebateDict(OrderedDict):
+    """OrderedDict with a maximum size, evicting oldest entries when full.
+
+    Thread-safety must be provided externally via _active_debates_lock.
+    """
+
+    def __init__(self, maxsize: int = 1000):
+        super().__init__()
+        self.maxsize = maxsize
+
+    def __setitem__(self, key, value):
+        # If key already exists, just update it
+        if key in self:
+            super().__setitem__(key, value)
+            return
+        # Evict oldest if at capacity
+        while len(self) >= self.maxsize:
+            oldest_key, oldest_val = self.popitem(last=False)
+            logger.debug(f"Evicted oldest debate {oldest_key} to maintain maxsize={self.maxsize}")
+        super().__setitem__(key, value)
+
+
+# Thread-safe debate tracking (bounded to prevent memory leaks)
+_active_debates: BoundedDebateDict = BoundedDebateDict(maxsize=1000)
 _active_debates_lock = threading.Lock()
 _debate_executor: Optional[ThreadPoolExecutor] = None
 _debate_executor_lock = threading.Lock()

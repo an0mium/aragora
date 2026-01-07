@@ -12,6 +12,7 @@ import argparse
 import asyncio
 import sys
 from pathlib import Path
+from typing import Any, Optional
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -22,7 +23,7 @@ from aragora.memory.store import CritiqueStore
 from aragora.core import Environment
 
 
-def get_event_emitter_if_available(server_url: str = "http://localhost:8080"):
+def get_event_emitter_if_available(server_url: str = "http://localhost:8080") -> Optional[Any]:
     """
     Try to connect to the streaming server for audience participation.
     Returns event emitter if server is available, None otherwise.
@@ -129,7 +130,7 @@ async def run_debate(
     return result
 
 
-def cmd_ask(args):
+def cmd_ask(args: argparse.Namespace) -> None:
     """Handle 'ask' command."""
     result = asyncio.run(
         run_debate(
@@ -155,7 +156,7 @@ def cmd_ask(args):
             print(f"\n{view}")
 
 
-def cmd_stats(args):
+def cmd_stats(args: argparse.Namespace) -> None:
     """Handle 'stats' command."""
     store = CritiqueStore(args.db)
     stats = store.get_stats()
@@ -174,7 +175,7 @@ def cmd_stats(args):
             print(f"  {ptype}: {count}")
 
 
-def cmd_patterns(args):
+def cmd_patterns(args: argparse.Namespace) -> None:
     """Handle 'patterns' command."""
     store = CritiqueStore(args.db)
     patterns = store.retrieve_patterns(
@@ -193,7 +194,7 @@ def cmd_patterns(args):
             print(f"  Suggestion: {p.suggestion_text[:80]}...")
 
 
-def cmd_demo(args):
+def cmd_demo(args: argparse.Namespace) -> None:
     """Handle 'demo' command - run a quick compelling demo."""
     import time
 
@@ -262,7 +263,7 @@ def cmd_demo(args):
     print("\n" + "=" * 60)
 
 
-def cmd_templates(args):
+def cmd_templates(args: argparse.Namespace) -> None:
     """Handle 'templates' command - list available debate templates."""
     from aragora.templates import list_templates
 
@@ -279,7 +280,7 @@ def cmd_templates(args):
         print()
 
 
-def cmd_export(args):
+def cmd_export(args: argparse.Namespace) -> None:
     """Handle 'export' command - export debate artifacts."""
     from pathlib import Path
     from aragora.export.artifact import DebateArtifact, ArtifactBuilder, ConsensusProof
@@ -423,7 +424,7 @@ def cmd_export(args):
     print(f"Content Hash: {artifact.content_hash}")
 
 
-def cmd_improve(args):
+def cmd_improve(args: argparse.Namespace) -> None:
     """Handle 'improve' command - self-improvement mode."""
     print("\n" + "=" * 60)
     print("🔧 SELF-IMPROVEMENT MODE")
@@ -454,7 +455,7 @@ def cmd_improve(args):
         print_tree(tree)
 
 
-def cmd_serve(args):
+def cmd_serve(args: argparse.Namespace) -> None:
     """Handle 'serve' command - run live debate server."""
     import asyncio
     from pathlib import Path
@@ -497,7 +498,7 @@ def cmd_serve(args):
         print("\n\nServer stopped.")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Agora - Multi-Agent Debate Framework",
         formatter_class=argparse.RawDescriptionHelpFormatter,

@@ -276,7 +276,7 @@ class PluginRunner:
 
         try:
             # Run in executor to handle sync functions
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
 
             if asyncio.iscoroutinefunction(entry_func):
                 # Async function

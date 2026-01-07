@@ -304,9 +304,11 @@ class TestAnthropicFallback:
             mock_session_cm.__aexit__ = AsyncMock(return_value=None)
 
             with patch("aiohttp.ClientSession", return_value=mock_session_cm):
-                with pytest.raises(RuntimeError) as exc_info:
+                from aragora.agents.errors import AgentError
+                with pytest.raises(AgentError) as exc_info:
                     await anthropic_agent.generate("Test")
 
+                # The error message should contain the original API error
                 assert "Anthropic API error 429" in str(exc_info.value)
         finally:
             if saved:
@@ -344,7 +346,8 @@ class TestAnthropicFallback:
         mock_session_cm.__aexit__ = AsyncMock(return_value=None)
 
         with patch("aiohttp.ClientSession", return_value=mock_session_cm):
-            with pytest.raises(RuntimeError) as exc_info:
+            from aragora.agents.errors import AgentError
+            with pytest.raises(AgentError) as exc_info:
                 await agent.generate("Test")
 
             # Should raise without trying fallback
@@ -506,7 +509,8 @@ class TestGeminiFallback:
         mock_session_cm.__aexit__ = AsyncMock(return_value=None)
 
         with patch("aiohttp.ClientSession", return_value=mock_session_cm):
-            with pytest.raises(RuntimeError) as exc_info:
+            from aragora.agents.errors import AgentError
+            with pytest.raises(AgentError) as exc_info:
                 await agent.generate("Test")
 
             # Should raise without trying fallback
@@ -959,6 +963,7 @@ class TestAPIResponseParsing:
     @pytest.mark.asyncio
     async def test_anthropic_unexpected_response_format(self, anthropic_agent):
         """Test handling of unexpected Anthropic response format."""
+        from aragora.agents.errors import AgentError
         mock_response = create_mock_aiohttp_response(
             status=200,
             json_data={"unexpected": "format"}
@@ -976,7 +981,7 @@ class TestAPIResponseParsing:
         mock_session_cm.__aexit__ = AsyncMock(return_value=None)
 
         with patch("aiohttp.ClientSession", return_value=mock_session_cm):
-            with pytest.raises(RuntimeError) as exc_info:
+            with pytest.raises(AgentError) as exc_info:
                 await anthropic_agent.generate("Test")
 
             assert "Unexpected" in str(exc_info.value)
@@ -984,6 +989,7 @@ class TestAPIResponseParsing:
     @pytest.mark.asyncio
     async def test_openai_unexpected_response_format(self, openai_agent):
         """Test handling of unexpected OpenAI response format."""
+        from aragora.agents.errors import AgentError
         mock_response = create_mock_aiohttp_response(
             status=200,
             json_data={"unexpected": "format"}
@@ -1001,7 +1007,7 @@ class TestAPIResponseParsing:
         mock_session_cm.__aexit__ = AsyncMock(return_value=None)
 
         with patch("aiohttp.ClientSession", return_value=mock_session_cm):
-            with pytest.raises(RuntimeError) as exc_info:
+            with pytest.raises(AgentError) as exc_info:
                 await openai_agent.generate("Test")
 
             assert "Unexpected" in str(exc_info.value)

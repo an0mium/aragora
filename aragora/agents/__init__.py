@@ -44,6 +44,13 @@ from aragora.agents.calibration import (
     CalibrationBucket,
     CalibrationSummary,
 )
+from aragora.agents.fallback import (
+    AgentFallbackChain,
+    AllProvidersExhaustedError,
+    FallbackMetrics,
+    QuotaFallbackMixin,
+    QUOTA_ERROR_KEYWORDS,
+)
 
 __all__ = [
     # CLI-based
@@ -84,4 +91,10 @@ __all__ = [
     "CalibrationTracker",
     "CalibrationBucket",
     "CalibrationSummary",
+    # Fallback
+    "AgentFallbackChain",
+    "AllProvidersExhaustedError",
+    "FallbackMetrics",
+    "QuotaFallbackMixin",
+    "QUOTA_ERROR_KEYWORDS",
 ]

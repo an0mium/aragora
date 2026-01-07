@@ -182,10 +182,13 @@ class RelationshipHandler(BaseHandler):
                 agent_relationship_counts[agent_a] = agent_relationship_counts.get(agent_a, 0) + 1
                 agent_relationship_counts[agent_b] = agent_relationship_counts.get(agent_b, 0) + 1
 
-                # Get relationship object to compute scores
-                rel = tracker.get_relationship(agent_a, agent_b)
-                rivalry_score = rel.rivalry_score
-                alliance_score = rel.alliance_score
+                # Compute scores inline (avoids N+1 query)
+                rivalry_score = self._compute_rivalry_score(
+                    debate_count, agreement_count, a_wins, b_wins
+                )
+                alliance_score = self._compute_alliance_score(
+                    debate_count, agreement_count
+                )
 
                 if rivalry_score > 0:
                     rivalry_scores.append(rivalry_score)
@@ -248,7 +251,8 @@ class RelationshipHandler(BaseHandler):
                     })
 
                 cursor.execute("""
-                    SELECT agent_a, agent_b, debate_count
+                    SELECT agent_a, agent_b, debate_count, agreement_count,
+                           a_wins_over_b, b_wins_over_a
                     FROM agent_relationships
                     WHERE debate_count >= ?
                 """, (min_debates,))
@@ -266,17 +270,20 @@ class RelationshipHandler(BaseHandler):
             edges = []
 
             for row in rows:
-                agent_a, agent_b, debate_count = row
+                agent_a, agent_b, debate_count, agreement_count, a_wins, b_wins = row
 
                 # Initialize node data
                 for agent in [agent_a, agent_b]:
                     if agent not in nodes_data:
                         nodes_data[agent] = {"debate_count": 0, "rivals": 0, "allies": 0}
 
-                # Get relationship scores
-                rel = tracker.get_relationship(agent_a, agent_b)
-                rivalry_score = rel.rivalry_score
-                alliance_score = rel.alliance_score
+                # Compute scores inline (avoids N+1 query)
+                rivalry_score = self._compute_rivalry_score(
+                    debate_count, agreement_count, a_wins, b_wins
+                )
+                alliance_score = self._compute_alliance_score(
+                    debate_count, agreement_count
+                )
 
                 # Apply score filter
                 max_score = max(rivalry_score, alliance_score)
@@ -390,6 +397,31 @@ class RelationshipHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "relationship_pair_detail"), 500)
 
+    def _compute_rivalry_score(
+        self, debate_count: int, agreement_count: int, a_wins: int, b_wins: int
+    ) -> float:
+        """Compute rivalry score inline (matches AgentRelationship.rivalry_score)."""
+        if debate_count < 3:
+            return 0.0
+        disagreement_rate = 1 - (agreement_count / debate_count)
+        total_wins = a_wins + b_wins
+        competitiveness = 1 - abs(a_wins - b_wins) / max(total_wins, 1)
+        frequency_factor = min(1.0, debate_count / 20)
+        return disagreement_rate * competitiveness * frequency_factor
+
+    def _compute_alliance_score(self, debate_count: int, agreement_count: int) -> float:
+        """Compute alliance score inline (simplified, matches AgentRelationship.alliance_score).
+
+        Note: Full alliance_score also uses critique acceptance rates, but those
+        aren't in our query. This simplified version uses just agreement rate.
+        """
+        if debate_count < 3:
+            return 0.0
+        agreement_rate = agreement_count / debate_count
+        # Simplified: alliance_score = agreement_rate * 0.6 + acceptance_rate * 0.4
+        # Since we don't have critique data, use agreement_rate * 0.6 as baseline
+        return agreement_rate * 0.6
+
     def _get_stats(self, nomic_dir: Optional[Path]) -> HandlerResult:
         """Get relationship system statistics."""
         if not RELATIONSHIP_TRACKER_AVAILABLE:
@@ -419,9 +451,10 @@ class RelationshipHandler(BaseHandler):
                         "highest_agreement_pair": None,
                     })
 
-                # Get all relationships
+                # Get all relationships with full data for score computation
                 cursor.execute("""
-                    SELECT agent_a, agent_b, debate_count, agreement_count
+                    SELECT agent_a, agent_b, debate_count, agreement_count,
+                           a_wins_over_b, b_wins_over_a
                     FROM agent_relationships
                 """)
                 rows = cursor.fetchall()
@@ -448,7 +481,7 @@ class RelationshipHandler(BaseHandler):
             highest_agreement_rate = 0.0
 
             for row in rows:
-                agent_a, agent_b, debate_count, agreement_count = row
+                agent_a, agent_b, debate_count, agreement_count, a_wins, b_wins = row
                 total_debates += debate_count
 
                 # Track most debated pair
@@ -466,10 +499,13 @@ class RelationshipHandler(BaseHandler):
                             "rate": round(agreement_rate, 3)
                         }
 
-                    # Categorize relationship
-                    rel = tracker.get_relationship(agent_a, agent_b)
-                    rivalry_score = rel.rivalry_score
-                    alliance_score = rel.alliance_score
+                    # Compute scores inline (avoids N+1 query)
+                    rivalry_score = self._compute_rivalry_score(
+                        debate_count, agreement_count, a_wins, b_wins
+                    )
+                    alliance_score = self._compute_alliance_score(
+                        debate_count, agreement_count
+                    )
 
                     if rivalry_score > alliance_score and rivalry_score > 0.3:
                         rivalries.append(rivalry_score)

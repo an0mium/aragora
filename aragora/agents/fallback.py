@@ -3,14 +3,20 @@ Quota detection and fallback utilities for API agents.
 
 Provides shared logic for detecting quota/rate limit errors and falling back
 to OpenRouter when the primary provider is unavailable.
+
+Also provides AgentFallbackChain for multi-provider sequencing with
+CircuitBreaker integration.
 """
 
 import logging
 import os
-from typing import Optional, TYPE_CHECKING
+import time
+from dataclasses import dataclass, field
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .api_agents import OpenRouterAgent
+    from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -179,3 +185,337 @@ class QuotaFallbackMixin:
         )
         async for token in fallback.generate_stream(prompt, context):
             yield token
+
+
+@dataclass
+class FallbackMetrics:
+    """Metrics for tracking fallback chain behavior."""
+
+    primary_attempts: int = 0
+    primary_successes: int = 0
+    fallback_attempts: int = 0
+    fallback_successes: int = 0
+    total_failures: int = 0
+    last_fallback_time: float = 0.0
+    fallback_providers_used: dict[str, int] = field(default_factory=dict)
+
+    def record_primary_attempt(self, success: bool) -> None:
+        """Record a primary provider attempt."""
+        self.primary_attempts += 1
+        if success:
+            self.primary_successes += 1
+        else:
+            self.total_failures += 1
+
+    def record_fallback_attempt(self, provider: str, success: bool) -> None:
+        """Record a fallback provider attempt."""
+        self.fallback_attempts += 1
+        self.fallback_providers_used[provider] = (
+            self.fallback_providers_used.get(provider, 0) + 1
+        )
+        self.last_fallback_time = time.time()
+        if success:
+            self.fallback_successes += 1
+        else:
+            self.total_failures += 1
+
+    @property
+    def fallback_rate(self) -> float:
+        """Percentage of requests that needed fallback."""
+        total = self.primary_attempts + self.fallback_attempts
+        if total == 0:
+            return 0.0
+        return self.fallback_attempts / total
+
+    @property
+    def success_rate(self) -> float:
+        """Overall success rate including fallbacks."""
+        total = self.primary_successes + self.fallback_successes
+        attempts = self.primary_attempts + self.fallback_attempts
+        if attempts == 0:
+            return 0.0
+        return total / attempts
+
+
+class AllProvidersExhaustedError(Exception):
+    """Raised when all providers in a fallback chain have failed."""
+
+    def __init__(self, providers: list[str], last_error: Optional[Exception] = None):
+        self.providers = providers
+        self.last_error = last_error
+        super().__init__(
+            f"All providers exhausted: {', '.join(providers)}. "
+            f"Last error: {last_error}"
+        )
+
+
+class AgentFallbackChain:
+    """Sequences agent providers with automatic fallback and CircuitBreaker integration.
+
+    This class manages a chain of providers (e.g., OpenAI -> OpenRouter -> Anthropic -> CLI)
+    and automatically falls back to the next provider when one fails. It integrates with
+    CircuitBreaker to track provider health and avoid repeatedly calling failing providers.
+
+    Usage:
+        from aragora.resilience import CircuitBreaker
+
+        chain = AgentFallbackChain(
+            providers=["openai", "openrouter", "anthropic"],
+            circuit_breaker=CircuitBreaker(failure_threshold=3, cooldown_seconds=60),
+        )
+
+        # Register provider factories
+        chain.register_provider("openai", lambda: OpenAIAPIAgent())
+        chain.register_provider("openrouter", lambda: OpenRouterAgent())
+        chain.register_provider("anthropic", lambda: AnthropicAPIAgent())
+
+        # Generate with automatic fallback
+        result = await chain.generate(prompt, context)
+
+        # Check metrics
+        print(f"Fallback rate: {chain.metrics.fallback_rate:.1%}")
+    """
+
+    def __init__(
+        self,
+        providers: list[str],
+        circuit_breaker: Optional["CircuitBreaker"] = None,
+    ):
+        """Initialize the fallback chain.
+
+        Args:
+            providers: Ordered list of provider names to try (first is primary)
+            circuit_breaker: CircuitBreaker instance for tracking provider health
+        """
+        self.providers = providers
+        self.circuit_breaker = circuit_breaker
+        self.metrics = FallbackMetrics()
+        self._provider_factories: dict[str, Callable[[], Any]] = {}
+        self._cached_agents: dict[str, Any] = {}
+
+    def register_provider(
+        self,
+        name: str,
+        factory: Callable[[], Any],
+    ) -> None:
+        """Register a factory function for creating a provider agent.
+
+        Args:
+            name: Provider name (must be in self.providers)
+            factory: Callable that returns an agent instance
+        """
+        if name not in self.providers:
+            logger.warning(
+                f"Registering provider '{name}' not in chain: {self.providers}"
+            )
+        self._provider_factories[name] = factory
+
+    def _get_agent(self, provider: str) -> Optional[Any]:
+        """Get or create an agent for the given provider."""
+        if provider in self._cached_agents:
+            return self._cached_agents[provider]
+
+        factory = self._provider_factories.get(provider)
+        if not factory:
+            logger.debug(f"No factory registered for provider '{provider}'")
+            return None
+
+        try:
+            agent = factory()
+            self._cached_agents[provider] = agent
+            return agent
+        except Exception as e:
+            logger.warning(f"Failed to create agent for provider '{provider}': {e}")
+            return None
+
+    def _is_available(self, provider: str) -> bool:
+        """Check if a provider is available (not tripped in circuit breaker)."""
+        if not self.circuit_breaker:
+            return True
+        return self.circuit_breaker.is_available(provider)
+
+    def _record_success(self, provider: str) -> None:
+        """Record a successful call to a provider."""
+        if self.circuit_breaker:
+            self.circuit_breaker.record_success(provider)
+
+    def _record_failure(self, provider: str) -> None:
+        """Record a failed call to a provider."""
+        if self.circuit_breaker:
+            self.circuit_breaker.record_failure(provider)
+
+    def get_available_providers(self) -> list[str]:
+        """Get list of providers currently available (not circuit-broken)."""
+        return [p for p in self.providers if self._is_available(p)]
+
+    async def generate(
+        self,
+        prompt: str,
+        context: Optional[list] = None,
+    ) -> str:
+        """Generate a response using the fallback chain.
+
+        Tries each provider in order, skipping those that are circuit-broken,
+        until one succeeds or all fail.
+
+        Args:
+            prompt: The prompt to send
+            context: Optional conversation context
+
+        Returns:
+            Generated response string
+
+        Raises:
+            AllProvidersExhaustedError: If all providers fail
+        """
+        last_error: Optional[Exception] = None
+        tried_providers: list[str] = []
+
+        for i, provider in enumerate(self.providers):
+            # Skip if circuit breaker has this provider tripped
+            if not self._is_available(provider):
+                logger.debug(f"Skipping circuit-broken provider: {provider}")
+                continue
+
+            agent = self._get_agent(provider)
+            if not agent:
+                continue
+
+            tried_providers.append(provider)
+            is_primary = i == 0
+
+            try:
+                result = await agent.generate(prompt, context)
+
+                # Record success
+                self._record_success(provider)
+                if is_primary:
+                    self.metrics.record_primary_attempt(success=True)
+                else:
+                    self.metrics.record_fallback_attempt(provider, success=True)
+                    logger.info(
+                        f"fallback_success provider={provider} "
+                        f"fallback_rate={self.metrics.fallback_rate:.1%}"
+                    )
+
+                return result
+
+            except Exception as e:
+                last_error = e
+                self._record_failure(provider)
+
+                if is_primary:
+                    self.metrics.record_primary_attempt(success=False)
+                    logger.warning(
+                        f"Primary provider '{provider}' failed: {e}, trying fallback"
+                    )
+                else:
+                    self.metrics.record_fallback_attempt(provider, success=False)
+                    logger.warning(f"Fallback provider '{provider}' failed: {e}")
+
+                # Check if this looks like a rate limit error
+                if self._is_rate_limit_error(e):
+                    logger.info(f"Rate limit detected for {provider}, moving to next")
+
+                continue
+
+        raise AllProvidersExhaustedError(tried_providers, last_error)
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        context: Optional[list] = None,
+    ):
+        """Stream a response using the fallback chain.
+
+        Tries each provider in order until one succeeds or all fail.
+
+        Args:
+            prompt: The prompt to send
+            context: Optional conversation context
+
+        Yields:
+            Content tokens from the successful provider
+
+        Raises:
+            AllProvidersExhaustedError: If all providers fail
+        """
+        last_error: Optional[Exception] = None
+        tried_providers: list[str] = []
+
+        for i, provider in enumerate(self.providers):
+            if not self._is_available(provider):
+                logger.debug(f"Skipping circuit-broken provider: {provider}")
+                continue
+
+            agent = self._get_agent(provider)
+            if not agent:
+                continue
+
+            # Check if agent supports streaming
+            if not hasattr(agent, "generate_stream"):
+                logger.debug(f"Provider {provider} doesn't support streaming, skipping")
+                continue
+
+            tried_providers.append(provider)
+            is_primary = i == 0
+
+            try:
+                # Try to get first token to verify stream works
+                first_token = None
+                async for token in agent.generate_stream(prompt, context):
+                    if first_token is None:
+                        first_token = token
+                        # Stream started successfully
+                        self._record_success(provider)
+                        if is_primary:
+                            self.metrics.record_primary_attempt(success=True)
+                        else:
+                            self.metrics.record_fallback_attempt(provider, success=True)
+                            logger.info(f"fallback_stream_success provider={provider}")
+                    yield token
+
+                # If we got here, stream completed successfully
+                return
+
+            except Exception as e:
+                last_error = e
+                self._record_failure(provider)
+
+                if is_primary:
+                    self.metrics.record_primary_attempt(success=False)
+                    logger.warning(
+                        f"Primary provider '{provider}' stream failed: {e}"
+                    )
+                else:
+                    self.metrics.record_fallback_attempt(provider, success=False)
+                    logger.warning(f"Fallback provider '{provider}' stream failed: {e}")
+
+                continue
+
+        raise AllProvidersExhaustedError(tried_providers, last_error)
+
+    def _is_rate_limit_error(self, error: Exception) -> bool:
+        """Check if an exception indicates a rate limit error."""
+        error_str = str(error).lower()
+        return any(kw in error_str for kw in QUOTA_ERROR_KEYWORDS)
+
+    def reset_metrics(self) -> None:
+        """Reset all metrics counters."""
+        self.metrics = FallbackMetrics()
+
+    def get_status(self) -> dict:
+        """Get current status of the fallback chain."""
+        return {
+            "providers": self.providers,
+            "available_providers": self.get_available_providers(),
+            "metrics": {
+                "primary_attempts": self.metrics.primary_attempts,
+                "primary_successes": self.metrics.primary_successes,
+                "fallback_attempts": self.metrics.fallback_attempts,
+                "fallback_successes": self.metrics.fallback_successes,
+                "fallback_rate": f"{self.metrics.fallback_rate:.1%}",
+                "success_rate": f"{self.metrics.success_rate:.1%}",
+                "providers_used": self.metrics.fallback_providers_used,
+            },
+        }

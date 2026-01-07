@@ -260,6 +260,13 @@ class ConsensusMemory:
 
                 CREATE INDEX IF NOT EXISTS idx_dissent_type
                 ON dissent(dissent_type);
+
+                -- Optimized indices for common query patterns
+                CREATE INDEX IF NOT EXISTS idx_consensus_confidence_ts
+                ON consensus(confidence DESC, timestamp DESC);
+
+                CREATE INDEX IF NOT EXISTS idx_dissent_timestamp
+                ON dissent(timestamp DESC);
             """
 
             manager.ensure_schema(initial_schema=initial_schema)

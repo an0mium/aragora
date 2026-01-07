@@ -225,7 +225,7 @@ class WebConnector(BaseConnector):
             # Add timeout to prevent indefinite blocking
             # Note: On timeout, the thread pool task continues running but we don't wait.
             # This is a Python limitation - thread pool tasks can't be interrupted.
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             try:
                 results = await asyncio.wait_for(
                     loop.run_in_executor(

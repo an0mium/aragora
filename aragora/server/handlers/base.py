@@ -23,7 +23,7 @@ from aragora.server.prometheus import record_cache_hit, record_cache_miss
 from aragora.server.validation import SAFE_ID_PATTERN, SAFE_AGENT_PATTERN, SAFE_SLUG_PATTERN
 
 # Re-export DB_TIMEOUT_SECONDS for backwards compatibility
-__all__ = ["DB_TIMEOUT_SECONDS"]
+__all__ = ["DB_TIMEOUT_SECONDS", "require_auth", "error_response", "json_response", "handle_errors"]
 
 logger = logging.getLogger(__name__)
 
@@ -297,6 +297,67 @@ def handle_errors(context: str, default_status: int = 500):
                 )
         return wrapper
     return decorator
+
+
+def require_auth(func: Callable) -> Callable:
+    """
+    Decorator that ALWAYS requires authentication, regardless of auth_config.enabled.
+
+    Use this for sensitive endpoints that must never run without authentication,
+    even in development/testing environments where global auth may be disabled.
+
+    Examples of sensitive endpoints:
+    - Plugin execution (/api/plugins/*/run)
+    - Capability probing (/api/probes/run)
+    - Laboratory experiments (/api/laboratory/*)
+
+    Usage:
+        @require_auth
+        def _run_plugin(self, plugin_name: str, handler) -> HandlerResult:
+            ...
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        from aragora.server.auth import auth_config
+
+        # Extract handler from kwargs or args
+        handler = kwargs.get('handler')
+        if handler is None and args:
+            # Handler is often the last positional arg
+            for arg in args:
+                if hasattr(arg, 'headers'):
+                    handler = arg
+                    break
+
+        if handler is None:
+            logger.warning("require_auth: No handler provided, denying access")
+            return error_response("Authentication required", 401)
+
+        # Extract auth token from Authorization header
+        auth_header = None
+        if hasattr(handler, 'headers'):
+            auth_header = handler.headers.get('Authorization', '')
+
+        token = None
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header[7:]
+
+        # Check that API token is configured
+        if not auth_config.api_token:
+            logger.warning(
+                "require_auth: No API token configured, denying access to sensitive endpoint"
+            )
+            return error_response(
+                "Authentication required. Set ARAGORA_API_TOKEN environment variable.",
+                401
+            )
+
+        # Validate the provided token
+        if not token or not auth_config.validate_token(token):
+            return error_response("Invalid or missing authentication token", 401)
+
+        return func(*args, **kwargs)
+    return wrapper
 
 
 def with_error_recovery(

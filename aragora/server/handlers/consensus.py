@@ -228,6 +228,7 @@ class ConsensusHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "consensus_stats"), 500)
 
+    @ttl_cache(ttl_seconds=300, key_prefix="recent_dissents", skip_first=True)
     def _get_recent_dissents(
         self, topic: Optional[str], domain: Optional[str], limit: int
     ) -> HandlerResult:
@@ -273,6 +274,7 @@ class ConsensusHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "recent_dissents"), 500)
 
+    @ttl_cache(ttl_seconds=300, key_prefix="contrarian_views", skip_first=True)
     def _get_contrarian_views(
         self, topic: Optional[str], domain: Optional[str], limit: int
     ) -> HandlerResult:
@@ -321,6 +323,7 @@ class ConsensusHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "contrarian_views"), 500)
 
+    @ttl_cache(ttl_seconds=300, key_prefix="risk_warnings", skip_first=True)
     def _get_risk_warnings(
         self, topic: Optional[str], domain: Optional[str], limit: int
     ) -> HandlerResult:

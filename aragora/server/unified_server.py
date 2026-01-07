@@ -504,16 +504,19 @@ def _wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: 
 def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
     """Run async coroutine in HTTP handler thread (which may not have an event loop)."""
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # Can't use run_until_complete if loop is running
+        # Check if there's a running loop (avoids deprecation warning)
+        try:
+            loop = asyncio.get_running_loop()
+            # If we get here, there's a running loop - can't use run_until_complete
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 future = pool.submit(asyncio.run, coro)
                 return future.result(timeout=30)
-        return loop.run_until_complete(coro)
-    except RuntimeError:
-        # No event loop in this thread, create one
+        except RuntimeError:
+            # No running loop, safe to use asyncio.run()
+            return asyncio.run(coro)
+    except Exception:
+        # Fallback: create new event loop
         return asyncio.run(coro)
 
 
