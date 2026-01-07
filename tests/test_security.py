@@ -490,12 +490,13 @@ class TestBearerHeaderParsing:
 
         result = config.extract_token_from_request(
             {"Authorization": "Basic abc123"},  # Not Bearer
-            {"token": ["query_token"]}
+            {"token": ["query_token"]}  # Should be ignored for security
         )
-        assert result == "query_token"
+        # Query params are NOT supported (they appear in logs)
+        assert result is None
 
     def test_bearer_takes_precedence(self):
-        """Bearer header should take precedence over query param."""
+        """Bearer header should be the only accepted method."""
         config = AuthConfig()
 
         result = config.extract_token_from_request(
@@ -505,14 +506,15 @@ class TestBearerHeaderParsing:
         assert result == "header_token"
 
     def test_no_auth_header(self):
-        """Missing Authorization header should check query params."""
+        """Missing Authorization header should return None (query params ignored)."""
         config = AuthConfig()
 
         result = config.extract_token_from_request(
             {},
-            {"token": ["fallback"]}
+            {"token": ["fallback"]}  # Should be ignored for security
         )
-        assert result == "fallback"
+        # Query params are NOT supported for security reasons
+        assert result is None
 
 
 class TestRateLimitCleanupUnderLoad:

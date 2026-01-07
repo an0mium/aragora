@@ -120,9 +120,36 @@ class EmbeddingProvider:
 
         Uses asyncio.gather for parallel execution when subclass embed() is async.
         Subclasses with native batch APIs should override for better performance.
+
+        Args:
+            texts: List of texts to embed
+
+        Returns:
+            List of embeddings. Failed embeddings are replaced with zero vectors
+            to maintain list alignment with input texts.
         """
         import asyncio
-        return await asyncio.gather(*[self.embed(t) for t in texts])
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Use return_exceptions to prevent first failure from canceling others
+        results = await asyncio.gather(
+            *[self.embed(t) for t in texts],
+            return_exceptions=True
+        )
+
+        # Process results, replacing exceptions with zero vectors
+        embeddings = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.warning(f"embed_batch: failed to embed text {i}: {result}")
+                # Return zero vector to maintain alignment
+                embeddings.append([0.0] * self.dimension)
+            else:
+                embeddings.append(result)
+
+        return embeddings
 
 
 class OpenAIEmbedding(EmbeddingProvider):

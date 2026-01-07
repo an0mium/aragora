@@ -12,7 +12,6 @@ import secrets
 import threading
 import time
 from typing import Optional, Dict, Any
-from urllib.parse import parse_qs
 
 from aragora.config import TOKEN_TTL_SECONDS, DEFAULT_RATE_LIMIT, IP_RATE_LIMIT, SHAREABLE_LINK_TTL
 from aragora.server.cors_config import cors_config
@@ -316,18 +315,28 @@ class AuthConfig:
             self._ip_request_counts[ip_address].append(now)
             return True, self.ip_rate_limit_per_minute - current_count - 1
 
-    def extract_token_from_request(self, headers: Dict[str, str], query_params: Dict[str, list]) -> Optional[str]:
-        """Extract token from Authorization header or query params."""
-        # Check Authorization header
+    def extract_token_from_request(self, headers: Dict[str, str], query_params: Optional[Dict[str, list]] = None) -> Optional[str]:
+        """Extract token from Authorization header only.
+
+        Security: Query parameter tokens are not accepted because they:
+        - Appear in server access logs
+        - May be cached in browser history
+        - Can leak through Referer headers
+
+        Args:
+            headers: HTTP headers dict
+            query_params: Deprecated, ignored for security reasons
+
+        Returns:
+            Token string if found in Authorization header, None otherwise
+        """
+        # ONLY accept Authorization: Bearer header (not query params)
         auth_header = headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
             return auth_header[7:]
 
-        # Check query params
-        tokens = query_params.get("token", [])
-        if tokens:
-            return tokens[0]
-
+        # Query params intentionally NOT supported for security
+        # Tokens in URLs appear in logs and browser history
         return None
 
 
@@ -342,7 +351,7 @@ def check_auth(headers: Dict[str, Any], query_string: str = "", loop_id: str = "
 
     Args:
         headers: HTTP headers dict
-        query_string: Raw query string
+        query_string: Deprecated, ignored (tokens only accepted via Authorization header)
         loop_id: Optional loop ID to validate against token
         ip_address: Client IP for rate limiting (used even when auth disabled)
 
@@ -361,8 +370,8 @@ def check_auth(headers: Dict[str, Any], query_string: str = "", loop_id: str = "
         # Return IP remaining if we have it, else -1
         return True, ip_remaining if ip_address else -1
 
-    query_params = parse_qs(query_string.lstrip("?")) if query_string else {}
-    token = auth_config.extract_token_from_request(headers, query_params)
+    # Only extract token from Authorization header (not query params for security)
+    token = auth_config.extract_token_from_request(headers)
 
     if not auth_config.validate_token(token or "", loop_id):
         return False, -1

@@ -471,21 +471,22 @@ class TestBearerHeaderExtraction:
         assert token is None  # lowercase 'bearer' not recognized
 
     def test_query_param_fallback(self, auth_config):
-        """Should fall back to query param when no header."""
+        """Query params should be ignored for security (returns None)."""
         headers = {}
         query_params = {"token": ["query_token"]}
         token = auth_config.extract_token_from_request(headers, query_params)
-        assert token == "query_token"
+        # Query params are NOT supported (they appear in server logs)
+        assert token is None
 
     def test_bearer_takes_precedence(self, auth_config):
-        """Bearer header should take precedence over query param."""
+        """Bearer header should be the only accepted method."""
         headers = {"Authorization": "Bearer header_token"}
         query_params = {"token": ["query_token"]}
         token = auth_config.extract_token_from_request(headers, query_params)
         assert token == "header_token"
 
     def test_missing_authorization_returns_none(self, auth_config):
-        """Missing Authorization and query param should return None."""
+        """Missing Authorization header should return None."""
         token = auth_config.extract_token_from_request({}, {})
         assert token is None
 
@@ -971,18 +972,20 @@ class TestBearerHeaderParsing:
         assert token == " my_token"
 
     def test_multiple_token_query_params(self, auth_config):
-        """Multiple ?token= params should use first only."""
+        """Query params are ignored for security - should return None."""
         headers = {}
         query_params = {"token": ["first_token", "second_token", "third_token"]}
         token = auth_config.extract_token_from_request(headers, query_params)
-        assert token == "first_token"
+        # Query params not supported (they appear in logs)
+        assert token is None
 
     def test_empty_token_query_param(self, auth_config):
-        """?token= (empty value) should return empty string."""
+        """Query params are ignored for security - should return None."""
         headers = {}
         query_params = {"token": [""]}
         token = auth_config.extract_token_from_request(headers, query_params)
-        assert token == ""
+        # Query params not supported (they appear in logs)
+        assert token is None
 
     def test_empty_token_list(self, auth_config):
         """Empty token list in query params should return None."""

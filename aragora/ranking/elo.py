@@ -578,6 +578,13 @@ class EloSystem:
         # Write JSON snapshot for fast reads (avoids SQLite locking)
         self._write_snapshot()
 
+        # Invalidate related caches so API returns fresh data
+        try:
+            from aragora.server.handlers.base import invalidate_cache
+            invalidate_cache("elo")
+        except ImportError:
+            pass  # Handlers may not be available in all contexts
+
         return elo_changes
 
     def _save_match(
@@ -1380,13 +1387,29 @@ class EloSystem:
                 "a_wins_over_b": row[8], "b_wins_over_a": row[9],
             }
 
-    def get_all_relationships_for_agent(self, agent_name: str) -> list[dict]:
-        """Get all relationships involving an agent."""
+    def get_all_relationships_for_agent(self, agent_name: str, limit: int = 100) -> list[dict]:
+        """Get all relationships involving an agent.
+
+        Args:
+            agent_name: The agent to get relationships for
+            limit: Maximum number of relationships to return (default 100)
+
+        Returns:
+            List of relationship dicts, ordered by debate_count descending
+        """
         with self._db.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT agent_a, agent_b, debate_count, agreement_count, critique_count_a_to_b, critique_count_b_to_a, critique_accepted_a_to_b, critique_accepted_b_to_a, position_changes_a_after_b, position_changes_b_after_a, a_wins_over_b, b_wins_over_a FROM agent_relationships WHERE agent_a = ? OR agent_b = ? ORDER BY debate_count DESC",
-                (agent_name, agent_name),
+                """SELECT agent_a, agent_b, debate_count, agreement_count,
+                          critique_count_a_to_b, critique_count_b_to_a,
+                          critique_accepted_a_to_b, critique_accepted_b_to_a,
+                          position_changes_a_after_b, position_changes_b_after_a,
+                          a_wins_over_b, b_wins_over_a
+                   FROM agent_relationships
+                   WHERE agent_a = ? OR agent_b = ?
+                   ORDER BY debate_count DESC
+                   LIMIT ?""",
+                (agent_name, agent_name, limit),
             )
             rows = cursor.fetchall()
             return [

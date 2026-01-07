@@ -107,6 +107,9 @@ from aragora.server.cors_config import WS_ALLOWED_ORIGINS
 # Import WebSocket config from centralized location
 from aragora.config import WS_MAX_MESSAGE_SIZE
 
+# Import auth for WebSocket authentication
+from aragora.server.auth import auth_config
+
 # Trusted proxies for X-Forwarded-For header validation
 # Only trust X-Forwarded-For if request comes from these IPs
 TRUSTED_PROXIES = frozenset(
@@ -196,6 +199,57 @@ class DebateStreamServer:
                 self._rate_limiter_last_access.pop(k, None)
         if stale_keys:
             logger.debug(f"Cleaned up {len(stale_keys)} stale rate limiters")
+
+    def _extract_ws_token(self, websocket) -> Optional[str]:
+        """Extract authentication token from WebSocket connection.
+
+        Attempts to extract token from Authorization header only.
+        Query parameter tokens are not accepted for security reasons
+        (they appear in logs and browser history).
+
+        Args:
+            websocket: The WebSocket connection object
+
+        Returns:
+            The extracted token or None if not found
+        """
+        try:
+            # Try newer websockets API first (websockets 10+)
+            if hasattr(websocket, 'request') and hasattr(websocket.request, 'headers'):
+                headers = websocket.request.headers
+            elif hasattr(websocket, 'request_headers'):
+                headers = websocket.request_headers
+            else:
+                return None
+
+            # Only accept Authorization: Bearer header (not query params)
+            auth_header = headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                return auth_header[7:]
+
+            return None
+        except Exception as e:
+            logger.debug(f"Could not extract WebSocket token: {e}")
+            return None
+
+    def _validate_ws_auth(self, websocket, loop_id: str = "") -> bool:
+        """Validate WebSocket authentication.
+
+        Args:
+            websocket: The WebSocket connection object
+            loop_id: Optional loop_id for token validation
+
+        Returns:
+            True if authenticated or auth is disabled, False otherwise
+        """
+        if not auth_config.enabled:
+            return True
+
+        token = self._extract_ws_token(websocket)
+        if not token:
+            return False
+
+        return auth_config.validate_token(token, loop_id)
 
     def _cleanup_stale_entries(self) -> None:
         """Remove stale entries from all tracking dicts."""
@@ -449,6 +503,10 @@ class DebateStreamServer:
             await websocket.close(4003, "Origin not allowed")
             return
 
+        # Validate WebSocket authentication
+        # Read operations are allowed without auth, but write operations require it
+        is_authenticated = self._validate_ws_auth(websocket)
+
         # Generate cryptographically secure client ID (not predictable memory address)
         ws_id = id(websocket)
         client_id = secrets.token_urlsafe(16)
@@ -459,6 +517,16 @@ class DebateStreamServer:
 
         self.clients.add(websocket)
         try:
+            # Send connection info including auth status
+            await websocket.send(json.dumps({
+                "type": "connection_info",
+                "data": {
+                    "authenticated": is_authenticated,
+                    "client_id": client_id[:8] + "...",  # Partial for privacy
+                    "write_access": is_authenticated or not auth_config.enabled,
+                }
+            }))
+
             # Send list of active loops
             await websocket.send(json.dumps({
                 "type": "loop_list",
@@ -517,6 +585,17 @@ class DebateStreamServer:
                         }))
 
                     elif msg_type in ("user_vote", "user_suggestion"):
+                        # Require authentication for write operations
+                        if not is_authenticated and auth_config.enabled:
+                            await websocket.send(json.dumps({
+                                "type": "error",
+                                "data": {
+                                    "message": "Authentication required for voting/suggestions",
+                                    "code": 401
+                                }
+                            }))
+                            continue
+
                         # Handle audience participation using secure client ID
                         stored_client_id = self._client_ids.get(ws_id, secrets.token_urlsafe(16))
                         loop_id = data.get("loop_id", "")

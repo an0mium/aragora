@@ -48,6 +48,28 @@ KNOWN_DATABASES = [
     "traces/debate_traces.db",
 ]
 
+# Whitelist of allowed table names for cleanup operations (SQL injection prevention)
+ALLOWED_CLEANUP_TABLES = frozenset({
+    "match_history",
+    "memories",
+    "embeddings",
+    "traces",
+    "debates",
+    "critiques",
+    "patterns",
+    "ratings",
+    "positions",
+    "consensus",
+    "suggestions",
+})
+
+# Allowed timestamp column names
+ALLOWED_TIMESTAMP_COLUMNS = frozenset({
+    "created_at",
+    "timestamp",
+    "recorded_at",
+})
+
 
 class DatabaseMaintenance:
     """Automated maintenance for Aragora SQLite databases."""
@@ -177,6 +199,9 @@ class DatabaseMaintenance:
 
         Returns:
             Dict mapping table names to number of deleted rows.
+
+        Raises:
+            ValueError: If a table name is not in the allowed whitelist.
         """
         if tables is None:
             # Default cleanup targets (tables with timestamp columns)
@@ -187,6 +212,14 @@ class DatabaseMaintenance:
                 "debate_embeddings.db": "embeddings",
                 "traces/debate_traces.db": "traces",
             }
+
+        # Validate all table names against whitelist (SQL injection prevention)
+        for table_name in tables.values():
+            if table_name not in ALLOWED_CLEANUP_TABLES:
+                raise ValueError(
+                    f"Invalid table name: {table_name}. "
+                    f"Allowed tables: {', '.join(sorted(ALLOWED_CLEANUP_TABLES))}"
+                )
 
         cutoff = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff.isoformat()
@@ -201,17 +234,19 @@ class DatabaseMaintenance:
                 with sqlite3.connect(str(db_path), timeout=60) as conn:
                     cursor = conn.cursor()
 
-                    # Check if table and column exist
+                    # Check if table exists (parameterized query)
                     cursor.execute(
-                        f"SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
                         (table_name,)
                     )
                     if not cursor.fetchone():
                         continue
 
-                    # Try common timestamp column names
-                    for col in ["created_at", "timestamp", "recorded_at"]:
+                    # Try allowed timestamp column names
+                    # table_name is validated above, col is from hardcoded whitelist
+                    for col in ALLOWED_TIMESTAMP_COLUMNS:
                         try:
+                            # Safe: table_name validated against whitelist, col from whitelist
                             cursor.execute(
                                 f"DELETE FROM {table_name} WHERE {col} < ?",
                                 (cutoff_str,)

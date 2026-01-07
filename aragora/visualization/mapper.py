@@ -5,6 +5,7 @@ This is a pure observer that reads debate events and constructs a graph
 representation. It never modifies debate state or agent prompts.
 """
 
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from enum import Enum
@@ -401,13 +402,13 @@ class ArgumentCartographer:
                 return 0
             roots = [next(iter(self.nodes))]
 
-        # BFS to find max depth
+        # BFS to find max depth (using deque for O(1) popleft)
         max_depth = 0
         visited = set()
-        queue = [(root, 1) for root in roots]
+        queue = deque((root, 1) for root in roots)
 
         while queue:
-            node_id, depth = queue.pop(0)
+            node_id, depth = queue.popleft()  # O(1) vs O(n) for list.pop(0)
             if node_id in visited:
                 continue
             visited.add(node_id)
