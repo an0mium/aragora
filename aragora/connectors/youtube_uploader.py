@@ -18,6 +18,39 @@ from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
 
+
+class YouTubeError(Exception):
+    """Base exception for YouTube connector errors."""
+
+    pass
+
+
+class YouTubeAuthError(YouTubeError):
+    """Authentication/authorization failed."""
+
+    pass
+
+
+class YouTubeQuotaError(YouTubeError):
+    """API quota exceeded."""
+
+    pass
+
+
+class YouTubeUploadError(YouTubeError):
+    """Video upload failed."""
+
+    pass
+
+
+class YouTubeAPIError(YouTubeError):
+    """General API error."""
+
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
 # YouTube API limits
 MAX_TITLE_LENGTH = 100
 MAX_DESCRIPTION_LENGTH = 5000
@@ -253,7 +286,7 @@ class YouTubeUploaderConnector:
 
         return f"{self.AUTH_URL}?{urlencode(params)}"
 
-    async def exchange_code(self, code: str, redirect_uri: str) -> Optional[dict]:
+    async def exchange_code(self, code: str, redirect_uri: str) -> dict:
         """
         Exchange authorization code for tokens.
 
@@ -262,7 +295,10 @@ class YouTubeUploaderConnector:
             redirect_uri: Same redirect_uri used in auth request
 
         Returns:
-            Token response dict or None on failure
+            Token response dict containing access_token and refresh_token
+
+        Raises:
+            YouTubeAuthError: If token exchange fails
         """
         try:
             import httpx
@@ -288,11 +324,15 @@ class YouTubeUploaderConnector:
                 else:
                     # Don't log full response which may contain sensitive data
                     logger.error(f"Token exchange failed: HTTP {response.status_code}")
-                    return None
+                    raise YouTubeAuthError(
+                        f"Token exchange failed with status {response.status_code}"
+                    )
 
+        except YouTubeAuthError:
+            raise
         except Exception as e:
             logger.error(f"Token exchange error: {e}")
-            return None
+            raise YouTubeAuthError(f"Token exchange failed: {e}") from e
 
     async def _refresh_access_token(self) -> bool:
         """Refresh the access token using the refresh token."""
@@ -494,7 +534,7 @@ class YouTubeUploaderConnector:
                 error=str(e),
             )
 
-    async def get_video_status(self, video_id: str) -> Optional[dict]:
+    async def get_video_status(self, video_id: str) -> dict:
         """
         Get status of an uploaded video.
 
@@ -502,11 +542,15 @@ class YouTubeUploaderConnector:
             video_id: YouTube video ID
 
         Returns:
-            Video status dict or None on failure
+            Video status dict with status and processingDetails
+
+        Raises:
+            YouTubeAuthError: If authentication fails
+            YouTubeAPIError: If API call fails or video not found
         """
         access_token = await self._get_access_token()
         if not access_token:
-            return None
+            raise YouTubeAuthError("Failed to obtain access token")
 
         try:
             import httpx
@@ -525,12 +569,19 @@ class YouTubeUploaderConnector:
                     self.rate_limiter.record_api_call(1)
                     data = response.json()
                     items = data.get("items", [])
-                    return items[0] if items else None
+                    if items:
+                        return items[0]
+                    raise YouTubeAPIError(f"Video not found: {video_id}")
+                else:
+                    raise YouTubeAPIError(
+                        f"API request failed", status_code=response.status_code
+                    )
 
+        except (YouTubeAuthError, YouTubeAPIError):
+            raise
         except Exception as e:
             logger.error(f"Failed to get video status: {e}")
-
-        return None
+            raise YouTubeAPIError(f"Failed to get video status: {e}") from e
 
 
 def create_video_metadata_from_debate(

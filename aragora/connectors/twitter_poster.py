@@ -21,6 +21,39 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+
+class TwitterError(Exception):
+    """Base exception for Twitter connector errors."""
+
+    pass
+
+
+class TwitterAuthError(TwitterError):
+    """Authentication/authorization failed."""
+
+    pass
+
+
+class TwitterRateLimitError(TwitterError):
+    """Rate limit exceeded."""
+
+    pass
+
+
+class TwitterAPIError(TwitterError):
+    """General API error."""
+
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class TwitterMediaError(TwitterError):
+    """Media upload failed."""
+
+    pass
+
+
 # Twitter API limits
 MAX_TWEET_LENGTH = 280
 MAX_THREAD_LENGTH = 25  # Maximum tweets in a thread
@@ -398,7 +431,7 @@ class TwitterPosterConnector:
             success=True,
         )
 
-    async def upload_media(self, file_path: Path) -> Optional[str]:
+    async def upload_media(self, file_path: Path) -> str:
         """
         Upload media file to Twitter.
 
@@ -406,21 +439,25 @@ class TwitterPosterConnector:
             file_path: Path to image file
 
         Returns:
-            Media ID string or None on failure
+            Media ID string
+
+        Raises:
+            TwitterAuthError: If credentials not configured
+            TwitterMediaError: If file not found, too large, or upload fails
+            TwitterAPIError: If API request fails
         """
         if not self.is_configured:
-            logger.error("Twitter API credentials not configured")
-            return None
+            raise TwitterAuthError("Twitter API credentials not configured")
 
         if not file_path.exists():
-            logger.error(f"Media file not found: {file_path}")
-            return None
+            raise TwitterMediaError(f"Media file not found: {file_path}")
 
         # Check file size
         size_mb = file_path.stat().st_size / (1024 * 1024)
         if size_mb > MAX_MEDIA_SIZE_MB:
-            logger.error(f"Media file too large: {size_mb:.1f}MB (max {MAX_MEDIA_SIZE_MB}MB)")
-            return None
+            raise TwitterMediaError(
+                f"Media file too large: {size_mb:.1f}MB (max {MAX_MEDIA_SIZE_MB}MB)"
+            )
 
         await self.rate_limiter.acquire()
 
@@ -458,15 +495,22 @@ class TwitterPosterConnector:
                 if response.status_code == 200:
                     data = response.json()
                     media_id = data.get("media_id_string")
+                    if not media_id:
+                        raise TwitterMediaError("No media_id in response")
                     logger.info(f"Uploaded media: {media_id}")
                     return media_id
+                elif response.status_code == 429:
+                    raise TwitterRateLimitError("Rate limit exceeded for media upload")
                 else:
-                    logger.error(f"Media upload failed: {response.status_code}")
-                    return None
+                    raise TwitterAPIError(
+                        f"Media upload failed", status_code=response.status_code
+                    )
 
+        except (TwitterAuthError, TwitterMediaError, TwitterAPIError, TwitterRateLimitError):
+            raise
         except Exception as e:
             logger.error(f"Failed to upload media: {e}")
-            return None
+            raise TwitterMediaError(f"Failed to upload media: {e}") from e
 
 
 class DebateContentFormatter:

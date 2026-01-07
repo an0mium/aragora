@@ -331,7 +331,7 @@ class TestHandle:
         result = self.handler.handle("/api/debates", {}, None)
 
         assert result is not None
-        assert result[1] == 200
+        assert result.status_code == 200
 
     def test_routes_to_slug_lookup(self) -> None:
         """Test routing to slug lookup."""
@@ -340,7 +340,7 @@ class TestHandle:
         result = self.handler.handle("/api/debates/slug/my-slug", {}, None)
 
         assert result is not None
-        assert result[1] == 200
+        assert result.status_code == 200
 
     def test_routes_to_impasse(self) -> None:
         """Test routing to impasse endpoint."""
@@ -354,8 +354,8 @@ class TestHandle:
         result = self.handler.handle("/api/debates/test-123/impasse", {}, None)
 
         assert result is not None
-        assert result[1] == 200
-        assert "is_impasse" in result[0]
+        assert result.status_code == 200
+        assert "is_impasse" in parse_body(result)
 
     def test_routes_to_convergence(self) -> None:
         """Test routing to convergence endpoint."""
@@ -367,15 +367,15 @@ class TestHandle:
         result = self.handler.handle("/api/debates/test-123/convergence", {}, None)
 
         assert result is not None
-        assert result[1] == 200
-        assert "convergence_status" in result[0]
+        assert result.status_code == 200
+        assert "convergence_status" in parse_body(result)
 
     def test_rejects_invalid_debate_id_in_route(self) -> None:
         """Test invalid debate ID in route is rejected."""
         result = self.handler.handle("/api/debates/../etc/impasse", {}, None)
 
         assert result is not None
-        assert result[1] == 400
+        assert result.status_code == 400
 
     def test_uses_limit_parameter(self) -> None:
         """Test limit parameter is used for list."""

@@ -24,6 +24,7 @@ from aragora.debate.convergence import (
     get_similarity_backend,
 )
 from aragora.debate.memory_manager import MemoryManager
+from aragora.debate.optional_imports import OptionalImports
 from aragora.debate.prompt_builder import PromptBuilder
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol, user_vote_multiplier
 from aragora.debate.roles import (
@@ -51,107 +52,6 @@ from aragora.debate.phases import (
 from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
-
-# Optional position tracking for truth-grounded personas
-PositionTracker = None
-
-def _get_position_tracker():
-    """Lazy-load PositionTracker to avoid circular imports."""
-    global PositionTracker
-    if PositionTracker is None:
-        try:
-            from aragora.agents.truth_grounding import PositionTracker as _PT
-            PositionTracker = _PT
-        except ImportError:
-            pass
-    return PositionTracker
-
-
-# Optional calibration tracking for prediction accuracy
-CalibrationTracker = None
-
-def _get_calibration_tracker():
-    """Lazy-load CalibrationTracker to avoid circular imports."""
-    global CalibrationTracker
-    if CalibrationTracker is None:
-        try:
-            from aragora.agents.calibration import CalibrationTracker as _CT
-            CalibrationTracker = _CT
-        except ImportError:
-            pass
-    return CalibrationTracker
-
-# Lazy import to avoid circular dependencies
-InsightExtractor = None
-InsightStore = None
-CitationExtractor = None
-BeliefNetwork = None
-BeliefPropagationAnalyzer = None
-
-def _get_belief_analyzer():
-    """Lazy-load BeliefPropagationAnalyzer to avoid circular imports."""
-    global BeliefNetwork, BeliefPropagationAnalyzer
-    if BeliefPropagationAnalyzer is None:
-        try:
-            from aragora.reasoning.belief import (
-                BeliefNetwork as _BN,
-                BeliefPropagationAnalyzer as _BPA,
-            )
-            BeliefNetwork = _BN
-            BeliefPropagationAnalyzer = _BPA
-        except ImportError:
-            pass
-    return BeliefNetwork, BeliefPropagationAnalyzer
-
-def _get_citation_extractor():
-    """Lazy-load CitationExtractor to avoid circular imports."""
-    global CitationExtractor
-    if CitationExtractor is None:
-        try:
-            from aragora.reasoning.citations import CitationExtractor as _CE
-            CitationExtractor = _CE
-        except ImportError:
-            pass
-    return CitationExtractor
-
-def _get_insight_classes():
-    """Lazy-load insight classes to avoid circular imports."""
-    global InsightExtractor, InsightStore
-    if InsightExtractor is None:
-        from aragora.insights import InsightExtractor as _IE, InsightStore as _IS
-        InsightExtractor = _IE
-        InsightStore = _IS
-    return InsightExtractor, InsightStore
-
-
-# Lazy import for CritiqueStore (pattern retrieval)
-CritiqueStore = None
-
-def _get_critique_store():
-    """Lazy-load CritiqueStore to avoid circular imports."""
-    global CritiqueStore
-    if CritiqueStore is None:
-        try:
-            from aragora.memory.store import CritiqueStore as _CS
-            CritiqueStore = _CS
-        except ImportError:
-            pass
-    return CritiqueStore
-
-
-# Lazy import for ArgumentCartographer (graph visualization)
-ArgumentCartographer = None
-
-def _get_argument_cartographer():
-    """Lazy-load ArgumentCartographer to avoid circular imports."""
-    global ArgumentCartographer
-    if ArgumentCartographer is None:
-        try:
-            from aragora.visualization.mapper import ArgumentCartographer as _AC
-            ArgumentCartographer = _AC
-        except ImportError:
-            pass
-    return ArgumentCartographer
 
 
 class Arena:
@@ -239,7 +139,7 @@ class Arena:
         self.trending_topic = trending_topic  # Optional trending topic to seed context
 
         # ArgumentCartographer for debate graph visualization
-        AC = _get_argument_cartographer()
+        AC = OptionalImports.get_argument_cartographer()
         self.cartographer = AC() if AC else None
 
         # Auto-upgrade to ELO-ranked judge selection when elo_system is available
@@ -313,7 +213,7 @@ class Arena:
 
         # Citation extraction (Heavy3-inspired evidence grounding)
         self.citation_extractor = None
-        ExtractorClass = _get_citation_extractor()
+        ExtractorClass = OptionalImports.get_citation_extractor()
         if ExtractorClass:
             self.citation_extractor = ExtractorClass()
 
@@ -417,7 +317,7 @@ class Arena:
             notify_spectator=self._notify_spectator,
             drain_user_events=self._drain_user_events,
             extract_debate_domain=self._extract_debate_domain,
-            get_belief_analyzer=_get_belief_analyzer,
+            get_belief_analyzer=OptionalImports.get_belief_analyzer,
             user_vote_multiplier=user_vote_multiplier,
         )
 
