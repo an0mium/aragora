@@ -178,6 +178,12 @@ from aragora.server.initialization import (
     InsightExtractor,
     # Initialization functions
     init_persistence,
+    init_insight_store,
+    init_elo_system,
+    init_flip_detector,
+    init_persona_manager,
+    init_position_ledger,
+    init_debate_embeddings,
     initialize_subsystems,
     SubsystemRegistry,
 )
@@ -1734,24 +1740,12 @@ class UnifiedServer:
         if nomic_dir:
             UnifiedHandler.nomic_state_file = nomic_dir / "nomic_state.json"
             # Initialize InsightStore from nomic directory
-            if INSIGHTS_AVAILABLE:
-                insights_path = nomic_dir / DB_INSIGHTS_PATH
-                if insights_path.exists():
-                    UnifiedHandler.insight_store = InsightStore(str(insights_path))
-                    logger.info("[server] InsightStore loaded for API access")
+            UnifiedHandler.insight_store = init_insight_store(nomic_dir)
             # Initialize EloSystem from nomic directory
-            if RANKING_AVAILABLE:
-                elo_path = nomic_dir / "agent_elo.db"
-                if elo_path.exists():
-                    UnifiedHandler.elo_system = EloSystem(str(elo_path))
-                    logger.info("[server] EloSystem loaded for leaderboard API")
+            UnifiedHandler.elo_system = init_elo_system(nomic_dir)
 
             # Initialize FlipDetector from nomic directory
-            if FLIP_DETECTOR_AVAILABLE:
-                positions_path = nomic_dir / "aragora_positions.db"
-                if positions_path.exists():
-                    UnifiedHandler.flip_detector = FlipDetector(str(positions_path))
-                    logger.info("[server] FlipDetector loaded for position reversal API")
+            UnifiedHandler.flip_detector = init_flip_detector(nomic_dir)
 
             # Initialize DocumentStore for file uploads
             doc_dir = nomic_dir / "documents"
@@ -1783,28 +1777,13 @@ class UnifiedServer:
             logger.info(f"[server] VideoGenerator initialized at {video_dir}")
 
             # Initialize PersonaManager for agent specialization
-            if PERSONAS_AVAILABLE:
-                personas_path = nomic_dir / DB_PERSONAS_PATH
-                UnifiedHandler.persona_manager = PersonaManager(str(personas_path))
-                logger.info("[server] PersonaManager loaded for agent specialization")
+            UnifiedHandler.persona_manager = init_persona_manager(nomic_dir)
 
             # Initialize PositionLedger for truth-grounded personas
-            if POSITION_LEDGER_AVAILABLE:
-                ledger_path = nomic_dir / "position_ledger.db"
-                try:
-                    UnifiedHandler.position_ledger = PositionLedger(db_path=str(ledger_path))
-                    logger.info("[server] PositionLedger loaded for truth-grounded personas")
-                except Exception as e:
-                    logger.warning(f"[server] PositionLedger initialization failed: {e}")
+            UnifiedHandler.position_ledger = init_position_ledger(nomic_dir)
 
             # Initialize DebateEmbeddingsDatabase for historical memory
-            if EMBEDDINGS_AVAILABLE:
-                embeddings_path = nomic_dir / "debate_embeddings.db"
-                try:
-                    UnifiedHandler.debate_embeddings = DebateEmbeddingsDatabase(str(embeddings_path))
-                    logger.info("[server] DebateEmbeddings loaded for historical memory")
-                except Exception as e:
-                    logger.warning(f"[server] DebateEmbeddings initialization failed: {e}")
+            UnifiedHandler.debate_embeddings = init_debate_embeddings(nomic_dir)
 
             # Initialize ConsensusMemory and DissentRetriever for historical minority views
             if CONSENSUS_MEMORY_AVAILABLE and DissentRetriever is not None:
