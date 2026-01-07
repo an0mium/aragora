@@ -29,6 +29,23 @@ class AuthSettings(BaseSettings):
 
     token_ttl: int = Field(default=3600, ge=60, le=86400, alias="ARAGORA_TOKEN_TTL")
     shareable_link_ttl: int = Field(default=3600, ge=60, le=604800, alias="ARAGORA_SHAREABLE_LINK_TTL")
+    # Rate limit tracking limits (prevent memory exhaustion)
+    max_tracked_entries: int = Field(
+        default=10000, ge=100, le=1000000,
+        description="Max entries in rate limit tracking to prevent memory exhaustion"
+    )
+    max_revoked_tokens: int = Field(
+        default=10000, ge=100, le=1000000,
+        description="Max revoked tokens to store"
+    )
+    revoked_token_ttl: int = Field(
+        default=86400, ge=3600, le=604800,
+        description="How long to keep revoked tokens (seconds)"
+    )
+    rate_limit_window: int = Field(
+        default=60, ge=10, le=3600,
+        description="Rate limit window in seconds"
+    )
 
 
 class RateLimitSettings(BaseSettings):
@@ -85,6 +102,38 @@ class AgentSettings(BaseSettings):
     streaming_agents: str = Field(
         default="grok,anthropic-api,openai-api",
         alias="ARAGORA_STREAMING_AGENTS"
+    )
+
+    # Streaming configuration
+    stream_buffer_size: int = Field(
+        default=10 * 1024 * 1024,  # 10MB
+        ge=1024,
+        le=100 * 1024 * 1024,  # 100MB max
+        alias="ARAGORA_STREAM_BUFFER_SIZE",
+        description="Maximum buffer size for streaming responses (bytes)"
+    )
+    stream_chunk_timeout: float = Field(
+        default=30.0,
+        ge=5.0,
+        le=300.0,
+        alias="ARAGORA_STREAM_CHUNK_TIMEOUT",
+        description="Timeout between stream chunks (seconds)"
+    )
+
+    # Context limits (for truncation)
+    max_context_chars: int = Field(
+        default=100000,
+        ge=1000,
+        le=1000000,
+        alias="ARAGORA_MAX_CONTEXT_CHARS",
+        description="Maximum characters for context/history"
+    )
+    max_message_chars: int = Field(
+        default=50000,
+        ge=1000,
+        le=500000,
+        alias="ARAGORA_MAX_MESSAGE_CHARS",
+        description="Maximum characters per message"
     )
 
     @property

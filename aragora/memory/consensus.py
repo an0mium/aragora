@@ -25,7 +25,7 @@ import sqlite3
 import uuid
 
 from aragora.config import DB_CONSENSUS_PATH, DB_TIMEOUT_SECONDS
-from aragora.storage.schema import SchemaManager
+from aragora.storage.schema import SchemaManager, get_wal_connection
 from aragora.utils.json_helpers import safe_json_loads
 
 logger = logging.getLogger(__name__)
@@ -216,7 +216,7 @@ class ConsensusMemory:
 
     def _init_db(self):
         """Initialize database schema using SchemaManager."""
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             # Use SchemaManager for version tracking and migrations
             manager = SchemaManager(
                 conn, "consensus_memory", current_version=CONSENSUS_SCHEMA_VERSION
@@ -314,7 +314,7 @@ class ConsensusMemory:
             metadata=metadata or {},
         )
 
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -342,7 +342,7 @@ class ConsensusMemory:
             from aragora.server.handlers.base import invalidate_cache
             invalidate_cache("consensus")
         except ImportError:
-            pass  # Handlers may not be available in all contexts
+            logger.debug("Cache invalidation skipped: handlers module not available")
 
         return record
 
@@ -373,7 +373,7 @@ class ConsensusMemory:
             metadata=metadata or {},
         )
 
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -415,13 +415,13 @@ class ConsensusMemory:
             from aragora.server.handlers.base import invalidate_cache
             invalidate_cache("consensus")
         except ImportError:
-            pass  # Handlers may not be available in all contexts
+            logger.debug("Cache invalidation skipped: handlers module not available")
 
         return record
 
     def get_consensus(self, consensus_id: str) -> Optional[ConsensusRecord]:
         """Get a consensus record by ID."""
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data FROM consensus WHERE id = ?", (consensus_id,))
             row = cursor.fetchone()
@@ -434,7 +434,7 @@ class ConsensusMemory:
 
     def get_dissents(self, debate_id: str) -> list[DissentRecord]:
         """Get all dissenting views for a debate."""
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT data FROM dissent WHERE debate_id = ?",
@@ -477,7 +477,7 @@ class ConsensusMemory:
         query += " ORDER BY timestamp DESC LIMIT ?"
         params.append(limit * 3)  # Get more for filtering
 
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
             cursor.execute(query, params)
             rows = cursor.fetchall()
@@ -551,7 +551,7 @@ class ConsensusMemory:
         result: dict[str, list[DissentRecord]] = {cid: [] for cid in consensus_ids}
 
         try:
-            with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+            with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, consensus_ids)
                 for row in cursor.fetchall():
@@ -594,7 +594,7 @@ class ConsensusMemory:
     ) -> list[ConsensusRecord]:
         """Get consensus history for a domain."""
 
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -632,7 +632,7 @@ class ConsensusMemory:
         )
 
         # Update old record
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -656,7 +656,7 @@ class ConsensusMemory:
     def get_statistics(self) -> dict[str, Any]:
         """Get statistics about stored consensus."""
 
-        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
 
             stats = {}

@@ -6,6 +6,7 @@ failure handling in API calls and agent interactions.
 """
 
 import logging
+import threading
 import time
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
@@ -14,8 +15,9 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-# Global circuit breaker registry for shared state across components
+# Global circuit breaker registry for shared state across components (thread-safe)
 _circuit_breakers: dict[str, "CircuitBreaker"] = {}
+_circuit_breakers_lock = threading.Lock()
 
 
 def get_circuit_breaker(
@@ -24,7 +26,7 @@ def get_circuit_breaker(
     cooldown_seconds: float = 60.0,
 ) -> "CircuitBreaker":
     """
-    Get or create a named circuit breaker from the global registry.
+    Get or create a named circuit breaker from the global registry (thread-safe).
 
     This ensures consistent circuit breaker state across components
     for the same service/agent.
@@ -37,31 +39,35 @@ def get_circuit_breaker(
     Returns:
         CircuitBreaker instance (shared if already exists)
     """
-    if name not in _circuit_breakers:
-        _circuit_breakers[name] = CircuitBreaker(
-            failure_threshold=failure_threshold,
-            cooldown_seconds=cooldown_seconds,
-        )
-        logger.debug(f"Created circuit breaker: {name}")
-    return _circuit_breakers[name]
+    with _circuit_breakers_lock:
+        if name not in _circuit_breakers:
+            _circuit_breakers[name] = CircuitBreaker(
+                failure_threshold=failure_threshold,
+                cooldown_seconds=cooldown_seconds,
+            )
+            logger.debug(f"Created circuit breaker: {name}")
+        return _circuit_breakers[name]
 
 
 def reset_all_circuit_breakers() -> None:
-    """Reset all global circuit breakers. Useful for testing."""
-    for cb in _circuit_breakers.values():
-        cb.reset()
-    logger.info(f"Reset {len(_circuit_breakers)} circuit breakers")
+    """Reset all global circuit breakers (thread-safe). Useful for testing."""
+    with _circuit_breakers_lock:
+        for cb in _circuit_breakers.values():
+            cb.reset()
+        count = len(_circuit_breakers)
+    logger.info(f"Reset {count} circuit breakers")
 
 
 def get_circuit_breaker_status() -> dict[str, dict]:
-    """Get status of all registered circuit breakers."""
-    return {
-        name: {
-            "status": cb.get_status(),
-            "failures": cb.failures,
+    """Get status of all registered circuit breakers (thread-safe)."""
+    with _circuit_breakers_lock:
+        return {
+            name: {
+                "status": cb.get_status(),
+                "failures": cb.failures,
+            }
+            for name, cb in _circuit_breakers.items()
         }
-        for name, cb in _circuit_breakers.items()
-    }
 
 
 class CircuitOpenError(Exception):
@@ -267,6 +273,10 @@ class CircuitBreaker:
         # Check if cooldown has passed (half-open state)
         elapsed = time.time() - self._circuit_open_at[entity]
         if elapsed >= self.cooldown_seconds:
+            logger.debug(
+                f"Circuit breaker HALF-OPEN for {entity} "
+                f"(cooldown {self.cooldown_seconds}s elapsed)"
+            )
             return True
 
         return False

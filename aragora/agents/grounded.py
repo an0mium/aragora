@@ -96,6 +96,24 @@ class Position:
             domain=domain,
         )
 
+    @classmethod
+    def from_row(cls, row: "sqlite3.Row") -> "Position":
+        """Hydrate Position from a database row."""
+        return cls(
+            id=row["id"],
+            agent_name=row["agent_name"],
+            claim=row["claim"],
+            confidence=row["confidence"],
+            debate_id=row["debate_id"],
+            round_num=row["round_num"],
+            outcome=row["outcome"],
+            reversed=bool(row["reversed"]),
+            reversal_debate_id=row["reversal_debate_id"],
+            domain=row["domain"],
+            created_at=row["created_at"],
+            resolved_at=row["resolved_at"],
+        )
+
 
 @dataclass
 class CalibrationBucket:
@@ -409,23 +427,7 @@ class PositionLedger:
             cursor = conn.execute(query, params)
             rows = cursor.fetchall()
 
-        return [
-            Position(
-                id=row["id"],
-                agent_name=row["agent_name"],
-                claim=row["claim"],
-                confidence=row["confidence"],
-                debate_id=row["debate_id"],
-                round_num=row["round_num"],
-                outcome=row["outcome"],
-                reversed=bool(row["reversed"]),
-                reversal_debate_id=row["reversal_debate_id"],
-                domain=row["domain"],
-                created_at=row["created_at"],
-                resolved_at=row["resolved_at"],
-            )
-            for row in rows
-        ]
+        return [Position.from_row(row) for row in rows]
 
     def get_position_stats(self, agent_name: str) -> dict:
         """Get aggregate position statistics."""
@@ -491,23 +493,7 @@ class PositionLedger:
             )
             rows = cursor.fetchall()
 
-        return [
-            Position(
-                id=row["id"],
-                agent_name=row["agent_name"],
-                claim=row["claim"],
-                confidence=row["confidence"],
-                debate_id=row["debate_id"],
-                round_num=row["round_num"],
-                outcome=row["outcome"],
-                reversed=bool(row["reversed"]),
-                reversal_debate_id=row["reversal_debate_id"],
-                domain=row["domain"],
-                created_at=row["created_at"],
-                resolved_at=row["resolved_at"],
-            )
-            for row in rows
-        ]
+        return [Position.from_row(row) for row in rows]
 
     def detect_domain(self, content: str) -> Optional[str]:
         """Detect expertise domain from content using keywords."""
@@ -667,7 +653,14 @@ class RelationshipTracker:
             for critique in critiques:
                 critic = critique.get("agent") or critique.get("critic")
                 target = critique.get("target") or critique.get("target_agent")
-                if not critic or not target or critic == target:
+                if not critic:
+                    logger.debug(f"Dropping critique: missing critic field (keys: {list(critique.keys())})")
+                    continue
+                if not target:
+                    logger.debug(f"Dropping critique from {critic}: missing target field")
+                    continue
+                if critic == target:
+                    logger.debug(f"Dropping self-critique from {critic}")
                     continue
 
                 canonical_a, canonical_b = self._canonical_pair(critic, target)

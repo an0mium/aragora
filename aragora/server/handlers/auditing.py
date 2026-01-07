@@ -41,6 +41,253 @@ from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.debate.sanitization import OutputSanitizer
 
 
+# =============================================================================
+# Audit Request Utilities
+# =============================================================================
+
+
+class AuditRequestParser:
+    """Parse and validate audit request JSON bodies."""
+
+    @staticmethod
+    def parse_capability_probe(handler, read_json_fn) -> tuple[Optional[dict], Optional[HandlerResult]]:
+        """Parse capability probe request.
+
+        Returns:
+            Tuple of (parsed_data, error_response). If error_response is not None,
+            return it immediately. Otherwise use parsed_data.
+        """
+        data = read_json_fn(handler)
+        if data is None:
+            return None, error_response("Invalid JSON body", 400)
+
+        agent_name = data.get('agent_name', '').strip()
+        if not agent_name:
+            return None, error_response("Missing required field: agent_name", 400)
+
+        is_valid, err = validate_agent_name(agent_name)
+        if not is_valid:
+            return None, error_response(err, 400)
+
+        try:
+            probes_per_type = min(int(data.get('probes_per_type', 3)), 10)
+        except (ValueError, TypeError):
+            return None, error_response("probes_per_type must be an integer", 400)
+
+        return {
+            'agent_name': agent_name,
+            'probe_types': data.get('probe_types', [
+                'contradiction', 'hallucination', 'sycophancy', 'persistence'
+            ]),
+            'probes_per_type': probes_per_type,
+            'model_type': data.get('model_type', 'anthropic-api'),
+        }, None
+
+    @staticmethod
+    def parse_deep_audit(handler, read_json_fn) -> tuple[Optional[dict], Optional[HandlerResult]]:
+        """Parse deep audit request.
+
+        Returns:
+            Tuple of (parsed_data, error_response).
+        """
+        data = read_json_fn(handler)
+        if data is None:
+            return None, error_response("Invalid JSON body", 400)
+
+        task = data.get('task', '').strip()
+        if not task:
+            return None, error_response("Missing required field: task", 400)
+
+        config_data = data.get('config', {})
+        try:
+            rounds = min(int(config_data.get('rounds', 6)), 10)
+            cross_examination_depth = min(int(config_data.get('cross_examination_depth', 3)), 10)
+            risk_threshold = float(config_data.get('risk_threshold', 0.7))
+        except (ValueError, TypeError) as e:
+            return None, error_response(f"Invalid config parameter: {e}", 400)
+
+        return {
+            'task': task,
+            'context': data.get('context', ''),
+            'agent_names': data.get('agent_names', []),
+            'model_type': data.get('model_type', 'anthropic-api'),
+            'audit_type': config_data.get('audit_type', ''),
+            'rounds': rounds,
+            'cross_examination_depth': cross_examination_depth,
+            'risk_threshold': risk_threshold,
+            'enable_research': config_data.get('enable_research', True),
+        }, None
+
+
+class AuditAgentFactory:
+    """Create and validate agents for auditing."""
+
+    @staticmethod
+    def create_single_agent(model_type: str, agent_name: str, role: str = "proposer"):
+        """Create a single agent with validation.
+
+        Returns:
+            Tuple of (agent, error_response). If error_response is set, return it.
+        """
+        if not DEBATE_AVAILABLE or create_agent is None:
+            return None, error_response("Agent system not available", 503)
+
+        try:
+            agent = create_agent(model_type, name=agent_name, role=role)
+            return agent, None
+        except Exception as e:
+            return None, error_response(f"Failed to create agent: {str(e)}", 400)
+
+    @staticmethod
+    def create_multiple_agents(
+        model_type: str,
+        agent_names: list[str],
+        default_names: list[str],
+        max_agents: int = 5
+    ) -> tuple[list, Optional[HandlerResult]]:
+        """Create multiple agents for auditing.
+
+        Returns:
+            Tuple of (agents_list, error_response).
+        """
+        if not DEBATE_AVAILABLE or create_agent is None:
+            return [], error_response("Agent system not available", 503)
+
+        if not agent_names:
+            agent_names = default_names
+
+        agents = []
+        for name in agent_names[:max_agents]:
+            is_valid, _ = validate_id(name, "agent name")
+            if not is_valid:
+                continue
+            try:
+                agent = create_agent(model_type, name=name, role="proposer")
+                agents.append(agent)
+            except Exception as e:
+                logger.debug(f"Failed to create audit agent {name}: {e}")
+
+        if len(agents) < 2:
+            return [], error_response("Need at least 2 agents for deep audit", 400)
+
+        return agents, None
+
+
+class AuditResultRecorder:
+    """Record audit results to ELO system and storage."""
+
+    @staticmethod
+    def record_probe_elo(
+        elo_system,
+        agent_name: str,
+        report,
+        report_id: str
+    ) -> None:
+        """Record capability probe results to ELO system."""
+        if not elo_system or report.probes_run <= 0:
+            return
+
+        robustness_score = 1.0 - report.vulnerability_rate
+        try:
+            elo_system.record_redteam_result(
+                agent_name=agent_name,
+                robustness_score=robustness_score,
+                successful_attacks=report.vulnerabilities_found,
+                total_attacks=report.probes_run,
+                critical_vulnerabilities=report.critical_count,
+                session_id=report_id
+            )
+        except Exception as e:
+            logger.warning(f"Failed to record ELO result for capability probe: {e}")
+
+    @staticmethod
+    def calculate_audit_elo_adjustments(verdict, elo_system) -> dict:
+        """Calculate ELO adjustments from audit findings."""
+        if not elo_system:
+            return {}
+
+        elo_adjustments = {}
+        for finding in verdict.findings:
+            for agent_name in finding.agents_agree:
+                elo_adjustments[agent_name] = elo_adjustments.get(agent_name, 0) + 2
+            for agent_name in finding.agents_disagree:
+                elo_adjustments[agent_name] = elo_adjustments.get(agent_name, 0) - 1
+
+        return elo_adjustments
+
+    @staticmethod
+    def save_probe_report(nomic_dir, agent_name: str, report) -> None:
+        """Save capability probe report to storage."""
+        if not nomic_dir:
+            return
+
+        try:
+            probes_dir = nomic_dir / "probes" / agent_name
+            probes_dir.mkdir(parents=True, exist_ok=True)
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            probe_file = probes_dir / f"{date_str}_{report.report_id}.json"
+            probe_file.write_text(json.dumps(report.to_dict(), indent=2, default=str))
+        except Exception as e:
+            logger.error(f"Failed to save probe report to {nomic_dir}: {e}")
+
+    @staticmethod
+    def save_audit_report(
+        nomic_dir,
+        audit_id: str,
+        task: str,
+        context: str,
+        agents: list,
+        verdict,
+        config,
+        duration_ms: float,
+        elo_adjustments: dict
+    ) -> None:
+        """Save deep audit report to storage."""
+        if not nomic_dir:
+            return
+
+        try:
+            audits_dir = nomic_dir / "audits"
+            audits_dir.mkdir(parents=True, exist_ok=True)
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            audit_file = audits_dir / f"{date_str}_{audit_id}.json"
+            audit_file.write_text(json.dumps({
+                "audit_id": audit_id,
+                "task": task,
+                "context": context[:1000],
+                "agents": [a.name for a in agents],
+                "recommendation": verdict.recommendation,
+                "confidence": verdict.confidence,
+                "unanimous_issues": verdict.unanimous_issues,
+                "split_opinions": verdict.split_opinions,
+                "risk_areas": verdict.risk_areas,
+                "findings": [
+                    {
+                        "category": f.category,
+                        "summary": f.summary,
+                        "details": f.details,
+                        "agents_agree": f.agents_agree,
+                        "agents_disagree": f.agents_disagree,
+                        "confidence": f.confidence,
+                        "severity": f.severity,
+                        "citations": f.citations,
+                    }
+                    for f in verdict.findings
+                ],
+                "config": {
+                    "rounds": config.rounds,
+                    "enable_research": config.enable_research,
+                    "cross_examination_depth": config.cross_examination_depth,
+                    "risk_threshold": config.risk_threshold,
+                },
+                "duration_ms": duration_ms,
+                "elo_adjustments": elo_adjustments,
+                "created_at": datetime.now().isoformat(),
+            }, indent=2, default=str))
+        except Exception as e:
+            logger.error(f"Failed to save deep audit report to {nomic_dir}: {e}")
+
+
 class AuditingHandler(BaseHandler):
     """Handler for security auditing and capability probing endpoints."""
 
@@ -93,61 +340,37 @@ class AuditingHandler(BaseHandler):
         if not PROBER_AVAILABLE:
             return error_response("Capability prober not available", 503)
 
-        if not DEBATE_AVAILABLE or create_agent is None:
-            return error_response("Agent system not available", 503)
-
         try:
-            # Read request body from handler
-            data = self._read_json_body(handler)
-            if data is None:
-                return error_response("Invalid JSON body", 400)
+            # Parse and validate request
+            parsed, err = AuditRequestParser.parse_capability_probe(handler, self._read_json_body)
+            if err:
+                return err
 
-            agent_name = data.get('agent_name', '').strip()
-            if not agent_name:
-                return error_response("Missing required field: agent_name", 400)
-
-            is_valid, err = validate_agent_name(agent_name)
-            if not is_valid:
-                return error_response(err, 400)
-
-            probe_type_strs = data.get('probe_types', [
-                'contradiction', 'hallucination', 'sycophancy', 'persistence'
-            ])
-            try:
-                probes_per_type = min(int(data.get('probes_per_type', 3)), 10)
-            except (ValueError, TypeError):
-                return error_response("probes_per_type must be an integer", 400)
-            model_type = data.get('model_type', 'anthropic-api')
+            agent_name = parsed['agent_name']
+            model_type = parsed['model_type']
 
             from aragora.modes.prober import ProbeType, CapabilityProber
 
             # Convert string probe types to enum
             probe_types = []
-            for pt_str in probe_type_strs:
+            for pt_str in parsed['probe_types']:
                 try:
                     probe_types.append(ProbeType(pt_str))
                 except ValueError:
                     pass
-
             if not probe_types:
                 return error_response("No valid probe types specified", 400)
 
-            # Create agent for probing
-            try:
-                agent = create_agent(model_type, name=agent_name, role="proposer")
-            except Exception as e:
-                return error_response(f"Failed to create agent: {str(e)}", 400)
+            # Create agent
+            agent, err = AuditAgentFactory.create_single_agent(model_type, agent_name)
+            if err:
+                return err
 
-            # Create prober
+            # Create prober and run
             elo_system = self.ctx.get("elo_system")
-            prober = CapabilityProber(
-                elo_system=elo_system,
-                elo_penalty_multiplier=5.0
-            )
-
+            prober = CapabilityProber(elo_system=elo_system, elo_penalty_multiplier=5.0)
             report_id = f"probe-report-{uuid.uuid4().hex[:8]}"
 
-            # Define run_agent_fn callback for prober
             async def run_agent_fn(target_agent, prompt: str) -> str:
                 try:
                     if asyncio.iscoroutinefunction(target_agent.generate):
@@ -158,68 +381,24 @@ class AuditingHandler(BaseHandler):
                 except Exception as e:
                     return f"[Agent Error: {str(e)}]"
 
-            # Run probes asynchronously
-            async def run_probes():
-                return await prober.probe_agent(
+            try:
+                report = asyncio.run(prober.probe_agent(
                     target_agent=agent,
                     run_agent_fn=run_agent_fn,
                     probe_types=probe_types,
-                    probes_per_type=probes_per_type,
-                )
-
-            # Execute in event loop
-            # Use asyncio.run() for proper event loop lifecycle management
-            try:
-                report = asyncio.run(run_probes())
+                    probes_per_type=parsed['probes_per_type'],
+                ))
             except Exception as e:
                 return error_response(f"Probe execution failed: {str(e)}", 500)
 
-            # Transform results
-            by_type_transformed = {}
-            for probe_type_key, results in report.by_type.items():
-                transformed_results = []
-                for r in results:
-                    result_dict = r.to_dict() if hasattr(r, 'to_dict') else r
-                    passed = not result_dict.get('vulnerability_found', False)
-                    transformed_results.append({
-                        "probe_id": result_dict.get('probe_id', ''),
-                        "type": result_dict.get('probe_type', probe_type_key),
-                        "passed": passed,
-                        "severity": str(result_dict.get('severity', '')).lower() if result_dict.get('severity') else None,
-                        "description": result_dict.get('vulnerability_description', ''),
-                        "details": result_dict.get('evidence', ''),
-                        "response_time_ms": result_dict.get('response_time_ms', 0),
-                    })
-                by_type_transformed[probe_type_key] = transformed_results
+            # Transform results for response
+            by_type_transformed = self._transform_probe_results(report.by_type)
 
-            # Record in ELO system
-            if elo_system and report.probes_run > 0:
-                robustness_score = 1.0 - report.vulnerability_rate
-                try:
-                    elo_system.record_redteam_result(
-                        agent_name=agent_name,
-                        robustness_score=robustness_score,
-                        successful_attacks=report.vulnerabilities_found,
-                        total_attacks=report.probes_run,
-                        critical_vulnerabilities=report.critical_count,
-                        session_id=report_id
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to record ELO result for capability probe: {e}")
+            # Record ELO and save report
+            AuditResultRecorder.record_probe_elo(elo_system, agent_name, report, report_id)
+            AuditResultRecorder.save_probe_report(self.ctx.get("nomic_dir"), agent_name, report)
 
-            # Save results
-            nomic_dir = self.ctx.get("nomic_dir")
-            if nomic_dir:
-                try:
-                    probes_dir = nomic_dir / "probes" / agent_name
-                    probes_dir.mkdir(parents=True, exist_ok=True)
-                    date_str = datetime.now().strftime("%Y-%m-%d")
-                    probe_file = probes_dir / f"{date_str}_{report.report_id}.json"
-                    probe_file.write_text(json.dumps(report.to_dict(), indent=2, default=str))
-                except Exception as e:
-                    logger.error(f"Failed to save probe report to {nomic_dir}: {e}")
-
-            # Calculate summary
+            # Build response
             passed_count = report.probes_run - report.vulnerabilities_found
             pass_rate = passed_count / report.probes_run if report.probes_run > 0 else 1.0
 
@@ -248,6 +427,26 @@ class AuditingHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "capability_probe"), 500)
 
+    def _transform_probe_results(self, by_type: dict) -> dict:
+        """Transform probe results for API response."""
+        by_type_transformed = {}
+        for probe_type_key, results in by_type.items():
+            transformed_results = []
+            for r in results:
+                result_dict = r.to_dict() if hasattr(r, 'to_dict') else r
+                passed = not result_dict.get('vulnerability_found', False)
+                transformed_results.append({
+                    "probe_id": result_dict.get('probe_id', ''),
+                    "type": result_dict.get('probe_type', probe_type_key),
+                    "passed": passed,
+                    "severity": str(result_dict.get('severity', '')).lower() if result_dict.get('severity') else None,
+                    "description": result_dict.get('vulnerability_description', ''),
+                    "details": result_dict.get('evidence', ''),
+                    "response_time_ms": result_dict.get('response_time_ms', 0),
+                })
+            by_type_transformed[probe_type_key] = transformed_results
+        return by_type_transformed
+
     def _run_deep_audit(self, handler) -> HandlerResult:
         """Run a deep audit (Heavy3-inspired intensive multi-round debate protocol).
 
@@ -269,136 +468,53 @@ class AuditingHandler(BaseHandler):
         except ImportError:
             return error_response("Deep audit module not available", 503)
 
-        if not DEBATE_AVAILABLE or create_agent is None:
-            return error_response("Agent system not available", 503)
-
         try:
-            data = self._read_json_body(handler)
-            if data is None:
-                return error_response("Invalid JSON body", 400)
+            # Parse and validate request
+            parsed, err = AuditRequestParser.parse_deep_audit(handler, self._read_json_body)
+            if err:
+                return err
 
-            task = data.get('task', '').strip()
-            if not task:
-                return error_response("Missing required field: task", 400)
+            task = parsed['task']
+            context = parsed['context']
 
-            context = data.get('context', '')
-            agent_names = data.get('agent_names', [])
-            model_type = data.get('model_type', 'anthropic-api')
-            config_data = data.get('config', {})
-
-            # Use pre-configured audit type if specified
-            audit_type = config_data.get('audit_type', '')
-            if audit_type == 'strategy':
-                config = STRATEGY_AUDIT
-            elif audit_type == 'contract':
-                config = CONTRACT_AUDIT
-            elif audit_type == 'code_architecture':
-                config = CODE_ARCHITECTURE_AUDIT
-            else:
-                try:
-                    rounds = min(int(config_data.get('rounds', 6)), 10)
-                    cross_examination_depth = min(int(config_data.get('cross_examination_depth', 3)), 10)
-                    risk_threshold = float(config_data.get('risk_threshold', 0.7))
-                except (ValueError, TypeError) as e:
-                    return error_response(f"Invalid config parameter: {e}", 400)
-
-                config = DeepAuditConfig(
-                    rounds=rounds,
-                    enable_research=config_data.get('enable_research', True),
-                    cross_examination_depth=cross_examination_depth,
-                    risk_threshold=risk_threshold,
-                )
+            # Select config based on audit type or use parsed values
+            config = self._get_audit_config(
+                parsed['audit_type'],
+                parsed,
+                DeepAuditConfig,
+                STRATEGY_AUDIT,
+                CONTRACT_AUDIT,
+                CODE_ARCHITECTURE_AUDIT,
+            )
 
             # Create agents
-            if not agent_names:
-                agent_names = ['Claude-Analyst', 'Claude-Skeptic', 'Claude-Synthesizer']
-
-            agents = []
-            for name in agent_names[:5]:
-                is_valid, _ = validate_id(name, "agent name")
-                if not is_valid:
-                    continue
-                try:
-                    agent = create_agent(model_type, name=name, role="proposer")
-                    agents.append(agent)
-                except Exception as e:
-                    logger.debug(f"Failed to create audit agent {name}: {e}")
-
-            if len(agents) < 2:
-                return error_response("Need at least 2 agents for deep audit", 400)
+            default_names = ['Claude-Analyst', 'Claude-Skeptic', 'Claude-Synthesizer']
+            agents, err = AuditAgentFactory.create_multiple_agents(
+                parsed['model_type'], parsed['agent_names'], default_names
+            )
+            if err:
+                return err
 
             audit_id = f"audit-{uuid.uuid4().hex[:8]}"
             start_time = time.time()
 
             # Run audit
-            orchestrator = DeepAuditOrchestrator(agents, config)
-
-            async def run_audit():
-                return await orchestrator.run(task, context)
-
-            # Use asyncio.run() for proper event loop lifecycle management
             try:
-                verdict = asyncio.run(run_audit())
+                verdict = asyncio.run(DeepAuditOrchestrator(agents, config).run(task, context))
             except Exception as e:
                 return error_response(f"Deep audit execution failed: {str(e)}", 500)
 
-            end_time = time.time()
-            duration_ms = (end_time - start_time) * 1000
+            duration_ms = (time.time() - start_time) * 1000
 
-            # Calculate ELO adjustments
-            elo_adjustments = {}
+            # Calculate ELO and save report
             elo_system = self.ctx.get("elo_system")
-            if elo_system:
-                for finding in verdict.findings:
-                    for agent_name in finding.agents_agree:
-                        elo_adjustments[agent_name] = elo_adjustments.get(agent_name, 0) + 2
-                    for agent_name in finding.agents_disagree:
-                        elo_adjustments[agent_name] = elo_adjustments.get(agent_name, 0) - 1
+            elo_adjustments = AuditResultRecorder.calculate_audit_elo_adjustments(verdict, elo_system)
+            AuditResultRecorder.save_audit_report(
+                self.ctx.get("nomic_dir"), audit_id, task, context,
+                agents, verdict, config, duration_ms, elo_adjustments
+            )
 
-            # Save results
-            nomic_dir = self.ctx.get("nomic_dir")
-            if nomic_dir:
-                try:
-                    audits_dir = nomic_dir / "audits"
-                    audits_dir.mkdir(parents=True, exist_ok=True)
-                    date_str = datetime.now().strftime("%Y-%m-%d")
-                    audit_file = audits_dir / f"{date_str}_{audit_id}.json"
-                    audit_file.write_text(json.dumps({
-                        "audit_id": audit_id,
-                        "task": task,
-                        "context": context[:1000],
-                        "agents": [a.name for a in agents],
-                        "recommendation": verdict.recommendation,
-                        "confidence": verdict.confidence,
-                        "unanimous_issues": verdict.unanimous_issues,
-                        "split_opinions": verdict.split_opinions,
-                        "risk_areas": verdict.risk_areas,
-                        "findings": [
-                            {
-                                "category": f.category,
-                                "summary": f.summary,
-                                "details": f.details,
-                                "agents_agree": f.agents_agree,
-                                "agents_disagree": f.agents_disagree,
-                                "confidence": f.confidence,
-                                "severity": f.severity,
-                                "citations": f.citations,
-                            }
-                            for f in verdict.findings
-                        ],
-                        "config": {
-                            "rounds": config.rounds,
-                            "enable_research": config.enable_research,
-                            "cross_examination_depth": config.cross_examination_depth,
-                            "risk_threshold": config.risk_threshold,
-                        },
-                        "duration_ms": duration_ms,
-                        "elo_adjustments": elo_adjustments,
-                        "created_at": datetime.now().isoformat(),
-                    }, indent=2, default=str))
-                except Exception as e:
-                    logger.error(f"Failed to save deep audit report to {nomic_dir}: {e}")
-
+            # Build response
             return json_response({
                 "audit_id": audit_id,
                 "task": task,
@@ -436,6 +552,25 @@ class AuditingHandler(BaseHandler):
 
         except Exception as e:
             return error_response(_safe_error_message(e, "deep_audit"), 500)
+
+    def _get_audit_config(
+        self, audit_type: str, parsed: dict, config_class,
+        strategy_preset, contract_preset, code_preset
+    ):
+        """Get audit config from preset or parsed values."""
+        if audit_type == 'strategy':
+            return strategy_preset
+        elif audit_type == 'contract':
+            return contract_preset
+        elif audit_type == 'code_architecture':
+            return code_preset
+        else:
+            return config_class(
+                rounds=parsed['rounds'],
+                enable_research=parsed['enable_research'],
+                cross_examination_depth=parsed['cross_examination_depth'],
+                risk_threshold=parsed['risk_threshold'],
+            )
 
     def _analyze_proposal_for_redteam(
         self, proposal: str, attack_types: list, debate_data: dict

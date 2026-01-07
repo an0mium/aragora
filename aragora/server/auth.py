@@ -13,7 +13,7 @@ import threading
 import time
 from typing import Optional, Dict, Any
 
-from aragora.config import TOKEN_TTL_SECONDS, DEFAULT_RATE_LIMIT, IP_RATE_LIMIT, SHAREABLE_LINK_TTL
+from aragora.config import TOKEN_TTL_SECONDS, DEFAULT_RATE_LIMIT, IP_RATE_LIMIT, SHAREABLE_LINK_TTL, get_settings
 from aragora.server.cors_config import cors_config
 
 
@@ -31,11 +31,15 @@ class AuthConfig:
         self._token_request_counts: Dict[str, list] = {}  # token -> timestamps
         self._ip_request_counts: Dict[str, list] = {}  # IP -> timestamps
         self._rate_limit_lock = threading.Lock()  # Thread-safe rate limiting
-        self._max_tracked_entries = 10000  # Prevent memory exhaustion from rotating tokens/IPs
+        # Get limits from config
+        auth_settings = get_settings().auth
+        self._max_tracked_entries = auth_settings.max_tracked_entries
+        self._rate_limit_window = auth_settings.rate_limit_window
+        self._revoked_token_ttl = auth_settings.revoked_token_ttl
         # Token revocation tracking
         self._revoked_tokens: Dict[str, float] = {}  # token_hash -> revocation_time
         self._revocation_lock = threading.Lock()
-        self._max_revoked_tokens = 10000  # Limit stored revocations
+        self._max_revoked_tokens = auth_settings.max_revoked_tokens
 
     def configure_from_env(self):
         """Configure from environment variables."""
@@ -217,8 +221,8 @@ class AuthConfig:
                 del self._ip_request_counts[key]
                 stats["ip_entries_removed"] += 1
 
-        # Clean old revoked tokens (keep for 24 hours max)
-        revoke_cutoff = time.time() - 86400  # 24 hours
+        # Clean old revoked tokens based on configured TTL
+        revoke_cutoff = time.time() - self._revoked_token_ttl
         with self._revocation_lock:
             keys_to_remove = [k for k, v in self._revoked_tokens.items() if v < revoke_cutoff]
             for key in keys_to_remove:
@@ -249,7 +253,7 @@ class AuthConfig:
             (allowed, remaining_requests) tuple
         """
         now = time.time()
-        window_start = now - 60  # 1 minute window
+        window_start = now - self._rate_limit_window
 
         with self._rate_limit_lock:
             # Periodic cleanup to prevent memory exhaustion
@@ -290,7 +294,7 @@ class AuthConfig:
             return True, self.ip_rate_limit_per_minute
 
         now = time.time()
-        window_start = now - 60  # 1 minute window
+        window_start = now - self._rate_limit_window
 
         with self._rate_limit_lock:
             # Periodic cleanup to prevent memory exhaustion

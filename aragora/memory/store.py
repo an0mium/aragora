@@ -16,6 +16,13 @@ from typing import Optional, Generator
 from aragora.core import Critique, DebateResult
 from aragora.utils.json_helpers import safe_json_loads
 from aragora.server.handlers.base import ttl_cache
+from aragora.config import (
+    CACHE_TTL_CRITIQUE_PATTERNS,
+    CACHE_TTL_CRITIQUE_STATS,
+    CACHE_TTL_AGENT_REPUTATION,
+    CACHE_TTL_ALL_REPUTATIONS,
+    CACHE_TTL_ARCHIVE_STATS,
+)
 
 
 # Import WAL connection helper and schema management from storage module
@@ -123,7 +130,7 @@ class CritiqueStore:
     3. Tracking which patterns lead to consensus
     """
 
-    def __init__(self, db_path: str = "agora_memory.db"):
+    def __init__(self, db_path: str = "agora_memory.db") -> None:
         self.db_path = Path(db_path)
         self._init_db()
 
@@ -309,23 +316,26 @@ class CritiqueStore:
                 ),
             )
 
-            # Store critiques
-            for critique in result.critiques:
-                cursor.execute(
+            # Store critiques (batch insert for O(1) instead of O(N))
+            if result.critiques:
+                cursor.executemany(
                     """
                     INSERT INTO critiques
                     (debate_id, agent, target_agent, issues, suggestions, severity, reasoning)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                    (
-                        result.id,
-                        critique.agent,
-                        critique.target_agent,
-                        json.dumps(critique.issues),
-                        json.dumps(critique.suggestions),
-                        critique.severity,
-                        critique.reasoning,
-                    ),
+                    """,
+                    [
+                        (
+                            result.id,
+                            critique.agent,
+                            critique.target_agent,
+                            json.dumps(critique.issues),
+                            json.dumps(critique.suggestions),
+                            critique.severity,
+                            critique.reasoning,
+                        )
+                        for critique in result.critiques
+                    ],
                 )
 
             conn.commit()
@@ -336,7 +346,7 @@ class CritiqueStore:
             invalidate_cache("memory")
             invalidate_cache("debates")
         except ImportError:
-            pass  # Handlers may not be available in all contexts
+            logger.debug("Cache invalidation skipped: handlers module not available")
 
     def store_pattern(self, critique: Critique, successful_fix: str) -> None:
         """Store a successful critique pattern."""
@@ -391,7 +401,7 @@ class CritiqueStore:
             from aragora.server.handlers.base import invalidate_cache
             invalidate_cache("memory")
         except ImportError:
-            pass  # Handlers may not be available in all contexts
+            logger.debug("Cache invalidation skipped: handlers module not available")
 
     def _categorize_issue(self, issue: str) -> str:
         """Simple issue categorization."""
@@ -597,7 +607,7 @@ class CritiqueStore:
             (surprise, issue_type, pattern_id),
         )
 
-    @ttl_cache(ttl_seconds=120, key_prefix="critique_patterns", skip_first=True)
+    @ttl_cache(ttl_seconds=CACHE_TTL_CRITIQUE_PATTERNS, key_prefix="critique_patterns", skip_first=True)
     def retrieve_patterns(
         self,
         issue_type: Optional[str] = None,
@@ -658,7 +668,7 @@ class CritiqueStore:
 
             return patterns
 
-    @ttl_cache(ttl_seconds=300, key_prefix="critique_stats", skip_first=True)
+    @ttl_cache(ttl_seconds=CACHE_TTL_CRITIQUE_STATS, key_prefix="critique_stats", skip_first=True)
     def get_stats(self) -> dict:
         """Get statistics about stored patterns and debates.
 
@@ -738,7 +748,7 @@ class CritiqueStore:
     # Agent Reputation Tracking
     # =========================================================================
 
-    @ttl_cache(ttl_seconds=120, key_prefix="agent_reputation", skip_first=True)
+    @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_REPUTATION, key_prefix="agent_reputation", skip_first=True)
     def get_reputation(self, agent_name: str) -> Optional[AgentReputation]:
         """Get reputation for an agent."""
         with self._get_connection() as conn:
@@ -902,7 +912,7 @@ class CritiqueStore:
 
             conn.commit()
 
-    @ttl_cache(ttl_seconds=300, key_prefix="all_reputations", skip_first=True)
+    @ttl_cache(ttl_seconds=CACHE_TTL_ALL_REPUTATIONS, key_prefix="all_reputations", skip_first=True)
     def get_all_reputations(self, limit: int = 500) -> list[AgentReputation]:
         """Get agent reputations, ordered by score.
 
@@ -1012,7 +1022,7 @@ class CritiqueStore:
             conn.commit()
             return pruned
 
-    @ttl_cache(ttl_seconds=600, key_prefix="archive_stats", skip_first=True)
+    @ttl_cache(ttl_seconds=CACHE_TTL_ARCHIVE_STATS, key_prefix="archive_stats", skip_first=True)
     def get_archive_stats(self) -> dict:
         """Get statistics about archived patterns."""
         with self._get_connection() as conn:

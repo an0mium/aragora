@@ -494,21 +494,75 @@ class DebateStreamServer:
                 for loop in self.active_loops.values()
             ]
 
-    async def handler(self, websocket) -> None:
-        """Handle a WebSocket connection with origin validation."""
-        # Validate origin for security (handle different websockets library versions)
+    def _extract_ws_origin(self, websocket) -> str:
+        """Extract Origin header from websocket (handles different library versions)."""
         try:
-            # Try newer websockets API first
             if hasattr(websocket, 'request') and hasattr(websocket.request, 'headers'):
-                origin = websocket.request.headers.get("Origin", "")
+                return websocket.request.headers.get("Origin", "")
             elif hasattr(websocket, 'request_headers'):
-                origin = websocket.request_headers.get("Origin", "")
-            else:
-                origin = ""
+                return websocket.request_headers.get("Origin", "")
+            return ""
         except Exception as e:
             logger.debug(f"Could not extract origin header: {e}")
-            origin = ""
+            return ""
 
+    def _validate_audience_payload(self, data: dict) -> tuple[Optional[dict], Optional[str]]:
+        """Validate audience message payload.
+
+        Returns:
+            Tuple of (validated_payload, error_message). If error, payload is None.
+        """
+        payload = data.get("payload", {})
+        if not isinstance(payload, dict):
+            return None, "Invalid payload format"
+
+        # Limit payload size to 10KB (DoS protection)
+        try:
+            payload_str = json.dumps(payload)
+            if len(payload_str) > 10240:
+                return None, "Payload too large (max 10KB)"
+        except (TypeError, ValueError):
+            return None, "Invalid payload structure"
+
+        return payload, None
+
+    def _process_audience_message(
+        self,
+        msg_type: str,
+        loop_id: str,
+        payload: dict,
+        client_id: str,
+    ) -> None:
+        """Process validated audience vote/suggestion message."""
+        audience_msg = AudienceMessage(
+            type="vote" if msg_type == "user_vote" else "suggestion",
+            loop_id=loop_id,
+            payload=payload,
+            user_id=client_id,
+        )
+        self.audience_inbox.put(audience_msg)
+
+        # Emit event for dashboard visibility
+        event_type = StreamEventType.USER_VOTE if msg_type == "user_vote" else StreamEventType.USER_SUGGESTION
+        self._emitter.emit(StreamEvent(
+            type=event_type,
+            data=audience_msg.payload,
+            loop_id=loop_id,
+        ))
+
+        # Emit updated audience metrics after each vote
+        if msg_type == "user_vote":
+            metrics = self.audience_inbox.get_summary(loop_id=loop_id)
+            self._emitter.emit(StreamEvent(
+                type=StreamEventType.AUDIENCE_METRICS,
+                data=metrics,
+                loop_id=loop_id,
+            ))
+
+    async def handler(self, websocket) -> None:
+        """Handle a WebSocket connection with origin validation."""
+        # Validate origin for security
+        origin = self._extract_ws_origin(websocket)
         if origin and origin not in WS_ALLOWED_ORIGINS:
             # Reject connection from unauthorized origin
             await websocket.close(4003, "Origin not allowed")
@@ -527,6 +581,10 @@ class DebateStreamServer:
         self._client_ids[ws_id] = client_id
 
         self.clients.add(websocket)
+        logger.info(
+            f"[ws] Client {client_id[:8]}... connected "
+            f"(authenticated={is_authenticated}, total_clients={len(self.clients)})"
+        )
         try:
             # Send connection info including auth status
             await websocket.send(json.dumps({
@@ -600,14 +658,10 @@ class DebateStreamServer:
                         if not is_authenticated and auth_config.enabled:
                             await websocket.send(json.dumps({
                                 "type": "error",
-                                "data": {
-                                    "message": "Authentication required for voting/suggestions",
-                                    "code": 401
-                                }
+                                "data": {"message": "Authentication required for voting/suggestions", "code": 401}
                             }))
                             continue
 
-                        # Handle audience participation using secure client ID
                         stored_client_id = self._client_ids.get(ws_id, secrets.token_urlsafe(16))
                         loop_id = data.get("loop_id", "")
 
@@ -619,46 +673,26 @@ class DebateStreamServer:
                             }))
                             continue
 
-                        # Validate payload structure and size (DoS protection)
-                        payload = data.get("payload", {})
-                        if not isinstance(payload, dict):
-                            await websocket.send(json.dumps({
-                                "type": "error",
-                                "data": {"message": "Invalid payload format"}
-                            }))
-                            continue
-                        # Limit payload size to 10KB
-                        payload_str = json.dumps(payload)
-                        if len(payload_str) > 10240:
-                            await websocket.send(json.dumps({
-                                "type": "error",
-                                "data": {"message": "Payload too large (max 10KB)"}
-                            }))
+                        # Validate payload
+                        payload, error = self._validate_audience_payload(data)
+                        if error:
+                            await websocket.send(json.dumps({"type": "error", "data": {"message": error}}))
                             continue
 
-                        # Get or create rate limiter for this client (thread-safe)
+                        # Rate limiting (thread-safe)
                         should_cleanup = False
                         with self._rate_limiters_lock:
                             if stored_client_id not in self._rate_limiters:
-                                self._rate_limiters[stored_client_id] = TokenBucket(
-                                    rate_per_minute=10.0,  # 10 messages per minute
-                                    burst_size=5  # Allow burst of 5
-                                )
-                            # Track access time for TTL-based cleanup
+                                self._rate_limiters[stored_client_id] = TokenBucket(rate_per_minute=10.0, burst_size=5)
                             self._rate_limiter_last_access[stored_client_id] = time.time()
-                            # Get reference to rate limiter while holding lock
                             rate_limiter = self._rate_limiters[stored_client_id]
-                            # Periodic cleanup counter (atomic under lock)
                             self._rate_limiter_cleanup_counter += 1
                             if self._rate_limiter_cleanup_counter >= self._CLEANUP_INTERVAL:
                                 self._rate_limiter_cleanup_counter = 0
                                 should_cleanup = True
-
-                        # Run cleanup outside lock to avoid holding it too long
                         if should_cleanup:
                             self._cleanup_stale_rate_limiters()
 
-                        # Check rate limit (TokenBucket.consume is thread-safe)
                         if not rate_limiter.consume(1):
                             await websocket.send(json.dumps({
                                 "type": "error",
@@ -666,33 +700,8 @@ class DebateStreamServer:
                             }))
                             continue
 
-                        # Create and queue the message
-                        audience_msg = AudienceMessage(
-                            type="vote" if msg_type == "user_vote" else "suggestion",
-                            loop_id=loop_id,
-                            payload=payload,
-                            user_id=stored_client_id,
-                        )
-                        self.audience_inbox.put(audience_msg)
-
-                        # Emit event for dashboard visibility
-                        event_type = StreamEventType.USER_VOTE if msg_type == "user_vote" else StreamEventType.USER_SUGGESTION
-                        self._emitter.emit(StreamEvent(
-                            type=event_type,
-                            data=audience_msg.payload,
-                            loop_id=loop_id,
-                        ))
-
-                        # Emit updated audience metrics after each vote (with loop_id filter)
-                        if msg_type == "user_vote":
-                            metrics = self.audience_inbox.get_summary(loop_id=loop_id)
-                            self._emitter.emit(StreamEvent(
-                                type=StreamEventType.AUDIENCE_METRICS,
-                                data=metrics,
-                                loop_id=loop_id,
-                            ))
-
-                        # Send acknowledgment
+                        # Process the message
+                        self._process_audience_message(msg_type, loop_id, payload, stored_client_id)
                         await websocket.send(json.dumps({
                             "type": "ack",
                             "data": {"message": "Message received", "msg_type": msg_type}
@@ -704,12 +713,16 @@ class DebateStreamServer:
             # Connection closed errors are normal during shutdown
             error_name = type(e).__name__
             if "ConnectionClosed" in error_name or "ConnectionClosedOK" in error_name:
-                logger.debug(f"[ws] Client {client_id[:8]}... disconnected normally")
+                pass  # Normal disconnect, logged in finally block
             else:
                 # Log unexpected errors for debugging (but don't expose to client)
                 logger.error(f"[ws] Unexpected error for client {client_id[:8]}...: {error_name}: {e}")
         finally:
             self.clients.discard(websocket)
+            logger.info(
+                f"[ws] Client {client_id[:8]}... disconnected "
+                f"(remaining_clients={len(self.clients)})"
+            )
             # Clean up secure client ID mapping and rate limiters
             stored_client_id = self._client_ids.pop(ws_id, None)
             if stored_client_id:
@@ -1940,6 +1953,182 @@ class AiohttpUnifiedServer:
                 headers=self._cors_headers(origin)
             )
 
+    def _parse_debate_request(self, data: dict) -> tuple[Optional[dict], Optional[str]]:
+        """Parse and validate debate request data.
+
+        Returns:
+            Tuple of (parsed_config, error_message). If error_message is set,
+            parsed_config will be None.
+        """
+        # Validate required fields with length limits
+        question = data.get('question', '').strip()
+        if not question:
+            return None, "question field is required"
+        if len(question) > 10000:
+            return None, "question must be under 10,000 characters"
+
+        # Parse optional fields with validation
+        agents_str = data.get('agents', 'anthropic-api,openai-api,gemini,grok')
+        try:
+            rounds = min(max(int(data.get('rounds', 3)), 1), 10)  # Clamp to 1-10
+        except (ValueError, TypeError):
+            rounds = 3
+        consensus = data.get('consensus', 'majority')
+
+        return {
+            "question": question,
+            "agents_str": agents_str,
+            "rounds": rounds,
+            "consensus": consensus,
+            "use_trending": data.get('use_trending', False),
+            "trending_category": data.get('trending_category', None),
+        }, None
+
+    async def _fetch_trending_topic_async(self, category: Optional[str] = None) -> Optional[Any]:
+        """Fetch a trending topic for the debate.
+
+        Returns:
+            A TrendingTopic object or None if unavailable.
+        """
+        try:
+            from aragora.pulse.ingestor import (
+                PulseManager,
+                TwitterIngestor,
+                HackerNewsIngestor,
+                RedditIngestor,
+            )
+
+            manager = PulseManager()
+            manager.add_ingestor("twitter", TwitterIngestor())
+            manager.add_ingestor("hackernews", HackerNewsIngestor())
+            manager.add_ingestor("reddit", RedditIngestor())
+
+            filters = {}
+            if category:
+                filters["categories"] = [category]
+
+            topics = await manager.get_trending_topics(
+                limit_per_platform=3, filters=filters if filters else None
+            )
+            topic = manager.select_topic_for_debate(topics)
+
+            if topic:
+                logger.info(f"Selected trending topic: {topic.topic}")
+            return topic
+        except Exception as e:
+            logger.warning(f"Trending topic fetch failed (non-fatal): {e}")
+            return None
+
+    def _execute_debate_thread(
+        self,
+        debate_id: str,
+        question: str,
+        agents_str: str,
+        rounds: int,
+        consensus: str,
+        trending_topic: Optional[Any],
+    ) -> None:
+        """Execute a debate in a background thread.
+
+        This method is run in a ThreadPoolExecutor to avoid blocking the event loop.
+        """
+        import asyncio as _asyncio
+
+        try:
+            # Parse agents with bounds check
+            agent_list = [s.strip() for s in agents_str.split(",") if s.strip()]
+            if len(agent_list) > MAX_AGENTS_PER_DEBATE:
+                with _active_debates_lock:
+                    _active_debates[debate_id]["status"] = "error"
+                    _active_debates[debate_id]["error"] = f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
+                    _active_debates[debate_id]["completed_at"] = time.time()
+                return
+            if len(agent_list) < 2:
+                with _active_debates_lock:
+                    _active_debates[debate_id]["status"] = "error"
+                    _active_debates[debate_id]["error"] = "At least 2 agents required for a debate"
+                    _active_debates[debate_id]["completed_at"] = time.time()
+                return
+
+            agent_specs = []
+            for spec in agent_list:
+                spec = spec.strip()
+                if ":" in spec:
+                    agent_type, role = spec.split(":", 1)
+                else:
+                    agent_type = spec
+                    role = None
+                # Validate agent type against allowlist
+                if agent_type.lower() not in ALLOWED_AGENT_TYPES:
+                    raise ValueError(f"Invalid agent type: {agent_type}. Allowed: {', '.join(sorted(ALLOWED_AGENT_TYPES))}")
+                agent_specs.append((agent_type, role))
+
+            # Create agents with streaming support
+            # All agents are proposers for full participation in all rounds
+            agents = []
+            for i, (agent_type, role) in enumerate(agent_specs):
+                if role is None:
+                    role = "proposer"  # All agents propose and participate fully
+                agent = create_agent(
+                    model_type=agent_type,
+                    name=f"{agent_type}_{role}",
+                    role=role,
+                )
+                # Wrap agent for token streaming if supported
+                agent = _wrap_agent_for_streaming(agent, self.emitter, debate_id)
+                agents.append(agent)
+
+            # Create environment and protocol
+            env = Environment(task=question, context="", max_rounds=rounds)
+            protocol = DebateProtocol(
+                rounds=rounds,
+                consensus=consensus,
+                proposer_count=len(agents),  # All agents propose initially
+                topology="all-to-all",  # Everyone critiques everyone
+            )
+
+            # Create arena with hooks and available context systems
+            hooks = create_arena_hooks(self.emitter)
+            arena = Arena(
+                env, agents, protocol,
+                event_hooks=hooks,
+                event_emitter=self.emitter,
+                loop_id=debate_id,
+                trending_topic=trending_topic,
+            )
+
+            # Run debate with timeout protection (10 minutes max)
+            with _active_debates_lock:
+                _active_debates[debate_id]["status"] = "running"
+
+            async def run_with_timeout():
+                return await _asyncio.wait_for(arena.run(), timeout=600)
+
+            result = _asyncio.run(run_with_timeout())
+            with _active_debates_lock:
+                _active_debates[debate_id]["status"] = "completed"
+                _active_debates[debate_id]["completed_at"] = time.time()
+                _active_debates[debate_id]["result"] = {
+                    "final_answer": result.final_answer,
+                    "consensus_reached": result.consensus_reached,
+                    "confidence": result.confidence,
+                }
+
+        except Exception as e:
+            import traceback
+            safe_msg = _safe_error_message(e, "debate_execution")
+            error_trace = traceback.format_exc()
+            with _active_debates_lock:
+                _active_debates[debate_id]["status"] = "error"
+                _active_debates[debate_id]["completed_at"] = time.time()
+                _active_debates[debate_id]["error"] = safe_msg
+            logger.error(f"[debate] Thread error in {debate_id}: {str(e)}\n{error_trace}")
+            # Emit error event to client
+            self.emitter.emit(StreamEvent(
+                type=StreamEventType.ERROR,
+                data={"error": safe_msg, "debate_id": debate_id},
+            ))
+
     async def _handle_start_debate(self, request) -> 'aiohttp.web.Response':
         """POST /api/debate - Start an ad-hoc debate with specified question.
 
@@ -1976,61 +2165,24 @@ class AiohttpUnifiedServer:
                 headers=self._cors_headers(origin)
             )
 
-        # Validate required fields with length limits
-        question = data.get('question', '').strip()
-        if not question:
+        # Parse and validate request
+        config, error = self._parse_debate_request(data)
+        if error:
             return web.json_response(
-                {"error": "question field is required"},
-                status=400,
-                headers=self._cors_headers(origin)
-            )
-        if len(question) > 10000:
-            return web.json_response(
-                {"error": "question must be under 10,000 characters"},
+                {"error": error},
                 status=400,
                 headers=self._cors_headers(origin)
             )
 
-        # Parse optional fields with validation
-        agents_str = data.get('agents', 'anthropic-api,openai-api,gemini,grok')
-        try:
-            rounds = min(max(int(data.get('rounds', 3)), 1), 10)  # Clamp to 1-10
-        except (ValueError, TypeError):
-            rounds = 3
-        consensus = data.get('consensus', 'majority')
+        question = config["question"]
+        agents_str = config["agents_str"]
+        rounds = config["rounds"]
+        consensus = config["consensus"]
 
-        # Parse optional trending topic parameters
+        # Fetch trending topic if requested
         trending_topic = None
-        use_trending = data.get('use_trending', False)
-        trending_category = data.get('trending_category', None)
-
-        if use_trending:
-            try:
-                from aragora.pulse.ingestor import (
-                    PulseManager,
-                    TwitterIngestor,
-                    HackerNewsIngestor,
-                    RedditIngestor,
-                )
-
-                manager = PulseManager()
-                manager.add_ingestor("twitter", TwitterIngestor())
-                manager.add_ingestor("hackernews", HackerNewsIngestor())
-                manager.add_ingestor("reddit", RedditIngestor())
-
-                filters = {}
-                if trending_category:
-                    filters["categories"] = [trending_category]
-
-                topics = await manager.get_trending_topics(
-                    limit_per_platform=3, filters=filters if filters else None
-                )
-                trending_topic = manager.select_topic_for_debate(topics)
-
-                if trending_topic:
-                    logger.info(f"Selected trending topic: {trending_topic.topic}")
-            except Exception as e:
-                logger.warning(f"Trending topic fetch failed (non-fatal): {e}")
+        if config["use_trending"]:
+            trending_topic = await self._fetch_trending_topic_async(config["trending_category"])
 
         # Generate debate ID
         debate_id = f"adhoc_{uuid.uuid4().hex[:8]}"
@@ -2060,116 +2212,22 @@ class AiohttpUnifiedServer:
         # Set loop_id on emitter so events are tagged
         self.emitter.set_loop_id(debate_id)
 
-        # Start debate in background thread
-        def run_debate():
-            import asyncio as _asyncio
-
-            try:
-                # Parse agents with bounds check
-                agent_list = [s.strip() for s in agents_str.split(",") if s.strip()]
-                if len(agent_list) > MAX_AGENTS_PER_DEBATE:
-                    with _active_debates_lock:
-                        _active_debates[debate_id]["status"] = "error"
-                        _active_debates[debate_id]["error"] = f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
-                        _active_debates[debate_id]["completed_at"] = time.time()
-                    return
-                if len(agent_list) < 2:
-                    with _active_debates_lock:
-                        _active_debates[debate_id]["status"] = "error"
-                        _active_debates[debate_id]["error"] = "At least 2 agents required for a debate"
-                        _active_debates[debate_id]["completed_at"] = time.time()
-                    return
-
-                agent_specs = []
-                for spec in agent_list:
-                    spec = spec.strip()
-                    if ":" in spec:
-                        agent_type, role = spec.split(":", 1)
-                    else:
-                        agent_type = spec
-                        role = None
-                    # Validate agent type against allowlist
-                    if agent_type.lower() not in ALLOWED_AGENT_TYPES:
-                        raise ValueError(f"Invalid agent type: {agent_type}. Allowed: {', '.join(sorted(ALLOWED_AGENT_TYPES))}")
-                    agent_specs.append((agent_type, role))
-
-                # Create agents with streaming support
-                # All agents are proposers for full participation in all rounds
-                agents = []
-                for i, (agent_type, role) in enumerate(agent_specs):
-                    if role is None:
-                        role = "proposer"  # All agents propose and participate fully
-                    agent = create_agent(
-                        model_type=agent_type,
-                        name=f"{agent_type}_{role}",
-                        role=role,
-                    )
-                    # Wrap agent for token streaming if supported
-                    agent = _wrap_agent_for_streaming(agent, self.emitter, debate_id)
-                    agents.append(agent)
-
-                # Create environment and protocol
-                env = Environment(task=question, context="", max_rounds=rounds)
-                protocol = DebateProtocol(
-                    rounds=rounds,
-                    consensus=consensus,
-                    proposer_count=len(agents),  # All agents propose initially
-                    topology="all-to-all",  # Everyone critiques everyone
-                )
-
-                # Create arena with hooks and available context systems
-                hooks = create_arena_hooks(self.emitter)
-                arena = Arena(
-                    env, agents, protocol,
-                    event_hooks=hooks,
-                    event_emitter=self.emitter,
-                    loop_id=debate_id,
-                    trending_topic=trending_topic,
-                )
-
-                # Run debate with timeout protection (10 minutes max)
-                with _active_debates_lock:
-                    _active_debates[debate_id]["status"] = "running"
-
-                async def run_with_timeout():
-                    return await _asyncio.wait_for(arena.run(), timeout=600)
-
-                result = _asyncio.run(run_with_timeout())
-                with _active_debates_lock:
-                    _active_debates[debate_id]["status"] = "completed"
-                    _active_debates[debate_id]["completed_at"] = time.time()
-                    _active_debates[debate_id]["result"] = {
-                        "final_answer": result.final_answer,
-                        "consensus_reached": result.consensus_reached,
-                        "confidence": result.confidence,
-                    }
-
-            except Exception as e:
-                import traceback
-                safe_msg = _safe_error_message(e, "debate_execution")
-                error_trace = traceback.format_exc()
-                with _active_debates_lock:
-                    _active_debates[debate_id]["status"] = "error"
-                    _active_debates[debate_id]["completed_at"] = time.time()
-                    _active_debates[debate_id]["error"] = safe_msg
-                logger.error(f"[debate] Thread error in {debate_id}: {str(e)}\n{error_trace}")
-                # Emit error event to client
-                self.emitter.emit(StreamEvent(
-                    type=StreamEventType.ERROR,
-                    data={"error": safe_msg, "debate_id": debate_id},
-                ))
-
         # Use thread pool to prevent unbounded thread creation
+        _debate_executor = get_debate_executor()
         with _debate_executor_lock:
             if _debate_executor is None:
                 _debate_executor = ThreadPoolExecutor(
                     max_workers=MAX_CONCURRENT_DEBATES,
                     thread_name_prefix="debate-"
                 )
+                set_debate_executor(_debate_executor)
             executor = _debate_executor
 
         try:
-            executor.submit(run_debate)
+            executor.submit(
+                self._execute_debate_thread,
+                debate_id, question, agents_str, rounds, consensus, trending_topic
+            )
         except RuntimeError:
             return web.json_response({
                 "success": False,
@@ -2186,6 +2244,59 @@ class AiohttpUnifiedServer:
             "status": "starting",
             "message": "Debate started. Connect to WebSocket to receive events.",
         }, headers=self._cors_headers(origin))
+
+    def _validate_audience_payload(self, data: dict) -> tuple[Optional[dict], Optional[str]]:
+        """Validate audience message payload.
+
+        Returns:
+            Tuple of (validated_payload, error_message). If error, payload is None.
+        """
+        payload = data.get("payload", {})
+        if not isinstance(payload, dict):
+            return None, "Invalid payload format"
+
+        # Limit payload size to 10KB (DoS protection)
+        try:
+            payload_str = json.dumps(payload)
+            if len(payload_str) > 10240:
+                return None, "Payload too large (max 10KB)"
+        except (TypeError, ValueError):
+            return None, "Invalid payload structure"
+
+        return payload, None
+
+    def _process_audience_message(
+        self,
+        msg_type: str,
+        loop_id: str,
+        payload: dict,
+        client_id: str,
+    ) -> None:
+        """Process validated audience vote/suggestion message."""
+        audience_msg = AudienceMessage(
+            type="vote" if msg_type == "user_vote" else "suggestion",
+            loop_id=loop_id,
+            payload=payload,
+            user_id=client_id,
+        )
+        self.audience_inbox.put(audience_msg)
+
+        # Emit event for dashboard visibility
+        event_type = StreamEventType.USER_VOTE if msg_type == "user_vote" else StreamEventType.USER_SUGGESTION
+        self._emitter.emit(StreamEvent(
+            type=event_type,
+            data=audience_msg.payload,
+            loop_id=loop_id,
+        ))
+
+        # Emit updated audience metrics after each vote
+        if msg_type == "user_vote":
+            metrics = self.audience_inbox.get_summary(loop_id=loop_id)
+            self._emitter.emit(StreamEvent(
+                type=StreamEventType.AUDIENCE_METRICS,
+                data=metrics,
+                loop_id=loop_id,
+            ))
 
     async def _websocket_handler(self, request) -> 'aiohttp.web.WebSocketResponse':
         """Handle WebSocket connections with security validation and optional auth."""
@@ -2253,7 +2364,10 @@ class AiohttpUnifiedServer:
             )
             self._rate_limiter_last_access[client_id] = time.time()
 
-        logger.info(f"[ws] Client connected: {client_id[:8]}...")
+        logger.info(
+            f"[ws] Client {client_id[:8]}... connected "
+            f"(total_clients={len(self.clients)})"
+        )
 
         # Send initial loop list
         with self._active_loops_lock:
@@ -2300,88 +2414,44 @@ class AiohttpUnifiedServer:
                             })
 
                         elif msg_type in ("user_vote", "user_suggestion"):
-                            # Handle audience participation with validation
                             # Proprioceptive Socket: Use ws-bound loop_id as fallback
                             loop_id = data.get("loop_id") or getattr(ws, '_bound_loop_id', "")
 
-                            # Optional per-message token validation for high-security operations
-                            # Allows revoking access mid-session
+                            # Optional per-message token validation
                             msg_token = data.get("token")
                             if msg_token:
                                 from aragora.server.auth import auth_config
                                 if not auth_config.validate_token(msg_token, loop_id):
-                                    await ws.send_json({
-                                        "type": "error",
-                                        "data": {
-                                            "code": "AUTH_FAILED",
-                                            "message": "Invalid or revoked token"
-                                        }
-                                    })
+                                    await ws.send_json({"type": "error", "data": {"code": "AUTH_FAILED", "message": "Invalid or revoked token"}})
                                     continue
 
                             # Validate loop_id exists and is active
                             with self._active_loops_lock:
                                 loop_valid = loop_id and loop_id in self.active_loops
-
                             if not loop_valid:
-                                await ws.send_json({
-                                    "type": "error",
-                                    "data": {"message": f"Invalid or inactive loop_id: {loop_id}"}
-                                })
+                                await ws.send_json({"type": "error", "data": {"message": f"Invalid or inactive loop_id: {loop_id}"}})
                                 continue
 
                             # Proprioceptive Socket: Bind loop_id to WebSocket for future reference
                             ws._bound_loop_id = loop_id
 
-                            # Validate payload structure and size (DoS protection)
-                            payload = data.get("payload", {})
-                            if not isinstance(payload, dict):
-                                await ws.send_json({
-                                    "type": "error",
-                                    "data": {"message": "Invalid payload format"}
-                                })
-                                continue
-
-                            # Limit payload size to 10KB
-                            try:
-                                payload_str = json.dumps(payload)
-                                if len(payload_str) > 10240:
-                                    await ws.send_json({
-                                        "type": "error",
-                                        "data": {"message": "Payload too large (max 10KB)"}
-                                    })
-                                    continue
-                            except (TypeError, ValueError):
-                                await ws.send_json({
-                                    "type": "error",
-                                    "data": {"message": "Invalid payload structure"}
-                                })
+                            # Validate payload
+                            payload, error = self._validate_audience_payload(data)
+                            if error:
+                                await ws.send_json({"type": "error", "data": {"message": error}})
                                 continue
 
                             # Check rate limit (thread-safe)
                             with self._rate_limiters_lock:
                                 self._rate_limiter_last_access[client_id] = time.time()
                                 rate_limiter = self._rate_limiters.get(client_id)
-
                             if rate_limiter is None or not rate_limiter.consume(1):
-                                await ws.send_json({
-                                    "type": "error",
-                                    "data": {"message": "Rate limit exceeded, try again later"}
-                                })
+                                await ws.send_json({"type": "error", "data": {"message": "Rate limit exceeded, try again later"}})
                                 continue
 
-                            audience_msg = AudienceMessage(
-                                type="vote" if msg_type == "user_vote" else "suggestion",
-                                loop_id=loop_id,
-                                payload=payload,
-                                user_id=client_id,
-                            )
-                            self.audience_inbox.put(audience_msg)
-
-                            await ws.send_json({
-                                "type": "ack",
-                                "data": {"message": "Message received", "msg_type": msg_type}
-                            })
+                            # Process the message
+                            self._process_audience_message(msg_type, loop_id, payload, client_id)
+                            await ws.send_json({"type": "ack", "data": {"message": "Message received", "msg_type": msg_type}})
 
                     except json.JSONDecodeError as e:
                         logger.warning(f"[ws] Invalid JSON: {e.msg} at pos {e.pos}")
@@ -2419,7 +2489,10 @@ class AiohttpUnifiedServer:
             with self._rate_limiters_lock:
                 self._rate_limiters.pop(client_id, None)
                 self._rate_limiter_last_access.pop(client_id, None)
-            logger.info(f"[ws] Client disconnected: {client_id[:8]}...")
+            logger.info(
+                f"[ws] Client {client_id[:8]}... disconnected "
+                f"(remaining_clients={len(self.clients)})"
+            )
 
         return ws
 

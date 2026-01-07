@@ -30,19 +30,85 @@ logger = logging.getLogger(__name__)
 
 
 # Parameter type converters
+
+# Maximum values for integer/float parameters to prevent overflow attacks
+_MAX_INT_VALUE = 2**31 - 1  # 32-bit signed int max
+_MIN_INT_VALUE = -(2**31)   # 32-bit signed int min
+_MAX_FLOAT_VALUE = 1e308    # Avoid float overflow
+
+
+class ParameterConversionError(ValueError):
+    """Raised when a route parameter cannot be converted to the expected type."""
+
+    def __init__(self, param_name: str, value: str, expected_type: str, reason: str = ""):
+        self.param_name = param_name
+        self.value = value
+        self.expected_type = expected_type
+        self.reason = reason
+        msg = f"Cannot convert parameter '{param_name}' value '{value}' to {expected_type}"
+        if reason:
+            msg += f": {reason}"
+        super().__init__(msg)
+
+
 def _convert_str(value: str) -> str:
-    """Identity converter for string parameters."""
+    """Identity converter for string parameters.
+
+    Args:
+        value: String value to return unchanged.
+
+    Returns:
+        The input string value.
+    """
     return value
 
 
 def _convert_int(value: str) -> int:
-    """Convert string to integer."""
-    return int(value)
+    """Convert string to integer with bounds checking.
+
+    Args:
+        value: String representation of an integer.
+
+    Returns:
+        Parsed integer value.
+
+    Raises:
+        ParameterConversionError: If value cannot be parsed or is out of bounds.
+    """
+    try:
+        result = int(value)
+        if result > _MAX_INT_VALUE or result < _MIN_INT_VALUE:
+            raise ParameterConversionError(
+                "unknown", value, "int",
+                f"value out of bounds ({_MIN_INT_VALUE} to {_MAX_INT_VALUE})"
+            )
+        return result
+    except ValueError as e:
+        raise ParameterConversionError("unknown", value, "int", str(e))
 
 
 def _convert_float(value: str) -> float:
-    """Convert string to float."""
-    return float(value)
+    """Convert string to float with bounds checking.
+
+    Args:
+        value: String representation of a float.
+
+    Returns:
+        Parsed float value.
+
+    Raises:
+        ParameterConversionError: If value cannot be parsed or is out of bounds.
+    """
+    try:
+        result = float(value)
+        if abs(result) > _MAX_FLOAT_VALUE:
+            raise ParameterConversionError(
+                "unknown", value, "float",
+                f"value out of bounds (magnitude <= {_MAX_FLOAT_VALUE})"
+            )
+        return result
+    except ValueError as e:
+        raise ParameterConversionError("unknown", value, "float", str(e))
 
 
 # Parameter validation patterns
@@ -84,15 +150,31 @@ class ParamSpec:
         return True, None
 
     def convert(self, value: str) -> Any:
-        """Convert string value to typed value."""
+        """Convert string value to typed value with proper error handling.
+
+        Args:
+            value: String value to convert.
+
+        Returns:
+            Converted value in the appropriate type.
+
+        Raises:
+            ParameterConversionError: If conversion fails or value is out of bounds.
+        """
         if not value and not self.required:
             return self.default
 
-        if self.param_type == int:
-            return _convert_int(value)
-        elif self.param_type == float:
-            return _convert_float(value)
-        return value
+        try:
+            if self.param_type == int:
+                return _convert_int(value)
+            elif self.param_type == float:
+                return _convert_float(value)
+            return value
+        except ParameterConversionError as e:
+            # Re-raise with proper parameter name
+            raise ParameterConversionError(
+                self.name, value, e.expected_type, e.reason
+            )
 
 
 @dataclass
