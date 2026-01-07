@@ -295,26 +295,39 @@ class TestGetConnection:
         with tracker._get_connection() as conn:
             assert isinstance(conn, sqlite3.Connection)
 
-    def test_closes_connection_on_exit(self, tracker, temp_db):
-        """Test that connection is closed after context exit."""
+    def test_commits_on_exit(self, tracker, temp_db):
+        """Test that changes are committed after context exit."""
         with tracker._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT 1")
-        # After exit, connection should be closed
-        # Trying to use it should raise
-        with pytest.raises(sqlite3.ProgrammingError):
-            conn.execute("SELECT 1")
+            cursor.execute("CREATE TABLE IF NOT EXISTS test_commit (id INTEGER)")
+            cursor.execute("INSERT INTO test_commit VALUES (1)")
+        # After exit, changes should be committed - verify with new connection
+        with tracker._get_connection() as conn2:
+            cursor = conn2.cursor()
+            cursor.execute("SELECT COUNT(*) FROM test_commit")
+            assert cursor.fetchone()[0] == 1
 
-    def test_closes_connection_on_exception(self, tracker):
-        """Test that connection is closed even on exception."""
+    def test_rolls_back_on_exception(self, tracker):
+        """Test that changes are rolled back on exception."""
+        # First create the table
+        with tracker._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("CREATE TABLE IF NOT EXISTS test_rollback (id INTEGER)")
+            cursor.execute("INSERT INTO test_rollback VALUES (1)")
+
+        # Now try to insert with exception - should rollback
         try:
             with tracker._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO test_rollback VALUES (2)")
                 raise ValueError("Test exception")
         except ValueError:
             pass
-        # Connection should still be closed
-        with pytest.raises(sqlite3.ProgrammingError):
-            conn.execute("SELECT 1")
+        # The second insert should be rolled back
+        with tracker._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM test_rollback")
+            assert cursor.fetchone()[0] == 1  # Only first insert
 
 
 # =============================================================================
