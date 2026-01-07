@@ -140,13 +140,20 @@ class RelationshipHandler(BaseHandler):
                         "avg_alliance_score": 0.0,
                     })
 
+                # Safety limit to prevent memory explosion - cap at 10,000 relationships
+                MAX_RELATIONSHIPS = 10000
                 cursor.execute("""
                     SELECT agent_a, agent_b, debate_count, agreement_count,
                            a_wins_over_b, b_wins_over_a
                     FROM agent_relationships
                     WHERE debate_count >= 3
-                """)
+                    ORDER BY debate_count DESC
+                    LIMIT ?
+                """, (MAX_RELATIONSHIPS,))
                 rows = cursor.fetchall()
+
+                if len(rows) == MAX_RELATIONSHIPS:
+                    logger.warning(f"Relationship summary hit limit of {MAX_RELATIONSHIPS} - results may be incomplete")
 
             if not rows:
                 return json_response({

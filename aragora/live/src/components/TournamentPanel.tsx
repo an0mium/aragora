@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { logger } from '@/utils/logger';
 
 interface TournamentSummary {
   tournament_id: string;
@@ -60,7 +61,7 @@ export function TournamentPanel({ apiBase = DEFAULT_API_BASE }: TournamentPanelP
         setStandings(data.standings || []);
       }
     } catch (err) {
-      console.error('Failed to fetch standings:', err);
+      logger.error('Failed to fetch standings:', err);
     }
   }, [apiBase]);
 

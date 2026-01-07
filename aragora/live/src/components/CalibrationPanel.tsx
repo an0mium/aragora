@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 
 interface CalibrationAgent {
   name: string;
@@ -59,7 +60,7 @@ export function CalibrationPanel({ apiBase }: CalibrationPanelProps) {
       const data = await response.json();
       setAgentDetail(data);
     } catch (err) {
-      console.error('Failed to fetch agent calibration:', err);
+      logger.error('Failed to fetch agent calibration:', err);
     }
   }, [apiBase]);
 

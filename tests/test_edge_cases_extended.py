@@ -317,11 +317,16 @@ class TestConsensusTopicValidation:
     def test_topic_exactly_500_chars_accepted(self):
         """Test topic at exactly 500 chars is accepted."""
         from aragora.server.handlers.consensus import ConsensusHandler
-        from unittest.mock import MagicMock
+        from unittest.mock import MagicMock, patch
 
         handler = ConsensusHandler(MagicMock())
         topic = "x" * 500
-        result = handler.handle("/api/consensus/similar", {"topic": topic}, MagicMock())
+        # Mock ConsensusMemory to avoid database access
+        with patch("aragora.server.handlers.consensus.ConsensusMemory") as MockMemory:
+            mock_instance = MagicMock()
+            mock_instance.find_similar_debates.return_value = []
+            MockMemory.return_value = mock_instance
+            result = handler.handle("/api/consensus/similar", {"topic": topic}, MagicMock())
         assert result.status_code == 200
 
     def test_topic_501_chars_rejected(self):
@@ -356,11 +361,16 @@ class TestConsensusTopicValidation:
     def test_topic_as_list_handled(self):
         """Test topic passed as list (URL query param edge case)."""
         from aragora.server.handlers.consensus import ConsensusHandler
-        from unittest.mock import MagicMock
+        from unittest.mock import MagicMock, patch
 
         handler = ConsensusHandler(MagicMock())
-        # URL params sometimes come as lists
-        result = handler.handle("/api/consensus/similar", {"topic": ["test topic"]}, MagicMock())
+        # Mock ConsensusMemory to avoid database access
+        with patch("aragora.server.handlers.consensus.ConsensusMemory") as MockMemory:
+            mock_instance = MagicMock()
+            mock_instance.find_similar_debates.return_value = []
+            MockMemory.return_value = mock_instance
+            # URL params sometimes come as lists
+            result = handler.handle("/api/consensus/similar", {"topic": ["test topic"]}, MagicMock())
         assert result.status_code == 200
 
 

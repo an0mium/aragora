@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { StreamEvent, NomicState, LoopInstance } from '@/types/events';
+import { logger } from '@/utils/logger';
 
 const DEFAULT_WS_URL = 'ws://localhost:8765';
 const MAX_EVENTS = 5000;
@@ -67,7 +68,7 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        logger.error('WebSocket error:', error);
       };
 
       ws.onmessage = (event) => {
@@ -167,11 +168,11 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
           // Update state based on event type
           updateStateFromEventRef.current(data);
         } catch (e) {
-          console.error('Failed to parse WebSocket message:', e);
+          logger.error('Failed to parse WebSocket message:', e);
         }
       };
     } catch (e) {
-      console.error('Failed to create WebSocket:', e);
+      logger.error('Failed to create WebSocket:', e);
 
       // Circuit breaker check
       if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
@@ -313,7 +314,7 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
       const forkData = await response.json();
       return forkData;
     } catch (error) {
-      console.error('Fork error:', error);
+      logger.error('Fork error:', error);
       throw error;
     }
   }, []);

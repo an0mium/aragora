@@ -19,8 +19,8 @@ from aragora.server.storage import (
     DebateMetadata,
     DebateStorage,
     _escape_like_pattern,
-    _get_connection,
 )
+from aragora.storage.schema import get_wal_connection
 
 
 # =============================================================================
@@ -218,7 +218,7 @@ class TestDatabaseInitialization:
 
     def test_connection_timeout_applied(self, temp_db):
         """Connection should have timeout configured."""
-        conn = _get_connection(temp_db, timeout=5.0)
+        conn = get_wal_connection(temp_db, timeout=5.0)
         try:
             # Check busy_timeout pragma was set (in milliseconds)
             cursor = conn.execute("PRAGMA busy_timeout")

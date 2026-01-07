@@ -29,7 +29,6 @@ def get_event_emitter_if_available(server_url: str = "http://localhost:8080"):
     """
     try:
         import urllib.request
-        import json
 
         # Quick health check
         req = urllib.request.Request(f"{server_url}/api/health", method="GET")
@@ -41,7 +40,8 @@ def get_event_emitter_if_available(server_url: str = "http://localhost:8080"):
                     return StreamEmitter(server_url=server_url)
                 except ImportError:
                     pass
-    except Exception:
+    except (urllib.error.URLError, OSError, TimeoutError):
+        # Server not available - network error, timeout, or connection refused
         pass
     return None
 

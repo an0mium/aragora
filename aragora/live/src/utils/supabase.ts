@@ -1,6 +1,7 @@
 'use client';
 
 import { createClient } from '@supabase/supabase-js';
+import { logger } from './logger';
 
 // Supabase configuration from environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -68,7 +69,7 @@ export async function fetchRecentLoops(limit = 20): Promise<string[]> {
     .limit(limit * 5); // Get more to ensure we have enough unique
 
   if (error) {
-    console.error('Error fetching loops:', error);
+    logger.error('Error fetching loops:', error);
     return [];
   }
 
@@ -96,7 +97,7 @@ export async function fetchCyclesForLoop(loopId: string): Promise<NomicCycle[]> 
     .order('started_at', { ascending: true });
 
   if (error) {
-    console.error('Error fetching cycles:', error);
+    logger.error('Error fetching cycles:', error);
     return [];
   }
 
@@ -118,7 +119,7 @@ export async function fetchEventsForLoop(
     .limit(limit);
 
   if (error) {
-    console.error('Error fetching events:', error);
+    logger.error('Error fetching events:', error);
     return [];
   }
 
@@ -136,7 +137,7 @@ export async function fetchDebatesForLoop(loopId: string): Promise<DebateArtifac
     .order('created_at', { ascending: true });
 
   if (error) {
-    console.error('Error fetching debates:', error);
+    logger.error('Error fetching debates:', error);
     return [];
   }
 
@@ -183,7 +184,7 @@ export async function fetchDebateById(debateId: string): Promise<DebateArtifact 
     .single();
 
   if (error) {
-    console.error('Error fetching debate:', error);
+    logger.error('Error fetching debate:', error);
     return null;
   }
 
@@ -201,7 +202,7 @@ export async function fetchRecentDebates(limit = 20): Promise<DebateArtifact[]> 
     .limit(limit);
 
   if (error) {
-    console.error('Error fetching recent debates:', error);
+    logger.error('Error fetching recent debates:', error);
     return [];
   }
 

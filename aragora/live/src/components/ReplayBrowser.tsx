@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ErrorWithRetry } from './RetryButton';
 import { fetchWithRetry } from '@/utils/retry';
+import { logger } from '@/utils/logger';
 
 interface Replay {
   id: string;
@@ -116,7 +117,7 @@ export function ReplayBrowser() {
         alert('Fork failed');
       }
     } catch (err) {
-      console.error('Fork error:', err);
+      logger.error('Fork error:', err);
       alert('Fork failed');
     } finally {
       setForking(null);

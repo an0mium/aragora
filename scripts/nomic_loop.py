@@ -43,6 +43,8 @@ from collections import defaultdict
 # Configure module logger
 logger = logging.getLogger(__name__)
 
+# Import config for database paths (consolidated persona database)
+from aragora.config import DB_PERSONAS_PATH
 
 # =============================================================================
 # AUTOMATION FLAGS - Environment variables for CI/automation support
@@ -97,13 +99,14 @@ class PhaseRecovery:
     }
 
     # Individual phase timeouts (seconds) - complements cycle-level timeout
+    # Configurable via environment variables: NOMIC_<PHASE>_TIMEOUT
     PHASE_TIMEOUTS = {
-        "context": 600,      # 10 min - codebase exploration
-        "debate": 1800,      # 30 min - multi-agent discussion
-        "design": 900,       # 15 min - architecture planning
-        "implement": 2400,   # 40 min - code generation
-        "verify": 600,       # 10 min - test execution
-        "commit": 180,       # 3 min - git operations
+        "context": int(os.environ.get("NOMIC_CONTEXT_TIMEOUT", "600")),      # 10 min - codebase exploration
+        "debate": int(os.environ.get("NOMIC_DEBATE_TIMEOUT", "1800")),       # 30 min - multi-agent discussion
+        "design": int(os.environ.get("NOMIC_DESIGN_TIMEOUT", "900")),        # 15 min - architecture planning
+        "implement": int(os.environ.get("NOMIC_IMPLEMENT_TIMEOUT", "2400")), # 40 min - code generation
+        "verify": int(os.environ.get("NOMIC_VERIFY_TIMEOUT", "600")),        # 10 min - test execution
+        "commit": int(os.environ.get("NOMIC_COMMIT_TIMEOUT", "180")),        # 3 min - git operations
     }
 
     # Errors that should NOT be retried
@@ -1371,7 +1374,7 @@ class NomicLoop:
         # Phase 4: PersonaManager for agent traits/expertise evolution
         self.persona_manager = None
         if PERSONAS_AVAILABLE:
-            persona_db_path = self.nomic_dir / "agent_personas.db"
+            persona_db_path = self.nomic_dir / DB_PERSONAS_PATH
             self.persona_manager = PersonaManager(str(persona_db_path))
             print(f"[personas] Agent personality evolution enabled")
 
@@ -1759,9 +1762,9 @@ class NomicLoop:
         self._stream_emit("on_log_message", message, level="info", phase=phase, agent=agent)
 
     def _validate_openrouter_fallback(self) -> bool:
-        """Check if OpenRouter fallback is available and warn if not.
+        """Check if OpenRouter fallback is available and validate the key.
 
-        Returns True if OpenRouter is configured, False otherwise.
+        Returns True if OpenRouter is configured and valid, False otherwise.
         The nomic loop will still run without it, but rate-limiting
         recovery will be limited to retries only.
         """
@@ -1774,8 +1777,48 @@ class NomicLoop:
             self._log("-" * 50)
             return False
 
-        # Key is set - log confirmation
-        self._log("✓ OpenRouter fallback configured (rate limit protection enabled)")
+        # Validate key format (OpenRouter keys start with 'sk-or-')
+        if not openrouter_key.startswith("sk-or-"):
+            self._log("⚠️  WARNING: OPENROUTER_API_KEY has invalid format")
+            self._log("   OpenRouter keys should start with 'sk-or-'")
+            self._log("   Fallback may not work correctly")
+            self._log("-" * 50)
+            return False
+
+        # Quick validation: test the key with a lightweight API call
+        try:
+            import urllib.request
+            import urllib.error
+
+            req = urllib.request.Request(
+                "https://openrouter.ai/api/v1/models",
+                headers={"Authorization": f"Bearer {openrouter_key}"},
+                method="GET"
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
+                if response.status == 200:
+                    self._log("✓ OpenRouter fallback configured and validated")
+                    return True
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                self._log("⚠️  WARNING: OPENROUTER_API_KEY is invalid or expired")
+                self._log("   Got 401 Unauthorized from OpenRouter API")
+                self._log("   Fallback will NOT work - check your API key")
+                self._log("-" * 50)
+                return False
+            elif e.code == 429:
+                # Rate limited but key is valid
+                self._log("✓ OpenRouter fallback configured (validated, currently rate limited)")
+                return True
+            else:
+                self._log(f"⚠️  WARNING: OpenRouter API returned {e.code}")
+                self._log("   Fallback may not work correctly")
+        except (urllib.error.URLError, OSError, TimeoutError) as e:
+            self._log(f"⚠️  WARNING: Could not validate OpenRouter key: {e}")
+            self._log("   Key is set but validation failed - fallback may still work")
+
+        # Key is set but couldn't fully validate - still enable fallback
+        self._log("✓ OpenRouter fallback configured (key set, validation skipped)")
         return True
 
     def _save_state(self, state: dict):
@@ -7216,6 +7259,80 @@ Designs missing any of these will be automatically rejected as non-viable.
 
         return list(failing_files)
 
+    def _extract_failing_tests(self, test_output: str) -> list[str]:
+        """Extract full test names from pytest failure output."""
+        import re
+        failing_tests = set()
+
+        # Match patterns like "tests/test_foo.py::TestClass::test_method FAILED"
+        # or "FAILED tests/test_foo.py::test_method"
+        patterns = [
+            r"(\S+\.py::\S+) FAILED",
+            r"FAILED (\S+\.py::\S+)",
+            r"ERROR (\S+\.py::\S+)",
+        ]
+
+        for pattern in patterns:
+            matches = re.findall(pattern, test_output)
+            failing_tests.update(matches)
+
+        return list(failing_tests)
+
+    def _capture_test_baseline(self) -> dict:
+        """
+        Capture current test state before implementation.
+
+        Returns dict with:
+        - failing_tests: list of test names that fail BEFORE implementation
+        - passing_count: number of passing tests
+        - total_count: total tests
+
+        This allows us to distinguish pre-existing failures from new regressions.
+        """
+        self._log("  [baseline] Capturing test baseline before implementation...")
+        try:
+            result = subprocess.run(
+                ["python", "-m", "pytest", "tests/", "--tb=no", "-q", "--no-header"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+                timeout=180,  # 3 min for quick baseline
+            )
+
+            failing_tests = self._extract_failing_tests(result.stdout + result.stderr)
+
+            # Parse summary line like "1 failed, 2086 passed"
+            import re
+            summary = result.stdout + result.stderr
+            passed_match = re.search(r"(\d+) passed", summary)
+            failed_match = re.search(r"(\d+) failed", summary)
+
+            passed = int(passed_match.group(1)) if passed_match else 0
+            failed = int(failed_match.group(1)) if failed_match else len(failing_tests)
+
+            baseline = {
+                "failing_tests": failing_tests,
+                "passing_count": passed,
+                "failing_count": failed,
+                "total_count": passed + failed,
+            }
+
+            if failing_tests:
+                self._log(f"  [baseline] Pre-existing failures: {len(failing_tests)}")
+                for t in failing_tests[:3]:
+                    self._log(f"    - {t}")
+            else:
+                self._log(f"  [baseline] All {passed} tests passing")
+
+            return baseline
+
+        except subprocess.TimeoutExpired:
+            self._log("  [baseline] Timeout capturing baseline (proceeding without)")
+            return {"failing_tests": [], "passing_count": 0, "failing_count": 0, "total_count": 0}
+        except Exception as e:
+            self._log(f"  [baseline] Error capturing baseline: {e}")
+            return {"failing_tests": [], "passing_count": 0, "failing_count": 0, "total_count": 0}
+
     def _record_failure_patterns(self, test_output: str, design_context: str) -> None:
         """
         Record failure patterns for Titans/MIRAS learning.
@@ -8268,6 +8385,12 @@ Be concise - this is a quality gate, not a full review."""
             cycle_result["timeout_phase"] = "design"
             return cycle_result
 
+        # === Capture test baseline BEFORE implementation ===
+        # This allows us to distinguish pre-existing failures from new regressions
+        test_baseline = self._capture_test_baseline()
+        cycle_result["test_baseline"] = test_baseline
+        self._test_baseline = test_baseline  # Store for fix prompts
+
         # Phase 3: Implement (with circuit breaker integration)
         try:
             impl_result = await self._run_with_phase_timeout(
@@ -8517,9 +8640,28 @@ Be concise - this is a quality gate, not a full review."""
             # Get belief network cruxes for targeted fixing (P18: BeliefNetwork → Fix Guidance)
             crux_context = self._format_crux_context()
 
-            review_prompt = f"""The following code changes caused test failures. Analyze and suggest fixes.
+            # Extract failing test files for targeted fixing
+            failing_test_files = self._extract_failing_files(test_output)
+            failing_tests_info = ""
+            if failing_test_files:
+                failing_tests_info = f"\n## Failing Test Files (FIX THESE)\n" + "\n".join(f"- {f}" for f in failing_test_files[:5])
 
-## Test Failures
+            # Check if these are new regressions vs pre-existing failures
+            baseline_info = ""
+            if hasattr(self, '_test_baseline') and self._test_baseline:
+                pre_existing = self._test_baseline.get("failing_tests", [])
+                new_failures = self._extract_failing_tests(test_output)
+                actually_new = [t for t in new_failures if t not in pre_existing]
+                if pre_existing:
+                    baseline_info = f"\n## Note: {len(pre_existing)} tests were already failing before implementation."
+                if actually_new:
+                    baseline_info += f"\nNEW REGRESSIONS ({len(actually_new)}): Focus on these:\n" + "\n".join(f"- {t}" for t in actually_new[:5])
+
+            review_prompt = f"""The following code changes caused test failures. Analyze and suggest fixes.
+{failing_tests_info}
+{baseline_info}
+
+## Test Output
 ```
 {test_output[:2000]}
 ```
@@ -8532,11 +8674,12 @@ Be concise - this is a quality gate, not a full review."""
 {avoid_patterns}
 {crux_context}
 Provide specific, actionable fixes. Focus on:
-1. What exactly is broken?
+1. What exactly is broken? (Look at the failing test FILES listed above)
 2. What specific code changes will fix it?
 3. Are there missing imports or dependencies?
 4. Learn from patterns above - apply what's worked, avoid what hasn't.
 5. If pivotal claims are listed above, ensure your fix addresses them directly.
+6. IMPORTANT: Only modify files related to the failing tests - don't change unrelated code.
 """
             review_result = await executor.review_with_codex(review_prompt, timeout=2400)  # 40 min for thorough review
             iteration_result["codex_review"] = review_result
@@ -8550,8 +8693,10 @@ Provide specific, actionable fixes. Focus on:
             fix_prompt = f"""{SAFETY_PREAMBLE}
 
 Fix the test failures in the codebase. Here's what went wrong and how to fix it:
+{failing_tests_info}
+{baseline_info}
 
-## Test Failures
+## Test Output
 ```
 {test_output[:1500]}
 ```
@@ -8560,10 +8705,11 @@ Fix the test failures in the codebase. Here's what went wrong and how to fix it:
 {review_result.get('review', 'No review available')[:2000]}
 
 ## Instructions
-1. Read the failing tests to understand what's expected
+1. Read the failing tests FILES LISTED ABOVE to understand what's expected
 2. Apply the minimal fixes needed to make tests pass
 3. Do NOT remove or simplify existing functionality
 4. Preserve all imports and dependencies
+5. ONLY modify files that are related to the failing tests
 
 Working directory: {self.aragora_path}
 """
@@ -8619,8 +8765,10 @@ Reply with: LOOKS_GOOD or ISSUES: <brief description>
                     grok_fix_prompt = f"""{SAFETY_PREAMBLE}
 
 Previous fix attempt may have issues. Please apply an alternative fix for these test failures:
+{failing_tests_info}
+{baseline_info}
 
-## Test Failures
+## Test Output
 ```
 {test_output[:1500]}
 ```
@@ -8635,8 +8783,9 @@ Previous fix attempt may have issues. Please apply an alternative fix for these 
 ## Instructions
 1. Analyze what the previous fix attempt got wrong
 2. Apply a DIFFERENT approach to fix the tests
-3. Focus on minimal, targeted changes
+3. Focus on minimal, targeted changes to files related to FAILING TESTS above
 4. Do NOT undo correct fixes, only fix what's still broken
+5. ONLY modify files that are related to the failing tests
 
 Working directory: {self.aragora_path}
 """

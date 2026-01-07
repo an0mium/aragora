@@ -348,8 +348,11 @@ class ConsensusPhase:
                 logger.error(f"task_exception phase=vote error={e}")
                 continue
 
-            if isinstance(vote_result, Exception):
-                logger.error(f"vote_error agent={agent.name} error={vote_result}")
+            if vote_result is None or isinstance(vote_result, Exception):
+                if isinstance(vote_result, Exception):
+                    logger.error(f"vote_error agent={agent.name} error={vote_result}")
+                else:
+                    logger.error(f"vote_error agent={agent.name} error=vote returned None")
             else:
                 votes.append(vote_result)
                 self._handle_vote_success(ctx, agent, vote_result)
@@ -394,8 +397,11 @@ class ConsensusPhase:
                 voting_errors += 1
                 continue
 
-            if isinstance(vote_result, Exception):
-                logger.error(f"vote_error_unanimous agent={agent.name} error={vote_result}")
+            if vote_result is None or isinstance(vote_result, Exception):
+                if isinstance(vote_result, Exception):
+                    logger.error(f"vote_error_unanimous agent={agent.name} error={vote_result}")
+                else:
+                    logger.error(f"vote_error_unanimous agent={agent.name} error=vote returned None")
                 voting_errors += 1
             else:
                 votes.append(vote_result)

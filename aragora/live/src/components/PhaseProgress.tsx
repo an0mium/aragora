@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
+import { logger } from '@/utils/logger';
 
 interface NomicState {
   phase: string;
@@ -32,7 +33,7 @@ export function PhaseProgress({ events, currentPhase, apiBase = DEFAULT_API_BASE
         setNomicState(data);
       }
     } catch (err) {
-      console.error('Failed to fetch nomic state:', err);
+      logger.error('Failed to fetch nomic state:', err);
     }
   }, [apiBase]);
 

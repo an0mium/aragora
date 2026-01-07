@@ -51,6 +51,8 @@ from .routing import RoutingHandler
 from .evolution import EvolutionHandler
 from .plugins import PluginsHandler
 from .broadcast import BroadcastHandler
+from .audio import AudioHandler
+from .social import SocialMediaHandler
 from .laboratory import LaboratoryHandler
 from .probes import ProbesHandler
 
@@ -83,6 +85,8 @@ ALL_HANDLERS = [
     RoutingHandler,
     EvolutionHandler,
     PluginsHandler,
+    AudioHandler,
+    SocialMediaHandler,
     BroadcastHandler,
     LaboratoryHandler,
     ProbesHandler,
@@ -123,6 +127,8 @@ __all__ = [
     "RoutingHandler",
     "EvolutionHandler",
     "PluginsHandler",
+    "AudioHandler",
+    "SocialMediaHandler",
     "BroadcastHandler",
     "LaboratoryHandler",
     "ProbesHandler",

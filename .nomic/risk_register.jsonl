@@ -1,10 +1,4 @@
-{"cycle": 1, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high"}
-{"cycle": 22, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high"}
-{"cycle": 23, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high"}
-{"cycle": 24, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high"}
-{"cycle": 1, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high"}
-{"cycle": 1, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high"}
-{"cycle": 1, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high"}
-{"cycle": 1, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high"}
-{"cycle": 1, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high"}
-{"cycle": 1, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high"}
+{"cycle": 1, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high", "note": "verification_failed - test regressions"}
+{"cycle": 22, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high", "note": "historical"}
+{"cycle": 23, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high", "note": "historical"}
+{"cycle": 24, "task": "aragora improvement", "confidence": 0.0, "consensus": false, "level": "high", "note": "historical"}

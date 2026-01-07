@@ -226,13 +226,13 @@ class JudgmentPhase:
                 profile = self.elo_system.get_agent_profile(judge.name)
                 stats["elo"] = profile.get("elo", 1500)
                 stats["elo_rank"] = profile.get("rank")
-            except Exception:
-                pass
+            except (KeyError, AttributeError) as e:
+                logger.debug(f"Could not get ELO profile for {judge.name}: {e}")
 
         if self._get_calibration_weight:
             try:
                 stats["calibration_weight"] = self._get_calibration_weight(judge.name)
-            except Exception:
-                pass
+            except (KeyError, AttributeError, TypeError) as e:
+                logger.debug(f"Could not get calibration weight for {judge.name}: {e}")
 
         return stats

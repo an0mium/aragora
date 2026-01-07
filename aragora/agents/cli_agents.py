@@ -135,7 +135,7 @@ class CLIAgent(CritiqueMixin, Agent):
         if self._fallback_agent is None:
             api_key = os.environ.get("OPENROUTER_API_KEY")
             if not api_key:
-                logger.debug(f"[{self.name}] No OPENROUTER_API_KEY set, fallback disabled")
+                logger.warning(f"[{self.name}] No OPENROUTER_API_KEY set, fallback disabled - rate limit errors will not have a fallback")
                 return None
 
             # Import here to avoid circular dependency

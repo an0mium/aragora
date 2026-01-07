@@ -28,7 +28,15 @@ from aragora.debate.phases.debate_rounds import DebateRoundsPhase
 from aragora.debate.phases.consensus_phase import ConsensusPhase
 from aragora.debate.phases.analytics_phase import AnalyticsPhase
 from aragora.debate.phases.feedback_phase import FeedbackPhase
-from aragora.debate.phases.voting import VotingPhase
+from aragora.debate.phases.voting import (
+    VotingPhase,
+    VoteWeightCalculator,
+    WeightedVoteResult,
+)
+from aragora.debate.phases.belief_analysis import (
+    DebateBeliefAnalyzer,
+    BeliefAnalysisResult,
+)
 from aragora.debate.phases.critique import CritiquePhase
 from aragora.debate.phases.judgment import JudgmentPhase
 from aragora.debate.phases.roles_manager import RolesManager
@@ -43,6 +51,8 @@ __all__ = [
     "AnalyticsPhase",
     "FeedbackPhase",
     "VotingPhase",
+    "VoteWeightCalculator",
+    "WeightedVoteResult",
     "CritiquePhase",
     "JudgmentPhase",
     "RolesManager",

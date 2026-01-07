@@ -10,6 +10,8 @@ This reduces frontend latency by 80% (1 request instead of 6).
 import logging
 from typing import Optional
 
+from aragora.config import DB_PERSONAS_PATH
+
 logger = logging.getLogger(__name__)
 from .base import (
     BaseHandler,
@@ -286,7 +288,7 @@ class LeaderboardViewHandler(BaseHandler):
         persona_manager = None
         try:
             from aragora.agents.personas import PersonaManager
-            persona_db = nomic_dir / "personas.db" if nomic_dir else None
+            persona_db = nomic_dir / DB_PERSONAS_PATH if nomic_dir else None
             if persona_db and persona_db.exists():
                 persona_manager = PersonaManager(str(persona_db))
         except ImportError:

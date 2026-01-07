@@ -5,6 +5,7 @@ import type { StreamEvent } from '@/types/events';
 import { isAgentMessage } from '@/types/events';
 import { RoleBadge } from './RoleBadge';
 import { getAgentColors } from '@/utils/agentColors';
+import { logger } from '@/utils/logger';
 
 interface AgentTabsProps {
   events: StreamEvent[];
@@ -67,7 +68,7 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
         setPositions(data.positions || []);
       }
     } catch (err) {
-      console.error('Failed to fetch positions:', err);
+      logger.error('Failed to fetch positions:', err);
       setPositions([]);
     } finally {
       setPositionsLoading(false);

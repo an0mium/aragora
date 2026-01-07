@@ -18,9 +18,13 @@ from pathlib import Path
 from typing import Generator, Optional
 
 from aragora.config import DB_CALIBRATION_PATH
+from aragora.storage.schema import SchemaManager
 
 # Database connection timeout in seconds
 DB_TIMEOUT_SECONDS = 30
+
+# Schema version for CalibrationTracker migrations
+CALIBRATION_SCHEMA_VERSION = 1
 
 
 @dataclass
@@ -127,9 +131,15 @@ class CalibrationTracker:
             conn.close()
 
     def _init_db(self) -> None:
-        """Initialize database tables."""
+        """Initialize database tables using SchemaManager."""
         with self._get_connection() as conn:
-            conn.execute("""
+            # Use SchemaManager for version tracking and migrations
+            manager = SchemaManager(
+                conn, "calibration", current_version=CALIBRATION_SCHEMA_VERSION
+            )
+
+            # Initial schema (v1)
+            initial_schema = """
                 CREATE TABLE IF NOT EXISTS predictions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     agent TEXT NOT NULL,
@@ -139,18 +149,14 @@ class CalibrationTracker:
                     debate_id TEXT,
                     position_id TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_pred_agent ON predictions(agent)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_pred_domain ON predictions(domain)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_pred_confidence ON predictions(confidence)"
-            )
-            conn.commit()
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_pred_agent ON predictions(agent);
+                CREATE INDEX IF NOT EXISTS idx_pred_domain ON predictions(domain);
+                CREATE INDEX IF NOT EXISTS idx_pred_confidence ON predictions(confidence);
+            """
+
+            manager.ensure_schema(initial_schema=initial_schema)
 
     def record_prediction(
         self,

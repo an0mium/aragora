@@ -304,6 +304,8 @@ try:
         EvolutionHandler,
         PluginsHandler,
         BroadcastHandler,
+        AudioHandler,
+        SocialMediaHandler,
         LaboratoryHandler,
         ProbesHandler,
         HandlerResult,
@@ -553,6 +555,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     _evolution_handler: Optional["EvolutionHandler"] = None
     _plugins_handler: Optional["PluginsHandler"] = None
     _broadcast_handler: Optional["BroadcastHandler"] = None
+    _audio_handler: Optional["AudioHandler"] = None
+    _social_handler: Optional["SocialMediaHandler"] = None
     _handlers_initialized: bool = False
 
     # Thread pool for debate execution (prevents unbounded thread creation)
@@ -713,10 +717,12 @@ class UnifiedHandler(BaseHTTPRequestHandler):
         cls._evolution_handler = EvolutionHandler(ctx)
         cls._plugins_handler = PluginsHandler(ctx)
         cls._broadcast_handler = BroadcastHandler(ctx)
+        cls._audio_handler = AudioHandler(ctx)
+        cls._social_handler = SocialMediaHandler(ctx)
         cls._laboratory_handler = LaboratoryHandler(ctx)
         cls._probes_handler = ProbesHandler(ctx)
         cls._handlers_initialized = True
-        logger.info("[handlers] Modular handlers initialized (29 handlers)")
+        logger.info("[handlers] Modular handlers initialized (31 handlers)")
 
         # Log resource availability for observability
         cls._log_resource_availability(nomic_dir)
@@ -796,6 +802,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             self._routing_handler,
             self._evolution_handler,
             self._plugins_handler,
+            self._audio_handler,
+            self._social_handler,
             self._broadcast_handler,
             self._laboratory_handler,
             self._probes_handler,
@@ -2668,7 +2676,7 @@ class UnifiedServer:
 
             # Initialize PersonaManager for agent specialization
             if PERSONAS_AVAILABLE:
-                personas_path = nomic_dir / "personas.db"
+                personas_path = nomic_dir / DB_PERSONAS_PATH
                 UnifiedHandler.persona_manager = PersonaManager(str(personas_path))
                 logger.info("[server] PersonaManager loaded for agent specialization")
 

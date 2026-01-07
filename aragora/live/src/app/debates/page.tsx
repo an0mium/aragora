@@ -7,6 +7,7 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { getAgentColors } from '@/utils/agentColors';
+import { logger } from '@/utils/logger';
 
 const PAGE_SIZE = 20;
 
@@ -27,7 +28,7 @@ export default function DebatesPage() {
         setDebates(data);
         setHasMore(data.length === PAGE_SIZE);
       } catch (e) {
-        console.error('Failed to load debates:', e);
+        logger.error('Failed to load debates:', e);
       } finally {
         setLoading(false);
       }
@@ -54,7 +55,7 @@ export default function DebatesPage() {
       setDebates(prev => [...prev, ...newDebates]);
       setPage(nextPage);
     } catch (e) {
-      console.error('Failed to load more debates:', e);
+      logger.error('Failed to load more debates:', e);
     } finally {
       setLoadingMore(false);
     }
@@ -74,7 +75,7 @@ export default function DebatesPage() {
       setCopiedId(debateId);
       setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
-      console.error('Failed to copy link:', err);
+      logger.error('Failed to copy link:', err);
     }
   };
 

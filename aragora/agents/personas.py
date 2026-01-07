@@ -16,10 +16,14 @@ from pathlib import Path
 from typing import Generator, Optional
 
 from aragora.config import DB_PERSONAS_PATH
+from aragora.storage.schema import SchemaManager
 from aragora.utils.json_helpers import safe_json_loads
 
 # Database connection timeout in seconds
 DB_TIMEOUT_SECONDS = 30
+
+# Schema version for PersonaManager migrations
+PERSONA_SCHEMA_VERSION = 1
 
 
 # Predefined expertise domains
@@ -114,12 +118,16 @@ class PersonaManager:
             conn.close()
 
     def _init_db(self):
-        """Initialize database schema."""
+        """Initialize database schema using SchemaManager."""
         with self._get_connection() as conn:
-            cursor = conn.cursor()
+            # Use SchemaManager for version tracking and migrations
+            manager = SchemaManager(
+                conn, "personas", current_version=PERSONA_SCHEMA_VERSION
+            )
 
-            # Personas table
-            cursor.execute("""
+            # Initial schema (v1)
+            initial_schema = """
+                -- Personas table
                 CREATE TABLE IF NOT EXISTS personas (
                     agent_name TEXT PRIMARY KEY,
                     description TEXT,
@@ -127,11 +135,9 @@ class PersonaManager:
                     expertise TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+                );
 
-            # Performance history for learning
-            cursor.execute("""
+                -- Performance history for learning
                 CREATE TABLE IF NOT EXISTS performance_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     agent_name TEXT NOT NULL,
@@ -140,10 +146,10 @@ class PersonaManager:
                     action TEXT,
                     success INTEGER,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+                );
+            """
 
-            conn.commit()
+            manager.ensure_schema(initial_schema=initial_schema)
 
     def get_persona(self, agent_name: str) -> Optional[Persona]:
         """Get persona for an agent."""

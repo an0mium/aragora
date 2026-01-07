@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 
 interface MemoryEntry {
   id: string;
@@ -90,7 +91,7 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
         setTierStats(data.tiers || {});
       }
     } catch (err) {
-      console.error('Failed to fetch tier stats:', err);
+      logger.error('Failed to fetch tier stats:', err);
     }
   }, [apiBase]);
 

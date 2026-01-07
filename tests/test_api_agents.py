@@ -468,6 +468,56 @@ class TestOpenRouterRateLimiter:
         assert stats["api_limit"] == 200
         assert stats["api_remaining"] == 150
 
+    def test_limiter_handles_invalid_headers(self, caplog):
+        """Test rate limiter logs warnings for invalid header values."""
+        import logging
+        from aragora.agents.api_agents import OpenRouterRateLimiter
+
+        limiter = OpenRouterRateLimiter(tier="standard")
+
+        # Invalid non-numeric values
+        headers = {
+            "X-RateLimit-Limit": "invalid",
+            "X-RateLimit-Remaining": "not_a_number",
+            "X-RateLimit-Reset": "bad_timestamp",
+        }
+
+        with caplog.at_level(logging.WARNING):
+            limiter.update_from_headers(headers)
+
+        # Should log warnings for each invalid header
+        assert "Failed to parse X-RateLimit-Limit" in caplog.text
+        assert "Failed to parse X-RateLimit-Remaining" in caplog.text
+        assert "Failed to parse X-RateLimit-Reset" in caplog.text
+
+        # Stats should not be updated with invalid values
+        stats = limiter.stats
+        assert stats["api_limit"] is None  # Default value
+        assert stats["api_remaining"] is None
+
+    def test_limiter_partial_valid_headers(self, caplog):
+        """Test rate limiter handles mix of valid and invalid headers."""
+        import logging
+        from aragora.agents.api_agents import OpenRouterRateLimiter
+
+        limiter = OpenRouterRateLimiter(tier="standard")
+
+        # Mix of valid and invalid
+        headers = {
+            "X-RateLimit-Limit": "100",  # Valid
+            "X-RateLimit-Remaining": "invalid",  # Invalid
+        }
+
+        with caplog.at_level(logging.WARNING):
+            limiter.update_from_headers(headers)
+
+        # Valid should be updated
+        stats = limiter.stats
+        assert stats["api_limit"] == 100
+
+        # Invalid should log warning
+        assert "Failed to parse X-RateLimit-Remaining" in caplog.text
+
     def test_global_limiter_singleton(self):
         """Test global rate limiter is a singleton."""
         from aragora.agents.api_agents import get_openrouter_limiter, set_openrouter_tier

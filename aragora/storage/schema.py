@@ -19,9 +19,12 @@ Usage:
 import logging
 import re
 import sqlite3
+import threading
+import weakref
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Callable, Generator, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -372,3 +375,188 @@ def safe_add_column(
     conn.commit()
     logger.debug(f"Added column {column} to {table}")
     return True
+
+
+class DatabaseManager:
+    """
+    Centralized database connection manager with singleton pattern.
+
+    Provides:
+    - Single instance per database path (thread-safe)
+    - WAL mode for better concurrency
+    - Connection reuse to avoid repeated open/close overhead
+    - Automatic cleanup of idle connections
+    - Context manager support for transactions
+
+    Usage:
+        # Get manager instance (singleton per path)
+        manager = DatabaseManager.get_instance("/path/to/db.db")
+
+        # Use context manager for automatic commit/rollback
+        with manager.connection() as conn:
+            conn.execute("INSERT INTO ...")
+
+        # Or get raw connection for manual management
+        conn = manager.get_connection()
+        try:
+            conn.execute("...")
+            conn.commit()
+        finally:
+            # Connection is managed by DatabaseManager, no need to close
+            pass
+    """
+
+    _instances: dict[str, "DatabaseManager"] = {}
+    _instances_lock = threading.Lock()
+
+    def __init__(self, db_path: Union[str, Path], timeout: float = DB_TIMEOUT):
+        """Initialize the DatabaseManager.
+
+        Note: Use get_instance() instead of direct instantiation to ensure
+        singleton behavior per database path.
+
+        Args:
+            db_path: Path to the SQLite database file
+            timeout: Connection timeout in seconds
+        """
+        self.db_path = str(Path(db_path).resolve())
+        self.timeout = timeout
+        self._conn: Optional[sqlite3.Connection] = None
+        self._lock = threading.Lock()
+        self._thread_local = threading.local()
+
+    @classmethod
+    def get_instance(cls, db_path: Union[str, Path], timeout: float = DB_TIMEOUT) -> "DatabaseManager":
+        """Get or create a DatabaseManager instance for the given path.
+
+        This is the recommended way to obtain a DatabaseManager. It ensures
+        only one manager exists per database path (singleton pattern).
+
+        Args:
+            db_path: Path to the SQLite database file
+            timeout: Connection timeout in seconds
+
+        Returns:
+            DatabaseManager instance for the given path
+        """
+        resolved_path = str(Path(db_path).resolve())
+
+        with cls._instances_lock:
+            if resolved_path not in cls._instances:
+                cls._instances[resolved_path] = cls(db_path, timeout)
+                logger.debug(f"Created DatabaseManager for {resolved_path}")
+            return cls._instances[resolved_path]
+
+    @classmethod
+    def clear_instances(cls) -> None:
+        """Clear all cached instances. Useful for testing."""
+        with cls._instances_lock:
+            for manager in cls._instances.values():
+                manager.close()
+            cls._instances.clear()
+            logger.debug("Cleared all DatabaseManager instances")
+
+    def get_connection(self) -> sqlite3.Connection:
+        """Get a database connection.
+
+        Returns a connection configured for WAL mode. The connection is
+        managed by this DatabaseManager and should not be closed manually.
+
+        Returns:
+            sqlite3.Connection configured for WAL mode
+        """
+        with self._lock:
+            if self._conn is None:
+                self._conn = get_wal_connection(self.db_path, self.timeout)
+                logger.debug(f"Opened connection to {self.db_path}")
+            return self._conn
+
+    @contextmanager
+    def connection(self) -> Generator[sqlite3.Connection, None, None]:
+        """Context manager for database operations with automatic commit/rollback.
+
+        Commits on success, rolls back on exception.
+
+        Usage:
+            with manager.connection() as conn:
+                conn.execute("INSERT INTO ...")
+                # Auto-commits on exit
+
+        Yields:
+            sqlite3.Connection for database operations
+        """
+        conn = self.get_connection()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+
+    @contextmanager
+    def transaction(self) -> Generator[sqlite3.Connection, None, None]:
+        """Explicit transaction context manager.
+
+        Same as connection() but makes the transaction intent clearer.
+
+        Yields:
+            sqlite3.Connection within a transaction
+        """
+        conn = self.get_connection()
+        try:
+            conn.execute("BEGIN")
+            yield conn
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+
+    def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
+        """Execute a SQL statement.
+
+        Convenience method for simple queries. For transactions, use
+        the connection() context manager instead.
+
+        Args:
+            sql: SQL statement to execute
+            params: Parameters for the SQL statement
+
+        Returns:
+            sqlite3.Cursor with the results
+        """
+        return self.get_connection().execute(sql, params)
+
+    def executemany(self, sql: str, params_list: list[tuple]) -> sqlite3.Cursor:
+        """Execute a SQL statement with multiple parameter sets.
+
+        Args:
+            sql: SQL statement to execute
+            params_list: List of parameter tuples
+
+        Returns:
+            sqlite3.Cursor with the results
+        """
+        return self.get_connection().executemany(sql, params_list)
+
+    def close(self) -> None:
+        """Close the database connection.
+
+        This is called automatically when the manager is garbage collected,
+        but can be called manually if needed.
+        """
+        with self._lock:
+            if self._conn is not None:
+                try:
+                    self._conn.close()
+                    logger.debug(f"Closed connection to {self.db_path}")
+                except Exception as e:
+                    logger.warning(f"Error closing connection to {self.db_path}: {e}")
+                finally:
+                    self._conn = None
+
+    def __del__(self):
+        """Ensure connection is closed on garbage collection."""
+        self.close()
+
+    def __repr__(self) -> str:
+        return f"DatabaseManager({self.db_path!r})"

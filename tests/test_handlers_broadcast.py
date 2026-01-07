@@ -20,6 +20,15 @@ from unittest.mock import Mock, MagicMock, patch
 from io import BytesIO
 
 from aragora.server.handlers.broadcast import BroadcastHandler
+from aragora.server.handlers.audio import AudioHandler
+from aragora.server.handlers.social import (
+    SocialMediaHandler,
+    _store_oauth_state,
+    _validate_oauth_state,
+    _oauth_states,
+    _oauth_states_lock,
+    ALLOWED_OAUTH_HOSTS,
+)
 from aragora.server.handlers.base import clear_cache
 
 
@@ -117,8 +126,33 @@ def broadcast_handler(mock_audio_store, mock_storage, mock_youtube_connector, mo
 
 
 @pytest.fixture
+def audio_handler(mock_audio_store, mock_storage):
+    """Create an AudioHandler with mock dependencies."""
+    ctx = {
+        "storage": mock_storage,
+        "audio_store": mock_audio_store,
+        "nomic_dir": None,
+    }
+    return AudioHandler(ctx)
+
+
+@pytest.fixture
+def social_handler(mock_storage, mock_youtube_connector, mock_twitter_connector, mock_audio_store):
+    """Create a SocialMediaHandler with mock dependencies."""
+    ctx = {
+        "storage": mock_storage,
+        "audio_store": mock_audio_store,
+        "youtube_connector": mock_youtube_connector,
+        "twitter_connector": mock_twitter_connector,
+        "video_generator": None,
+        "nomic_dir": None,
+    }
+    return SocialMediaHandler(ctx)
+
+
+@pytest.fixture
 def handler_no_audio_store(mock_storage):
-    """Create a BroadcastHandler without audio store."""
+    """Create handlers without audio store."""
     ctx = {
         "storage": mock_storage,
         "audio_store": None,
@@ -126,7 +160,7 @@ def handler_no_audio_store(mock_storage):
         "twitter_connector": None,
         "nomic_dir": None,
     }
-    return BroadcastHandler(ctx)
+    return AudioHandler(ctx)
 
 
 @pytest.fixture
@@ -153,32 +187,32 @@ def clear_caches():
 class TestBroadcastRouting:
     """Tests for route matching."""
 
-    def test_can_handle_audio_route(self, broadcast_handler):
-        assert broadcast_handler.can_handle("/audio/test-debate.mp3") is True
+    def test_can_handle_audio_route(self, audio_handler):
+        assert audio_handler.can_handle("/audio/test-debate.mp3") is True
 
-    def test_can_handle_podcast_feed(self, broadcast_handler):
-        assert broadcast_handler.can_handle("/api/podcast/feed.xml") is True
+    def test_can_handle_podcast_feed(self, audio_handler):
+        assert audio_handler.can_handle("/api/podcast/feed.xml") is True
 
-    def test_can_handle_podcast_episodes(self, broadcast_handler):
-        assert broadcast_handler.can_handle("/api/podcast/episodes") is True
+    def test_can_handle_podcast_episodes(self, audio_handler):
+        assert audio_handler.can_handle("/api/podcast/episodes") is True
 
-    def test_can_handle_youtube_auth(self, broadcast_handler):
-        assert broadcast_handler.can_handle("/api/youtube/auth") is True
+    def test_can_handle_youtube_auth(self, social_handler):
+        assert social_handler.can_handle("/api/youtube/auth") is True
 
-    def test_can_handle_youtube_callback(self, broadcast_handler):
-        assert broadcast_handler.can_handle("/api/youtube/callback") is True
+    def test_can_handle_youtube_callback(self, social_handler):
+        assert social_handler.can_handle("/api/youtube/callback") is True
 
-    def test_can_handle_youtube_status(self, broadcast_handler):
-        assert broadcast_handler.can_handle("/api/youtube/status") is True
+    def test_can_handle_youtube_status(self, social_handler):
+        assert social_handler.can_handle("/api/youtube/status") is True
 
     def test_can_handle_broadcast_generation(self, broadcast_handler):
         assert broadcast_handler.can_handle("/api/debates/test-123/broadcast") is True
 
-    def test_can_handle_twitter_publish(self, broadcast_handler):
-        assert broadcast_handler.can_handle("/api/debates/test-123/publish/twitter") is True
+    def test_can_handle_twitter_publish(self, social_handler):
+        assert social_handler.can_handle("/api/debates/test-123/publish/twitter") is True
 
-    def test_can_handle_youtube_publish(self, broadcast_handler):
-        assert broadcast_handler.can_handle("/api/debates/test-123/publish/youtube") is True
+    def test_can_handle_youtube_publish(self, social_handler):
+        assert social_handler.can_handle("/api/debates/test-123/publish/youtube") is True
 
     def test_cannot_handle_unrelated_routes(self, broadcast_handler):
         assert broadcast_handler.can_handle("/api/debates") is False
@@ -193,17 +227,17 @@ class TestBroadcastRouting:
 class TestServeAudio:
     """Tests for audio file serving."""
 
-    def test_serve_audio_success(self, broadcast_handler, mock_audio_store):
-        result = broadcast_handler.handle("/audio/test-debate.mp3", {}, None)
+    def test_serve_audio_success(self, audio_handler, mock_audio_store):
+        result = audio_handler.handle("/audio/test-debate.mp3", {}, None)
 
         assert result is not None
         assert result.status_code == 200
         assert result.content_type == "audio/mpeg"
         assert b"fake mp3 content" in result.body
 
-    def test_serve_audio_not_found(self, broadcast_handler, mock_audio_store):
+    def test_serve_audio_not_found(self, audio_handler, mock_audio_store):
         mock_audio_store.get_path.return_value = None
-        result = broadcast_handler.handle("/audio/unknown.mp3", {}, None)
+        result = audio_handler.handle("/audio/unknown.mp3", {}, None)
 
         assert result is not None
         assert result.status_code == 404
@@ -216,14 +250,14 @@ class TestServeAudio:
         data = json.loads(result.body)
         assert "not configured" in data["error"]
 
-    def test_serve_audio_path_traversal_blocked(self, broadcast_handler):
-        result = broadcast_handler.handle("/audio/../../../etc/passwd.mp3", {}, None)
+    def test_serve_audio_path_traversal_blocked(self, audio_handler):
+        result = audio_handler.handle("/audio/../../../etc/passwd.mp3", {}, None)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_serve_audio_invalid_debate_id(self, broadcast_handler):
-        result = broadcast_handler.handle("/audio/test..hack.mp3", {}, None)
+    def test_serve_audio_invalid_debate_id(self, audio_handler):
+        result = audio_handler.handle("/audio/test..hack.mp3", {}, None)
 
         assert result is not None
         assert result.status_code == 400
@@ -242,12 +276,12 @@ class TestPodcastFeed:
         assert result is not None
         assert result.status_code == 503
 
-    def test_podcast_feed_content_type(self, broadcast_handler, mock_audio_store, mock_storage, mock_handler):
+    def test_podcast_feed_content_type(self, audio_handler, mock_audio_store, mock_storage, mock_handler):
         # Setup to avoid broadcast module dependency
         mock_audio_store.list_all.return_value = []
 
-        with patch('aragora.server.handlers.broadcast.BROADCAST_AVAILABLE', False):
-            result = broadcast_handler.handle("/api/podcast/feed.xml", {}, mock_handler)
+        with patch('aragora.server.handlers.audio.PODCAST_AVAILABLE', False):
+            result = audio_handler.handle("/api/podcast/feed.xml", {}, mock_handler)
 
             if result:
                 assert result.status_code in (200, 503)
@@ -266,8 +300,8 @@ class TestPodcastEpisodes:
         assert result is not None
         assert result.status_code == 503
 
-    def test_podcast_episodes_with_limit(self, broadcast_handler, mock_handler, mock_audio_store):
-        result = broadcast_handler.handle("/api/podcast/episodes", {"limit": "10"}, mock_handler)
+    def test_podcast_episodes_with_limit(self, audio_handler, mock_handler, mock_audio_store):
+        result = audio_handler.handle("/api/podcast/episodes", {"limit": "10"}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -282,29 +316,31 @@ class TestPodcastEpisodes:
 class TestYouTubeStatus:
     """Tests for YouTube connector status."""
 
-    def test_youtube_status_not_configured(self, broadcast_handler):
-        result = broadcast_handler.handle("/api/youtube/status", {}, None)
+    def test_youtube_status_not_configured(self, social_handler):
+        result = social_handler.handle("/api/youtube/status", {}, None)
 
         assert result is not None
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["configured"] is False
 
-    def test_youtube_status_no_connector(self, handler_no_audio_store):
-        result = handler_no_audio_store.handle("/api/youtube/status", {}, None)
+    def test_youtube_status_no_connector(self, mock_storage):
+        ctx = {"storage": mock_storage, "youtube_connector": None, "twitter_connector": None, "audio_store": None}
+        handler = SocialMediaHandler(ctx)
+        result = handler.handle("/api/youtube/status", {}, None)
 
         assert result is not None
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["configured"] is False
 
-    def test_youtube_status_configured(self, broadcast_handler, mock_youtube_connector):
+    def test_youtube_status_configured(self, social_handler, mock_youtube_connector):
         mock_youtube_connector.is_configured = True
         mock_youtube_connector.client_id = "test-client-id"
         mock_youtube_connector.client_secret = "test-secret"
         mock_youtube_connector.refresh_token = "test-token"
 
-        result = broadcast_handler.handle("/api/youtube/status", {}, None)
+        result = social_handler.handle("/api/youtube/status", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -319,14 +355,16 @@ class TestYouTubeStatus:
 class TestYouTubeAuth:
     """Tests for YouTube OAuth URL."""
 
-    def test_youtube_auth_no_connector(self, handler_no_audio_store, mock_handler):
-        result = handler_no_audio_store.handle("/api/youtube/auth", {}, mock_handler)
+    def test_youtube_auth_no_connector(self, mock_storage, mock_handler):
+        ctx = {"storage": mock_storage, "youtube_connector": None, "twitter_connector": None, "audio_store": None}
+        handler = SocialMediaHandler(ctx)
+        result = handler.handle("/api/youtube/auth", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 500
 
-    def test_youtube_auth_no_client_id(self, broadcast_handler, mock_handler):
-        result = broadcast_handler.handle("/api/youtube/auth", {}, mock_handler)
+    def test_youtube_auth_no_client_id(self, social_handler, mock_handler):
+        result = social_handler.handle("/api/youtube/auth", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -341,16 +379,16 @@ class TestYouTubeAuth:
 class TestYouTubeCallback:
     """Tests for YouTube OAuth callback."""
 
-    def test_youtube_callback_missing_code(self, broadcast_handler, mock_handler):
-        result = broadcast_handler.handle("/api/youtube/callback", {}, mock_handler)
+    def test_youtube_callback_missing_code(self, social_handler, mock_handler):
+        result = social_handler.handle("/api/youtube/callback", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "code" in data["error"].lower()
 
-    def test_youtube_callback_missing_state(self, broadcast_handler, mock_handler):
-        result = broadcast_handler.handle("/api/youtube/callback", {"code": "test"}, mock_handler)
+    def test_youtube_callback_missing_state(self, social_handler, mock_handler):
+        result = social_handler.handle("/api/youtube/callback", {"code": "test"}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -408,16 +446,18 @@ class TestBroadcastGeneration:
 class TestTwitterPublish:
     """Tests for Twitter publishing."""
 
-    def test_twitter_no_connector(self, handler_no_audio_store, mock_handler):
-        result = handler_no_audio_store.handle_post(
+    def test_twitter_no_connector(self, mock_storage, mock_handler):
+        ctx = {"storage": mock_storage, "youtube_connector": None, "twitter_connector": None, "audio_store": None}
+        handler = SocialMediaHandler(ctx)
+        result = handler.handle_post(
             "/api/debates/test/publish/twitter", {}, mock_handler
         )
 
         assert result is not None
         assert result.status_code == 500
 
-    def test_twitter_not_configured(self, broadcast_handler, mock_handler):
-        result = broadcast_handler.handle_post(
+    def test_twitter_not_configured(self, social_handler, mock_handler):
+        result = social_handler.handle_post(
             "/api/debates/test/publish/twitter", {}, mock_handler
         )
 
@@ -426,8 +466,8 @@ class TestTwitterPublish:
         data = json.loads(result.body)
         assert "hint" in data
 
-    def test_twitter_invalid_debate_id(self, broadcast_handler, mock_handler):
-        result = broadcast_handler.handle_post(
+    def test_twitter_invalid_debate_id(self, social_handler, mock_handler):
+        result = social_handler.handle_post(
             "/api/debates/../../etc/publish/twitter", {}, mock_handler
         )
 
@@ -442,16 +482,18 @@ class TestTwitterPublish:
 class TestYouTubePublish:
     """Tests for YouTube publishing."""
 
-    def test_youtube_no_connector(self, handler_no_audio_store, mock_handler):
-        result = handler_no_audio_store.handle_post(
+    def test_youtube_no_connector(self, mock_storage, mock_handler):
+        ctx = {"storage": mock_storage, "youtube_connector": None, "twitter_connector": None, "audio_store": None}
+        handler = SocialMediaHandler(ctx)
+        result = handler.handle_post(
             "/api/debates/test/publish/youtube", {}, mock_handler
         )
 
         assert result is not None
         assert result.status_code == 500
 
-    def test_youtube_not_configured(self, broadcast_handler, mock_handler):
-        result = broadcast_handler.handle_post(
+    def test_youtube_not_configured(self, social_handler, mock_handler):
+        result = social_handler.handle_post(
             "/api/debates/test/publish/youtube", {}, mock_handler
         )
 
@@ -460,12 +502,12 @@ class TestYouTubePublish:
         data = json.loads(result.body)
         assert "hint" in data
 
-    def test_youtube_quota_exceeded(self, broadcast_handler, mock_handler, mock_youtube_connector):
+    def test_youtube_quota_exceeded(self, social_handler, mock_handler, mock_youtube_connector):
         mock_youtube_connector.is_configured = True
         mock_youtube_connector.rate_limiter.can_upload.return_value = False
         mock_youtube_connector.rate_limiter.remaining_quota = 0
 
-        result = broadcast_handler.handle_post(
+        result = social_handler.handle_post(
             "/api/debates/test/publish/youtube", {}, mock_handler
         )
 
@@ -474,11 +516,11 @@ class TestYouTubePublish:
         data = json.loads(result.body)
         assert "quota" in data["error"].lower()
 
-    def test_youtube_no_audio_for_debate(self, broadcast_handler, mock_handler, mock_youtube_connector, mock_audio_store):
+    def test_youtube_no_audio_for_debate(self, social_handler, mock_handler, mock_youtube_connector, mock_audio_store):
         mock_youtube_connector.is_configured = True
         mock_audio_store.exists.return_value = False
 
-        result = broadcast_handler.handle_post(
+        result = social_handler.handle_post(
             "/api/debates/test/publish/youtube", {}, mock_handler
         )
 
@@ -495,8 +537,8 @@ class TestYouTubePublish:
 class TestBroadcastSecurity:
     """Security tests for broadcast endpoints."""
 
-    def test_audio_path_traversal_with_encoded_chars(self, broadcast_handler):
-        result = broadcast_handler.handle("/audio/..%2F..%2Fetc%2Fpasswd.mp3", {}, None)
+    def test_audio_path_traversal_with_encoded_chars(self, audio_handler):
+        result = audio_handler.handle("/audio/..%2F..%2Fetc%2Fpasswd.mp3", {}, None)
         assert result.status_code == 400
 
     def test_broadcast_sql_injection(self, broadcast_handler, mock_handler):
@@ -505,8 +547,8 @@ class TestBroadcastSecurity:
         )
         assert result.status_code == 400
 
-    def test_twitter_xss_in_debate_id(self, broadcast_handler, mock_handler):
-        result = broadcast_handler.handle_post(
+    def test_twitter_xss_in_debate_id(self, social_handler, mock_handler):
+        result = social_handler.handle_post(
             "/api/debates/<script>alert(1)</script>/publish/twitter", {}, mock_handler
         )
         assert result.status_code == 400
@@ -527,9 +569,9 @@ class TestBroadcastEdgeCases:
         result = broadcast_handler.handle_post("/api/other/endpoint", {}, mock_handler)
         assert result is None
 
-    def test_audio_with_special_characters_in_id(self, broadcast_handler):
+    def test_audio_with_special_characters_in_id(self, audio_handler):
         # Should reject special characters
-        result = broadcast_handler.handle("/audio/test<script>.mp3", {}, None)
+        result = audio_handler.handle("/audio/test<script>.mp3", {}, None)
         assert result.status_code == 400
 
     def test_empty_debate_id_in_broadcast(self, broadcast_handler, mock_handler):
@@ -547,8 +589,6 @@ class TestOAuthCSRFProtection:
 
     def test_oauth_state_storage_and_validation(self):
         """Test that OAuth state is stored and can be validated."""
-        from aragora.server.handlers.broadcast import _store_oauth_state, _validate_oauth_state
-
         state = "test-state-token-12345"
         _store_oauth_state(state)
 
@@ -557,8 +597,6 @@ class TestOAuthCSRFProtection:
 
     def test_oauth_state_one_time_use(self):
         """Test that OAuth state can only be validated once (one-time use)."""
-        from aragora.server.handlers.broadcast import _store_oauth_state, _validate_oauth_state
-
         state = "one-time-state-token"
         _store_oauth_state(state)
 
@@ -570,8 +608,6 @@ class TestOAuthCSRFProtection:
 
     def test_oauth_state_invalid_token_rejected(self):
         """Test that invalid/unknown state tokens are rejected."""
-        from aragora.server.handlers.broadcast import _validate_oauth_state
-
         # Never stored this state
         assert _validate_oauth_state("never-stored-state") is False
         assert _validate_oauth_state("") is False
@@ -579,9 +615,6 @@ class TestOAuthCSRFProtection:
 
     def test_oauth_state_expired_token_rejected(self):
         """Test that expired state tokens are rejected."""
-        from aragora.server.handlers.broadcast import (
-            _oauth_states, _oauth_states_lock, _validate_oauth_state
-        )
         import time
 
         state = "expiring-state-token"
@@ -593,11 +626,11 @@ class TestOAuthCSRFProtection:
         # Validation should fail
         assert _validate_oauth_state(state) is False
 
-    def test_oauth_callback_rejects_invalid_state(self, broadcast_handler, mock_handler, mock_youtube_connector):
+    def test_oauth_callback_rejects_invalid_state(self, social_handler, mock_handler, mock_youtube_connector):
         """Test that OAuth callback rejects invalid state parameter."""
         mock_youtube_connector.client_id = "test-client-id"
 
-        result = broadcast_handler.handle(
+        result = social_handler.handle(
             "/api/youtube/callback",
             {"code": "valid-code", "state": "invalid-never-stored-state"},
             mock_handler
@@ -608,9 +641,8 @@ class TestOAuthCSRFProtection:
         data = json.loads(result.body)
         assert "invalid" in data["error"].lower() or "expired" in data["error"].lower()
 
-    def test_oauth_callback_rejects_expired_state(self, broadcast_handler, mock_handler, mock_youtube_connector):
+    def test_oauth_callback_rejects_expired_state(self, social_handler, mock_handler, mock_youtube_connector):
         """Test that OAuth callback rejects expired state."""
-        from aragora.server.handlers.broadcast import _oauth_states, _oauth_states_lock
         import time
 
         mock_youtube_connector.client_id = "test-client-id"
@@ -620,7 +652,7 @@ class TestOAuthCSRFProtection:
         with _oauth_states_lock:
             _oauth_states[expired_state] = time.time() - 100  # Expired 100 seconds ago
 
-        result = broadcast_handler.handle(
+        result = social_handler.handle(
             "/api/youtube/callback",
             {"code": "valid-code", "state": expired_state},
             mock_handler
@@ -637,7 +669,7 @@ class TestOAuthCSRFProtection:
 class TestHostHeaderValidation:
     """Tests for Host header validation to prevent open redirect."""
 
-    def test_youtube_auth_rejects_untrusted_host(self, broadcast_handler, mock_youtube_connector):
+    def test_youtube_auth_rejects_untrusted_host(self, social_handler, mock_youtube_connector):
         """Test that YouTube auth rejects untrusted Host headers."""
         mock_youtube_connector.client_id = "test-client-id"
 
@@ -645,14 +677,14 @@ class TestHostHeaderValidation:
         evil_handler = Mock()
         evil_handler.headers = {"Host": "evil.com"}
 
-        result = broadcast_handler.handle("/api/youtube/auth", {}, evil_handler)
+        result = social_handler.handle("/api/youtube/auth", {}, evil_handler)
 
         assert result is not None
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "untrusted" in data["error"].lower()
 
-    def test_youtube_auth_accepts_trusted_localhost(self, broadcast_handler, mock_youtube_connector):
+    def test_youtube_auth_accepts_trusted_localhost(self, social_handler, mock_youtube_connector):
         """Test that YouTube auth accepts trusted localhost."""
         mock_youtube_connector.client_id = "test-client-id"
         mock_youtube_connector.get_auth_url = Mock(return_value="https://accounts.google.com/auth?...")
@@ -660,14 +692,14 @@ class TestHostHeaderValidation:
         trusted_handler = Mock()
         trusted_handler.headers = {"Host": "localhost:8080"}
 
-        result = broadcast_handler.handle("/api/youtube/auth", {}, trusted_handler)
+        result = social_handler.handle("/api/youtube/auth", {}, trusted_handler)
 
         assert result is not None
         assert result.status_code == 200
         data = json.loads(result.body)
         assert "auth_url" in data
 
-    def test_youtube_auth_accepts_trusted_127_0_0_1(self, broadcast_handler, mock_youtube_connector):
+    def test_youtube_auth_accepts_trusted_127_0_0_1(self, social_handler, mock_youtube_connector):
         """Test that YouTube auth accepts trusted 127.0.0.1."""
         mock_youtube_connector.client_id = "test-client-id"
         mock_youtube_connector.get_auth_url = Mock(return_value="https://accounts.google.com/auth?...")
@@ -675,15 +707,13 @@ class TestHostHeaderValidation:
         trusted_handler = Mock()
         trusted_handler.headers = {"Host": "127.0.0.1:8080"}
 
-        result = broadcast_handler.handle("/api/youtube/auth", {}, trusted_handler)
+        result = social_handler.handle("/api/youtube/auth", {}, trusted_handler)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_youtube_callback_rejects_untrusted_host(self, broadcast_handler, mock_youtube_connector):
+    def test_youtube_callback_rejects_untrusted_host(self, social_handler, mock_youtube_connector):
         """Test that YouTube callback rejects untrusted Host headers."""
-        from aragora.server.handlers.broadcast import _store_oauth_state
-
         mock_youtube_connector.client_id = "test-client-id"
 
         # Store valid state
@@ -694,7 +724,7 @@ class TestHostHeaderValidation:
         evil_handler = Mock()
         evil_handler.headers = {"Host": "attacker.com"}
 
-        result = broadcast_handler.handle(
+        result = social_handler.handle(
             "/api/youtube/callback",
             {"code": "auth-code", "state": valid_state},
             evil_handler
@@ -705,7 +735,7 @@ class TestHostHeaderValidation:
         data = json.loads(result.body)
         assert "untrusted" in data["error"].lower()
 
-    def test_host_validation_subdomain_bypass_prevention(self, broadcast_handler, mock_youtube_connector):
+    def test_host_validation_subdomain_bypass_prevention(self, social_handler, mock_youtube_connector):
         """Test that subdomain variations don't bypass host validation."""
         mock_youtube_connector.client_id = "test-client-id"
 
@@ -720,15 +750,13 @@ class TestHostHeaderValidation:
             evil_handler = Mock()
             evil_handler.headers = {"Host": evil_host}
 
-            result = broadcast_handler.handle("/api/youtube/auth", {}, evil_handler)
+            result = social_handler.handle("/api/youtube/auth", {}, evil_handler)
 
             assert result is not None, f"No result for host: {evil_host}"
             assert result.status_code == 400, f"Should reject host: {evil_host}"
 
     def test_host_validation_whitespace_handling(self):
         """Test that ALLOWED_OAUTH_HOSTS strips whitespace from config."""
-        from aragora.server.handlers.broadcast import ALLOWED_OAUTH_HOSTS
-
         # Verify default hosts are properly trimmed
         for host in ALLOWED_OAUTH_HOSTS:
             assert host == host.strip(), f"Host '{host}' has whitespace"

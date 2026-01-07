@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 
 interface SettledTopic {
   topic: string;
@@ -72,7 +73,7 @@ export function ConsensusKnowledgeBase({ apiBase }: ConsensusKnowledgeBaseProps)
       const data = await response.json();
       setStats(data);
     } catch (err) {
-      console.error('Failed to fetch stats:', err);
+      logger.error('Failed to fetch stats:', err);
     }
   }, [apiBase]);
 

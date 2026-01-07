@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { logger } from '@/utils/logger';
 
 interface AgentProfile {
   agent: string;
@@ -135,7 +136,7 @@ export function AgentProfileWrapper() {
         setHeadToHead(data);
       }
     } catch (err) {
-      console.error('Failed to fetch head-to-head:', err);
+      logger.error('Failed to fetch head-to-head:', err);
     }
   }, [agentName, apiBase]);
 

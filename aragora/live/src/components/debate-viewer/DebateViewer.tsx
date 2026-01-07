@@ -10,6 +10,7 @@ import { useDebateWebSocket } from '@/hooks/useDebateWebSocket';
 import { LiveDebateView } from './LiveDebateView';
 import { ArchivedDebateView } from './ArchivedDebateView';
 import type { DebateViewerProps, DebateArtifact, StreamingMessage } from './types';
+import { logger } from '@/utils/logger';
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
 
@@ -103,7 +104,7 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy link:', err);
+      logger.error('Failed to copy link:', err);
     }
   };
 

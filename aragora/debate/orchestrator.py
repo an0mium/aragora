@@ -37,6 +37,17 @@ from aragora.debate.sanitization import OutputSanitizer
 from aragora.server.prometheus import record_debate_completed
 from aragora.spectate.stream import SpectatorStream
 
+# Phase classes for orchestrator decomposition
+from aragora.debate.phases import (
+    ContextInitializer,
+    ProposalPhase,
+    DebateRoundsPhase,
+    ConsensusPhase,
+    AnalyticsPhase,
+    FeedbackPhase,
+)
+from aragora.debate.context import DebateContext
+
 logger = logging.getLogger(__name__)
 
 # Optional position tracking for truth-grounded personas
@@ -184,16 +195,27 @@ class SecurityBarrier:
         self._patterns = [re.compile(p) for p in (patterns or self.DEFAULT_PATTERNS)]
         self._redaction_marker = redaction_marker
         self._custom_patterns: list = []
+        # Cache combined patterns to avoid list concatenation on every redact() call
+        self._all_patterns_cache: list | None = None
 
     def add_pattern(self, pattern: str) -> None:
         """Add a custom redaction pattern."""
         import re
         self._custom_patterns.append(re.compile(pattern))
+        # Invalidate cache when patterns change
+        self._all_patterns_cache = None
 
     def refresh_patterns(self) -> None:
         """Refresh patterns (e.g., from environment or config)."""
+        # Invalidate cache on refresh
+        self._all_patterns_cache = None
         # Could be extended to load patterns from config file
-        pass
+
+    def _get_all_patterns(self) -> list:
+        """Get combined patterns with caching."""
+        if self._all_patterns_cache is None:
+            self._all_patterns_cache = self._patterns + self._custom_patterns
+        return self._all_patterns_cache
 
     def redact(self, content: str) -> str:
         """
@@ -209,7 +231,7 @@ class SecurityBarrier:
             return content
 
         result = content
-        all_patterns = self._patterns + self._custom_patterns
+        all_patterns = self._get_all_patterns()
 
         for pattern in all_patterns:
             result = pattern.sub(self._redaction_marker, result)
@@ -522,6 +544,121 @@ class Arena:
             event_emitter=self.event_emitter,
             spectator=self.spectator,
             loop_id=self.loop_id,
+        )
+
+        # =====================================================================
+        # Initialize Phase Classes for Orchestrator Decomposition
+        # =====================================================================
+
+        # Phase 0: Context Initialization
+        self.context_initializer = ContextInitializer(
+            initial_messages=self.initial_messages,
+            trending_topic=self.trending_topic,
+            recorder=self.recorder,
+            debate_embeddings=self.debate_embeddings,
+            insight_store=self.insight_store,
+            memory=self.memory,
+            protocol=self.protocol,
+            fetch_historical_context=self._fetch_historical_context,
+            format_patterns_for_prompt=self._format_patterns_for_prompt,
+            get_successful_patterns_from_memory=self._get_successful_patterns_from_memory,
+            perform_research=self._perform_research,
+        )
+
+        # Phase 1: Initial Proposals
+        self.proposal_phase = ProposalPhase(
+            circuit_breaker=self.circuit_breaker,
+            position_tracker=self.position_tracker,
+            position_ledger=self.position_ledger,
+            recorder=self.recorder,
+            hooks=self.hooks,
+            build_proposal_prompt=self._build_proposal_prompt,
+            generate_with_agent=self._generate_with_agent,
+            with_timeout=self._with_timeout,
+            notify_spectator=self._notify_spectator,
+            update_role_assignments=self._update_role_assignments,
+            record_grounded_position=self._record_grounded_position,
+            extract_citation_needs=self._extract_citation_needs,
+        )
+
+        # Phase 2: Debate Rounds (critique/revision loop)
+        self.debate_rounds_phase = DebateRoundsPhase(
+            protocol=self.protocol,
+            circuit_breaker=self.circuit_breaker,
+            convergence_detector=self.convergence_detector,
+            recorder=self.recorder,
+            hooks=self.hooks,
+            update_role_assignments=self._update_role_assignments,
+            assign_stances=self._assign_stances,
+            select_critics_for_proposal=self._select_critics_for_proposal,
+            critique_with_agent=self._critique_with_agent,
+            build_revision_prompt=self._build_revision_prompt,
+            generate_with_agent=self._generate_with_agent,
+            with_timeout=self._with_timeout,
+            notify_spectator=self._notify_spectator,
+            record_grounded_position=self._record_grounded_position,
+            check_judge_termination=self._check_judge_termination,
+            check_early_stopping=self._check_early_stopping,
+        )
+
+        # Phase 3: Consensus Resolution
+        self.consensus_phase = ConsensusPhase(
+            protocol=self.protocol,
+            elo_system=self.elo_system,
+            memory=self.memory,
+            agent_weights=self.agent_weights,
+            flip_detector=self.flip_detector,
+            position_tracker=self.position_tracker,
+            calibration_tracker=self.calibration_tracker,
+            recorder=self.recorder,
+            hooks=self.hooks,
+            user_votes=self.user_votes,
+            vote_with_agent=self._vote_with_agent,
+            with_timeout=self._with_timeout,
+            select_judge=self._select_judge,
+            build_judge_prompt=self._build_judge_prompt,
+            generate_with_agent=self._generate_with_agent,
+            group_similar_votes=self._group_similar_votes,
+            get_calibration_weight=self._get_calibration_weight,
+            notify_spectator=self._notify_spectator,
+            drain_user_events=self._drain_user_events,
+            extract_debate_domain=self._extract_debate_domain,
+            get_belief_analyzer=_get_belief_analyzer,
+            user_vote_multiplier=user_vote_multiplier,
+        )
+
+        # Phases 4-6: Analytics
+        self.analytics_phase = AnalyticsPhase(
+            memory=self.memory,
+            insight_store=self.insight_store,
+            recorder=self.recorder,
+            event_emitter=self.event_emitter,
+            hooks=self.hooks,
+            loop_id=self.loop_id,
+            notify_spectator=self._notify_spectator,
+            update_agent_relationships=self._update_agent_relationships,
+            generate_disagreement_report=self._generate_disagreement_report,
+            create_grounded_verdict=self._create_grounded_verdict,
+            verify_claims_formally=self._verify_claims_formally,
+            format_conclusion=self._format_conclusion,
+        )
+
+        # Phase 7: Feedback Loops
+        self.feedback_phase = FeedbackPhase(
+            elo_system=self.elo_system,
+            persona_manager=self.persona_manager,
+            position_ledger=self.position_ledger,
+            relationship_tracker=self.relationship_tracker,
+            moment_detector=self.moment_detector,
+            debate_embeddings=self.debate_embeddings,
+            flip_detector=self.flip_detector,
+            continuum_memory=self.continuum_memory,
+            event_emitter=self.event_emitter,
+            loop_id=self.loop_id,
+            emit_moment_event=self._emit_moment_event,
+            store_debate_outcome_as_memory=self._store_debate_outcome_as_memory,
+            update_continuum_memory_outcomes=self._update_continuum_memory_outcomes,
+            index_debate_async=self._index_debate_async,
         )
 
     def _require_agents(self) -> list[Agent]:
@@ -1389,7 +1526,8 @@ class Arena:
                     try:
                         content = claude_md.read_text()[:2000]
                         aragora_context_parts.insert(0, f"### Project Overview (CLAUDE.md)\n{content}")
-                    except Exception:
+                    except (OSError, UnicodeDecodeError):
+                        # Skip if file can't be read (permission, encoding issues)
                         pass
 
                 if aragora_context_parts:
@@ -1667,7 +1805,69 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
         return await self._run_inner()
 
     async def _run_inner(self) -> DebateResult:
-        """Internal debate execution (called by run() with optional timeout wrapper)."""
+        """Internal debate execution orchestrator.
+
+        This method coordinates the debate phases:
+        0. Context Initialization - inject history, patterns, research
+        1. Proposals - generate initial proposer responses
+        2. Debate Rounds - critique/revision loop
+        3. Consensus - voting and resolution
+        4-6. Analytics - metrics, insights, verdict
+        7. Feedback - ELO, persona, position updates
+        """
+        import uuid
+
+        # Create shared context for all phases
+        ctx = DebateContext(
+            env=self.env,
+            agents=self.agents,
+            start_time=time.time(),
+            debate_id=str(uuid.uuid4()),
+            domain=self._extract_debate_domain(),
+        )
+
+        # Initialize result early for timeout recovery
+        ctx.result = DebateResult(
+            task=self.env.task,
+            consensus_reached=False,
+            confidence=0.0,
+            messages=[],
+            critiques=[],
+            votes=[],
+            rounds_used=0,
+            final_answer="",
+        )
+
+        try:
+            # Phase 0: Context Initialization
+            await self.context_initializer.initialize(ctx)
+
+            # Phase 1: Initial Proposals
+            await self.proposal_phase.execute(ctx)
+
+            # Phase 2: Debate Rounds (critique/revision loop)
+            await self.debate_rounds_phase.execute(ctx)
+
+            # Phase 3: Consensus Resolution
+            await self.consensus_phase.execute(ctx)
+
+            # Phases 4-6: Analytics
+            await self.analytics_phase.execute(ctx)
+
+            # Phase 7: Feedback Loops
+            await self.feedback_phase.execute(ctx)
+
+        except asyncio.TimeoutError:
+            # Timeout recovery - use partial results from context
+            ctx.result.messages = ctx.partial_messages
+            ctx.result.critiques = ctx.partial_critiques
+            ctx.result.rounds_used = ctx.partial_rounds
+            logger.warning("Debate timed out, returning partial results")
+
+        return ctx.result
+
+    async def _run_inner_legacy(self) -> DebateResult:
+        """Legacy internal debate execution (preserved during refactoring)."""
         start_time = time.time()
         vote_tally = {}
         # Initialize partial results for timeout recovery
@@ -2258,22 +2458,33 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
 
             # Pre-compute vote weights for all agents (batch fetch optimization)
             _vote_weight_cache: dict[str, float] = {}
+            agent_names = [agent.name for agent in self.agents]
 
             # Batch fetch all agent ratings to avoid N+1 queries
             _ratings_cache: dict[str, "AgentRating"] = {}
             if self.elo_system:
                 try:
-                    agent_names = [agent.name for agent in self.agents]
                     _ratings_cache = self.elo_system.get_ratings_batch(agent_names)
                 except Exception as e:
                     logger.debug(f"Batch ratings fetch failed, falling back to individual: {e}")
 
-            for agent in self.agents:
-                agent_weight = 1.0
+            # Batch fetch all reputation-based vote weights (N queries → 1 query)
+            _reputation_weights: dict[str, float] = {}
+            if self.memory and hasattr(self.memory, 'get_vote_weights_batch'):
+                try:
+                    _reputation_weights = self.memory.get_vote_weights_batch(agent_names)
+                except Exception as e:
+                    logger.debug(f"Batch vote weights fetch failed, falling back to individual: {e}")
 
-                # Get reputation-based vote weight (0.5-1.5 range)
-                if self.memory and hasattr(self.memory, 'get_vote_weight'):
+            for agent in self.agents:
+                # Get reputation-based vote weight (0.5-1.5 range) from batch cache
+                if agent.name in _reputation_weights:
+                    agent_weight = _reputation_weights[agent.name]
+                elif self.memory and hasattr(self.memory, 'get_vote_weight'):
+                    # Fallback to individual fetch if batch failed
                     agent_weight = self.memory.get_vote_weight(agent.name)
+                else:
+                    agent_weight = 1.0
 
                 # Apply reliability weight from capability probing (0.0-1.0 multiplier)
                 if self.agent_weights and agent.name in self.agent_weights:
@@ -2466,8 +2677,11 @@ You are assigned to EVALUATE FAIRLY. Your role is to:
                     voting_errors += 1  # Count task failure as voting error
                     continue  # Skip this task, continue with others
 
-                if isinstance(vote_result, Exception):
-                    logger.error(f"vote_error_unanimous agent={agent.name} error={vote_result}")
+                if vote_result is None or isinstance(vote_result, Exception):
+                    if isinstance(vote_result, Exception):
+                        logger.error(f"vote_error_unanimous agent={agent.name} error={vote_result}")
+                    else:
+                        logger.error(f"vote_error_unanimous agent={agent.name} error=vote returned None")
                     voting_errors += 1  # Count as failed vote (breaks unanimity)
                 else:
                     result.votes.append(vote_result)

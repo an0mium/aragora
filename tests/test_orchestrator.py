@@ -521,8 +521,9 @@ class TestUserEventQueue:
 
         # Should not raise on empty queue
         arena._drain_user_events()
-        assert arena.user_votes == []
-        assert arena.user_suggestions == []
+        # user_votes and user_suggestions are deques, check they're empty
+        assert len(arena.user_votes) == 0
+        assert len(arena.user_suggestions) == 0
 
     def test_drain_user_events_processes_votes(self):
         """Draining queue should populate user_votes list."""

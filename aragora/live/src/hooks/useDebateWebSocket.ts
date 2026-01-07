@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
+import { logger } from '@/utils/logger';
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
 
@@ -486,7 +487,7 @@ export function useDebateWebSocket({
         setHasCitations(true);
       }
     } catch (e) {
-      console.error('Failed to parse WebSocket message:', e);
+      logger.error('Failed to parse WebSocket message:', e);
     }
   }, [debateId, addMessageIfNew, addStreamEvent]);
 
@@ -515,7 +516,7 @@ export function useDebateWebSocket({
       ws = new WebSocket(wsUrl);
       wsRef.current = ws;
     } catch (e) {
-      console.error('[WebSocket] Failed to create connection:', e);
+      logger.error('[WebSocket] Failed to create connection:', e);
       setStatus('error');
       setError('Failed to establish WebSocket connection');
       scheduleReconnect();
@@ -523,7 +524,7 @@ export function useDebateWebSocket({
     }
 
     ws.onopen = () => {
-      console.log(`[WebSocket] Connected (attempt ${reconnectAttempt + 1})`);
+      logger.debug(`[WebSocket] Connected (attempt ${reconnectAttempt + 1})`);
       setStatus('streaming');
       setError(null);
       setReconnectAttempt(0);  // Reset on successful connection
@@ -534,7 +535,7 @@ export function useDebateWebSocket({
     ws.onmessage = handleMessage;
 
     ws.onerror = (e) => {
-      console.error('[WebSocket] Connection error:', e);
+      logger.error('[WebSocket] Connection error:', e);
       // Don't set error status here - let onclose handle it
       // This prevents duplicate error handling
     };

@@ -588,7 +588,7 @@ class EloSystem:
         elo_changes: dict[str, float],
     ):
         """Save match to history."""
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -609,7 +609,7 @@ class EloSystem:
 
     def _record_elo_history(self, agent_name: str, elo: float, debate_id: str | None = None) -> None:
         """Record ELO at a point in time."""
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -973,9 +973,8 @@ class EloSystem:
             rating.calibration_brier_sum += brier
             rating.updated_at = now
 
-        # Batch save all updated ratings
-        for rating in ratings.values():
-            self._save_rating(rating)
+        # Batch save all updated ratings in single transaction
+        self._save_ratings_batch(list(ratings.values()))
 
         return brier_scores
 

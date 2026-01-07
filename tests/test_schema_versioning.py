@@ -284,3 +284,184 @@ class TestPersistence:
         assert manager2.get_version() == 3
 
         conn2.close()
+
+
+class TestDatabaseManager:
+    """Tests for DatabaseManager singleton pattern."""
+
+    def test_singleton_pattern(self, db_file):
+        """Same path should return same instance."""
+        from aragora.storage.schema import DatabaseManager
+
+        conn, path = db_file
+        conn.close()  # Close the fixture connection
+
+        try:
+            manager1 = DatabaseManager.get_instance(path)
+            manager2 = DatabaseManager.get_instance(path)
+
+            assert manager1 is manager2
+        finally:
+            DatabaseManager.clear_instances()
+
+    def test_different_paths_different_instances(self):
+        """Different paths should return different instances."""
+        from aragora.storage.schema import DatabaseManager
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f1:
+            path1 = Path(f1.name)
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f2:
+            path2 = Path(f2.name)
+
+        try:
+            manager1 = DatabaseManager.get_instance(path1)
+            manager2 = DatabaseManager.get_instance(path2)
+
+            assert manager1 is not manager2
+        finally:
+            DatabaseManager.clear_instances()
+            path1.unlink()
+            path2.unlink()
+
+    def test_clear_instances(self, db_file):
+        """clear_instances should remove all cached instances."""
+        from aragora.storage.schema import DatabaseManager
+
+        conn, path = db_file
+        conn.close()
+
+        try:
+            manager1 = DatabaseManager.get_instance(path)
+            DatabaseManager.clear_instances()
+            manager2 = DatabaseManager.get_instance(path)
+
+            # After clear, should get a new instance
+            assert manager1 is not manager2
+        finally:
+            DatabaseManager.clear_instances()
+
+    def test_connection_context_manager(self, db_file):
+        """Context manager should commit on success."""
+        from aragora.storage.schema import DatabaseManager
+
+        conn, path = db_file
+        conn.close()
+
+        try:
+            manager = DatabaseManager.get_instance(path)
+
+            # Create table using context manager
+            with manager.connection() as c:
+                c.execute("CREATE TABLE test (id INTEGER PRIMARY KEY)")
+                c.execute("INSERT INTO test (id) VALUES (1)")
+
+            # Verify data was committed
+            with manager.connection() as c:
+                cursor = c.execute("SELECT id FROM test")
+                assert cursor.fetchone()[0] == 1
+        finally:
+            DatabaseManager.clear_instances()
+
+    def test_connection_context_manager_rollback(self, db_file):
+        """Context manager should rollback on error."""
+        from aragora.storage.schema import DatabaseManager
+
+        conn, path = db_file
+        conn.close()
+
+        try:
+            manager = DatabaseManager.get_instance(path)
+
+            # Create table
+            with manager.connection() as c:
+                c.execute("CREATE TABLE test (id INTEGER PRIMARY KEY)")
+
+            # Try to insert then raise error
+            with pytest.raises(ValueError):
+                with manager.connection() as c:
+                    c.execute("INSERT INTO test (id) VALUES (1)")
+                    raise ValueError("Test error")
+
+            # Data should not be committed
+            with manager.connection() as c:
+                cursor = c.execute("SELECT COUNT(*) FROM test")
+                assert cursor.fetchone()[0] == 0
+        finally:
+            DatabaseManager.clear_instances()
+
+
+class TestSafeAddColumnValidation:
+    """Tests for SQL injection prevention in safe_add_column."""
+
+    def test_rejects_invalid_table_name(self, db_conn):
+        """Should reject table names with special characters."""
+        db_conn.execute("CREATE TABLE valid_table (id INTEGER)")
+        db_conn.commit()
+
+        with pytest.raises(ValueError, match="Invalid table name"):
+            safe_add_column(db_conn, "valid_table; DROP TABLE users; --", "col", "TEXT")
+
+    def test_rejects_invalid_column_name(self, db_conn):
+        """Should reject column names with special characters."""
+        db_conn.execute("CREATE TABLE t (id INTEGER)")
+        db_conn.commit()
+
+        with pytest.raises(ValueError, match="Invalid column name"):
+            safe_add_column(db_conn, "t", "col; DROP TABLE t; --", "TEXT")
+
+    def test_rejects_invalid_column_type(self, db_conn):
+        """Should reject column types not in whitelist."""
+        db_conn.execute("CREATE TABLE t (id INTEGER)")
+        db_conn.commit()
+
+        with pytest.raises(ValueError, match="Invalid column type"):
+            safe_add_column(db_conn, "t", "col", "TEXT; DROP TABLE t; --")
+
+    def test_rejects_invalid_default_value(self, db_conn):
+        """Should reject default values with injection attempts."""
+        db_conn.execute("CREATE TABLE t (id INTEGER)")
+        db_conn.commit()
+
+        with pytest.raises(ValueError, match="Invalid default value"):
+            safe_add_column(db_conn, "t", "col", "TEXT", default="''; DROP TABLE t; --")
+
+    def test_accepts_valid_identifiers(self, db_conn):
+        """Should accept valid SQL identifiers."""
+        db_conn.execute("CREATE TABLE valid_table_123 (id INTEGER)")
+        db_conn.commit()
+
+        result = safe_add_column(db_conn, "valid_table_123", "valid_column_456", "TEXT")
+        assert result is True
+
+    def test_accepts_valid_default_null(self, db_conn):
+        """Should accept NULL as default."""
+        db_conn.execute("CREATE TABLE t (id INTEGER)")
+        db_conn.commit()
+
+        result = safe_add_column(db_conn, "t", "col", "TEXT", default="NULL")
+        assert result is True
+
+    def test_accepts_valid_default_numeric(self, db_conn):
+        """Should accept numeric defaults."""
+        db_conn.execute("CREATE TABLE t (id INTEGER)")
+        db_conn.commit()
+
+        result = safe_add_column(db_conn, "t", "col", "INTEGER", default="42")
+        assert result is True
+
+    def test_accepts_valid_default_timestamp(self, db_conn):
+        """Should accept CURRENT_TIMESTAMP default."""
+        db_conn.execute("CREATE TABLE t (id INTEGER)")
+        db_conn.commit()
+
+        result = safe_add_column(db_conn, "t", "col", "TIMESTAMP", default="CURRENT_TIMESTAMP")
+        assert result is True
+
+    def test_rejects_long_identifiers(self, db_conn):
+        """Should reject identifiers longer than 128 characters."""
+        db_conn.execute("CREATE TABLE t (id INTEGER)")
+        db_conn.commit()
+
+        long_name = "a" * 129
+        with pytest.raises(ValueError, match="Invalid column name"):
+            safe_add_column(db_conn, "t", long_name, "TEXT")

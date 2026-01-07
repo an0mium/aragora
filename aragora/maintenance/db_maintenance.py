@@ -54,8 +54,8 @@ class DatabaseMaintenance:
 
     def __init__(self, db_dir: Path | str = DEFAULT_DB_DIR):
         self.db_dir = Path(db_dir)
-        self._last_vacuum = None
-        self._last_analyze = None
+        self._last_vacuum: Optional[datetime] = None
+        self._last_analyze: Optional[datetime] = None
 
     def get_databases(self) -> list[Path]:
         """Get list of all database files that exist."""
@@ -275,8 +275,8 @@ def run_startup_maintenance(db_dir: Path | str = DEFAULT_DB_DIR) -> dict:
                 last_analyze = datetime.fromisoformat(state.get("last_analyze", "2000-01-01"))
                 if datetime.now() - last_analyze < timedelta(hours=24):
                     should_analyze = False
-        except Exception:
-            pass
+        except (OSError, json.JSONDecodeError, ValueError) as e:
+            logger.debug(f"Could not read maintenance state: {e}")
 
     if should_analyze:
         results["analyze"] = maintenance.analyze_all()
@@ -289,8 +289,8 @@ def run_startup_maintenance(db_dir: Path | str = DEFAULT_DB_DIR) -> dict:
                     "last_analyze": datetime.now().isoformat(),
                     "last_startup": datetime.now().isoformat(),
                 }, f)
-        except Exception:
-            pass
+        except OSError as e:
+            logger.debug(f"Could not save maintenance state: {e}")
 
     logger.info("[maintenance] Startup maintenance complete")
     return results
@@ -312,7 +312,7 @@ def schedule_maintenance(
     """
     maintenance = DatabaseMaintenance(db_dir)
     state_file = Path(db_dir) / "maintenance_state.json"
-    results = {"tasks_run": []}
+    results: dict = {"tasks_run": []}
 
     # Load state
     state = {}
@@ -321,8 +321,8 @@ def schedule_maintenance(
             import json
             with open(state_file) as f:
                 state = json.load(f)
-        except Exception:
-            pass
+        except (OSError, json.JSONDecodeError) as e:
+            logger.debug(f"Could not read maintenance state: {e}")
 
     now = datetime.now()
 
@@ -356,7 +356,7 @@ def schedule_maintenance(
             import json
             with open(state_file, "w") as f:
                 json.dump(state, f, indent=2)
-        except Exception:
-            pass
+        except OSError as e:
+            logger.debug(f"Could not save maintenance state: {e}")
 
     return results

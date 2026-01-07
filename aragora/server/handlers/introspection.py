@@ -20,6 +20,7 @@ from .base import (
     get_int_param,
     validate_agent_name,
 )
+from aragora.config import DB_PERSONAS_PATH
 from aragora.utils.optional_imports import try_import_class
 
 logger = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ class IntrospectionHandler(BaseHandler):
         nomic_dir = self.get_nomic_dir()
         if not nomic_dir:
             return None
-        persona_db = nomic_dir / "personas.db"
+        persona_db = nomic_dir / DB_PERSONAS_PATH
         if not persona_db.exists():
             return None
         return PersonaManager(str(persona_db))

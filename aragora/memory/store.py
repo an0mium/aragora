@@ -239,6 +239,10 @@ class CritiqueStore:
                 CREATE INDEX IF NOT EXISTS idx_critiques_debate ON critiques(debate_id);
                 CREATE INDEX IF NOT EXISTS idx_patterns_type ON patterns(issue_type);
                 CREATE INDEX IF NOT EXISTS idx_patterns_success ON patterns(success_count DESC);
+                -- Composite index for filtered retrieval by type with success ranking
+                CREATE INDEX IF NOT EXISTS idx_patterns_type_success ON patterns(issue_type, success_count DESC);
+                -- Composite index for time-decayed ranking queries
+                CREATE INDEX IF NOT EXISTS idx_patterns_success_updated ON patterns(success_count DESC, updated_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_reputation_score ON agent_reputation(proposals_accepted DESC);
                 CREATE INDEX IF NOT EXISTS idx_reputation_agent ON agent_reputation(agent_name);
             """
@@ -748,6 +752,71 @@ class CritiqueStore:
         if not rep:
             return 1.0  # Neutral weight for unknown agents
         return rep.vote_weight
+
+    def get_vote_weights_batch(self, agent_names: list[str]) -> dict[str, float]:
+        """Get vote weights for multiple agents in a single query.
+
+        This is more efficient than calling get_vote_weight() for each agent
+        when processing votes, as it fetches all reputations in one query.
+
+        Args:
+            agent_names: List of agent names to fetch weights for
+
+        Returns:
+            Dict mapping agent names to their vote weights (0.4-1.6 range)
+        """
+        if not agent_names:
+            return {}
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Build placeholders for IN clause
+            placeholders = ",".join("?" * len(agent_names))
+
+            cursor.execute(
+                f"""
+                SELECT agent_name, proposals_made, proposals_accepted,
+                       critiques_given, critiques_valuable,
+                       COALESCE(calibration_score, 0.5)
+                FROM agent_reputation
+                WHERE agent_name IN ({placeholders})
+                """,
+                agent_names,
+            )
+
+            weights: dict[str, float] = {}
+            for row in cursor.fetchall():
+                agent_name = row[0]
+                proposals_made = row[1]
+                proposals_accepted = row[2]
+                critiques_given = row[3]
+                critiques_valuable = row[4]
+                calibration_score = row[5]
+
+                # Calculate reputation score (same logic as AgentReputation.score)
+                if proposals_made == 0:
+                    score = 0.5
+                else:
+                    acceptance = proposals_accepted / proposals_made
+                    critique_quality = (
+                        critiques_valuable / critiques_given
+                        if critiques_given > 0
+                        else 0.5
+                    )
+                    score = 0.6 * acceptance + 0.4 * critique_quality
+
+                # Calculate vote weight (same logic as AgentReputation.vote_weight)
+                base_weight = 0.5 + score  # 0.5-1.5 range
+                calibration_bonus = (calibration_score - 0.5) * 0.2
+                weights[agent_name] = max(0.4, min(1.6, base_weight + calibration_bonus))
+
+            # Fill in missing agents with default weight
+            for name in agent_names:
+                if name not in weights:
+                    weights[name] = 1.0
+
+            return weights
 
     # Whitelist of allowed column increments - prevents SQL injection.
     # Only these hardcoded SQL fragments can be used in UPDATE statements.

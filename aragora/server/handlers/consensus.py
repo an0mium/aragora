@@ -205,12 +205,16 @@ class ConsensusHandler(BaseHandler):
 
             with sqlite3.connect(memory.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM consensus WHERE confidence >= 0.7")
+                # Combined query for better performance
+                cursor.execute("""
+                    SELECT
+                        SUM(CASE WHEN confidence >= 0.7 THEN 1 ELSE 0 END) as high_conf_count,
+                        AVG(confidence) as avg_conf
+                    FROM consensus
+                """)
                 row = cursor.fetchone()
-                high_confidence_count = row[0] if row else 0
-                cursor.execute("SELECT AVG(confidence) FROM consensus")
-                avg_row = cursor.fetchone()
-                avg_confidence = avg_row[0] if avg_row and avg_row[0] else 0.0
+                high_confidence_count = row[0] if row and row[0] else 0
+                avg_confidence = row[1] if row and row[1] else 0.0
 
             return json_response({
                 "total_topics": raw_stats.get("total_consensus", 0),

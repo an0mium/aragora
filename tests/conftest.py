@@ -473,3 +473,10 @@ def reset_lazy_globals():
             cal_handler.EloSystem = None
     except (ImportError, AttributeError):
         pass
+
+    # Clear DatabaseManager singleton instances
+    try:
+        from aragora.storage.schema import DatabaseManager
+        DatabaseManager.clear_instances()
+    except (ImportError, AttributeError):
+        pass

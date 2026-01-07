@@ -44,6 +44,9 @@ def temp_db():
 @pytest.fixture
 def store(temp_db):
     """Create a CritiqueStore with temporary database."""
+    # Clear the global cache to prevent cross-test contamination
+    from aragora.server.handlers.base import clear_cache
+    clear_cache()
     return CritiqueStore(db_path=temp_db)
 
 

@@ -130,20 +130,20 @@ class OpenRouterRateLimiter:
             if "X-RateLimit-Limit" in headers:
                 try:
                     self._api_limit = int(headers["X-RateLimit-Limit"])
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.warning(f"Failed to parse X-RateLimit-Limit header: {headers.get('X-RateLimit-Limit')!r} - {e}")
 
             if "X-RateLimit-Remaining" in headers:
                 try:
                     self._api_remaining = int(headers["X-RateLimit-Remaining"])
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.warning(f"Failed to parse X-RateLimit-Remaining header: {headers.get('X-RateLimit-Remaining')!r} - {e}")
 
             if "X-RateLimit-Reset" in headers:
                 try:
                     self._api_reset = float(headers["X-RateLimit-Reset"])
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.warning(f"Failed to parse X-RateLimit-Reset header: {headers.get('X-RateLimit-Reset')!r} - {e}")
 
     def release_on_error(self) -> None:
         """Release a token back on request error (optional, for retries)."""
@@ -1401,14 +1401,13 @@ class OpenRouterAgent(APIAgent):
                 raise RuntimeError(f"OpenRouter connection failed after {max_retries} retries: {last_error}")
 
     async def generate_stream(self, prompt: str, context: list[Message] | None = None):
-        """Stream tokens from OpenRouter API with rate limiting.
+        """Stream tokens from OpenRouter API with rate limiting and retry.
 
         Yields chunks of text as they arrive from the API using SSE.
+        Implements retry logic with exponential backoff for 429 rate limit errors.
         """
-        # Acquire rate limit token
-        limiter = get_openrouter_limiter()
-        if not await limiter.acquire(timeout=DB_TIMEOUT_SECONDS):
-            raise RuntimeError("OpenRouter rate limit exceeded, request timed out")
+        max_retries = 3
+        base_delay = 2.0
 
         full_prompt = prompt
         if context:
@@ -1434,54 +1433,93 @@ class OpenRouterAgent(APIAgent):
             "stream": True,
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url,
-                headers=headers,
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=self.timeout),
-            ) as response:
-                # Update rate limit state from headers
-                limiter.update_from_headers(dict(response.headers))
+        last_error = None
+        for attempt in range(max_retries):
+            # Acquire rate limit token for each attempt
+            limiter = get_openrouter_limiter()
+            if not await limiter.acquire(timeout=DB_TIMEOUT_SECONDS):
+                raise RuntimeError("OpenRouter rate limit exceeded, request timed out")
 
-                if response.status == 429:
-                    limiter.release_on_error()
-                    retry_after = response.headers.get("Retry-After", "60")
-                    raise RuntimeError(f"OpenRouter rate limited (429), retry after {retry_after}s")
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        url,
+                        headers=headers,
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=self.timeout),
+                    ) as response:
+                        # Update rate limit state from headers
+                        limiter.update_from_headers(dict(response.headers))
 
-                if response.status != 200:
-                    error_text = await response.text()
-                    sanitized = _sanitize_error_message(error_text)
-                    raise RuntimeError(f"OpenRouter streaming API error {response.status}: {sanitized}")
+                        if response.status == 429:
+                            # Rate limited by API - release token and calculate wait time
+                            limiter.release_on_error()
+                            retry_after_header = response.headers.get("Retry-After")
+                            if retry_after_header:
+                                try:
+                                    wait_time = float(retry_after_header)
+                                except ValueError:
+                                    wait_time = base_delay * (2 ** attempt)
+                            else:
+                                wait_time = base_delay * (2 ** attempt)
+                            wait_time = min(wait_time, 300)  # Cap at 5 minutes
 
-                # OpenRouter uses SSE format (OpenAI-compatible)
-                buffer = ""
-                async for chunk in response.content.iter_any():
-                    buffer += chunk.decode('utf-8', errors='ignore')
+                            if attempt < max_retries - 1:
+                                logger.warning(
+                                    f"OpenRouter streaming rate limited (429), waiting {wait_time:.0f}s before retry {attempt + 2}/{max_retries}"
+                                )
+                                await asyncio.sleep(wait_time)
+                                last_error = f"Rate limited (429)"
+                                continue
+                            else:
+                                raise RuntimeError(f"OpenRouter streaming rate limited (429) after {max_retries} retries")
 
-                    while '\n' in buffer:
-                        line, buffer = buffer.split('\n', 1)
-                        line = line.strip()
+                        if response.status != 200:
+                            error_text = await response.text()
+                            sanitized = _sanitize_error_message(error_text)
+                            raise RuntimeError(f"OpenRouter streaming API error {response.status}: {sanitized}")
 
-                        if not line or not line.startswith('data: '):
-                            continue
+                        # OpenRouter uses SSE format (OpenAI-compatible)
+                        buffer = ""
+                        async for chunk in response.content.iter_any():
+                            buffer += chunk.decode('utf-8', errors='ignore')
 
-                        data_str = line[6:]
+                            while '\n' in buffer:
+                                line, buffer = buffer.split('\n', 1)
+                                line = line.strip()
 
-                        if data_str == '[DONE]':
-                            return
+                                if not line or not line.startswith('data: '):
+                                    continue
 
-                        try:
-                            event = json.loads(data_str)
-                            choices = event.get('choices', [])
-                            if choices:
-                                delta = choices[0].get('delta', {})
-                                content = delta.get('content', '')
-                                if content:
-                                    yield content
+                                data_str = line[6:]
 
-                        except json.JSONDecodeError:
-                            continue
+                                if data_str == '[DONE]':
+                                    return
+
+                                try:
+                                    event = json.loads(data_str)
+                                    choices = event.get('choices', [])
+                                    if choices:
+                                        delta = choices[0].get('delta', {})
+                                        content = delta.get('content', '')
+                                        if content:
+                                            yield content
+
+                                except json.JSONDecodeError:
+                                    continue
+
+                        # Successfully streamed - exit retry loop
+                        return
+
+            except aiohttp.ClientError as e:
+                limiter.release_on_error()
+                last_error = str(e)
+                if attempt < max_retries - 1:
+                    wait_time = base_delay * (2 ** attempt)
+                    logger.warning(f"OpenRouter streaming connection error, waiting {wait_time:.0f}s before retry: {e}")
+                    await asyncio.sleep(wait_time)
+                    continue
+                raise RuntimeError(f"OpenRouter streaming failed after {max_retries} retries: {last_error}")
 
     async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using OpenRouter API."""

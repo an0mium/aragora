@@ -15,14 +15,12 @@ from pathlib import Path
 from typing import Optional, TYPE_CHECKING, Generator
 import logging
 
+from aragora.storage.schema import get_wal_connection, DB_TIMEOUT
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from aragora.export.artifact import DebateArtifact
-
-
-# Database connection timeout in seconds
-DB_TIMEOUT = 30.0
 
 
 def _validate_sql_identifier(name: str) -> bool:
@@ -47,14 +45,6 @@ def _escape_like_pattern(pattern: str) -> str:
     pattern = pattern.replace("%", "\\%")
     pattern = pattern.replace("_", "\\_")
     return pattern
-
-
-def _get_connection(db_path, timeout: float = DB_TIMEOUT) -> sqlite3.Connection:
-    """Get a database connection with timeout configured."""
-    conn = sqlite3.connect(db_path, timeout=timeout)
-    # Set busy timeout in milliseconds
-    conn.execute(f"PRAGMA busy_timeout = {int(timeout * 1000)}")
-    return conn
 
 
 @dataclass
@@ -101,9 +91,11 @@ class DebateStorage:
     def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
         """Get a database connection as a context manager.
 
-        Ensures connections are properly closed even if exceptions occur.
+        Uses WAL mode for better concurrency. Creates a new connection
+        per operation for thread safety - SQLite connections cannot be
+        safely shared across threads.
         """
-        conn = _get_connection(self.db_path)
+        conn = get_wal_connection(self.db_path, timeout=DB_TIMEOUT)
         try:
             yield conn
         finally:

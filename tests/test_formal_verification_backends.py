@@ -30,80 +30,77 @@ class TestZ3BackendCanVerify:
 
     @pytest.fixture
     def backend(self):
-        """Create a Z3Backend instance."""
-        return Z3Backend()
+        """Create a Z3Backend instance, skip if Z3 unavailable."""
+        backend = Z3Backend()
+        if not backend.is_available:
+            pytest.skip("Z3 not available")
+        return backend
 
     def test_can_verify_smtlib2_format(self, backend):
         """Should accept SMT-LIB2 format claims."""
         smtlib = "(declare-const x Int)\n(assert (> x 0))\n(check-sat)"
-        if backend.is_available:
-            assert backend.can_verify(smtlib) is True
+        assert backend.can_verify(smtlib) is True
 
     def test_can_verify_empty_string(self, backend):
         """Empty string should not be verifiable."""
-        if backend.is_available:
-            assert backend.can_verify("") is False
+        assert backend.can_verify("") is False
 
     def test_can_verify_whitespace_only(self, backend):
         """Whitespace-only string should not be verifiable."""
-        if backend.is_available:
-            assert backend.can_verify("   \n\t  ") is False
+        assert backend.can_verify("   \n\t  ") is False
 
     def test_can_verify_with_math_operators(self, backend):
         """Claims with math operators should be verifiable."""
-        if backend.is_available:
-            assert backend.can_verify("x > y") is True
-            assert backend.can_verify("a = b + c") is True
-            assert backend.can_verify("n ≤ m") is True
+        assert backend.can_verify("x > y") is True
+        assert backend.can_verify("a = b + c") is True
+        assert backend.can_verify("n ≤ m") is True
 
     def test_can_verify_with_unicode_math(self, backend):
         """Claims with unicode math symbols should be verifiable."""
-        if backend.is_available:
-            assert backend.can_verify("∀x: x > 0") is True
-            assert backend.can_verify("∃n: n² = 4") is True
-            assert backend.can_verify("p → q") is True
-            assert backend.can_verify("a ∧ b") is True
-            assert backend.can_verify("¬p ∨ q") is True
+        assert backend.can_verify("∀x: x > 0") is True
+        assert backend.can_verify("∃n: n² = 4") is True
+        assert backend.can_verify("p → q") is True
+        assert backend.can_verify("a ∧ b") is True
+        assert backend.can_verify("¬p ∨ q") is True
 
     def test_can_verify_with_claim_type_logical(self, backend):
         """Should accept LOGICAL claim type."""
-        if backend.is_available:
-            assert backend.can_verify("any claim", claim_type="LOGICAL") is True
-            assert backend.can_verify("any claim", claim_type="logical") is True
+        assert backend.can_verify("any claim", claim_type="LOGICAL") is True
+        assert backend.can_verify("any claim", claim_type="logical") is True
 
     def test_can_verify_with_claim_type_factual(self, backend):
         """Should accept FACTUAL claim type."""
-        if backend.is_available:
-            assert backend.can_verify("any claim", claim_type="FACTUAL") is True
+        assert backend.can_verify("any claim", claim_type="FACTUAL") is True
 
     def test_can_verify_with_quantifiable_patterns(self, backend):
         """Should match quantifiable language patterns."""
-        if backend.is_available:
-            assert backend.can_verify("for all n, n > 0") is True
-            assert backend.can_verify("there exists x such that x = 0") is True
-            assert backend.can_verify("if a then b") is True
-            assert backend.can_verify("a implies b") is True
-            assert backend.can_verify("n is even") is True
-            assert backend.can_verify("x is positive") is True
+        assert backend.can_verify("for all n, n > 0") is True
+        assert backend.can_verify("there exists x such that x = 0") is True
+        assert backend.can_verify("if a then b") is True
+        assert backend.can_verify("a implies b") is True
+        assert backend.can_verify("n is even") is True
+        assert backend.can_verify("x is positive") is True
 
     def test_can_verify_random_text(self, backend):
         """Random text without patterns should not be verifiable."""
-        if backend.is_available:
-            # This might still match some patterns depending on implementation
-            result = backend.can_verify("hello world today is nice")
-            # Just verify it doesn't crash
-            assert isinstance(result, bool)
+        # This might still match some patterns depending on implementation
+        result = backend.can_verify("hello world today is nice")
+        # Just verify it doesn't crash
+        assert isinstance(result, bool)
 
     def test_can_verify_special_regex_characters(self, backend):
         """Claims with regex special characters should not crash."""
-        if backend.is_available:
-            # Should not crash on regex special characters
-            assert isinstance(backend.can_verify(".*+?()[]{}|\\^$"), bool)
-            assert isinstance(backend.can_verify("a(b)c[d]e{f}g"), bool)
+        # Should not crash on regex special characters
+        assert isinstance(backend.can_verify(".*+?()[]{}|\\^$"), bool)
+        assert isinstance(backend.can_verify("a(b)c[d]e{f}g"), bool)
 
-    def test_can_verify_when_unavailable(self, backend):
+    def test_can_verify_when_unavailable(self):
         """Should return False when Z3 is not available."""
-        with patch.object(backend, 'is_available', new_callable=PropertyMock, return_value=False):
+        # This test doesn't use the fixture - it creates its own backend
+        # to test behavior when Z3 is unavailable
+        backend = Z3Backend()
+        # Patch the property on the class, not the instance
+        with patch.object(type(backend), 'is_available', new_callable=PropertyMock, return_value=False):
             assert backend.can_verify("x > y") is False
 
 

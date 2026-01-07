@@ -10,6 +10,7 @@ import { UserParticipation } from '@/components/UserParticipation';
 import { CitationsPanel } from '@/components/CitationsPanel';
 import { getAgentColors } from '@/utils/agentColors';
 import { useDebateWebSocket, type TranscriptMessage } from '@/hooks/useDebateWebSocket';
+import { logger } from '@/utils/logger';
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
 
@@ -114,7 +115,7 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy link:', err);
+      logger.error('Failed to copy link:', err);
     }
   };
 

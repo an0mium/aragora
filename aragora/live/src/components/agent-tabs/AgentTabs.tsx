@@ -7,6 +7,7 @@ import { AllAgentsTab } from './AllAgentsTab';
 import { IndividualAgentTab } from './IndividualAgentTab';
 import type { AgentTabsProps, AgentData, TimelineMessage, PositionEntry } from './types';
 import { ALL_AGENTS_TAB } from './types';
+import { logger } from '@/utils/logger';
 
 const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
@@ -29,7 +30,7 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
         setPositions(data.positions || []);
       }
     } catch (err) {
-      console.error('Failed to fetch positions:', err);
+      logger.error('Failed to fetch positions:', err);
       setPositions([]);
     } finally {
       setPositionsLoading(false);

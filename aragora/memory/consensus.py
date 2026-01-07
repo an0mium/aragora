@@ -25,9 +25,13 @@ import sqlite3
 import uuid
 
 from aragora.config import DB_CONSENSUS_PATH, DB_TIMEOUT_SECONDS
+from aragora.storage.schema import SchemaManager
 from aragora.utils.json_helpers import safe_json_loads
 
 logger = logging.getLogger(__name__)
+
+# Schema version for ConsensusMemory migrations
+CONSENSUS_SCHEMA_VERSION = 1
 
 
 class ConsensusStrength(Enum):
@@ -211,11 +215,15 @@ class ConsensusMemory:
         self._init_db()
 
     def _init_db(self):
-        """Initialize database schema."""
+        """Initialize database schema using SchemaManager."""
         with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
-            cursor = conn.cursor()
+            # Use SchemaManager for version tracking and migrations
+            manager = SchemaManager(
+                conn, "consensus_memory", current_version=CONSENSUS_SCHEMA_VERSION
+            )
 
-            cursor.execute("""
+            # Initial schema (v1)
+            initial_schema = """
                 CREATE TABLE IF NOT EXISTS consensus (
                     id TEXT PRIMARY KEY,
                     topic TEXT NOT NULL,
@@ -227,10 +235,8 @@ class ConsensusMemory:
                     tags TEXT,
                     timestamp TEXT,
                     data TEXT NOT NULL
-                )
-            """)
+                );
 
-            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS dissent (
                     id TEXT PRIMARY KEY,
                     debate_id TEXT NOT NULL,
@@ -241,30 +247,22 @@ class ConsensusMemory:
                     timestamp TEXT,
                     data TEXT NOT NULL,
                     FOREIGN KEY (debate_id) REFERENCES consensus(id)
-                )
-            """)
+                );
 
-            cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_consensus_topic_hash
-                ON consensus(topic_hash)
-            """)
+                ON consensus(topic_hash);
 
-            cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_consensus_domain
-                ON consensus(domain)
-            """)
+                ON consensus(domain);
 
-            cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_dissent_debate
-                ON dissent(debate_id)
-            """)
+                ON dissent(debate_id);
 
-            cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_dissent_type
-                ON dissent(dissent_type)
-            """)
+                ON dissent(dissent_type);
+            """
 
-            conn.commit()
+            manager.ensure_schema(initial_schema=initial_schema)
 
     def _hash_topic(self, topic: str) -> str:
         """Create a hash for topic similarity matching."""
@@ -540,8 +538,8 @@ class ConsensusMemory:
                     data = safe_json_loads(row[1], {})
                     if data and debate_id in result:
                         result[debate_id].append(DissentRecord.from_dict(data))
-        except Exception as e:
-            logger.warning(f"Failed to batch fetch dissents: {e}")
+        except sqlite3.Error as e:
+            logger.exception(f"Failed to batch fetch dissents: {e}")
 
         return result
 

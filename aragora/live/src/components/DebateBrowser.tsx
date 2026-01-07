@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
 import { getAgentTextColor as getAgentColor } from '@/utils/agentColors';
+import { logger } from '@/utils/logger';
 
 export function DebateBrowser() {
   const [debates, setDebates] = useState<DebateArtifact[]>([]);
@@ -16,7 +17,7 @@ export function DebateBrowser() {
         const data = await fetchRecentDebates(10);
         setDebates(data);
       } catch (e) {
-        console.error('Failed to load debates:', e);
+        logger.error('Failed to load debates:', e);
       } finally {
         setLoading(false);
       }
@@ -32,7 +33,7 @@ export function DebateBrowser() {
       setCopiedId(debateId);
       setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
-      console.error('Failed to copy link:', err);
+      logger.error('Failed to copy link:', err);
     }
   };
 

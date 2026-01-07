@@ -16,9 +16,13 @@ from typing import Optional
 
 from aragora.config import DB_INSIGHTS_PATH, DB_TIMEOUT_SECONDS
 from aragora.insights.extractor import Insight, InsightType, DebateInsights
+from aragora.storage.schema import SchemaManager
 from aragora.utils.json_helpers import safe_json_loads
 
 logger = logging.getLogger(__name__)
+
+# Schema version for InsightStore migrations
+INSIGHT_STORE_SCHEMA_VERSION = 1
 
 
 def _escape_like_pattern(value: str) -> str:
@@ -56,12 +60,16 @@ class InsightStore:
         self._init_db()
 
     def _init_db(self) -> None:
-        """Initialize the database schema."""
+        """Initialize the database schema using SchemaManager."""
         with sqlite3.connect(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
-            cursor = conn.cursor()
+            # Use SchemaManager for version tracking and migrations
+            manager = SchemaManager(
+                conn, "insight_store", current_version=INSIGHT_STORE_SCHEMA_VERSION
+            )
 
-            # Insights table
-            cursor.execute("""
+            # Initial schema (v1)
+            initial_schema = """
+                -- Insights table
                 CREATE TABLE IF NOT EXISTS insights (
                     id TEXT PRIMARY KEY,
                     type TEXT NOT NULL,
@@ -73,11 +81,9 @@ class InsightStore:
                     evidence TEXT,  -- JSON array
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     metadata TEXT  -- JSON object
-                )
-            """)
+                );
 
-            # Debate summaries table
-            cursor.execute("""
+                -- Debate summaries table
                 CREATE TABLE IF NOT EXISTS debate_summaries (
                     debate_id TEXT PRIMARY KEY,
                     task TEXT,
@@ -87,11 +93,9 @@ class InsightStore:
                     key_takeaway TEXT,
                     agent_performances TEXT,  -- JSON array
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+                );
 
-            # Agent performance history
-            cursor.execute("""
+                -- Agent performance history
                 CREATE TABLE IF NOT EXISTS agent_performance_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     agent_name TEXT NOT NULL,
@@ -105,11 +109,9 @@ class InsightStore:
                     contribution_score REAL DEFAULT 0.5,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (debate_id) REFERENCES debate_summaries(debate_id)
-                )
-            """)
+                );
 
-            # Pattern clusters (aggregated from pattern insights)
-            cursor.execute("""
+                -- Pattern clusters (aggregated from pattern insights)
                 CREATE TABLE IF NOT EXISTS pattern_clusters (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     category TEXT NOT NULL,
@@ -120,16 +122,16 @@ class InsightStore:
                     first_seen TEXT,
                     last_seen TEXT,
                     UNIQUE(category, pattern_text)
-                )
-            """)
+                );
 
-            # Create indexes
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_insights_type ON insights(type)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_insights_debate ON insights(debate_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_perf_name ON agent_performance_history(agent_name)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_pattern_category ON pattern_clusters(category)")
+                -- Indexes
+                CREATE INDEX IF NOT EXISTS idx_insights_type ON insights(type);
+                CREATE INDEX IF NOT EXISTS idx_insights_debate ON insights(debate_id);
+                CREATE INDEX IF NOT EXISTS idx_agent_perf_name ON agent_performance_history(agent_name);
+                CREATE INDEX IF NOT EXISTS idx_pattern_category ON pattern_clusters(category);
+            """
 
-            conn.commit()
+            manager.ensure_schema(initial_schema=initial_schema)
 
     async def store_debate_insights(self, insights: DebateInsights) -> int:
         """
