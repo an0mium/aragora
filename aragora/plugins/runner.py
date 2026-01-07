@@ -167,7 +167,7 @@ class PluginRunner:
             func = getattr(module, func_name)
             return func
         except (ImportError, AttributeError) as e:
-            raise ImportError(f"Failed to load {self.manifest.entry_point}: {e}")
+            raise ImportError(f"Failed to load {self.manifest.entry_point}: {e}") from e
 
     def _create_restricted_globals(self, context: PluginContext) -> dict:
         """Create restricted global namespace for execution."""

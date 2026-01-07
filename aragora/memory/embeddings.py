@@ -269,12 +269,12 @@ class OllamaEmbedding(EmbeddingProvider):
                         data = await response.json()
                         return data["embedding"]
                     except (json.JSONDecodeError, KeyError) as e:
-                        raise RuntimeError(f"Invalid Ollama response format: {e}")
-            except aiohttp.ClientConnectorError:
+                        raise RuntimeError(f"Invalid Ollama response format: {e}") from e
+            except aiohttp.ClientConnectorError as e:
                 raise RuntimeError(
                     f"Cannot connect to Ollama at {self.base_url}. "
                     "Is Ollama running? Start with: ollama serve"
-                )
+                ) from e
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:

@@ -170,7 +170,7 @@ class CodeReader:
             content = path.read_text()
             stat = path.stat()
         except OSError as e:
-            raise OSError(f"Failed to read file {path}: {e}")
+            raise OSError(f"Failed to read file {path}: {e}") from e
 
         return FileContext(
             path=str(path.relative_to(self.root)),
@@ -203,7 +203,7 @@ class CodeReader:
         try:
             lines = path.read_text().splitlines()
         except OSError as e:
-            raise OSError(f"Failed to read file {path}: {e}")
+            raise OSError(f"Failed to read file {path}: {e}") from e
 
         content_lines = lines[start_line - 1:end_line]
         before_lines = lines[max(0, start_line - 1 - context_lines):start_line - 1]

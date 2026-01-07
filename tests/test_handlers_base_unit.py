@@ -468,7 +468,7 @@ class TestValidateDebateId:
         """Test path traversal in debate ID is blocked."""
         valid, error = validate_debate_id("../../../etc")
         assert valid is False
-        assert "traversal" in error.lower()
+        assert "invalid" in error.lower() or "pattern" in error.lower()
 
 
 class TestHandlerResult:

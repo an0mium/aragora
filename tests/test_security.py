@@ -954,7 +954,7 @@ class TestPathParameterInjection:
         for attempt in traversal_attempts:
             is_valid, error = validate_debate_id(attempt)
             assert is_valid is False, f"Should reject: {attempt}"
-            assert "path traversal" in error.lower() or "format" in error.lower()
+            assert "invalid" in error.lower() or "pattern" in error.lower()
 
     def test_agent_name_injection(self):
         """Agent name should reject injection attempts."""

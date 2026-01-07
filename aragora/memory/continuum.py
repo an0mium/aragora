@@ -21,7 +21,6 @@ import math
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
@@ -33,7 +32,7 @@ from aragora.utils.json_helpers import safe_json_loads
 from aragora.memory.tier_manager import (
     TierManager,
     TierConfig,
-    MemoryTier as TierManagerMemoryTier,
+    MemoryTier,
     DEFAULT_TIER_CONFIGS,
     get_tier_manager,
 )
@@ -44,66 +43,8 @@ CONTINUUM_SCHEMA_VERSION = 2
 # Default retention multiplier (entries older than multiplier * half_life are eligible for cleanup)
 DEFAULT_RETENTION_MULTIPLIER = 2.0
 
-
-class MemoryTier(Enum):
-    """Memory update frequency tiers."""
-    FAST = "fast"       # Updates on every event
-    MEDIUM = "medium"   # Updates per debate round
-    SLOW = "slow"       # Updates per nomic cycle
-    GLACIAL = "glacial" # Updates monthly
-
-
-@dataclass
-class TierConfig:
-    """Configuration for a memory tier."""
-    name: str
-    half_life_hours: float
-    update_frequency: str
-    base_learning_rate: float
-    decay_rate: float
-    promotion_threshold: float  # Surprise score to promote to faster tier
-    demotion_threshold: float   # Stability score to demote to slower tier
-
-
-# Default tier configurations (HOPE-inspired)
-TIER_CONFIGS: Dict[MemoryTier, TierConfig] = {
-    MemoryTier.FAST: TierConfig(
-        name="fast",
-        half_life_hours=1,
-        update_frequency="event",
-        base_learning_rate=0.3,
-        decay_rate=0.95,
-        promotion_threshold=1.0,  # Can't promote higher
-        demotion_threshold=0.2,   # Very stable patterns demote
-    ),
-    MemoryTier.MEDIUM: TierConfig(
-        name="medium",
-        half_life_hours=24,
-        update_frequency="round",
-        base_learning_rate=0.1,
-        decay_rate=0.99,
-        promotion_threshold=0.7,  # High surprise promotes to fast
-        demotion_threshold=0.3,
-    ),
-    MemoryTier.SLOW: TierConfig(
-        name="slow",
-        half_life_hours=168,  # 7 days
-        update_frequency="cycle",
-        base_learning_rate=0.03,
-        decay_rate=0.999,
-        promotion_threshold=0.6,  # Medium surprise promotes to medium
-        demotion_threshold=0.4,
-    ),
-    MemoryTier.GLACIAL: TierConfig(
-        name="glacial",
-        half_life_hours=720,  # 30 days
-        update_frequency="monthly",
-        base_learning_rate=0.01,
-        decay_rate=0.9999,
-        promotion_threshold=0.5,  # Low bar to promote (rarely happens)
-        demotion_threshold=1.0,   # Can't demote lower
-    ),
-}
+# Re-export for backwards compatibility (use DEFAULT_TIER_CONFIGS from tier_manager)
+TIER_CONFIGS = DEFAULT_TIER_CONFIGS
 
 
 @dataclass
