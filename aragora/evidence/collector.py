@@ -31,15 +31,68 @@ class EvidenceSnippet:
     url: str = ""
     reliability_score: float = 0.5  # 0-1, based on source trustworthiness
     metadata: Dict[str, Any] = field(default_factory=dict)
+    fetched_at: datetime = field(default_factory=datetime.now)
+
+    @property
+    def freshness_score(self) -> float:
+        """Calculate freshness score (1.0 = very fresh, 0.0 = stale).
+
+        Evidence degrades over time:
+        - < 1 hour: 1.0 (very fresh)
+        - 1-24 hours: 0.9-0.7
+        - 1-7 days: 0.7-0.5
+        - > 7 days: 0.5-0.3
+        """
+        age_seconds = (datetime.now() - self.fetched_at).total_seconds()
+        age_hours = age_seconds / 3600
+
+        if age_hours < 1:
+            return 1.0
+        elif age_hours < 24:
+            return 0.9 - (age_hours / 24) * 0.2
+        elif age_hours < 168:  # 7 days
+            return 0.7 - ((age_hours - 24) / 144) * 0.2
+        else:
+            return max(0.3, 0.5 - (age_hours - 168) / 720 * 0.2)
+
+    @property
+    def combined_score(self) -> float:
+        """Combined reliability and freshness score."""
+        return self.reliability_score * 0.7 + self.freshness_score * 0.3
 
     def to_text_block(self) -> str:
         """Format as a text block for debate context."""
+        freshness_indicator = "🟢" if self.freshness_score > 0.8 else "🟡" if self.freshness_score > 0.5 else "🔴"
         return f"""EVID-{self.id}:
-Source: {self.source} ({self.reliability_score:.1f} reliability)
+Source: {self.source} ({self.reliability_score:.1f} reliability, {freshness_indicator} {self.freshness_score:.1f} fresh)
 Title: {self.title}
 Snippet: {self.snippet[:500]}{"..." if len(self.snippet) > 500 else ""}
 URL: {self.url}
 ---"""
+
+    def to_citation(self) -> str:
+        """Format as an academic-style citation.
+
+        Returns a formatted citation string like:
+        [1] Title. Source (reliability: 0.9). URL
+        """
+        url_part = f" {self.url}" if self.url else ""
+        return f"[{self.id}] {self.title}. {self.source.title()} (reliability: {self.reliability_score:.1f}).{url_part}"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "source": self.source,
+            "title": self.title,
+            "snippet": self.snippet,
+            "url": self.url,
+            "reliability_score": self.reliability_score,
+            "freshness_score": self.freshness_score,
+            "combined_score": self.combined_score,
+            "fetched_at": self.fetched_at.isoformat(),
+            "metadata": self.metadata,
+        }
 
 
 @dataclass
@@ -51,6 +104,20 @@ class EvidencePack:
     search_timestamp: datetime = field(default_factory=datetime.now)
     total_searched: int = 0
 
+    @property
+    def average_reliability(self) -> float:
+        """Average reliability score across all snippets."""
+        if not self.snippets:
+            return 0.0
+        return sum(s.reliability_score for s in self.snippets) / len(self.snippets)
+
+    @property
+    def average_freshness(self) -> float:
+        """Average freshness score across all snippets."""
+        if not self.snippets:
+            return 0.0
+        return sum(s.freshness_score for s in self.snippets) / len(self.snippets)
+
     def to_context_string(self) -> str:
         """Convert to a formatted context string for debate."""
         if not self.snippets:
@@ -58,10 +125,35 @@ class EvidencePack:
 
         header = f"EVIDENCE PACK (collected {self.search_timestamp.isoformat()}):\n"
         header += f"Search terms: {', '.join(self.topic_keywords)}\n"
-        header += f"Total sources searched: {self.total_searched}\n\n"
+        header += f"Total sources searched: {self.total_searched}\n"
+        header += f"Quality: {self.average_reliability:.1%} reliability, {self.average_freshness:.1%} fresh\n\n"
 
         evidence_blocks = [snippet.to_text_block() for snippet in self.snippets]
         return header + "\n".join(evidence_blocks) + "\n\nEND EVIDENCE PACK\n"
+
+    def to_bibliography(self) -> str:
+        """Format all evidence as an academic bibliography.
+
+        Returns numbered citation list for appending to debate output.
+        """
+        if not self.snippets:
+            return ""
+
+        lines = ["## References\n"]
+        for i, snippet in enumerate(self.snippets, 1):
+            lines.append(f"{i}. {snippet.to_citation()}")
+        return "\n".join(lines)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "topic_keywords": self.topic_keywords,
+            "snippets": [s.to_dict() for s in self.snippets],
+            "search_timestamp": self.search_timestamp.isoformat(),
+            "total_searched": self.total_searched,
+            "average_reliability": self.average_reliability,
+            "average_freshness": self.average_freshness,
+        }
 
 
 class EvidenceCollector:
@@ -303,7 +395,7 @@ class EvidenceCollector:
         return min(1.0, base_score)
 
     def _rank_snippets(self, snippets: List[EvidenceSnippet], keywords: List[str]) -> List[EvidenceSnippet]:
-        """Rank snippets by relevance to keywords and reliability."""
+        """Rank snippets by relevance, reliability, and freshness."""
         def score_snippet(snippet: EvidenceSnippet) -> float:
             relevance_score = 0
             text_lower = (snippet.title + " " + snippet.snippet).lower()
@@ -318,7 +410,14 @@ class EvidenceCollector:
                 if keyword.lower() in title_lower:
                     relevance_score += 0.5
 
-            # Combine relevance and reliability
-            return relevance_score * 0.7 + snippet.reliability_score * 0.3
+            # Normalize relevance (max ~5 keywords)
+            relevance_normalized = min(1.0, relevance_score / 5)
+
+            # Combined scoring: relevance (50%), reliability (35%), freshness (15%)
+            return (
+                relevance_normalized * 0.50 +
+                snippet.reliability_score * 0.35 +
+                snippet.freshness_score * 0.15
+            )
 
         return sorted(snippets, key=score_snippet, reverse=True)

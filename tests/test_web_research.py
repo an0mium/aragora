@@ -270,5 +270,6 @@ def test_evidence_formatting():
     context = pack.to_context_string()
     assert "EVID-test_1" in context
     assert "Test Title" in context
-    assert "web (0.8 reliability)" in context
+    assert "web (0.8 reliability" in context  # Format now includes freshness
+    assert "fresh)" in context  # Verify freshness indicator is present
     assert "http://example.com" in context
