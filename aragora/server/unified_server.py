@@ -188,84 +188,21 @@ from aragora.server.static_server import (
     get_content_type,
 )
 
-# Modular HTTP handlers for endpoint routing
-try:
-    from aragora.server.handlers import (
-        SystemHandler,
-        DebatesHandler,
-        AgentsHandler,
-        PulseHandler,
-        AnalyticsHandler,
-        MetricsHandler,
-        ConsensusHandler,
-        BeliefHandler,
-        CritiqueHandler,
-        GenesisHandler,
-        ReplaysHandler,
-        TournamentHandler,
-        MemoryHandler,
-        LeaderboardViewHandler,
-        DocumentHandler,
-        VerificationHandler,
-        AuditingHandler,
-        RelationshipHandler,
-        MomentsHandler,
-        PersonaHandler,
-        DashboardHandler,
-        IntrospectionHandler,
-        CalibrationHandler,
-        RoutingHandler,
-        EvolutionHandler,
-        PluginsHandler,
-        BroadcastHandler,
-        AudioHandler,
-        SocialMediaHandler,
-        LaboratoryHandler,
-        ProbesHandler,
-        InsightsHandler,
-        HandlerResult,
-    )
-    HANDLERS_AVAILABLE = True
-except ImportError:
-    HANDLERS_AVAILABLE = False
-    MetricsHandler = None
-    SystemHandler = None
-    DebatesHandler = None
-    AgentsHandler = None
-    PulseHandler = None
-    AnalyticsHandler = None
-    ConsensusHandler = None
-    BeliefHandler = None
-    CritiqueHandler = None
-    GenesisHandler = None
-    ReplaysHandler = None
-    TournamentHandler = None
-    MemoryHandler = None
-    LeaderboardViewHandler = None
-    DocumentHandler = None
-    VerificationHandler = None
-    AuditingHandler = None
-    RelationshipHandler = None
-    MomentsHandler = None
-    PersonaHandler = None
-    DashboardHandler = None
-    IntrospectionHandler = None
-    CalibrationHandler = None
-    RoutingHandler = None
-    EvolutionHandler = None
-    PluginsHandler = None
-    BroadcastHandler = None
-    LaboratoryHandler = None
-    ProbesHandler = None
-    InsightsHandler = None
-    HandlerResult = None
+# Modular HTTP handlers via registry mixin
+from aragora.server.handler_registry import (
+    HandlerRegistryMixin,
+    HANDLERS_AVAILABLE,
+)
 
 # Server startup time for uptime tracking
 _server_start_time: float = time.time()
 
 
-class UnifiedHandler(BaseHTTPRequestHandler):
-    """HTTP handler with API endpoints and static file serving."""
+class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):
+    """HTTP handler with API endpoints and static file serving.
+
+    Handler routing is provided by HandlerRegistryMixin from handler_registry.py.
+    """
 
     storage: Optional[DebateStorage] = None
     static_dir: Optional[Path] = None
@@ -288,38 +225,9 @@ class UnifiedHandler(BaseHTTPRequestHandler):
     dissent_retriever: Optional["DissentRetriever"] = None  # DissentRetriever for minority views
     moment_detector: Optional["MomentDetector"] = None  # MomentDetector for significant moments
 
-    # Modular HTTP handlers (initialized lazily)
-    _system_handler: Optional["SystemHandler"] = None
-    _debates_handler: Optional["DebatesHandler"] = None
-    _agents_handler: Optional["AgentsHandler"] = None
-    _pulse_handler: Optional["PulseHandler"] = None
-    _analytics_handler: Optional["AnalyticsHandler"] = None
-    _metrics_handler: Optional["MetricsHandler"] = None
-    _consensus_handler: Optional["ConsensusHandler"] = None
-    _belief_handler: Optional["BeliefHandler"] = None
-    _critique_handler: Optional["CritiqueHandler"] = None
-    _genesis_handler: Optional["GenesisHandler"] = None
-    _replays_handler: Optional["ReplaysHandler"] = None
-    _tournament_handler: Optional["TournamentHandler"] = None
-    _memory_handler: Optional["MemoryHandler"] = None
-    _leaderboard_handler: Optional["LeaderboardViewHandler"] = None
-    _document_handler: Optional["DocumentHandler"] = None
-    _verification_handler: Optional["VerificationHandler"] = None
-    _auditing_handler: Optional["AuditingHandler"] = None
-    _relationship_handler: Optional["RelationshipHandler"] = None
-    _moments_handler: Optional["MomentsHandler"] = None
-    _persona_handler: Optional["PersonaHandler"] = None
-    _dashboard_handler: Optional["DashboardHandler"] = None
-    _introspection_handler: Optional["IntrospectionHandler"] = None
-    _calibration_handler: Optional["CalibrationHandler"] = None
-    _routing_handler: Optional["RoutingHandler"] = None
-    _evolution_handler: Optional["EvolutionHandler"] = None
-    _plugins_handler: Optional["PluginsHandler"] = None
-    _broadcast_handler: Optional["BroadcastHandler"] = None
-    _audio_handler: Optional["AudioHandler"] = None
-    _social_handler: Optional["SocialMediaHandler"] = None
-    _insights_handler: Optional["InsightsHandler"] = None
-    _handlers_initialized: bool = False
+    # Note: Modular HTTP handlers are provided by HandlerRegistryMixin
+    # Handler instance variables (_system_handler, etc.) and _handlers_initialized
+    # are inherited from the mixin along with _init_handlers() and _try_modular_handler()
 
     # Debate controller and factory (initialized lazily)
     # Note: DebateController manages its own ThreadPoolExecutor with proper locking
@@ -425,183 +333,8 @@ class UnifiedHandler(BaseHTTPRequestHandler):
             return None
         return parts[index]
 
-    @classmethod
-    def _init_handlers(cls) -> None:
-        """Initialize modular HTTP handlers with server context.
-
-        Called lazily on first request. Creates handler instances with
-        references to storage, ELO system, and other shared resources.
-        """
-        if cls._handlers_initialized or not HANDLERS_AVAILABLE:
-            return
-
-        # Build server context for handlers
-        nomic_dir = None
-        if cls.nomic_state_file:
-            nomic_dir = cls.nomic_state_file.parent
-
-        ctx = {
-            "storage": cls.storage,
-            "elo_system": cls.elo_system,
-            "nomic_dir": nomic_dir,
-            "debate_embeddings": cls.debate_embeddings,
-            "critique_store": getattr(cls, 'critique_store', None),
-            "document_store": cls.document_store,
-            "persona_manager": getattr(cls, 'persona_manager', None),
-            "position_ledger": getattr(cls, 'position_ledger', None),
-        }
-
-        # Initialize handlers
-        cls._system_handler = SystemHandler(ctx)
-        cls._debates_handler = DebatesHandler(ctx)
-        cls._agents_handler = AgentsHandler(ctx)
-        cls._pulse_handler = PulseHandler(ctx)
-        cls._analytics_handler = AnalyticsHandler(ctx)
-        cls._metrics_handler = MetricsHandler(ctx)
-        cls._consensus_handler = ConsensusHandler(ctx)
-        cls._belief_handler = BeliefHandler(ctx)
-        cls._critique_handler = CritiqueHandler(ctx)
-        cls._genesis_handler = GenesisHandler(ctx)
-        cls._replays_handler = ReplaysHandler(ctx)
-        cls._tournament_handler = TournamentHandler(ctx)
-        cls._memory_handler = MemoryHandler(ctx)
-        cls._leaderboard_handler = LeaderboardViewHandler(ctx)
-        cls._document_handler = DocumentHandler(ctx)
-        cls._verification_handler = VerificationHandler(ctx)
-        cls._auditing_handler = AuditingHandler(ctx)
-        cls._relationship_handler = RelationshipHandler(ctx)
-        cls._moments_handler = MomentsHandler(ctx)
-        cls._persona_handler = PersonaHandler(ctx)
-        cls._dashboard_handler = DashboardHandler(ctx)
-        cls._introspection_handler = IntrospectionHandler(ctx)
-        cls._calibration_handler = CalibrationHandler(ctx)
-        cls._routing_handler = RoutingHandler(ctx)
-        cls._evolution_handler = EvolutionHandler(ctx)
-        cls._plugins_handler = PluginsHandler(ctx)
-        cls._broadcast_handler = BroadcastHandler(ctx)
-        cls._audio_handler = AudioHandler(ctx)
-        cls._social_handler = SocialMediaHandler(ctx)
-        cls._laboratory_handler = LaboratoryHandler(ctx)
-        cls._probes_handler = ProbesHandler(ctx)
-        cls._insights_handler = InsightsHandler(ctx)
-        cls._handlers_initialized = True
-        logger.info("[handlers] Modular handlers initialized (32 handlers)")
-
-        # Log resource availability for observability
-        cls._log_resource_availability(nomic_dir)
-
-    @classmethod
-    def _log_resource_availability(cls, nomic_dir) -> None:
-        """Log which optional resources are available at startup."""
-        resources = {
-            "storage": cls.storage is not None,
-            "elo_system": cls.elo_system is not None,
-            "debate_embeddings": cls.debate_embeddings is not None,
-            "document_store": cls.document_store is not None,
-            "nomic_dir": nomic_dir is not None,
-        }
-
-        # Check database files if nomic_dir exists
-        if nomic_dir:
-            db_files = [
-                ("positions_db", "aragora_positions.db"),
-                ("personas_db", DB_PERSONAS_PATH),
-                ("grounded_db", "grounded_positions.db"),
-                ("insights_db", "insights.db"),
-                ("calibration_db", "agent_calibration.db"),
-                ("embeddings_db", "debate_embeddings.db"),
-            ]
-            for name, filename in db_files:
-                resources[name] = (nomic_dir / filename).exists()
-
-        available = [k for k, v in resources.items() if v]
-        unavailable = [k for k, v in resources.items() if not v]
-
-        if unavailable:
-            logger.info(f"[resources] Available: {', '.join(available)}")
-            logger.warning(f"[resources] Unavailable: {', '.join(unavailable)}")
-        else:
-            logger.info(f"[resources] All resources available: {', '.join(available)}")
-
-    def _try_modular_handler(self, path: str, query: dict) -> bool:
-        """Try to handle request via modular handlers.
-
-        Returns True if handled, False if should fall through to legacy routes.
-        """
-        if not HANDLERS_AVAILABLE:
-            return False
-
-        # Ensure handlers are initialized
-        self._init_handlers()
-
-        # Convert query params from {key: [val]} to {key: val}
-        query_dict = {k: v[0] if len(v) == 1 else v for k, v in query.items()}
-
-        # Try each handler in order
-        handlers = [
-            self._system_handler,
-            self._debates_handler,
-            self._agents_handler,
-            self._pulse_handler,
-            self._analytics_handler,
-            self._metrics_handler,
-            self._consensus_handler,
-            self._belief_handler,
-            self._critique_handler,
-            self._genesis_handler,
-            self._replays_handler,
-            self._tournament_handler,
-            self._memory_handler,
-            self._leaderboard_handler,
-            self._document_handler,
-            self._verification_handler,
-            self._auditing_handler,
-            self._relationship_handler,
-            self._moments_handler,
-            self._persona_handler,
-            self._dashboard_handler,
-            self._introspection_handler,
-            self._calibration_handler,
-            self._routing_handler,
-            self._evolution_handler,
-            self._plugins_handler,
-            self._audio_handler,
-            self._social_handler,
-            self._broadcast_handler,
-            self._laboratory_handler,
-            self._probes_handler,
-            self._insights_handler,
-        ]
-
-        # Determine HTTP method for routing
-        method = getattr(self, 'command', 'GET')
-
-        for handler in handlers:
-            if handler and handler.can_handle(path):
-                try:
-                    # Call handle() for GET, handle_post() for POST if available
-                    if method == 'POST' and hasattr(handler, 'handle_post'):
-                        result = handler.handle_post(path, query_dict, self)
-                    else:
-                        result = handler.handle(path, query_dict, self)
-
-                    if result:
-                        self.send_response(result.status_code)
-                        self.send_header('Content-Type', result.content_type)
-                        for h_name, h_val in result.headers.items():
-                            self.send_header(h_name, h_val)
-                        # Add CORS and security headers for modular handlers
-                        self._add_cors_headers()
-                        self._add_security_headers()
-                        self.end_headers()
-                        self.wfile.write(result.body)
-                        return True
-                except Exception as e:
-                    logger.error(f"[handlers] Error in {handler.__class__.__name__}: {e}")
-                    # Fall through to legacy handler on error
-                    return False
-
-        return False
+    # Note: _init_handlers(), _log_resource_availability(), and _try_modular_handler()
+    # are inherited from HandlerRegistryMixin (handler_registry.py)
 
     def _validate_content_length(self, max_size: int | None = None) -> Optional[int]:
         """Validate Content-Length header for DoS protection.
