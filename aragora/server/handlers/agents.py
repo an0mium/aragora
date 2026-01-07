@@ -325,18 +325,20 @@ class AgentsHandler(BaseHandler):
             for agent in rankings:
                 if isinstance(agent, dict):
                     agent_dict = agent.copy()
-                    agent_name = agent.get("name")
+                    agent_name = agent.get("agent_name") or agent.get("name")
                 else:
+                    # AgentRating uses agent_name, not name
+                    agent_name = getattr(agent, "agent_name", None) or getattr(agent, "name", "unknown")
                     agent_dict = {
-                        "name": getattr(agent, "name", "unknown"),
+                        "name": agent_name,
+                        "agent_name": agent_name,
                         "elo": getattr(agent, "elo", 1500),
                         "wins": getattr(agent, "wins", 0),
                         "losses": getattr(agent, "losses", 0),
                         "draws": getattr(agent, "draws", 0),
                         "win_rate": getattr(agent, "win_rate", 0),
-                        "games": getattr(agent, "games", 0),
+                        "games": getattr(agent, "games_played", 0),
                     }
-                    agent_name = agent_dict["name"]
 
                 if agent_name in consistency_map:
                     agent_dict.update(consistency_map[agent_name])

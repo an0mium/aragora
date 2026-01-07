@@ -158,16 +158,16 @@ class TestMetricsEndpoint:
 
     def test_returns_database_sizes(self, handler, tmp_path):
         """Returns database file sizes when they exist."""
-        # Create a test database file
-        db_path = tmp_path / "aragora_elo.db"
+        # Create a test database file - must match DB_ELO_PATH ("agent_elo.db")
+        db_path = tmp_path / "agent_elo.db"
         db_path.write_bytes(b"x" * 1024)
 
         result = handler.handle("/api/metrics", {}, None)
         data = json.loads(result.body)
 
         assert "databases" in data
-        assert "aragora_elo.db" in data["databases"]
-        assert data["databases"]["aragora_elo.db"]["bytes"] == 1024
+        assert "agent_elo.db" in data["databases"]
+        assert data["databases"]["agent_elo.db"]["bytes"] == 1024
 
     def test_returns_timestamp(self, handler):
         """Returns current timestamp."""
@@ -446,15 +446,15 @@ class TestDatabaseSizes:
 
     def test_finds_existing_databases(self, handler, tmp_path):
         """Finds and reports existing database files."""
-        # Create test database file
-        db_path = tmp_path / "aragora_elo.db"
+        # Create test database file - must match DB_ELO_PATH ("agent_elo.db")
+        db_path = tmp_path / "agent_elo.db"
         db_path.write_bytes(b"x" * 2048)
 
         sizes = handler._get_database_sizes()
 
-        assert "aragora_elo.db" in sizes
-        assert sizes["aragora_elo.db"]["bytes"] == 2048
-        assert "human" in sizes["aragora_elo.db"]
+        assert "agent_elo.db" in sizes
+        assert sizes["agent_elo.db"]["bytes"] == 2048
+        assert "human" in sizes["agent_elo.db"]
 
     def test_ignores_missing_databases(self, handler, tmp_path):
         """Ignores database files that don't exist."""

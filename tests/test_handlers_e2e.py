@@ -157,10 +157,10 @@ class TestSystemHandlerE2E:
         result = system_handler.handle("/api/health", {}, None)
         data = json.loads(result.body)
 
-        assert "components" in data
-        assert "storage" in data["components"]
-        assert "elo_system" in data["components"]
-        assert "nomic_dir" in data["components"]
+        assert "checks" in data
+        assert "database" in data["checks"]
+        assert "elo_system" in data["checks"]
+        assert "nomic_dir" in data["checks"]
 
     def test_nomic_state_returns_json(self, system_handler):
         """Test /api/nomic/state returns current state."""

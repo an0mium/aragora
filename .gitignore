@@ -64,6 +64,9 @@ venv.bak/
 
 # Project specific
 *.db
+*.db-shm
+*.db-wal
+*.db-journal
 agora_memory.db
 debates.db
 *.sqlite

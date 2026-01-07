@@ -1,0 +1,395 @@
+"""
+Base class for WebSocket/HTTP servers.
+
+Provides common functionality shared between DebateStreamServer and AiohttpUnifiedServer:
+- Client management (WebSocket connections)
+- Rate limiting with TTL-based cleanup
+- Debate state caching
+- Active loops tracking
+- Event subscription management
+
+Usage:
+    class MyServer(ServerBase):
+        def __init__(self, ...):
+            super().__init__(emitter)
+            # Add server-specific initialization
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+import time
+from collections import OrderedDict
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, Optional, Set
+
+from .emitter import SyncEventEmitter, TokenBucket, AudienceInbox
+from .state_manager import LoopInstance
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ServerConfig:
+    """Configuration for server behavior."""
+    # Rate limiter settings
+    rate_limiter_ttl: float = 3600.0  # 1 hour TTL for rate limiters
+    rate_limiter_cleanup_interval: int = 100  # Cleanup every N accesses
+
+    # Debate state settings
+    debate_states_ttl: float = 3600.0  # 1 hour TTL for ended debates
+    max_debate_states: int = 500  # Max cached states
+
+    # Active loops settings
+    active_loops_ttl: float = 86400.0  # 24 hour TTL for stale loops
+    max_active_loops: int = 1000  # Max concurrent loops
+
+    # Client tracking
+    max_client_ids: int = 10000  # Max tracked clients
+
+
+class ServerBase:
+    """
+    Base class providing common server functionality.
+
+    Lock Hierarchy (acquire in this order to prevent deadlocks):
+    ---------------------------------------------------------------
+    1. _rate_limiters_lock   - Protects _rate_limiters and _rate_limiter_last_access
+    2. _debate_states_lock   - Protects debate_states and _debate_states_last_access
+    3. _active_loops_lock    - Protects active_loops and _active_loops_last_access
+
+    IMPORTANT: Each method should only acquire ONE lock at a time. If multiple
+    locks must be acquired (e.g., in cleanup methods), acquire them sequentially
+    in the order above, releasing each before acquiring the next. Never nest
+    lock acquisitions to prevent deadlocks.
+    """
+
+    def __init__(
+        self,
+        emitter: Optional[SyncEventEmitter] = None,
+        config: Optional[ServerConfig] = None,
+    ):
+        """
+        Initialize the server base.
+
+        Args:
+            emitter: Event emitter for debate events. Creates new one if not provided.
+            config: Server configuration. Uses defaults if not provided.
+        """
+        self._config = config or ServerConfig()
+
+        # WebSocket clients and event emitter
+        self.clients: Set[Any] = set()
+        self._emitter = emitter or SyncEventEmitter()
+        self._running = False
+
+        # Audience participation - Lock hierarchy level 1 (acquire first)
+        self.audience_inbox = AudienceInbox()
+        self._rate_limiters: Dict[str, TokenBucket] = {}
+        self._rate_limiter_last_access: Dict[str, float] = {}
+        self._rate_limiters_lock = threading.Lock()  # Lock #1 in hierarchy
+        self._rate_limiter_cleanup_counter = 0
+
+        # Debate state caching - Lock hierarchy level 2
+        self.debate_states: Dict[str, dict] = {}
+        self._debate_states_lock = threading.Lock()  # Lock #2 in hierarchy
+        self._debate_states_last_access: Dict[str, float] = {}
+
+        # Multi-loop tracking - Lock hierarchy level 3
+        self.active_loops: Dict[str, LoopInstance] = {}
+        self._active_loops_lock = threading.Lock()  # Lock #3 in hierarchy
+        self._active_loops_last_access: Dict[str, float] = {}
+
+        # Secure client ID mapping with LRU eviction
+        self._client_ids: OrderedDict[int, str] = OrderedDict()
+
+        # Subscribe to emitter to maintain debate states
+        self._emitter.subscribe(self._update_debate_state)
+
+    @property
+    def emitter(self) -> SyncEventEmitter:
+        """Get the event emitter."""
+        return self._emitter
+
+    @property
+    def config(self) -> ServerConfig:
+        """Get the server configuration."""
+        return self._config
+
+    # =========================================================================
+    # Rate Limiting
+    # =========================================================================
+
+    def get_rate_limiter(
+        self,
+        client_id: str,
+        rate: float = 10.0,
+        capacity: float = 30.0,
+    ) -> TokenBucket:
+        """
+        Get or create a rate limiter for a client.
+
+        Thread-safe with cleanup of stale rate limiters.
+        """
+        now = time.time()
+
+        with self._rate_limiters_lock:
+            # Periodic cleanup
+            self._rate_limiter_cleanup_counter += 1
+            if self._rate_limiter_cleanup_counter >= self._config.rate_limiter_cleanup_interval:
+                self._rate_limiter_cleanup_counter = 0
+                self._cleanup_rate_limiters_unsafe(now)
+
+            # Get or create
+            self._rate_limiter_last_access[client_id] = now
+            if client_id not in self._rate_limiters:
+                self._rate_limiters[client_id] = TokenBucket(rate=rate, capacity=capacity)
+
+            return self._rate_limiters[client_id]
+
+    def _cleanup_rate_limiters_unsafe(self, now: float) -> int:
+        """
+        Clean up stale rate limiters. Must be called with _rate_limiters_lock held.
+
+        Returns number of items removed.
+        """
+        cutoff = now - self._config.rate_limiter_ttl
+        stale_keys = [
+            k for k, v in self._rate_limiter_last_access.items()
+            if v < cutoff
+        ]
+        for k in stale_keys:
+            self._rate_limiters.pop(k, None)
+            self._rate_limiter_last_access.pop(k, None)
+
+        if stale_keys:
+            logger.debug(f"Cleaned up {len(stale_keys)} stale rate limiters")
+
+        return len(stale_keys)
+
+    def cleanup_rate_limiters(self) -> int:
+        """Clean up stale rate limiters. Thread-safe."""
+        with self._rate_limiters_lock:
+            return self._cleanup_rate_limiters_unsafe(time.time())
+
+    # =========================================================================
+    # Debate State Caching
+    # =========================================================================
+
+    def get_debate_state(self, loop_id: str) -> Optional[dict]:
+        """Get cached debate state for a loop."""
+        with self._debate_states_lock:
+            self._debate_states_last_access[loop_id] = time.time()
+            return self.debate_states.get(loop_id)
+
+    def set_debate_state(self, loop_id: str, state: dict) -> None:
+        """Set debate state for a loop."""
+        now = time.time()
+
+        with self._debate_states_lock:
+            # Enforce max states limit
+            if len(self.debate_states) >= self._config.max_debate_states:
+                self._evict_oldest_debate_state_unsafe()
+
+            self.debate_states[loop_id] = state
+            self._debate_states_last_access[loop_id] = now
+
+    def _evict_oldest_debate_state_unsafe(self) -> Optional[str]:
+        """
+        Evict the oldest debate state. Must be called with _debate_states_lock held.
+
+        Returns the evicted loop_id or None.
+        """
+        if not self._debate_states_last_access:
+            return None
+
+        oldest = min(self._debate_states_last_access, key=self._debate_states_last_access.get)
+        self.debate_states.pop(oldest, None)
+        self._debate_states_last_access.pop(oldest, None)
+        return oldest
+
+    def cleanup_debate_states(self) -> int:
+        """Clean up stale debate states. Thread-safe."""
+        now = time.time()
+        cutoff = now - self._config.debate_states_ttl
+
+        with self._debate_states_lock:
+            stale_keys = [
+                k for k, v in self._debate_states_last_access.items()
+                if v < cutoff
+            ]
+            for k in stale_keys:
+                self.debate_states.pop(k, None)
+                self._debate_states_last_access.pop(k, None)
+
+        if stale_keys:
+            logger.debug(f"Cleaned up {len(stale_keys)} stale debate states")
+
+        return len(stale_keys)
+
+    def _update_debate_state(self, event: dict) -> None:
+        """
+        Subscriber callback to update debate state from events.
+
+        This is called by the emitter when events are published.
+        Override in subclasses for custom state handling.
+        """
+        loop_id = event.get("loop_id")
+        if not loop_id:
+            return
+
+        event_type = event.get("type", "")
+
+        with self._debate_states_lock:
+            if loop_id not in self.debate_states:
+                self.debate_states[loop_id] = {
+                    "loop_id": loop_id,
+                    "status": "running",
+                    "rounds": [],
+                    "messages": [],
+                    "current_round": 0,
+                }
+
+            state = self.debate_states[loop_id]
+            self._debate_states_last_access[loop_id] = time.time()
+
+            # Update state based on event type
+            if event_type == "debate_start":
+                state["task"] = event.get("task")
+                state["agents"] = event.get("agents", [])
+                state["status"] = "running"
+            elif event_type == "round_start":
+                state["current_round"] = event.get("round", 0)
+            elif event_type == "agent_message":
+                state["messages"].append({
+                    "agent": event.get("agent"),
+                    "content": event.get("content", "")[:500],  # Truncate
+                    "round": event.get("round", 0),
+                })
+            elif event_type in ("debate_end", "consensus_reached"):
+                state["status"] = "completed"
+                state["result"] = event.get("result")
+            elif event_type == "error":
+                state["status"] = "error"
+                state["error"] = event.get("error")
+
+    # =========================================================================
+    # Active Loops Tracking
+    # =========================================================================
+
+    def get_active_loop(self, loop_id: str) -> Optional[LoopInstance]:
+        """Get an active loop instance."""
+        with self._active_loops_lock:
+            self._active_loops_last_access[loop_id] = time.time()
+            return self.active_loops.get(loop_id)
+
+    def set_active_loop(self, loop_id: str, instance: LoopInstance) -> None:
+        """Set an active loop instance."""
+        now = time.time()
+
+        with self._active_loops_lock:
+            # Enforce max loops limit
+            if len(self.active_loops) >= self._config.max_active_loops:
+                self._evict_oldest_loop_unsafe()
+
+            self.active_loops[loop_id] = instance
+            self._active_loops_last_access[loop_id] = now
+
+    def remove_active_loop(self, loop_id: str) -> Optional[LoopInstance]:
+        """Remove an active loop instance."""
+        with self._active_loops_lock:
+            self._active_loops_last_access.pop(loop_id, None)
+            return self.active_loops.pop(loop_id, None)
+
+    def _evict_oldest_loop_unsafe(self) -> Optional[str]:
+        """
+        Evict the oldest active loop. Must be called with _active_loops_lock held.
+
+        Returns the evicted loop_id or None.
+        """
+        if not self._active_loops_last_access:
+            return None
+
+        oldest = min(self._active_loops_last_access, key=self._active_loops_last_access.get)
+        self.active_loops.pop(oldest, None)
+        self._active_loops_last_access.pop(oldest, None)
+        logger.warning(f"Evicted stale loop: {oldest}")
+        return oldest
+
+    def cleanup_active_loops(self) -> int:
+        """Clean up stale active loops. Thread-safe."""
+        now = time.time()
+        cutoff = now - self._config.active_loops_ttl
+
+        with self._active_loops_lock:
+            stale_keys = [
+                k for k, v in self._active_loops_last_access.items()
+                if v < cutoff
+            ]
+            for k in stale_keys:
+                self.active_loops.pop(k, None)
+                self._active_loops_last_access.pop(k, None)
+
+        if stale_keys:
+            logger.info(f"Cleaned up {len(stale_keys)} stale active loops")
+
+        return len(stale_keys)
+
+    # =========================================================================
+    # Client ID Management
+    # =========================================================================
+
+    def get_client_id(self, ws_id: int) -> Optional[str]:
+        """Get the secure client ID for a WebSocket connection."""
+        return self._client_ids.get(ws_id)
+
+    def set_client_id(self, ws_id: int, client_id: str) -> None:
+        """Set the secure client ID for a WebSocket connection."""
+        # Enforce max clients limit with LRU eviction
+        while len(self._client_ids) >= self._config.max_client_ids:
+            self._client_ids.popitem(last=False)
+
+        self._client_ids[ws_id] = client_id
+        # Move to end (most recently used)
+        self._client_ids.move_to_end(ws_id)
+
+    def remove_client_id(self, ws_id: int) -> Optional[str]:
+        """Remove and return the client ID for a WebSocket connection."""
+        return self._client_ids.pop(ws_id, None)
+
+    # =========================================================================
+    # Cleanup All
+    # =========================================================================
+
+    def cleanup_all(self) -> Dict[str, int]:
+        """
+        Run all cleanup operations. Thread-safe.
+
+        Returns a dict of cleanup counts.
+        """
+        return {
+            "rate_limiters": self.cleanup_rate_limiters(),
+            "debate_states": self.cleanup_debate_states(),
+            "active_loops": self.cleanup_active_loops(),
+        }
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get server statistics."""
+        with self._rate_limiters_lock:
+            rate_limiter_count = len(self._rate_limiters)
+
+        with self._debate_states_lock:
+            debate_state_count = len(self.debate_states)
+
+        with self._active_loops_lock:
+            active_loop_count = len(self.active_loops)
+
+        return {
+            "clients": len(self.clients),
+            "rate_limiters": rate_limiter_count,
+            "debate_states": debate_state_count,
+            "active_loops": active_loop_count,
+            "client_ids": len(self._client_ids),
+            "running": self._running,
+        }

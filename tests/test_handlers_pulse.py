@@ -280,8 +280,11 @@ class TestSuggestEndpoint:
                 with patch('aragora.pulse.ingestor.RedditIngestor'):
                     with patch('aragora.pulse.ingestor.TwitterIngestor'):
                         mock_manager = Mock()
-                        mock_manager.get_trending_topics = AsyncMock(
-                            side_effect=Exception("API error")
+                        # Mock select_topic_for_debate to raise exception
+                        # (this is called after get_trending_topics succeeds)
+                        mock_manager.get_trending_topics = AsyncMock(return_value=[Mock()])
+                        mock_manager.select_topic_for_debate = Mock(
+                            side_effect=Exception("Selection error")
                         )
                         mock_pm_class.return_value = mock_manager
 

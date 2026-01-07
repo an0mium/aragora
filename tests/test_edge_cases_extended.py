@@ -519,48 +519,66 @@ class TestPhaseModuleEdgeCases:
 class TestRateLimitPatternDetection:
     """Test rate limit error pattern detection."""
 
-    def _check_pattern(self, error_message: str) -> bool:
-        """Check if error message matches any rate limit pattern."""
-        from aragora.agents.cli_agents import RATE_LIMIT_PATTERNS
+    def _check_rate_limit_pattern(self, error_message: str) -> bool:
+        """Check if error message matches rate limit patterns."""
+        from aragora.agents.errors import RATE_LIMIT_PATTERNS
         error_str = error_message.lower()
         return any(pattern in error_str for pattern in RATE_LIMIT_PATTERNS)
 
+    def _check_network_pattern(self, error_message: str) -> bool:
+        """Check if error message matches network error patterns."""
+        from aragora.agents.errors import NETWORK_ERROR_PATTERNS
+        error_str = error_message.lower()
+        return any(pattern in error_str for pattern in NETWORK_ERROR_PATTERNS)
+
+    def _check_cli_pattern(self, error_message: str) -> bool:
+        """Check if error message matches CLI error patterns."""
+        from aragora.agents.errors import CLI_ERROR_PATTERNS
+        error_str = error_message.lower()
+        return any(pattern in error_str for pattern in CLI_ERROR_PATTERNS)
+
+    def _check_all_fallback_patterns(self, error_message: str) -> bool:
+        """Check if error message matches any fallback pattern."""
+        from aragora.agents.errors import ALL_FALLBACK_PATTERNS
+        error_str = error_message.lower()
+        return any(pattern in error_str for pattern in ALL_FALLBACK_PATTERNS)
+
     def test_detects_rate_limit_429(self):
         """Test detection of HTTP 429 rate limit."""
-        assert self._check_pattern("rate limit exceeded")
-        assert self._check_pattern("Rate Limit Exceeded")
-        assert self._check_pattern("429 Too Many Requests")
+        assert self._check_rate_limit_pattern("rate limit exceeded")
+        assert self._check_rate_limit_pattern("Rate Limit Exceeded")
+        assert self._check_rate_limit_pattern("429 Too Many Requests")
 
     def test_detects_quota_exceeded(self):
         """Test detection of quota errors."""
-        assert self._check_pattern("quota exceeded")
-        assert self._check_pattern("Error: quota_exceeded for account")  # Matches pattern
-        assert self._check_pattern("insufficient_quota")
+        assert self._check_rate_limit_pattern("quota exceeded")
+        assert self._check_rate_limit_pattern("Error: quota_exceeded for account")
+        assert self._check_rate_limit_pattern("insufficient_quota")
 
     def test_detects_network_errors(self):
         """Test detection of network connectivity errors."""
-        assert self._check_pattern("could not resolve host")
-        assert self._check_pattern("ECONNREFUSED")
-        assert self._check_pattern("network is unreachable")
-        assert self._check_pattern("Name or service not known")
+        assert self._check_network_pattern("could not resolve host")
+        assert self._check_network_pattern("econnrefused")  # Lowercase pattern
+        assert self._check_network_pattern("network is unreachable")
+        assert self._check_network_pattern("name or service not known")
 
     def test_detects_auth_errors(self):
-        """Test detection of authentication errors."""
-        assert self._check_pattern("invalid_api_key")
-        assert self._check_pattern("unauthorized")
-        assert self._check_pattern("authentication failed")
+        """Test detection of authentication errors (in CLI patterns)."""
+        assert self._check_cli_pattern("invalid_api_key")
+        assert self._check_cli_pattern("unauthorized")
+        assert self._check_cli_pattern("authentication failed")
 
     def test_detects_cli_errors(self):
         """Test detection of CLI-specific errors."""
-        assert self._check_pattern("command not found")
-        assert self._check_pattern("permission denied")
-        assert self._check_pattern("No such file or directory")
+        assert self._check_cli_pattern("command not found")
+        assert self._check_cli_pattern("permission denied")
+        assert self._check_cli_pattern("no such file or directory")
 
     def test_non_fallback_errors(self):
         """Test that regular errors don't trigger fallback."""
-        assert not self._check_pattern("invalid argument")
-        assert not self._check_pattern("syntax error in response")
-        assert not self._check_pattern("empty response")
+        assert not self._check_all_fallback_patterns("invalid argument")
+        assert not self._check_all_fallback_patterns("syntax error in response")
+        assert not self._check_all_fallback_patterns("empty response")
 
 
 class TestCircuitBreakerBehavior:

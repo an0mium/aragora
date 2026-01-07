@@ -59,6 +59,7 @@ from .arena_hooks import (
     create_arena_hooks,
     wrap_agent_for_streaming,
 )
+from .stream_handlers import StreamAPIHandlersMixin
 
 # Import debate components (lazy-loaded for optional functionality)
 try:
@@ -799,12 +800,14 @@ class DebateStreamServer:
 # Unified HTTP + WebSocket Server (aiohttp-based)
 # =============================================================================
 
-class AiohttpUnifiedServer:
+class AiohttpUnifiedServer(StreamAPIHandlersMixin):
     """
     Unified server using aiohttp to handle both HTTP API and WebSocket on a single port.
 
     This is the recommended server for production as it avoids CORS issues with
     separate ports for HTTP and WebSocket.
+
+    HTTP API handlers are provided by StreamAPIHandlersMixin from stream_handlers.py.
 
     Lock Hierarchy (acquire in this order to prevent deadlocks):
     ---------------------------------------------------------------

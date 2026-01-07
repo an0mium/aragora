@@ -1,0 +1,581 @@
+"""
+Error handling decorators and retry logic for agent operations.
+
+Provides:
+- Retry decorators with exponential backoff and jitter
+- Circuit breaker integration
+- Streaming error handling
+- Generic error handling decorators
+"""
+
+import asyncio
+import functools
+import logging
+import random
+from typing import Any, Callable, Type, TypeVar
+
+import aiohttp
+
+from aragora.utils.error_sanitizer import sanitize_error
+from .classifier import ErrorContext, ErrorAction
+from .exceptions import (
+    AgentError,
+    AgentAPIError,
+    AgentCircuitOpenError,
+    AgentConnectionError,
+    AgentRateLimitError,
+    AgentResponseError,
+    AgentStreamError,
+    AgentTimeoutError,
+)
+
+logger = logging.getLogger(__name__)
+
+# Type variable for generic return types
+T = TypeVar("T")
+
+
+# =============================================================================
+# Retry Delay Calculation
+# =============================================================================
+
+
+def calculate_retry_delay_with_jitter(
+    attempt: int,
+    base_delay: float,
+    max_delay: float,
+    jitter_factor: float = 0.3,
+) -> float:
+    """
+    Calculate retry delay with exponential backoff and random jitter.
+
+    Jitter prevents thundering herd when multiple clients recover simultaneously
+    after a provider outage.
+
+    Args:
+        attempt: Current retry attempt (0-indexed)
+        base_delay: Initial delay in seconds
+        max_delay: Maximum delay cap in seconds
+        jitter_factor: Fraction of delay to randomize (default: 0.3 = ±30%)
+
+    Returns:
+        Delay in seconds with jitter applied
+    """
+    # Calculate base exponential delay
+    delay = min(base_delay * (2 ** attempt), max_delay)
+
+    # Apply random jitter: delay ± (jitter_factor * delay)
+    jitter = delay * jitter_factor * random.uniform(-1, 1)
+
+    # Ensure minimum delay of 0.1s
+    return max(0.1, delay + jitter)
+
+
+# Backward compatibility alias
+_calculate_retry_delay_with_jitter = calculate_retry_delay_with_jitter
+
+
+# =============================================================================
+# Error Handler Functions
+# =============================================================================
+
+
+def _handle_timeout_error(
+    e: asyncio.TimeoutError,
+    ctx: ErrorContext,
+    retryable_exceptions: tuple,
+) -> ErrorAction:
+    """Handle timeout errors."""
+    error = AgentTimeoutError(
+        f"Operation timed out after {ctx.timeout}s",
+        agent_name=ctx.agent_name,
+        timeout_seconds=ctx.timeout,
+        cause=e,
+    )
+    should_retry = (
+        ctx.max_retries > 0
+        and ctx.attempt <= ctx.max_retries
+        and isinstance(error, retryable_exceptions)
+    )
+    delay = calculate_retry_delay_with_jitter(
+        ctx.attempt - 1, ctx.retry_delay, ctx.max_delay
+    ) if should_retry else 0.0
+
+    return ErrorAction(error=error, should_retry=should_retry, delay_seconds=delay)
+
+
+def _handle_connection_error(
+    e: aiohttp.ClientConnectorError | aiohttp.ServerDisconnectedError,
+    ctx: ErrorContext,
+    retryable_exceptions: tuple,
+) -> ErrorAction:
+    """Handle connection/network errors."""
+    if isinstance(e, aiohttp.ServerDisconnectedError):
+        msg = f"Server disconnected: {sanitize_error(str(e))}"
+    else:
+        msg = f"Connection failed: {sanitize_error(str(e))}"
+
+    error = AgentConnectionError(
+        msg,
+        agent_name=ctx.agent_name,
+        cause=e,
+    )
+    should_retry = (
+        ctx.max_retries > 0
+        and ctx.attempt <= ctx.max_retries
+        and isinstance(error, retryable_exceptions)
+    )
+    delay = calculate_retry_delay_with_jitter(
+        ctx.attempt - 1, ctx.retry_delay, ctx.max_delay
+    ) if should_retry else 0.0
+
+    return ErrorAction(error=error, should_retry=should_retry, delay_seconds=delay)
+
+
+def _handle_payload_error(
+    e: aiohttp.ClientPayloadError,
+    ctx: ErrorContext,
+    retryable_exceptions: tuple,
+) -> ErrorAction:
+    """Handle streaming payload errors."""
+    error = AgentStreamError(
+        f"Payload error during streaming: {sanitize_error(str(e))}",
+        agent_name=ctx.agent_name,
+        cause=e,
+    )
+    should_retry = (
+        ctx.max_retries > 0
+        and ctx.attempt <= ctx.max_retries
+        and isinstance(error, retryable_exceptions)
+    )
+    delay = calculate_retry_delay_with_jitter(
+        ctx.attempt - 1, ctx.retry_delay, ctx.max_delay
+    ) if should_retry else 0.0
+
+    return ErrorAction(error=error, should_retry=should_retry, delay_seconds=delay)
+
+
+def _handle_response_error(
+    e: aiohttp.ClientResponseError,
+    ctx: ErrorContext,
+    retryable_exceptions: tuple,
+) -> ErrorAction:
+    """Handle HTTP response errors (429, 5xx, 4xx)."""
+    if e.status == 429:
+        # Rate limit - check for Retry-After header
+        retry_after = None
+        if e.headers and "Retry-After" in e.headers:
+            try:
+                retry_after = float(e.headers["Retry-After"])
+            except (ValueError, TypeError):
+                pass
+
+        error = AgentRateLimitError(
+            "Rate limit exceeded (HTTP 429)",
+            agent_name=ctx.agent_name,
+            retry_after=retry_after,
+            cause=e,
+        )
+        should_retry = (
+            ctx.max_retries > 0
+            and ctx.attempt <= ctx.max_retries
+            and isinstance(error, retryable_exceptions)
+        )
+
+        # Use Retry-After if available, otherwise use backoff
+        if should_retry and retry_after:
+            base_wait = min(retry_after, ctx.max_delay)
+            jitter = base_wait * 0.1 * random.uniform(0, 1)
+            delay = base_wait + jitter
+        elif should_retry:
+            delay = calculate_retry_delay_with_jitter(
+                ctx.attempt - 1, ctx.retry_delay, ctx.max_delay
+            )
+        else:
+            delay = 0.0
+
+        return ErrorAction(error=error, should_retry=should_retry, delay_seconds=delay)
+
+    elif e.status >= 500:
+        error = AgentConnectionError(
+            f"Server error (HTTP {e.status})",
+            agent_name=ctx.agent_name,
+            status_code=e.status,
+            cause=e,
+        )
+        should_retry = (
+            ctx.max_retries > 0
+            and ctx.attempt <= ctx.max_retries
+            and isinstance(error, retryable_exceptions)
+        )
+        delay = calculate_retry_delay_with_jitter(
+            ctx.attempt - 1, ctx.retry_delay, ctx.max_delay
+        ) if should_retry else 0.0
+
+        return ErrorAction(error=error, should_retry=should_retry, delay_seconds=delay)
+
+    else:
+        # 4xx errors - not retryable
+        error = AgentAPIError(
+            f"API error (HTTP {e.status}): {sanitize_error(str(e))}",
+            agent_name=ctx.agent_name,
+            status_code=e.status,
+            cause=e,
+        )
+        return ErrorAction(
+            error=error, should_retry=False, delay_seconds=0.0, log_level="error"
+        )
+
+
+def _handle_agent_error(
+    e: AgentError,
+    ctx: ErrorContext,
+    retryable_exceptions: tuple,
+) -> ErrorAction:
+    """Handle already-wrapped AgentError exceptions."""
+    e.agent_name = e.agent_name or ctx.agent_name
+
+    if not e.recoverable:
+        return ErrorAction(
+            error=e, should_retry=False, delay_seconds=0.0, log_level="error"
+        )
+
+    should_retry = (
+        ctx.max_retries > 0
+        and ctx.attempt <= ctx.max_retries
+        and isinstance(e, retryable_exceptions)
+    )
+    delay = calculate_retry_delay_with_jitter(
+        ctx.attempt - 1, ctx.retry_delay, ctx.max_delay
+    ) if should_retry else 0.0
+
+    return ErrorAction(error=e, should_retry=should_retry, delay_seconds=delay)
+
+
+def _handle_json_error(e: ValueError, ctx: ErrorContext) -> ErrorAction:
+    """Handle JSON decode errors."""
+    error = AgentResponseError(
+        f"Invalid JSON response: {sanitize_error(str(e))}",
+        agent_name=ctx.agent_name,
+        cause=e,
+    )
+    return ErrorAction(
+        error=error, should_retry=False, delay_seconds=0.0, log_level="error"
+    )
+
+
+def _handle_unexpected_error(e: Exception, ctx: ErrorContext) -> ErrorAction:
+    """Handle unexpected/unknown errors."""
+    error = AgentError(
+        f"Unexpected error: {sanitize_error(str(e))}",
+        agent_name=ctx.agent_name,
+        cause=e,
+        recoverable=False,
+    )
+    return ErrorAction(
+        error=error, should_retry=False, delay_seconds=0.0, log_level="error"
+    )
+
+
+# =============================================================================
+# Error Handling Decorators
+# =============================================================================
+
+
+def handle_agent_errors(
+    agent_name_attr: str = "name",
+    max_retries: int = 0,
+    retry_delay: float = 1.0,
+    retry_backoff: float = 2.0,
+    max_delay: float = 30.0,
+    retryable_exceptions: tuple = (AgentConnectionError, AgentTimeoutError, AgentRateLimitError),
+    circuit_breaker_attr: str = "_circuit_breaker",
+):
+    """
+    Decorator for async agent methods that standardizes error handling.
+
+    Wraps aiohttp and other common exceptions in AgentError types,
+    logs errors appropriately, and optionally retries transient failures.
+    Integrates with CircuitBreaker for graceful failure handling.
+
+    Args:
+        agent_name_attr: Attribute name on self containing agent name
+        max_retries: Maximum retry attempts for recoverable errors (0 = no retry)
+        retry_delay: Initial delay between retries in seconds
+        retry_backoff: Multiplier for delay between retries
+        max_delay: Maximum delay between retries
+        retryable_exceptions: Tuple of AgentError subclasses to retry
+        circuit_breaker_attr: Attribute name on self for CircuitBreaker instance.
+            If the attribute exists and circuit is open, raises AgentCircuitOpenError.
+            Records success/failure to circuit breaker after each attempt.
+
+    Usage:
+        @handle_agent_errors(max_retries=3)
+        async def generate(self, prompt: str) -> str:
+            async with aiohttp.ClientSession() as session:
+                ...
+    """
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @functools.wraps(func)
+        async def wrapper(self, *args, **kwargs) -> T:
+            agent_name = getattr(self, agent_name_attr, "unknown")
+            circuit_breaker = getattr(self, circuit_breaker_attr, None)
+
+            # Check circuit breaker before attempting call
+            if circuit_breaker is not None and not circuit_breaker.can_proceed():
+                raise AgentCircuitOpenError(
+                    "Circuit breaker is open for agent",
+                    agent_name=agent_name,
+                    cooldown_seconds=circuit_breaker.cooldown_seconds,
+                )
+
+            attempt = 0
+            ctx = ErrorContext(
+                agent_name=agent_name,
+                attempt=0,
+                max_retries=max_retries,
+                retry_delay=retry_delay,
+                max_delay=max_delay,
+                timeout=getattr(self, "timeout", None),
+            )
+
+            while True:
+                attempt += 1
+                ctx.attempt = attempt
+
+                try:
+                    result = await func(self, *args, **kwargs)
+                    if circuit_breaker is not None:
+                        circuit_breaker.record_success()
+                    return result
+
+                except asyncio.TimeoutError as e:
+                    action = _handle_timeout_error(e, ctx, retryable_exceptions)
+
+                except (aiohttp.ClientConnectorError, aiohttp.ServerDisconnectedError) as e:
+                    action = _handle_connection_error(e, ctx, retryable_exceptions)
+
+                except aiohttp.ClientPayloadError as e:
+                    action = _handle_payload_error(e, ctx, retryable_exceptions)
+
+                except aiohttp.ClientResponseError as e:
+                    action = _handle_response_error(e, ctx, retryable_exceptions)
+
+                except AgentError as e:
+                    action = _handle_agent_error(e, ctx, retryable_exceptions)
+                    if not e.recoverable:
+                        raise
+
+                except ValueError as e:
+                    if "json" in str(e).lower() or "decode" in str(e).lower():
+                        action = _handle_json_error(e, ctx)
+                        logger.error(f"[{agent_name}] Response parse error: {action.error}")
+                        raise action.error from e
+                    raise
+
+                except Exception as e:
+                    action = _handle_unexpected_error(e, ctx)
+                    logger.error(
+                        f"[{agent_name}] Unexpected error (attempt {attempt}): {action.error}",
+                        exc_info=True,
+                    )
+                    if circuit_breaker is not None:
+                        circuit_breaker.record_failure()
+                    raise action.error from e
+
+                # Log the error at appropriate level
+                log_method = getattr(logger, action.log_level, logger.warning)
+                log_method(f"[{agent_name}] {type(action.error).__name__} (attempt {attempt}): {action.error}")
+
+                # Record failure to circuit breaker
+                if circuit_breaker is not None:
+                    circuit_breaker.record_failure()
+
+                # Retry if appropriate
+                if action.should_retry and action.error.recoverable:
+                    logger.info(
+                        f"[{agent_name}] Retrying in {action.delay_seconds:.1f}s "
+                        f"(attempt {attempt}/{max_retries + 1})"
+                    )
+                    await asyncio.sleep(action.delay_seconds)
+                    continue
+
+                # No more retries - raise the error
+                raise action.error
+
+        return wrapper
+
+    return decorator
+
+
+def with_error_handling(
+    error_types: tuple[Type[Exception], ...] = (Exception,),
+    fallback: Any = None,
+    log_level: str = "warning",
+    reraise: bool = False,
+    message_template: str | None = None,
+):
+    """
+    Simple decorator for standardized exception handling with logging.
+
+    Use this for non-agent functions where you want consistent error
+    handling without the full retry/circuit-breaker infrastructure.
+    Reduces boilerplate try/except/log patterns throughout the codebase.
+
+    Args:
+        error_types: Tuple of exception types to catch (default: all Exception)
+        fallback: Value to return when exception is caught (default: None)
+        log_level: Logging level for caught errors ("debug", "info", "warning", "error")
+        reraise: If True, re-raise after logging (default: False)
+        message_template: Custom log message template. Use {func}, {error}, {error_type}
+
+    Usage:
+        # Basic usage - log warning and return None on any error
+        @with_error_handling()
+        def risky_function():
+            ...
+
+        # Catch specific errors, return fallback value
+        @with_error_handling(error_types=(ValueError, KeyError), fallback=[])
+        def parse_data(data):
+            ...
+
+        # Log at debug level for expected errors
+        @with_error_handling(error_types=(FileNotFoundError,), log_level="debug")
+        def load_optional_config():
+            ...
+
+        # Log and re-raise for critical paths
+        @with_error_handling(reraise=True, log_level="error")
+        async def important_operation():
+            ...
+    """
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs) -> T:
+            try:
+                return func(*args, **kwargs)
+            except error_types as e:
+                _log_error(func, e, log_level, message_template)
+                if reraise:
+                    raise
+                return fallback
+
+        @functools.wraps(func)
+        async def async_wrapper(*args, **kwargs) -> T:
+            try:
+                return await func(*args, **kwargs)
+            except error_types as e:
+                _log_error(func, e, log_level, message_template)
+                if reraise:
+                    raise
+                return fallback
+
+        # Return appropriate wrapper based on function type
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        return sync_wrapper
+
+    return decorator
+
+
+def _log_error(
+    func: Callable,
+    error: Exception,
+    log_level: str,
+    message_template: str | None,
+) -> None:
+    """Helper to log errors with consistent formatting."""
+    if message_template:
+        message = message_template.format(
+            func=func.__name__,
+            error=error,
+            error_type=type(error).__name__,
+        )
+    else:
+        message = f"{func.__name__} error: {type(error).__name__}: {error}"
+
+    # Get the appropriate log method
+    log_method = getattr(logger, log_level, logger.warning)
+    log_method(message)
+
+
+def handle_stream_errors(agent_name_attr: str = "name"):
+    """
+    Decorator specifically for streaming methods.
+
+    Wraps errors that occur during async iteration and attempts to
+    preserve any partial content received.
+
+    Usage:
+        @handle_stream_errors()
+        async def generate_stream(self, prompt: str):
+            async for chunk in ...:
+                yield chunk
+    """
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @functools.wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            agent_name = getattr(self, agent_name_attr, "unknown")
+            partial_content = []
+
+            try:
+                async for chunk in func(self, *args, **kwargs):
+                    if isinstance(chunk, str):
+                        partial_content.append(chunk)
+                    yield chunk
+
+            except asyncio.TimeoutError as e:
+                timeout = getattr(self, "timeout", None)
+                raise AgentTimeoutError(
+                    f"Stream timed out after {timeout}s",
+                    agent_name=agent_name,
+                    timeout_seconds=timeout,
+                    partial_content="".join(partial_content) if partial_content else None,
+                    cause=e,
+                ) from e
+
+            except (aiohttp.ClientPayloadError, aiohttp.ServerDisconnectedError) as e:
+                raise AgentStreamError(
+                    f"Stream interrupted: {sanitize_error(str(e))}",
+                    agent_name=agent_name,
+                    partial_content="".join(partial_content) if partial_content else None,
+                    cause=e,
+                ) from e
+
+            except AgentError:
+                raise
+
+            except Exception as e:
+                raise AgentStreamError(
+                    f"Unexpected stream error: {sanitize_error(str(e))}",
+                    agent_name=agent_name,
+                    partial_content="".join(partial_content) if partial_content else None,
+                    cause=e,
+                ) from e
+
+        return wrapper
+
+    return decorator
+
+
+__all__ = [
+    # Retry calculation
+    "calculate_retry_delay_with_jitter",
+    "_calculate_retry_delay_with_jitter",  # Backward compat
+    # Handler functions
+    "_handle_timeout_error",
+    "_handle_connection_error",
+    "_handle_payload_error",
+    "_handle_response_error",
+    "_handle_agent_error",
+    "_handle_json_error",
+    "_handle_unexpected_error",
+    # Decorators
+    "handle_agent_errors",
+    "with_error_handling",
+    "handle_stream_errors",
+]

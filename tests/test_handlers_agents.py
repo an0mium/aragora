@@ -918,14 +918,14 @@ class TestAgentObjectTypes:
 
     def test_leaderboard_handles_object_agents(self, agents_handler, mock_elo_system):
         """Should handle agents returned as objects."""
-        mock_agent = Mock()
-        mock_agent.name = "gemini"
+        mock_agent = Mock(spec=["agent_name", "elo", "wins", "losses", "draws", "win_rate", "games_played"])
+        mock_agent.agent_name = "gemini"  # Real AgentRating uses agent_name
         mock_agent.elo = 1550
         mock_agent.wins = 8
         mock_agent.losses = 7
         mock_agent.draws = 0
         mock_agent.win_rate = 0.53
-        mock_agent.games = 15
+        mock_agent.games_played = 15
 
         mock_elo_system.get_cached_leaderboard.return_value = [mock_agent]
 

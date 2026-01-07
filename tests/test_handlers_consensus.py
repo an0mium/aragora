@@ -470,6 +470,9 @@ class TestRiskWarningsEndpoint:
 
     def test_risk_warnings_unavailable_returns_503(self):
         """Should return 503 when consensus memory unavailable."""
+        from aragora.server.handlers.base import clear_cache
+        clear_cache()  # Clear TTL cache from previous test
+
         with patch('aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE', False):
             handler = ConsensusHandler({})
             result = handler.handle("/api/consensus/risk-warnings", {}, None)
