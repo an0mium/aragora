@@ -440,8 +440,41 @@ class TestErrorClassifier:
 
         assert ErrorClassifier.is_cli_error("command not found") is True
         assert ErrorClassifier.is_cli_error("permission denied") is True
-        assert ErrorClassifier.is_cli_error("model not found") is True
-        assert ErrorClassifier.is_cli_error("unauthorized") is True
+        assert ErrorClassifier.is_cli_error("broken pipe") is True
+        assert ErrorClassifier.is_cli_error("argument list too long") is True
+
+    def test_is_model_error_detects_model_patterns(self) -> None:
+        """ErrorClassifier.is_model_error detects model-specific patterns."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.is_model_error("model not found") is True
+        assert ErrorClassifier.is_model_error("model unavailable") is True
+        assert ErrorClassifier.is_model_error("model is currently overloaded") is True
+
+    def test_is_auth_error_detects_auth_patterns(self) -> None:
+        """ErrorClassifier.is_auth_error detects authentication patterns."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.is_auth_error("unauthorized") is True
+        assert ErrorClassifier.is_auth_error("invalid api key") is True
+        assert ErrorClassifier.is_auth_error("401") is True
+        assert ErrorClassifier.is_auth_error("forbidden") is True
+
+    def test_is_content_policy_error_detects_policy_patterns(self) -> None:
+        """ErrorClassifier.is_content_policy_error detects content policy patterns."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.is_content_policy_error("content policy violation") is True
+        assert ErrorClassifier.is_content_policy_error("flagged by moderation") is True
+        assert ErrorClassifier.is_content_policy_error("refused to generate") is True
+
+    def test_is_validation_error_detects_validation_patterns(self) -> None:
+        """ErrorClassifier.is_validation_error detects input validation patterns."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.is_validation_error("context length exceeded") is True
+        assert ErrorClassifier.is_validation_error("invalid input") is True
+        assert ErrorClassifier.is_validation_error("bad request 400") is True
 
     def test_should_fallback_with_timeout_errors(self) -> None:
         """ErrorClassifier.should_fallback returns True for timeout errors."""
@@ -531,3 +564,136 @@ class TestErrorClassifier:
 
         assert ErrorClassifier.get_error_category(ValueError("bad value")) == "unknown"
         assert ErrorClassifier.get_error_category(Exception("some error")) == "unknown"
+
+    def test_get_error_category_new_categories(self) -> None:
+        """ErrorClassifier.get_error_category identifies new error categories."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.get_error_category(Exception("unauthorized")) == "auth"
+        assert ErrorClassifier.get_error_category(Exception("model not found")) == "model"
+        assert ErrorClassifier.get_error_category(Exception("content policy")) == "content_policy"
+        assert ErrorClassifier.get_error_category(Exception("context length exceeded")) == "validation"
+
+
+class TestClassifyFull:
+    """Test the comprehensive classify_full method."""
+
+    def test_classify_full_returns_classified_error(self) -> None:
+        """classify_full returns a ClassifiedError instance."""
+        from aragora.agents.errors import ErrorClassifier, ClassifiedError
+
+        result = ErrorClassifier.classify_full(TimeoutError("timed out"))
+
+        assert isinstance(result, ClassifiedError)
+        assert result.message == "timed out"
+
+    def test_classify_full_timeout(self) -> None:
+        """classify_full correctly classifies timeout errors."""
+        from aragora.agents.errors import (
+            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
+        )
+
+        result = ErrorClassifier.classify_full(TimeoutError("request timed out"))
+
+        assert result.category == ErrorCategory.TIMEOUT
+        assert result.severity == ErrorSeverity.WARNING
+        assert result.action == RecoveryAction.RETRY
+        assert result.should_fallback is True
+        assert result.is_recoverable is True
+
+    def test_classify_full_rate_limit(self) -> None:
+        """classify_full correctly classifies rate limit errors."""
+        from aragora.agents.errors import (
+            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
+        )
+
+        result = ErrorClassifier.classify_full(Exception("rate limit exceeded"))
+
+        assert result.category == ErrorCategory.RATE_LIMIT
+        assert result.severity == ErrorSeverity.INFO
+        assert result.action == RecoveryAction.WAIT
+        assert result.should_fallback is True
+        assert result.retry_after is not None
+
+    def test_classify_full_rate_limit_extracts_retry_after(self) -> None:
+        """classify_full extracts retry-after from error message."""
+        from aragora.agents.errors import ErrorClassifier
+
+        result = ErrorClassifier.classify_full(Exception("Rate limit: retry after 120 seconds"))
+
+        assert result.retry_after == 120.0
+
+    def test_classify_full_auth_error(self) -> None:
+        """classify_full correctly classifies auth errors as critical."""
+        from aragora.agents.errors import (
+            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
+        )
+
+        result = ErrorClassifier.classify_full(Exception("401 Unauthorized"))
+
+        assert result.category == ErrorCategory.AUTH
+        assert result.severity == ErrorSeverity.CRITICAL
+        assert result.action == RecoveryAction.ESCALATE
+        assert result.should_fallback is True
+
+    def test_classify_full_content_policy(self) -> None:
+        """classify_full correctly classifies content policy as non-recoverable."""
+        from aragora.agents.errors import (
+            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
+        )
+
+        result = ErrorClassifier.classify_full(Exception("Content policy violation"))
+
+        assert result.category == ErrorCategory.CONTENT_POLICY
+        assert result.severity == ErrorSeverity.ERROR
+        assert result.action == RecoveryAction.ABORT
+        assert result.should_fallback is False
+        assert result.is_recoverable is False
+
+    def test_classify_full_validation_error(self) -> None:
+        """classify_full correctly classifies validation errors as non-recoverable."""
+        from aragora.agents.errors import (
+            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
+        )
+
+        result = ErrorClassifier.classify_full(Exception("Context length exceeded"))
+
+        assert result.category == ErrorCategory.VALIDATION
+        assert result.severity == ErrorSeverity.ERROR
+        assert result.action == RecoveryAction.ABORT
+        assert result.should_fallback is False
+
+    def test_classify_full_model_error(self) -> None:
+        """classify_full correctly classifies model errors."""
+        from aragora.agents.errors import (
+            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
+        )
+
+        result = ErrorClassifier.classify_full(Exception("model not found"))
+
+        assert result.category == ErrorCategory.MODEL
+        assert result.severity == ErrorSeverity.WARNING
+        assert result.action == RecoveryAction.FALLBACK
+        assert result.should_fallback is True
+
+    def test_classify_full_network_error(self) -> None:
+        """classify_full correctly classifies network errors."""
+        from aragora.agents.errors import (
+            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
+        )
+
+        result = ErrorClassifier.classify_full(ConnectionError("connection refused"))
+
+        assert result.category == ErrorCategory.NETWORK
+        assert result.severity == ErrorSeverity.WARNING
+        assert result.action == RecoveryAction.RETRY
+        assert result.should_fallback is True
+
+    def test_classified_error_category_str_property(self) -> None:
+        """ClassifiedError.category_str returns string for backward compat."""
+        from aragora.agents.errors import ErrorClassifier
+
+        result = ErrorClassifier.classify_full(TimeoutError())
+
+        assert result.category_str == "timeout"
+        assert isinstance(result.category_str, str)

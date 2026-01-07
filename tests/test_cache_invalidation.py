@@ -17,62 +17,69 @@ from aragora.server.handlers.base import (
 
 
 class TestCacheInvalidationMap:
-    """Tests for CACHE_INVALIDATION_MAP registry."""
+    """Tests for CACHE_INVALIDATION_MAP registry.
 
-    def test_contains_elo_data_source(self) -> None:
-        """Test ELO data source is defined."""
-        assert "elo" in CACHE_INVALIDATION_MAP
-        prefixes = CACHE_INVALIDATION_MAP["elo"]
+    CACHE_INVALIDATION_MAP uses event-based keys (e.g., 'elo_updated') not
+    data-source keys (e.g., 'elo'). The invalidate_cache() function maps
+    data-source names to event names internally.
+    """
+
+    def test_contains_elo_updated_event(self) -> None:
+        """Test elo_updated event is defined."""
+        assert "elo_updated" in CACHE_INVALIDATION_MAP
+        prefixes = CACHE_INVALIDATION_MAP["elo_updated"]
         assert isinstance(prefixes, list)
         assert len(prefixes) > 0
 
-    def test_contains_memory_data_source(self) -> None:
-        """Test memory data source is defined."""
-        assert "memory" in CACHE_INVALIDATION_MAP
-        prefixes = CACHE_INVALIDATION_MAP["memory"]
+    def test_contains_memory_updated_event(self) -> None:
+        """Test memory_updated event is defined."""
+        assert "memory_updated" in CACHE_INVALIDATION_MAP
+        prefixes = CACHE_INVALIDATION_MAP["memory_updated"]
         assert isinstance(prefixes, list)
         assert len(prefixes) > 0
 
-    def test_contains_consensus_data_source(self) -> None:
-        """Test consensus data source is defined."""
-        assert "consensus" in CACHE_INVALIDATION_MAP
-        prefixes = CACHE_INVALIDATION_MAP["consensus"]
+    def test_contains_consensus_reached_event(self) -> None:
+        """Test consensus_reached event is defined."""
+        assert "consensus_reached" in CACHE_INVALIDATION_MAP
+        prefixes = CACHE_INVALIDATION_MAP["consensus_reached"]
         assert isinstance(prefixes, list)
         assert len(prefixes) > 0
 
-    def test_contains_debates_data_source(self) -> None:
-        """Test debates data source is defined."""
-        assert "debates" in CACHE_INVALIDATION_MAP
-        prefixes = CACHE_INVALIDATION_MAP["debates"]
+    def test_contains_debate_completed_event(self) -> None:
+        """Test debate_completed event is defined."""
+        assert "debate_completed" in CACHE_INVALIDATION_MAP
+        prefixes = CACHE_INVALIDATION_MAP["debate_completed"]
         assert isinstance(prefixes, list)
         assert len(prefixes) > 0
 
-    def test_contains_calibration_data_source(self) -> None:
-        """Test calibration data source is defined."""
-        assert "calibration" in CACHE_INVALIDATION_MAP
-        prefixes = CACHE_INVALIDATION_MAP["calibration"]
+    def test_contains_agent_updated_event(self) -> None:
+        """Test agent_updated event is defined."""
+        assert "agent_updated" in CACHE_INVALIDATION_MAP
+        prefixes = CACHE_INVALIDATION_MAP["agent_updated"]
         assert isinstance(prefixes, list)
         assert len(prefixes) > 0
 
-    def test_elo_prefixes_include_expected(self) -> None:
-        """Test ELO prefixes include expected cache keys."""
-        prefixes = CACHE_INVALIDATION_MAP["elo"]
+    def test_elo_updated_prefixes_include_expected(self) -> None:
+        """Test elo_updated prefixes include expected cache keys."""
+        prefixes = CACHE_INVALIDATION_MAP["elo_updated"]
         # These are the main caches used by leaderboard endpoints
         assert "lb_rankings" in prefixes
         assert "leaderboard" in prefixes
         assert "agent_profile" in prefixes
 
-    def test_consensus_prefixes_include_expected(self) -> None:
-        """Test consensus prefixes include expected cache keys."""
-        prefixes = CACHE_INVALIDATION_MAP["consensus"]
+    def test_consensus_reached_prefixes_include_expected(self) -> None:
+        """Test consensus_reached prefixes include expected cache keys."""
+        prefixes = CACHE_INVALIDATION_MAP["consensus_reached"]
         assert "consensus_similar" in prefixes
         assert "consensus_settled" in prefixes
         assert "consensus_stats" in prefixes
 
-    def test_memory_prefixes_include_expected(self) -> None:
-        """Test memory prefixes include expected cache keys."""
-        prefixes = CACHE_INVALIDATION_MAP["memory"]
-        assert "replays_list" in prefixes
+    def test_memory_updated_prefixes_include_expected(self) -> None:
+        """Test memory_updated prefixes include expected cache keys."""
+        prefixes = CACHE_INVALIDATION_MAP["memory_updated"]
+        # Memory events clear analytics and critique caches
+        assert "analytics_memory" in prefixes
+        assert "critique_patterns" in prefixes
 
     def test_all_prefixes_are_strings(self) -> None:
         """Test all prefixes in all data sources are strings."""

@@ -585,8 +585,8 @@ class ContinuumMemory:
             surprise_score = row[1]
             last_promotion = row[2]
 
-            # Use TierManager for decision (converts local MemoryTier to tier_manager's)
-            tm_current = TierManagerMemoryTier(current_tier.value)
+            # Use TierManager for decision
+            tm_current = MemoryTier(current_tier.value)
             if not self._tier_manager.should_promote(tm_current, surprise_score, last_promotion):
                 return None
 
@@ -648,7 +648,7 @@ class ContinuumMemory:
             update_count = row[2]
 
             # Use TierManager for decision
-            tm_current = TierManagerMemoryTier(current_tier.value)
+            tm_current = MemoryTier(current_tier.value)
             if not self._tier_manager.should_demote(tm_current, surprise_score, update_count):
                 return None
 

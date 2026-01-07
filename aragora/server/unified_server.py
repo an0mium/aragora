@@ -1271,7 +1271,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):
             # Execute audit
             orchestrator = DeepAuditOrchestrator(agents, config)
             try:
-                verdict = asyncio.run(orchestrator.run(task, context))
+                verdict = _run_async(orchestrator.run(task, context))
             except Exception as e:
                 self._send_json({"error": f"Deep audit execution failed: {str(e)}"}, status=500)
                 return

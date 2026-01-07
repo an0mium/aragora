@@ -12,13 +12,13 @@ Enables agents to analyze the debate process itself, identifying:
 from dataclasses import dataclass, field
 from typing import Optional
 from datetime import datetime
-import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
 
 from aragora.core import Message, Critique, DebateResult
 from aragora.memory.embeddings import EmbeddingProvider, cosine_similarity
+from aragora.utils.async_utils import run_async
 
 
 @dataclass
@@ -409,8 +409,8 @@ class MetaCritiqueAnalyzer:
             cache_key = text[:500]  # Truncate for cache key
             if cache_key not in self._embedding_cache:
                 # Run async embed in sync context
-                # Use asyncio.run() for proper event loop lifecycle management
-                embedding = asyncio.run(
+                # Use run_async() for safe sync/async bridging
+                embedding = run_async(
                     self._embedding_provider.embed(text[:2000])
                 )
                 self._embedding_cache[cache_key] = embedding

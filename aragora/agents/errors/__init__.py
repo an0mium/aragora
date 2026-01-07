@@ -33,12 +33,24 @@ from .exceptions import (
 )
 
 from .classifier import (
+    # Enums
+    ErrorCategory,
+    ErrorSeverity,
+    RecoveryAction,
+    # Patterns
     RATE_LIMIT_PATTERNS,
     NETWORK_ERROR_PATTERNS,
     CLI_ERROR_PATTERNS,
+    AUTH_ERROR_PATTERNS,
+    VALIDATION_ERROR_PATTERNS,
+    MODEL_ERROR_PATTERNS,
+    CONTENT_POLICY_PATTERNS,
     ALL_FALLBACK_PATTERNS,
+    # Dataclasses
     ErrorContext,
     ErrorAction,
+    ClassifiedError,
+    # Classifier
     ErrorClassifier,
     classify_cli_error,
 )
@@ -92,14 +104,23 @@ __all__ = [
     "CLITimeoutError",
     "CLISubprocessError",
     "CLINotFoundError",
+    # Enums
+    "ErrorCategory",
+    "ErrorSeverity",
+    "RecoveryAction",
     # Patterns
     "RATE_LIMIT_PATTERNS",
     "NETWORK_ERROR_PATTERNS",
     "CLI_ERROR_PATTERNS",
+    "AUTH_ERROR_PATTERNS",
+    "VALIDATION_ERROR_PATTERNS",
+    "MODEL_ERROR_PATTERNS",
+    "CONTENT_POLICY_PATTERNS",
     "ALL_FALLBACK_PATTERNS",
     # Dataclasses
     "ErrorContext",
     "ErrorAction",
+    "ClassifiedError",
     # Classifier
     "ErrorClassifier",
     "classify_cli_error",

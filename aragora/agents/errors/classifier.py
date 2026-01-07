@@ -5,11 +5,25 @@ Provides centralized error pattern matching and classification to determine:
 - Whether to trigger fallback to alternative agents
 - Error categorization for metrics/logging
 - CLI error classification from subprocess results
+- Recommended recovery actions
+
+Error Categories:
+    - timeout: Request/response timeouts
+    - rate_limit: Rate limiting, quota exceeded
+    - network: Connection issues, service unavailable
+    - cli: CLI subprocess failures
+    - auth: Authentication/authorization failures
+    - validation: Input validation errors (context too long, etc.)
+    - model: Model-specific errors (not found, unavailable)
+    - content_policy: Content moderation violations
+    - unknown: Unclassified errors
 """
 
 import asyncio
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Optional
 
 from .exceptions import (
     AgentError,
@@ -19,6 +33,45 @@ from .exceptions import (
     CLISubprocessError,
     CLITimeoutError,
 )
+
+
+# =============================================================================
+# Error Category Enum
+# =============================================================================
+
+
+class ErrorCategory(Enum):
+    """Categorization of errors for metrics and handling decisions."""
+
+    TIMEOUT = "timeout"
+    RATE_LIMIT = "rate_limit"
+    NETWORK = "network"
+    CLI = "cli"
+    AUTH = "auth"
+    VALIDATION = "validation"
+    MODEL = "model"
+    CONTENT_POLICY = "content_policy"
+    UNKNOWN = "unknown"
+
+
+class ErrorSeverity(Enum):
+    """Severity level of errors for logging and alerting."""
+
+    CRITICAL = "critical"  # System failure, requires immediate attention
+    ERROR = "error"        # Operation failed, may need investigation
+    WARNING = "warning"    # Transient failure, likely recoverable
+    INFO = "info"          # Expected failure (e.g., rate limit, retry will succeed)
+
+
+class RecoveryAction(Enum):
+    """Recommended recovery action for an error."""
+
+    RETRY = "retry"              # Retry with exponential backoff
+    RETRY_IMMEDIATE = "retry_immediate"  # Retry immediately (transient)
+    FALLBACK = "fallback"        # Switch to alternative agent
+    WAIT = "wait"                # Wait for specified duration (rate limit)
+    ABORT = "abort"              # Do not retry, operation cannot succeed
+    ESCALATE = "escalate"        # Requires human intervention
 
 
 # =============================================================================
@@ -59,12 +112,6 @@ NETWORK_ERROR_PATTERNS: tuple[str, ...] = (
 )
 
 CLI_ERROR_PATTERNS: tuple[str, ...] = (
-    # API-specific errors
-    "model overloaded", "model is currently overloaded",
-    "engine is currently overloaded",
-    "model_not_found", "model not found",
-    "invalid_api_key", "invalid api key", "unauthorized",
-    "authentication failed", "auth error",
     # CLI-specific errors
     "argument list too long",  # E2BIG - prompt too large for CLI
     "command not found", "no such file or directory",
@@ -72,9 +119,55 @@ CLI_ERROR_PATTERNS: tuple[str, ...] = (
     "broken pipe",  # EPIPE - connection closed unexpectedly
 )
 
+AUTH_ERROR_PATTERNS: tuple[str, ...] = (
+    # Authentication/authorization errors
+    "invalid_api_key", "invalid api key",
+    "unauthorized", "401",
+    "authentication failed", "auth error",
+    "forbidden", "403",
+    "access denied", "permission denied",
+    "invalid credentials", "bad credentials",
+    "token expired", "session expired",
+    "api key not found", "missing api key",
+)
+
+VALIDATION_ERROR_PATTERNS: tuple[str, ...] = (
+    # Input validation errors
+    "context length", "context_length",
+    "too long", "max_tokens",
+    "invalid input", "invalid_input",
+    "bad request", "400",
+    "validation error", "validation_error",
+    "malformed", "invalid format",
+    "missing required", "required field",
+    "out of range", "invalid value",
+)
+
+MODEL_ERROR_PATTERNS: tuple[str, ...] = (
+    # Model-specific errors
+    "model overloaded", "model is currently overloaded",
+    "engine is currently overloaded",
+    "model_not_found", "model not found",
+    "model unavailable", "model_unavailable",
+    "unsupported model", "invalid model",
+    "model deprecated", "model_deprecated",
+)
+
+CONTENT_POLICY_PATTERNS: tuple[str, ...] = (
+    # Content moderation/policy violations
+    "content policy", "content_policy",
+    "content filter", "content_filter",
+    "safety filter", "safety_filter",
+    "moderation", "flagged",
+    "harmful content", "inappropriate",
+    "policy violation", "terms of service",
+    "refused to generate", "cannot generate",
+)
+
 # Combined patterns for fallback decisions (all error types that should trigger fallback)
 ALL_FALLBACK_PATTERNS: tuple[str, ...] = (
-    RATE_LIMIT_PATTERNS + NETWORK_ERROR_PATTERNS + CLI_ERROR_PATTERNS
+    RATE_LIMIT_PATTERNS + NETWORK_ERROR_PATTERNS + CLI_ERROR_PATTERNS +
+    AUTH_ERROR_PATTERNS + MODEL_ERROR_PATTERNS
 )
 
 
@@ -96,8 +189,48 @@ class ErrorContext:
 
 
 @dataclass
+class ClassifiedError:
+    """Full error classification result with category, severity, and recommended action.
+
+    This is the primary result type for comprehensive error classification,
+    providing all information needed for error handling decisions.
+
+    Attributes:
+        category: The error category (timeout, rate_limit, network, etc.)
+        severity: The error severity (critical, error, warning, info)
+        action: Recommended recovery action (retry, fallback, abort, etc.)
+        should_fallback: Whether to trigger fallback to alternative agent
+        message: Human-readable error description
+        retry_after: Suggested wait time in seconds (for rate limits)
+        details: Additional error-specific details
+    """
+
+    category: ErrorCategory
+    severity: ErrorSeverity
+    action: RecoveryAction
+    should_fallback: bool
+    message: str = ""
+    retry_after: Optional[float] = None
+    details: dict = field(default_factory=dict)
+
+    @property
+    def is_recoverable(self) -> bool:
+        """Whether the error is potentially recoverable."""
+        return self.action not in (RecoveryAction.ABORT, RecoveryAction.ESCALATE)
+
+    @property
+    def category_str(self) -> str:
+        """Category as string for backward compatibility."""
+        return self.category.value
+
+
+@dataclass
 class ErrorAction:
-    """Result of error classification for retry/handling decisions."""
+    """Result of error classification for retry/handling decisions.
+
+    DEPRECATED: Use ClassifiedError for new code. This class is maintained
+    for backward compatibility.
+    """
 
     error: "AgentError"
     should_retry: bool
@@ -179,6 +312,58 @@ class ErrorClassifier:
         return any(pattern in error_lower for pattern in CLI_ERROR_PATTERNS)
 
     @classmethod
+    def is_auth_error(cls, error_message: str) -> bool:
+        """Check if error message indicates authentication/authorization issues.
+
+        Args:
+            error_message: Error message string to check
+
+        Returns:
+            True if error indicates auth issues
+        """
+        error_lower = error_message.lower()
+        return any(pattern in error_lower for pattern in AUTH_ERROR_PATTERNS)
+
+    @classmethod
+    def is_validation_error(cls, error_message: str) -> bool:
+        """Check if error message indicates input validation issues.
+
+        Args:
+            error_message: Error message string to check
+
+        Returns:
+            True if error indicates validation issues
+        """
+        error_lower = error_message.lower()
+        return any(pattern in error_lower for pattern in VALIDATION_ERROR_PATTERNS)
+
+    @classmethod
+    def is_model_error(cls, error_message: str) -> bool:
+        """Check if error message indicates model-specific issues.
+
+        Args:
+            error_message: Error message string to check
+
+        Returns:
+            True if error indicates model issues
+        """
+        error_lower = error_message.lower()
+        return any(pattern in error_lower for pattern in MODEL_ERROR_PATTERNS)
+
+    @classmethod
+    def is_content_policy_error(cls, error_message: str) -> bool:
+        """Check if error message indicates content policy violations.
+
+        Args:
+            error_message: Error message string to check
+
+        Returns:
+            True if error indicates content policy violation
+        """
+        error_lower = error_message.lower()
+        return any(pattern in error_lower for pattern in CONTENT_POLICY_PATTERNS)
+
+    @classmethod
     def should_fallback(cls, error: Exception) -> bool:
         """Determine if an exception should trigger fallback to alternative agent.
 
@@ -231,7 +416,8 @@ class ErrorClassifier:
             error: The exception to categorize
 
         Returns:
-            Category string: "rate_limit", "network", "cli", "timeout", or "unknown"
+            Category string: "timeout", "rate_limit", "network", "cli",
+            "auth", "validation", "model", "content_policy", or "unknown"
         """
         error_str = str(error).lower()
 
@@ -246,6 +432,18 @@ class ErrorClassifier:
                     ConnectionResetError, BrokenPipeError)
         ):
             return "network"
+
+        if cls.is_auth_error(error_str):
+            return "auth"
+
+        if cls.is_content_policy_error(error_str):
+            return "content_policy"
+
+        if cls.is_model_error(error_str):
+            return "model"
+
+        if cls.is_validation_error(error_str):
+            return "validation"
 
         if cls.is_cli_error(error_str) or isinstance(error, subprocess.SubprocessError):
             return "cli"
@@ -265,7 +463,8 @@ class ErrorClassifier:
         Returns:
             Tuple of (should_fallback, category) where:
             - should_fallback: True if fallback should be attempted
-            - category: "rate_limit", "network", "cli", "timeout", or "unknown"
+            - category: "timeout", "rate_limit", "network", "cli",
+              "auth", "validation", "model", "content_policy", or "unknown"
         """
         error_str = str(error).lower()
 
@@ -288,9 +487,25 @@ class ErrorClassifier:
         if isinstance(error, OSError) and error.errno in cls.NETWORK_ERRNO:
             return True, "network"
 
+        # Check auth errors (should fallback to try different credentials)
+        if cls.is_auth_error(error_str):
+            return True, "auth"
+
+        # Check model errors (should fallback to different model)
+        if cls.is_model_error(error_str):
+            return True, "model"
+
         # Check CLI errors
         if cls.is_cli_error(error_str) or isinstance(error, subprocess.SubprocessError):
             return True, "cli"
+
+        # Content policy errors - don't fallback (same content will fail elsewhere)
+        if cls.is_content_policy_error(error_str):
+            return False, "content_policy"
+
+        # Validation errors - don't fallback (input is invalid)
+        if cls.is_validation_error(error_str):
+            return False, "validation"
 
         # Check RuntimeError patterns
         if isinstance(error, RuntimeError):
@@ -304,6 +519,152 @@ class ErrorClassifier:
             return True, "unknown"
 
         return False, "unknown"
+
+    @classmethod
+    def classify_full(cls, error: Exception) -> ClassifiedError:
+        """Comprehensive error classification with category, severity, and action.
+
+        Provides full classification including recommended recovery action and
+        severity level, suitable for advanced error handling pipelines.
+
+        Args:
+            error: The exception to classify
+
+        Returns:
+            ClassifiedError with category, severity, action, and metadata
+        """
+        error_str = str(error).lower()
+        error_message = str(error)
+
+        # Classification rules: (category, severity, action, should_fallback)
+        # Order matters - more specific patterns should come first
+
+        # Timeout
+        if isinstance(error, (TimeoutError, asyncio.TimeoutError)):
+            return ClassifiedError(
+                category=ErrorCategory.TIMEOUT,
+                severity=ErrorSeverity.WARNING,
+                action=RecoveryAction.RETRY,
+                should_fallback=True,
+                message=error_message,
+            )
+
+        # Rate limit
+        if cls.is_rate_limit(error_str):
+            # Try to extract retry-after hint
+            retry_after = None
+            for pattern in ["retry after ", "retry-after: ", "wait "]:
+                if pattern in error_str:
+                    import re
+                    match = re.search(rf"{pattern}(\d+)", error_str)
+                    if match:
+                        retry_after = float(match.group(1))
+                        break
+
+            return ClassifiedError(
+                category=ErrorCategory.RATE_LIMIT,
+                severity=ErrorSeverity.INFO,
+                action=RecoveryAction.WAIT,
+                should_fallback=True,
+                message=error_message,
+                retry_after=retry_after or 60.0,  # Default 60s if not specified
+            )
+
+        # Network errors
+        if cls.is_network_error(error_str) or isinstance(
+            error, (ConnectionError, ConnectionRefusedError,
+                    ConnectionResetError, BrokenPipeError)
+        ):
+            return ClassifiedError(
+                category=ErrorCategory.NETWORK,
+                severity=ErrorSeverity.WARNING,
+                action=RecoveryAction.RETRY,
+                should_fallback=True,
+                message=error_message,
+            )
+
+        # OS-level network errors
+        if isinstance(error, OSError) and error.errno in cls.NETWORK_ERRNO:
+            return ClassifiedError(
+                category=ErrorCategory.NETWORK,
+                severity=ErrorSeverity.WARNING,
+                action=RecoveryAction.RETRY,
+                should_fallback=True,
+                message=error_message,
+                details={"errno": error.errno},
+            )
+
+        # Auth errors - critical, needs human intervention
+        if cls.is_auth_error(error_str):
+            return ClassifiedError(
+                category=ErrorCategory.AUTH,
+                severity=ErrorSeverity.CRITICAL,
+                action=RecoveryAction.ESCALATE,
+                should_fallback=True,  # Try different agent with valid creds
+                message=error_message,
+            )
+
+        # Content policy - can't retry, content is problematic
+        if cls.is_content_policy_error(error_str):
+            return ClassifiedError(
+                category=ErrorCategory.CONTENT_POLICY,
+                severity=ErrorSeverity.ERROR,
+                action=RecoveryAction.ABORT,
+                should_fallback=False,  # Same content will fail elsewhere
+                message=error_message,
+            )
+
+        # Model errors - fallback to different model
+        if cls.is_model_error(error_str):
+            return ClassifiedError(
+                category=ErrorCategory.MODEL,
+                severity=ErrorSeverity.WARNING,
+                action=RecoveryAction.FALLBACK,
+                should_fallback=True,
+                message=error_message,
+            )
+
+        # Validation errors - input is bad, can't retry
+        if cls.is_validation_error(error_str):
+            return ClassifiedError(
+                category=ErrorCategory.VALIDATION,
+                severity=ErrorSeverity.ERROR,
+                action=RecoveryAction.ABORT,
+                should_fallback=False,
+                message=error_message,
+            )
+
+        # CLI errors
+        if cls.is_cli_error(error_str) or isinstance(error, subprocess.SubprocessError):
+            return ClassifiedError(
+                category=ErrorCategory.CLI,
+                severity=ErrorSeverity.WARNING,
+                action=RecoveryAction.FALLBACK,
+                should_fallback=True,
+                message=error_message,
+            )
+
+        # RuntimeError patterns
+        if isinstance(error, RuntimeError):
+            if "cli command failed" in error_str or "cli" in error_str:
+                return ClassifiedError(
+                    category=ErrorCategory.CLI,
+                    severity=ErrorSeverity.WARNING,
+                    action=RecoveryAction.FALLBACK,
+                    should_fallback=True,
+                    message=error_message,
+                )
+
+        # Unknown - default to retry with fallback
+        return ClassifiedError(
+            category=ErrorCategory.UNKNOWN,
+            severity=ErrorSeverity.WARNING,
+            action=RecoveryAction.RETRY,
+            should_fallback=any(
+                pattern in error_str for pattern in ALL_FALLBACK_PATTERNS
+            ),
+            message=error_message,
+        )
 
 
 # =============================================================================
@@ -413,13 +774,22 @@ def classify_cli_error(
 
 
 __all__ = [
+    # Enums
+    "ErrorCategory",
+    "ErrorSeverity",
+    "RecoveryAction",
     # Constants
     "RATE_LIMIT_PATTERNS",
     "NETWORK_ERROR_PATTERNS",
+    "AUTH_ERROR_PATTERNS",
+    "VALIDATION_ERROR_PATTERNS",
+    "MODEL_ERROR_PATTERNS",
+    "CONTENT_POLICY_PATTERNS",
     "CLI_ERROR_PATTERNS",
     "ALL_FALLBACK_PATTERNS",
     # Dataclasses
     "ErrorContext",
+    "ClassifiedError",
     "ErrorAction",
     # Classifier
     "ErrorClassifier",

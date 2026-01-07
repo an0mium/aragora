@@ -23,6 +23,7 @@ from aragora.server.debate_utils import (
     wrap_agent_for_streaming,
 )
 from aragora.server.error_utils import safe_error_message
+from aragora.server.http_utils import run_async
 from aragora.server.stream import (
     StreamEvent,
     StreamEventType,
@@ -272,7 +273,7 @@ class DebateController:
             async def run_with_timeout():
                 return await asyncio.wait_for(arena.run(), timeout=600)
 
-            result = asyncio.run(run_with_timeout())
+            result = run_async(run_with_timeout())
 
             # Update status with result
             update_debate_status(
