@@ -7,12 +7,12 @@ Endpoints:
 - POST /api/plugins/{name}/run - Run a plugin with provided input
 """
 
-import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
 
 from aragora.utils.optional_imports import try_import
+from aragora.server.http_utils import run_async
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -153,8 +153,8 @@ class PluginsHandler(BaseHandler):
             return error_response(f"Plugin not found: {plugin_name}", 404)
 
         # Run plugin with timeout
-        # Use asyncio.run() which properly manages event loop lifecycle
-        result = asyncio.run(
+        # Use run_async() for safe sync/async bridging
+        result = run_async(
             registry.run_plugin(plugin_name, input_data, config, working_dir)
         )
         return json_response(result.to_dict())

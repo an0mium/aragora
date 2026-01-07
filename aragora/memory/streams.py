@@ -8,7 +8,6 @@ Inspired by Stanford Generative Agents, this module provides:
 - Periodic reflection to synthesize higher-level insights
 """
 
-import asyncio
 import json
 import logging
 import sqlite3
@@ -21,6 +20,7 @@ import hashlib
 
 from aragora.config import DB_MEMORY_PATH, DB_TIMEOUT_SECONDS
 from aragora.memory.database import MemoryDatabase
+from aragora.utils.async_utils import run_async
 from aragora.utils.json_helpers import safe_json_loads
 
 if TYPE_CHECKING:
@@ -40,8 +40,8 @@ def _get_cached_embedding(content: str) -> tuple[float, ...]:
     """
     if _embedding_provider_ref is None:
         raise RuntimeError("Embedding provider not initialized")
-    # Use asyncio.run() for proper event loop lifecycle management
-    result = asyncio.run(_embedding_provider_ref.embed(content))
+    # Use run_async() for safe sync/async bridging
+    result = run_async(_embedding_provider_ref.embed(content))
     return tuple(result)
 
 logger = logging.getLogger(__name__)

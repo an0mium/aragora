@@ -671,8 +671,8 @@ class EloSystem:
 
         # Invalidate related caches so API returns fresh data
         try:
-            from aragora.server.handlers.base import invalidate_cache
-            invalidate_cache("elo")
+            from aragora.server.handlers.base import invalidate_on_event
+            invalidate_on_event("match_recorded")
         except ImportError:
             pass  # Handlers may not be available in all contexts
 

@@ -5,11 +5,11 @@ Endpoints:
 - POST /api/debates/{id}/broadcast - Generate podcast audio from debate trace
 """
 
-import asyncio
 import logging
 import os
 from typing import Optional
 
+from aragora.server.http_utils import run_async
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -46,7 +46,7 @@ def _safe_error_message(e: Exception, context: str) -> str:
 
 def _run_async(coro):
     """Run async coroutine in sync context."""
-    return asyncio.run(coro)
+    return run_async(coro)
 
 
 class BroadcastHandler(BaseHandler):
@@ -73,6 +73,10 @@ class BroadcastHandler(BaseHandler):
             parts = path.split('/')
             if len(parts) >= 4:
                 debate_id = parts[3]
+                # Early validation before processing
+                valid, err = validate_debate_id(debate_id)
+                if not valid:
+                    return error_response(err, status=400)
                 return self._generate_broadcast(debate_id, handler)
 
         return None

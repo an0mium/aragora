@@ -6,11 +6,11 @@ Endpoints:
 - POST /api/verification/formal-verify - Verify a claim using Z3 SMT solver
 """
 
-import asyncio
 import logging
 from typing import Optional
 
 from aragora.utils.optional_imports import try_import
+from aragora.server.http_utils import run_async
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -128,8 +128,8 @@ class VerificationHandler(BaseHandler):
             }, status=503)
 
         # Run verification asynchronously
-        # Use asyncio.run() for proper event loop lifecycle management
-        result = asyncio.run(
+        # Use run_async() for safe sync/async bridging
+        result = run_async(
             manager.attempt_formal_verification(
                 claim=claim,
                 claim_type=claim_type,

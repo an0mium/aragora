@@ -5,7 +5,6 @@ Endpoints:
 - POST /api/probes/capability - Run capability probes on an agent to find vulnerabilities
 """
 
-import asyncio
 import json
 import logging
 import uuid
@@ -15,6 +14,7 @@ from typing import Optional
 
 from aragora.utils.optional_imports import try_import
 from aragora.server.validation import validate_agent_name
+from aragora.server.http_utils import run_async
 from aragora.debate.sanitization import OutputSanitizer
 from .base import (
     BaseHandler,
@@ -199,8 +199,8 @@ class ProbesHandler(BaseHandler):
             )
 
         # Execute in event loop
-        # Use asyncio.run() which properly manages event loop lifecycle
-        report = asyncio.run(run_probes())
+        # Use run_async() for safe sync/async bridging
+        report = run_async(run_probes())
 
         # Transform results for frontend (vulnerability_found -> passed)
         by_type_transformed = self._transform_results(report, probe_hooks)

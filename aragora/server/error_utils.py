@@ -245,3 +245,196 @@ def safe_error_message(e: Exception, context: str = "") -> str:
         return "Operation timed out"
     else:
         return "An error occurred"
+
+
+# =============================================================================
+# Error Formatter
+# =============================================================================
+
+class ErrorFormatter:
+    """Unified error formatter for consistent API responses.
+
+    Provides a single interface for formatting both client and server errors
+    with automatic classification, sanitization, and trace ID generation.
+
+    Example:
+        formatter = ErrorFormatter()
+
+        # Format client error (bad input)
+        response = formatter.format_client_error(
+            "Invalid agent name",
+            field="agent",
+            trace_id="abc123"
+        )
+
+        # Format server error (internal failure)
+        response = formatter.format_server_error(
+            exception,
+            context="debate creation",
+            trace_id="abc123"
+        )
+
+        # Auto-classify an exception
+        api_error = formatter.classify_exception(exception, "debate creation")
+    """
+
+    # Map exception types to (status_code, error_code, default_message)
+    EXCEPTION_MAP: dict[str, tuple[int, ErrorCode, str]] = {
+        "FileNotFoundError": (404, ErrorCode.NOT_FOUND, "Resource not found"),
+        "OSError": (500, ErrorCode.INTERNAL_ERROR, "System error"),
+        "JSONDecodeError": (400, ErrorCode.INVALID_FORMAT, "Invalid JSON format"),
+        "ValueError": (400, ErrorCode.VALIDATION_ERROR, "Invalid value"),
+        "KeyError": (400, ErrorCode.MISSING_PARAMETER, "Missing required field"),
+        "PermissionError": (403, ErrorCode.FORBIDDEN, "Access denied"),
+        "TimeoutError": (504, ErrorCode.TIMEOUT, "Operation timed out"),
+        "ConnectionError": (502, ErrorCode.EXTERNAL_SERVICE_ERROR, "Connection failed"),
+        "sqlite3.OperationalError": (503, ErrorCode.DATABASE_ERROR, "Database error"),
+    }
+
+    @classmethod
+    def format_client_error(
+        cls,
+        message: str,
+        status: int = 400,
+        code: Optional[ErrorCode] = None,
+        field: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        suggestion: Optional[str] = None,
+    ) -> dict:
+        """Format a client error (4xx) response.
+
+        Use for validation failures, bad requests, and missing resources.
+
+        Args:
+            message: Human-readable error message
+            status: HTTP status code (default 400)
+            code: Error code (auto-detected from status if not provided)
+            field: Field that caused the error (for validation errors)
+            trace_id: Request trace ID for correlation
+            suggestion: Helpful suggestion for the user
+
+        Returns:
+            Formatted error response dict
+        """
+        error_code = code or _STATUS_TO_CODE.get(status, ErrorCode.INVALID_REQUEST)
+        details = {"field": field} if field else {}
+
+        return APIError(
+            code=error_code,
+            message=message,
+            status=status,
+            trace_id=trace_id,
+            details=details,
+            suggestion=suggestion,
+        ).to_response()
+
+    @classmethod
+    def format_server_error(
+        cls,
+        exception: Exception,
+        context: str = "",
+        trace_id: Optional[str] = None,
+        log_full: bool = True,
+    ) -> dict:
+        """Format a server error (5xx) response.
+
+        Logs full details server-side, returns sanitized message to client.
+
+        Args:
+            exception: The exception that occurred
+            context: Context for logging (e.g., "debate creation")
+            trace_id: Request trace ID for correlation
+            log_full: Whether to log full exception with traceback
+
+        Returns:
+            Formatted error response dict with sanitized message
+        """
+        # Log full details server-side
+        if log_full:
+            logger.exception(
+                f"[{trace_id or 'no-trace'}] Error in {context}: "
+                f"{type(exception).__name__}: {exception}"
+            )
+
+        # Get classification
+        status, code, message = cls._classify_exception_type(exception)
+
+        return APIError(
+            code=code,
+            message=message,
+            status=status,
+            trace_id=trace_id,
+            suggestion="If this persists, contact support with the trace ID" if trace_id else None,
+        ).to_response()
+
+    @classmethod
+    def classify_exception(
+        cls,
+        exception: Exception,
+        context: str = "",
+        trace_id: Optional[str] = None,
+    ) -> APIError:
+        """Classify an exception into an APIError.
+
+        Args:
+            exception: The exception to classify
+            context: Context for the error
+            trace_id: Request trace ID
+
+        Returns:
+            APIError instance with appropriate classification
+        """
+        status, code, message = cls._classify_exception_type(exception)
+
+        # Log for debugging
+        logger.debug(
+            f"Classified {type(exception).__name__} as {code.value} ({status})"
+        )
+
+        return APIError(
+            code=code,
+            message=message,
+            status=status,
+            trace_id=trace_id,
+            details={"context": context} if context else {},
+        )
+
+    @classmethod
+    def _classify_exception_type(
+        cls, exception: Exception
+    ) -> tuple[int, ErrorCode, str]:
+        """Classify exception type to (status, code, message)."""
+        exception_type = type(exception).__name__
+
+        # Check direct mapping
+        if exception_type in cls.EXCEPTION_MAP:
+            return cls.EXCEPTION_MAP[exception_type]
+
+        # Check fully qualified name for nested types
+        full_type = f"{type(exception).__module__}.{exception_type}"
+        if full_type in cls.EXCEPTION_MAP:
+            return cls.EXCEPTION_MAP[full_type]
+
+        # Check base classes
+        for base_type, mapping in cls.EXCEPTION_MAP.items():
+            if base_type in str(type(exception).__mro__):
+                return mapping
+
+        # Default to internal error
+        return 500, ErrorCode.INTERNAL_ERROR, "An error occurred"
+
+    @classmethod
+    def categorize_status(cls, status: int) -> str:
+        """Categorize HTTP status code.
+
+        Returns:
+            Category string: "success", "redirect", "client_error", "server_error"
+        """
+        if 200 <= status < 300:
+            return "success"
+        elif 300 <= status < 400:
+            return "redirect"
+        elif 400 <= status < 500:
+            return "client_error"
+        else:
+            return "server_error"

@@ -5,9 +5,11 @@ Provides validation, type conversion, and async execution utilities
 used across the unified server.
 """
 
-import asyncio
 import logging
 from typing import Any, Coroutine
+
+# Import run_async from central utils for re-export
+from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -94,28 +96,7 @@ def safe_int(value, default: int = 0) -> int:
         return default
 
 
-def run_async(coro: Coroutine[Any, Any, Any]) -> Any:
-    """Run async coroutine in HTTP handler thread (which may not have an event loop).
-
-    This handles the case where we're in a sync context but need to call async code.
-    """
-    try:
-        # Check if there's a running loop (avoids deprecation warning)
-        try:
-            loop = asyncio.get_running_loop()
-            # If we get here, there's a running loop - can't use run_until_complete
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, coro)
-                return future.result(timeout=30)
-        except RuntimeError:
-            # No running loop, safe to use asyncio.run()
-            return asyncio.run(coro)
-    except (RuntimeError, asyncio.InvalidStateError) as e:
-        # Fallback: create new event loop for edge cases
-        logger.debug(f"Creating new event loop after: {type(e).__name__}: {e}")
-        return asyncio.run(coro)
-
+# run_async is imported from aragora.utils.async_utils (see top of file)
 
 # Backward compatibility aliases (prefixed with underscore)
 _validate_query_params = validate_query_params

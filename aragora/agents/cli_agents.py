@@ -456,15 +456,11 @@ class GeminiCLIAgent(CLIAgent):
     requires="kilocode CLI",
 )
 class KiloCodeAgent(CLIAgent):
-    """
-    Agent that uses Kilo Code CLI for codebase exploration.
+    """Agent that uses Kilo Code CLI for codebase exploration.
 
     Kilo Code is an agentic coding assistant that can explore codebases
     autonomously. It supports multiple AI providers including Gemini and Grok
     via direct API or OpenRouter.
-
-    This agent is particularly useful for context gathering phases where
-    the AI needs to read and understand the codebase structure.
 
     Provider IDs (configured in ~/.kilocode/cli/config.json):
     - gemini-explorer: Gemini 3 Pro via direct API
@@ -482,106 +478,46 @@ class KiloCodeAgent(CLIAgent):
         timeout: int = 600,
         mode: str = "architect",
     ):
-        # Model name is informational - actual model is set by provider_id
         super().__init__(name, model or provider_id, role, timeout)
         self.provider_id = provider_id
         self.mode = mode  # architect, code, ask, debug
 
-    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using kilocode CLI with codebase access.
-
-        Automatically falls back to OpenRouter API on rate limits or CLI errors.
-        """
-        full_prompt = prompt
-        if context:
-            full_prompt = self._build_context_prompt(context) + prompt
-
-        if self.system_prompt:
-            full_prompt = f"System context: {self.system_prompt}\n\n{full_prompt}"
-
-        # Use kilocode with:
-        # --auto: autonomous mode (non-interactive)
-        # --yolo: auto-approve tool permissions
-        # --json: output as JSON for parsing
-        # --provider: select the configured provider
-        # --mode: architect mode for exploration
-        # --timeout: prevent hanging
-        cmd = [
-            "kilocode",
-            "--auto",
-            "--yolo",
-            "--json",
-            "-pv", self.provider_id,
-            "-m", self.mode,
-            "-t", str(self.timeout),
-            full_prompt,
-        ]
-
-        try:
-            result = await self._run_cli(cmd)
-            return self._extract_kilocode_response(result)
-
-        except Exception as e:
-            # Check if we should fallback
-            if self._is_fallback_error(e):
-                fallback = self._get_fallback_agent()
-                if fallback:
-                    logger.warning(
-                        f"[{self.name}] CLI failed ({type(e).__name__}: {str(e)[:100]}), "
-                        f"falling back to OpenRouter"
-                    )
-                    self._fallback_used = True
-                    return await fallback.generate(prompt, context)
-            raise
-
     def _extract_kilocode_response(self, output: str) -> str:
         """Extract the assistant response from Kilo Code JSON output."""
-        # Kilocode with --json outputs JSON lines
         lines = output.strip().split('\n')
         responses = []
-
         for line in lines:
             line = line.strip()
             if not line:
                 continue
             try:
                 msg = json.loads(line)
-                # Look for assistant messages
                 if msg.get("role") == "assistant":
                     content = msg.get("content", "")
                     if content:
                         responses.append(content)
-                # Also check for 'text' field in some message formats
                 elif msg.get("type") == "text":
                     text = msg.get("text", "")
                     if text:
                         responses.append(text)
             except json.JSONDecodeError:
-                # If not JSON, might be plain text
                 continue
+        return "\n\n".join(responses) if responses else output
 
-        # Return combined responses or raw output if nothing extracted
-        if responses:
-            return "\n\n".join(responses)
-        return output
-
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
-        """Critique a proposal using kilocode."""
-        critique_prompt = f"""Analyze this proposal critically for the given task.
-
-Task: {task}
-
-Proposal:
-{proposal}
-
-Provide structured feedback:
-- ISSUES: Specific problems (bullet points)
-- SUGGESTIONS: Improvements (bullet points)
-- SEVERITY: 0.0-1.0 rating
-- REASONING: Brief explanation"""
-
-        response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response using kilocode CLI with codebase access."""
+        full_prompt = self._build_full_prompt(prompt, context)
+        cmd = [
+            "kilocode", "--auto", "--yolo", "--json",
+            "-pv", self.provider_id,
+            "-m", self.mode,
+            "-t", str(self.timeout),
+            full_prompt,
+        ]
+        return await self._generate_with_fallback(
+            cmd, prompt, context,
+            response_extractor=self._extract_kilocode_response,
+        )
 
 
 @AgentRegistry.register(
@@ -597,87 +533,33 @@ class GrokCLIAgent(CLIAgent):
     """
 
     def _extract_grok_response(self, output: str) -> str:
-        """Extract the final assistant response from Grok CLI JSON output.
-
-        Grok CLI returns JSON lines with full conversation history.
-        We need to extract only the final assistant content.
-        """
-        # Try to parse as JSON lines (each line is a JSON object)
+        """Extract the final assistant response from Grok CLI JSON output."""
         lines = output.strip().split('\n')
         final_content = None
-
         for line in lines:
             line = line.strip()
             if not line:
                 continue
             try:
                 msg = json.loads(line)
-                # Look for assistant messages with actual content (not just tool calls)
                 if msg.get("role") == "assistant":
                     content = msg.get("content", "")
-                    # Skip messages that are just "Using tools..." placeholders
                     if content and not content.startswith("Using tools"):
                         final_content = content
             except json.JSONDecodeError:
-                # If it's not JSON, might be plain text response
-                # This could be the actual response if Grok outputs plain text
                 if not output.startswith('{"role":'):
                     return output
                 continue
-
-        # Return the final content we found, or the raw output if nothing was extracted
         return final_content if final_content else output
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using grok CLI.
-
-        Automatically falls back to OpenRouter API on rate limits or CLI errors.
-        """
-        full_prompt = prompt
-        if context:
-            full_prompt = self._build_context_prompt(context) + prompt
-
-        if self.system_prompt:
-            full_prompt = f"System context: {self.system_prompt}\n\n{full_prompt}"
-
-        try:
-            # Use grok with -p flag for prompt mode (non-interactive)
-            result = await self._run_cli([
-                "grok", "-p", full_prompt
-            ])
-
-            # Extract actual response from JSON conversation format
-            return self._extract_grok_response(result)
-
-        except Exception as e:
-            if self._is_fallback_error(e):
-                fallback = self._get_fallback_agent()
-                if fallback:
-                    logger.warning(
-                        f"[{self.name}] CLI failed ({type(e).__name__}: {str(e)[:100]}), "
-                        f"falling back to OpenRouter"
-                    )
-                    self._fallback_used = True
-                    return await fallback.generate(prompt, context)
-            raise
-
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
-        """Critique a proposal using grok."""
-        critique_prompt = f"""Analyze this proposal critically for the given task.
-
-Task: {task}
-
-Proposal:
-{proposal}
-
-Provide structured feedback:
-- ISSUES: Specific problems (bullet points)
-- SUGGESTIONS: Improvements (bullet points)
-- SEVERITY: 0.0-1.0 rating
-- REASONING: Brief explanation"""
-
-        response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+        """Generate a response using grok CLI."""
+        full_prompt = self._build_full_prompt(prompt, context)
+        return await self._generate_with_fallback(
+            ["grok", "-p", full_prompt],
+            prompt, context,
+            response_extractor=self._extract_grok_response,
+        )
 
 
 @AgentRegistry.register(
@@ -693,53 +575,12 @@ class QwenCLIAgent(CLIAgent):
     """
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using qwen CLI.
-
-        Automatically falls back to OpenRouter API on rate limits or CLI errors.
-        """
-        full_prompt = prompt
-        if context:
-            full_prompt = self._build_context_prompt(context) + prompt
-
-        if self.system_prompt:
-            full_prompt = f"System context: {self.system_prompt}\n\n{full_prompt}"
-
-        try:
-            # Use qwen with -p flag for prompt mode (non-interactive)
-            result = await self._run_cli([
-                "qwen", "-p", full_prompt
-            ])
-            return result
-
-        except Exception as e:
-            if self._is_fallback_error(e):
-                fallback = self._get_fallback_agent()
-                if fallback:
-                    logger.warning(
-                        f"[{self.name}] CLI failed ({type(e).__name__}: {str(e)[:100]}), "
-                        f"falling back to OpenRouter"
-                    )
-                    self._fallback_used = True
-                    return await fallback.generate(prompt, context)
-            raise
-
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
-        """Critique a proposal using qwen."""
-        critique_prompt = f"""Analyze this proposal critically for the given task.
-
-Task: {task}
-
-Proposal:
-{proposal}
-
-Provide structured feedback:
-- ISSUES: Specific problems (bullet points)
-- SUGGESTIONS: Improvements (bullet points)
-- SEVERITY: 0.0-1.0 rating
-- REASONING: Brief explanation"""
-
-        response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+        """Generate a response using qwen CLI."""
+        full_prompt = self._build_full_prompt(prompt, context)
+        return await self._generate_with_fallback(
+            ["qwen", "-p", full_prompt],
+            prompt, context,
+        )
 
 
 @AgentRegistry.register(
@@ -756,53 +597,12 @@ class DeepseekCLIAgent(CLIAgent):
     """
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using deepseek CLI.
-
-        Automatically falls back to OpenRouter API on rate limits or CLI errors.
-        """
-        full_prompt = prompt
-        if context:
-            full_prompt = self._build_context_prompt(context) + prompt
-
-        if self.system_prompt:
-            full_prompt = f"System context: {self.system_prompt}\n\n{full_prompt}"
-
-        try:
-            # Use deepseek CLI
-            result = await self._run_cli([
-                "deepseek", "-p", full_prompt
-            ])
-            return result
-
-        except Exception as e:
-            if self._is_fallback_error(e):
-                fallback = self._get_fallback_agent()
-                if fallback:
-                    logger.warning(
-                        f"[{self.name}] CLI failed ({type(e).__name__}: {str(e)[:100]}), "
-                        f"falling back to OpenRouter"
-                    )
-                    self._fallback_used = True
-                    return await fallback.generate(prompt, context)
-            raise
-
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
-        """Critique a proposal using deepseek."""
-        critique_prompt = f"""Analyze this proposal critically for the given task.
-
-Task: {task}
-
-Proposal:
-{proposal}
-
-Provide structured feedback:
-- ISSUES: Specific problems (bullet points)
-- SUGGESTIONS: Improvements (bullet points)
-- SEVERITY: 0.0-1.0 rating
-- REASONING: Brief explanation"""
-
-        response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+        """Generate a response using deepseek CLI."""
+        full_prompt = self._build_full_prompt(prompt, context)
+        return await self._generate_with_fallback(
+            ["deepseek", "-p", full_prompt],
+            prompt, context,
+        )
 
 
 @AgentRegistry.register(
@@ -821,53 +621,29 @@ class OpenAIAgent(CLIAgent):
     def __init__(self, name: str, model: str = "gpt-4o", role: str = "proposer", timeout: int = 120) -> None:
         super().__init__(name, model, role, timeout)
 
-    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using openai CLI.
-
-        Automatically falls back to OpenRouter API on rate limits or CLI errors.
-        """
-        full_prompt = prompt
-        if context:
-            full_prompt = self._build_context_prompt(context) + prompt
-
-        if self.system_prompt:
-            full_prompt = f"System context: {self.system_prompt}\n\n{full_prompt}"
-
+    def _extract_openai_response(self, result: str) -> str:
+        """Parse JSON response from OpenAI CLI."""
         try:
-            # Use openai api chat.completions.create
-            messages = json.dumps([{"role": "user", "content": full_prompt}])
+            data = json.loads(result)
+            choices = data.get("choices", [])
+            if choices:
+                return choices[0].get("message", {}).get("content", result)
+            return result
+        except json.JSONDecodeError:
+            return result
 
-            result = await self._run_cli([
-                "openai", "api", "chat.completions.create",
-                "-m", self.model,
-                "-g", "user", full_prompt,
-            ])
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response using openai CLI."""
+        full_prompt = self._build_full_prompt(prompt, context)
+        return await self._generate_with_fallback(
+            ["openai", "api", "chat.completions.create", "-m", self.model, "-g", "user", full_prompt],
+            prompt, context,
+            response_extractor=self._extract_openai_response,
+        )
 
-            # Parse JSON response
-            try:
-                data = json.loads(result)
-                choices = data.get("choices", [])
-                if choices:
-                    return choices[0].get("message", {}).get("content", result)
-                return result
-            except json.JSONDecodeError:
-                return result
-
-        except Exception as e:
-            if self._is_fallback_error(e):
-                fallback = self._get_fallback_agent()
-                if fallback:
-                    logger.warning(
-                        f"[{self.name}] CLI failed ({type(e).__name__}: {str(e)[:100]}), "
-                        f"falling back to OpenRouter"
-                    )
-                    self._fallback_used = True
-                    return await fallback.generate(prompt, context)
-            raise
-
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
-        """Critique a proposal using openai."""
-        critique_prompt = f"""Critically analyze this proposal:
+    def _build_critique_prompt(self, proposal: str, task: str) -> str:
+        """Build critique prompt with OpenAI-specific formatting."""
+        return f"""Critically analyze this proposal:
 
 Task: {task}
 Proposal: {proposal}
@@ -883,9 +659,6 @@ SUGGESTIONS:
 
 SEVERITY: X.X
 REASONING: explanation"""
-
-        response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
 
 
 # Synchronous wrappers for convenience

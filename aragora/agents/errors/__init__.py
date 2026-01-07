@@ -58,6 +58,12 @@ from .decorators import (
     handle_stream_errors,
 )
 
+from .handlers import (
+    handle_agent_operation,
+    AgentErrorHandler,
+    make_fallback_message,
+)
+
 # Re-export sanitization from utils for backward compatibility
 from aragora.utils.error_sanitizer import (
     sanitize_error,
@@ -112,6 +118,10 @@ __all__ = [
     "handle_agent_errors",
     "with_error_handling",
     "handle_stream_errors",
+    # Autonomic handlers
+    "handle_agent_operation",
+    "AgentErrorHandler",
+    "make_fallback_message",
     # Sanitization
     "sanitize_error",
     "_SENSITIVE_PATTERNS",

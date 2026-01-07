@@ -7,7 +7,6 @@ Endpoints:
 - POST /api/debates/:id/red-team - Run red team analysis on a debate
 """
 
-import asyncio
 import json
 import logging
 import time
@@ -15,6 +14,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
+from aragora.server.http_utils import run_async
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -401,7 +401,7 @@ class AuditingHandler(BaseHandler):
                     return f"[Agent Error: {str(e)}]"
 
             try:
-                report = asyncio.run(prober.probe_agent(
+                report = run_async(prober.probe_agent(
                     target_agent=agent,
                     run_agent_fn=run_agent_fn,
                     probe_types=probe_types,
@@ -519,7 +519,7 @@ class AuditingHandler(BaseHandler):
 
             # Run audit
             try:
-                verdict = asyncio.run(DeepAuditOrchestrator(agents, config).run(task, context))
+                verdict = run_async(DeepAuditOrchestrator(agents, config).run(task, context))
             except Exception as e:
                 return error_response(f"Deep audit execution failed: {str(e)}", 500)
 

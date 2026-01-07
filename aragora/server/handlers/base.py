@@ -34,8 +34,9 @@ from aragora.server.validation import (
 __all__ = [
     "DB_TIMEOUT_SECONDS", "require_auth", "require_storage", "error_response",
     "json_response", "handle_errors", "log_request", "ttl_cache", "clear_cache",
-    "get_cache_stats", "invalidate_cache", "CACHE_INVALIDATION_MAP", "rate_limit",
-    "RateLimiter",
+    "get_cache_stats", "CACHE_INVALIDATION_MAP", "invalidate_cache", "invalidate_on_event",
+    "invalidate_leaderboard_cache", "invalidate_agent_cache", "invalidate_debate_cache",
+    "rate_limit", "RateLimiter",
 ]
 
 logger = logging.getLogger(__name__)
@@ -204,48 +205,133 @@ def get_cache_stats() -> dict:
     return _cache.stats
 
 
-# Cache invalidation registry - maps data sources to cache key prefixes
+# =============================================================================
+# Event-Driven Cache Invalidation
+# =============================================================================
+
+# Maps event names to cache prefixes that should be invalidated
 CACHE_INVALIDATION_MAP: dict[str, list[str]] = {
-    "elo": [
-        "lb_rankings", "lb_matches", "lb_reputation", "lb_stats",
-        "leaderboard", "agent_profile", "agent_h2h", "lb_teams",
+    # ELO/ranking events
+    "elo_updated": [
+        "leaderboard", "lb_rankings", "agents_list", "agent_profile",
+        "calibration_lb", "recent_matches", "analytics_ranking",
     ],
-    "calibration": [
-        "calibration_lb", "lb_introspection", "agent_flips",
-        "flips_recent", "flips_summary",
+    "match_recorded": [
+        "leaderboard", "lb_rankings", "lb_matches", "recent_matches",
+        "agent_h2h", "analytics_ranking",
     ],
-    "memory": [
-        "replays_list", "learning_evolution", "meta_learning_stats",
+    # Debate events
+    "debate_completed": [
+        "dashboard_debates", "analytics_debates", "replays_list",
+        "consensus_stats", "consensus_similar",
     ],
-    "consensus": [
-        "consensus_similar", "consensus_settled", "consensus_stats",
-        "recent_dissents", "contrarian_views", "risk_warnings",
+    "debate_started": [
+        "dashboard_debates",
     ],
-    "debates": [
-        "dashboard_debates", "analytics_disagreement", "analytics_roles",
-        "analytics_early_stop", "analytics_ranking", "analytics_debates",
-        "analytics_memory",
+    # Agent events
+    "agent_updated": [
+        "agent_profile", "agents_list", "lb_introspection",
+    ],
+    # Memory events
+    "memory_updated": [
+        "analytics_memory", "critique_patterns", "critique_stats",
+    ],
+    # Consensus events
+    "consensus_reached": [
+        "consensus_stats", "consensus_settled", "consensus_similar",
     ],
 }
 
 
-def invalidate_cache(data_source: str) -> int:
-    """Invalidate all caches related to a data source.
+def invalidate_on_event(event_name: str) -> int:
+    """Invalidate cache entries associated with an event.
 
     Args:
-        data_source: One of 'elo', 'calibration', 'memory', 'consensus', 'debates'
+        event_name: Name of the event (e.g., "elo_updated", "debate_completed")
 
     Returns:
-        Total number of cache entries cleared.
+        Total number of cache entries invalidated
     """
-    prefixes = CACHE_INVALIDATION_MAP.get(data_source, [])
-    total = 0
+    prefixes = CACHE_INVALIDATION_MAP.get(event_name, [])
+    total_cleared = 0
     for prefix in prefixes:
-        cleared = clear_cache(prefix)
-        total += cleared
-    if total > 0:
-        logger.debug(f"Cache invalidated for '{data_source}': {total} entries cleared")
-    return total
+        cleared = _cache.clear(prefix)
+        total_cleared += cleared
+        if cleared > 0:
+            logger.debug(f"Cache invalidation: {event_name} cleared {cleared} entries with prefix '{prefix}'")
+    return total_cleared
+
+
+def invalidate_cache(data_source: str) -> int:
+    """Invalidate cache entries associated with a data source.
+
+    This function clears all cache prefixes registered for a given data source
+    in the CACHE_INVALIDATION_MAP.
+
+    Args:
+        data_source: Name of the data source (e.g., "elo", "memory", "debates")
+
+    Returns:
+        Total number of cache entries invalidated
+    """
+    # Map data sources to event names
+    source_to_event = {
+        "elo": "elo_updated",
+        "memory": "memory_updated",
+        "debates": "debate_completed",
+        "consensus": "consensus_reached",
+        "agent": "agent_updated",
+        "calibration": "elo_updated",  # Uses same prefixes as ELO
+    }
+    event_name = source_to_event.get(data_source)
+    if event_name:
+        return invalidate_on_event(event_name)
+
+    # Fallback: try to clear by prefix directly
+    cleared = _cache.clear(data_source)
+    if cleared > 0:
+        logger.debug(f"Cache invalidation: cleared {cleared} entries with prefix '{data_source}'")
+    return cleared
+
+
+def invalidate_leaderboard_cache() -> int:
+    """Convenience function to invalidate all leaderboard-related caches."""
+    return invalidate_on_event("elo_updated")
+
+
+def invalidate_agent_cache(agent_name: str | None = None) -> int:
+    """Invalidate agent-related cache entries.
+
+    Args:
+        agent_name: If provided, only invalidate entries for this agent.
+                   If None, invalidate all agent caches.
+    """
+    if agent_name:
+        # Invalidate entries containing the agent name
+        keys_to_clear = [k for k in _cache._cache.keys() if agent_name in k]
+        for key in keys_to_clear:
+            del _cache._cache[key]
+        return len(keys_to_clear)
+    else:
+        return invalidate_on_event("agent_updated")
+
+
+def invalidate_debate_cache(debate_id: str | None = None) -> int:
+    """Invalidate debate-related cache entries.
+
+    Args:
+        debate_id: If provided, only invalidate entries for this debate.
+                  If None, invalidate all debate caches.
+    """
+    if debate_id:
+        keys_to_clear = [k for k in _cache._cache.keys() if debate_id in k]
+        for key in keys_to_clear:
+            del _cache._cache[key]
+        return len(keys_to_clear)
+    else:
+        return invalidate_on_event("debate_completed")
+
+
 
 
 # =============================================================================

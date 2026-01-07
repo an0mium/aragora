@@ -10,6 +10,7 @@ import logging
 from typing import Optional
 
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.server.http_utils import run_async
 
 logger = logging.getLogger(__name__)
 from .base import (
@@ -49,10 +50,9 @@ class PulseHandler(BaseHandler):
     def _run_async_safely(self, coro_factory, timeout: float = None) -> list:
         """Run an async coroutine safely, handling event loop edge cases.
 
-        Handles three scenarios:
+        Uses run_async() from http_utils which properly handles:
         1. No running event loop - uses asyncio.run() directly
         2. Running event loop - uses ThreadPoolExecutor to avoid nested loop
-        3. Timeout or failure - returns empty list with warning
 
         Args:
             coro_factory: Callable that returns a coroutine (called inside executor)
@@ -61,29 +61,8 @@ class PulseHandler(BaseHandler):
         Returns:
             Result from coroutine, or empty list on failure
         """
-        import asyncio
-        import concurrent.futures
-
-        if timeout is None:
-            timeout = DB_TIMEOUT_SECONDS
-
         try:
-            # Check if we're in an async context
-            try:
-                asyncio.get_running_loop()
-                # Running loop exists - use thread pool to avoid nested loop
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    try:
-                        return pool.submit(asyncio.run, coro_factory()).result(timeout=timeout)
-                    except concurrent.futures.TimeoutError:
-                        logger.warning("Async fetch timed out after %.1fs", timeout)
-                        return []
-                    except Exception as e:
-                        logger.warning("Async fetch failed in thread pool: %s", e)
-                        return []
-            except RuntimeError:
-                # No running loop, safe to use asyncio.run() directly
-                return asyncio.run(coro_factory())
+            return run_async(coro_factory())
         except Exception as e:
             logger.warning("Async fetch failed: %s", e)
             return []
