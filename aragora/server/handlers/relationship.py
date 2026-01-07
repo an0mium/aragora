@@ -13,7 +13,11 @@ import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional, Generator
+from functools import wraps
+from typing import Callable, Optional, Generator, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aragora.agents.grounded import RelationshipTracker as _RelationshipTrackerType
 
 from .base import (
     BaseHandler,
@@ -53,6 +57,88 @@ RelationshipTracker = _relationship_imports["RelationshipTracker"]
 AgentRelationship = _relationship_imports["AgentRelationship"]
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
+
+
+# =============================================================================
+# Score Computation Utilities
+# =============================================================================
+
+
+def compute_rivalry_score(
+    debate_count: int, agreement_count: int, a_wins: int, b_wins: int
+) -> float:
+    """Compute rivalry score between two agents.
+
+    Rivalry is high when agents frequently disagree and have competitive win rates.
+
+    Args:
+        debate_count: Number of debates between the agents
+        agreement_count: Number of debates where they agreed
+        a_wins: Wins by agent A over agent B
+        b_wins: Wins by agent B over agent A
+
+    Returns:
+        Rivalry score from 0.0 to 1.0
+    """
+    if debate_count < 3:
+        return 0.0
+    disagreement_rate = 1 - (agreement_count / debate_count)
+    total_wins = a_wins + b_wins
+    competitiveness = 1 - abs(a_wins - b_wins) / max(total_wins, 1)
+    frequency_factor = min(1.0, debate_count / 20)
+    return disagreement_rate * competitiveness * frequency_factor
+
+
+def compute_alliance_score(debate_count: int, agreement_count: int) -> float:
+    """Compute alliance score between two agents.
+
+    Alliance is high when agents frequently agree.
+
+    Note: Full alliance_score also uses critique acceptance rates, but those
+    aren't always available. This simplified version uses just agreement rate.
+
+    Args:
+        debate_count: Number of debates between the agents
+        agreement_count: Number of debates where they agreed
+
+    Returns:
+        Alliance score from 0.0 to 1.0
+    """
+    if debate_count < 3:
+        return 0.0
+    agreement_rate = agreement_count / debate_count
+    # Simplified: alliance_score = agreement_rate * 0.6 + acceptance_rate * 0.4
+    # Since we don't have critique data, use agreement_rate * 0.6 as baseline
+    return agreement_rate * 0.6
+
+
+# =============================================================================
+# Handler Decorators
+# =============================================================================
+
+
+def require_tracker(func: Callable) -> Callable:
+    """Decorator that handles tracker availability and initialization.
+
+    Converts nomic_dir parameter to an initialized tracker. Methods decorated
+    with this receive a guaranteed non-None RelationshipTracker.
+
+    Usage:
+        # Call site: self._get_summary(nomic_dir)
+        @require_tracker
+        def _get_summary(self, tracker: "RelationshipTracker") -> HandlerResult:
+            # tracker is guaranteed non-None
+            ...
+    """
+    @wraps(func)
+    def wrapper(self, nomic_dir: Optional[Path], *args, **kwargs) -> HandlerResult:
+        if not RELATIONSHIP_TRACKER_AVAILABLE:
+            return error_response("Relationship tracker not available", 503)
+        tracker = self._get_tracker(nomic_dir)
+        if not tracker:
+            return error_response("Failed to initialize relationship tracker", 503)
+        return func(self, tracker, *args, **kwargs)
+    return wrapper
 
 
 class RelationshipHandler(BaseHandler):
@@ -122,16 +208,10 @@ class RelationshipHandler(BaseHandler):
             logger.warning(f"Failed to create RelationshipTracker: {e}")
             return None
 
-    def _get_summary(self, nomic_dir: Optional[Path]) -> HandlerResult:
+    @require_tracker
+    def _get_summary(self, tracker: "RelationshipTracker") -> HandlerResult:
         """Get global relationship overview."""
-        if not RELATIONSHIP_TRACKER_AVAILABLE:
-            return error_response("Relationship tracker not available", 503)
-
         try:
-            tracker = self._get_tracker(nomic_dir)
-            if not tracker:
-                return error_response("Failed to initialize relationship tracker", 503)
-
             # Collect all unique agents and their relationships
             all_agents = set()
             all_relationships = []
@@ -199,10 +279,10 @@ class RelationshipHandler(BaseHandler):
                 agent_relationship_counts[agent_b] = agent_relationship_counts.get(agent_b, 0) + 1
 
                 # Compute scores inline (avoids N+1 query)
-                rivalry_score = self._compute_rivalry_score(
+                rivalry_score = compute_rivalry_score(
                     debate_count, agreement_count, a_wins, b_wins
                 )
-                alliance_score = self._compute_alliance_score(
+                alliance_score = compute_alliance_score(
                     debate_count, agreement_count
                 )
 
@@ -239,18 +319,12 @@ class RelationshipHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "relationships_summary"), 500)
 
+    @require_tracker
     def _get_graph(
-        self, nomic_dir: Optional[Path], min_debates: int, min_score: float
+        self, tracker: "RelationshipTracker", min_debates: int, min_score: float
     ) -> HandlerResult:
         """Get full relationship graph for visualizations."""
-        if not RELATIONSHIP_TRACKER_AVAILABLE:
-            return error_response("Relationship tracker not available", 503)
-
         try:
-            tracker = self._get_tracker(nomic_dir)
-            if not tracker:
-                return error_response("Failed to initialize relationship tracker", 503)
-
             with _get_connection(str(tracker.elo_db_path)) as conn:
                 cursor = conn.cursor()
 
@@ -293,10 +367,10 @@ class RelationshipHandler(BaseHandler):
                         nodes_data[agent] = {"debate_count": 0, "rivals": 0, "allies": 0}
 
                 # Compute scores inline (avoids N+1 query)
-                rivalry_score = self._compute_rivalry_score(
+                rivalry_score = compute_rivalry_score(
                     debate_count, agreement_count, a_wins, b_wins
                 )
-                alliance_score = self._compute_alliance_score(
+                alliance_score = compute_alliance_score(
                     debate_count, agreement_count
                 )
 
@@ -350,18 +424,12 @@ class RelationshipHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "relationships_graph"), 500)
 
+    @require_tracker
     def _get_pair_detail(
-        self, nomic_dir: Optional[Path], agent_a: str, agent_b: str
+        self, tracker: "RelationshipTracker", agent_a: str, agent_b: str
     ) -> HandlerResult:
         """Get detailed relationship between two specific agents."""
-        if not RELATIONSHIP_TRACKER_AVAILABLE:
-            return error_response("Relationship tracker not available", 503)
-
         try:
-            tracker = self._get_tracker(nomic_dir)
-            if not tracker:
-                return error_response("Failed to initialize relationship tracker", 503)
-
             rel = tracker.get_relationship(agent_a, agent_b)
 
             if rel.debate_count == 0:
@@ -412,41 +480,10 @@ class RelationshipHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "relationship_pair_detail"), 500)
 
-    def _compute_rivalry_score(
-        self, debate_count: int, agreement_count: int, a_wins: int, b_wins: int
-    ) -> float:
-        """Compute rivalry score inline (matches AgentRelationship.rivalry_score)."""
-        if debate_count < 3:
-            return 0.0
-        disagreement_rate = 1 - (agreement_count / debate_count)
-        total_wins = a_wins + b_wins
-        competitiveness = 1 - abs(a_wins - b_wins) / max(total_wins, 1)
-        frequency_factor = min(1.0, debate_count / 20)
-        return disagreement_rate * competitiveness * frequency_factor
-
-    def _compute_alliance_score(self, debate_count: int, agreement_count: int) -> float:
-        """Compute alliance score inline (simplified, matches AgentRelationship.alliance_score).
-
-        Note: Full alliance_score also uses critique acceptance rates, but those
-        aren't in our query. This simplified version uses just agreement rate.
-        """
-        if debate_count < 3:
-            return 0.0
-        agreement_rate = agreement_count / debate_count
-        # Simplified: alliance_score = agreement_rate * 0.6 + acceptance_rate * 0.4
-        # Since we don't have critique data, use agreement_rate * 0.6 as baseline
-        return agreement_rate * 0.6
-
-    def _get_stats(self, nomic_dir: Optional[Path]) -> HandlerResult:
+    @require_tracker
+    def _get_stats(self, tracker: "RelationshipTracker") -> HandlerResult:
         """Get relationship system statistics."""
-        if not RELATIONSHIP_TRACKER_AVAILABLE:
-            return error_response("Relationship tracker not available", 503)
-
         try:
-            tracker = self._get_tracker(nomic_dir)
-            if not tracker:
-                return error_response("Failed to initialize relationship tracker", 503)
-
             with _get_connection(str(tracker.elo_db_path)) as conn:
                 cursor = conn.cursor()
 
@@ -514,10 +551,10 @@ class RelationshipHandler(BaseHandler):
                         }
 
                     # Compute scores inline (avoids N+1 query)
-                    rivalry_score = self._compute_rivalry_score(
+                    rivalry_score = compute_rivalry_score(
                         debate_count, agreement_count, a_wins, b_wins
                     )
-                    alliance_score = self._compute_alliance_score(
+                    alliance_score = compute_alliance_score(
                         debate_count, agreement_count
                     )
 

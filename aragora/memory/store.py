@@ -7,11 +7,14 @@ Stores successful critique patterns so future debates can learn from past succes
 import sqlite3
 import json
 import hashlib
+import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Generator
+
+logger = logging.getLogger(__name__)
 
 from aragora.core import Critique, DebateResult
 from aragora.utils.json_helpers import safe_json_loads

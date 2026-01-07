@@ -20,7 +20,15 @@ from urllib.parse import parse_qs
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.server.error_utils import safe_error_message
 from aragora.server.prometheus import record_cache_hit, record_cache_miss
-from aragora.server.validation import SAFE_ID_PATTERN, SAFE_AGENT_PATTERN, SAFE_SLUG_PATTERN
+from aragora.server.validation import (
+    SAFE_ID_PATTERN,
+    SAFE_AGENT_PATTERN,
+    SAFE_SLUG_PATTERN,
+    # Re-export validation functions for backwards compatibility
+    validate_path_segment,
+    validate_agent_name,
+    validate_debate_id,
+)
 
 # Re-export DB_TIMEOUT_SECONDS for backwards compatibility
 __all__ = [
@@ -759,135 +767,8 @@ def with_error_recovery(
     return decorator
 
 
-@dataclass
-class ValidationResult:
-    """Result of parameter validation."""
-    is_valid: bool
-    error: Optional[str] = None
-    validated_params: Optional[dict] = None
-
-
-def validate_against_schema(params: dict, schema: dict) -> ValidationResult:
-    """
-    Validate request parameters against a simple schema.
-
-    Schema format:
-        {
-            "param_name": {
-                "type": "int" | "float" | "string" | "bool",
-                "required": True | False,
-                "min": <number>,  # For int/float
-                "max": <number>,  # For int/float
-                "pattern": <regex>,  # For strings
-                "choices": [<list>],  # Allowed values
-                "default": <value>,  # Default if not provided
-            },
-            ...
-        }
-
-    Args:
-        params: Dictionary of request parameters
-        schema: Validation schema
-
-    Returns:
-        ValidationResult with is_valid, error message, and validated params
-    """
-    validated = {}
-    errors = []
-
-    for param_name, rules in schema.items():
-        value = params.get(param_name)
-        required = rules.get("required", False)
-        default = rules.get("default")
-        param_type = rules.get("type", "string")
-
-        # Handle missing values
-        if value is None:
-            if required:
-                errors.append(f"Missing required parameter: {param_name}")
-                continue
-            elif default is not None:
-                value = default
-            else:
-                continue
-
-        # Type coercion and validation
-        try:
-            if param_type == "int":
-                value = int(value)
-                if "min" in rules and value < rules["min"]:
-                    errors.append(f"{param_name} must be >= {rules['min']}")
-                if "max" in rules and value > rules["max"]:
-                    errors.append(f"{param_name} must be <= {rules['max']}")
-
-            elif param_type == "float":
-                value = float(value)
-                if "min" in rules and value < rules["min"]:
-                    errors.append(f"{param_name} must be >= {rules['min']}")
-                if "max" in rules and value > rules["max"]:
-                    errors.append(f"{param_name} must be <= {rules['max']}")
-
-            elif param_type == "bool":
-                if isinstance(value, str):
-                    value = value.lower() in ("true", "1", "yes", "on")
-                else:
-                    value = bool(value)
-
-            elif param_type == "string":
-                value = str(value)
-                if "pattern" in rules:
-                    pattern = rules["pattern"]
-                    if isinstance(pattern, str):
-                        pattern = re.compile(pattern)
-                    if not pattern.match(value):
-                        errors.append(f"{param_name} has invalid format")
-
-            # Check choices
-            if "choices" in rules and value not in rules["choices"]:
-                errors.append(f"{param_name} must be one of: {rules['choices']}")
-
-            validated[param_name] = value
-
-        except (ValueError, TypeError) as e:
-            errors.append(f"Invalid {param_name}: {e}")
-
-    if errors:
-        return ValidationResult(is_valid=False, error="; ".join(errors))
-
-    return ValidationResult(is_valid=True, validated_params=validated)
-
-
-def validate_params(schema: dict):
-    """
-    Decorator to validate request parameters against a schema.
-
-    Validates query_params (second argument after self) and returns
-    error response if validation fails.
-
-    Args:
-        schema: Validation schema (see validate_against_schema for format)
-
-    Usage:
-        @validate_params({
-            "limit": {"type": "int", "min": 1, "max": 100, "default": 20},
-            "agent": {"type": "string", "required": True, "pattern": SAFE_AGENT_PATTERN},
-        })
-        def _get_agent_data(self, path, query_params, handler):
-            limit = query_params.get("limit")  # Already validated and converted
-            ...
-    """
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(self, path, query_params, *args, **kwargs):
-            result = validate_against_schema(query_params, schema)
-            if not result.is_valid:
-                return error_response(result.error, 400)
-            # Merge validated params back (with type conversions applied)
-            if result.validated_params:
-                query_params.update(result.validated_params)
-            return func(self, path, query_params, *args, **kwargs)
-        return wrapper
-    return decorator
+# Note: Validation functions moved to aragora.server.validation
+# Use: from aragora.server.validation import validate_against_schema, ValidationResult
 
 
 def parse_query_params(query_string: str) -> dict:
@@ -1007,54 +888,8 @@ def get_bounded_string_param(
 
 
 # Note: SAFE_ID_PATTERN, SAFE_AGENT_PATTERN, SAFE_SLUG_PATTERN imported from validation.py
-
-
-def validate_path_segment(
-    value: str,
-    name: str,
-    pattern: re.Pattern = SAFE_ID_PATTERN,
-) -> Tuple[bool, Optional[str]]:
-    """Validate a path segment against a pattern.
-
-    Args:
-        value: The value to validate
-        name: Name of the segment for error messages
-        pattern: Regex pattern to match against
-
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    if not value:
-        return False, f"Missing {name}"
-    if '..' in value or '/' in value:
-        return False, f"Invalid {name}: path traversal not allowed"
-    if not pattern.match(value):
-        return False, f"Invalid {name} format"
-    return True, None
-
-
-def validate_agent_name(agent: str) -> Tuple[bool, Optional[str]]:
-    """Validate an agent name.
-
-    Args:
-        agent: Agent name to validate
-
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    return validate_path_segment(agent, "agent name", SAFE_AGENT_PATTERN)
-
-
-def validate_debate_id(debate_id: str) -> Tuple[bool, Optional[str]]:
-    """Validate a debate ID.
-
-    Args:
-        debate_id: Debate ID to validate
-
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    return validate_path_segment(debate_id, "debate ID", SAFE_SLUG_PATTERN)
+# Path segment validation functions (validate_path_segment, validate_agent_name,
+# validate_debate_id) are in aragora.server.validation
 
 
 class BaseHandler:

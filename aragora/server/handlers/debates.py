@@ -21,10 +21,10 @@ from .base import (
     HandlerResult,
     json_response,
     error_response,
-    get_int_param,
     require_storage,
-    validate_debate_id,
+    get_int_param,
 )
+from aragora.server.validation import validate_debate_id
 
 logger = logging.getLogger(__name__)
 

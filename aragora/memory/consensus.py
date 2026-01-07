@@ -401,7 +401,7 @@ class ConsensusMemory:
             )
             row = cursor.fetchone()
             if row:
-                consensus_data = safe_json_loads(row[0], {})
+                consensus_data = safe_json_loads(row[0], {}, context=f"consensus:{debate_id}")
                 consensus_data["dissent_ids"] = consensus_data.get("dissent_ids", []) + [record.id]
                 cursor.execute(
                     "UPDATE consensus SET data = ? WHERE id = ?",
@@ -427,7 +427,7 @@ class ConsensusMemory:
             row = cursor.fetchone()
 
         if row:
-            data = safe_json_loads(row[0], {})
+            data = safe_json_loads(row[0], {}, context=f"consensus:{consensus_id}")
             if data:
                 return ConsensusRecord.from_dict(data)
         return None
@@ -444,7 +444,7 @@ class ConsensusMemory:
 
         results = []
         for row in rows:
-            data = safe_json_loads(row[0], {})
+            data = safe_json_loads(row[0], {}, context=f"dissent:debate={debate_id}")
             if data:
                 results.append(DissentRecord.from_dict(data))
         return results
@@ -485,7 +485,7 @@ class ConsensusMemory:
         # Score similarity and collect qualifying consensus IDs
         scored_candidates: list[tuple[ConsensusRecord, float]] = []
         for row in rows:
-            data = safe_json_loads(row[0], {})
+            data = safe_json_loads(row[0], {}, context=f"consensus:find_similar:{topic_hash[:8]}")
             if not data:
                 continue
             consensus = ConsensusRecord.from_dict(data)
@@ -556,7 +556,7 @@ class ConsensusMemory:
                 cursor.execute(query, consensus_ids)
                 for row in cursor.fetchall():
                     debate_id = row[0]
-                    data = safe_json_loads(row[1], {})
+                    data = safe_json_loads(row[1], {}, context=f"dissent:batch:{debate_id}")
                     if data and debate_id in result:
                         result[debate_id].append(DissentRecord.from_dict(data))
         except sqlite3.Error as e:
@@ -609,7 +609,7 @@ class ConsensusMemory:
 
         results = []
         for row in rows:
-            data = safe_json_loads(row[0], {})
+            data = safe_json_loads(row[0], {}, context=f"consensus:domain={domain}")
             if data:
                 results.append(ConsensusRecord.from_dict(data))
         return results
@@ -642,7 +642,7 @@ class ConsensusMemory:
             row = cursor.fetchone()
 
             if row:
-                old_data = safe_json_loads(row[0], {})
+                old_data = safe_json_loads(row[0], {}, context=f"consensus:supersede:{old_consensus_id}")
                 old_data["superseded_by"] = new_record.id
                 cursor.execute(
                     "UPDATE consensus SET data = ? WHERE id = ?",

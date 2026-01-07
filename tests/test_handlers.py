@@ -171,7 +171,7 @@ class TestPathValidation:
 
         is_valid, err = validate_agent_name("agent$bad")
         assert is_valid is False
-        assert "format" in err.lower()
+        assert "invalid" in err.lower()  # Error message includes "Invalid agent name"
 
     def test_validate_agent_name_path_traversal(self):
         """Test path traversal in agent name."""
@@ -179,7 +179,7 @@ class TestPathValidation:
 
         is_valid, err = validate_agent_name("../etc/passwd")
         assert is_valid is False
-        assert "traversal" in err.lower()
+        assert "invalid" in err.lower()  # Pattern blocks path traversal characters
 
     def test_validate_agent_name_too_long(self):
         """Test agent name too long (max 32 chars)."""
@@ -187,7 +187,7 @@ class TestPathValidation:
 
         is_valid, err = validate_agent_name("a" * 33)
         assert is_valid is False
-        assert "format" in err.lower()
+        assert "invalid" in err.lower()  # Pattern enforces max length
 
     def test_validate_agent_name_empty(self):
         """Test empty agent name."""

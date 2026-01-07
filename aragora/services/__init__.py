@@ -13,6 +13,12 @@ Usage:
     # Get a service
     tier_manager = get_service(TierManager)
 
+    # Get registry stats
+    stats = ServiceRegistry.get().stats()
+
+    # Graceful shutdown
+    ServiceRegistry.get().shutdown()
+
     # For testing - reset all services
     ServiceRegistry.reset()
 """
@@ -20,6 +26,9 @@ Usage:
 from .registry import (
     ServiceRegistry,
     ServiceNotFoundError,
+    ServiceScope,
+    ServiceDescriptor,
+    RegistryStats,
     get_service,
     register_service,
     has_service,
@@ -28,6 +37,9 @@ from .registry import (
 __all__ = [
     "ServiceRegistry",
     "ServiceNotFoundError",
+    "ServiceScope",
+    "ServiceDescriptor",
+    "RegistryStats",
     "get_service",
     "register_service",
     "has_service",

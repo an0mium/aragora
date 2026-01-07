@@ -169,22 +169,22 @@ async def test_arena_research_phase():
     # Create arena
     arena = Arena(env, agents, protocol)
 
-    # Mock the research method
+    # Mock the research method on the context_initializer (where it's actually called)
     research_context = "## WEB RESEARCH CONTEXT\nSome research data..."
-    with patch.object(arena, '_perform_research', new_callable=AsyncMock) as mock_research:
-        mock_research.return_value = research_context
+    mock_research = AsyncMock(return_value=research_context)
+    arena.context_initializer._perform_research = mock_research
 
-        # Run debate (it will fail but we just want to test research phase)
-        try:
-            await arena.run()
-        except Exception:
-            pass  # Expected to fail without proper setup
+    # Run debate (it will fail but we just want to test research phase)
+    try:
+        await arena.run()
+    except Exception:
+        pass  # Expected to fail without proper setup
 
-        # Check that research was called
-        mock_research.assert_called_once_with(env.task)
+    # Check that research was called
+    mock_research.assert_called_once_with(env.task)
 
-        # Check that research was added to context
-        assert env.context == research_context
+    # Check that research was added to context
+    assert env.context == research_context
 
 
 @pytest.mark.asyncio
@@ -196,15 +196,17 @@ async def test_research_enabled_by_default():
 
     arena = Arena(env, agents, protocol)
 
-    with patch.object(arena, '_perform_research', new_callable=AsyncMock) as mock_research:
-        mock_research.return_value = "Mock research context"
-        try:
-            await arena.run()
-        except Exception:
-            pass
+    # Mock the research method on the context_initializer where it's called
+    mock_research = AsyncMock(return_value="Mock research context")
+    arena.context_initializer._perform_research = mock_research
 
-        # Research should be called since it's enabled by default
-        mock_research.assert_called_once()
+    try:
+        await arena.run()
+    except Exception:
+        pass
+
+    # Research should be called since it's enabled by default
+    mock_research.assert_called_once()
 
 
 @pytest.mark.asyncio

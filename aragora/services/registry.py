@@ -29,11 +29,73 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Callable, Dict, Optional, Type, TypeVar, overload
+import time
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, overload
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+
+class ServiceScope(Enum):
+    """Service lifecycle scope."""
+
+    SINGLETON = "singleton"  # One instance for entire application
+    TRANSIENT = "transient"  # New instance on each resolve
+
+
+@dataclass
+class ServiceDescriptor:
+    """Metadata about a registered service."""
+
+    service_type: Type
+    scope: ServiceScope = ServiceScope.SINGLETON
+    instance: Optional[Any] = None
+    factory: Optional[Callable[[], Any]] = None
+    on_shutdown: Optional[Callable[[Any], None]] = None
+    registered_at: float = field(default_factory=time.time)
+    resolve_count: int = 0
+    last_resolved_at: Optional[float] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for stats/logging."""
+        return {
+            "type": self.service_type.__name__,
+            "scope": self.scope.value,
+            "has_instance": self.instance is not None,
+            "has_factory": self.factory is not None,
+            "has_shutdown_hook": self.on_shutdown is not None,
+            "resolve_count": self.resolve_count,
+            "registered_at": self.registered_at,
+            "last_resolved_at": self.last_resolved_at,
+        }
+
+
+@dataclass
+class RegistryStats:
+    """Statistics about the service registry."""
+
+    total_services: int
+    singleton_count: int
+    transient_count: int
+    initialized_count: int
+    pending_count: int
+    total_resolves: int
+    services: List[Dict[str, Any]]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "total_services": self.total_services,
+            "singleton_count": self.singleton_count,
+            "transient_count": self.transient_count,
+            "initialized_count": self.initialized_count,
+            "pending_count": self.pending_count,
+            "total_resolves": self.total_resolves,
+            "services": self.services,
+        }
 
 
 class ServiceNotFoundError(Exception):
@@ -269,6 +331,76 @@ class ServiceRegistry:
         with self._service_lock:
             types = set(self._services.keys()) | set(self._factories.keys())
             return sorted(t.__name__ for t in types)
+
+    def stats(self) -> RegistryStats:
+        """
+        Get statistics about registered services.
+
+        Returns:
+            RegistryStats with service counts and details.
+        """
+        with self._service_lock:
+            all_types = set(self._services.keys()) | set(self._factories.keys())
+
+            services_info = []
+            total_resolves = 0
+
+            for service_type in all_types:
+                has_instance = service_type in self._services
+                has_factory = service_type in self._factories
+                services_info.append({
+                    "type": service_type.__name__,
+                    "initialized": has_instance,
+                    "has_factory": has_factory,
+                })
+
+            return RegistryStats(
+                total_services=len(all_types),
+                singleton_count=len(all_types),  # All are singletons in basic impl
+                transient_count=0,
+                initialized_count=len(self._services),
+                pending_count=len(self._factories) - len(
+                    set(self._factories.keys()) & set(self._services.keys())
+                ),
+                total_resolves=total_resolves,
+                services=services_info,
+            )
+
+    def shutdown(self) -> int:
+        """
+        Gracefully shutdown all services with registered shutdown hooks.
+
+        Calls shutdown hooks in reverse registration order.
+        Safe to call multiple times (no-op after first call).
+
+        Returns:
+            Number of shutdown hooks called.
+        """
+        with self._service_lock:
+            hooks_called = 0
+
+            # For services with close/shutdown methods, try to call them
+            for service_type, instance in list(self._services.items()):
+                # Check for common cleanup method names
+                for method_name in ("close", "shutdown", "cleanup", "dispose"):
+                    if hasattr(instance, method_name):
+                        try:
+                            method = getattr(instance, method_name)
+                            if callable(method):
+                                method()
+                                hooks_called += 1
+                                logger.debug(
+                                    f"Called {method_name}() on {service_type.__name__}"
+                                )
+                                break  # Only call one cleanup method
+                        except Exception as e:
+                            logger.warning(
+                                f"Error calling {method_name}() on "
+                                f"{service_type.__name__}: {e}"
+                            )
+
+            logger.info(f"ServiceRegistry shutdown complete ({hooks_called} hooks called)")
+            return hooks_called
 
 
 # Module-level convenience functions

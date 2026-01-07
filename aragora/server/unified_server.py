@@ -1792,24 +1792,13 @@ class UnifiedServer:
             UnifiedHandler.debate_embeddings = init_debate_embeddings(nomic_dir)
 
             # Initialize ConsensusMemory and DissentRetriever for historical minority views
-            if CONSENSUS_MEMORY_AVAILABLE and DissentRetriever is not None:
-                try:
-                    UnifiedHandler.consensus_memory = ConsensusMemory()
-                    UnifiedHandler.dissent_retriever = DissentRetriever(UnifiedHandler.consensus_memory)
-                    logger.info("[server] DissentRetriever loaded for historical minority views")
-                except Exception as e:
-                    logger.warning(f"[server] DissentRetriever initialization failed: {e}")
+            UnifiedHandler.consensus_memory, UnifiedHandler.dissent_retriever = init_consensus_memory()
 
             # Initialize MomentDetector for significant agent moments (narrative storytelling)
-            if MOMENT_DETECTOR_AVAILABLE and MomentDetector is not None:
-                try:
-                    UnifiedHandler.moment_detector = MomentDetector(
-                        elo_system=UnifiedHandler.elo_system,
-                        position_ledger=UnifiedHandler.position_ledger,
-                    )
-                    logger.info("[server] MomentDetector loaded for agent moments API")
-                except Exception as e:
-                    logger.warning(f"[server] MomentDetector initialization failed: {e}")
+            UnifiedHandler.moment_detector = init_moment_detector(
+                elo_system=UnifiedHandler.elo_system,
+                position_ledger=UnifiedHandler.position_ledger,
+            )
 
     @property
     def emitter(self) -> SyncEventEmitter:
