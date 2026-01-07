@@ -298,6 +298,18 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):
 
         log_fn(f"[request] {' '.join(msg_parts)}")
 
+    def _get_client_ip(self) -> str:
+        """Get client IP address, respecting trusted proxy headers."""
+        remote_ip = self.client_address[0] if hasattr(self, 'client_address') else 'unknown'
+        client_ip = remote_ip
+        if remote_ip in TRUSTED_PROXIES:
+            forwarded = self.headers.get('X-Forwarded-For', '')
+            if forwarded:
+                first_ip = forwarded.split(',')[0].strip()
+                if first_ip:
+                    client_ip = first_ip
+        return client_ip
+
     def _safe_int(self, query: dict, key: str, default: int, max_val: int = 100) -> int:
         """Safely parse integer query param with bounds checking."""
         try:
@@ -1923,11 +1935,22 @@ async def run_unified_server(
         ssl_cert = SSL_CERT_PATH
         ssl_key = SSL_KEY_PATH
 
+    # Initialize storage from nomic directory
+    storage = None
+    if nomic_dir:
+        db_path = nomic_dir / "debates.db"
+        try:
+            storage = DebateStorage(str(db_path))
+            logger.info(f"[server] DebateStorage initialized at {db_path}")
+        except Exception as e:
+            logger.warning(f"[server] Failed to initialize DebateStorage: {e}")
+
     server = UnifiedServer(
         http_port=http_port,
         ws_port=ws_port,
         static_dir=static_dir,
         nomic_dir=nomic_dir,
+        storage=storage,
         ssl_cert=ssl_cert,
         ssl_key=ssl_key,
     )
