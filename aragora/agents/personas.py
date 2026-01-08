@@ -115,7 +115,7 @@ class PersonaManager:
         with self.db.connection() as conn:
             yield conn
 
-    def _init_db(self):
+    def _init_db(self) -> None:
         """Initialize database schema using SchemaManager."""
         with self._get_connection() as conn:
             # Use SchemaManager for version tracking and migrations
@@ -228,7 +228,7 @@ class PersonaManager:
         success: bool,
         action: str = "critique",
         debate_id: str | None = None,
-    ):
+    ) -> None:
         """
         Record a performance event to update expertise.
 
@@ -258,7 +258,7 @@ class PersonaManager:
         # Update expertise based on performance
         self._update_expertise(agent_name, domain)
 
-    def _update_expertise(self, agent_name: str, domain: str):
+    def _update_expertise(self, agent_name: str, domain: str) -> None:
         """Update expertise score based on recent performance."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
