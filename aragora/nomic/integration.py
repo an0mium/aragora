@@ -223,7 +223,7 @@ class NomicIntegration:
         if enable_checkpointing:
             checkpoint_path = checkpoint_dir or Path(".nomic/checkpoints")
             checkpoint_path.mkdir(parents=True, exist_ok=True)
-            store = FileCheckpointStore(checkpoint_path)
+            store = FileCheckpointStore(str(checkpoint_path))
             self.checkpoint_mgr = CheckpointManager(store=store)
         else:
             self.checkpoint_mgr = None
