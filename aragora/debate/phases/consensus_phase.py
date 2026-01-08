@@ -269,10 +269,8 @@ class ConsensusPhase:
         result.confidence = 0.0
         result.consensus_strength = "fallback"
 
-        # Store fallback reason in metadata
-        if not hasattr(result, 'metadata'):
-            result.metadata = {}
-        result.metadata['consensus_fallback_reason'] = reason
+        # Log fallback reason (DebateResult doesn't have metadata field)
+        logger.info(f"consensus_fallback reason={reason}")
 
     async def _handle_none_consensus(self, ctx: "DebateContext") -> None:
         """Handle 'none' consensus mode - combine all proposals."""
@@ -333,7 +331,7 @@ class ConsensusPhase:
         vote_groups, choice_mapping = self._compute_vote_groups(votes)
 
         # Count votes (no weighting for unanimous)
-        vote_counts = Counter()
+        vote_counts: Counter[str] = Counter()
         for v in votes:
             if not isinstance(v, Exception):
                 canonical = choice_mapping.get(v.choice, v.choice)
@@ -664,9 +662,9 @@ class ConsensusPhase:
         votes: list["Vote"],
         choice_mapping: dict[str, str],
         vote_weight_cache: dict[str, float],
-    ) -> tuple[Counter, float]:
+    ) -> tuple[Counter[str], float]:
         """Count weighted votes."""
-        vote_counts: Counter = Counter()
+        vote_counts: Counter[str] = Counter()
         total_weighted = 0.0
 
         for v in votes:
@@ -886,7 +884,7 @@ class ConsensusPhase:
         """Set result when unanimity not reached."""
         result = ctx.result
         proposals = ctx.proposals
-        vote_counts = Counter()
+        vote_counts: Counter[str] = Counter()
         for v in result.votes:
             if not isinstance(v, Exception):
                 canonical = choice_mapping.get(v.choice, v.choice)

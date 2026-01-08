@@ -414,9 +414,9 @@ class PRGenerator:
 
         return dissenting[:5]  # Limit to top 5 dissenting views
 
-    def _extract_open_questions(self, consensus) -> list[str]:
+    def _extract_open_questions(self, consensus: Any) -> list[str]:
         """Extract open questions from unresolved or recurring critique issues."""
-        questions = []
+        questions: list[str] = []
 
         if not consensus or not hasattr(consensus, 'critiques'):
             return questions

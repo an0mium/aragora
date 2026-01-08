@@ -133,12 +133,12 @@ class AudienceInbox:
             Dict with vote counts, suggestions, histograms, and conviction distribution
         """
         with self._lock:
-            votes = {}
+            votes: dict[str, int] = {}
             suggestions = 0
             # Per-choice intensity histograms: {choice: {intensity: count}}
-            histograms = {}
+            histograms: dict[str, dict[int, int]] = {}
             # Global conviction distribution: {intensity: count}
-            conviction_distribution = {i: 0 for i in range(1, 11)}
+            conviction_distribution: dict[int, int] = {i: 0 for i in range(1, 11)}
 
             for msg in self._messages:
                 # Filter by loop_id if provided
@@ -291,7 +291,7 @@ class SyncEventEmitter:
 
     def drain(self, max_batch_size: int = 100) -> list[StreamEvent]:
         """Get queued events (non-blocking) with backpressure limit."""
-        events = []
+        events: list[StreamEvent] = []
         try:
             while len(events) < max_batch_size:
                 events.append(self._queue.get_nowait())

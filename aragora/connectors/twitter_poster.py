@@ -22,38 +22,44 @@ from typing import Optional
 import httpx
 
 from aragora.resilience import CircuitBreaker
+from aragora.connectors.exceptions import (
+    ConnectorError,
+    ConnectorAuthError,
+    ConnectorRateLimitError,
+    ConnectorAPIError,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class TwitterError(Exception):
+class TwitterError(ConnectorError):
     """Base exception for Twitter connector errors."""
 
-    def __init__(self, message: str = "Twitter API operation failed"):
-        super().__init__(message)
+    def __init__(self, message: str = "Twitter API operation failed", **kwargs):
+        super().__init__(message, connector_name="twitter", **kwargs)
 
 
-class TwitterAuthError(TwitterError):
+class TwitterAuthError(TwitterError, ConnectorAuthError):
     """Authentication/authorization failed."""
 
     def __init__(self, message: str = "Twitter authentication failed. Check API credentials."):
         super().__init__(message)
 
 
-class TwitterRateLimitError(TwitterError):
+class TwitterRateLimitError(TwitterError, ConnectorRateLimitError):
     """Rate limit exceeded."""
 
     def __init__(self, message: str = "Twitter rate limit exceeded", retry_after: int = 900):
-        super().__init__(f"{message}. Retry after {retry_after}s")
-        self.retry_after = retry_after
+        super().__init__(f"{message}. Retry after {retry_after}s", retry_after=float(retry_after))
 
 
-class TwitterAPIError(TwitterError):
+class TwitterAPIError(TwitterError, ConnectorAPIError):
     """General API error."""
 
     def __init__(self, message: str = "Twitter API request failed", status_code: Optional[int] = None):
         full_message = f"{message} (HTTP {status_code})" if status_code else message
-        super().__init__(full_message)
+        is_retryable = status_code is not None and 500 <= status_code < 600
+        super().__init__(full_message, is_retryable=is_retryable)
         self.status_code = status_code
 
 
@@ -61,7 +67,7 @@ class TwitterMediaError(TwitterError):
     """Media upload failed."""
 
     def __init__(self, message: str = "Twitter media upload failed"):
-        super().__init__(message)
+        super().__init__(message, is_retryable=True)
 
 
 # Twitter API limits

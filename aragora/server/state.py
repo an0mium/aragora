@@ -352,7 +352,7 @@ class StateManager:
         """Get current state statistics."""
         with self._debates_lock:
             active_count = len(self._active_debates)
-            statuses = {}
+            statuses: dict[str, int] = {}
             for state in self._active_debates.values():
                 statuses[state.status] = statuses.get(state.status, 0) + 1
 

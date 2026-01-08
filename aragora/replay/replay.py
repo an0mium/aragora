@@ -92,7 +92,7 @@ class DebateReplayer:
         Returns:
             List of debate metadata dictionaries
         """
-        debates = []
+        debates: list[dict[str, Any]] = []
         if not self.storage_dir.exists():
             return debates
 

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 if TYPE_CHECKING:
     from aragora.core import Agent, Message
     from aragora.debate.protocol import DebateProtocol
-    from aragora.ranking.elo import ELOSystem
+    from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class JudgmentPhase:
         self,
         protocol: "DebateProtocol",
         agents: list["Agent"],
-        elo_system: Optional["ELOSystem"] = None,
+        elo_system: Optional["EloSystem"] = None,
         calibration_weight_fn: Optional[Callable[[str], float]] = None,
         composite_score_fn: Optional[Callable[[str], float]] = None,
     ):

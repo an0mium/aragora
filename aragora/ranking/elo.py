@@ -1062,10 +1062,8 @@ class EloSystem:
     # =========================================================================
 
     def _get_bucket_key(self, confidence: float) -> str:
-        """Convert confidence to bucket key (0.0-0.1 -> '0.0-0.1')."""
-        bucket_start = math.floor(confidence * 10) / 10
-        bucket_end = min(1.0, bucket_start + 0.1)
-        return f"{bucket_start:.1f}-{bucket_end:.1f}"
+        """Convert confidence to bucket key. Delegates to DomainCalibrationEngine."""
+        return DomainCalibrationEngine.get_bucket_key(confidence)
 
     def record_domain_prediction(
         self,
@@ -1074,164 +1072,34 @@ class EloSystem:
         confidence: float,
         correct: bool,
     ) -> None:
-        """
-        Record a domain-specific prediction for calibration tracking.
-
-        Args:
-            agent_name: Agent making the prediction
-            domain: Domain/topic area (e.g., "ethics", "code_review", "economics")
-            confidence: Confidence level (0.0 to 1.0)
-            correct: Whether the prediction was correct
-        """
-        confidence = min(1.0, max(0.0, confidence))
-        brier = (confidence - (1.0 if correct else 0.0)) ** 2
-        bucket_key = self._get_bucket_key(confidence)
-
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-
-            # Update domain calibration
-            cursor.execute(
-                """
-                INSERT INTO domain_calibration (agent_name, domain, total_predictions, total_correct, brier_sum, updated_at)
-                VALUES (?, ?, 1, ?, ?, ?)
-                ON CONFLICT(agent_name, domain) DO UPDATE SET
-                    total_predictions = total_predictions + 1,
-                    total_correct = total_correct + ?,
-                    brier_sum = brier_sum + ?,
-                    updated_at = ?
-                """,
-                (
-                    agent_name, domain, 1 if correct else 0, brier, datetime.now().isoformat(),
-                    1 if correct else 0, brier, datetime.now().isoformat(),
-                ),
-            )
-
-            # Update calibration bucket
-            cursor.execute(
-                """
-                INSERT INTO calibration_buckets (agent_name, domain, bucket_key, predictions, correct, brier_sum)
-                VALUES (?, ?, ?, 1, ?, ?)
-                ON CONFLICT(agent_name, domain, bucket_key) DO UPDATE SET
-                    predictions = predictions + 1,
-                    correct = correct + ?,
-                    brier_sum = brier_sum + ?
-                """,
-                (agent_name, domain, bucket_key, 1 if correct else 0, brier, 1 if correct else 0, brier),
-            )
-
-            # Also update overall calibration stats
-            rating = self.get_rating(agent_name)
-            rating.calibration_total += 1
-            if correct:
-                rating.calibration_correct += 1
-            rating.calibration_brier_sum += brier
-            rating.updated_at = datetime.now().isoformat()
-
-            conn.commit()
-        self._save_rating(rating)
+        """Record a domain-specific prediction. Delegates to DomainCalibrationEngine."""
+        self._domain_calibration_engine.record_prediction(agent_name, domain, confidence, correct)
 
     def get_domain_calibration(self, agent_name: str, domain: Optional[str] = None) -> dict:
-        """Get calibration statistics for an agent, optionally filtered by domain."""
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-            if domain:
-                cursor.execute(
-                    "SELECT domain, total_predictions, total_correct, brier_sum FROM domain_calibration WHERE agent_name = ? AND domain = ?",
-                    (agent_name, domain),
-                )
-            else:
-                cursor.execute(
-                    "SELECT domain, total_predictions, total_correct, brier_sum FROM domain_calibration WHERE agent_name = ? ORDER BY total_predictions DESC",
-                    (agent_name,),
-                )
-            rows = cursor.fetchall()
-
-        if not rows:
-            return {"total": 0, "correct": 0, "accuracy": 0.0, "brier_score": 1.0, "domains": {}}
-
-        domains = {}
-        total_predictions = 0
-        total_correct = 0
-        total_brier = 0.0
-
-        for row in rows:
-            domain_name, predictions, correct, brier = row
-            domains[domain_name] = {
-                "predictions": predictions,
-                "correct": correct,
-                "accuracy": correct / predictions if predictions > 0 else 0.0,
-                "brier_score": brier / predictions if predictions > 0 else 1.0,
-            }
-            total_predictions += predictions
-            total_correct += correct
-            total_brier += brier
-
-        return {
-            "total": total_predictions,
-            "correct": total_correct,
-            "accuracy": total_correct / total_predictions if total_predictions > 0 else 0.0,
-            "brier_score": total_brier / total_predictions if total_predictions > 0 else 1.0,
-            "domains": domains,
-        }
+        """Get calibration statistics for an agent. Delegates to DomainCalibrationEngine."""
+        return self._domain_calibration_engine.get_domain_stats(agent_name, domain)
 
     def get_calibration_by_bucket(self, agent_name: str, domain: Optional[str] = None) -> list[dict]:
-        """Get calibration broken down by confidence bucket for calibration curves."""
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-            if domain:
-                cursor.execute(
-                    "SELECT bucket_key, SUM(predictions), SUM(correct), SUM(brier_sum) FROM calibration_buckets WHERE agent_name = ? AND domain = ? GROUP BY bucket_key ORDER BY bucket_key",
-                    (agent_name, domain),
-                )
-            else:
-                cursor.execute(
-                    "SELECT bucket_key, SUM(predictions), SUM(correct), SUM(brier_sum) FROM calibration_buckets WHERE agent_name = ? GROUP BY bucket_key ORDER BY bucket_key",
-                    (agent_name,),
-                )
-            rows = cursor.fetchall()
-
-        buckets = []
-        for row in rows:
-            bucket_key, predictions, correct, brier = row
-            parts = bucket_key.split("-")
-            if len(parts) < 2:
-                logger.warning(f"Malformed bucket key: {bucket_key}, skipping")
-                continue
-            try:
-                bucket_start = float(parts[0])
-                bucket_end = float(parts[1])
-            except ValueError:
-                logger.warning(f"Invalid bucket values in {bucket_key}, skipping")
-                continue
-            expected = (bucket_start + bucket_end) / 2
-
-            buckets.append({
-                "bucket_key": bucket_key,
-                "bucket_start": bucket_start,
-                "bucket_end": bucket_end,
-                "predictions": predictions,
-                "correct": correct,
-                "accuracy": correct / predictions if predictions > 0 else 0.0,
-                "expected_accuracy": expected,
-                "brier_score": brier / predictions if predictions > 0 else 1.0,
-            })
-        return buckets
+        """Get calibration broken down by confidence bucket. Delegates to DomainCalibrationEngine."""
+        buckets = self._domain_calibration_engine.get_calibration_curve(agent_name, domain)
+        # Convert BucketStats to dict for backwards compatibility
+        return [
+            {
+                "bucket_key": b.bucket_key,
+                "bucket_start": b.bucket_start,
+                "bucket_end": b.bucket_end,
+                "predictions": b.predictions,
+                "correct": b.correct,
+                "accuracy": b.accuracy,
+                "expected_accuracy": b.expected_accuracy,
+                "brier_score": b.brier_score,
+            }
+            for b in buckets
+        ]
 
     def get_expected_calibration_error(self, agent_name: str) -> float:
-        """Calculate Expected Calibration Error (ECE) - lower is better (0 = perfect)."""
-        buckets = self.get_calibration_by_bucket(agent_name)
-        if not buckets:
-            return 1.0
-        total_predictions = sum(b["predictions"] for b in buckets)
-        if total_predictions == 0:
-            return 1.0
-        ece = 0.0
-        for bucket in buckets:
-            weight = bucket["predictions"] / total_predictions
-            calibration_error = abs(bucket["accuracy"] - bucket["expected_accuracy"])
-            ece += weight * calibration_error
-        return ece
+        """Calculate Expected Calibration Error. Delegates to DomainCalibrationEngine."""
+        return self._domain_calibration_engine.get_expected_calibration_error(agent_name)
 
     def get_best_domains(self, agent_name: str, limit: int = 5) -> list[tuple[str, float]]:
         """Get domains where agent is best calibrated."""

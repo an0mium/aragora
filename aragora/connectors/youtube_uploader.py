@@ -19,29 +19,35 @@ from urllib.parse import urlencode
 import httpx
 
 from aragora.resilience import CircuitBreaker
+from aragora.connectors.exceptions import (
+    ConnectorError,
+    ConnectorAuthError,
+    ConnectorQuotaError,
+    ConnectorAPIError,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class YouTubeError(Exception):
+class YouTubeError(ConnectorError):
     """Base exception for YouTube connector errors."""
 
-    def __init__(self, message: str = "YouTube API operation failed"):
-        super().__init__(message)
+    def __init__(self, message: str = "YouTube API operation failed", **kwargs):
+        super().__init__(message, connector_name="youtube", **kwargs)
 
 
-class YouTubeAuthError(YouTubeError):
+class YouTubeAuthError(YouTubeError, ConnectorAuthError):
     """Authentication/authorization failed."""
 
     def __init__(self, message: str = "YouTube authentication failed. Check OAuth credentials."):
         super().__init__(message)
 
 
-class YouTubeQuotaError(YouTubeError):
+class YouTubeQuotaError(YouTubeError, ConnectorQuotaError):
     """API quota exceeded."""
 
     def __init__(self, message: str = "YouTube API quota exceeded", remaining: int = 0, reset_hours: int = 24):
-        super().__init__(f"{message}. Remaining: {remaining} units. Resets in ~{reset_hours}h")
+        super().__init__(f"{message}. Remaining: {remaining} units. Resets in ~{reset_hours}h", quota_reset=reset_hours * 3600)
         self.remaining = remaining
         self.reset_hours = reset_hours
 
@@ -51,16 +57,18 @@ class YouTubeUploadError(YouTubeError):
 
     def __init__(self, message: str = "YouTube video upload failed", video_path: str = ""):
         full_message = f"{message}: {video_path}" if video_path else message
-        super().__init__(full_message)
+        super().__init__(full_message, is_retryable=True)
         self.video_path = video_path
 
 
-class YouTubeAPIError(YouTubeError):
+class YouTubeAPIError(YouTubeError, ConnectorAPIError):
     """General API error."""
 
     def __init__(self, message: str = "YouTube API request failed", status_code: Optional[int] = None):
         full_message = f"{message} (HTTP {status_code})" if status_code else message
-        super().__init__(full_message)
+        # Let ConnectorAPIError determine retryability based on status code
+        is_retryable = status_code is not None and 500 <= status_code < 600
+        super().__init__(full_message, is_retryable=is_retryable)
         self.status_code = status_code
 
 

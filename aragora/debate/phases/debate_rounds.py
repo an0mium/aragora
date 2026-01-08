@@ -370,32 +370,34 @@ class DebateRoundsPhase:
 
         # Process results
         for agent, revised in zip(revision_agents, revision_results):
-            if isinstance(revised, Exception):
+            if isinstance(revised, BaseException):
                 logger.error(f"revision_error agent={agent.name} error={revised}")
                 if self.circuit_breaker:
                     self.circuit_breaker.record_failure(agent.name)
                 continue
 
+            # At this point, revised is confirmed to be str
+            revised_str: str = revised
             if self.circuit_breaker:
                 self.circuit_breaker.record_success(agent.name)
 
-            proposals[agent.name] = revised
-            logger.debug(f"revision_complete agent={agent.name} length={len(revised)}")
+            proposals[agent.name] = revised_str
+            logger.debug(f"revision_complete agent={agent.name} length={len(revised_str)}")
 
             # Notify spectator
             if self._notify_spectator:
                 self._notify_spectator(
                     "propose",
                     agent=agent.name,
-                    details=f"Revised proposal ({len(revised)} chars)",
-                    metric=len(revised),
+                    details=f"Revised proposal ({len(revised_str)} chars)",
+                    metric=len(revised_str),
                 )
 
             # Create message
             msg = Message(
                 role="proposer",
                 agent=agent.name,
-                content=revised,
+                content=revised_str,
                 round=round_num,
             )
             ctx.add_message(msg)
@@ -406,7 +408,7 @@ class DebateRoundsPhase:
             if "on_message" in self.hooks:
                 self.hooks["on_message"](
                     agent=agent.name,
-                    content=revised,
+                    content=revised_str,
                     role="proposer",
                     round_num=round_num,
                 )
@@ -414,14 +416,14 @@ class DebateRoundsPhase:
             # Record revision
             if self.recorder:
                 try:
-                    self.recorder.record_turn(agent.name, revised, round_num)
+                    self.recorder.record_turn(agent.name, revised_str, round_num)
                 except Exception as e:
                     logger.debug(f"Recorder error for revision: {e}")
 
             # Record position for grounded personas
             if self._record_grounded_position:
                 debate_id = result.id if hasattr(result, 'id') else (ctx.env.task[:50] if ctx.env else "")
-                self._record_grounded_position(agent.name, revised, debate_id, round_num, 0.75)
+                self._record_grounded_position(agent.name, revised_str, debate_id, round_num, 0.75)
 
     def _check_convergence(self, ctx: "DebateContext", round_num: int) -> bool:
         """Check for convergence and return True if should break."""
