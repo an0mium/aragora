@@ -636,7 +636,7 @@ class Arena:
             calibration_tracker=self.calibration_tracker,
             recorder=self.recorder,
             hooks=self.hooks,
-            user_votes=self.user_votes,
+            user_votes=self.user_votes,  # type: ignore[arg-type]
             vote_with_agent=self.autonomic.vote,
             with_timeout=self.autonomic.with_timeout,
             select_judge=self._select_judge,
@@ -707,7 +707,7 @@ class Arena:
         self.prompt_builder.current_role_assignments = self.current_role_assignments
         self.prompt_builder._historical_context_cache = self._historical_context_cache
         self.prompt_builder._continuum_context_cache = self._get_continuum_context()
-        self.prompt_builder.user_suggestions = self.user_suggestions
+        self.prompt_builder.user_suggestions = self.user_suggestions  # type: ignore[assignment]
 
     def _get_continuum_context(self) -> str:
         """Retrieve relevant memories from ContinuumMemory for debate context.
@@ -1372,10 +1372,10 @@ Respond with only: CONTINUE or STOP
             return True
 
         for agent, result in zip(self.agents, results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 continue
             total_votes += 1
-            response = result.strip().upper()
+            response = str(result).strip().upper()
             if "STOP" in response and "CONTINUE" not in response:
                 stop_votes += 1
 
@@ -1602,7 +1602,7 @@ and building on others' ideas."""
             self.protocol.audience_injection in ("summary", "inject")
             and self.user_suggestions
         ):
-            clusters = cluster_suggestions(self.user_suggestions)
+            clusters = cluster_suggestions(list(self.user_suggestions))
             audience_section = format_for_prompt(clusters)
 
             # Emit stream event for dashboard
@@ -1631,7 +1631,7 @@ and building on others' ideas."""
             self.protocol.audience_injection in ("summary", "inject")
             and self.user_suggestions
         ):
-            clusters = cluster_suggestions(self.user_suggestions)
+            clusters = cluster_suggestions(list(self.user_suggestions))
             audience_section = format_for_prompt(clusters)
 
         return self.prompt_builder.build_revision_prompt(
