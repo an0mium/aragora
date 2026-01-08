@@ -6170,6 +6170,31 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
 
     async def phase_debate(self, codebase_context: str = None) -> dict:
         """Phase 1: Agents debate what to improve."""
+        # Use extracted phase class if enabled
+        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
+            debate_phase = self._create_debate_phase()
+            hooks = self._create_post_debate_hooks()
+            # Build learning context
+            from scripts.nomic.phases.debate import LearningContext
+            learning = LearningContext(
+                failure_lessons=self._analyze_failed_branches(),
+                successful_patterns=self._format_successful_patterns(),
+            )
+            result = await debate_phase.execute(
+                codebase_context=codebase_context or self.get_current_features(),
+                recent_changes=self.get_recent_changes(),
+                learning_context=learning,
+                hooks=hooks,
+            )
+            # Convert DebateResult to dict for backward compatibility
+            return {
+                "phase": "debate",
+                "improvement": result.improvement,
+                "consensus_reached": result.consensus_reached,
+                "confidence": result.confidence,
+            }
+
+        # Inline implementation (legacy)
         phase_start = datetime.now()
         self._log("\n" + "=" * 70)
         self._log("PHASE 1: IMPROVEMENT DEBATE")

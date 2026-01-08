@@ -646,13 +646,17 @@ class TestTwitterPosterConnector:
         self, configured_connector
     ):
         """Test that exceptions record circuit breaker failure."""
+        import httpx
+
         initial_failures = configured_connector.circuit_breaker.failures
 
         with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.side_effect = Exception("Network error")
+            # Use httpx.RequestError which is caught by the error handler
+            mock_client.return_value.__aenter__.side_effect = httpx.RequestError("Network error")
 
-            await configured_connector.post_tweet("Hello")
+            result = await configured_connector.post_tweet("Hello")
 
+            assert result.success is False
             assert configured_connector.circuit_breaker.failures == initial_failures + 1
 
 

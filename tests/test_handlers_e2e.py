@@ -510,22 +510,41 @@ class TestPulseHandlerE2E:
 
     def test_trending_handles_missing_module(self, pulse_handler):
         """Test /api/pulse/trending returns 503 if module unavailable."""
-        # When ingestor module is not available/configured, returns 503
-        result = pulse_handler.handle("/api/pulse/trending", {}, None)
+        # Mock the pulse module to avoid real API calls
+        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
+            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
+                with patch('aragora.pulse.ingestor.RedditIngestor'):
+                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+                        mock_manager = MagicMock()
+                        mock_manager.ingestors = {}
+                        mock_manager.get_trending_topics = MagicMock(return_value=[])
+                        mock_pm.return_value = mock_manager
 
-        # Will return 503 if import fails or 200/500 otherwise
-        assert result.status_code in (200, 500, 503)
-        data = json.loads(result.body)
-        # Should have either topics or error
-        assert "topics" in data or "error" in data
+                        result = pulse_handler.handle("/api/pulse/trending", {}, None)
+
+                        # Will return 503 if import fails or 200/500 otherwise
+                        assert result.status_code in (200, 500, 503)
+                        data = json.loads(result.body)
+                        # Should have either topics or error
+                        assert "topics" in data or "error" in data
 
     def test_trending_returns_valid_json(self, pulse_handler):
         """Test /api/pulse/trending returns valid JSON."""
-        result = pulse_handler.handle("/api/pulse/trending", {"limit": 5}, None)
+        # Mock the pulse module to avoid real API calls
+        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
+            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
+                with patch('aragora.pulse.ingestor.RedditIngestor'):
+                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+                        mock_manager = MagicMock()
+                        mock_manager.ingestors = {}
+                        mock_manager.get_trending_topics = MagicMock(return_value=[])
+                        mock_pm.return_value = mock_manager
 
-        # Should always return valid JSON regardless of status
-        data = json.loads(result.body)
-        assert isinstance(data, dict)
+                        result = pulse_handler.handle("/api/pulse/trending", {"limit": 5}, None)
+
+                        # Should always return valid JSON regardless of status
+                        data = json.loads(result.body)
+                        assert isinstance(data, dict)
 
     def test_unhandled_route_returns_none(self, pulse_handler):
         """Test unhandled routes return None."""
