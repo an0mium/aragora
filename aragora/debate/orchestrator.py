@@ -22,6 +22,7 @@ from aragora.debate.convergence import ConvergenceDetector
 from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.context_gatherer import ContextGatherer
 from aragora.debate.event_bridge import EventEmitterBridge
+from aragora.debate.autonomic_executor import AutonomicExecutor
 from aragora.debate.memory_manager import MemoryManager
 from aragora.debate.optional_imports import OptionalImports
 from aragora.debate.prompt_builder import PromptBuilder
@@ -383,6 +384,7 @@ class Arena:
         self.loop_id = loop_id
         self.strict_loop_scoping = strict_loop_scoping
         self.circuit_breaker = circuit_breaker or CircuitBreaker()
+        self.autonomic = AutonomicExecutor(circuit_breaker=self.circuit_breaker)
         self.initial_messages = initial_messages or []
         self.trending_topic = trending_topic
         self.evidence_collector = evidence_collector
@@ -586,8 +588,8 @@ class Arena:
             recorder=self.recorder,
             hooks=self.hooks,
             build_proposal_prompt=self._build_proposal_prompt,
-            generate_with_agent=self._generate_with_agent,
-            with_timeout=self._with_timeout,
+            generate_with_agent=self.autonomic.generate,
+            with_timeout=self.autonomic.with_timeout,
             notify_spectator=self._notify_spectator,
             update_role_assignments=self._update_role_assignments,
             record_grounded_position=self._record_grounded_position,
@@ -604,10 +606,10 @@ class Arena:
             update_role_assignments=self._update_role_assignments,
             assign_stances=self._assign_stances,
             select_critics_for_proposal=self._select_critics_for_proposal,
-            critique_with_agent=self._critique_with_agent,
+            critique_with_agent=self.autonomic.critique,
             build_revision_prompt=self._build_revision_prompt,
-            generate_with_agent=self._generate_with_agent,
-            with_timeout=self._with_timeout,
+            generate_with_agent=self.autonomic.generate,
+            with_timeout=self.autonomic.with_timeout,
             notify_spectator=self._notify_spectator,
             record_grounded_position=self._record_grounded_position,
             check_judge_termination=self._check_judge_termination,
@@ -626,11 +628,11 @@ class Arena:
             recorder=self.recorder,
             hooks=self.hooks,
             user_votes=self.user_votes,
-            vote_with_agent=self._vote_with_agent,
-            with_timeout=self._with_timeout,
+            vote_with_agent=self.autonomic.vote,
+            with_timeout=self.autonomic.with_timeout,
             select_judge=self._select_judge,
             build_judge_prompt=self._build_judge_prompt,
-            generate_with_agent=self._generate_with_agent,
+            generate_with_agent=self.autonomic.generate,
             group_similar_votes=self._group_similar_votes,
             get_calibration_weight=self._get_calibration_weight,
             notify_spectator=self._notify_spectator,
@@ -1285,76 +1287,6 @@ class Arena:
         except Exception as e:
             logger.warning("Async debate indexing failed: %s", e)
 
-    async def _with_timeout(
-        self, coro, agent_name: str, timeout_seconds: float = 90.0
-    ):
-        """
-        Wrap coroutine with per-agent timeout.
-
-        If the agent times out, records a circuit breaker failure and raises TimeoutError.
-        This prevents a single stalled agent from blocking the entire debate.
-        """
-        try:
-            return await asyncio.wait_for(coro, timeout=timeout_seconds)
-        except asyncio.TimeoutError:
-            self.circuit_breaker.record_failure(agent_name)
-            logger.warning(f"Agent {agent_name} timed out after {timeout_seconds}s")
-            raise TimeoutError(f"Agent {agent_name} timed out after {timeout_seconds}s")
-
-    async def _generate_with_agent(
-        self, agent: Agent, prompt: str, context: list[Message]
-    ) -> str:
-        """Generate response with an agent, handling errors and sanitizing output.
-
-        Implements "Autonomic layer" - catches all exceptions to keep debate alive.
-        """
-        try:
-            raw_output = await agent.generate(prompt, context)
-            return OutputSanitizer.sanitize_agent_output(raw_output, agent.name)
-        except asyncio.TimeoutError:
-            logger.warning(f"[Autonomic] Agent {agent.name} timed out")
-            return f"[System: Agent {agent.name} timed out - skipping this turn]"
-        except (ConnectionError, OSError) as e:
-            # Network/OS errors - log without full traceback
-            logger.warning(f"[Autonomic] Agent {agent.name} connection error: {e}")
-            return f"[System: Agent {agent.name} connection failed - skipping this turn]"
-        except Exception as e:
-            # Autonomic containment: convert crashes to valid responses
-            logger.exception(f"[Autonomic] Agent {agent.name} failed: {type(e).__name__}: {e}")
-            return f"[System: Agent {agent.name} encountered an error - skipping this turn]"
-
-    async def _critique_with_agent(
-        self, agent: Agent, proposal: str, task: str, context: list[Message]
-    ) -> Optional[Critique]:
-        """Get critique from an agent with autonomic error handling."""
-        try:
-            return await agent.critique(proposal, task, context)
-        except asyncio.TimeoutError:
-            logger.warning(f"[Autonomic] Agent {agent.name} critique timed out")
-            return None
-        except (ConnectionError, OSError) as e:
-            logger.warning(f"[Autonomic] Agent {agent.name} critique connection error: {e}")
-            return None
-        except Exception as e:
-            logger.exception(f"[Autonomic] Agent {agent.name} critique failed: {e}")
-            return None
-
-    async def _vote_with_agent(
-        self, agent: Agent, proposals: dict[str, str], task: str
-    ) -> Optional[Vote]:
-        """Get vote from an agent with autonomic error handling."""
-        try:
-            return await agent.vote(proposals, task)
-        except asyncio.TimeoutError:
-            logger.warning(f"[Autonomic] Agent {agent.name} vote timed out")
-            return None
-        except (ConnectionError, OSError) as e:
-            logger.warning(f"[Autonomic] Agent {agent.name} vote connection error: {e}")
-            return None
-        except Exception as e:
-            logger.exception(f"[Autonomic] Agent {agent.name} vote failed: {e}")
-            return None
-
     def _group_similar_votes(self, votes: list[Vote]) -> dict[str, list[str]]:
         """
         Group semantically similar vote choices.
@@ -1404,7 +1336,7 @@ CONCLUSIVE: <yes/no>
 REASON: <brief explanation>"""
 
         try:
-            response = await self._generate_with_agent(judge, prompt, context[-5:])
+            response = await self.autonomic.generate(judge, prompt, context[-5:])
             lines = response.strip().split('\n')
 
             conclusive = False
@@ -1456,7 +1388,7 @@ Respond with only: CONTINUE or STOP
         stop_votes = 0
         total_votes = 0
 
-        tasks = [self._generate_with_agent(agent, prompt, context[-5:]) for agent in self.agents]
+        tasks = [self.autonomic.generate(agent, prompt, context[-5:]) for agent in self.agents]
         try:
             # Use wait_for for Python 3.10 compatibility (asyncio.timeout is 3.11+)
             results = await asyncio.wait_for(
