@@ -65,7 +65,14 @@ class CommitResult(PhaseResult):
     committed: bool
 
 
+# Phase implementations
+from .verify import VerifyPhase
+from .commit import CommitPhase
+from .context import ContextPhase
+from .implement import ImplementPhase
+
 __all__ = [
+    # Result types
     "PhaseResult",
     "ContextResult",
     "DebateResult",
@@ -73,4 +80,9 @@ __all__ = [
     "ImplementResult",
     "VerifyResult",
     "CommitResult",
+    # Phase implementations
+    "ContextPhase",
+    "ImplementPhase",
+    "VerifyPhase",
+    "CommitPhase",
 ]
