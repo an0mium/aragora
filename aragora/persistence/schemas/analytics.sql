@@ -102,12 +102,14 @@ CREATE INDEX IF NOT EXISTS idx_domain_cal_agent ON domain_calibration(agent_name
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS insights (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    debate_id TEXT,
-    insight_type TEXT NOT NULL,  -- 'pattern', 'anomaly', 'trend', etc.
-    content TEXT NOT NULL,
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,  -- 'pattern', 'anomaly', 'trend', etc.
+    title TEXT NOT NULL,
+    description TEXT,
     confidence REAL DEFAULT 0.5,
+    debate_id TEXT NOT NULL,
     agents_involved TEXT,  -- JSON array
+    evidence TEXT,  -- JSON array
     metadata TEXT DEFAULT '{}',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -148,7 +150,7 @@ CREATE TABLE IF NOT EXISTS agent_performance_history (
 );
 
 CREATE INDEX IF NOT EXISTS idx_insights_debate ON insights(debate_id);
-CREATE INDEX IF NOT EXISTS idx_insights_type ON insights(insight_type);
+CREATE INDEX IF NOT EXISTS idx_insights_type ON insights(type);
 CREATE INDEX IF NOT EXISTS idx_perf_history_agent ON agent_performance_history(agent_name);
 CREATE INDEX IF NOT EXISTS idx_perf_history_period ON agent_performance_history(period_start);
 

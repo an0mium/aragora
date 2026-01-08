@@ -87,11 +87,11 @@ CREATE INDEX IF NOT EXISTS idx_tier_transitions_memory ON tier_transitions(memor
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS memories (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,
     agent_name TEXT NOT NULL,
     memory_type TEXT NOT NULL,  -- 'debate', 'reflection', 'learning', 'interaction'
     content TEXT NOT NULL,
-    context TEXT,  -- JSON context
+    context TEXT,  -- JSON context (legacy: metadata)
     importance REAL DEFAULT 0.5,
     decay_rate REAL DEFAULT 0.1,
     embedding BLOB,
@@ -124,10 +124,16 @@ CREATE INDEX IF NOT EXISTS idx_reflection_scheduled ON reflection_schedule(sched
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS consensus (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,
     topic TEXT NOT NULL,
-    position TEXT NOT NULL,
+    topic_hash TEXT,
+    conclusion TEXT,  -- Legacy: position
+    strength TEXT,
     confidence REAL DEFAULT 0.5,
+    domain TEXT,
+    tags TEXT,
+    timestamp TEXT,
+    data TEXT,  -- JSON full consensus data
     supporting_agents TEXT,  -- JSON array
     opposing_agents TEXT,  -- JSON array
     evidence TEXT,  -- JSON array of evidence items
@@ -139,110 +145,137 @@ CREATE TABLE IF NOT EXISTS consensus (
 );
 
 CREATE TABLE IF NOT EXISTS dissent (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    consensus_id INTEGER NOT NULL,
-    agent_name TEXT NOT NULL,
-    dissent_position TEXT NOT NULL,
+    id TEXT PRIMARY KEY,
+    debate_id TEXT,  -- Legacy: consensus_id
+    agent_id TEXT NOT NULL,  -- Legacy: agent_name
+    dissent_type TEXT,
+    content TEXT,  -- Legacy: dissent_position
+    confidence REAL DEFAULT 0.5,
+    timestamp TEXT,
+    data TEXT,  -- JSON full dissent data
     reasoning TEXT,
     strength REAL DEFAULT 0.5,
     resolved INTEGER DEFAULT 0,
     resolved_at TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (consensus_id) REFERENCES consensus(id) ON DELETE CASCADE
+    FOREIGN KEY (debate_id) REFERENCES consensus(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_consensus_topic ON consensus(topic);
 CREATE INDEX IF NOT EXISTS idx_consensus_confidence ON consensus(confidence DESC);
-CREATE INDEX IF NOT EXISTS idx_dissent_consensus ON dissent(consensus_id);
-CREATE INDEX IF NOT EXISTS idx_dissent_agent ON dissent(agent_name);
+CREATE INDEX IF NOT EXISTS idx_dissent_debate ON dissent(debate_id);
+CREATE INDEX IF NOT EXISTS idx_dissent_agent ON dissent(agent_id);
 
 -- =============================================================================
 -- CRITIQUE PATTERNS (Learning from critiques)
 -- Source: agora_memory.db
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS critiques (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    debate_id TEXT NOT NULL,
-    critic_agent TEXT NOT NULL,
-    target_agent TEXT NOT NULL,
-    critique_type TEXT,  -- 'logical', 'factual', 'clarity', etc.
-    critique_text TEXT NOT NULL,
-    accepted INTEGER DEFAULT 0,
-    impact_score REAL,
+-- Debates table from agora_memory.db
+CREATE TABLE IF NOT EXISTS debates (
+    id TEXT PRIMARY KEY,
+    task TEXT NOT NULL,
+    final_answer TEXT,
+    consensus_reached INTEGER,
+    confidence REAL,
+    rounds_used INTEGER,
+    duration_seconds REAL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS patterns (
+CREATE TABLE IF NOT EXISTS critiques (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pattern_type TEXT NOT NULL,
-    pattern_text TEXT NOT NULL,
-    source_type TEXT,  -- 'critique', 'debate', 'consensus'
-    source_id TEXT,
-    success_rate REAL DEFAULT 0.5,
-    usage_count INTEGER DEFAULT 1,
-    last_used_at TEXT,
-    embedding BLOB,
+    debate_id TEXT,
+    agent TEXT NOT NULL,  -- Critic agent
+    target_agent TEXT,
+    issues TEXT,  -- JSON array
+    suggestions TEXT,  -- JSON array
+    severity REAL,
+    reasoning TEXT,
+    led_to_improvement INTEGER DEFAULT 0,
+    expected_usefulness REAL DEFAULT 0.5,
+    actual_usefulness REAL,
+    prediction_error REAL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (debate_id) REFERENCES debates(id)
+);
+
+CREATE TABLE IF NOT EXISTS patterns (
+    id TEXT PRIMARY KEY,
+    issue_type TEXT NOT NULL,  -- Pattern category
+    issue_text TEXT NOT NULL,
+    suggestion_text TEXT,
+    success_count INTEGER DEFAULT 0,
+    failure_count INTEGER DEFAULT 0,
+    avg_severity REAL DEFAULT 0.5,
+    surprise_score REAL DEFAULT 0.0,
+    base_rate REAL DEFAULT 0.5,
+    avg_prediction_error REAL DEFAULT 0.0,
+    prediction_count INTEGER DEFAULT 0,
+    example_task TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS patterns_archive (
-    id INTEGER PRIMARY KEY,
-    pattern_type TEXT NOT NULL,
-    pattern_text TEXT NOT NULL,
-    source_type TEXT,
-    source_id TEXT,
-    success_rate REAL,
-    usage_count INTEGER,
-    archived_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    archive_reason TEXT
+    id TEXT,
+    issue_type TEXT,
+    issue_text TEXT,
+    suggestion_text TEXT,
+    success_count INTEGER,
+    failure_count INTEGER,
+    avg_severity REAL,
+    surprise_score REAL,
+    example_task TEXT,
+    created_at TEXT,
+    updated_at TEXT,
+    archived_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS pattern_embeddings (
-    pattern_id INTEGER PRIMARY KEY,
-    embedding BLOB NOT NULL,
-    model_version TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
+    pattern_id TEXT PRIMARY KEY,
+    embedding BLOB,
+    FOREIGN KEY (pattern_id) REFERENCES patterns(id)
 );
 
 CREATE TABLE IF NOT EXISTS agent_reputation (
     agent_name TEXT PRIMARY KEY,
-    critique_accuracy REAL DEFAULT 0.5,
-    argument_strength REAL DEFAULT 0.5,
-    collaboration_score REAL DEFAULT 0.5,
-    influence_score REAL DEFAULT 0.5,
-    debates_participated INTEGER DEFAULT 0,
+    proposals_made INTEGER DEFAULT 0,
+    proposals_accepted INTEGER DEFAULT 0,
     critiques_given INTEGER DEFAULT 0,
-    critiques_accepted INTEGER DEFAULT 0,
+    critiques_valuable INTEGER DEFAULT 0,
+    total_predictions INTEGER DEFAULT 0,
+    total_prediction_error REAL DEFAULT 0.0,
+    calibration_score REAL DEFAULT 0.5,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX IF NOT EXISTS idx_debates_task ON debates(task);
 CREATE INDEX IF NOT EXISTS idx_critiques_debate ON critiques(debate_id);
-CREATE INDEX IF NOT EXISTS idx_critiques_critic ON critiques(critic_agent);
+CREATE INDEX IF NOT EXISTS idx_critiques_agent ON critiques(agent);
 CREATE INDEX IF NOT EXISTS idx_critiques_target ON critiques(target_agent);
-CREATE INDEX IF NOT EXISTS idx_patterns_type ON patterns(pattern_type);
-CREATE INDEX IF NOT EXISTS idx_patterns_success ON patterns(success_rate DESC);
+CREATE INDEX IF NOT EXISTS idx_patterns_type ON patterns(issue_type);
+CREATE INDEX IF NOT EXISTS idx_patterns_success ON patterns(success_count DESC);
+CREATE INDEX IF NOT EXISTS idx_patterns_type_success ON patterns(issue_type, success_count DESC);
+CREATE INDEX IF NOT EXISTS idx_patterns_success_updated ON patterns(success_count DESC, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reputation_agent ON agent_reputation(agent_name);
 
 -- =============================================================================
 -- SEMANTIC PATTERNS (Embeddings for semantic search)
 -- Source: semantic_patterns.db
 -- =============================================================================
 
+-- Source table is 'embeddings' in semantic_patterns.db
 CREATE TABLE IF NOT EXISTS semantic_embeddings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source_type TEXT NOT NULL,  -- 'debate', 'critique', 'pattern', 'memory'
-    source_id TEXT NOT NULL,
-    content_hash TEXT,  -- Hash of content for deduplication
-    embedding BLOB NOT NULL,
-    model_version TEXT,
-    dimensions INTEGER,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(source_type, source_id)
+    id TEXT PRIMARY KEY,
+    text_hash TEXT UNIQUE,
+    text TEXT,
+    embedding BLOB,
+    provider TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_semantic_source ON semantic_embeddings(source_type, source_id);
+CREATE INDEX IF NOT EXISTS idx_semantic_hash ON semantic_embeddings(text_hash);
 
 -- =============================================================================
 -- USER SUGGESTIONS & FEEDBACK
@@ -274,29 +307,6 @@ CREATE TABLE IF NOT EXISTS contributor_stats (
 
 CREATE INDEX IF NOT EXISTS idx_suggestions_debate ON suggestion_injections(debate_id);
 CREATE INDEX IF NOT EXISTS idx_suggestions_user ON suggestion_injections(user_id);
-
--- =============================================================================
--- DEBATES (Metadata for memory cross-references)
--- Source: agora_memory.db
--- =============================================================================
-
-CREATE TABLE IF NOT EXISTS debates (
-    debate_id TEXT PRIMARY KEY,
-    topic TEXT NOT NULL,
-    domain TEXT,
-    status TEXT DEFAULT 'active',  -- 'active', 'completed', 'archived'
-    participants TEXT,  -- JSON array
-    rounds_completed INTEGER DEFAULT 0,
-    consensus_reached INTEGER DEFAULT 0,
-    final_outcome TEXT,
-    metadata TEXT DEFAULT '{}',
-    started_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    completed_at TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_debates_topic ON debates(topic);
-CREATE INDEX IF NOT EXISTS idx_debates_domain ON debates(domain);
-CREATE INDEX IF NOT EXISTS idx_debates_status ON debates(status);
 
 -- Initialize schema version
 INSERT OR REPLACE INTO _schema_versions (module, version)

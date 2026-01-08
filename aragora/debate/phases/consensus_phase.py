@@ -187,9 +187,17 @@ class ConsensusPhase:
             self._get_belief_analyzer = get_belief_analyzer
             self._user_vote_multiplier = user_vote_multiplier
 
+    # Default timeout for consensus phase (can be overridden via protocol)
+    DEFAULT_CONSENSUS_TIMEOUT = 120  # 2 minutes
+
     async def execute(self, ctx: "DebateContext") -> None:
         """
-        Execute the consensus phase.
+        Execute the consensus phase with fallback mechanisms.
+
+        This method wraps consensus execution with:
+        - Timeout protection (default 120s)
+        - Exception handling with fallback to 'none' mode
+        - Graceful degradation when agents fail
 
         Args:
             ctx: The DebateContext with proposals and result
@@ -197,9 +205,28 @@ class ConsensusPhase:
         consensus_mode = self.protocol.consensus if self.protocol else "none"
         logger.info(f"consensus_phase_start mode={consensus_mode}")
 
-        result = ctx.result
-        proposals = ctx.proposals
+        # Get timeout from protocol or use default
+        timeout = getattr(self.protocol, 'consensus_timeout', self.DEFAULT_CONSENSUS_TIMEOUT)
 
+        try:
+            await asyncio.wait_for(
+                self._execute_consensus(ctx, consensus_mode),
+                timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"consensus_timeout mode={consensus_mode} timeout={timeout}s, falling back to none"
+            )
+            await self._handle_fallback_consensus(ctx, reason="timeout")
+        except Exception as e:
+            logger.error(
+                f"consensus_error mode={consensus_mode} error={type(e).__name__}: {e}",
+                exc_info=True
+            )
+            await self._handle_fallback_consensus(ctx, reason=f"error: {type(e).__name__}")
+
+    async def _execute_consensus(self, ctx: "DebateContext", consensus_mode: str) -> None:
+        """Execute the consensus logic for the given mode."""
         if consensus_mode == "none":
             await self._handle_none_consensus(ctx)
         elif consensus_mode == "majority":
@@ -211,6 +238,41 @@ class ConsensusPhase:
         else:
             logger.warning(f"Unknown consensus mode: {consensus_mode}, using none")
             await self._handle_none_consensus(ctx)
+
+    async def _handle_fallback_consensus(self, ctx: "DebateContext", reason: str) -> None:
+        """
+        Handle consensus fallback when the primary mechanism fails.
+
+        This provides graceful degradation by combining all proposals
+        and marking the result as a fallback consensus.
+
+        Args:
+            ctx: The DebateContext with proposals and result
+            reason: Description of why fallback was triggered
+        """
+        result = ctx.result
+        proposals = ctx.proposals
+
+        logger.info(f"consensus_fallback reason={reason} proposals={len(proposals)}")
+
+        if proposals:
+            result.final_answer = (
+                f"[Consensus fallback ({reason})]\n\n"
+                + "\n\n---\n\n".join(
+                    f"[{agent}]:\n{prop}" for agent, prop in proposals.items()
+                )
+            )
+        else:
+            result.final_answer = f"[No proposals available - consensus fallback ({reason})]"
+
+        result.consensus_reached = False
+        result.confidence = 0.0
+        result.consensus_strength = "fallback"
+
+        # Store fallback reason in metadata
+        if not hasattr(result, 'metadata'):
+            result.metadata = {}
+        result.metadata['consensus_fallback_reason'] = reason
 
     async def _handle_none_consensus(self, ctx: "DebateContext") -> None:
         """Handle 'none' consensus mode - combine all proposals."""
