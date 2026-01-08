@@ -2,6 +2,8 @@
 Base class for API-based agents.
 """
 
+from __future__ import annotations
+
 from aragora.agents.base import CritiqueMixin
 from aragora.core import Agent, Message
 from aragora.resilience import CircuitBreaker

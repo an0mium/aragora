@@ -9,6 +9,8 @@ rate limits, timeouts, or other errors. Enable fallback by setting
 enable_fallback=True (default) and providing OPENROUTER_API_KEY.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os

@@ -7,6 +7,8 @@ Inspired by Project Sid's emergent specialization, this module provides:
 - Persona-aware prompting for more focused critiques
 """
 
+from __future__ import annotations
+
 import json
 import sqlite3
 from contextlib import contextmanager

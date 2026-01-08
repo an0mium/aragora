@@ -8,6 +8,8 @@ Using specific exception types enables:
 - Cleaner separation of error domains
 """
 
+from __future__ import annotations
+
 from typing import Optional
 
 

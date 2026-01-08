@@ -5,6 +5,8 @@ Provides circuit breaker and other resilience patterns for graceful
 failure handling in API calls and agent interactions.
 """
 
+from __future__ import annotations
+
 import logging
 import threading
 import time

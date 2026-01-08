@@ -15,6 +15,8 @@ Key concepts:
 - Glacial tier: Updates monthly (foundational knowledge, 30d half-life)
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import math

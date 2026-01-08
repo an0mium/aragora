@@ -5,6 +5,8 @@ These agents call AI APIs directly (HTTP), enabling use without CLI tools.
 Supports Gemini, Ollama (local), and direct OpenAI/Anthropic API calls.
 """
 
+from __future__ import annotations
+
 # Re-export all agents for backward compatibility
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.api_agents.gemini import GeminiAgent

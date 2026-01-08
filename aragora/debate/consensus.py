@@ -8,6 +8,8 @@ Generates auditable artifacts from debates with:
 - Traceable evidence chains
 """
 
+from __future__ import annotations
+
 import json
 import hashlib
 from dataclasses import dataclass, field, asdict

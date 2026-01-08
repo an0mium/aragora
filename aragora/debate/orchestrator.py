@@ -5,6 +5,8 @@ Implements the propose -> critique -> revise loop with configurable
 debate protocols and consensus mechanisms.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import queue

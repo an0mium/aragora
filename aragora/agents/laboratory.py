@@ -10,6 +10,8 @@ Experimental framework for evolving agent personas through:
 Inspired by Project Sid's emergent civilization dynamics.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import random

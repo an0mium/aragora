@@ -11,6 +11,8 @@ Performance: Uses LRU caching for frequently accessed data like leaderboards.
 Cache is automatically invalidated when ratings are updated.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import sqlite3

@@ -5,6 +5,8 @@ Tracks agent positions, calibration accuracy, and provides statistical analysis
 of position outcomes across debates.
 """
 
+from __future__ import annotations
+
 import logging
 import sqlite3
 import uuid
