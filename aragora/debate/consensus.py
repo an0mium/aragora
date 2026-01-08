@@ -14,7 +14,7 @@ import json
 import hashlib
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any
 from enum import Enum
 
 
@@ -53,7 +53,7 @@ class Claim:
     refuting_evidence: list[Evidence] = field(default_factory=list)
     round_introduced: int = 0
     status: str = "active"  # "active", "revised", "withdrawn", "merged"
-    parent_claim_id: Optional[str] = None  # If this revises another claim
+    parent_claim_id: str | None = None  # If this revises another claim
 
     @property
     def net_evidence_strength(self) -> float:
@@ -72,8 +72,8 @@ class DissentRecord:
     claim_id: str
     dissent_type: str  # "full", "partial", "procedural"
     reasons: list[str]
-    alternative_view: Optional[str] = None
-    suggested_resolution: Optional[str] = None
+    alternative_view: str | None = None
+    suggested_resolution: str | None = None
     severity: float = 0.5  # How strongly they dissent (0-1)
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
@@ -87,7 +87,7 @@ class UnresolvedTension:
     agents_involved: list[str]
     options: list[str]  # The competing approaches/values
     impact: str  # What depends on resolving this
-    suggested_followup: Optional[str] = None
+    suggested_followup: str | None = None
 
 
 @dataclass
@@ -342,7 +342,7 @@ class ConsensusBuilder:
         author: str,
         confidence: float = 0.5,
         round_num: int = 0,
-        parent_claim_id: Optional[str] = None,
+        parent_claim_id: str | None = None,
     ) -> Claim:
         """Add a claim from the debate."""
         self._claim_counter += 1
@@ -394,7 +394,7 @@ class ConsensusBuilder:
         vote: VoteType,
         confidence: float,
         reasoning: str,
-        conditions: Optional[list[str]] = None,
+        conditions: list[str] | None = None,
     ) -> ConsensusVote:
         """Record an agent's vote on consensus."""
         v = ConsensusVote(
@@ -413,7 +413,7 @@ class ConsensusBuilder:
         claim_id: str,
         reasons: list[str],
         dissent_type: str = "partial",
-        alternative: Optional[str] = None,
+        alternative: str | None = None,
         severity: float = 0.5,
     ) -> DissentRecord:
         """Record a dissenting view."""
@@ -434,7 +434,7 @@ class ConsensusBuilder:
         agents: list[str],
         options: list[str],
         impact: str,
-        followup: Optional[str] = None,
+        followup: str | None = None,
     ) -> UnresolvedTension:
         """Record an unresolved tension."""
         tension = UnresolvedTension(

@@ -17,7 +17,7 @@ import os
 import subprocess
 import json
 import re
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 from aragora.agents.base import CritiqueMixin, MAX_CONTEXT_CHARS, MAX_MESSAGE_CHARS
 from aragora.agents.errors import (
@@ -96,7 +96,7 @@ class CLIAgent(CritiqueMixin, Agent):
         super().__init__(name, model, role)
         self.timeout = timeout
         self.enable_fallback = enable_fallback
-        self._fallback_agent: Optional["OpenRouterAgent"] = None
+        self._fallback_agent: OpenRouterAgent | None = None
         self._fallback_used = False  # Track if fallback was triggered this session
         self.enable_circuit_breaker = enable_circuit_breaker
 
@@ -123,7 +123,7 @@ class CLIAgent(CritiqueMixin, Agent):
             return False
         return not self._circuit_breaker.can_proceed()
 
-    def _get_fallback_agent(self) -> Optional["OpenRouterAgent"]:
+    def _get_fallback_agent(self) -> OpenRouterAgent | None:
         """Get or create the OpenRouter fallback agent.
 
         Returns None if fallback is disabled or OPENROUTER_API_KEY is not set.

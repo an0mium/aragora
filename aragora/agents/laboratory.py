@@ -20,7 +20,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Generator, Optional
+from typing import Generator
 
 from aragora.config import DB_LAB_PATH, DB_TIMEOUT_SECONDS
 from aragora.insights.database import InsightsDatabase
@@ -50,7 +50,7 @@ class PersonaExperiment:
     variant_successes: int = 0
     variant_trials: int = 0
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    completed_at: Optional[str] = None
+    completed_at: str | None = None
 
     @property
     def control_rate(self) -> float:
@@ -100,9 +100,9 @@ class TraitTransfer:
     from_agent: str
     to_agent: str
     trait: str
-    expertise_domain: Optional[str]
+    expertise_domain: str | None
     success_rate_before: float
-    success_rate_after: Optional[float] = None
+    success_rate_after: float | None = None
     transferred_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
 
@@ -311,7 +311,7 @@ class PersonaLaboratory:
                 )
             conn.commit()
 
-    def conclude_experiment(self, experiment_id: str) -> Optional[PersonaExperiment]:
+    def conclude_experiment(self, experiment_id: str) -> PersonaExperiment | None:
         """
         Conclude an experiment and optionally apply the winning variant.
 
@@ -490,7 +490,7 @@ class PersonaLaboratory:
         to_agent: str,
         trait: str | None = None,
         expertise_domain: str | None = None,
-    ) -> Optional[TraitTransfer]:
+    ) -> TraitTransfer | None:
         """
         Transfer a successful trait or expertise from one agent to another.
 
@@ -619,7 +619,7 @@ class PersonaLaboratory:
         self,
         agent_name: str,
         mutation_rate: float = 0.1,
-    ) -> Optional[Persona]:
+    ) -> Persona | None:
         """
         Apply random mutations to a persona based on mutation rate.
 

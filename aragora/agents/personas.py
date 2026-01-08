@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Generator, Optional
+from typing import Generator
 
 from aragora.config import DB_PERSONAS_PATH, DB_TIMEOUT_SECONDS
 from aragora.insights.database import InsightsDatabase
@@ -149,7 +149,7 @@ class PersonaManager:
 
             manager.ensure_schema(initial_schema=initial_schema)
 
-    def get_persona(self, agent_name: str) -> Optional[Persona]:
+    def get_persona(self, agent_name: str) -> Persona | None:
         """Get persona for an agent."""
         with self._get_connection() as conn:
             cursor = conn.cursor()

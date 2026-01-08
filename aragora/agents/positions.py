@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Generator, Literal, Optional
+from typing import Generator, Literal
 
 from aragora.config import DB_PERSONAS_PATH, DB_TIMEOUT_SECONDS
 from aragora.insights.database import InsightsDatabase
@@ -34,10 +34,10 @@ class Position:
     round_num: int
     outcome: Literal["correct", "incorrect", "unresolved", "pending"] = "pending"
     reversed: bool = False
-    reversal_debate_id: Optional[str] = None
-    domain: Optional[str] = None
+    reversal_debate_id: str | None = None
+    domain: str | None = None
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    resolved_at: Optional[str] = None
+    resolved_at: str | None = None
 
     @classmethod
     def create(
@@ -47,7 +47,7 @@ class Position:
         confidence: float,
         debate_id: str,
         round_num: int,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> "Position":
         """Create a new position with generated ID."""
         return cls(
@@ -172,7 +172,7 @@ class PositionLedger:
         confidence: float,
         debate_id: str,
         round_num: int,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> str:
         """Record a new position. Returns position ID."""
         position = Position.create(
@@ -245,7 +245,7 @@ class PositionLedger:
         self,
         agent_name: str,
         limit: int = 100,
-        outcome_filter: Optional[str] = None,
+        outcome_filter: str | None = None,
     ) -> list[Position]:
         """Get positions for an agent."""
         with self._get_connection() as conn:
@@ -364,7 +364,7 @@ class PositionLedger:
             for row in rows
         ]
 
-    def detect_domain(self, content: str) -> Optional[str]:
+    def detect_domain(self, content: str) -> str | None:
         """Detect expertise domain from content using keywords."""
         content_lower = content.lower()
 

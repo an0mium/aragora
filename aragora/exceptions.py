@@ -10,8 +10,6 @@ Using specific exception types enables:
 
 from __future__ import annotations
 
-from typing import Optional
-
 
 class AragoraError(Exception):
     """Base exception for all Aragora errors.
@@ -20,7 +18,7 @@ class AragoraError(Exception):
     to enable catching all Aragora-specific errors with a single handler.
     """
 
-    def __init__(self, message: str, details: Optional[dict] = None):
+    def __init__(self, message: str, details: dict | None = None):
         super().__init__(message)
         self.message = message
         self.details = details or {}
