@@ -17,6 +17,7 @@ from .base import (
     json_response,
     error_response,
     get_int_param,
+    handle_errors,
     safe_error_message,
 )
 
@@ -72,6 +73,7 @@ class InsightsHandler(BaseHandler):
 
         return None
 
+    @handle_errors("recent insights retrieval")
     def _get_recent_insights(
         self, query: dict, ctx: dict
     ) -> HandlerResult:
@@ -90,27 +92,24 @@ class InsightsHandler(BaseHandler):
 
         limit = min(get_int_param(query, "limit", 20), 100)
 
-        try:
-            insights = _run_async(insight_store.get_recent_insights(limit=limit))
-            return json_response({
-                "insights": [
-                    {
-                        "id": i.id,
-                        "type": i.type.value,
-                        "title": i.title,
-                        "description": i.description,
-                        "confidence": i.confidence,
-                        "agents_involved": i.agents_involved,
-                        "evidence": i.evidence[:3] if i.evidence else [],
-                    }
-                    for i in insights
-                ],
-                "count": len(insights),
-            })
-        except Exception as e:
-            logger.exception(f"Error fetching recent insights: {e}")
-            return json_response({"error": safe_error_message(e, "insights"), "insights": []})
+        insights = _run_async(insight_store.get_recent_insights(limit=limit))
+        return json_response({
+            "insights": [
+                {
+                    "id": i.id,
+                    "type": i.type.value,
+                    "title": i.title,
+                    "description": i.description,
+                    "confidence": i.confidence,
+                    "agents_involved": i.agents_involved,
+                    "evidence": i.evidence[:3] if i.evidence else [],
+                }
+                for i in insights
+            ],
+            "count": len(insights),
+        })
 
+    @handle_errors("insight extraction")
     def _extract_detailed_insights(
         self, data: dict, ctx: dict
     ) -> HandlerResult:
@@ -139,27 +138,22 @@ class InsightsHandler(BaseHandler):
             "content_length": len(content),
         }
 
-        try:
-            # Extract claims if requested
-            if extract_claims:
-                claims = self._extract_claims_from_content(content)
-                result["claims"] = claims
+        # Extract claims if requested
+        if extract_claims:
+            claims = self._extract_claims_from_content(content)
+            result["claims"] = claims
 
-            # Extract evidence chains if requested
-            if extract_evidence:
-                evidence = self._extract_evidence_from_content(content)
-                result["evidence_chains"] = evidence
+        # Extract evidence chains if requested
+        if extract_evidence:
+            evidence = self._extract_evidence_from_content(content)
+            result["evidence_chains"] = evidence
 
-            # Extract patterns if requested
-            if extract_patterns:
-                patterns = self._extract_patterns_from_content(content)
-                result["patterns"] = patterns
+        # Extract patterns if requested
+        if extract_patterns:
+            patterns = self._extract_patterns_from_content(content)
+            result["patterns"] = patterns
 
-            return json_response(result)
-
-        except Exception as e:
-            logger.exception(f"Error extracting insights: {e}")
-            return error_response(safe_error_message(e, "insight_extraction"), 500)
+        return json_response(result)
 
     def _extract_claims_from_content(self, content: str) -> list:
         """Extract claims from content using simple heuristics."""

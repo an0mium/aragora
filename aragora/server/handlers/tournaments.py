@@ -18,6 +18,7 @@ from .base import (
     json_response,
     error_response,
     get_int_param,
+    handle_errors,
 )
 
 # Optional import for tournament functionality
@@ -59,6 +60,7 @@ class TournamentHandler(BaseHandler):
 
         return None
 
+    @handle_errors("tournament listing")
     def _list_tournaments(self) -> HandlerResult:
         """List all available tournaments."""
         if not TOURNAMENT_AVAILABLE:
@@ -68,34 +70,32 @@ class TournamentHandler(BaseHandler):
         if not nomic_dir:
             return error_response("Nomic directory not configured", 503)
 
-        try:
-            tournaments_dir = Path(nomic_dir) / "tournaments"
-            tournaments = []
+        tournaments_dir = Path(nomic_dir) / "tournaments"
+        tournaments = []
 
-            if tournaments_dir.exists():
-                for db_file in tournaments_dir.glob("*.db"):
-                    tournament_id = db_file.stem
-                    try:
-                        manager = TournamentManager(db_path=str(db_file))
-                        standings = manager.get_current_standings()
-                        tournaments.append({
-                            "tournament_id": tournament_id,
-                            "participants": len(standings),
-                            "total_matches": sum(s.wins + s.losses + s.draws for s in standings) // 2,
-                            "top_agent": standings[0].agent if standings else None,
-                        })
-                    except Exception as e:
-                        # Skip corrupted or invalid tournament files
-                        logger.warning("Failed to load tournament %s: %s: %s", tournament_id, type(e).__name__, e)
-                        continue
+        if tournaments_dir.exists():
+            for db_file in tournaments_dir.glob("*.db"):
+                tournament_id = db_file.stem
+                try:
+                    manager = TournamentManager(db_path=str(db_file))
+                    standings = manager.get_current_standings()
+                    tournaments.append({
+                        "tournament_id": tournament_id,
+                        "participants": len(standings),
+                        "total_matches": sum(s.wins + s.losses + s.draws for s in standings) // 2,
+                        "top_agent": standings[0].agent if standings else None,
+                    })
+                except Exception as e:
+                    # Skip corrupted or invalid tournament files
+                    logger.warning("Failed to load tournament %s: %s: %s", tournament_id, type(e).__name__, e)
+                    continue
 
-            return json_response({
-                "tournaments": tournaments,
-                "count": len(tournaments),
-            })
-        except Exception as e:
-            return error_response(f"Failed to list tournaments: {e}", 500)
+        return json_response({
+            "tournaments": tournaments,
+            "count": len(tournaments),
+        })
 
+    @handle_errors("tournament standings retrieval")
     def _get_tournament_standings(self, tournament_id: str) -> HandlerResult:
         """Get current tournament standings."""
         if not TOURNAMENT_AVAILABLE:
@@ -105,29 +105,26 @@ class TournamentHandler(BaseHandler):
         if not nomic_dir:
             return error_response("Nomic directory not configured", 503)
 
-        try:
-            tournament_path = Path(nomic_dir) / "tournaments" / f"{tournament_id}.db"
-            if not tournament_path.exists():
-                return error_response("Tournament not found", 404)
+        tournament_path = Path(nomic_dir) / "tournaments" / f"{tournament_id}.db"
+        if not tournament_path.exists():
+            return error_response("Tournament not found", 404)
 
-            manager = TournamentManager(db_path=str(tournament_path))
-            standings = manager.get_current_standings()
+        manager = TournamentManager(db_path=str(tournament_path))
+        standings = manager.get_current_standings()
 
-            return json_response({
-                "tournament_id": tournament_id,
-                "standings": [
-                    {
-                        "agent": s.agent,
-                        "wins": s.wins,
-                        "losses": s.losses,
-                        "draws": s.draws,
-                        "points": s.points,
-                        "total_score": s.total_score,
-                        "win_rate": s.win_rate,
-                    }
-                    for s in standings
-                ],
-                "count": len(standings),
-            })
-        except Exception as e:
-            return error_response(f"Failed to get tournament standings: {e}", 500)
+        return json_response({
+            "tournament_id": tournament_id,
+            "standings": [
+                {
+                    "agent": s.agent,
+                    "wins": s.wins,
+                    "losses": s.losses,
+                    "draws": s.draws,
+                    "points": s.points,
+                    "total_score": s.total_score,
+                    "win_rate": s.win_rate,
+                }
+                for s in standings
+            ],
+            "count": len(standings),
+        })
