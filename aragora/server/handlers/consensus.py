@@ -34,6 +34,7 @@ from .base import (
     ttl_cache,
     require_feature,
     get_db_connection,
+    handle_errors,
 )
 from aragora.utils.optional_imports import try_import
 
@@ -46,7 +47,6 @@ _consensus_imports, CONSENSUS_MEMORY_AVAILABLE = try_import(
 ConsensusMemory = _consensus_imports["ConsensusMemory"]
 DissentRetriever = _consensus_imports["DissentRetriever"]
 
-from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 
 class ConsensusHandler(BaseHandler):
@@ -134,260 +134,246 @@ class ConsensusHandler(BaseHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_CONSENSUS_SIMILAR, key_prefix="consensus_similar", skip_first=True)
     @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
+    @handle_errors("similar debates retrieval")
     def _get_similar_debates(self, topic: str, limit: int) -> HandlerResult:
         """Find debates similar to a topic."""
         if not topic:
             return error_response("topic parameter required", 400)
 
-        try:
-            memory = ConsensusMemory()
-            similar = memory.find_similar_debates(topic, limit=limit)
-            return json_response({
-                "query": topic,
-                "similar": [
-                    {
-                        "topic": s.consensus.topic,
-                        "conclusion": s.consensus.conclusion,
-                        "strength": s.consensus.strength.value,
-                        "confidence": s.consensus.confidence,
-                        "similarity": s.similarity_score,
-                        "agents": s.consensus.participating_agents,
-                        "dissent_count": len(s.dissents),
-                        "timestamp": s.consensus.timestamp.isoformat(),
-                    }
-                    for s in similar
-                ],
-                "count": len(similar),
-            })
-        except Exception as e:
-            return error_response(_safe_error_message(e, "similar_topics"), 500)
+        memory = ConsensusMemory()
+        similar = memory.find_similar_debates(topic, limit=limit)
+        return json_response({
+            "query": topic,
+            "similar": [
+                {
+                    "topic": s.consensus.topic,
+                    "conclusion": s.consensus.conclusion,
+                    "strength": s.consensus.strength.value,
+                    "confidence": s.consensus.confidence,
+                    "similarity": s.similarity_score,
+                    "agents": s.consensus.participating_agents,
+                    "dissent_count": len(s.dissents),
+                    "timestamp": s.consensus.timestamp.isoformat(),
+                }
+                for s in similar
+            ],
+            "count": len(similar),
+        })
 
     @ttl_cache(ttl_seconds=CACHE_TTL_CONSENSUS_SETTLED, key_prefix="consensus_settled", skip_first=True)
     @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
+    @handle_errors("settled topics retrieval")
     def _get_settled_topics(self, min_confidence: float, limit: int) -> HandlerResult:
         """Get high-confidence settled topics."""
-        try:
-            memory = ConsensusMemory()
-            with get_db_connection(memory.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT topic, conclusion, confidence, strength, timestamp
-                    FROM consensus
-                    WHERE confidence >= ?
-                    ORDER BY confidence DESC, timestamp DESC
-                    LIMIT ?
-                """, (min_confidence, limit))
-                rows = cursor.fetchall()
+        memory = ConsensusMemory()
+        with get_db_connection(memory.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT topic, conclusion, confidence, strength, timestamp
+                FROM consensus
+                WHERE confidence >= ?
+                ORDER BY confidence DESC, timestamp DESC
+                LIMIT ?
+            """, (min_confidence, limit))
+            rows = cursor.fetchall()
 
-            return json_response({
-                "min_confidence": min_confidence,
-                "topics": [
-                    {
-                        "topic": row[0],
-                        "conclusion": row[1],
-                        "confidence": row[2],
-                        "strength": row[3],
-                        "timestamp": row[4],
-                    }
-                    for row in rows
-                ],
-                "count": len(rows),
-            })
-        except Exception as e:
-            return error_response(_safe_error_message(e, "settled_topics"), 500)
+        return json_response({
+            "min_confidence": min_confidence,
+            "topics": [
+                {
+                    "topic": row[0],
+                    "conclusion": row[1],
+                    "confidence": row[2],
+                    "strength": row[3],
+                    "timestamp": row[4],
+                }
+                for row in rows
+            ],
+            "count": len(rows),
+        })
 
     @ttl_cache(ttl_seconds=CACHE_TTL_CONSENSUS_STATS, key_prefix="consensus_stats", skip_first=True)
     @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
+    @handle_errors("consensus stats retrieval")
     def _get_consensus_stats(self) -> HandlerResult:
         """Get consensus memory statistics."""
-        try:
-            memory = ConsensusMemory()
-            raw_stats = memory.get_statistics()
+        memory = ConsensusMemory()
+        raw_stats = memory.get_statistics()
 
-            with get_db_connection(memory.db_path) as conn:
-                cursor = conn.cursor()
-                # Combined query for better performance
-                cursor.execute("""
-                    SELECT
-                        SUM(CASE WHEN confidence >= 0.7 THEN 1 ELSE 0 END) as high_conf_count,
-                        AVG(confidence) as avg_conf
-                    FROM consensus
-                """)
-                row = cursor.fetchone()
-                high_confidence_count = row[0] if row and row[0] else 0
-                avg_confidence = row[1] if row and row[1] else 0.0
+        with get_db_connection(memory.db_path) as conn:
+            cursor = conn.cursor()
+            # Combined query for better performance
+            cursor.execute("""
+                SELECT
+                    SUM(CASE WHEN confidence >= 0.7 THEN 1 ELSE 0 END) as high_conf_count,
+                    AVG(confidence) as avg_conf
+                FROM consensus
+            """)
+            row = cursor.fetchone()
+            high_confidence_count = row[0] if row and row[0] else 0
+            avg_confidence = row[1] if row and row[1] else 0.0
 
-            return json_response({
-                "total_topics": raw_stats.get("total_consensus", 0),
-                "high_confidence_count": high_confidence_count,
-                "domains": list(raw_stats.get("by_domain", {}).keys()),
-                "avg_confidence": round(avg_confidence, 3),
-                "total_dissents": raw_stats.get("total_dissents", 0),
-                "by_strength": raw_stats.get("by_strength", {}),
-                "by_domain": raw_stats.get("by_domain", {}),
-            })
-        except Exception as e:
-            return error_response(_safe_error_message(e, "consensus_stats"), 500)
+        return json_response({
+            "total_topics": raw_stats.get("total_consensus", 0),
+            "high_confidence_count": high_confidence_count,
+            "domains": list(raw_stats.get("by_domain", {}).keys()),
+            "avg_confidence": round(avg_confidence, 3),
+            "total_dissents": raw_stats.get("total_dissents", 0),
+            "by_strength": raw_stats.get("by_strength", {}),
+            "by_domain": raw_stats.get("by_domain", {}),
+        })
 
     @ttl_cache(ttl_seconds=CACHE_TTL_RECENT_DISSENTS, key_prefix="recent_dissents", skip_first=True)
     @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
+    @handle_errors("recent dissents retrieval")
     def _get_recent_dissents(
         self, topic: Optional[str], domain: Optional[str], limit: int
     ) -> HandlerResult:
         """Get recent dissents, optionally filtered by topic."""
-        try:
-            memory = ConsensusMemory()
+        memory = ConsensusMemory()
 
+        with get_db_connection(memory.db_path) as conn:
+            cursor = conn.cursor()
+            query = """
+                SELECT d.data, c.topic, c.conclusion
+                FROM dissent d
+                LEFT JOIN consensus c ON d.debate_id = c.id
+                ORDER BY d.timestamp DESC
+                LIMIT ?
+            """
+            cursor.execute(query, (limit,))
+            rows = cursor.fetchall()
+
+        dissents = []
+        for row in rows:
+            try:
+                from aragora.memory.consensus import DissentRecord
+                record = DissentRecord.from_dict(json.loads(row[0]))
+                topic_name = row[1] or "Unknown topic"
+                majority_view = row[2] or "No consensus recorded"
+
+                dissents.append({
+                    "topic": topic_name,
+                    "majority_view": majority_view,
+                    "dissenting_view": record.content,
+                    "dissenting_agent": record.agent_id,
+                    "confidence": record.confidence,
+                    "reasoning": record.reasoning if record.reasoning else None,
+                })
+            except Exception as e:
+                logger.debug(f"Failed to parse dissent record: {e}")
+
+        return json_response({"dissents": dissents})
+
+    @ttl_cache(ttl_seconds=CACHE_TTL_CONTRARIAN_VIEWS, key_prefix="contrarian_views", skip_first=True)
+    @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
+    @handle_errors("contrarian views retrieval")
+    def _get_contrarian_views(
+        self, topic: Optional[str], domain: Optional[str], limit: int
+    ) -> HandlerResult:
+        """Get historical contrarian/dissenting views."""
+        memory = ConsensusMemory()
+
+        if topic and DissentRetriever is not None:
+            retriever = DissentRetriever(memory)
+            records = retriever.find_contrarian_views(topic, domain=domain, limit=limit)
+        else:
             with get_db_connection(memory.db_path) as conn:
                 cursor = conn.cursor()
                 query = """
-                    SELECT d.data, c.topic, c.conclusion
-                    FROM dissent d
-                    LEFT JOIN consensus c ON d.debate_id = c.id
-                    ORDER BY d.timestamp DESC
+                    SELECT data FROM dissent
+                    WHERE dissent_type IN ('fundamental_disagreement', 'alternative_approach')
+                    ORDER BY timestamp DESC
                     LIMIT ?
                 """
                 cursor.execute(query, (limit,))
                 rows = cursor.fetchall()
 
-            dissents = []
+            records = []
             for row in rows:
                 try:
                     from aragora.memory.consensus import DissentRecord
-                    record = DissentRecord.from_dict(json.loads(row[0]))
-                    topic_name = row[1] or "Unknown topic"
-                    majority_view = row[2] or "No consensus recorded"
-
-                    dissents.append({
-                        "topic": topic_name,
-                        "majority_view": majority_view,
-                        "dissenting_view": record.content,
-                        "dissenting_agent": record.agent_id,
-                        "confidence": record.confidence,
-                        "reasoning": record.reasoning if record.reasoning else None,
-                    })
+                    records.append(DissentRecord.from_dict(json.loads(row[0])))
                 except Exception as e:
-                    logger.debug(f"Failed to parse dissent record: {e}")
+                    logger.debug(f"Failed to parse contrarian view record: {e}")
 
-            return json_response({"dissents": dissents})
-        except Exception as e:
-            return error_response(_safe_error_message(e, "recent_dissents"), 500)
-
-    @ttl_cache(ttl_seconds=CACHE_TTL_CONTRARIAN_VIEWS, key_prefix="contrarian_views", skip_first=True)
-    @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
-    def _get_contrarian_views(
-        self, topic: Optional[str], domain: Optional[str], limit: int
-    ) -> HandlerResult:
-        """Get historical contrarian/dissenting views."""
-        try:
-            memory = ConsensusMemory()
-
-            if topic and DissentRetriever is not None:
-                retriever = DissentRetriever(memory)
-                records = retriever.find_contrarian_views(topic, domain=domain, limit=limit)
-            else:
-                with get_db_connection(memory.db_path) as conn:
-                    cursor = conn.cursor()
-                    query = """
-                        SELECT data FROM dissent
-                        WHERE dissent_type IN ('fundamental_disagreement', 'alternative_approach')
-                        ORDER BY timestamp DESC
-                        LIMIT ?
-                    """
-                    cursor.execute(query, (limit,))
-                    rows = cursor.fetchall()
-
-                records = []
-                for row in rows:
-                    try:
-                        from aragora.memory.consensus import DissentRecord
-                        records.append(DissentRecord.from_dict(json.loads(row[0])))
-                    except Exception as e:
-                        logger.debug(f"Failed to parse contrarian view record: {e}")
-
-            return json_response({
-                "views": [
-                    {
-                        "agent": r.agent_id,
-                        "position": r.content,
-                        "confidence": r.confidence,
-                        "reasoning": r.reasoning,
-                        "debate_id": r.debate_id,
-                    }
-                    for r in records
-                ],
-            })
-        except Exception as e:
-            return error_response(_safe_error_message(e, "contrarian_views"), 500)
+        return json_response({
+            "views": [
+                {
+                    "agent": r.agent_id,
+                    "position": r.content,
+                    "confidence": r.confidence,
+                    "reasoning": r.reasoning,
+                    "debate_id": r.debate_id,
+                }
+                for r in records
+            ],
+        })
 
     @ttl_cache(ttl_seconds=CACHE_TTL_RISK_WARNINGS, key_prefix="risk_warnings", skip_first=True)
     @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
+    @handle_errors("risk warnings retrieval")
     def _get_risk_warnings(
         self, topic: Optional[str], domain: Optional[str], limit: int
     ) -> HandlerResult:
         """Get risk warnings and edge case concerns."""
-        try:
-            memory = ConsensusMemory()
+        memory = ConsensusMemory()
 
-            if topic and DissentRetriever is not None:
-                retriever = DissentRetriever(memory)
-                records = retriever.find_risk_warnings(topic, domain=domain, limit=limit)
-            else:
-                with get_db_connection(memory.db_path) as conn:
-                    cursor = conn.cursor()
-                    query = """
-                        SELECT data FROM dissent
-                        WHERE dissent_type IN ('risk_warning', 'edge_case_concern')
-                        ORDER BY timestamp DESC
-                        LIMIT ?
-                    """
-                    cursor.execute(query, (limit,))
-                    rows = cursor.fetchall()
+        if topic and DissentRetriever is not None:
+            retriever = DissentRetriever(memory)
+            records = retriever.find_risk_warnings(topic, domain=domain, limit=limit)
+        else:
+            with get_db_connection(memory.db_path) as conn:
+                cursor = conn.cursor()
+                query = """
+                    SELECT data FROM dissent
+                    WHERE dissent_type IN ('risk_warning', 'edge_case_concern')
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                """
+                cursor.execute(query, (limit,))
+                rows = cursor.fetchall()
 
-                records = []
-                for row in rows:
-                    try:
-                        from aragora.memory.consensus import DissentRecord
-                        records.append(DissentRecord.from_dict(json.loads(row[0])))
-                    except Exception as e:
-                        logger.debug(f"Failed to parse risk warning record: {e}")
+            records = []
+            for row in rows:
+                try:
+                    from aragora.memory.consensus import DissentRecord
+                    records.append(DissentRecord.from_dict(json.loads(row[0])))
+                except Exception as e:
+                    logger.debug(f"Failed to parse risk warning record: {e}")
 
-            def infer_severity(confidence: float, dissent_type: str) -> str:
-                if dissent_type == "risk_warning":
-                    if confidence >= 0.8:
-                        return "critical"
-                    elif confidence >= 0.6:
-                        return "high"
-                    elif confidence >= 0.4:
-                        return "medium"
-                return "low"
+        def infer_severity(confidence: float, dissent_type: str) -> str:
+            if dissent_type == "risk_warning":
+                if confidence >= 0.8:
+                    return "critical"
+                elif confidence >= 0.6:
+                    return "high"
+                elif confidence >= 0.4:
+                    return "medium"
+            return "low"
 
-            return json_response({
-                "warnings": [
-                    {
-                        "domain": r.metadata.get("domain", "general"),
-                        "risk_type": r.dissent_type.value.replace("_", " ").title(),
-                        "severity": infer_severity(r.confidence, r.dissent_type.value),
-                        "description": r.content,
-                        "mitigation": r.rebuttal if r.rebuttal else None,
-                        "detected_at": r.timestamp.isoformat(),
-                    }
-                    for r in records
-                ],
-            })
-        except Exception as e:
-            return error_response(_safe_error_message(e, "risk_warnings"), 500)
+        return json_response({
+            "warnings": [
+                {
+                    "domain": r.metadata.get("domain", "general"),
+                    "risk_type": r.dissent_type.value.replace("_", " ").title(),
+                    "severity": infer_severity(r.confidence, r.dissent_type.value),
+                    "description": r.content,
+                    "mitigation": r.rebuttal if r.rebuttal else None,
+                    "detected_at": r.timestamp.isoformat(),
+                }
+                for r in records
+            ],
+        })
 
     @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
+    @handle_errors("domain history retrieval")
     def _get_domain_history(self, domain: str, limit: int) -> HandlerResult:
         """Get consensus history for a domain."""
-        try:
-            memory = ConsensusMemory()
-            records = memory.get_domain_consensus_history(domain, limit=limit)
-            return json_response({
-                "domain": domain,
-                "history": [r.to_dict() for r in records],
-                "count": len(records),
-            })
-        except Exception as e:
-            return error_response(_safe_error_message(e, "domain_history"), 500)
+        memory = ConsensusMemory()
+        records = memory.get_domain_consensus_history(domain, limit=limit)
+        return json_response({
+            "domain": domain,
+            "history": [r.to_dict() for r in records],
+            "count": len(records),
+        })

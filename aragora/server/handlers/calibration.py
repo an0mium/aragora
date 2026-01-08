@@ -19,6 +19,7 @@ from .base import (
     error_response,
     get_clamped_int_param,
     get_string_param,
+    handle_errors,
     SAFE_AGENT_PATTERN,
 )
 from aragora.utils.optional_imports import try_import_class
@@ -78,6 +79,7 @@ class CalibrationHandler(BaseHandler):
 
         return None
 
+    @handle_errors("calibration curve retrieval")
     def _get_calibration_curve(
         self, agent: str, buckets: int, domain: Optional[str]
     ) -> HandlerResult:
@@ -85,30 +87,27 @@ class CalibrationHandler(BaseHandler):
         if not CALIBRATION_AVAILABLE or not CalibrationTracker:
             return error_response("Calibration tracker not available", 503)
 
-        try:
-            tracker = CalibrationTracker()
-            curve = tracker.get_calibration_curve(agent, num_buckets=buckets, domain=domain)
-            return json_response({
-                "agent": agent,
-                "domain": domain,
-                "buckets": [
-                    {
-                        "range_start": b.range_start,
-                        "range_end": b.range_end,
-                        "total_predictions": b.total_predictions,
-                        "correct_predictions": b.correct_predictions,
-                        "accuracy": b.accuracy,
-                        "expected_accuracy": (b.range_start + b.range_end) / 2,
-                        "brier_score": b.brier_score,
-                    }
-                    for b in curve
-                ],
-                "count": len(curve),
-            })
-        except Exception as e:
-            logger.error(f"Error getting calibration curve for {agent}: {e}", exc_info=True)
-            return error_response("Failed to get calibration curve", 500)
+        tracker = CalibrationTracker()
+        curve = tracker.get_calibration_curve(agent, num_buckets=buckets, domain=domain)
+        return json_response({
+            "agent": agent,
+            "domain": domain,
+            "buckets": [
+                {
+                    "range_start": b.range_start,
+                    "range_end": b.range_end,
+                    "total_predictions": b.total_predictions,
+                    "correct_predictions": b.correct_predictions,
+                    "accuracy": b.accuracy,
+                    "expected_accuracy": (b.range_start + b.range_end) / 2,
+                    "brier_score": b.brier_score,
+                }
+                for b in curve
+            ],
+            "count": len(curve),
+        })
 
+    @handle_errors("calibration summary retrieval")
     def _get_calibration_summary(
         self, agent: str, domain: Optional[str]
     ) -> HandlerResult:
@@ -116,25 +115,22 @@ class CalibrationHandler(BaseHandler):
         if not CALIBRATION_AVAILABLE or not CalibrationTracker:
             return error_response("Calibration tracker not available", 503)
 
-        try:
-            tracker = CalibrationTracker()
-            summary = tracker.get_calibration_summary(agent, domain=domain)
+        tracker = CalibrationTracker()
+        summary = tracker.get_calibration_summary(agent, domain=domain)
 
-            return json_response({
-                "agent": summary.agent,
-                "domain": domain,
-                "total_predictions": summary.total_predictions,
-                "total_correct": summary.total_correct,
-                "accuracy": summary.accuracy,
-                "brier_score": summary.brier_score,
-                "ece": summary.ece,
-                "is_overconfident": summary.is_overconfident,
-                "is_underconfident": summary.is_underconfident,
-            })
-        except Exception as e:
-            logger.error(f"Error getting calibration summary for {agent}: {e}", exc_info=True)
-            return error_response("Failed to get calibration summary", 500)
+        return json_response({
+            "agent": summary.agent,
+            "domain": domain,
+            "total_predictions": summary.total_predictions,
+            "total_correct": summary.total_correct,
+            "accuracy": summary.accuracy,
+            "brier_score": summary.brier_score,
+            "ece": summary.ece,
+            "is_overconfident": summary.is_overconfident,
+            "is_underconfident": summary.is_underconfident,
+        })
 
+    @handle_errors("calibration leaderboard retrieval")
     def _get_calibration_leaderboard(
         self, limit: int, metric: str, min_predictions: int
     ) -> HandlerResult:
@@ -151,64 +147,59 @@ class CalibrationHandler(BaseHandler):
         if not ELO_AVAILABLE or not EloSystem:
             return error_response("ELO system not available", 503)
 
-        try:
-            elo = EloSystem()
+        elo = EloSystem()
 
-            # Get all agents with enough calibration data
-            # EloSystem.get_leaderboard returns basic data; we need to query each agent
-            leaderboard_data = elo.get_leaderboard(limit=100)  # Get more to filter
+        # Get all agents with enough calibration data
+        # EloSystem.get_leaderboard returns basic data; we need to query each agent
+        leaderboard_data = elo.get_leaderboard(limit=100)  # Get more to filter
 
-            calibration_entries = []
-            for entry in leaderboard_data:
-                agent_name = entry.get("agent", "")
-                if not agent_name:
+        calibration_entries = []
+        for entry in leaderboard_data:
+            agent_name = entry.get("agent", "")
+            if not agent_name:
+                continue
+
+            try:
+                rating = elo.get_rating(agent_name)
+
+                # Skip agents with insufficient predictions
+                if rating.calibration_total < min_predictions:
                     continue
 
-                try:
-                    rating = elo.get_rating(agent_name)
+                calibration_entries.append({
+                    "agent": agent_name,
+                    "calibration_score": rating.calibration_score,
+                    "brier_score": rating.calibration_brier_score,
+                    "accuracy": rating.calibration_accuracy,
+                    "ece": 1.0 - rating.calibration_score if rating.calibration_score > 0 else 1.0,
+                    "predictions_count": rating.calibration_total,
+                    "correct_count": rating.calibration_correct,
+                    "elo": rating.elo,
+                })
+            except Exception as e:
+                logger.debug(f"Skipping agent {agent_name}: {e}")
+                continue
 
-                    # Skip agents with insufficient predictions
-                    if rating.calibration_total < min_predictions:
-                        continue
+        # Sort by the requested metric
+        if metric == "brier":
+            # Lower Brier is better
+            calibration_entries.sort(key=lambda x: x["brier_score"])
+        elif metric == "ece":
+            # Lower ECE is better
+            calibration_entries.sort(key=lambda x: x["ece"])
+        elif metric == "accuracy":
+            # Higher accuracy is better
+            calibration_entries.sort(key=lambda x: x["accuracy"], reverse=True)
+        else:  # composite (default)
+            # Higher calibration_score is better
+            calibration_entries.sort(key=lambda x: x["calibration_score"], reverse=True)
 
-                    calibration_entries.append({
-                        "agent": agent_name,
-                        "calibration_score": rating.calibration_score,
-                        "brier_score": rating.calibration_brier_score,
-                        "accuracy": rating.calibration_accuracy,
-                        "ece": 1.0 - rating.calibration_score if rating.calibration_score > 0 else 1.0,
-                        "predictions_count": rating.calibration_total,
-                        "correct_count": rating.calibration_correct,
-                        "elo": rating.elo,
-                    })
-                except Exception as e:
-                    logger.debug(f"Skipping agent {agent_name}: {e}")
-                    continue
+        # Limit results
+        calibration_entries = calibration_entries[:limit]
 
-            # Sort by the requested metric
-            if metric == "brier":
-                # Lower Brier is better
-                calibration_entries.sort(key=lambda x: x["brier_score"])
-            elif metric == "ece":
-                # Lower ECE is better
-                calibration_entries.sort(key=lambda x: x["ece"])
-            elif metric == "accuracy":
-                # Higher accuracy is better
-                calibration_entries.sort(key=lambda x: x["accuracy"], reverse=True)
-            else:  # composite (default)
-                # Higher calibration_score is better
-                calibration_entries.sort(key=lambda x: x["calibration_score"], reverse=True)
-
-            # Limit results
-            calibration_entries = calibration_entries[:limit]
-
-            return json_response({
-                "metric": metric,
-                "min_predictions": min_predictions,
-                "agents": calibration_entries,
-                "count": len(calibration_entries),
-            })
-
-        except Exception as e:
-            logger.error(f"Error getting calibration leaderboard: {e}", exc_info=True)
-            return error_response("Failed to get calibration leaderboard", 500)
+        return json_response({
+            "metric": metric,
+            "min_predictions": min_predictions,
+            "agents": calibration_entries,
+            "count": len(calibration_entries),
+        })
