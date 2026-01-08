@@ -61,11 +61,11 @@ async def handle_agent_operation(
 
     except asyncio.TimeoutError:
         logger.warning(f"[Autonomic] Agent {agent_name} {operation_name} timed out")
-        return fallback_message if fallback_message else fallback_value
+        return fallback_message if fallback_message else fallback_value  # type: ignore[return-value]
 
     except (ConnectionError, OSError) as e:
         logger.warning(f"[Autonomic] Agent {agent_name} {operation_name} connection error: {e}")
-        return fallback_message if fallback_message else fallback_value
+        return fallback_message if fallback_message else fallback_value  # type: ignore[return-value]
 
     except Exception as e:
         # Use ErrorClassifier for more detailed categorization
@@ -74,7 +74,7 @@ async def handle_agent_operation(
             f"[Autonomic] Agent {agent_name} {operation_name} failed ({category}): "
             f"{type(e).__name__}: {e}"
         )
-        return fallback_message if fallback_message else fallback_value
+        return fallback_message if fallback_message else fallback_value  # type: ignore[return-value]
 
 
 class AgentErrorHandler:
