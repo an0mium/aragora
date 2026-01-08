@@ -35,6 +35,26 @@ def reset_circuit_breakers():
     reset_all_circuit_breakers()
 
 
+@pytest.fixture(autouse=True)
+def clear_handler_cache():
+    """Clear the handler cache before and after each test.
+
+    This prevents test pollution from cached responses in handlers
+    that use @ttl_cache decorator.
+    """
+    try:
+        from aragora.server.handlers.base import clear_cache
+        clear_cache()
+    except ImportError:
+        pass
+    yield
+    try:
+        from aragora.server.handlers.base import clear_cache
+        clear_cache()
+    except ImportError:
+        pass
+
+
 # ============================================================================
 # Temporary File/Directory Fixtures
 # ============================================================================
