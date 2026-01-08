@@ -1,6 +1,9 @@
 'use client';
 
 import { useSupabaseHistory } from '@/hooks/useSupabaseHistory';
+import { useLocalHistory } from '@/hooks/useLocalHistory';
+
+const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
 function formatDate(isoString: string): string {
   const date = new Date(isoString);
@@ -35,30 +38,21 @@ function formatLoopId(loopId: string): string {
 }
 
 export function HistoryPanel() {
-  const {
-    isConfigured,
-    isLoading,
-    error,
-    recentLoops,
-    selectedLoopId,
-    cycles,
-    events,
-    debates,
-    selectLoop,
-    refresh,
-  } = useSupabaseHistory();
+  const supabaseHistory = useSupabaseHistory();
+  const localHistory = useLocalHistory(DEFAULT_API_BASE);
 
-  if (!isConfigured) {
-    return (
-      <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-        <h3 className="text-lg font-semibold mb-2 text-gray-300">History</h3>
-        <p className="text-gray-500 text-sm">
-          Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and
-          NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.
-        </p>
-      </div>
-    );
-  }
+  // Use Supabase if configured, otherwise fall back to local API
+  const useSupabase = supabaseHistory.isConfigured;
+
+  const isLoading = useSupabase ? supabaseHistory.isLoading : localHistory.isLoading;
+  const error = useSupabase ? supabaseHistory.error : localHistory.error;
+  const cycles = useSupabase ? supabaseHistory.cycles : localHistory.cycles;
+  const events = useSupabase ? supabaseHistory.events : localHistory.events;
+  const debates = useSupabase ? supabaseHistory.debates : localHistory.debates;
+  const refresh = useSupabase ? supabaseHistory.refresh : localHistory.refresh;
+
+  // Only for Supabase mode
+  const { recentLoops, selectedLoopId, selectLoop } = supabaseHistory;
 
   return (
     <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
@@ -79,27 +73,39 @@ export function HistoryPanel() {
         </div>
       )}
 
-      {/* Loop selector */}
-      <div className="mb-4">
-        <label className="text-xs text-gray-500 block mb-1">Select Loop</label>
-        <select
-          value={selectedLoopId || ''}
-          onChange={(e) => selectLoop(e.target.value)}
-          className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm"
-        >
-          {recentLoops.length === 0 && (
-            <option value="">No loops found</option>
+      {/* Loop selector - only for Supabase mode */}
+      {useSupabase && (
+        <div className="mb-4">
+          <label className="text-xs text-gray-500 block mb-1">Select Loop</label>
+          <select
+            value={selectedLoopId || ''}
+            onChange={(e) => selectLoop(e.target.value)}
+            className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm"
+          >
+            {recentLoops.length === 0 && (
+              <option value="">No loops found</option>
+            )}
+            {recentLoops.map((loopId) => (
+              <option key={loopId} value={loopId}>
+                {formatLoopId(loopId)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Local API summary */}
+      {!useSupabase && localHistory.summary && (
+        <div className="mb-4 p-2 bg-gray-700/30 rounded text-xs text-gray-400">
+          <span className="text-gray-500">Using local API</span>
+          {localHistory.summary.recent_loop_id && (
+            <span className="ml-2">• {formatLoopId(localHistory.summary.recent_loop_id)}</span>
           )}
-          {recentLoops.map((loopId) => (
-            <option key={loopId} value={loopId}>
-              {formatLoopId(loopId)}
-            </option>
-          ))}
-        </select>
-      </div>
+        </div>
+      )}
 
       {/* Stats */}
-      {selectedLoopId && (
+      {(useSupabase ? selectedLoopId : true) && (
         <div className="grid grid-cols-3 gap-2 mb-4">
           <div className="bg-gray-700/50 rounded p-2 text-center">
             <div className="text-xl font-bold text-blue-400">{cycles.length}</div>
