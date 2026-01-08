@@ -21,6 +21,7 @@ from .base import (
     error_response,
     get_clamped_int_param,
     get_bounded_float_param,
+    handle_errors,
 )
 from aragora.server.validation import validate_id, validate_debate_id
 from aragora.utils.optional_imports import try_import
@@ -122,6 +123,7 @@ class BeliefHandler(BaseHandler):
                 return debate_id
         return None
 
+    @handle_errors("emergent traits retrieval")
     def _get_emergent_traits(
         self, nomic_dir: Optional[Path], persona_manager, min_confidence: float, limit: int
     ) -> HandlerResult:
@@ -129,31 +131,29 @@ class BeliefHandler(BaseHandler):
         if not LABORATORY_AVAILABLE:
             return error_response("Persona laboratory not available", 503)
 
-        try:
-            lab = PersonaLaboratory(
-                db_path=str(nomic_dir / "laboratory.db") if nomic_dir else None,
-                persona_manager=persona_manager,
-            )
-            traits = lab.detect_emergent_traits()
-            filtered = [t for t in traits if t.confidence >= min_confidence][:limit]
-            return json_response({
-                "emergent_traits": [
-                    {
-                        "agent": t.agent_name,
-                        "trait": t.trait_name,
-                        "domain": t.domain,
-                        "confidence": t.confidence,
-                        "evidence": t.evidence,
-                        "detected_at": t.detected_at,
-                    }
-                    for t in filtered
-                ],
-                "count": len(filtered),
-                "min_confidence": min_confidence,
-            })
-        except Exception as e:
-            return error_response(_safe_error_message(e, "emergent_traits"), 500)
+        lab = PersonaLaboratory(
+            db_path=str(nomic_dir / "laboratory.db") if nomic_dir else None,
+            persona_manager=persona_manager,
+        )
+        traits = lab.detect_emergent_traits()
+        filtered = [t for t in traits if t.confidence >= min_confidence][:limit]
+        return json_response({
+            "emergent_traits": [
+                {
+                    "agent": t.agent_name,
+                    "trait": t.trait_name,
+                    "domain": t.domain,
+                    "confidence": t.confidence,
+                    "evidence": t.evidence,
+                    "detected_at": t.detected_at,
+                }
+                for t in filtered
+            ],
+            "count": len(filtered),
+            "min_confidence": min_confidence,
+        })
 
+    @handle_errors("debate cruxes retrieval")
     def _get_debate_cruxes(
         self, nomic_dir: Optional[Path], debate_id: str, top_k: int
     ) -> HandlerResult:
@@ -161,34 +161,31 @@ class BeliefHandler(BaseHandler):
         if not BELIEF_NETWORK_AVAILABLE:
             return error_response("Belief network not available", 503)
 
-        try:
-            from aragora.debate.traces import DebateTrace
+        from aragora.debate.traces import DebateTrace
 
-            if not nomic_dir:
-                return error_response("Nomic directory not configured", 503)
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
 
-            trace_path = nomic_dir / "traces" / f"{debate_id}.json"
-            if not trace_path.exists():
-                return error_response("Debate trace not found", 404)
+        trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+        if not trace_path.exists():
+            return error_response("Debate trace not found", 404)
 
-            trace = DebateTrace.load(trace_path)
-            result = trace.to_debate_result()
+        trace = DebateTrace.load(trace_path)
+        result = trace.to_debate_result()
 
-            # Build belief network from debate
-            network = BeliefNetwork(debate_id=debate_id)
-            for msg in result.messages:
-                network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
+        # Build belief network from debate
+        network = BeliefNetwork(debate_id=debate_id)
+        for msg in result.messages:
+            network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
 
-            analyzer = BeliefPropagationAnalyzer(network)
-            cruxes = analyzer.identify_debate_cruxes(top_k=top_k)
+        analyzer = BeliefPropagationAnalyzer(network)
+        cruxes = analyzer.identify_debate_cruxes(top_k=top_k)
 
-            return json_response({
-                "debate_id": debate_id,
-                "cruxes": cruxes,
-                "count": len(cruxes),
-            })
-        except Exception as e:
-            return error_response(_safe_error_message(e, "debate_cruxes"), 500)
+        return json_response({
+            "debate_id": debate_id,
+            "cruxes": cruxes,
+            "count": len(cruxes),
+        })
 
     def _get_load_bearing_claims(
         self, nomic_dir: Optional[Path], debate_id: str, limit: int

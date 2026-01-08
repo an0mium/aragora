@@ -21,7 +21,15 @@ from aragora.config import (
 )
 
 logger = logging.getLogger(__name__)
-from .base import BaseHandler, HandlerResult, json_response, error_response, get_int_param, ttl_cache
+from .base import (
+    BaseHandler,
+    HandlerResult,
+    json_response,
+    error_response,
+    get_int_param,
+    ttl_cache,
+    handle_errors,
+)
 
 
 class AnalyticsHandler(BaseHandler):
@@ -60,127 +68,115 @@ class AnalyticsHandler(BaseHandler):
         return None
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_disagreement", skip_first=True)
+    @handle_errors("disagreement stats retrieval")
     def _get_disagreement_stats(self) -> HandlerResult:
         """Get statistics about debate disagreements."""
         storage = self.get_storage()
         if not storage:
             return json_response({"stats": {}})
 
-        try:
-            debates = storage.list_debates(limit=100)
+        debates = storage.list_debates(limit=100)
 
-            stats: dict[str, Any] = {
-                "total_debates": len(debates),
-                "with_disagreements": 0,
-                "unanimous": 0,
-                "disagreement_types": {},
-            }
+        stats: dict[str, Any] = {
+            "total_debates": len(debates),
+            "with_disagreements": 0,
+            "unanimous": 0,
+            "disagreement_types": {},
+        }
 
-            for debate in debates:
-                result = debate.get("result", {})
-                report = result.get("disagreement_report")
-                if report:
-                    if report.get("unanimous_critiques"):
-                        stats["with_disagreements"] += 1
-                    else:
-                        stats["unanimous"] += 1
+        for debate in debates:
+            result = debate.get("result", {})
+            report = result.get("disagreement_report")
+            if report:
+                if report.get("unanimous_critiques"):
+                    stats["with_disagreements"] += 1
+                else:
+                    stats["unanimous"] += 1
 
-                    dtype = result.get("uncertainty_metrics", {}).get("disagreement_type", "unknown")
-                    stats["disagreement_types"][dtype] = stats["disagreement_types"].get(dtype, 0) + 1
+                dtype = result.get("uncertainty_metrics", {}).get("disagreement_type", "unknown")
+                stats["disagreement_types"][dtype] = stats["disagreement_types"].get(dtype, 0) + 1
 
-            return json_response({"stats": stats})
-        except Exception as e:
-            logger.error("Error in disagreement stats: %s: %s", type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to get disagreement stats: {e}", 500)
+        return json_response({"stats": stats})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_roles", skip_first=True)
+    @handle_errors("role rotation stats retrieval")
     def _get_role_rotation_stats(self) -> HandlerResult:
         """Get statistics about cognitive role rotation."""
         storage = self.get_storage()
         if not storage:
             return json_response({"stats": {}})
 
-        try:
-            debates = storage.list_debates(limit=100)
+        debates = storage.list_debates(limit=100)
 
-            stats: dict[str, Any] = {
-                "total_debates": len(debates),
-                "with_rotation": 0,
-                "role_assignments": {},
-            }
+        stats: dict[str, Any] = {
+            "total_debates": len(debates),
+            "with_rotation": 0,
+            "role_assignments": {},
+        }
 
-            for debate in debates:
-                messages = debate.get("messages", [])
-                for msg in messages:
-                    role = msg.get("cognitive_role", msg.get("role", "unknown"))
-                    stats["role_assignments"][role] = stats["role_assignments"].get(role, 0) + 1
+        for debate in debates:
+            messages = debate.get("messages", [])
+            for msg in messages:
+                role = msg.get("cognitive_role", msg.get("role", "unknown"))
+                stats["role_assignments"][role] = stats["role_assignments"].get(role, 0) + 1
 
-            return json_response({"stats": stats})
-        except Exception as e:
-            logger.error("Error in role rotation stats: %s: %s", type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to get role rotation stats: {e}", 500)
+        return json_response({"stats": stats})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_early_stop", skip_first=True)
+    @handle_errors("early stop stats retrieval")
     def _get_early_stop_stats(self) -> HandlerResult:
         """Get statistics about early debate stopping."""
         storage = self.get_storage()
         if not storage:
             return json_response({"stats": {}})
 
-        try:
-            debates = storage.list_debates(limit=100)
+        debates = storage.list_debates(limit=100)
 
-            stats = {
-                "total_debates": len(debates),
-                "early_stopped": 0,
-                "full_rounds": 0,
-                "average_rounds": 0.0,
-            }
+        stats = {
+            "total_debates": len(debates),
+            "early_stopped": 0,
+            "full_rounds": 0,
+            "average_rounds": 0.0,
+        }
 
-            total_rounds = 0
-            for debate in debates:
-                result = debate.get("result", {})
-                rounds = result.get("rounds_used", 0)
-                total_rounds += rounds
+        total_rounds = 0
+        for debate in debates:
+            result = debate.get("result", {})
+            rounds = result.get("rounds_used", 0)
+            total_rounds += rounds
 
-                if result.get("early_stopped"):
-                    stats["early_stopped"] += 1
-                else:
-                    stats["full_rounds"] += 1
+            if result.get("early_stopped"):
+                stats["early_stopped"] += 1
+            else:
+                stats["full_rounds"] += 1
 
-            if debates:
-                stats["average_rounds"] = total_rounds / len(debates)
+        if debates:
+            stats["average_rounds"] = total_rounds / len(debates)
 
-            return json_response({"stats": stats})
-        except Exception as e:
-            logger.error("Error in early stop stats: %s: %s", type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to get early stop stats: {e}", 500)
+        return json_response({"stats": stats})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS_RANKING, key_prefix="analytics_ranking", skip_first=True)
+    @handle_errors("ranking stats retrieval")
     def _get_ranking_stats(self) -> HandlerResult:
         """Get ranking system statistics."""
         elo = self.get_elo_system()
         if not elo:
             return error_response("Ranking system not available", 503)
 
-        try:
-            leaderboard = elo.get_leaderboard(limit=100)
+        leaderboard = elo.get_leaderboard(limit=100)
 
-            stats = {
-                "total_agents": len(leaderboard),
-                "total_matches": sum(a.total_debates for a in leaderboard) if leaderboard else 0,
-                "avg_elo": sum(a.elo_rating for a in leaderboard) / len(leaderboard) if leaderboard else 1500,
-                "top_agent": leaderboard[0].agent_name if leaderboard else None,
-                "elo_range": {
-                    "min": min(a.elo_rating for a in leaderboard) if leaderboard else 1500,
-                    "max": max(a.elo_rating for a in leaderboard) if leaderboard else 1500,
-                },
-            }
+        stats = {
+            "total_agents": len(leaderboard),
+            "total_matches": sum(a.total_debates for a in leaderboard) if leaderboard else 0,
+            "avg_elo": sum(a.elo_rating for a in leaderboard) / len(leaderboard) if leaderboard else 1500,
+            "top_agent": leaderboard[0].agent_name if leaderboard else None,
+            "elo_range": {
+                "min": min(a.elo_rating for a in leaderboard) if leaderboard else 1500,
+                "max": max(a.elo_rating for a in leaderboard) if leaderboard else 1500,
+            },
+        }
 
-            return json_response({"stats": stats})
-        except Exception as e:
-            logger.error("Error in ranking stats: %s: %s", type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to get ranking stats: {e}", 500)
+        return json_response({"stats": stats})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS_DEBATES, key_prefix="analytics_debates", skip_first=True)
     def _get_cached_debates(self, limit: int = 100) -> list:
@@ -195,30 +191,27 @@ class AnalyticsHandler(BaseHandler):
             return []
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS_MEMORY, key_prefix="analytics_memory", skip_first=True)
+    @handle_errors("memory stats retrieval")
     def _get_memory_stats(self) -> HandlerResult:
         """Get memory system statistics."""
-        try:
-            nomic_dir = self.get_nomic_dir()
-            if not nomic_dir:
-                return json_response({"stats": {}})
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return json_response({"stats": {}})
 
-            stats = {
-                "embeddings_db": False,
-                "insights_db": False,
-                "continuum_memory": False,
-            }
+        stats = {
+            "embeddings_db": False,
+            "insights_db": False,
+            "continuum_memory": False,
+        }
 
-            # Check for database files
-            if (nomic_dir / "debate_embeddings.db").exists():
-                stats["embeddings_db"] = True
+        # Check for database files
+        if (nomic_dir / "debate_embeddings.db").exists():
+            stats["embeddings_db"] = True
 
-            if (nomic_dir / DB_INSIGHTS_PATH).exists():
-                stats["insights_db"] = True
+        if (nomic_dir / DB_INSIGHTS_PATH).exists():
+            stats["insights_db"] = True
 
-            if (nomic_dir / "continuum_memory.db").exists():
-                stats["continuum_memory"] = True
+        if (nomic_dir / "continuum_memory.db").exists():
+            stats["continuum_memory"] = True
 
-            return json_response({"stats": stats})
-        except Exception as e:
-            logger.error("Error in memory stats: %s: %s", type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to get memory stats: {e}", 500)
+        return json_response({"stats": stats})
