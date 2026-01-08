@@ -477,6 +477,7 @@ class GitCheckpointStore(CheckpointStore):
                 capture_output=True,
                 text=True,
                 timeout=30,
+                shell=False,
             )
             return result.returncode == 0, result.stdout.strip()
         except Exception as e:

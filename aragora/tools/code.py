@@ -373,6 +373,7 @@ class CodeWriter:
                 cwd=self.root,
                 capture_output=True,
                 check=True,
+                shell=False,
             )
             return True
         except subprocess.CalledProcessError:
@@ -389,6 +390,7 @@ class CodeWriter:
                 cwd=self.root,
                 capture_output=True,
                 check=True,
+                shell=False,
             )
             return True
         except subprocess.CalledProcessError:
@@ -465,6 +467,7 @@ class CodeWriter:
                 cwd=self.root,
                 capture_output=True,
                 timeout=180,  # Minimum 3 min (was 60)
+                shell=False,
             )
             if result.returncode != 0:
                 warnings.append("Some tests may have failed")
@@ -488,6 +491,7 @@ class CodeWriter:
                     ["python", "-m", "py_compile"] + [str(p) for p in batch],
                     cwd=self.root,
                     capture_output=True,
+                    shell=False,
                 )
                 if result.returncode != 0:
                     syntax_failed = True
@@ -516,12 +520,14 @@ class CodeWriter:
                 cwd=self.root,
                 check=True,
                 capture_output=True,
+                shell=False,
             )
             subprocess.run(
                 ["git", "commit", "-m", f"{title}\n\n{description}\n\n[aragora auto-commit]"],
                 cwd=self.root,
                 check=True,
                 capture_output=True,
+                shell=False,
             )
         except subprocess.CalledProcessError as e:
             logger.error(f"Git commit failed: {e.stderr.decode() if e.stderr else e}")
@@ -537,6 +543,7 @@ class CodeWriter:
                 ["git", "reset", "--hard", "HEAD~1"],
                 cwd=self.root,
                 check=True,
+                shell=False,
             )
             return True
         except subprocess.CalledProcessError:

@@ -108,7 +108,8 @@ class TestEdgeTTS:
                 )
 
         assert result is False
-        mock_process.kill.assert_called_once()
+        # kill is called once per retry attempt (default 3 retries)
+        assert mock_process.kill.call_count == 3
 
     @pytest.mark.asyncio
     async def test_generate_edge_tts_subprocess_error(self, tmp_path):

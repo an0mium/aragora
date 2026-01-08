@@ -592,6 +592,7 @@ class VideoGenerator:
                 capture_output=True,
                 text=True,
                 timeout=FFPROBE_TIMEOUT,
+                shell=False,
             )
 
             if result.returncode != 0:

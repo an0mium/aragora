@@ -3,8 +3,6 @@ Anthropic API agent with OpenRouter fallback support.
 """
 
 import aiohttp
-import asyncio
-import json
 import logging
 from typing import AsyncGenerator
 
@@ -20,8 +18,7 @@ from aragora.agents.api_agents.common import (
     AgentTimeoutError,
     get_api_key,
     _sanitize_error_message,
-    MAX_STREAM_BUFFER_SIZE,
-    iter_chunks_with_timeout,
+    create_anthropic_sse_parser,
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
@@ -193,56 +190,13 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                         agent_name=self.name,
                     )
 
-                # Anthropic uses SSE format: data: {...}\n\n
-                buffer = ""
+                # Use SSEStreamParser for consistent SSE parsing
                 try:
-                    # Use timeout wrapper to prevent hanging on stalled streams
-                    async for chunk in iter_chunks_with_timeout(response.content):
-                        buffer += chunk.decode('utf-8', errors='ignore')
-                        # Prevent unbounded buffer growth (DoS protection)
-                        if len(buffer) > MAX_STREAM_BUFFER_SIZE:
-                            raise AgentStreamError(
-                                "Streaming buffer exceeded maximum size",
-                                agent_name=self.name,
-                            )
-
-                        # Process complete SSE lines
-                        while '\n' in buffer:
-                            line, buffer = buffer.split('\n', 1)
-                            line = line.strip()
-
-                            if not line or not line.startswith('data: '):
-                                continue
-
-                            data_str = line[6:]  # Remove 'data: ' prefix
-
-                            if data_str == '[DONE]':
-                                return
-
-                            try:
-                                event = json.loads(data_str)
-                                event_type = event.get('type', '')
-
-                                # Handle content_block_delta events
-                                if event_type == 'content_block_delta':
-                                    delta = event.get('delta', {})
-                                    if delta.get('type') == 'text_delta':
-                                        text = delta.get('text', '')
-                                        if text:
-                                            yield text
-
-                            except json.JSONDecodeError:
-                                continue
-                except asyncio.TimeoutError:
-                    logger.warning(f"[{self.name}] Streaming timeout")
-                    raise
-                except aiohttp.ClientError as e:
-                    logger.warning(f"[{self.name}] Streaming connection error: {e}")
-                    raise AgentStreamError(
-                        f"Streaming connection error: {e}",
-                        agent_name=self.name,
-                        cause=e,
-                    )
+                    parser = create_anthropic_sse_parser()
+                    async for content in parser.parse_stream(response.content, self.name):
+                        yield content
+                except RuntimeError as e:
+                    raise AgentStreamError(str(e), agent_name=self.name)
 
     async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using Anthropic API."""

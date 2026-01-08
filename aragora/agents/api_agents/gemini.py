@@ -183,6 +183,7 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
         """Stream tokens from Gemini API.
 
         Yields chunks of text as they arrive from the API.
+        Falls back to OpenRouter streaming if rate limit errors are encountered.
         """
         full_prompt = prompt
         if context:
@@ -217,6 +218,13 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
+
+                    # Check for quota/rate limit errors and fallback to OpenRouter
+                    if self.is_quota_error(response.status, error_text):
+                        async for chunk in self.fallback_generate_stream(prompt, context, response.status):
+                            yield chunk
+                        return
+
                     raise AgentStreamError(
                         f"Gemini streaming API error {response.status}: {sanitized}",
                         agent_name=self.name,

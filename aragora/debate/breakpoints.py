@@ -365,16 +365,23 @@ class BreakpointManager:
         return guidance
 
     async def _default_human_input(self, breakpoint: Breakpoint) -> HumanGuidance:
-        """Default handler that prompts on CLI."""
-        snapshot = breakpoint.debate_snapshot
+        """Default handler that prompts on CLI.
 
-        print("\n" + "-" * 40)
-        print("How would you like to proceed?")
-        print("1. continue - Let agents continue debating")
-        print("2. resolve - Provide your decision")
-        print("3. redirect - Give hints to agents")
-        print("4. abort - Stop the debate")
-        print("-" * 40)
+        Note: Uses print() for interactive CLI prompts. For non-CLI contexts,
+        override this method or use a custom human_input_handler.
+        """
+        snapshot = breakpoint.debate_snapshot
+        logger.debug("Prompting for human input on breakpoint %s", breakpoint.breakpoint_id)
+
+        menu = """
+----------------------------------------
+How would you like to proceed?
+1. continue - Let agents continue debating
+2. resolve - Provide your decision
+3. redirect - Give hints to agents
+4. abort - Stop the debate
+----------------------------------------"""
+        print(menu)
 
         try:
             choice = input("Enter choice (1-4): ").strip()

@@ -3,8 +3,6 @@ Grok agent for xAI's Grok API.
 """
 
 import aiohttp
-import asyncio
-import json
 import logging
 from typing import AsyncGenerator
 
@@ -20,9 +18,9 @@ from aragora.agents.api_agents.common import (
     AgentTimeoutError,
     get_api_key,
     _sanitize_error_message,
-    MAX_STREAM_BUFFER_SIZE,
-    iter_chunks_with_timeout,
+    create_openai_sse_parser,
 )
+from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
 
 logger = logging.getLogger(__name__)
@@ -34,11 +32,26 @@ logger = logging.getLogger(__name__)
     agent_type="API",
     env_vars="XAI_API_KEY or GROK_API_KEY",
 )
-class GrokAgent(APIAgent):
+class GrokAgent(QuotaFallbackMixin, APIAgent):
     """Agent that uses xAI's Grok API (OpenAI-compatible).
 
     Uses the xAI API at https://api.x.ai/v1 with models like grok-3.
+
+    Supports automatic fallback to OpenRouter when xAI API returns
+    rate limit/quota errors.
+
+    Uses QuotaFallbackMixin for shared quota detection and fallback logic.
     """
+
+    # Model mapping from Grok to OpenRouter format (used by QuotaFallbackMixin)
+    OPENROUTER_MODEL_MAP = {
+        "grok-4": "x-ai/grok-2-1212",
+        "grok-3": "x-ai/grok-2-1212",
+        "grok-2": "x-ai/grok-2-1212",
+        "grok-2-1212": "x-ai/grok-2-1212",
+        "grok-beta": "x-ai/grok-beta",
+    }
+    DEFAULT_FALLBACK_MODEL = "x-ai/grok-2-1212"
 
     def __init__(
         self,
@@ -47,6 +60,7 @@ class GrokAgent(APIAgent):
         role: str = "proposer",
         timeout: int = 120,
         api_key: str | None = None,
+        enable_fallback: bool = True,
     ):
         super().__init__(
             name=name,
@@ -57,6 +71,8 @@ class GrokAgent(APIAgent):
             base_url="https://api.x.ai/v1",
         )
         self.agent_type = "grok"
+        self.enable_fallback = enable_fallback
+        self._fallback_agent = None  # Cached by QuotaFallbackMixin
 
     @handle_agent_errors(
         max_retries=3,
@@ -98,6 +114,13 @@ class GrokAgent(APIAgent):
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
+
+                    # Check if this is a quota error and fallback is enabled
+                    if self.is_quota_error(response.status, error_text):
+                        result = await self.fallback_generate(prompt, context, response.status)
+                        if result is not None:
+                            return result
+
                     raise AgentAPIError(
                         f"Grok API error {response.status}: {sanitized}",
                         agent_name=self.name,
@@ -115,7 +138,11 @@ class GrokAgent(APIAgent):
                     )
 
     async def generate_stream(self, prompt: str, context: list[Message] | None = None) -> AsyncGenerator[str, None]:
-        """Stream tokens from Grok API."""
+        """Stream tokens from Grok API.
+
+        Falls back to OpenRouter streaming if rate limit errors are encountered
+        and OPENROUTER_API_KEY is set.
+        """
         full_prompt = prompt
         if context:
             full_prompt = self._build_context_prompt(context) + prompt
@@ -148,57 +175,25 @@ class GrokAgent(APIAgent):
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
+
+                    # Check for quota/rate limit errors and fallback to OpenRouter
+                    if self.is_quota_error(response.status, error_text):
+                        async for chunk in self.fallback_generate_stream(prompt, context, response.status):
+                            yield chunk
+                        return
+
                     raise AgentStreamError(
                         f"Grok streaming API error {response.status}: {sanitized}",
                         agent_name=self.name,
                     )
 
+                # Use SSEStreamParser for consistent SSE parsing (OpenAI-compatible)
                 try:
-                    buffer = ""
-                    # Use timeout wrapper to prevent hanging on stalled streams
-                    async for chunk in iter_chunks_with_timeout(response.content):
-                        buffer += chunk.decode('utf-8', errors='ignore')
-
-                        # Prevent unbounded buffer growth (DoS protection)
-                        if len(buffer) > MAX_STREAM_BUFFER_SIZE:
-                            raise AgentStreamError(
-                                "Streaming buffer exceeded maximum size",
-                                agent_name=self.name,
-                            )
-
-                        while '\n' in buffer:
-                            line, buffer = buffer.split('\n', 1)
-                            line = line.strip()
-
-                            if not line or not line.startswith('data: '):
-                                continue
-
-                            data_str = line[6:]
-
-                            if data_str == '[DONE]':
-                                return
-
-                            try:
-                                event = json.loads(data_str)
-                                choices = event.get('choices', [])
-                                if choices:
-                                    delta = choices[0].get('delta', {})
-                                    content = delta.get('content', '')
-                                    if content:
-                                        yield content
-
-                            except json.JSONDecodeError:
-                                continue
-                except asyncio.TimeoutError:
-                    logger.warning(f"[{self.name}] Streaming timeout")
-                    raise
-                except aiohttp.ClientError as e:
-                    logger.warning(f"[{self.name}] Streaming connection error: {e}")
-                    raise AgentStreamError(
-                        f"Streaming connection error: {e}",
-                        agent_name=self.name,
-                        cause=e,
-                    )
+                    parser = create_openai_sse_parser()
+                    async for content in parser.parse_stream(response.content, self.name):
+                        yield content
+                except RuntimeError as e:
+                    raise AgentStreamError(str(e), agent_name=self.name)
 
     async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using Grok API."""

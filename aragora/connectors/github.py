@@ -75,6 +75,7 @@ class GitHubConnector(BaseConnector):
                 capture_output=True,
                 text=True,
                 timeout=30,  # Auth check should be fast
+                shell=False,
             )
             self._gh_available = result.returncode == 0
         except Exception as e:

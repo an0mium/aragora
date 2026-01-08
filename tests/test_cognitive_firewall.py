@@ -167,7 +167,7 @@ class TestSecurityBarrier:
 
     def test_redact_api_key(self):
         """Should redact API key patterns."""
-        from aragora.debate.orchestrator import SecurityBarrier
+        from aragora.debate.security_barrier import SecurityBarrier
 
         barrier = SecurityBarrier()
 
@@ -185,7 +185,7 @@ class TestSecurityBarrier:
 
     def test_redact_environment_variable(self):
         """Should redact environment variable assignments."""
-        from aragora.debate.orchestrator import SecurityBarrier
+        from aragora.debate.security_barrier import SecurityBarrier
 
         barrier = SecurityBarrier()
 
@@ -201,7 +201,7 @@ class TestSecurityBarrier:
 
     def test_redact_url_with_credentials(self):
         """Should redact URLs with embedded credentials."""
-        from aragora.debate.orchestrator import SecurityBarrier
+        from aragora.debate.security_barrier import SecurityBarrier
 
         barrier = SecurityBarrier()
 
@@ -211,7 +211,7 @@ class TestSecurityBarrier:
 
     def test_redact_private_key(self):
         """Should redact private key headers."""
-        from aragora.debate.orchestrator import SecurityBarrier
+        from aragora.debate.security_barrier import SecurityBarrier
 
         barrier = SecurityBarrier()
 
@@ -221,7 +221,7 @@ class TestSecurityBarrier:
 
     def test_no_redaction_for_safe_content(self):
         """Should not redact normal content."""
-        from aragora.debate.orchestrator import SecurityBarrier
+        from aragora.debate.security_barrier import SecurityBarrier
 
         barrier = SecurityBarrier()
 
@@ -231,7 +231,7 @@ class TestSecurityBarrier:
 
     def test_redact_dict(self):
         """Should recursively redact dictionary values."""
-        from aragora.debate.orchestrator import SecurityBarrier
+        from aragora.debate.security_barrier import SecurityBarrier
 
         barrier = SecurityBarrier()
 
@@ -254,7 +254,7 @@ class TestSecurityBarrier:
 
     def test_contains_sensitive(self):
         """Should detect sensitive content."""
-        from aragora.debate.orchestrator import SecurityBarrier
+        from aragora.debate.security_barrier import SecurityBarrier
 
         barrier = SecurityBarrier()
 
@@ -264,7 +264,7 @@ class TestSecurityBarrier:
 
     def test_custom_pattern(self):
         """Should support custom redaction patterns."""
-        from aragora.debate.orchestrator import SecurityBarrier
+        from aragora.debate.security_barrier import SecurityBarrier
 
         barrier = SecurityBarrier()
         barrier.add_pattern(r"CUSTOM_SECRET_\d+")
@@ -275,7 +275,7 @@ class TestSecurityBarrier:
 
     def test_custom_redaction_marker(self):
         """Should support custom redaction marker."""
-        from aragora.debate.orchestrator import SecurityBarrier
+        from aragora.debate.security_barrier import SecurityBarrier
 
         barrier = SecurityBarrier(redaction_marker="***HIDDEN***")
 
@@ -285,7 +285,7 @@ class TestSecurityBarrier:
 
     def test_empty_content(self):
         """Should handle empty content gracefully."""
-        from aragora.debate.orchestrator import SecurityBarrier
+        from aragora.debate.security_barrier import SecurityBarrier
 
         barrier = SecurityBarrier()
 
@@ -307,7 +307,7 @@ class TestTelemetryVerifier:
 
     def test_verify_agent_with_capabilities(self):
         """Should pass verification for agents with required capabilities."""
-        from aragora.debate.orchestrator import TelemetryVerifier
+        from aragora.debate.security_barrier import TelemetryVerifier
 
         verifier = TelemetryVerifier()
 
@@ -322,7 +322,7 @@ class TestTelemetryVerifier:
 
     def test_verify_agent_missing_capabilities(self):
         """Should fail verification for agents missing capabilities."""
-        from aragora.debate.orchestrator import TelemetryVerifier
+        from aragora.debate.security_barrier import TelemetryVerifier
 
         verifier = TelemetryVerifier()
 
@@ -336,7 +336,7 @@ class TestTelemetryVerifier:
 
     def test_verify_telemetry_level(self):
         """Should verify agents for specific telemetry levels."""
-        from aragora.debate.orchestrator import TelemetryVerifier
+        from aragora.debate.security_barrier import TelemetryVerifier
 
         verifier = TelemetryVerifier()
 
@@ -352,7 +352,7 @@ class TestTelemetryVerifier:
 
     def test_verification_report(self):
         """Should generate verification report."""
-        from aragora.debate.orchestrator import TelemetryVerifier
+        from aragora.debate.security_barrier import TelemetryVerifier
 
         verifier = TelemetryVerifier()
 
@@ -375,7 +375,7 @@ class TestTelemetryVerifier:
 
     def test_clear_cache(self):
         """Should clear capability cache."""
-        from aragora.debate.orchestrator import TelemetryVerifier
+        from aragora.debate.security_barrier import TelemetryVerifier
 
         verifier = TelemetryVerifier()
 
@@ -541,7 +541,7 @@ class TestCognitiveFirewallIntegration:
     def test_full_pipeline_controlled_mode(self):
         """Test full pipeline: verify agent, redact, broadcast."""
         os.environ["ARAGORA_TELEMETRY_LEVEL"] = "controlled"
-        from aragora.debate.orchestrator import SecurityBarrier, TelemetryVerifier
+        from aragora.debate.security_barrier import SecurityBarrier, TelemetryVerifier
         from aragora.server.stream import SyncEventEmitter, StreamEventType
         from aragora.debate.telemetry_config import TelemetryConfig
         TelemetryConfig.reset_instance()
@@ -588,7 +588,7 @@ class TestCognitiveFirewallIntegration:
     def test_full_pipeline_spectacle_mode(self):
         """Test full pipeline in spectacle mode (no redaction)."""
         os.environ["ARAGORA_TELEMETRY_LEVEL"] = "spectacle"
-        from aragora.debate.orchestrator import SecurityBarrier, TelemetryVerifier
+        from aragora.debate.security_barrier import SecurityBarrier, TelemetryVerifier
         from aragora.server.stream import SyncEventEmitter, StreamEventType
         from aragora.debate.telemetry_config import TelemetryConfig
         TelemetryConfig.reset_instance()

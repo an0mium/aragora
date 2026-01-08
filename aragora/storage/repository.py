@@ -15,10 +15,34 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Generator, Optional, TypeVar, Union
 
+import re
+
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.storage.schema import get_wal_connection
 
 logger = logging.getLogger(__name__)
+
+# SQL identifier validation pattern (alphanumeric + underscore, starts with letter/underscore)
+_SQL_IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+
+def _validate_column_name(name: str) -> str:
+    """Validate column name to prevent SQL injection.
+
+    Args:
+        name: Column name to validate
+
+    Returns:
+        The validated column name
+
+    Raises:
+        ValueError: If column name is invalid
+    """
+    if not name or len(name) > 64:
+        raise ValueError(f"Invalid column name length: {name!r}")
+    if not _SQL_IDENTIFIER_PATTERN.match(name):
+        raise ValueError(f"Invalid column name: {name!r}")
+    return name
 
 T = TypeVar("T")
 
@@ -116,10 +140,11 @@ class DatabaseRepository:
         Returns:
             True if record exists
         """
+        safe_col = _validate_column_name(id_column)
         with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                f"SELECT 1 FROM {self.TABLE_NAME} WHERE {id_column} = ? LIMIT 1",
+                f"SELECT 1 FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1",
                 (id_value,)
             )
             return cursor.fetchone() is not None
@@ -156,11 +181,12 @@ class DatabaseRepository:
         Returns:
             Record as dict or None if not found
         """
+        safe_col = _validate_column_name(id_column)
         with self.connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute(
-                f"SELECT * FROM {self.TABLE_NAME} WHERE {id_column} = ? LIMIT 1",
+                f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} = ? LIMIT 1",
                 (id_value,)
             )
             row = cursor.fetchone()
@@ -220,8 +246,9 @@ class DatabaseRepository:
         if not id_values:
             return []
 
+        safe_col = _validate_column_name(id_column)
         placeholders = ",".join("?" * len(id_values))
-        query = f"SELECT * FROM {self.TABLE_NAME} WHERE {id_column} IN ({placeholders})"
+        query = f"SELECT * FROM {self.TABLE_NAME} WHERE {safe_col} IN ({placeholders})"
 
         with self.connection() as conn:
             conn.row_factory = sqlite3.Row
@@ -240,10 +267,11 @@ class DatabaseRepository:
         Returns:
             True if a record was deleted
         """
+        safe_col = _validate_column_name(id_column)
         with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                f"DELETE FROM {self.TABLE_NAME} WHERE {id_column} = ?",
+                f"DELETE FROM {self.TABLE_NAME} WHERE {safe_col} = ?",
                 (id_value,)
             )
             conn.commit()

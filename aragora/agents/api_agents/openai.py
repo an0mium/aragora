@@ -3,8 +3,6 @@ OpenAI API agent with OpenRouter fallback support.
 """
 
 import aiohttp
-import asyncio
-import json
 import logging
 from typing import AsyncGenerator
 
@@ -20,8 +18,7 @@ from aragora.agents.api_agents.common import (
     AgentTimeoutError,
     get_api_key,
     _sanitize_error_message,
-    MAX_STREAM_BUFFER_SIZE,
-    iter_chunks_with_timeout,
+    create_openai_sse_parser,
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
@@ -189,53 +186,13 @@ class OpenAIAPIAgent(QuotaFallbackMixin, APIAgent):
                         agent_name=self.name,
                     )
 
-                # OpenAI uses SSE format: data: {...}\n\n
-                buffer = ""
+                # Use SSEStreamParser for consistent SSE parsing
                 try:
-                    # Use timeout wrapper to prevent hanging on stalled streams
-                    async for chunk in iter_chunks_with_timeout(response.content):
-                        buffer += chunk.decode('utf-8', errors='ignore')
-                        # Prevent unbounded buffer growth (DoS protection)
-                        if len(buffer) > MAX_STREAM_BUFFER_SIZE:
-                            raise AgentStreamError(
-                                "Streaming buffer exceeded maximum size",
-                                agent_name=self.name,
-                            )
-
-                        # Process complete SSE lines
-                        while '\n' in buffer:
-                            line, buffer = buffer.split('\n', 1)
-                            line = line.strip()
-
-                            if not line or not line.startswith('data: '):
-                                continue
-
-                            data_str = line[6:]  # Remove 'data: ' prefix
-
-                            if data_str == '[DONE]':
-                                return
-
-                            try:
-                                event = json.loads(data_str)
-                                choices = event.get('choices', [])
-                                if choices:
-                                    delta = choices[0].get('delta', {})
-                                    content = delta.get('content', '')
-                                    if content:
-                                        yield content
-
-                            except json.JSONDecodeError:
-                                continue
-                except asyncio.TimeoutError:
-                    logger.warning(f"[{self.name}] Streaming timeout")
-                    raise
-                except aiohttp.ClientError as e:
-                    logger.warning(f"[{self.name}] Streaming connection error: {e}")
-                    raise AgentStreamError(
-                        f"Streaming connection error: {e}",
-                        agent_name=self.name,
-                        cause=e,
-                    )
+                    parser = create_openai_sse_parser()
+                    async for content in parser.parse_stream(response.content, self.name):
+                        yield content
+                except RuntimeError as e:
+                    raise AgentStreamError(str(e), agent_name=self.name)
 
     async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using OpenAI API."""

@@ -317,8 +317,22 @@ def handle_agent_errors(
     """
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        """Decorator that wraps an async function with error handling.
+
+        Preserves the wrapped function's signature and metadata while adding
+        retry logic, circuit breaker integration, and error transformation.
+        """
         @functools.wraps(func)
         async def wrapper(self, *args, **kwargs) -> T:
+            """Execute the wrapped function with retry and error handling.
+
+            Flow:
+            1. Check circuit breaker (raise AgentCircuitOpenError if open)
+            2. Execute function in retry loop
+            3. On success: record to circuit breaker, return result
+            4. On error: transform to AgentError, optionally retry with backoff
+            5. After max retries: record failure and raise final error
+            """
             agent_name = getattr(self, agent_name_attr, "unknown")
             circuit_breaker = getattr(self, circuit_breaker_attr, None)
 

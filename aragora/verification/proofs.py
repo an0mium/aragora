@@ -234,6 +234,7 @@ except Exception as e:
                 capture_output=True,
                 timeout=timeout,
                 text=True,
+                shell=False,
             )
 
             if result.returncode != 0 and not result.stdout:

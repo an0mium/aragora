@@ -176,8 +176,18 @@ def validate_query_params(
             ...
     """
     def decorator(func: Callable) -> Callable:
+        """Create a validation wrapper for the given handler function."""
         @wraps(func)
         def wrapper(self, *args, **kwargs):
+            """Validate query parameters before invoking the handler.
+
+            1. Extract query dict from kwargs or positional args
+            2. Check required parameters exist and are non-empty
+            3. Validate int params: parse, apply bounds checking
+            4. Validate string params: check max length
+            5. Return error dict with status 400 on validation failure
+            6. Call handler on success
+            """
             # Query should be in kwargs or as a positional arg
             query = kwargs.get("query")
             if query is None:

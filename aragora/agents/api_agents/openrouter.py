@@ -4,7 +4,6 @@ OpenRouter agent and provider-specific subclasses.
 
 import aiohttp
 import asyncio
-import json
 import logging
 from typing import AsyncGenerator
 
@@ -18,7 +17,7 @@ from aragora.agents.api_agents.common import (
     AgentStreamError,
     get_api_key,
     _sanitize_error_message,
-    iter_chunks_with_timeout,
+    create_openai_sse_parser,
 )
 from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
@@ -274,36 +273,13 @@ class OpenRouterAgent(APIAgent):
                                 agent_name=self.name,
                             )
 
-                        # OpenRouter uses SSE format (OpenAI-compatible)
-                        buffer = ""
-                        # Use timeout wrapper to prevent hanging on stalled streams
-                        async for chunk in iter_chunks_with_timeout(response.content):
-                            buffer += chunk.decode('utf-8', errors='ignore')
-
-                            while '\n' in buffer:
-                                line, buffer = buffer.split('\n', 1)
-                                line = line.strip()
-
-                                if not line or not line.startswith('data: '):
-                                    continue
-
-                                data_str = line[6:]
-
-                                if data_str == '[DONE]':
-                                    return
-
-                                try:
-                                    event = json.loads(data_str)
-                                    choices = event.get('choices', [])
-                                    if choices:
-                                        delta = choices[0].get('delta', {})
-                                        content = delta.get('content', '')
-                                        if content:
-                                            yield content
-
-                                except json.JSONDecodeError:
-                                    continue
-
+                        # Use SSEStreamParser for consistent SSE parsing (OpenAI-compatible)
+                        try:
+                            parser = create_openai_sse_parser()
+                            async for content in parser.parse_stream(response.content, self.name):
+                                yield content
+                        except RuntimeError as e:
+                            raise AgentStreamError(str(e), agent_name=self.name)
                         # Successfully streamed - exit retry loop
                         return
 

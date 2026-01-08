@@ -166,6 +166,7 @@ class GitProvenanceTracker:
                 capture_output=True,
                 text=True,
                 timeout=30,
+                shell=False,
             )
             if result.returncode != 0:
                 return False, result.stderr.strip() or f"git command failed (exit {result.returncode})"

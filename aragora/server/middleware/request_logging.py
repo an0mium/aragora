@@ -239,8 +239,25 @@ def request_logging(
             ...
     """
     def decorator(func: Callable) -> Callable:
+        """Create a logging wrapper for the given handler function.
+
+        Detects whether the handler is async or sync and returns the appropriate
+        wrapper. Both wrappers provide identical logging behavior.
+        """
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
+            """Async wrapper that logs request start, completion, and errors.
+
+            Flow:
+            1. Extract request from args (handler signature: self, request, ...)
+            2. Generate or extract request ID from X-Request-ID header
+            3. Build RequestContext with method, path, client IP, start time
+            4. Log request start
+            5. Execute handler and capture response
+            6. Log response with status, size, and elapsed time
+            7. Warn if request exceeds slow_request_threshold_ms
+            8. Add X-Request-ID header to response
+            """
             # Extract request info from args (assumes first arg after self is request)
             request = args[1] if len(args) > 1 else kwargs.get("request")
 
@@ -297,7 +314,10 @@ def request_logging(
 
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
-            # Similar logic for sync handlers
+            """Sync wrapper that logs request start, completion, and errors.
+
+            Mirrors async_wrapper behavior for synchronous handlers.
+            """
             request = args[1] if len(args) > 1 else kwargs.get("request")
 
             request_id = generate_request_id()

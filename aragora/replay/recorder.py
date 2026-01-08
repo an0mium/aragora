@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from aragora.config import MAX_REPLAY_QUEUE_SIZE
 from .schema import ReplayEvent, ReplayMeta
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ class ReplayRecorder:
             started_at=datetime.utcnow().isoformat()
         )
         
-        self._write_queue: queue.Queue = queue.Queue(maxsize=10000)
+        self._write_queue: queue.Queue = queue.Queue(maxsize=MAX_REPLAY_QUEUE_SIZE)
         self._writer_thread: Optional[threading.Thread] = None
         self._stop_writer = threading.Event()
         self._event_count_lock = threading.Lock()

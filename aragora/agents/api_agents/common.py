@@ -342,11 +342,15 @@ class SSEStreamParser:
                     # Parse JSON and extract content
                     try:
                         event = json.loads(data_str)
+                        if not isinstance(event, dict):
+                            logger.debug(f"[{agent_name}] Unexpected JSON type: {type(event).__name__}")
+                            continue
                         content = self.content_extractor(event)
                         if content:
                             yield content
-                    except json.JSONDecodeError:
-                        # Skip malformed JSON lines
+                    except json.JSONDecodeError as e:
+                        # Log malformed JSON for debugging, skip gracefully
+                        logger.debug(f"[{agent_name}] Malformed JSON in stream: {e}")
                         continue
 
         except asyncio.TimeoutError:
@@ -361,11 +365,17 @@ class SSEStreamParser:
 def create_openai_sse_parser() -> SSEStreamParser:
     """Create an SSE parser configured for OpenAI API responses."""
     def extract_openai_content(event: dict) -> str:
-        choices = event.get('choices', [])
-        if choices:
-            delta = choices[0].get('delta', {})
-            return delta.get('content', '')
-        return ''
+        choices = event.get('choices')
+        if not choices or not isinstance(choices, list) or len(choices) == 0:
+            return ''
+        first_choice = choices[0]
+        if not isinstance(first_choice, dict):
+            return ''
+        delta = first_choice.get('delta')
+        if not isinstance(delta, dict):
+            return ''
+        content = delta.get('content', '')
+        return content if isinstance(content, str) else ''
 
     return SSEStreamParser(content_extractor=extract_openai_content)
 
@@ -373,11 +383,15 @@ def create_openai_sse_parser() -> SSEStreamParser:
 def create_anthropic_sse_parser() -> SSEStreamParser:
     """Create an SSE parser configured for Anthropic API responses."""
     def extract_anthropic_content(event: dict) -> str:
-        if event.get('type') == 'content_block_delta':
-            delta = event.get('delta', {})
-            if delta.get('type') == 'text_delta':
-                return delta.get('text', '')
-        return ''
+        if event.get('type') != 'content_block_delta':
+            return ''
+        delta = event.get('delta')
+        if not isinstance(delta, dict):
+            return ''
+        if delta.get('type') != 'text_delta':
+            return ''
+        text = delta.get('text', '')
+        return text if isinstance(text, str) else ''
 
     return SSEStreamParser(content_extractor=extract_anthropic_content)
 

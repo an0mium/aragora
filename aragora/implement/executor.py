@@ -179,6 +179,7 @@ Make only the changes specified. Follow existing code style."""
                 capture_output=True,
                 text=True,
                 timeout=180,  # Minimum 3 min (was 30)
+                shell=False,
             )
             return result.stdout
         except subprocess.TimeoutExpired:

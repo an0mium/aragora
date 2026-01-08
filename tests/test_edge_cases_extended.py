@@ -44,8 +44,12 @@ class TestEmptyAgentListGuards:
         # Mock protocol with topology attribute
         arena.protocol = MagicMock()
         arena.protocol.topology = "all-to-all"
+        # Need at least one agent to pass _require_agents() check
+        mock_agent = MagicMock()
+        mock_agent.name = "agent1"
+        arena.agents = [mock_agent]
 
-        # Empty critics should return empty list, not crash
+        # Empty critics list should return empty list, not crash
         result = arena._select_critics_for_proposal("agent1", [])
         assert result == []
 

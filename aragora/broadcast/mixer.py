@@ -108,7 +108,7 @@ def mix_audio_with_ffmpeg(audio_files: List[Path], output_path: Path) -> bool:
                 "-i", file_list, "-c", "copy", str(output_path)
             ]
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, shell=False)
             if result.returncode != 0:
                 logger.error(f"FFmpeg mixing failed (exit {result.returncode}): {result.stderr}")
                 return False
