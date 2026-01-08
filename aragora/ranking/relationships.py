@@ -11,11 +11,12 @@ Usage:
     rivals = tracker.get_rivals("claude")
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
 
 from aragora.ranking.database import EloDatabase
 
@@ -81,7 +82,7 @@ class RelationshipTracker:
         allies = tracker.get_allies("claude", limit=5)
     """
 
-    def __init__(self, db_path: Union[str, Path]):
+    def __init__(self, db_path: str | Path):
         """
         Initialize the relationship tracker.
 
@@ -250,7 +251,7 @@ class RelationshipTracker:
                 )
             conn.commit()
 
-    def get_raw(self, agent_a: str, agent_b: str) -> Optional[RelationshipStats]:
+    def get_raw(self, agent_a: str, agent_b: str) -> RelationshipStats | None:
         """
         Get raw relationship data between two agents.
 
