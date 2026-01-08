@@ -7,6 +7,7 @@ failure handling in API calls and agent interactions.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import time
@@ -415,7 +416,12 @@ class CircuitBreaker:
         try:
             yield
             self.record_success(entity)
+        except asyncio.CancelledError:
+            # Task cancellation is not a service failure - don't record
+            raise
         except Exception as e:
+            # Record all other exceptions as failures (includes TimeoutError,
+            # connection errors, API errors, etc.)
             logger.debug(f"Circuit breaker recorded failure for {name}: {type(e).__name__}: {e}")
             self.record_failure(entity)
             raise
@@ -450,6 +456,8 @@ class CircuitBreaker:
             yield
             self.record_success(entity)
         except Exception as e:
+            # Record all exceptions as failures (includes TimeoutError,
+            # connection errors, API errors, etc.)
             logger.debug(f"Circuit breaker (sync) recorded failure for {name}: {type(e).__name__}: {e}")
             self.record_failure(entity)
             raise
