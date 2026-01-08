@@ -102,9 +102,11 @@ class DashboardHandler(BaseHandler):
         result["system_health"] = self._get_system_health()
 
         request_elapsed = time.perf_counter() - request_start
+        summary = result.get("summary", {})
+        total_debates = summary.get("total_debates", 0) if isinstance(summary, dict) else 0
         logger.debug(
             "Dashboard response: elapsed=%.3fs, total_debates=%d",
-            request_elapsed, result.get("summary", {}).get("total_debates", 0)
+            request_elapsed, total_debates
         )
         return json_response(result)
 

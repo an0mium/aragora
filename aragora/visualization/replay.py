@@ -116,8 +116,8 @@ class ReplayGenerator:
 
     def _extract_scenes(self, messages: List[Message], trace: Optional["DebateTrace"] = None) -> List[ReplayScene]:
         """Extract scenes (rounds) from messages with consensus indicators."""
-        scenes = []
-        round_groups = {}
+        scenes: List[ReplayScene] = []
+        round_groups: Dict[int, List[Message]] = {}
 
         # Group messages by round
         for msg in messages:

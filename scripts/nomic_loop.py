@@ -6119,7 +6119,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 "agents_succeeded": result.data.get("agents_succeeded", 0),
             }
 
-        # Inline implementation (legacy)
+        # DEPRECATED: Legacy inline implementation (opt-out only via USE_EXTRACTED_PHASES=0)
         phase_start = datetime.now()
 
         # Determine how many agents will participate
@@ -6277,7 +6277,7 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
                 "confidence": result.confidence,
             }
 
-        # Inline implementation (legacy)
+        # DEPRECATED: Legacy inline implementation (opt-out only via USE_EXTRACTED_PHASES=0)
         phase_start = datetime.now()
         self._log("\n" + "=" * 70)
         self._log("PHASE 1: IMPROVEMENT DEBATE")
@@ -7096,7 +7096,7 @@ Recent changes:
                 "complexity": result.complexity_estimate,
             }
 
-        # Inline implementation (legacy)
+        # DEPRECATED: Legacy inline implementation (opt-out only via USE_EXTRACTED_PHASES=0)
         phase_start = datetime.now()
         self._log("\n" + "=" * 70)
         self._log("PHASE 2: IMPLEMENTATION DESIGN")
@@ -7909,7 +7909,7 @@ Designs missing any of these will be automatically rejected as non-viable.
                 "error": result.error if hasattr(result, 'error') else None,
             }
 
-        # Inline implementation (legacy)
+        # DEPRECATED: Legacy inline implementation (opt-out only via USE_EXTRACTED_PHASES=0)
         phase_start = datetime.now()
         self._log("\n" + "=" * 70)
         self._log("PHASE 3: IMPLEMENTATION (Hybrid)")
@@ -8169,7 +8169,7 @@ CRITICAL SAFETY RULES:
                 "stale_claims": result.get("data", {}).get("stale_claims", []),
             }
 
-        # Inline implementation (legacy)
+        # DEPRECATED: Legacy inline implementation (opt-out only via USE_EXTRACTED_PHASES=0)
         phase_start = datetime.now()
         self._log("\n" + "=" * 70)
         self._log("PHASE 4: VERIFICATION")
@@ -8386,7 +8386,7 @@ Be concise - this is a quality gate, not a full review."""
                 "commit_hash": result.get("commit_hash"),
             }
 
-        # Inline implementation (legacy)
+        # DEPRECATED: Legacy inline implementation (opt-out only via USE_EXTRACTED_PHASES=0)
         phase_start = datetime.now()
         self._log("\n" + "=" * 70)
         self._log("PHASE 5: COMMIT")

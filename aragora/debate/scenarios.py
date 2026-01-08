@@ -438,7 +438,7 @@ class ScenarioComparator:
         universal = set.intersection(*all_claims) if all_claims else set()
 
         # Find conditional conclusions (vary by scenario parameters)
-        conditional = {}
+        conditional: dict[str, list[str]] = {}
         for r in results:
             scenario = next(
                 (s for s in matrix_result.scenarios if s.id == r.scenario_id),

@@ -430,10 +430,10 @@ class PulseManager:
         if platforms is None:
             platforms = list(self.ingestors.keys())
 
-        all_topics = []
+        all_topics: List[TrendingTopic] = []
 
         # Fetch concurrently from all platforms
-        tasks = []
+        tasks: List[Any] = []
         for platform in platforms:
             if platform in self.ingestors:
                 tasks.append(self.ingestors[platform].fetch_trending(limit_per_platform))

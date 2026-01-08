@@ -160,44 +160,47 @@ class MetricsHandler(BaseHandler):
     def _get_health(self) -> HandlerResult:
         """Get detailed health check status."""
         try:
-            health: dict[str, object] = {
-                "status": "healthy",
-                "checks": {},
-            }
+            checks: dict[str, dict[str, Any]] = {}
+            status = "healthy"
 
             # Check storage
             storage = self.get_storage()
             if storage:
                 try:
                     storage.list_debates(limit=1)
-                    health["checks"]["storage"] = {"status": "healthy"}
+                    checks["storage"] = {"status": "healthy"}
                 except Exception as e:
-                    health["checks"]["storage"] = {"status": "unhealthy", "error": str(e)}
-                    health["status"] = "degraded"
+                    checks["storage"] = {"status": "unhealthy", "error": str(e)}
+                    status = "degraded"
             else:
-                health["checks"]["storage"] = {"status": "unavailable"}
+                checks["storage"] = {"status": "unavailable"}
 
             # Check ELO system
             elo = self.get_elo_system()
             if elo:
                 try:
                     elo.get_leaderboard(limit=1)
-                    health["checks"]["elo_system"] = {"status": "healthy"}
+                    checks["elo_system"] = {"status": "healthy"}
                 except Exception as e:
-                    health["checks"]["elo_system"] = {"status": "unhealthy", "error": str(e)}
-                    health["status"] = "degraded"
+                    checks["elo_system"] = {"status": "unhealthy", "error": str(e)}
+                    status = "degraded"
             else:
-                health["checks"]["elo_system"] = {"status": "unavailable"}
+                checks["elo_system"] = {"status": "unavailable"}
 
             # Check nomic directory
             nomic_dir = self.get_nomic_dir()
             if nomic_dir and nomic_dir.exists():
-                health["checks"]["nomic_dir"] = {
+                checks["nomic_dir"] = {
                     "status": "healthy",
                     "path": str(nomic_dir),
                 }
             else:
-                health["checks"]["nomic_dir"] = {"status": "unavailable"}
+                checks["nomic_dir"] = {"status": "unavailable"}
+
+            health: dict[str, Any] = {
+                "status": status,
+                "checks": checks,
+            }
 
             # Overall status code
             status_code = 200 if health["status"] == "healthy" else 503
