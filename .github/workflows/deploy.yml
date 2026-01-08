@@ -104,6 +104,8 @@ jobs:
           ssh -i ~/.ssh/lightsail ubuntu@${{ secrets.LIGHTSAIL_HOST }} << 'EOF'
             set -e
             cd /home/ubuntu/aragora
+            echo "Stashing any local changes..."
+            git stash --include-untracked || true
             echo "Pulling latest code..."
             git pull origin main
             source venv/bin/activate
@@ -152,6 +154,8 @@ jobs:
           ssh -i ~/.ssh/ec2 ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
             cd ~/aragora || cd /home/ec2-user/aragora || cd /home/ubuntu/aragora
+            echo "Stashing any local changes..."
+            git stash --include-untracked || true
             echo "Pulling latest code..."
             git pull origin main
             source venv/bin/activate || source ~/venv/bin/activate
