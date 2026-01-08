@@ -19,6 +19,7 @@ from .base import (
     get_clamped_int_param,
     get_bounded_float_param,
     get_bounded_string_param,
+    handle_errors,
 )
 
 # Optional import for memory functionality

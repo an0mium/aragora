@@ -292,7 +292,7 @@ class ImpactDetector:
         messages: list[Message],
     ) -> dict[str, set[str]]:
         """Find claims that agents disagree on."""
-        disagreements = {}
+        disagreements: dict[str, set[str]] = {}
 
         for msg in messages:
             content_lower = msg.content.lower()
@@ -595,7 +595,7 @@ class CounterfactualOrchestrator:
             branch_b_conclusion=branch_b.conclusion or "",
             branch_a_confidence=branch_a.confidence,
             branch_b_confidence=branch_b.confidence,
-            conclusions_differ=conclusions_differ,
+            conclusions_differ=bool(conclusions_differ),
             key_differences=key_differences,
             shared_insights=shared_insights,
             recommended_branch=recommended,
@@ -617,7 +617,7 @@ class CounterfactualOrchestrator:
         ]
 
         # List branches by pivot
-        pivots = {}
+        pivots: dict[str, dict[str, Any]] = {}
         for branch in self.branches.values():
             pivot_id = branch.pivot_claim.claim_id
             if pivot_id not in pivots:
@@ -628,7 +628,8 @@ class CounterfactualOrchestrator:
             pivots[pivot_id]["branches"].append(branch)
 
         for pivot_id, data in pivots.items():
-            lines.append(f"## Pivot: {data['claim'].statement[:100]}...")
+            claim = data['claim']
+            lines.append(f"## Pivot: {claim.statement[:100]}...")
             lines.append("")
 
             for branch in data["branches"]:
