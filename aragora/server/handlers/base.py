@@ -262,6 +262,8 @@ def invalidate_on_event(event_name: str) -> int:
         total_cleared += cleared
         if cleared > 0:
             logger.debug(f"Cache invalidation: {event_name} cleared {cleared} entries with prefix '{prefix}'")
+    if total_cleared > 0:
+        logger.info(f"Cache invalidated: event={event_name}, entries_cleared={total_cleared}")
     return total_cleared
 
 
