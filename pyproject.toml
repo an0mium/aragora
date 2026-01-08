@@ -110,6 +110,8 @@ filterwarnings = [
     "ignore::PendingDeprecationWarning",
     # Ignore pytest collection warnings for non-test classes in pipeline/test_plan.py
     "ignore:cannot collect test class.*:pytest.PytestCollectionWarning",
+    # Ignore unawaited coroutine warnings from AsyncMock cleanup during tests
+    "ignore:coroutine .* was never awaited:RuntimeWarning",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
