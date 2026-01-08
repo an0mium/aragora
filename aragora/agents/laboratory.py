@@ -133,7 +133,7 @@ class PersonaLaboratory:
         with self.db.connection() as conn:
             yield conn
 
-    def _init_db(self):
+    def _init_db(self) -> None:
         """Initialize laboratory database schema."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -242,7 +242,7 @@ class PersonaLaboratory:
         self._save_experiment(experiment)
         return experiment
 
-    def _save_experiment(self, exp: PersonaExperiment):
+    def _save_experiment(self, exp: PersonaExperiment) -> None:
         """Save experiment to database."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -433,7 +433,7 @@ class PersonaLaboratory:
 
         return emergent
 
-    def _save_emergent_trait(self, trait: EmergentTrait):
+    def _save_emergent_trait(self, trait: EmergentTrait) -> None:
         """Save emergent trait to database."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -548,7 +548,7 @@ class PersonaLaboratory:
 
         return transfer
 
-    def _save_transfer(self, transfer: TraitTransfer):
+    def _save_transfer(self, transfer: TraitTransfer) -> None:
         """Save trait transfer to database."""
         with self._get_connection() as conn:
             cursor = conn.cursor()

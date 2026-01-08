@@ -157,19 +157,19 @@ class TestOrchestratorTimeout:
 
     @pytest.mark.asyncio
     async def test_with_timeout_success(self, basic_env, mock_agents):
-        """_with_timeout should return result on success."""
+        """AutonomicExecutor.with_timeout should return result on success."""
         protocol = DebateProtocol()
         arena = Arena(basic_env, mock_agents, protocol)
 
         async def quick_task():
             return "success"
 
-        result = await arena._with_timeout(quick_task(), "test-agent", timeout_seconds=5.0)
+        result = await arena.autonomic.with_timeout(quick_task(), "test-agent", timeout_seconds=5.0)
         assert result == "success"
 
     @pytest.mark.asyncio
     async def test_with_timeout_raises_on_timeout(self, basic_env, mock_agents):
-        """_with_timeout should raise TimeoutError when exceeded."""
+        """AutonomicExecutor.with_timeout should raise TimeoutError when exceeded."""
         protocol = DebateProtocol()
         arena = Arena(basic_env, mock_agents, protocol)
 
@@ -178,7 +178,7 @@ class TestOrchestratorTimeout:
             return "never reached"
 
         with pytest.raises(TimeoutError) as exc_info:
-            await arena._with_timeout(slow_task(), "test-agent", timeout_seconds=0.1)
+            await arena.autonomic.with_timeout(slow_task(), "test-agent", timeout_seconds=0.1)
 
         assert "test-agent" in str(exc_info.value)
         assert "timed out" in str(exc_info.value)
@@ -193,7 +193,7 @@ class TestOrchestratorTimeout:
             await asyncio.sleep(10)
 
         with pytest.raises(TimeoutError):
-            await arena._with_timeout(slow_task(), "claude", timeout_seconds=0.1)
+            await arena.autonomic.with_timeout(slow_task(), "claude", timeout_seconds=0.1)
 
         # Circuit breaker should have recorded the failure
         # The _failures dict tracks per-entity failures

@@ -139,7 +139,7 @@ class DisagreementReporter:
         Returns:
             List of (description, majority_agents, minority_agents) tuples
         """
-        split_opinions = []
+        split_opinions: list[tuple[str, list[str], list[str]]] = []
 
         if len(vote_choices) <= 1:
             return split_opinions

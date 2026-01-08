@@ -627,7 +627,7 @@ class MomentDetector:
             moments.sort(key=lambda m: (m.significance_score, m.created_at), reverse=True)
             self._moment_cache[agent_name] = moments[:self._max_moments_per_agent]
 
-    def record_moment(self, moment: SignificantMoment):
+    def record_moment(self, moment: SignificantMoment) -> None:
         """Record a detected moment."""
         if moment.agent_name not in self._moment_cache:
             self._moment_cache[moment.agent_name] = []

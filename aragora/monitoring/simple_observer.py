@@ -16,7 +16,7 @@ class SimpleObserver:
     Tracks completion rates, null bytes, and loop_id issues.
     """
     def __init__(self, log_file: str = "system_health.log"):
-        self.metrics = {}
+        self.metrics: Dict[str, Dict[str, Any]] = {}
         self.log_file = log_file
         self.logger = logging.getLogger('aragora_observer')
         if not self.logger.handlers:

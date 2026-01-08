@@ -190,7 +190,7 @@ class LocalDocsConnector(BaseConnector):
             # Escape special chars for literal search
             pattern = re.compile(re.escape(query), re.IGNORECASE)
 
-        results = []
+        results: list[Evidence] = []
 
         # Walk directory tree
         for root, dirs, files in os.walk(self.root_path):
@@ -246,9 +246,7 @@ class LocalDocsConnector(BaseConnector):
         # Extract path from evidence_id
         if evidence_id.startswith("local:"):
             # Need to find file by hash - check cache
-            if evidence_id in self._cache:
-                return self._cache[evidence_id]
-            return None
+            return self._cache_get(evidence_id)
 
         # Treat as file path
         path = self.root_path / evidence_id

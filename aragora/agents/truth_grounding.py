@@ -57,7 +57,7 @@ class PositionTracker:
         with self.db.connection() as conn:
             yield conn
 
-    def _init_db(self):
+    def _init_db(self) -> None:
         """Initialize database schema."""
         with self._get_connection() as conn:
             cursor = conn.cursor()

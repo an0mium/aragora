@@ -368,7 +368,7 @@ class ProbeFilter:
 
     def get_all_profiles(self) -> dict[str, ProbeProfile]:
         """Get profiles for all agents with probe data."""
-        profiles = {}
+        profiles: dict[str, ProbeProfile] = {}
 
         if not self.probes_dir.exists():
             return profiles
