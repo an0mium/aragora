@@ -2495,6 +2495,64 @@ The most valuable proposals combine deep analysis with actionable implementation
             stream_emit_fn=self._stream_emit,
         )
 
+    def _create_debate_phase(self) -> "DebatePhase":
+        """Create an extracted DebatePhase instance.
+
+        NOTE: The inline phase_debate() is ~787 lines with extensive post-processing
+        integrations (ELO, calibration, relationships, personas, etc.). Full migration
+        requires providing PostDebateHooks callbacks for all integrations.
+
+        Current status: Factory method available for external callers.
+        Full inline migration: Pending hooks architecture.
+        """
+        if not _NOMIC_PHASES_AVAILABLE:
+            raise RuntimeError("Extracted phases not available")
+
+        return DebatePhase(
+            aragora_path=self.aragora_path,
+            agents=getattr(self, 'agents', []),
+            arena_factory=lambda *args, **kwargs: Arena(*args, **kwargs),
+            environment_factory=lambda *args, **kwargs: Environment(*args, **kwargs),
+            protocol_factory=lambda *args, **kwargs: DebateProtocol(*args, **kwargs),
+            config=DebateConfig(),
+            nomic_integration=self.nomic_integration if hasattr(self, 'nomic_integration') else None,
+            cycle_count=self.cycle_count,
+            initial_proposal=self.initial_proposal if hasattr(self, 'initial_proposal') else None,
+            log_fn=self._log,
+            stream_emit_fn=self._stream_emit,
+            record_replay_fn=self._record_replay_event if hasattr(self, '_record_replay_event') else None,
+        )
+
+    def _create_design_phase(self) -> "DesignPhase":
+        """Create an extracted DesignPhase instance.
+
+        NOTE: The inline phase_design() is ~300 lines with belief network integration,
+        deadlock resolution, and agent probing. Full migration requires passing
+        additional configuration and callbacks.
+
+        Current status: Factory method available for external callers.
+        Full inline migration: Pending hooks architecture.
+        """
+        if not _NOMIC_PHASES_AVAILABLE:
+            raise RuntimeError("Extracted phases not available")
+
+        return DesignPhase(
+            aragora_path=self.aragora_path,
+            agents=getattr(self, 'agents', []),
+            arena_factory=lambda *args, **kwargs: Arena(*args, **kwargs),
+            environment_factory=lambda *args, **kwargs: Environment(*args, **kwargs),
+            protocol_factory=lambda *args, **kwargs: DebateProtocol(*args, **kwargs),
+            config=DesignConfig(),
+            nomic_integration=self.nomic_integration if hasattr(self, 'nomic_integration') else None,
+            deep_audit_fn=self._deep_audit if hasattr(self, '_deep_audit') else None,
+            arbitrate_fn=self._arbitrate_designs if hasattr(self, '_arbitrate_designs') else None,
+            max_cycle_seconds=self.max_cycle_seconds if hasattr(self, 'max_cycle_seconds') else 3600,
+            cycle_count=self.cycle_count,
+            log_fn=self._log,
+            stream_emit_fn=self._stream_emit,
+            record_replay_fn=self._record_replay_event if hasattr(self, '_record_replay_event') else None,
+        )
+
     def get_current_features(self) -> str:
         """Read current aragora state from the codebase."""
         init_file = self.aragora_path / "aragora" / "__init__.py"
@@ -7883,6 +7941,19 @@ CRITICAL SAFETY RULES:
 
     async def phase_verify(self) -> dict:
         """Phase 4: Verify changes work."""
+        # Use extracted phase class if enabled
+        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
+            verify_phase = self._create_verify_phase()
+            result = await verify_phase.execute()
+            # Convert VerifyResult to dict for backward compatibility
+            return {
+                "phase": "verify",
+                "checks": result.get("data", {}).get("checks", []),
+                "all_passed": result.get("tests_passed", False),
+                "stale_claims": result.get("data", {}).get("stale_claims", []),
+            }
+
+        # Inline implementation (legacy)
         phase_start = datetime.now()
         self._log("\n" + "=" * 70)
         self._log("PHASE 4: VERIFICATION")
@@ -8087,6 +8158,19 @@ Be concise - this is a quality gate, not a full review."""
 
     async def phase_commit(self, improvement: str) -> dict:
         """Phase 5: Commit changes if verified."""
+        # Use extracted phase class if enabled
+        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
+            commit_phase = self._create_commit_phase()
+            result = await commit_phase.execute(improvement)
+            # Convert CommitResult to dict for backward compatibility
+            return {
+                "phase": "commit",
+                "committed": result.get("committed", False),
+                "message": result.get("data", {}).get("message", improvement.replace('\n', ' ')),
+                "commit_hash": result.get("commit_hash"),
+            }
+
+        # Inline implementation (legacy)
         phase_start = datetime.now()
         self._log("\n" + "=" * 70)
         self._log("PHASE 5: COMMIT")
