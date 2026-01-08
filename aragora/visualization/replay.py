@@ -194,7 +194,7 @@ class ReplayGenerator:
 
         if consensus and vote_breakdown:
             # Sort by count descending
-            sorted_votes = sorted(vote_breakdown, key=lambda x: int(x.get("count", 0) or 0), reverse=True)  # type: ignore[arg-type]
+            sorted_votes = sorted(vote_breakdown, key=lambda x: int(str(x.get("count", 0) or 0)), reverse=True)
 
             if len(sorted_votes) >= 2 and sorted_votes[0]["count"] == sorted_votes[1]["count"]:
                 winner_label = "Tie"
