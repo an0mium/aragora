@@ -2649,6 +2649,7 @@ The most valuable proposals combine deep analysis with actionable implementation
         - on_elo_recorded → _record_elo_match
         - on_claims_extracted → _extract_claims_from_debate
         - on_belief_network_built → _build_belief_network
+        - on_risks_tracked → _track_debate_risks
         """
         if not _NOMIC_PHASES_AVAILABLE:
             raise RuntimeError("Extracted phases not available")
@@ -2687,6 +2688,9 @@ The most valuable proposals combine deep analysis with actionable implementation
         def belief_hook(result):
             self._build_belief_network()
 
+        def risks_hook(result, topic):
+            self._track_debate_risks(result, topic)
+
         return PostDebateHooks(
             on_consensus_stored=consensus_hook,
             on_calibration_recorded=calibration_hook,
@@ -2698,6 +2702,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             on_elo_recorded=elo_hook,
             on_claims_extracted=claims_hook,
             on_belief_network_built=belief_hook,
+            on_risks_tracked=risks_hook,
         )
 
     def get_current_features(self) -> str:
