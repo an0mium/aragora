@@ -70,7 +70,7 @@ class StreamAPIHandlersMixin:
     cartographers: Dict[str, "ArgumentCartographer"]
     _cartographers_lock: threading.Lock
     audience_inbox: Optional["AudienceInbox"]
-    emitter: Optional["SyncEventEmitter"]
+    emitter: "SyncEventEmitter"
     _cors_headers: Callable[[Optional[str]], Dict[str, str]]
 
     # =========================================================================

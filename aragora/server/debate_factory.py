@@ -7,7 +7,7 @@ for better modularity and testability.
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import ALLOWED_AGENT_TYPES, MAX_AGENTS_PER_DEBATE
 
@@ -20,15 +20,17 @@ except ImportError:
     create_agent = None  # type: ignore
 
 if TYPE_CHECKING:
-    from aragora.core import Environment, DebateProtocol
+    from aragora.core import Environment
+    from aragora.debate.protocol import DebateProtocol
     from aragora.debate.orchestrator import Arena
     from aragora.ranking.elo import EloSystem
     from aragora.agents.personas import PersonaManager
-    from aragora.memory.embeddings import DebateEmbeddings
-    from aragora.agents.grounded import PositionTracker, PositionLedger
+    from aragora.debate.embeddings import DebateEmbeddingsDatabase as DebateEmbeddings  # type: ignore[attr-defined]
+    from aragora.agents.truth_grounding import PositionTracker  # type: ignore[attr-defined]
+    from aragora.agents.grounded import PositionLedger, MomentDetector  # type: ignore[attr-defined]
     from aragora.insights.flip_detector import FlipDetector
-    from aragora.insights.store import DissentRetriever, MomentDetector
-    from aragora.server.stream import StreamEmitter, StreamEvent
+    from aragora.memory.consensus import DissentRetriever  # type: ignore[attr-defined]
+    from aragora.server.stream import StreamEvent, SyncEventEmitter  # type: ignore[attr-defined]
 
 
 @dataclass
@@ -146,7 +148,7 @@ class DebateFactory:
         flip_detector: Optional["FlipDetector"] = None,
         dissent_retriever: Optional["DissentRetriever"] = None,
         moment_detector: Optional["MomentDetector"] = None,
-        stream_emitter: Optional["StreamEmitter"] = None,
+        stream_emitter: Optional["SyncEventEmitter"] = None,
     ):
         """Initialize the debate factory.
 
@@ -174,7 +176,7 @@ class DebateFactory:
     def create_agents(
         self,
         specs: list[AgentSpec],
-        stream_wrapper: Optional[callable] = None,
+        stream_wrapper: Optional[Callable[..., Any]] = None,
         debate_id: Optional[str] = None,
     ) -> AgentCreationResult:
         """Create agents from specifications.
@@ -196,7 +198,7 @@ class DebateFactory:
             role = spec.role or "proposer"
             try:
                 agent = create_agent(
-                    model_type=spec.agent_type,
+                    model_type=spec.agent_type,  # type: ignore[arg-type]
                     name=spec.name,
                     role=role,
                 )
@@ -246,7 +248,7 @@ class DebateFactory:
         self,
         config: DebateConfig,
         event_hooks: Optional[dict] = None,
-        stream_wrapper: Optional[callable] = None,
+        stream_wrapper: Optional[Callable[..., Any]] = None,
     ) -> "Arena":
         """Create a fully configured debate arena.
 
@@ -290,7 +292,7 @@ class DebateFactory:
         )
         protocol = DebateProtocol(
             rounds=config.rounds,
-            consensus=config.consensus,
+            consensus=config.consensus,  # type: ignore[arg-type]
             proposer_count=len(agent_result.agents),
             topology="all-to-all",
         )
@@ -343,4 +345,4 @@ class DebateFactory:
             ]
             if open_circuits:
                 logger.debug(f"Resetting open circuits for: {open_circuits}")
-                arena.circuit_breaker.reset_all()
+                arena.circuit_breaker.reset()

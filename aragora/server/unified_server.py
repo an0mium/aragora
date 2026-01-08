@@ -14,7 +14,19 @@ import re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from threading import Thread
-from typing import Any, Coroutine, Optional, Dict
+from typing import TYPE_CHECKING, Any, Coroutine, Optional, Dict
+
+if TYPE_CHECKING:
+    from aragora.persistence.supabase import SupabaseClient
+    from aragora.insights.store import InsightStore
+    from aragora.ranking.elo import EloSystem
+    from aragora.insights.flip_detector import FlipDetector
+    from aragora.agents.personas import PersonaManager
+    from aragora.debate.embeddings import DebateEmbeddingsDatabase
+    from aragora.agents.truth_grounding import PositionTracker  # type: ignore[attr-defined]
+    from aragora.agents.grounded import PositionLedger  # type: ignore[attr-defined]
+    from aragora.memory.consensus import ConsensusMemory, DissentRetriever  # type: ignore[attr-defined]
+    from aragora.agents.grounded import MomentDetector  # type: ignore[attr-defined]
 from urllib.parse import urlparse, parse_qs
 
 from .stream import DebateStreamServer, SyncEventEmitter, StreamEvent, StreamEventType, create_arena_hooks
@@ -217,7 +229,7 @@ from aragora.server.handler_registry import (
 _server_start_time: float = time.time()
 
 
-class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):
+class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ignore[misc]
     """HTTP handler with API endpoints and static file serving.
 
     Handler routing is provided by HandlerRegistryMixin from handler_registry.py.
@@ -897,7 +909,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):
             content = filepath.read_bytes()
             self.send_response(200)
             self.send_header('Content-Type', content_type)
-            self.send_header('Content-Length', len(content))
+            self.send_header('Content-Length', str(len(content)))
             self._add_cors_headers()
             self._add_security_headers()
             self.end_headers()
@@ -918,7 +930,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):
         content = json.dumps(data).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', len(content))
+        self.send_header('Content-Length', str(len(content)))
         self._add_cors_headers()
         self._add_security_headers()
         self.end_headers()

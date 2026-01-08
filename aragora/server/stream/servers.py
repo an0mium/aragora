@@ -23,7 +23,7 @@ import threading
 import time
 from collections import OrderedDict
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional, Any, Dict
+from typing import TYPE_CHECKING, Callable, Optional, Any, Dict, cast
 from urllib.parse import parse_qs, urlparse
 
 if TYPE_CHECKING:
@@ -154,7 +154,7 @@ from .debate_stream_server import DebateStreamServer
 # Unified HTTP + WebSocket Server (aiohttp-based)
 # =============================================================================
 
-class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
+class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[misc]
     """
     Unified server using aiohttp to handle both HTTP API and WebSocket on a single port.
 
@@ -259,7 +259,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
         if total > 0:
             logger.debug(f"Cleaned up {total} stale entries")
 
-    def _update_debate_state(self, event: StreamEvent) -> None:
+    def _update_debate_state(self, event: StreamEvent) -> None:  # type: ignore[override]
         """Update cached debate state based on emitted events.
 
         Overrides ServerBase._update_debate_state with StreamEvent-specific handling.
@@ -500,7 +500,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
                 if role is None:
                     role = "proposer"  # All agents propose and participate fully
                 agent = create_agent(
-                    model_type=agent_type,
+                    model_type=agent_type,  # type: ignore[arg-type]
                     name=f"{agent_type}_{role}",
                     role=role,
                 )
@@ -512,7 +512,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
             env = Environment(task=question, context="", max_rounds=rounds)
             protocol = DebateProtocol(
                 rounds=rounds,
-                consensus=consensus,
+                consensus=consensus,  # type: ignore[arg-type]
                 proposer_count=len(agents),  # All agents propose initially
                 topology="all-to-all",  # Everyone critiques everyone
             )
@@ -520,7 +520,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
             # Create arena with hooks and available context systems
             hooks = create_arena_hooks(self.emitter)
             arena = Arena(
-                env, agents, protocol,
+                env, agents, protocol,  # type: ignore[arg-type]
                 event_hooks=hooks,
                 event_emitter=self.emitter,
                 loop_id=debate_id,
@@ -741,7 +741,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
                 loop_id=loop_id,
             ))
 
-    async def _websocket_handler(self, request) -> 'aiohttp.web.WebSocketResponse':
+    async def _websocket_handler(self, request) -> 'aiohttp.web.StreamResponse':
         """Handle WebSocket connections with security validation and optional auth."""
         import aiohttp
         import aiohttp.web as web
@@ -786,8 +786,8 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
 
                 if not authenticated:
                     status = 429 if remaining == 0 else 401
-                    msg = "Rate limit exceeded" if remaining == 0 else "Authentication required"
-                    return web.Response(status=status, text=msg)
+                    error_msg = "Rate limit exceeded" if remaining == 0 else "Authentication required"
+                    return web.Response(status=status, text=error_msg)
 
                 is_authenticated = True
             else:
@@ -858,9 +858,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
 
         try:
             async for msg in ws:
-                if msg.type == aiohttp.WSMsgType.TEXT:
+                if msg.type == aiohttp.WSMsgType.TEXT:  # type: ignore[union-attr]
                     try:
-                        data = json.loads(msg.data)
+                        data = json.loads(msg.data)  # type: ignore[union-attr]
                         msg_type = data.get("type")
 
                         if msg_type == "get_loops":
@@ -931,7 +931,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
                                 pass
 
                             # Proprioceptive Socket: Bind loop_id to WebSocket for future reference
-                            ws._bound_loop_id = loop_id
+                            ws._bound_loop_id = loop_id  # type: ignore[attr-defined]
 
                             # Validate payload
                             payload, error = self._validate_audience_payload(data)
@@ -958,15 +958,15 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
                             "data": {"code": "INVALID_JSON", "message": f"JSON parse error: {e.msg}"}
                         })
 
-                elif msg.type == aiohttp.WSMsgType.ERROR:
+                elif msg.type == aiohttp.WSMsgType.ERROR:  # type: ignore[union-attr]
                     logger.error(f'[ws] Error: {ws.exception()}')
                     break
 
-                elif msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED):
+                elif msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED):  # type: ignore[union-attr]
                     logger.debug(f'[ws] Client {client_id[:8]}... closed connection')
                     break
 
-                elif msg.type == aiohttp.WSMsgType.BINARY:
+                elif msg.type == aiohttp.WSMsgType.BINARY:  # type: ignore[union-attr]
                     logger.warning(f'[ws] Binary message rejected from {client_id[:8]}...')
                     await ws.send_json({
                         "type": "error",
@@ -974,11 +974,11 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
                     })
 
                 # PING/PONG handled automatically by aiohttp, but log if we see them
-                elif msg.type in (aiohttp.WSMsgType.PING, aiohttp.WSMsgType.PONG):
+                elif msg.type in (aiohttp.WSMsgType.PING, aiohttp.WSMsgType.PONG):  # type: ignore[union-attr]
                     pass  # Handled by aiohttp automatically
 
                 else:
-                    logger.warning(f'[ws] Unhandled message type: {msg.type}')
+                    logger.warning(f'[ws] Unhandled message type: {msg.type}')  # type: ignore[union-attr]
 
         finally:
             self.clients.discard(ws)

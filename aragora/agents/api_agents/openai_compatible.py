@@ -56,6 +56,18 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
     # Default max tokens (can be overridden)
     max_tokens: int = 4096
 
+    # Expected from base class (APIAgent) - declared for type checking
+    api_key: str | None
+    base_url: str | None
+    model: str
+    name: str
+    agent_type: str
+    timeout: int
+
+    # Methods inherited from CritiqueMixin (via APIAgent):
+    # - _build_context_prompt(context: list[Message]) -> str
+    # - _parse_critique(response: str, target_agent: str, target_content: str) -> Critique
+
     def _build_headers(self) -> dict:
         """Build request headers. Override to add provider-specific headers."""
         headers = {

@@ -308,11 +308,11 @@ class NomicIntegration:
                     network.add_node_from_claim(claim)
 
             # Add factors from kernel relations
-            for relation in claims_kernel.relations:
+            for relation in claims_kernel.relations.values():
                 rel_type = relation.relation_type if isinstance(relation.relation_type, RelationType) else RelationType.SUPPORTS
                 network.add_factor(
-                    relation.source_id,
-                    relation.target_id,
+                    relation.source_claim_id,
+                    relation.target_claim_id,
                     relation_type=rel_type,
                     strength=0.7,
                 )
@@ -387,7 +387,7 @@ class NomicIntegration:
         for agent in agents:
             try:
                 # Run probes
-                report = await self.prober.probe_agent(
+                report = await self.prober.probe_agent(  # type: ignore[call-arg]
                     agent,
                     probe_count=probe_count,
                 )
@@ -448,7 +448,7 @@ class NomicIntegration:
 
             if affected_files:
                 # Run staleness check
-                check = await self.provenance.check_staleness(
+                check = await self.provenance.check_staleness(  # type: ignore[attr-defined]
                     claim.claim_id,
                     list(affected_files),
                     repo_path=repo_path,
@@ -462,7 +462,7 @@ class NomicIntegration:
                     # Create revalidation trigger
                     # ASSERTION is used for factual claims (ClaimType.FACTUAL doesn't exist)
                     severity = "high" if claim.claim_type == ClaimType.ASSERTION else "medium"
-                    trigger = RevalidationTrigger(
+                    trigger = RevalidationTrigger(  # type: ignore[call-arg]
                         claim_id=claim.claim_id,
                         reason=f"Referenced files changed: {', '.join(affected_files)}",
                         severity=severity,
@@ -493,8 +493,9 @@ class NomicIntegration:
         if hasattr(claim, 'evidence') and claim.evidence:
             for evidence in claim.evidence:
                 if hasattr(evidence, 'source') and evidence.source:
-                    if evidence.source.startswith('/') or '.' in evidence.source:
-                        files.append(evidence.source)
+                    source_id = evidence.source.identifier if hasattr(evidence.source, 'identifier') else str(evidence.source)
+                    if source_id.startswith('/') or '.' in source_id:
+                        files.append(source_id)
 
         return list(set(files))
 
@@ -545,7 +546,7 @@ class NomicIntegration:
         )
 
         # Create and run branches
-        branches = await self.counterfactual.create_branches(
+        branches = await self.counterfactual.create_branches(  # type: ignore[attr-defined]
             pivot=pivot,
             branch_values=[True, False],  # Explore both assuming true and false
         )
@@ -555,7 +556,7 @@ class NomicIntegration:
             for branch in branches:
                 try:
                     # Clone arena with modified context for this branch
-                    branch_result = await self.counterfactual.run_branch(
+                    branch_result = await self.counterfactual.run_branch(  # type: ignore[attr-defined]
                         branch,
                         arena=arena,
                     )
@@ -566,7 +567,7 @@ class NomicIntegration:
 
         # Synthesize conditional consensus
         if branches:
-            return await self.counterfactual.synthesize_branches(
+            return await self.counterfactual.synthesize_branches(  # type: ignore[call-arg, misc]
                 branches,
                 pivot=pivot,
             )
@@ -596,7 +597,7 @@ class NomicIntegration:
         Returns:
             Dict with keys: 'belief', 'conditional', 'staleness', 'summary'
         """
-        analysis = {
+        analysis: dict[str, Any] = {
             "belief": None,
             "conditional": None,
             "staleness": None,
@@ -610,15 +611,18 @@ class NomicIntegration:
         }
 
         # 1. Belief analysis (always run)
-        analysis["belief"] = await self.analyze_debate(result, claims_kernel)
-        analysis["summary"]["contested_count"] = len(analysis["belief"].contested_claims)
-        analysis["summary"]["crux_count"] = len(analysis["belief"].crux_claims)
-        analysis["summary"]["has_deadlock"] = analysis["belief"].has_deadlock
+        belief_result = await self.analyze_debate(result, claims_kernel)
+        analysis["belief"] = belief_result
+        summary = analysis["summary"]
+        if isinstance(summary, dict):
+            summary["contested_count"] = len(belief_result.contested_claims)
+            summary["crux_count"] = len(belief_result.crux_claims)
+            summary["has_deadlock"] = belief_result.has_deadlock
 
         # 2. Deadlock resolution (if needed and arena provided)
-        if analysis["belief"].has_deadlock:
+        if belief_result.has_deadlock:
             analysis["conditional"] = await self.resolve_deadlock(
-                analysis["belief"].crux_claims,
+                belief_result.crux_claims,
                 arena=arena
             )
 
@@ -626,9 +630,11 @@ class NomicIntegration:
         if changed_files and claims_kernel:
             claims_list = list(claims_kernel.claims.values()) if hasattr(claims_kernel, 'claims') else []
             if claims_list:
-                analysis["staleness"] = await self.check_staleness(claims_list, changed_files)
-                analysis["summary"]["stale_count"] = len(analysis["staleness"].stale_claims)
-                analysis["summary"]["needs_redebate"] = analysis["staleness"].needs_redebate
+                staleness_result = await self.check_staleness(claims_list, changed_files)  # type: ignore[arg-type]
+                analysis["staleness"] = staleness_result
+                if isinstance(summary, dict):
+                    summary["stale_count"] = len(staleness_result.stale_claims)
+                    summary["needs_redebate"] = staleness_result.needs_redebate
 
         return analysis
 
@@ -751,9 +757,12 @@ class NomicIntegration:
         if not self.checkpoint_mgr:
             return []
 
-        return await self.checkpoint_mgr.list_debates_with_checkpoints(
-            debate_id=debate_id or self._current_debate_id
-        )
+        all_checkpoints = await self.checkpoint_mgr.list_debates_with_checkpoints()
+        # Filter by debate_id if specified
+        target_id = debate_id or self._current_debate_id
+        if target_id:
+            return [cp for cp in all_checkpoints if cp.get("debate_id") == target_id]
+        return all_checkpoints
 
     def get_agent_weights(self) -> dict[str, float]:
         """Get current agent reliability weights."""
