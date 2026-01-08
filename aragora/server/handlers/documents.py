@@ -14,7 +14,7 @@ import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from .base import (
     BaseHandler, HandlerResult, json_response, error_response, handle_errors,
@@ -55,7 +55,7 @@ class UploadError:
 
     def to_response(self, status: int = 400) -> HandlerResult:
         """Convert to error response."""
-        payload = {
+        payload: dict[str, Any] = {
             "error": self.message,
             "error_code": self.code.value,
         }
@@ -400,7 +400,7 @@ class DocumentHandler(BaseHandler):
             )
 
         try:
-            body = handler.rfile.read(content_length)
+            body: bytes = handler.rfile.read(content_length)
         except Exception as e:
             return None, None, UploadError(
                 UploadErrorCode.CORRUPTED_UPLOAD,
@@ -408,17 +408,17 @@ class DocumentHandler(BaseHandler):
             )
 
         boundary_bytes = f'--{boundary}'.encode()
-        parts = body.split(boundary_bytes)
+        body_parts: list[bytes] = body.split(boundary_bytes)
 
         # DoS protection
-        if len(parts) > MAX_MULTIPART_PARTS:
+        if len(body_parts) > MAX_MULTIPART_PARTS:
             return None, None, UploadError(
                 UploadErrorCode.MULTIPART_PARSE_ERROR,
                 f"Too many parts in multipart upload. Maximum: {MAX_MULTIPART_PARTS}",
-                {"part_count": len(parts), "max_parts": MAX_MULTIPART_PARTS}
+                {"part_count": len(body_parts), "max_parts": MAX_MULTIPART_PARTS}
             )
 
-        for part in parts:
+        for part in body_parts:
             if b'Content-Disposition' not in part:
                 continue
 

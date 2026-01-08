@@ -221,10 +221,10 @@ class EvidenceCollector:
             results = await asyncio.gather(*search_tasks, return_exceptions=True)
 
             for result in results:
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     logger.warning(f"Connector search error: {result}")
                 else:
-                    connector_snippets, searched_count = result
+                    connector_snippets, searched_count = result  # type: ignore[misc]
                     all_snippets.extend(connector_snippets)
                     total_searched += searched_count
 
@@ -274,14 +274,15 @@ class EvidenceCollector:
                         metadata=result.metadata
                     )
                 else:  # Dict result from other connectors
+                    result_dict: dict[str, Any] = result  # type: ignore[assignment]
                     snippet = EvidenceSnippet(
                         id=f"{connector_name}_{i}",
                         source=connector_name,
-                        title=result.get('title', result.get('name', 'Unknown')),
-                        snippet=self._truncate_snippet(result.get('content', result.get('text', ''))),
-                        url=result.get('url', ''),
-                        reliability_score=self._calculate_reliability(connector_name, result),
-                        metadata=result
+                        title=result_dict.get('title', result_dict.get('name', 'Unknown')),
+                        snippet=self._truncate_snippet(result_dict.get('content', result_dict.get('text', ''))),
+                        url=result_dict.get('url', ''),
+                        reliability_score=self._calculate_reliability(connector_name, result_dict),
+                        metadata=result_dict
                     )
                 snippets.append(snippet)
 
@@ -397,7 +398,7 @@ class EvidenceCollector:
     def _rank_snippets(self, snippets: List[EvidenceSnippet], keywords: List[str]) -> List[EvidenceSnippet]:
         """Rank snippets by relevance, reliability, and freshness."""
         def score_snippet(snippet: EvidenceSnippet) -> float:
-            relevance_score = 0
+            relevance_score = 0.0
             text_lower = (snippet.title + " " + snippet.snippet).lower()
 
             for keyword in keywords:
