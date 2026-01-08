@@ -103,9 +103,10 @@ class ConfidenceEstimator:
                 # Default confidence
                 confidences[agent.name] = ConfidenceScore(agent.name, 0.5, "Error estimating confidence")
             else:
-                confidences[agent.name] = result
+                score: ConfidenceScore = result  # type: ignore[assignment]
+                confidences[agent.name] = score
                 # Store for calibration tracking
-                self._store_confidence(agent.name, result)
+                self._store_confidence(agent.name, score)
 
         return confidences
 
@@ -152,7 +153,7 @@ class ConfidenceEstimator:
             return 0.5
 
         # Calculate Brier score (lower is better calibration)
-        brier_sum = 0
+        brier_sum = 0.0
         for confidence, was_correct in history:
             brier_sum += (confidence - (1 if was_correct else 0)) ** 2
 
@@ -242,7 +243,7 @@ class DisagreementAnalyzer:
         dissenting_agents = {v.agent for v in minority_votes}
         dissenting_messages = [m for m in messages if m.agent in dissenting_agents and m.role == "critic"]
 
-        keyword_counts = Counter()
+        keyword_counts: Counter[str] = Counter()
         for message in dissenting_messages:
             content_lower = message.content.lower()
             for category, keywords in self.nlp_keywords.items():
@@ -305,7 +306,7 @@ class DisagreementAnalyzer:
 
     def _merge_similar_cruxes(self, cruxes: List[DisagreementCrux]) -> List[DisagreementCrux]:
         """Merge cruxes that describe similar issues."""
-        merged = []
+        merged: list[DisagreementCrux] = []
 
         for crux in cruxes:
             # Check if similar to existing

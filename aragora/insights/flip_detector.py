@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from aragora.config import DB_PERSONAS_PATH, DB_TIMEOUT_SECONDS
 from aragora.insights.database import InsightsDatabase
@@ -426,7 +426,7 @@ class FlipDetector:
                 f"SELECT agent_name, COUNT(*) FROM positions WHERE agent_name IN ({placeholders}) GROUP BY agent_name",
                 agent_names,
             )
-            positions_map = {row[0]: row[1] for row in cursor.fetchall()}
+            positions_map: dict[str, int] = {row[0]: row[1] for row in cursor.fetchall()}
 
             # Batch query 2: Get flip stats per agent
             cursor = conn.execute(
@@ -438,7 +438,7 @@ class FlipDetector:
                 """,
                 agent_names,
             )
-            flip_stats = {}
+            flip_stats: dict[str, dict[str, Any]] = {}
             for row in cursor.fetchall():
                 agent, flip_type, count, avg_conf = row
                 if agent not in flip_stats:
@@ -455,7 +455,7 @@ class FlipDetector:
                 """,
                 agent_names,
             )
-            domains_map = {}
+            domains_map: dict[str, set[str]] = {}
             for row in cursor.fetchall():
                 agent, domain = row
                 if agent not in domains_map:

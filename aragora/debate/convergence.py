@@ -427,7 +427,7 @@ class ConvergenceDetector:
         """
         # Try sentence transformers (best)
         try:
-            backend = SentenceTransformerBackend()
+            backend: SimilarityBackend = SentenceTransformerBackend()
             logger.info("Using SentenceTransformerBackend (best accuracy)")
             return backend
         except ImportError as e:

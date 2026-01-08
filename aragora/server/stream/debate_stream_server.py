@@ -269,7 +269,7 @@ class DebateStreamServer(ServerBase):
         if total > 0:
             logger.debug(f"Cleaned up {total} stale entries")
 
-    def _update_debate_state(self, event: StreamEvent) -> None:
+    def _update_debate_state(self, event: StreamEvent) -> None:  # type: ignore[override]
         """Update cached debate state based on emitted events.
 
         Overrides ServerBase._update_debate_state with StreamEvent-specific handling.
@@ -530,7 +530,7 @@ class DebateStreamServer(ServerBase):
                 loop_id=loop_id,
             ))
 
-    async def _setup_connection(self, websocket) -> tuple[bool, str, str, str, bool, str | None]:
+    async def _setup_connection(self, websocket) -> tuple[bool, str, str, int, bool, str | None]:
         """Set up WebSocket connection with validation.
 
         Returns:

@@ -145,7 +145,7 @@ class ContinuumMemory:
         }
 
         # Sync tier manager settings with hyperparams
-        self._tier_manager.promotion_cooldown_hours = float(self.hyperparams["promotion_cooldown_hours"])
+        self._tier_manager.promotion_cooldown_hours = float(self.hyperparams["promotion_cooldown_hours"])  # type: ignore[arg-type]
 
     @property
     def tier_manager(self) -> TierManager:
@@ -497,10 +497,9 @@ class ContinuumMemory:
                 success_surprise = abs(actual - expected_rate)
 
                 # Combine surprise signals
-                weights = self.hyperparams
                 new_surprise = (
-                    weights["surprise_weight_success"] * success_surprise +
-                    weights["surprise_weight_agent"] * (agent_prediction_error or 0.0)
+                    float(self.hyperparams["surprise_weight_success"]) * success_surprise +  # type: ignore[arg-type]
+                    float(self.hyperparams["surprise_weight_agent"]) * (agent_prediction_error or 0.0)  # type: ignore[arg-type]
                 )
 
                 # Exponential moving average for surprise
@@ -510,7 +509,7 @@ class ContinuumMemory:
                 # Update consolidation score
                 update_count = total + 1
                 consolidation = min(1.0, math.log(1 + update_count) / math.log(
-                    self.hyperparams["consolidation_threshold"]
+                    float(self.hyperparams["consolidation_threshold"])  # type: ignore[arg-type]
                 ))
 
                 # Update database
@@ -731,7 +730,7 @@ class ContinuumMemory:
             return 0
 
         now = datetime.now().isoformat()
-        cooldown_hours = self.hyperparams["promotion_cooldown_hours"]
+        cooldown_hours = float(self.hyperparams["promotion_cooldown_hours"])  # type: ignore[arg-type]
         cutoff_time = (datetime.now() - timedelta(hours=cooldown_hours)).isoformat()
 
         with get_wal_connection(self.db_path) as conn:
@@ -1035,7 +1034,7 @@ class ContinuumMemory:
         """
         results: Dict[str, Any] = {"archived": 0, "deleted": 0, "by_tier": {}}
         tiers_to_process = [tier] if tier else list(MemoryTier)
-        retention_multiplier = self.hyperparams.get("retention_multiplier", DEFAULT_RETENTION_MULTIPLIER)
+        retention_multiplier = float(self.hyperparams.get("retention_multiplier", DEFAULT_RETENTION_MULTIPLIER))  # type: ignore[arg-type]
 
         with get_wal_connection(self.db_path) as conn:
             cursor = conn.cursor()
