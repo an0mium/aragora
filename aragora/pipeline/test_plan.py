@@ -33,7 +33,7 @@ class TestPriority(Enum):
 
 
 @dataclass
-class TestCase:
+class VerificationCase:
     """A single test case specification."""
 
     id: str
@@ -73,7 +73,7 @@ class TestCase:
 
 
 @dataclass
-class TestPlan:
+class VerificationPlan:
     """
     Complete test plan for verifying debate outcomes.
 
@@ -84,26 +84,26 @@ class TestPlan:
     debate_id: str
     title: str
     description: str
-    test_cases: list[TestCase] = field(default_factory=list)
+    test_cases: list[VerificationCase] = field(default_factory=list)
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     # Coverage goals
     target_coverage: float = 0.8
     critical_paths: list[str] = field(default_factory=list)
 
-    def add_test(self, test: TestCase) -> None:
+    def add_test(self, test: VerificationCase) -> None:
         """Add a test case."""
         self.test_cases.append(test)
 
-    def get_by_type(self, test_type: TestType) -> list[TestCase]:
+    def get_by_type(self, test_type: TestType) -> list[VerificationCase]:
         """Get tests by type."""
         return [t for t in self.test_cases if t.test_type == test_type]
 
-    def get_by_priority(self, priority: TestPriority) -> list[TestCase]:
+    def get_by_priority(self, priority: TestPriority) -> list[VerificationCase]:
         """Get tests by priority."""
         return [t for t in self.test_cases if t.priority == priority]
 
-    def get_unimplemented(self) -> list[TestCase]:
+    def get_unimplemented(self) -> list[VerificationCase]:
         """Get tests not yet implemented."""
         return [t for t in self.test_cases if not t.implemented]
 
@@ -197,7 +197,7 @@ class TestPlan:
         }
 
 
-class TestPlanGenerator:
+class VerificationPlanGenerator:
     """
     Generates test plans from debate artifacts.
 
@@ -211,9 +211,9 @@ class TestPlanGenerator:
         from aragora.export.artifact import DebateArtifact
         self.artifact = artifact
 
-    def generate(self) -> TestPlan:
+    def generate(self) -> VerificationPlan:
         """Generate complete test plan."""
-        plan = TestPlan(
+        plan = VerificationPlan(
             debate_id=self.artifact.debate_id,
             title=self._extract_title(),
             description=f"Test plan for: {self.artifact.task}",
@@ -240,7 +240,7 @@ class TestPlanGenerator:
             return task[:task.index(".") + 1]
         return task[:60] + "..."
 
-    def _add_consensus_tests(self, plan: TestPlan) -> None:
+    def _add_consensus_tests(self, plan: VerificationPlan) -> None:
         """Add tests based on consensus conclusions."""
         consensus = self.artifact.consensus_proof
         if not consensus:
@@ -256,7 +256,7 @@ class TestPlanGenerator:
             line = line.strip()
             # Look for implementation-like statements
             if any(kw in line.lower() for kw in ["implement", "use", "add", "create", "ensure"]):
-                plan.add_test(TestCase(
+                plan.add_test(VerificationCase(
                     id=f"consensus-{test_num}",
                     title=f"Verify: {line[:50]}...",
                     description=f"Test that the implementation satisfies: {line}",
@@ -270,7 +270,7 @@ class TestPlanGenerator:
                 if test_num > 5:  # Limit to 5 consensus tests
                     break
 
-    def _add_critique_tests(self, plan: TestPlan) -> None:
+    def _add_critique_tests(self, plan: VerificationPlan) -> None:
         """Add tests based on critique issues (edge cases)."""
         if not self.artifact.trace_data:
             return
@@ -284,7 +284,7 @@ class TestPlanGenerator:
             issues = content.get("issues", [])
 
             for issue in issues[:2]:  # Top 2 issues per critique
-                plan.add_test(TestCase(
+                plan.add_test(VerificationCase(
                     id=f"critique-{test_num}",
                     title=f"Edge case: {issue[:50]}...",
                     description=f"Test edge case identified in critique: {issue}",
@@ -296,11 +296,11 @@ class TestPlanGenerator:
                 ))
                 test_num += 1
 
-    def _add_verification_tests(self, plan: TestPlan) -> None:
+    def _add_verification_tests(self, plan: VerificationPlan) -> None:
         """Add tests for formally verified properties."""
         for v in self.artifact.verification_results:
             if v.status == "verified":
-                plan.add_test(TestCase(
+                plan.add_test(VerificationCase(
                     id=f"formal-{v.claim_id}",
                     title=f"Property: {v.claim_text[:50]}...",
                     description=f"Regression test for formally verified property: {v.claim_text}",
@@ -312,10 +312,10 @@ class TestPlanGenerator:
                     related_claim_ids=[v.claim_id],
                 ))
 
-    def _add_standard_tests(self, plan: TestPlan) -> None:
+    def _add_standard_tests(self, plan: VerificationPlan) -> None:
         """Add standard test categories."""
         # Always add a smoke test
-        plan.add_test(TestCase(
+        plan.add_test(VerificationCase(
             id="smoke-1",
             title="Smoke test: Basic functionality",
             description="Verify basic functionality works after implementation",
@@ -326,7 +326,7 @@ class TestPlanGenerator:
         ))
 
         # Add regression test placeholder
-        plan.add_test(TestCase(
+        plan.add_test(VerificationCase(
             id="regression-1",
             title="Regression: Existing functionality",
             description="Verify existing functionality is not broken",
@@ -337,7 +337,7 @@ class TestPlanGenerator:
         ))
 
 
-def generate_test_plan(artifact) -> TestPlan:
+def generate_test_plan(artifact) -> VerificationPlan:
     """Convenience function to generate test plan from artifact."""
-    generator = TestPlanGenerator(artifact)
+    generator = VerificationPlanGenerator(artifact)
     return generator.generate()

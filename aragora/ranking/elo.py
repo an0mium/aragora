@@ -35,6 +35,12 @@ from aragora.config import (
 from aragora.ranking.database import EloDatabase
 from aragora.ranking.relationships import RelationshipTracker, RelationshipStats, RelationshipMetrics
 from aragora.ranking.redteam import RedTeamIntegrator, RedTeamResult, VulnerabilitySummary
+from aragora.ranking.elo_core import (
+    expected_score,
+    calculate_new_elo,
+    calculate_pairwise_elo_changes,
+    apply_elo_changes,
+)
 from aragora.utils.json_helpers import safe_json_loads
 from aragora.utils.cache import TTLCache, lru_cache_with_ttl
 
@@ -614,9 +620,12 @@ class EloSystem:
             )
             conn.commit()
 
+    # Core ELO calculations delegated to elo_core module
+    # These methods are kept for backward compatibility but delegate to pure functions
+
     def _expected_score(self, elo_a: float, elo_b: float) -> float:
         """Calculate expected score for player A against player B."""
-        return 1 / (1 + 10 ** ((elo_b - elo_a) / 400))
+        return expected_score(elo_a, elo_b)
 
     def _calculate_new_elo(
         self,
@@ -626,7 +635,7 @@ class EloSystem:
         k: float = K_FACTOR,
     ) -> float:
         """Calculate new ELO rating."""
-        return current_elo + k * (actual - expected)
+        return calculate_new_elo(current_elo, expected, actual, k)
 
     def _calculate_pairwise_elo_changes(
         self,
@@ -635,45 +644,10 @@ class EloSystem:
         ratings: dict[str, "AgentRating"],
         confidence_weight: float,
     ) -> dict[str, float]:
-        """Calculate pairwise ELO changes for all participant combinations.
-
-        Args:
-            participants: List of agent names
-            scores: Dict of agent -> score
-            ratings: Dict of agent -> current rating
-            confidence_weight: Weight for ELO change (0-1)
-
-        Returns:
-            Dict of agent -> total ELO change
-        """
-        elo_changes: dict[str, float] = {}
-        effective_k = K_FACTOR * confidence_weight
-
-        for i, agent_a in enumerate(participants):
-            for agent_b in participants[i + 1:]:
-                rating_a = ratings[agent_a]
-                rating_b = ratings[agent_b]
-
-                # Expected scores
-                expected_a = self._expected_score(rating_a.elo, rating_b.elo)
-
-                # Actual scores (normalized to 0-1)
-                score_a = scores.get(agent_a, 0)
-                score_b = scores.get(agent_b, 0)
-                total = score_a + score_b
-                if total > 0:
-                    actual_a = score_a / total
-                else:
-                    actual_a = 0.5
-
-                # Calculate ELO changes
-                change_a = effective_k * (actual_a - expected_a)
-                change_b = -change_a  # Zero-sum
-
-                elo_changes[agent_a] = elo_changes.get(agent_a, 0) + change_a
-                elo_changes[agent_b] = elo_changes.get(agent_b, 0) + change_b
-
-        return elo_changes
+        """Calculate pairwise ELO changes for all participant combinations."""
+        return calculate_pairwise_elo_changes(
+            participants, scores, ratings, confidence_weight, K_FACTOR
+        )
 
     def _apply_elo_changes(
         self,
@@ -683,43 +657,10 @@ class EloSystem:
         domain: Optional[str],
         debate_id: str,
     ) -> tuple[list["AgentRating"], list[tuple[str, float, str]]]:
-        """Apply ELO changes to ratings and prepare for batch save.
-
-        Args:
-            elo_changes: Dict of agent -> ELO change
-            ratings: Dict of agent -> current rating
-            winner: Name of winning agent (None for draw)
-            domain: Optional domain for domain-specific ELO
-            debate_id: Debate identifier for history
-
-        Returns:
-            Tuple of (ratings_to_save, history_entries)
-        """
-        ratings_to_save = []
-        history_entries = []
-        now = datetime.now().isoformat()
-
-        for agent_name, change in elo_changes.items():
-            rating = ratings[agent_name]
-            rating.elo += change
-            rating.debates_count += 1
-            rating.updated_at = now
-
-            if winner == agent_name:
-                rating.wins += 1
-            elif winner is None:
-                rating.draws += 1
-            else:
-                rating.losses += 1
-
-            if domain:
-                current_domain_elo = rating.domain_elos.get(domain, DEFAULT_ELO)
-                rating.domain_elos[domain] = current_domain_elo + change
-
-            ratings_to_save.append(rating)
-            history_entries.append((agent_name, rating.elo, debate_id))
-
-        return ratings_to_save, history_entries
+        """Apply ELO changes to ratings and prepare for batch save."""
+        return apply_elo_changes(
+            elo_changes, ratings, winner, domain, debate_id, DEFAULT_ELO
+        )
 
     def record_match(
         self,

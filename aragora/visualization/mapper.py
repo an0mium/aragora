@@ -424,7 +424,7 @@ class ArgumentCartographer:
 
     def _make_id(self, agent: str, round_num: int, content: str) -> str:
         """Generate a unique, Mermaid-safe node ID."""
-        h = hashlib.md5(f"{agent}{round_num}{content[:50]}".encode()).hexdigest()[:8]
+        h = hashlib.sha256(f"{agent}{round_num}{content[:50]}".encode()).hexdigest()[:8]
         safe_agent = agent[:3].lower().replace("-", "").replace("_", "")
         return f"{safe_agent}_{round_num}_{h}"
 

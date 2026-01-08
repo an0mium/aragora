@@ -220,7 +220,11 @@ class TestCalibrationEngine:
         engine = engine_with_elo
         rating1 = MockRating(agent_name="claude")
         rating2 = MockRating(agent_name="gpt")
-        engine.elo_system.get_rating.side_effect = lambda name: rating1 if name == "claude" else rating2
+        # resolve_tournament uses get_ratings_batch, not get_rating
+        engine.elo_system.get_ratings_batch.return_value = {
+            "claude": rating1,
+            "gpt": rating2,
+        }
 
         engine.record_winner_prediction("t1", "claude", "winner", 0.8)
         engine.record_winner_prediction("t1", "gpt", "winner", 0.5)

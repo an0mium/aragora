@@ -1,0 +1,161 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - cloudflare
+          - lightsail
+          - ec2
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Run tests before deploying
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pytest-timeout
+
+      - name: Run quick tests
+        run: |
+          pytest tests/test_handlers_debates.py tests/test_api_handler.py \
+            --timeout=60 -x --tb=short
+        env:
+          PYTHONPATH: .
+
+  deploy-cloudflare:
+    needs: test
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'cloudflare' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Deploy to Cloudflare Pages (aragora)
+        run: |
+          cd aragora/live
+          npm ci
+          npm run build
+          wrangler pages deploy dist --project-name=aragora --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy to Cloudflare Pages (aragora-live)
+        run: |
+          cd aragora/live
+          wrangler pages deploy dist --project-name=aragora-live --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        continue-on-error: true
+
+  deploy-lightsail:
+    needs: test
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'lightsail' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail
+          chmod 600 ~/.ssh/lightsail
+          ssh-keyscan -H ${{ secrets.LIGHTSAIL_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Lightsail
+        run: |
+          ssh -i ~/.ssh/lightsail ubuntu@${{ secrets.LIGHTSAIL_HOST }} << 'EOF'
+            cd /home/ubuntu/aragora
+            git pull origin main
+            source venv/bin/activate
+            pip install -e .
+            sudo systemctl restart aragora
+          EOF
+
+      - name: Verify deployment
+        run: |
+          sleep 10
+          curl -sf "http://${{ secrets.LIGHTSAIL_HOST }}:8080/health" || exit 1
+
+  deploy-ec2:
+    needs: test
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2
+          chmod 600 ~/.ssh/ec2
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        run: |
+          ssh -i ~/.ssh/ec2 ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+            cd /home/ec2-user/aragora
+            git pull origin main
+            source venv/bin/activate
+            pip install -e .
+            sudo systemctl restart aragora
+          EOF
+
+      - name: Verify deployment
+        run: |
+          sleep 10
+          curl -sf "http://${{ secrets.EC2_HOST }}:8080/health" || exit 1
+
+  notify:
+    needs: [deploy-cloudflare, deploy-lightsail, deploy-ec2]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Summarize deployment status
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Target | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Cloudflare Pages | ${{ needs.deploy-cloudflare.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| AWS Lightsail | ${{ needs.deploy-lightsail.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| AWS EC2 | ${{ needs.deploy-ec2.result }} |" >> $GITHUB_STEP_SUMMARY

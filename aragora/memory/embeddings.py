@@ -38,7 +38,7 @@ class EmbeddingCache:
 
     def _make_key(self, text: str) -> str:
         """Generate cache key from text."""
-        return hashlib.md5(text.lower().strip().encode()).hexdigest()
+        return hashlib.sha256(text.lower().strip().encode()).hexdigest()
 
     def get(self, text: str) -> Optional[list[float]]:
         """Get cached embedding if valid."""
@@ -137,7 +137,7 @@ class EmbeddingProvider:
         # Uses multiple hash seeds to create a fixed-dimension vector
         embedding = []
         for seed in range(self.dimension):
-            h = hashlib.md5(f"{seed}:{text}".encode()).digest()
+            h = hashlib.sha256(f"{seed}:{text}".encode()).digest()
             # Convert first 4 bytes to float in [-1, 1]
             val = struct.unpack('<i', h[:4])[0] / (2**31)
             embedding.append(val)
@@ -418,7 +418,7 @@ class SemanticRetriever:
 
     def _text_hash(self, text: str) -> str:
         """Generate hash for text deduplication."""
-        return hashlib.md5(text.lower().strip().encode()).hexdigest()
+        return hashlib.sha256(text.lower().strip().encode()).hexdigest()
 
     def _sync_get_existing_embedding(self, text_hash: str) -> Optional[bytes]:
         """Sync helper: Check if embedding already exists."""

@@ -532,3 +532,304 @@ class TestDebateErrorHandling:
         result = await arena.run()
 
         assert isinstance(result, DebateResult)
+
+
+class TestDebateWithCircuitBreaker:
+    """Test debates with circuit breaker for agent failure handling."""
+
+    @pytest.mark.asyncio
+    async def test_debate_with_failing_agent_continues(self, basic_agents):
+        """Debate should continue when one agent fails intermittently."""
+        # Make first agent fail once then succeed
+        call_count = 0
+        original_generate = basic_agents[0].generate
+
+        async def flaky_generate(prompt, context=None):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("Simulated API failure")
+            return await original_generate(prompt, context)
+
+        basic_agents[0].generate = flaky_generate
+
+        env = Environment(task="Failure test", max_rounds=2)
+        protocol = DebateProtocol(rounds=2)
+
+        arena = Arena(env, basic_agents, protocol)
+        # Debate should handle the failure gracefully
+        result = await arena.run()
+
+        assert isinstance(result, DebateResult)
+
+    @pytest.mark.asyncio
+    async def test_debate_completes_with_all_agents_failing_once(self, basic_agents):
+        """Debate should still produce a result even with agent failures."""
+        for agent in basic_agents:
+            original_generate = agent.generate
+            call_count = [0]
+
+            async def flaky_generate(prompt, context=None, _orig=original_generate, _count=call_count):
+                _count[0] += 1
+                if _count[0] == 1:
+                    raise RuntimeError("First call fails")
+                return await _orig(prompt, context)
+
+            agent.generate = flaky_generate
+
+        env = Environment(task="Multi-failure test", max_rounds=2)
+        protocol = DebateProtocol(rounds=2)
+
+        arena = Arena(env, basic_agents, protocol)
+        result = await arena.run()
+
+        assert isinstance(result, DebateResult)
+
+
+class TestDebateEloIntegration:
+    """Test end-to-end debate completion with ELO updates."""
+
+    @pytest.mark.asyncio
+    async def test_debate_result_can_update_elo(self, basic_agents, temp_db):
+        """After a debate, we can use the result to update ELO ratings."""
+        from aragora.ranking.elo import EloSystem
+
+        # Run debate
+        env = Environment(task="ELO test debate", max_rounds=2)
+        protocol = DebateProtocol(rounds=2)
+
+        arena = Arena(env, basic_agents, protocol)
+        result = await arena.run()
+
+        # Create ELO system and update with debate results
+        elo = EloSystem(temp_db)
+
+        # Get agent names
+        agent_names = [agent.name for agent in basic_agents]
+
+        # Create scores based on vote results (simplified)
+        scores = {name: 0.5 for name in agent_names}  # Default to draw
+        if result.winner:
+            scores[result.winner] = 1.0
+            for name in agent_names:
+                if name != result.winner:
+                    scores[name] = 0.0
+
+        # Record match
+        elo.record_match(
+            debate_id=f"test-{result.task[:20]}",
+            participants=agent_names,
+            scores=scores,
+            domain="integration_test"
+        )
+
+        # Verify ratings were updated
+        for name in agent_names:
+            rating = elo.get_rating(name)
+            assert rating.debates_count >= 1
+
+    @pytest.mark.asyncio
+    async def test_multiple_debates_accumulate_elo(self, temp_db):
+        """Multiple debates should accumulate ELO changes."""
+        from aragora.ranking.elo import EloSystem
+
+        elo = EloSystem(temp_db)
+
+        # Run multiple simulated debates
+        for i in range(3):
+            alice = MockAgent("alice", role="proposer")
+            bob = MockAgent("bob", role="critic")
+
+            alice.generate_responses = [f"Proposal {i}"]
+            bob.generate_responses = [f"Critique {i}"]
+
+            env = Environment(task=f"Multi-debate {i}", max_rounds=1)
+            protocol = DebateProtocol(rounds=1)
+
+            arena = Arena(env, [alice, bob], protocol)
+            await arena.run()
+
+            # Record alternating winners
+            winner = "alice" if i % 2 == 0 else "bob"
+            loser = "bob" if i % 2 == 0 else "alice"
+            elo.record_match(
+                debate_id=f"multi-debate-{i}",
+                participants=["alice", "bob"],
+                scores={winner: 1.0, loser: 0.0},
+                domain="test"
+            )
+
+        # Verify accumulated stats
+        alice_rating = elo.get_rating("alice", use_cache=False)
+        bob_rating = elo.get_rating("bob", use_cache=False)
+
+        assert alice_rating.debates_count == 3
+        assert bob_rating.debates_count == 3
+        assert alice_rating.wins >= 1
+        assert bob_rating.wins >= 1
+
+
+class TestDebateWithResiliencePatterns:
+    """Test debates with resilience patterns (circuit breaker, retries)."""
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_tracks_agent_failures(self):
+        """Circuit breaker should track agent failures across debates."""
+        from aragora.resilience import CircuitBreaker
+
+        cb = CircuitBreaker(failure_threshold=2, cooldown_seconds=1.0)
+
+        # Simulate multiple debate failures for one agent
+        agent = MockAgent("flaky-agent", role="proposer")
+
+        # First failure
+        cb.record_failure("flaky-agent")
+        assert cb.get_status("flaky-agent") == "closed"
+
+        # Second failure opens circuit
+        cb.record_failure("flaky-agent")
+        assert cb.get_status("flaky-agent") == "open"
+
+        # Agent should not be available
+        assert not cb.is_available("flaky-agent")
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_filters_available_agents(self, three_agents):
+        """Circuit breaker should filter out unavailable agents."""
+        from aragora.resilience import CircuitBreaker
+
+        cb = CircuitBreaker(failure_threshold=2, cooldown_seconds=60.0)
+
+        # Mark one agent as failed
+        cb.record_failure("bob")
+        cb.record_failure("bob")  # Opens circuit
+
+        # Filter available agents
+        available = cb.filter_available_agents(three_agents)
+
+        # Bob should be filtered out
+        available_names = [a.name for a in available]
+        assert "bob" not in available_names
+        assert "alice" in available_names
+        assert "charlie" in available_names
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_recovery(self):
+        """Circuit breaker should recover after cooldown."""
+        from aragora.resilience import CircuitBreaker
+        import time
+
+        cb = CircuitBreaker(failure_threshold=2, cooldown_seconds=0.1)
+
+        # Open circuit
+        cb.record_failure("agent")
+        cb.record_failure("agent")
+        assert cb.get_status("agent") == "open"
+
+        # Wait for cooldown
+        time.sleep(0.15)
+
+        # Should now be half-open
+        assert cb.is_available("agent")
+
+        # Success closes circuit
+        cb.record_success("agent")
+        cb.record_success("agent")  # Need 2 successes in half-open
+        assert cb.get_status("agent") == "closed"
+
+
+class TestDebateArtifactIntegration:
+    """Test debate artifact generation and consumption."""
+
+    @pytest.mark.asyncio
+    async def test_debate_produces_trace_data(self, basic_agents):
+        """Debate should produce trace data for downstream processing."""
+        env = Environment(task="Trace test", max_rounds=2)
+        protocol = DebateProtocol(rounds=2)
+
+        arena = Arena(env, basic_agents, protocol)
+        result = await arena.run()
+
+        # Result should have essential fields
+        assert result.task == "Trace test"
+        assert hasattr(result, "messages")
+        assert hasattr(result, "votes")
+
+    @pytest.mark.asyncio
+    async def test_debate_messages_have_structure(self, basic_agents):
+        """Debate messages should have proper structure."""
+        basic_agents[0].generate_responses = ["A structured proposal"]
+
+        env = Environment(task="Message structure test", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+
+        arena = Arena(env, basic_agents, protocol)
+        result = await arena.run()
+
+        # If there are messages, they should be Message objects
+        for msg in result.messages:
+            assert isinstance(msg, Message)
+            assert hasattr(msg, "agent")
+            assert hasattr(msg, "content")
+
+
+class TestConcurrentDebates:
+    """Test running multiple debates concurrently."""
+
+    @pytest.mark.asyncio
+    async def test_parallel_debates_complete(self):
+        """Multiple debates can run in parallel without interference."""
+        import asyncio
+
+        async def run_debate(task_id: int):
+            alice = MockAgent(f"alice-{task_id}", role="proposer")
+            bob = MockAgent(f"bob-{task_id}", role="critic")
+
+            alice.generate_responses = [f"Proposal for task {task_id}"]
+            bob.generate_responses = [f"Critique for task {task_id}"]
+
+            env = Environment(task=f"Parallel task {task_id}", max_rounds=1)
+            protocol = DebateProtocol(rounds=1)
+
+            arena = Arena(env, [alice, bob], protocol)
+            return await arena.run()
+
+        # Run 3 debates concurrently
+        results = await asyncio.gather(
+            run_debate(1),
+            run_debate(2),
+            run_debate(3)
+        )
+
+        # All should complete
+        assert len(results) == 3
+        for i, result in enumerate(results, 1):
+            assert isinstance(result, DebateResult)
+            assert f"Parallel task {i}" == result.task
+
+    @pytest.mark.asyncio
+    async def test_parallel_debates_with_shared_memory(self, temp_db):
+        """Parallel debates can share memory store."""
+        import asyncio
+
+        store = CritiqueStore(temp_db)
+
+        async def run_debate_with_memory(task_id: int):
+            alice = MockAgent(f"alice-{task_id}", role="proposer")
+            bob = MockAgent(f"bob-{task_id}", role="critic")
+
+            env = Environment(task=f"Shared memory task {task_id}", max_rounds=1)
+            protocol = DebateProtocol(rounds=1)
+
+            arena = Arena(env, [alice, bob], protocol, memory=store)
+            return await arena.run()
+
+        # Run debates concurrently with shared memory
+        results = await asyncio.gather(
+            run_debate_with_memory(1),
+            run_debate_with_memory(2)
+        )
+
+        assert len(results) == 2
+        for result in results:
+            assert isinstance(result, DebateResult)

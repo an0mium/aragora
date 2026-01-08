@@ -780,5 +780,578 @@ class TestBatchOperations:
         assert elo.get_relationship_raw("", "bob") is None
 
 
+class TestAgentRatingProperties:
+    """Test AgentRating computed properties."""
+
+    def test_calibration_accuracy_zero_total(self):
+        """Test calibration_accuracy returns 0 when no predictions."""
+        from aragora.ranking.elo import AgentRating
+        rating = AgentRating(agent_name="test")
+        assert rating.calibration_accuracy == 0.0
+
+    def test_calibration_accuracy_with_predictions(self):
+        """Test calibration_accuracy with some correct predictions."""
+        from aragora.ranking.elo import AgentRating
+        rating = AgentRating(
+            agent_name="test",
+            calibration_correct=7,
+            calibration_total=10
+        )
+        assert rating.calibration_accuracy == 0.7
+
+    def test_calibration_brier_score_zero_total(self):
+        """Test calibration_brier_score returns 1.0 when no predictions."""
+        from aragora.ranking.elo import AgentRating
+        rating = AgentRating(agent_name="test")
+        assert rating.calibration_brier_score == 1.0
+
+    def test_calibration_brier_score_with_predictions(self):
+        """Test calibration_brier_score calculation."""
+        from aragora.ranking.elo import AgentRating
+        rating = AgentRating(
+            agent_name="test",
+            calibration_brier_sum=0.5,
+            calibration_total=10
+        )
+        assert rating.calibration_brier_score == 0.05
+
+    def test_calibration_score_below_minimum(self):
+        """Test calibration_score returns 0 below minimum predictions."""
+        from aragora.ranking.elo import AgentRating, CALIBRATION_MIN_COUNT
+        rating = AgentRating(
+            agent_name="test",
+            calibration_correct=CALIBRATION_MIN_COUNT - 1,
+            calibration_total=CALIBRATION_MIN_COUNT - 1,
+            calibration_brier_sum=0.0
+        )
+        assert rating.calibration_score == 0.0
+
+    def test_calibration_score_at_minimum(self):
+        """Test calibration_score at minimum predictions."""
+        from aragora.ranking.elo import AgentRating, CALIBRATION_MIN_COUNT
+        rating = AgentRating(
+            agent_name="test",
+            calibration_correct=CALIBRATION_MIN_COUNT,
+            calibration_total=CALIBRATION_MIN_COUNT,
+            calibration_brier_sum=0.0  # Perfect Brier
+        )
+        # confidence = 0.5 at min_count, score = (1 - 0) * 0.5
+        assert rating.calibration_score == 0.5
+
+    def test_calibration_score_high_confidence(self):
+        """Test calibration_score with high prediction count."""
+        from aragora.ranking.elo import AgentRating, CALIBRATION_MIN_COUNT
+        rating = AgentRating(
+            agent_name="test",
+            calibration_correct=50,
+            calibration_total=50,
+            calibration_brier_sum=0.0  # Perfect
+        )
+        # confidence should be 1.0, score = (1 - 0) * 1.0 = 1.0
+        assert rating.calibration_score == pytest.approx(1.0, rel=0.1)
+
+    def test_critique_acceptance_rate_zero_total(self):
+        """Test critique_acceptance_rate returns 0 when no critiques."""
+        from aragora.ranking.elo import AgentRating
+        rating = AgentRating(agent_name="test")
+        assert rating.critique_acceptance_rate == 0.0
+
+    def test_critique_acceptance_rate_with_critiques(self):
+        """Test critique_acceptance_rate calculation."""
+        from aragora.ranking.elo import AgentRating
+        rating = AgentRating(
+            agent_name="test",
+            critiques_accepted=3,
+            critiques_total=5
+        )
+        assert rating.critique_acceptance_rate == 0.6
+
+
+class TestValidation:
+    """Test input validation functions."""
+
+    def test_escape_like_pattern_backslash(self):
+        """Test escaping backslash in LIKE pattern."""
+        from aragora.ranking.elo import _escape_like_pattern
+        assert _escape_like_pattern("test\\value") == "test\\\\value"
+
+    def test_escape_like_pattern_percent(self):
+        """Test escaping percent in LIKE pattern."""
+        from aragora.ranking.elo import _escape_like_pattern
+        assert _escape_like_pattern("test%value") == "test\\%value"
+
+    def test_escape_like_pattern_underscore(self):
+        """Test escaping underscore in LIKE pattern."""
+        from aragora.ranking.elo import _escape_like_pattern
+        assert _escape_like_pattern("test_value") == "test\\_value"
+
+    def test_escape_like_pattern_combined(self):
+        """Test escaping multiple special characters."""
+        from aragora.ranking.elo import _escape_like_pattern
+        result = _escape_like_pattern("test%_\\end")
+        assert result == "test\\%\\_\\\\end"
+
+    def test_validate_agent_name_valid(self):
+        """Test validation passes for valid names."""
+        from aragora.ranking.elo import _validate_agent_name
+        # Should not raise
+        _validate_agent_name("valid_agent")
+        _validate_agent_name("a" * 32)  # Exactly max length
+
+    def test_validate_agent_name_too_long(self):
+        """Test validation fails for overly long names."""
+        from aragora.ranking.elo import _validate_agent_name, MAX_AGENT_NAME_LENGTH
+        with pytest.raises(ValueError, match="exceeds"):
+            _validate_agent_name("a" * (MAX_AGENT_NAME_LENGTH + 1))
+
+
+class TestCacheOperations:
+    """Test cache operations."""
+
+    def test_invalidate_leaderboard_cache(self, elo):
+        """Test invalidating leaderboard cache."""
+        # Populate cache
+        elo.get_cached_leaderboard(limit=10)
+        # Invalidate
+        count = elo.invalidate_leaderboard_cache()
+        # Should return count (0 or more)
+        assert isinstance(count, int)
+
+    def test_invalidate_rating_cache_specific(self, elo):
+        """Test invalidating specific agent rating cache."""
+        elo.record_match("m1", ["agent_x", "opp"], {"agent_x": 1.0, "opp": 0.0})
+        elo.get_rating("agent_x")  # Populate cache
+        count = elo.invalidate_rating_cache("agent_x")
+        assert count == 1 or count == 0  # May or may not be in cache
+
+    def test_invalidate_rating_cache_all(self, elo):
+        """Test invalidating all rating caches."""
+        elo.record_match("m1", ["a", "b"], {"a": 1.0, "b": 0.0})
+        elo.get_rating("a")
+        elo.get_rating("b")
+        count = elo.invalidate_rating_cache(None)
+        assert isinstance(count, int)
+
+    def test_get_rating_with_cache_disabled(self, elo):
+        """Test getting rating with cache disabled."""
+        elo.record_match("m1", ["cached", "opp"], {"cached": 1.0, "opp": 0.0})
+        rating = elo.get_rating("cached", use_cache=False)
+        assert rating.elo > 1500
+
+
+class TestCritiqueTracking:
+    """Test critique recording functionality."""
+
+    def test_record_critique_accepted(self, elo):
+        """Test recording an accepted critique."""
+        elo.record_critique("critic", accepted=True)
+        rating = elo.get_rating("critic")
+        assert rating.critiques_total == 1
+        assert rating.critiques_accepted == 1
+
+    def test_record_critique_rejected(self, elo):
+        """Test recording a rejected critique."""
+        elo.record_critique("critic_rejected", accepted=False)
+        rating = elo.get_rating("critic_rejected")
+        assert rating.critiques_total == 1
+        assert rating.critiques_accepted == 0
+
+    def test_record_multiple_critiques(self, elo):
+        """Test recording multiple critiques."""
+        for _ in range(5):
+            elo.record_critique("active_critic", accepted=True)
+        for _ in range(3):
+            elo.record_critique("active_critic", accepted=False)
+
+        rating = elo.get_rating("active_critic")
+        assert rating.critiques_total == 8
+        assert rating.critiques_accepted == 5
+        assert rating.critique_acceptance_rate == 5/8
+
+
+class TestStatsAndLeaderboard:
+    """Test stats and leaderboard functionality."""
+
+    def test_get_stats_empty_db(self, elo):
+        """Test stats on empty database."""
+        stats = elo.get_stats()
+        assert stats["total_agents"] == 0
+        assert stats["total_matches"] == 0
+
+    def test_get_stats_with_data(self, elo):
+        """Test stats with recorded data."""
+        elo.record_match("m1", ["a", "b"], {"a": 1.0, "b": 0.0})
+        elo.record_match("m2", ["c", "d"], {"c": 1.0, "d": 0.0})
+
+        stats = elo.get_stats()
+        assert stats["total_agents"] == 4
+        assert stats["total_matches"] == 2
+        assert stats["avg_elo"] is not None
+        assert stats["max_elo"] >= stats["min_elo"]
+
+    def test_get_stats_cache_bypass(self, elo):
+        """Test stats with cache bypass."""
+        elo.record_match("m1", ["a", "b"], {"a": 1.0, "b": 0.0})
+        stats = elo.get_stats(use_cache=False)
+        assert stats["total_agents"] == 2
+
+    def test_list_agents_empty(self, elo):
+        """Test listing agents on empty database."""
+        agents = elo.list_agents()
+        assert agents == []
+
+    def test_list_agents_with_data(self, elo):
+        """Test listing agents with data."""
+        elo.record_match("m1", ["alice", "bob"], {"alice": 1.0, "bob": 0.0})
+        agents = elo.list_agents()
+        assert "alice" in agents
+        assert "bob" in agents
+
+    def test_get_all_ratings(self, elo):
+        """Test getting all ratings at once."""
+        elo.record_match("m1", ["a", "b"], {"a": 1.0, "b": 0.0})
+        elo.record_match("m2", ["c", "d"], {"c": 1.0, "d": 0.0})
+
+        ratings = elo.get_all_ratings()
+        assert len(ratings) == 4
+        # Should be sorted by ELO descending
+        elos = [r.elo for r in ratings]
+        assert elos == sorted(elos, reverse=True)
+
+    def test_get_top_agents_for_domain(self, elo):
+        """Test getting top agents for a specific domain."""
+        elo.record_match("m1", ["pro", "amateur"], {"pro": 1.0, "amateur": 0.0}, domain="security")
+        top = elo.get_top_agents_for_domain("security", limit=5)
+        assert len(top) > 0
+        agent_names = [r.agent_name for r in top]
+        assert "pro" in agent_names
+
+
+class TestTournamentCalibration:
+    """Test tournament winner prediction and calibration."""
+
+    def test_record_winner_prediction(self, elo):
+        """Test recording a winner prediction."""
+        elo.record_winner_prediction(
+            tournament_id="tourney_1",
+            predictor_agent="oracle",
+            predicted_winner="favorite",
+            confidence=0.8
+        )
+        history = elo.get_agent_calibration_history("oracle", limit=10)
+        assert len(history) == 1
+        assert history[0]["tournament_id"] == "tourney_1"
+        assert history[0]["predicted_winner"] == "favorite"
+        assert history[0]["confidence"] == 0.8
+
+    def test_record_winner_prediction_clamps_confidence(self, elo):
+        """Test that confidence is clamped to [0, 1]."""
+        elo.record_winner_prediction("t1", "predictor", "winner", 1.5)
+        elo.record_winner_prediction("t2", "predictor", "winner", -0.5)
+
+        history = elo.get_agent_calibration_history("predictor", limit=10)
+        confidences = [h["confidence"] for h in history]
+        assert all(0.0 <= c <= 1.0 for c in confidences)
+
+    def test_resolve_tournament_calibration(self, elo):
+        """Test resolving tournament and updating calibration."""
+        # Make predictions
+        elo.record_winner_prediction("tourney_x", "oracle_a", "winner", 0.9)
+        elo.record_winner_prediction("tourney_x", "oracle_b", "loser", 0.9)
+
+        # Resolve with actual winner
+        brier_scores = elo.resolve_tournament_calibration("tourney_x", "winner")
+
+        assert "oracle_a" in brier_scores
+        assert "oracle_b" in brier_scores
+        # oracle_a predicted correctly, oracle_b didn't
+        assert brier_scores["oracle_a"] < brier_scores["oracle_b"]
+
+    def test_calibration_leaderboard_empty(self, elo):
+        """Test calibration leaderboard with no predictions."""
+        leaderboard = elo.get_calibration_leaderboard(limit=10)
+        assert leaderboard == []
+
+    def test_calibration_leaderboard_with_data(self, elo):
+        """Test calibration leaderboard with predictions."""
+        from aragora.ranking.elo import CALIBRATION_MIN_COUNT
+
+        # Record enough predictions to meet minimum
+        for i in range(CALIBRATION_MIN_COUNT):
+            elo.record_winner_prediction(f"t{i}", "good_oracle", "correct", 0.7)
+            elo.resolve_tournament_calibration(f"t{i}", "correct")
+
+        leaderboard = elo.get_calibration_leaderboard(limit=10)
+        assert len(leaderboard) > 0
+
+
+class TestDomainCalibration:
+    """Test domain-specific calibration tracking."""
+
+    def test_get_bucket_key(self, elo):
+        """Test bucket key generation."""
+        # Access private method for testing
+        assert elo._get_bucket_key(0.05) == "0.0-0.1"
+        assert elo._get_bucket_key(0.15) == "0.1-0.2"
+        assert elo._get_bucket_key(0.85) == "0.8-0.9"
+        assert elo._get_bucket_key(0.95) == "0.9-1.0"
+
+    def test_get_domain_calibration_no_data(self, elo):
+        """Test domain calibration with no predictions."""
+        cal = elo.get_domain_calibration("unknown_agent")
+        assert cal["total"] == 0
+        assert cal["accuracy"] == 0.0
+        assert cal["brier_score"] == 1.0
+
+    def test_get_domain_calibration_with_data(self, elo):
+        """Test domain calibration with predictions."""
+        elo.record_domain_prediction("agent", "ethics", 0.8, True)
+        elo.record_domain_prediction("agent", "ethics", 0.8, False)
+
+        cal = elo.get_domain_calibration("agent", domain="ethics")
+        assert cal["total"] == 2
+        assert "ethics" in cal["domains"]
+
+    def test_get_calibration_by_bucket(self, elo):
+        """Test calibration broken down by confidence bucket."""
+        for _ in range(5):
+            elo.record_domain_prediction("agent", "general", 0.75, True)
+        for _ in range(3):
+            elo.record_domain_prediction("agent", "general", 0.35, False)
+
+        buckets = elo.get_calibration_by_bucket("agent")
+        assert len(buckets) > 0
+        for bucket in buckets:
+            assert "bucket_key" in bucket
+            assert "predictions" in bucket
+            assert "accuracy" in bucket
+
+    def test_expected_calibration_error_no_data(self, elo):
+        """Test ECE with no predictions."""
+        ece = elo.get_expected_calibration_error("unknown")
+        assert ece == 1.0
+
+    def test_expected_calibration_error_with_data(self, elo):
+        """Test ECE with predictions."""
+        for _ in range(10):
+            elo.record_domain_prediction("calibrated", "test", 0.5, True)
+            elo.record_domain_prediction("calibrated", "test", 0.5, False)
+
+        ece = elo.get_expected_calibration_error("calibrated")
+        assert 0.0 <= ece <= 1.0
+
+    def test_get_best_domains_no_data(self, elo):
+        """Test best domains with no predictions."""
+        domains = elo.get_best_domains("unknown")
+        assert domains == []
+
+    def test_get_best_domains_with_data(self, elo):
+        """Test best domains with predictions."""
+        # Security: 20 predictions at 0.9 confidence, all correct
+        # Brier = 0.01, confidence weight = 0.875, score = 0.86
+        for _ in range(20):
+            elo.record_domain_prediction("expert", "security", 0.9, True)
+        # Ethics: 10 predictions at 0.5 confidence, 50% correct
+        # Brier = 0.25, confidence weight = 0.625, score = 0.47
+        for _ in range(5):
+            elo.record_domain_prediction("expert", "ethics", 0.5, True)
+            elo.record_domain_prediction("expert", "ethics", 0.5, False)
+
+        domains = elo.get_best_domains("expert", limit=5)
+        assert len(domains) > 0
+        # Security should be first (lower brier score with same confidence weight)
+        assert domains[0][0] == "security"
+
+
+class TestPairwiseEloCalculations:
+    """Test the extracted ELO calculation helpers."""
+
+    def test_calculate_pairwise_elo_changes(self, elo):
+        """Test pairwise ELO calculation."""
+        ratings = elo.get_ratings_batch(["a", "b"])
+        changes = elo._calculate_pairwise_elo_changes(
+            participants=["a", "b"],
+            scores={"a": 1.0, "b": 0.0},
+            ratings=ratings,
+            confidence_weight=1.0
+        )
+        assert "a" in changes
+        assert "b" in changes
+        assert changes["a"] > 0  # Winner gains
+        assert changes["b"] < 0  # Loser loses
+        # Zero-sum
+        assert abs(changes["a"] + changes["b"]) < 0.001
+
+    def test_calculate_pairwise_elo_changes_draw(self, elo):
+        """Test pairwise ELO calculation for draw."""
+        ratings = elo.get_ratings_batch(["a", "b"])
+        changes = elo._calculate_pairwise_elo_changes(
+            participants=["a", "b"],
+            scores={"a": 0.5, "b": 0.5},
+            ratings=ratings,
+            confidence_weight=1.0
+        )
+        # Both at 1500, draw - no change expected
+        assert abs(changes["a"]) < 0.001
+        assert abs(changes["b"]) < 0.001
+
+    def test_calculate_pairwise_elo_changes_multiway(self, elo):
+        """Test pairwise ELO calculation for 3+ participants."""
+        ratings = elo.get_ratings_batch(["a", "b", "c"])
+        changes = elo._calculate_pairwise_elo_changes(
+            participants=["a", "b", "c"],
+            scores={"a": 1.0, "b": 0.5, "c": 0.0},
+            ratings=ratings,
+            confidence_weight=1.0
+        )
+        # a beat both, should gain most
+        assert changes["a"] > changes["b"]
+        assert changes["b"] > changes["c"]
+
+    def test_calculate_pairwise_elo_changes_low_confidence(self, elo):
+        """Test that low confidence weight reduces changes."""
+        ratings = elo.get_ratings_batch(["a", "b"])
+
+        full_changes = elo._calculate_pairwise_elo_changes(
+            participants=["a", "b"],
+            scores={"a": 1.0, "b": 0.0},
+            ratings=ratings,
+            confidence_weight=1.0
+        )
+
+        # Get fresh ratings for second calculation
+        ratings2 = elo.get_ratings_batch(["c", "d"])
+
+        half_changes = elo._calculate_pairwise_elo_changes(
+            participants=["c", "d"],
+            scores={"c": 1.0, "d": 0.0},
+            ratings={"c": ratings2["c"], "d": ratings2["d"]},
+            confidence_weight=0.5
+        )
+
+        # Half confidence should give roughly half changes
+        assert abs(half_changes["c"]) < abs(full_changes["a"])
+
+    def test_apply_elo_changes(self, elo):
+        """Test applying ELO changes."""
+        ratings = elo.get_ratings_batch(["a", "b"])
+        elo_changes = {"a": 16.0, "b": -16.0}
+
+        ratings_to_save, history = elo._apply_elo_changes(
+            elo_changes=elo_changes,
+            ratings=ratings,
+            winner="a",
+            domain="test",
+            debate_id="test_debate"
+        )
+
+        assert len(ratings_to_save) == 2
+        assert len(history) == 2
+
+        # Check a's rating was updated correctly
+        a_rating = next(r for r in ratings_to_save if r.agent_name == "a")
+        assert a_rating.elo == 1516.0
+        assert a_rating.wins == 1
+        assert a_rating.debates_count == 1
+        assert "test" in a_rating.domain_elos
+
+    def test_apply_elo_changes_draw(self, elo):
+        """Test applying ELO changes for draw."""
+        ratings = elo.get_ratings_batch(["a", "b"])
+        elo_changes = {"a": 0.0, "b": 0.0}
+
+        ratings_to_save, _ = elo._apply_elo_changes(
+            elo_changes=elo_changes,
+            ratings=ratings,
+            winner=None,  # Draw
+            domain=None,
+            debate_id="draw_debate"
+        )
+
+        a_rating = next(r for r in ratings_to_save if r.agent_name == "a")
+        assert a_rating.draws == 1
+        assert a_rating.wins == 0
+        assert a_rating.losses == 0
+
+
+class TestSnapshotAndCaching:
+    """Test snapshot writing and cached access."""
+
+    def test_get_cached_leaderboard_no_snapshot(self, elo):
+        """Test cached leaderboard falls back to database."""
+        elo.record_match("m1", ["a", "b"], {"a": 1.0, "b": 0.0})
+        leaderboard = elo.get_cached_leaderboard(limit=10)
+        assert isinstance(leaderboard, list)
+        assert len(leaderboard) > 0
+
+    def test_get_cached_recent_matches_no_snapshot(self, elo):
+        """Test cached recent matches falls back to database."""
+        elo.record_match("m1", ["a", "b"], {"a": 1.0, "b": 0.0})
+        matches = elo.get_cached_recent_matches(limit=10)
+        assert isinstance(matches, list)
+        assert len(matches) == 1
+
+
+class TestExpectedScore:
+    """Test expected score calculation."""
+
+    def test_expected_score_equal_ratings(self, elo):
+        """Test expected score when ratings are equal."""
+        expected = elo._expected_score(1500, 1500)
+        assert expected == 0.5
+
+    def test_expected_score_higher_rated(self, elo):
+        """Test expected score when first player is higher rated."""
+        expected = elo._expected_score(1600, 1400)
+        assert expected > 0.5
+
+    def test_expected_score_lower_rated(self, elo):
+        """Test expected score when first player is lower rated."""
+        expected = elo._expected_score(1400, 1600)
+        assert expected < 0.5
+
+    def test_expected_score_large_difference(self, elo):
+        """Test expected score with large rating difference."""
+        expected = elo._expected_score(1800, 1200)
+        assert expected > 0.9
+
+
+class TestCalculateNewElo:
+    """Test new ELO calculation."""
+
+    def test_calculate_new_elo_win_expected(self, elo):
+        """Test ELO gain when expected to win."""
+        # If expected 0.75, actual 1.0, small gain
+        new_elo = elo._calculate_new_elo(1600, expected=0.75, actual=1.0, k=32)
+        assert new_elo > 1600
+        assert new_elo < 1610  # Small gain for expected win
+
+    def test_calculate_new_elo_upset_win(self, elo):
+        """Test ELO gain for upset win."""
+        # If expected 0.25, actual 1.0, big gain
+        new_elo = elo._calculate_new_elo(1400, expected=0.25, actual=1.0, k=32)
+        assert new_elo > 1420  # Large gain for upset
+
+    def test_calculate_new_elo_expected_loss(self, elo):
+        """Test ELO loss when expected to lose."""
+        # If expected 0.25, actual 0.0, small loss
+        new_elo = elo._calculate_new_elo(1400, expected=0.25, actual=0.0, k=32)
+        assert new_elo < 1400
+        assert new_elo > 1390  # Small loss for expected loss
+
+
+class TestMigration:
+    """Test database schema migration."""
+
+    def test_migrate_v1_to_v2(self, elo):
+        """Test that v1 to v2 migration adds calibration columns."""
+        # The migration should have run during init
+        # Verify calibration columns exist by using them
+        rating = elo.get_rating("test_agent")
+        assert hasattr(rating, 'calibration_correct')
+        assert hasattr(rating, 'calibration_total')
+        assert hasattr(rating, 'calibration_brier_sum')
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

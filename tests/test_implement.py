@@ -1007,7 +1007,7 @@ class TestCreateSingleTaskPlan:
         plan = create_single_task_plan("Design text", tmp_path)
 
         assert plan.design_hash is not None
-        assert len(plan.design_hash) == 32  # MD5 hash length
+        assert len(plan.design_hash) == 64  # SHA256 hash length
 
 
 # =============================================================================

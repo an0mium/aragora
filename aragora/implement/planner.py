@@ -193,7 +193,7 @@ async def generate_implement_plan(
         raise ValueError(f"Invalid plan: {'; '.join(errors)}")
 
     # Build ImplementPlan
-    design_hash = hashlib.md5(design.encode()).hexdigest()
+    design_hash = hashlib.sha256(design.encode()).hexdigest()
     tasks = [ImplementTask.from_dict(t) for t in plan_data["tasks"]]
 
     logger.info(f"  Plan generated: {len(tasks)} tasks")
@@ -332,7 +332,7 @@ def create_single_task_plan(design: str, repo_path: Path) -> ImplementPlan:
     This preserves the legacy behavior of treating the entire design
     as a single implementation task.
     """
-    design_hash = hashlib.md5(design.encode()).hexdigest()
+    design_hash = hashlib.sha256(design.encode()).hexdigest()
 
     task = ImplementTask(
         id="task-1",

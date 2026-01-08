@@ -230,30 +230,32 @@ class TestCalibratedJudgeSelection:
         """Create mock ELO system."""
         elo = MagicMock(spec=EloSystem)
 
+        ratings = {
+            "agent_a": AgentRating(
+                agent_name="agent_a",
+                elo=1700,
+                calibration_correct=48,
+                calibration_total=50,
+                calibration_brier_sum=4.0,
+            ),
+            "agent_b": AgentRating(
+                agent_name="agent_b",
+                elo=1500,
+                calibration_correct=35,
+                calibration_total=50,
+                calibration_brier_sum=12.0,
+            ),
+            "agent_c": AgentRating(agent_name="agent_c"),
+        }
+
         def mock_get_rating(name):
-            # agent_a has best composite score
-            if name == "agent_a":
-                return AgentRating(
-                    agent_name="agent_a",
-                    elo=1700,
-                    calibration_correct=48,
-                    calibration_total=50,
-                    calibration_brier_sum=4.0,
-                )
-            # agent_b has medium score
-            elif name == "agent_b":
-                return AgentRating(
-                    agent_name="agent_b",
-                    elo=1500,
-                    calibration_correct=35,
-                    calibration_total=50,
-                    calibration_brier_sum=12.0,
-                )
-            # agent_c has lowest score
-            else:
-                return AgentRating(agent_name=name)
+            return ratings.get(name, AgentRating(agent_name=name))
+
+        def mock_get_ratings_batch(names):
+            return {name: ratings.get(name, AgentRating(agent_name=name)) for name in names}
 
         elo.get_rating = mock_get_rating
+        elo.get_ratings_batch = mock_get_ratings_batch
         return elo
 
     @pytest.mark.asyncio

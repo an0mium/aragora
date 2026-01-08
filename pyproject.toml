@@ -107,6 +107,12 @@ filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
 ]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "load: marks tests as load/stress tests (deselect with '-m \"not load\"')",
+    "integration: marks tests as integration tests",
+    "e2e: marks tests as end-to-end tests",
+]
 
 [tool.mypy]
 python_version = "3.11"

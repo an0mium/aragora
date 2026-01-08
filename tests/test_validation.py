@@ -113,30 +113,25 @@ class TestValidateJsonBody:
 class TestValidateContentType:
     """Tests for validate_content_type function."""
 
-    def test_valid_json_content_type(self):
-        """Test valid JSON content type."""
-        result = validate_content_type("application/json")
+    @pytest.mark.parametrize("content_type,expected_valid", [
+        ("application/json", True),
+        ("application/json; charset=utf-8", True),
+        ("text/html", False),
+        ("", False),
+    ])
+    def test_content_type_validation(self, content_type: str, expected_valid: bool):
+        """Test content type validation for various inputs."""
+        result = validate_content_type(content_type)
+        assert result.is_valid is expected_valid
 
-        assert result.is_valid is True
-
-    def test_json_with_charset(self):
-        """Test JSON content type with charset."""
-        result = validate_content_type("application/json; charset=utf-8")
-
-        assert result.is_valid is True
-
-    def test_missing_content_type(self):
-        """Test missing content type fails."""
+    def test_missing_content_type_error_message(self):
+        """Test missing content type has correct error message."""
         result = validate_content_type("")
-
-        assert result.is_valid is False
         assert "Missing" in result.error
 
-    def test_wrong_content_type(self):
-        """Test wrong content type fails."""
+    def test_wrong_content_type_error_message(self):
+        """Test wrong content type has correct error message."""
         result = validate_content_type("text/html")
-
-        assert result.is_valid is False
         assert "Invalid Content-Type" in result.error
 
     def test_custom_expected_type(self):
@@ -145,7 +140,6 @@ class TestValidateContentType:
             "multipart/form-data",
             expected="multipart/form-data"
         )
-
         assert result.is_valid is True
 
 
@@ -526,63 +520,48 @@ class TestValidateAgainstSchema:
 class TestSanitizeString:
     """Tests for sanitize_string function."""
 
-    def test_strips_whitespace(self):
+    @pytest.mark.parametrize("input_str,expected", [
+        ("  hello world  ", "hello world"),
+        ("no_whitespace", "no_whitespace"),
+    ])
+    def test_strips_whitespace(self, input_str: str, expected: str):
         """Test whitespace is stripped."""
-        result = sanitize_string("  hello world  ")
-
-        assert result == "hello world"
+        result = sanitize_string(input_str)
+        assert result == expected
 
     def test_truncates_long_string(self):
         """Test long strings are truncated."""
         result = sanitize_string("a" * 100, max_length=50)
-
         assert len(result) == 50
         assert result == "a" * 50
 
-    def test_non_string_returns_empty(self):
+    @pytest.mark.parametrize("input_val", [123, None, [], {}])
+    def test_non_string_returns_empty(self, input_val):
         """Test non-string input returns empty string."""
-        result = sanitize_string(123)
-
-        assert result == ""
-
-    def test_none_returns_empty(self):
-        """Test None input returns empty string."""
-        result = sanitize_string(None)
-
+        result = sanitize_string(input_val)
         assert result == ""
 
 
 class TestSanitizeId:
     """Tests for sanitize_id function."""
 
-    def test_valid_id(self):
-        """Test valid ID passes through."""
-        result = sanitize_id("valid_id-123")
+    @pytest.mark.parametrize("input_id,expected", [
+        ("valid_id-123", "valid_id-123"),
+        ("  valid_id  ", "valid_id"),
+    ])
+    def test_valid_id(self, input_id: str, expected: str):
+        """Test valid ID passes through (with whitespace stripping)."""
+        result = sanitize_id(input_id)
+        assert result == expected
 
-        assert result == "valid_id-123"
-
-    def test_strips_whitespace(self):
-        """Test whitespace is stripped from ID."""
-        result = sanitize_id("  valid_id  ")
-
-        assert result == "valid_id"
-
-    def test_invalid_id_returns_none(self):
-        """Test invalid ID returns None."""
-        result = sanitize_id("invalid id with spaces!")
-
-        assert result is None
-
-    def test_non_string_returns_none(self):
-        """Test non-string returns None."""
-        result = sanitize_id(123)
-
-        assert result is None
-
-    def test_too_long_id_returns_none(self):
-        """Test ID exceeding max length returns None."""
-        result = sanitize_id("a" * 100)  # Pattern max is 64
-
+    @pytest.mark.parametrize("invalid_id", [
+        "invalid id with spaces!",
+        123,
+        "a" * 100,  # Pattern max is 64
+    ])
+    def test_invalid_id_returns_none(self, invalid_id):
+        """Test invalid IDs return None."""
+        result = sanitize_id(invalid_id)
         assert result is None
 
 
@@ -593,31 +572,51 @@ class TestSanitizeId:
 class TestPatterns:
     """Tests for validation regex patterns."""
 
-    def test_safe_id_pattern_valid(self):
+    @pytest.mark.parametrize("id_str", [
+        "abc",
+        "test_123",
+        "my-id",
+        "ABC123",
+        "a" * 64,
+    ])
+    def test_safe_id_pattern_valid(self, id_str: str):
         """Test valid IDs match pattern."""
-        valid_ids = ["abc", "test_123", "my-id", "ABC123", "a" * 64]
-        for id_str in valid_ids:
-            assert SAFE_ID_PATTERN.match(id_str), f"{id_str} should match"
+        assert SAFE_ID_PATTERN.match(id_str), f"{id_str} should match"
 
-    def test_safe_id_pattern_invalid(self):
+    @pytest.mark.parametrize("id_str", [
+        "",
+        "a" * 65,
+        "has space",
+        "special@char",
+        "dot.id",
+    ])
+    def test_safe_id_pattern_invalid(self, id_str: str):
         """Test invalid IDs don't match pattern."""
-        invalid_ids = ["", "a" * 65, "has space", "special@char", "dot.id"]
-        for id_str in invalid_ids:
-            assert not SAFE_ID_PATTERN.match(id_str), f"{id_str} should not match"
+        assert not SAFE_ID_PATTERN.match(id_str), f"{id_str} should not match"
 
-    def test_safe_slug_pattern_valid(self):
+    @pytest.mark.parametrize("slug", [
+        "my-article-slug",
+        "test_page_123",
+        "a" * 128,
+    ])
+    def test_safe_slug_pattern_valid(self, slug: str):
         """Test valid slugs match pattern."""
-        valid_slugs = ["my-article-slug", "test_page_123", "a" * 128]
-        for slug in valid_slugs:
-            assert SAFE_SLUG_PATTERN.match(slug), f"{slug} should match"
+        assert SAFE_SLUG_PATTERN.match(slug), f"{slug} should match"
 
-    def test_safe_agent_pattern_valid(self):
+    @pytest.mark.parametrize("agent", [
+        "claude",
+        "gemini-pro",
+        "gpt_4",
+        "agent123",
+    ])
+    def test_safe_agent_pattern_valid(self, agent: str):
         """Test valid agent names match pattern."""
-        valid_agents = ["claude", "gemini-pro", "gpt_4", "agent123"]
-        for agent in valid_agents:
-            assert SAFE_AGENT_PATTERN.match(agent), f"{agent} should match"
+        assert SAFE_AGENT_PATTERN.match(agent), f"{agent} should match"
 
-    def test_safe_agent_pattern_max_length(self):
+    @pytest.mark.parametrize("agent,expected_match", [
+        ("a" * 32, True),
+        ("a" * 33, False),
+    ])
+    def test_safe_agent_pattern_max_length(self, agent: str, expected_match: bool):
         """Test agent name max length is 32."""
-        assert SAFE_AGENT_PATTERN.match("a" * 32)
-        assert not SAFE_AGENT_PATTERN.match("a" * 33)
+        assert bool(SAFE_AGENT_PATTERN.match(agent)) is expected_match

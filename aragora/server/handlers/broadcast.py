@@ -7,7 +7,9 @@ Endpoints:
 
 import logging
 import os
-from typing import Optional
+from typing import Any, Coroutine, Optional, TypeVar
+
+T = TypeVar("T")
 
 from aragora.server.http_utils import run_async
 from .base import (
@@ -38,7 +40,7 @@ except ImportError:
     MP3 = None
 
 
-def _run_async(coro):
+def _run_async(coro: Coroutine[Any, Any, T]) -> T:
     """Run async coroutine in sync context."""
     return run_async(coro)
 

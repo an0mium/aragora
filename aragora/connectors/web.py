@@ -215,9 +215,12 @@ class WebConnector(BaseConnector):
                 cached_data = json.loads(cache_file.read_text())
                 # Properly reconstruct Evidence objects from cache
                 return [Evidence.from_dict(e) for e in cached_data["results"]]
-            except Exception as e:
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
                 # If cache is corrupted, proceed with search
                 logger.debug(f"Cache load failed for query '{query[:50]}': {e}")
+            except OSError as e:
+                # File system error, proceed with search
+                logger.debug(f"Cache file read error for query '{query[:50]}': {e}")
 
         # Use test seam for actual search (allows mocking in tests)
         return await self._search_web_actual(query, limit, region)
@@ -270,7 +273,14 @@ class WebConnector(BaseConnector):
 
             return evidence_list
 
+        except (ConnectionError, OSError) as e:
+            return [self._create_error_evidence(f"Network error during search: {e}")]
+        except RuntimeError as e:
+            # DuckDuckGo library can raise RuntimeError for various issues
+            return [self._create_error_evidence(f"Search service error: {e}")]
         except Exception as e:
+            # Catch-all for truly unexpected errors
+            logger.warning(f"Unexpected search error: {type(e).__name__}: {e}")
             return [self._create_error_evidence(f"Search failed: {e}")]
 
     def _is_local_ip(self, url: str) -> bool:
@@ -371,7 +381,7 @@ class WebConnector(BaseConnector):
 
     def _get_cache_file(self, query: str) -> Path:
         """Get the cache file path for a query."""
-        query_hash = hashlib.md5(query.encode()).hexdigest()
+        query_hash = hashlib.sha256(query.encode()).hexdigest()
         return self.cache_dir / f"{query_hash}.json"
 
     def _save_to_cache(self, query: str, results: list[Evidence]) -> None:
@@ -531,15 +541,26 @@ class WebConnector(BaseConnector):
             if self._circuit_breaker is not None:
                 self._circuit_breaker.record_failure()
             return self._create_error_evidence(f"Timeout fetching {url}")
+        except httpx.ConnectError as e:
+            # Connection failed (DNS, refused, etc.)
+            if self._circuit_breaker is not None:
+                self._circuit_breaker.record_failure()
+            return self._create_error_evidence(f"Connection failed for {url}: {e}")
         except httpx.HTTPStatusError as e:
             # Record failure to circuit breaker (only for 5xx errors, not 4xx)
             if self._circuit_breaker is not None and e.response.status_code >= 500:
                 self._circuit_breaker.record_failure()
             return self._create_error_evidence(f"HTTP {e.response.status_code} for {url}")
-        except Exception as e:
-            # Record failure to circuit breaker
+        except httpx.RequestError as e:
+            # Other httpx request errors (network issues, etc.)
             if self._circuit_breaker is not None:
                 self._circuit_breaker.record_failure()
+            return self._create_error_evidence(f"Request error for {url}: {e}")
+        except Exception as e:
+            # Catch-all for truly unexpected errors
+            if self._circuit_breaker is not None:
+                self._circuit_breaker.record_failure()
+            logger.warning(f"Unexpected fetch error for {url}: {type(e).__name__}: {e}")
             return self._create_error_evidence(f"Error fetching {url}: {e}")
 
     def _parse_html(self, html: str) -> tuple[str, str]:

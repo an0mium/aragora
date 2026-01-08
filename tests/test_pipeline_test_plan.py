@@ -1,7 +1,7 @@
 """
 Tests for aragora.pipeline.test_plan module.
 
-Tests the TestCase, TestPlan, and TestPlanGenerator classes for:
+Tests the VerificationCase, VerificationPlan, and VerificationPlanGenerator classes for:
 - Dataclass creation and serialization
 - Test filtering by type and priority
 - Markdown generation
@@ -13,12 +13,17 @@ from datetime import datetime
 from unittest.mock import MagicMock
 
 from aragora.pipeline.test_plan import (
-    TestCase,
-    TestPlan,
-    TestPlanGenerator,
+    VerificationCase,
+    VerificationPlan,
+    VerificationPlanGenerator,
     TestType,
     TestPriority,
 )
+
+# Aliases for cleaner test code
+TestCase = VerificationCase
+TestPlan = VerificationPlan
+TestPlanGenerator = VerificationPlanGenerator
 
 
 class TestTestType:

@@ -10,7 +10,10 @@ Provides consistent error message handling across the server:
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from functools import wraps
+from typing import Any, Callable, Optional, TypeVar
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 logger = logging.getLogger(__name__)
 
@@ -507,7 +510,7 @@ class ErrorContext:
         return False  # Propagate exception
 
 
-def with_error_context(operation: str, **default_context):
+def with_error_context(operation: str, **default_context: Any) -> Callable[[F], F]:
     """Decorator version of ErrorContext.
 
     Example:
@@ -515,19 +518,20 @@ def with_error_context(operation: str, **default_context):
         def create_debate(config):
             ...
     """
-    def decorator(func):
-        def wrapper(*args, **kwargs):
+    def decorator(func: F) -> F:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Merge default context with any runtime context
             context = {**default_context}
             with ErrorContext(operation, **context):
                 return func(*args, **kwargs)
-        wrapper.__name__ = func.__name__
-        wrapper.__doc__ = func.__doc__
-        return wrapper
+        return wrapper  # type: ignore[return-value]
     return decorator
 
 
-def log_and_suppress(operation: str, default_value=None, **context):
+def log_and_suppress(
+    operation: str, default_value: Any = None, **context: Any
+) -> "SuppressingContext":
     """Context manager that logs errors but returns a default value.
 
     Useful for optional operations that shouldn't fail the request.
@@ -538,14 +542,19 @@ def log_and_suppress(operation: str, default_value=None, **context):
         # If fetch fails, metadata = {}
     """
     class SuppressingContext(ErrorContext):
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__(operation, reraise=False, log_level="warning", **context)
             self.result = default_value
 
-        def __enter__(self):
+        def __enter__(self) -> "SuppressingContext":
             return self
 
-        def __exit__(self, exc_type, exc_val, exc_tb):
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: Any,
+        ) -> bool:
             if exc_val is not None:
                 super().__exit__(exc_type, exc_val, exc_tb)
                 return True

@@ -358,7 +358,7 @@ class CritiqueStore:
 
             for issue in critique.issues:
                 # Create pattern ID from issue hash
-                pattern_id = hashlib.md5(issue.lower().encode()).hexdigest()[:12]
+                pattern_id = hashlib.sha256(issue.lower().encode()).hexdigest()[:12]
 
                 # Categorize issue type (simple heuristic)
                 issue_type = self._categorize_issue(issue)
@@ -438,7 +438,7 @@ class CritiqueStore:
             cursor = conn.cursor()
 
             # Create pattern ID from issue hash (same as store_pattern)
-            pattern_id = hashlib.md5(issue_text.lower().encode()).hexdigest()[:12]
+            pattern_id = hashlib.sha256(issue_text.lower().encode()).hexdigest()[:12]
 
             # Increment failure count if pattern exists
             cursor.execute(

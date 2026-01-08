@@ -495,7 +495,7 @@ def _log_error(
     log_method(message)
 
 
-def handle_stream_errors(agent_name_attr: str = "name"):
+def handle_stream_errors(agent_name_attr: str = "name") -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
     Decorator specifically for streaming methods.
 
@@ -511,7 +511,7 @@ def handle_stream_errors(agent_name_attr: str = "name"):
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
-        async def wrapper(self, *args, **kwargs):
+        async def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             agent_name = getattr(self, agent_name_attr, "unknown")
             partial_content = []
 

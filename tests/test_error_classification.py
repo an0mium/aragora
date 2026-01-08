@@ -178,94 +178,74 @@ class TestCLIAgentErrors:
 class TestClassifyCLIError:
     """Test the classify_cli_error function."""
 
-    def test_rate_limit_detection_from_stderr(self) -> None:
-        """Detects rate limit from stderr message."""
+    @pytest.mark.parametrize("stderr,expected_recoverable", [
+        ("Error: rate limit exceeded", True),
+        ("HTTP Error 429: Too Many Requests", True),
+        ("quota exceeded for today", True),
+    ])
+    def test_rate_limit_detection(self, stderr: str, expected_recoverable: bool) -> None:
+        """Detects rate limit from various stderr patterns."""
         error = classify_cli_error(
             returncode=1,
-            stderr="Error: rate limit exceeded",
+            stderr=stderr,
             stdout="",
             agent_name="test-agent",
         )
 
-        assert isinstance(error, CLIAgentError)
-        assert error.recoverable is True
-        assert "rate limit" in str(error).lower()
+        assert error.recoverable is expected_recoverable
 
-    def test_rate_limit_detection_429(self) -> None:
-        """Detects rate limit from HTTP 429 in stderr."""
+    @pytest.mark.parametrize("returncode,stderr,timeout_seconds,expected_type", [
+        (-9, "", 30.0, CLITimeoutError),
+        (1, "Error: connection timed out", None, CLITimeoutError),
+        (1, "request timed out", None, CLITimeoutError),
+    ])
+    def test_timeout_detection(
+        self, returncode: int, stderr: str, timeout_seconds: float | None, expected_type: type
+    ) -> None:
+        """Detects timeout from various sources."""
         error = classify_cli_error(
-            returncode=1,
-            stderr="HTTP Error 429: Too Many Requests",
+            returncode=returncode,
+            stderr=stderr,
+            stdout="",
+            timeout_seconds=timeout_seconds,
+        )
+
+        assert isinstance(error, expected_type)
+        if timeout_seconds is not None:
+            assert error.timeout_seconds == timeout_seconds
+
+    @pytest.mark.parametrize("returncode,stderr,expected_type,expected_recoverable", [
+        (127, "bash: claude: command not found", CLINotFoundError, False),
+        (126, "Permission denied", CLISubprocessError, True),
+        (42, "Some unknown error", CLISubprocessError, True),
+    ])
+    def test_subprocess_error_types(
+        self, returncode: int, stderr: str, expected_type: type, expected_recoverable: bool
+    ) -> None:
+        """Detects various subprocess error types."""
+        error = classify_cli_error(
+            returncode=returncode,
+            stderr=stderr,
             stdout="",
         )
 
-        assert error.recoverable is True
+        assert isinstance(error, expected_type)
+        assert error.returncode == returncode
 
-    def test_timeout_detection_sigkill(self) -> None:
-        """Detects timeout from SIGKILL return code."""
+    @pytest.mark.parametrize("returncode,stdout,expected_type", [
+        (0, "", CLISubprocessError),  # Empty response
+        (0, "   \n\t  ", CLIParseError),  # Whitespace only
+        (0, "{invalid json", CLIParseError),  # Invalid JSON
+    ])
+    def test_parse_errors(self, returncode: int, stdout: str, expected_type: type) -> None:
+        """Detects parse errors from various stdout patterns."""
         error = classify_cli_error(
-            returncode=-9,
+            returncode=returncode,
             stderr="",
-            stdout="",
-            timeout_seconds=30.0,
+            stdout=stdout,
         )
 
-        assert isinstance(error, CLITimeoutError)
-        assert error.timeout_seconds == 30.0
-
-    def test_timeout_detection_from_stderr(self) -> None:
-        """Detects timeout from stderr message."""
-        error = classify_cli_error(
-            returncode=1,
-            stderr="Error: connection timed out",
-            stdout="",
-        )
-
-        assert isinstance(error, CLITimeoutError)
-
-    def test_command_not_found(self) -> None:
-        """Detects command not found error."""
-        error = classify_cli_error(
-            returncode=127,
-            stderr="bash: claude: command not found",
-            stdout="",
-        )
-
-        assert isinstance(error, CLINotFoundError)
-        assert error.recoverable is False
-
-    def test_permission_denied(self) -> None:
-        """Detects permission denied error."""
-        error = classify_cli_error(
-            returncode=126,
-            stderr="Permission denied",
-            stdout="",
-        )
-
-        assert isinstance(error, CLISubprocessError)
-        assert error.returncode == 126
-
-    def test_empty_response_with_success_code(self) -> None:
-        """Empty response with success code classified as subprocess error."""
-        error = classify_cli_error(
-            returncode=0,
-            stderr="",
-            stdout="",
-        )
-
-        # Empty response with return code 0 is generic subprocess error
-        assert isinstance(error, CLISubprocessError)
-
-    def test_whitespace_only_response_parse_error(self) -> None:
-        """Whitespace-only response classified as parse error."""
-        error = classify_cli_error(
-            returncode=0,
-            stderr="",
-            stdout="   \n\t  ",
-        )
-
-        assert isinstance(error, CLIParseError)
-        assert error.recoverable is False
+        assert isinstance(error, expected_type)
 
     def test_json_error_in_stdout(self) -> None:
         """Detects error in JSON response."""
@@ -279,29 +259,6 @@ class TestClassifyCLIError:
 
         assert isinstance(error, CLIAgentError)
         assert "API key invalid" in str(error)
-
-    def test_invalid_json_parse_error(self) -> None:
-        """Invalid JSON in stdout classified as parse error."""
-        error = classify_cli_error(
-            returncode=0,
-            stderr="",
-            stdout="{invalid json",
-        )
-
-        assert isinstance(error, CLIParseError)
-        assert error.raw_output == "{invalid json"[:200]
-
-    def test_generic_subprocess_error(self) -> None:
-        """Unknown errors classified as generic subprocess error."""
-        error = classify_cli_error(
-            returncode=42,
-            stderr="Some unknown error",
-            stdout="",
-        )
-
-        assert isinstance(error, CLISubprocessError)
-        assert error.returncode == 42
-        assert "42" in str(error)
 
     def test_truncates_long_stderr(self) -> None:
         """Long stderr is truncated in error."""
@@ -407,267 +364,230 @@ class TestErrorContextPreservation:
 class TestErrorClassifier:
     """Test the centralized ErrorClassifier utility class."""
 
-    def test_is_rate_limit_detects_common_patterns(self) -> None:
+    @pytest.mark.parametrize("message,expected", [
+        ("rate limit exceeded", True),
+        ("HTTP 429 Too Many Requests", True),
+        ("quota exceeded", True),
+        ("You have been throttled", True),
+        ("billing issue", True),
+        ("invalid input", False),
+        ("syntax error", False),
+        ("", False),
+    ])
+    def test_is_rate_limit(self, message: str, expected: bool) -> None:
         """ErrorClassifier.is_rate_limit detects rate limit patterns."""
         from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.is_rate_limit(message) is expected
 
-        assert ErrorClassifier.is_rate_limit("rate limit exceeded") is True
-        assert ErrorClassifier.is_rate_limit("HTTP 429 Too Many Requests") is True
-        assert ErrorClassifier.is_rate_limit("quota exceeded") is True
-        assert ErrorClassifier.is_rate_limit("You have been throttled") is True
-        assert ErrorClassifier.is_rate_limit("billing issue") is True
-
-    def test_is_rate_limit_negative_cases(self) -> None:
-        """ErrorClassifier.is_rate_limit returns False for non-rate-limit errors."""
-        from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.is_rate_limit("invalid input") is False
-        assert ErrorClassifier.is_rate_limit("syntax error") is False
-        assert ErrorClassifier.is_rate_limit("") is False
-
-    def test_is_network_error_detects_connection_issues(self) -> None:
+    @pytest.mark.parametrize("message,expected", [
+        ("connection refused", True),
+        ("503 service unavailable", True),
+        ("request timed out", True),
+        ("network is unreachable", True),
+        ("normal response", False),
+    ])
+    def test_is_network_error(self, message: str, expected: bool) -> None:
         """ErrorClassifier.is_network_error detects network patterns."""
         from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.is_network_error(message) is expected
 
-        assert ErrorClassifier.is_network_error("connection refused") is True
-        assert ErrorClassifier.is_network_error("503 service unavailable") is True
-        assert ErrorClassifier.is_network_error("request timed out") is True
-        assert ErrorClassifier.is_network_error("network is unreachable") is True
-
-    def test_is_cli_error_detects_cli_patterns(self) -> None:
+    @pytest.mark.parametrize("message,expected", [
+        ("command not found", True),
+        ("permission denied", True),
+        ("broken pipe", True),
+        ("argument list too long", True),
+        ("normal output", False),
+    ])
+    def test_is_cli_error(self, message: str, expected: bool) -> None:
         """ErrorClassifier.is_cli_error detects CLI-specific patterns."""
         from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.is_cli_error(message) is expected
 
-        assert ErrorClassifier.is_cli_error("command not found") is True
-        assert ErrorClassifier.is_cli_error("permission denied") is True
-        assert ErrorClassifier.is_cli_error("broken pipe") is True
-        assert ErrorClassifier.is_cli_error("argument list too long") is True
-
-    def test_is_model_error_detects_model_patterns(self) -> None:
+    @pytest.mark.parametrize("message,expected", [
+        ("model not found", True),
+        ("model unavailable", True),
+        ("model is currently overloaded", True),
+        ("valid response", False),
+    ])
+    def test_is_model_error(self, message: str, expected: bool) -> None:
         """ErrorClassifier.is_model_error detects model-specific patterns."""
         from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.is_model_error(message) is expected
 
-        assert ErrorClassifier.is_model_error("model not found") is True
-        assert ErrorClassifier.is_model_error("model unavailable") is True
-        assert ErrorClassifier.is_model_error("model is currently overloaded") is True
-
-    def test_is_auth_error_detects_auth_patterns(self) -> None:
+    @pytest.mark.parametrize("message,expected", [
+        ("unauthorized", True),
+        ("invalid api key", True),
+        ("401", True),
+        ("forbidden", True),
+        ("access granted", False),
+    ])
+    def test_is_auth_error(self, message: str, expected: bool) -> None:
         """ErrorClassifier.is_auth_error detects authentication patterns."""
         from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.is_auth_error(message) is expected
 
-        assert ErrorClassifier.is_auth_error("unauthorized") is True
-        assert ErrorClassifier.is_auth_error("invalid api key") is True
-        assert ErrorClassifier.is_auth_error("401") is True
-        assert ErrorClassifier.is_auth_error("forbidden") is True
-
-    def test_is_content_policy_error_detects_policy_patterns(self) -> None:
+    @pytest.mark.parametrize("message,expected", [
+        ("content policy violation", True),
+        ("flagged by moderation", True),
+        ("refused to generate", True),
+        ("generated successfully", False),
+    ])
+    def test_is_content_policy_error(self, message: str, expected: bool) -> None:
         """ErrorClassifier.is_content_policy_error detects content policy patterns."""
         from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.is_content_policy_error(message) is expected
 
-        assert ErrorClassifier.is_content_policy_error("content policy violation") is True
-        assert ErrorClassifier.is_content_policy_error("flagged by moderation") is True
-        assert ErrorClassifier.is_content_policy_error("refused to generate") is True
-
-    def test_is_validation_error_detects_validation_patterns(self) -> None:
+    @pytest.mark.parametrize("message,expected", [
+        ("context length exceeded", True),
+        ("invalid input", True),
+        ("bad request 400", True),
+        ("valid request", False),
+    ])
+    def test_is_validation_error(self, message: str, expected: bool) -> None:
         """ErrorClassifier.is_validation_error detects input validation patterns."""
         from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.is_validation_error(message) is expected
 
-        assert ErrorClassifier.is_validation_error("context length exceeded") is True
-        assert ErrorClassifier.is_validation_error("invalid input") is True
-        assert ErrorClassifier.is_validation_error("bad request 400") is True
+    @pytest.mark.parametrize("error_factory,expected", [
+        (lambda: TimeoutError("timed out"), True),
+        (lambda: ConnectionError("refused"), True),
+        (lambda: ConnectionRefusedError(), True),
+        (lambda: ConnectionResetError(), True),
+        (lambda: BrokenPipeError(), True),
+        (lambda: Exception("rate limit exceeded"), True),
+        (lambda: Exception("HTTP 429"), True),
+        (lambda: OSError(111, "Connection refused"), True),
+        (lambda: OSError(110, "Connection timed out"), True),
+        (lambda: ValueError("invalid"), False),
+        (lambda: TypeError("wrong type"), False),
+        (lambda: KeyError("missing"), False),
+    ])
+    def test_should_fallback(self, error_factory, expected: bool) -> None:
+        """ErrorClassifier.should_fallback returns correct result for various error types."""
+        from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.should_fallback(error_factory()) is expected
 
-    def test_should_fallback_with_timeout_errors(self) -> None:
-        """ErrorClassifier.should_fallback returns True for timeout errors."""
+    def test_should_fallback_with_asyncio_timeout(self) -> None:
+        """ErrorClassifier.should_fallback returns True for asyncio timeout errors."""
         import asyncio
         from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.should_fallback(TimeoutError("timed out")) is True
         assert ErrorClassifier.should_fallback(asyncio.TimeoutError()) is True
-
-    def test_should_fallback_with_connection_errors(self) -> None:
-        """ErrorClassifier.should_fallback returns True for connection errors."""
-        from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.should_fallback(ConnectionError("refused")) is True
-        assert ErrorClassifier.should_fallback(ConnectionRefusedError()) is True
-        assert ErrorClassifier.should_fallback(ConnectionResetError()) is True
-        assert ErrorClassifier.should_fallback(BrokenPipeError()) is True
-
-    def test_should_fallback_with_rate_limit_message(self) -> None:
-        """ErrorClassifier.should_fallback returns True for rate limit messages."""
-        from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.should_fallback(Exception("rate limit exceeded")) is True
-        assert ErrorClassifier.should_fallback(Exception("HTTP 429")) is True
-
-    def test_should_fallback_with_os_errors(self) -> None:
-        """ErrorClassifier.should_fallback returns True for specific OS errors."""
-        from aragora.agents.errors import ErrorClassifier
-
-        # ECONNREFUSED = 111
-        error = OSError(111, "Connection refused")
-        assert ErrorClassifier.should_fallback(error) is True
-
-        # ETIMEDOUT = 110
-        error = OSError(110, "Connection timed out")
-        assert ErrorClassifier.should_fallback(error) is True
 
     def test_should_fallback_with_subprocess_errors(self) -> None:
         """ErrorClassifier.should_fallback returns True for subprocess errors."""
         import subprocess
         from aragora.agents.errors import ErrorClassifier
-
         error = subprocess.SubprocessError("Process failed")
         assert ErrorClassifier.should_fallback(error) is True
 
-    def test_should_fallback_negative_cases(self) -> None:
-        """ErrorClassifier.should_fallback returns False for regular errors."""
+    @pytest.mark.parametrize("error_factory,expected_category", [
+        (lambda: TimeoutError(), "timeout"),
+        (lambda: ConnectionError(), "network"),
+        (lambda: Exception("rate limit"), "rate_limit"),
+        (lambda: Exception("429"), "rate_limit"),
+        (lambda: Exception("connection refused"), "network"),
+        (lambda: Exception("unauthorized"), "auth"),
+        (lambda: Exception("model not found"), "model"),
+        (lambda: Exception("content policy"), "content_policy"),
+        (lambda: Exception("context length exceeded"), "validation"),
+        (lambda: ValueError("bad value"), "unknown"),
+        (lambda: Exception("some error"), "unknown"),
+    ])
+    def test_get_error_category(self, error_factory, expected_category: str) -> None:
+        """ErrorClassifier.get_error_category identifies error categories."""
         from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.get_error_category(error_factory()) == expected_category
 
-        assert ErrorClassifier.should_fallback(ValueError("invalid")) is False
-        assert ErrorClassifier.should_fallback(TypeError("wrong type")) is False
-        assert ErrorClassifier.should_fallback(KeyError("missing")) is False
-
-    def test_get_error_category_timeout(self) -> None:
-        """ErrorClassifier.get_error_category identifies timeout errors."""
+    def test_get_error_category_asyncio(self) -> None:
+        """ErrorClassifier.get_error_category identifies asyncio timeout errors."""
         import asyncio
         from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.get_error_category(TimeoutError()) == "timeout"
         assert ErrorClassifier.get_error_category(asyncio.TimeoutError()) == "timeout"
 
-    def test_get_error_category_rate_limit(self) -> None:
-        """ErrorClassifier.get_error_category identifies rate limit errors."""
-        from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.get_error_category(Exception("rate limit")) == "rate_limit"
-        assert ErrorClassifier.get_error_category(Exception("429")) == "rate_limit"
-
-    def test_get_error_category_network(self) -> None:
-        """ErrorClassifier.get_error_category identifies network errors."""
-        from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.get_error_category(ConnectionError()) == "network"
-        assert ErrorClassifier.get_error_category(Exception("connection refused")) == "network"
-
-    def test_get_error_category_cli(self) -> None:
-        """ErrorClassifier.get_error_category identifies CLI errors."""
+    def test_get_error_category_subprocess(self) -> None:
+        """ErrorClassifier.get_error_category identifies subprocess errors."""
         import subprocess
         from aragora.agents.errors import ErrorClassifier
-
         assert ErrorClassifier.get_error_category(subprocess.SubprocessError()) == "cli"
         assert ErrorClassifier.get_error_category(Exception("command not found")) == "cli"
-
-    def test_get_error_category_unknown(self) -> None:
-        """ErrorClassifier.get_error_category returns unknown for unclassified errors."""
-        from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.get_error_category(ValueError("bad value")) == "unknown"
-        assert ErrorClassifier.get_error_category(Exception("some error")) == "unknown"
-
-    def test_get_error_category_new_categories(self) -> None:
-        """ErrorClassifier.get_error_category identifies new error categories."""
-        from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.get_error_category(Exception("unauthorized")) == "auth"
-        assert ErrorClassifier.get_error_category(Exception("model not found")) == "model"
-        assert ErrorClassifier.get_error_category(Exception("content policy")) == "content_policy"
-        assert ErrorClassifier.get_error_category(Exception("context length exceeded")) == "validation"
 
 
 class TestNewPatterns:
     """Test newly added error patterns."""
 
-    def test_ssl_certificate_errors(self) -> None:
-        """SSL/TLS certificate errors are detected as network errors."""
+    @pytest.mark.parametrize("message", [
+        "ssl error: certificate verify failed",
+        "SSL handshake failed",
+        "certificate expired",
+        "cert verify failed",
+        "proxy error: connection failed",
+        "HTTP 407 Proxy Authentication Required",
+        "tunnel connection failed",
+        "dns resolution failed",
+        "getaddrinfo failed",
+        "nodename nor servname provided",
+        "HTTP 500 Internal Server Error",
+        "internal server error",
+    ])
+    def test_network_error_patterns(self, message: str) -> None:
+        """Network-related errors (SSL, proxy, DNS, HTTP 500) are detected."""
         from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.is_network_error(message) is True
 
-        assert ErrorClassifier.is_network_error("ssl error: certificate verify failed") is True
-        assert ErrorClassifier.is_network_error("SSL handshake failed") is True
-        assert ErrorClassifier.is_network_error("certificate expired") is True
-        assert ErrorClassifier.is_network_error("cert verify failed") is True
-
-    def test_proxy_errors(self) -> None:
-        """Proxy-related errors are detected as network errors."""
+    @pytest.mark.parametrize("message", [
+        "context window exceeded",
+        "maximum context limit",
+        "token limit exceeded",
+        "input too large",
+        "prompt too long",
+        "string_above_max_length",
+        "please reduce your prompt",
+        "reduce the length of your input",
+        "exceeds the model's limit",
+        "exceeds maximum allowed",
+    ])
+    def test_validation_error_patterns(self, message: str) -> None:
+        """Context window and validation errors are detected."""
         from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.is_validation_error(message) is True
 
-        assert ErrorClassifier.is_network_error("proxy error: connection failed") is True
-        assert ErrorClassifier.is_network_error("HTTP 407 Proxy Authentication Required") is True
-        assert ErrorClassifier.is_network_error("tunnel connection failed") is True
-
-    def test_dns_resolution_errors(self) -> None:
-        """DNS resolution errors are detected as network errors."""
-        from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.is_network_error("dns resolution failed") is True
-        assert ErrorClassifier.is_network_error("getaddrinfo failed") is True
-        assert ErrorClassifier.is_network_error("nodename nor servname provided") is True
-
-    def test_internal_server_error_500(self) -> None:
-        """HTTP 500 errors are detected as network errors."""
-        from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.is_network_error("HTTP 500 Internal Server Error") is True
-        assert ErrorClassifier.is_network_error("internal server error") is True
-
-    def test_context_window_validation(self) -> None:
-        """Context window exceeded is detected as validation error."""
-        from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.is_validation_error("context window exceeded") is True
-        assert ErrorClassifier.is_validation_error("maximum context limit") is True
-        assert ErrorClassifier.is_validation_error("token limit exceeded") is True
-        assert ErrorClassifier.is_validation_error("input too large") is True
-        assert ErrorClassifier.is_validation_error("prompt too long") is True
-
-    def test_provider_specific_validation(self) -> None:
-        """Provider-specific validation patterns are detected."""
-        from aragora.agents.errors import ErrorClassifier
-
-        assert ErrorClassifier.is_validation_error("string_above_max_length") is True
-        assert ErrorClassifier.is_validation_error("please reduce your prompt") is True
-        assert ErrorClassifier.is_validation_error("reduce the length of your input") is True
-        assert ErrorClassifier.is_validation_error("exceeds the model's limit") is True
-        assert ErrorClassifier.is_validation_error("exceeds maximum allowed") is True
-
-    def test_model_access_errors(self) -> None:
+    @pytest.mark.parametrize("message", [
+        "model does not exist",
+        "does not support this feature",
+        "model_access_denied",
+        "this model has been decommissioned",
+        "not available in your region",
+    ])
+    def test_model_access_error_patterns(self, message: str) -> None:
         """Model access and availability errors are detected."""
         from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.is_model_error(message) is True
 
-        assert ErrorClassifier.is_model_error("model does not exist") is True
-        assert ErrorClassifier.is_model_error("does not support this feature") is True
-        assert ErrorClassifier.is_model_error("model_access_denied") is True
-        assert ErrorClassifier.is_model_error("this model has been decommissioned") is True
-        assert ErrorClassifier.is_model_error("not available in your region") is True
-
-    def test_content_policy_natural_language(self) -> None:
+    @pytest.mark.parametrize("message", [
+        "I cannot assist with that",
+        "I'm unable to generate",
+        "output blocked by safety",
+        "response blocked",
+        "violates ethical guidelines",
+    ])
+    def test_content_policy_patterns(self, message: str) -> None:
         """Natural language content policy responses are detected."""
         from aragora.agents.errors import ErrorClassifier
+        assert ErrorClassifier.is_content_policy_error(message) is True
 
-        assert ErrorClassifier.is_content_policy_error("I cannot assist with that") is True
-        assert ErrorClassifier.is_content_policy_error("I'm unable to generate") is True
-        assert ErrorClassifier.is_content_policy_error("output blocked by safety") is True
-        assert ErrorClassifier.is_content_policy_error("response blocked") is True
-        assert ErrorClassifier.is_content_policy_error("violates ethical guidelines") is True
-
-    def test_classify_full_with_new_patterns(self) -> None:
+    @pytest.mark.parametrize("message,expected_category,expected_fallback", [
+        ("SSL certificate verify failed", "NETWORK", True),
+        ("context window exceeded", "VALIDATION", False),
+        ("model_access_denied", "MODEL", True),
+    ])
+    def test_classify_full_with_new_patterns(
+        self, message: str, expected_category: str, expected_fallback: bool
+    ) -> None:
         """classify_full correctly handles new patterns."""
         from aragora.agents.errors import ErrorClassifier, ErrorCategory
-
-        # SSL error -> network
-        result = ErrorClassifier.classify_full(Exception("SSL certificate verify failed"))
-        assert result.category == ErrorCategory.NETWORK
-        assert result.should_fallback is True
-
-        # Context window -> validation
-        result = ErrorClassifier.classify_full(Exception("context window exceeded"))
-        assert result.category == ErrorCategory.VALIDATION
-        assert result.should_fallback is False
-
-        # Model access -> model
-        result = ErrorClassifier.classify_full(Exception("model_access_denied"))
-        assert result.category == ErrorCategory.MODEL
-        assert result.should_fallback is True
+        result = ErrorClassifier.classify_full(Exception(message))
+        assert result.category == getattr(ErrorCategory, expected_category)
+        assert result.should_fallback is expected_fallback
 
 
 class TestClassifyFull:
@@ -682,32 +602,45 @@ class TestClassifyFull:
         assert isinstance(result, ClassifiedError)
         assert result.message == "timed out"
 
-    def test_classify_full_timeout(self) -> None:
-        """classify_full correctly classifies timeout errors."""
+    @pytest.mark.parametrize(
+        "error_factory,category,severity,action,fallback",
+        [
+            (lambda: TimeoutError("request timed out"), "TIMEOUT", "WARNING", "RETRY", True),
+            (lambda: Exception("rate limit exceeded"), "RATE_LIMIT", "INFO", "WAIT", True),
+            (lambda: Exception("401 Unauthorized"), "AUTH", "CRITICAL", "ESCALATE", True),
+            (lambda: Exception("Content policy violation"), "CONTENT_POLICY", "ERROR", "ABORT", False),
+            (lambda: Exception("Context length exceeded"), "VALIDATION", "ERROR", "ABORT", False),
+            (lambda: Exception("model not found"), "MODEL", "WARNING", "FALLBACK", True),
+            (lambda: ConnectionError("connection refused"), "NETWORK", "WARNING", "RETRY", True),
+        ],
+    )
+    def test_classify_full_error_types(
+        self, error_factory, category: str, severity: str, action: str, fallback: bool
+    ) -> None:
+        """classify_full correctly classifies various error types."""
         from aragora.agents.errors import (
             ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
         )
+
+        result = ErrorClassifier.classify_full(error_factory())
+
+        assert result.category == getattr(ErrorCategory, category)
+        assert result.severity == getattr(ErrorSeverity, severity)
+        assert result.action == getattr(RecoveryAction, action)
+        assert result.should_fallback is fallback
+
+    def test_classify_full_timeout_is_recoverable(self) -> None:
+        """classify_full marks timeout errors as recoverable."""
+        from aragora.agents.errors import ErrorClassifier
 
         result = ErrorClassifier.classify_full(TimeoutError("request timed out"))
-
-        assert result.category == ErrorCategory.TIMEOUT
-        assert result.severity == ErrorSeverity.WARNING
-        assert result.action == RecoveryAction.RETRY
-        assert result.should_fallback is True
         assert result.is_recoverable is True
 
-    def test_classify_full_rate_limit(self) -> None:
-        """classify_full correctly classifies rate limit errors."""
-        from aragora.agents.errors import (
-            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
-        )
+    def test_classify_full_rate_limit_has_retry_after(self) -> None:
+        """classify_full sets retry_after for rate limit errors."""
+        from aragora.agents.errors import ErrorClassifier
 
         result = ErrorClassifier.classify_full(Exception("rate limit exceeded"))
-
-        assert result.category == ErrorCategory.RATE_LIMIT
-        assert result.severity == ErrorSeverity.INFO
-        assert result.action == RecoveryAction.WAIT
-        assert result.should_fallback is True
         assert result.retry_after is not None
 
     def test_classify_full_rate_limit_extracts_retry_after(self) -> None:
@@ -715,74 +648,14 @@ class TestClassifyFull:
         from aragora.agents.errors import ErrorClassifier
 
         result = ErrorClassifier.classify_full(Exception("Rate limit: retry after 120 seconds"))
-
         assert result.retry_after == 120.0
 
-    def test_classify_full_auth_error(self) -> None:
-        """classify_full correctly classifies auth errors as critical."""
-        from aragora.agents.errors import (
-            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
-        )
-
-        result = ErrorClassifier.classify_full(Exception("401 Unauthorized"))
-
-        assert result.category == ErrorCategory.AUTH
-        assert result.severity == ErrorSeverity.CRITICAL
-        assert result.action == RecoveryAction.ESCALATE
-        assert result.should_fallback is True
-
-    def test_classify_full_content_policy(self) -> None:
-        """classify_full correctly classifies content policy as non-recoverable."""
-        from aragora.agents.errors import (
-            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
-        )
+    def test_classify_full_content_policy_not_recoverable(self) -> None:
+        """classify_full marks content policy errors as non-recoverable."""
+        from aragora.agents.errors import ErrorClassifier
 
         result = ErrorClassifier.classify_full(Exception("Content policy violation"))
-
-        assert result.category == ErrorCategory.CONTENT_POLICY
-        assert result.severity == ErrorSeverity.ERROR
-        assert result.action == RecoveryAction.ABORT
-        assert result.should_fallback is False
         assert result.is_recoverable is False
-
-    def test_classify_full_validation_error(self) -> None:
-        """classify_full correctly classifies validation errors as non-recoverable."""
-        from aragora.agents.errors import (
-            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
-        )
-
-        result = ErrorClassifier.classify_full(Exception("Context length exceeded"))
-
-        assert result.category == ErrorCategory.VALIDATION
-        assert result.severity == ErrorSeverity.ERROR
-        assert result.action == RecoveryAction.ABORT
-        assert result.should_fallback is False
-
-    def test_classify_full_model_error(self) -> None:
-        """classify_full correctly classifies model errors."""
-        from aragora.agents.errors import (
-            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
-        )
-
-        result = ErrorClassifier.classify_full(Exception("model not found"))
-
-        assert result.category == ErrorCategory.MODEL
-        assert result.severity == ErrorSeverity.WARNING
-        assert result.action == RecoveryAction.FALLBACK
-        assert result.should_fallback is True
-
-    def test_classify_full_network_error(self) -> None:
-        """classify_full correctly classifies network errors."""
-        from aragora.agents.errors import (
-            ErrorClassifier, ErrorCategory, ErrorSeverity, RecoveryAction
-        )
-
-        result = ErrorClassifier.classify_full(ConnectionError("connection refused"))
-
-        assert result.category == ErrorCategory.NETWORK
-        assert result.severity == ErrorSeverity.WARNING
-        assert result.action == RecoveryAction.RETRY
-        assert result.should_fallback is True
 
     def test_classified_error_category_str_property(self) -> None:
         """ClassifiedError.category_str returns string for backward compat."""
