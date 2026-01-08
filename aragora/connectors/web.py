@@ -407,8 +407,8 @@ class WebConnector(BaseConnector):
         Otherwise looks up cached evidence and fetches its URL.
         """
         # Check cache first
-        if evidence_id in self._cache:
-            cached = self._cache[evidence_id]
+        cached = self._cache_get(evidence_id)
+        if cached is not None:
             # If we have full content, return it
             if len(cached.content) > 500:
                 return cached

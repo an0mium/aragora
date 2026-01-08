@@ -403,9 +403,8 @@ class VotingPhase:
         result.total_weighted_votes = total_weighted
 
         # Determine winner
-        most_common = vote_counts.most_common(1)
-        if most_common and total_weighted > 0:
-            winner, count = most_common[0]
+        if vote_counts and total_weighted > 0:
+            winner, count = max(vote_counts.items(), key=lambda x: x[1])
             result.winner = winner
             result.confidence = count / total_weighted
 

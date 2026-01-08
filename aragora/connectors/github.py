@@ -323,8 +323,9 @@ class GitHubConnector(BaseConnector):
 
     async def fetch(self, evidence_id: str) -> Optional[Evidence]:
         """Fetch specific issue/PR by ID."""
-        if evidence_id in self._cache:
-            return self._cache[evidence_id]
+        cached = self._cache_get(evidence_id)
+        if cached is not None:
+            return cached
 
         # Parse evidence_id
         if evidence_id.startswith("gh-issue:"):

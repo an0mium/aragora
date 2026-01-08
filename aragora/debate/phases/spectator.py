@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from aragora.spectate.stream import SpectatorStream
     from aragora.server.stream import SyncEventEmitter
-    from aragora.debate.graph import ArgumentCartographer
+    from aragora.visualization.mapper import ArgumentCartographer
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ class SpectatorMixin:
                 StreamEvent(
                     type=StreamEventType.MOMENT_DETECTED,
                     data=moment.to_dict(),
-                    debate_id=self.loop_id or "unknown",
+                    loop_id=self.loop_id or "unknown",
                 )
             )
             logger.debug(

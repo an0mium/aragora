@@ -34,8 +34,6 @@ from aragora.memory.database import MemoryDatabase
 
 logger = logging.getLogger(__name__)
 
-from aragora.server.error_utils import safe_error_message as _safe_error_message
-
 
 class ReplaysHandler(BaseHandler):
     """Handler for replays and learning evolution endpoints."""
@@ -211,6 +209,7 @@ class ReplaysHandler(BaseHandler):
             raise
 
     @ttl_cache(ttl_seconds=CACHE_TTL_META_LEARNING, key_prefix="meta_learning_stats", skip_first=True)
+    @handle_errors("meta learning stats retrieval")
     def _get_meta_learning_stats(
         self, nomic_dir: Optional[Path], limit: int
     ) -> HandlerResult:
@@ -226,16 +225,16 @@ class ReplaysHandler(BaseHandler):
                 "efficiency_log": [],
             })
 
-        try:
-            db_path = nomic_dir / "meta_learning.db"
-            if not db_path.exists():
-                return json_response({
-                    "status": "no_database",
-                    "current_hyperparams": {},
-                    "adjustment_history": [],
-                    "efficiency_log": [],
-                })
+        db_path = nomic_dir / "meta_learning.db"
+        if not db_path.exists():
+            return json_response({
+                "status": "no_database",
+                "current_hyperparams": {},
+                "adjustment_history": [],
+                "efficiency_log": [],
+            })
 
+        try:
             db = MemoryDatabase(str(db_path))
             with db.connection() as conn:
                 conn.row_factory = sqlite3.Row
@@ -314,6 +313,7 @@ class ReplaysHandler(BaseHandler):
                 "evaluations": len(efficiency_log),
             })
         except sqlite3.OperationalError as e:
+            # Table may not exist yet
             if "no such table" in str(e):
                 return json_response({
                     "status": "tables_not_initialized",
@@ -321,6 +321,4 @@ class ReplaysHandler(BaseHandler):
                     "adjustment_history": [],
                     "efficiency_log": [],
                 })
-            return error_response(_safe_error_message(e, "meta_learning_stats"), 500)
-        except Exception as e:
-            return error_response(_safe_error_message(e, "meta_learning_stats"), 500)
+            raise

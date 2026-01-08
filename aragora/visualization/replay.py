@@ -129,8 +129,8 @@ class ReplayGenerator:
         consensus_events = {}
         if trace and HAS_TRACE_SUPPORT:
             for event in trace.events:
-                if event.type == EventType.CONSENSUS_CHECK:
-                    consensus_events[event.round_num] = event.data
+                if getattr(event, 'type', None) == EventType.CONSENSUS_CHECK:
+                    consensus_events[getattr(event, 'round_num', 0)] = getattr(event, 'data', {})
 
         # Create scenes
         for round_num in sorted(round_groups.keys()):
@@ -194,12 +194,12 @@ class ReplayGenerator:
 
         if consensus and vote_breakdown:
             # Sort by count descending
-            sorted_votes = sorted(vote_breakdown, key=lambda x: x["count"], reverse=True)
+            sorted_votes = sorted(vote_breakdown, key=lambda x: int(x.get("count", 0)), reverse=True)
 
             if len(sorted_votes) >= 2 and sorted_votes[0]["count"] == sorted_votes[1]["count"]:
                 winner_label = "Tie"
             else:
-                winner = sorted_votes[0]["choice"]
+                winner = str(sorted_votes[0].get("choice", ""))
                 winner_label = winner
 
         # Build evidence list (HTML-escaped for security)

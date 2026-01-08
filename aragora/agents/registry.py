@@ -8,10 +8,15 @@ registration-based approach that's extensible and testable.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Union
 
 from aragora.config import ALLOWED_AGENT_TYPES
 from aragora.agents.types import T
+
+if TYPE_CHECKING:
+    from aragora.agents.api_agents import APIAgent
+    from aragora.agents.cli_agents import CLIAgent
+    Agent = Union[APIAgent, CLIAgent]
 
 
 @dataclass(frozen=True)
@@ -108,7 +113,7 @@ class AgentRegistry:
         model: str | None = None,
         api_key: str | None = None,
         **kwargs: Any,
-    ):
+    ) -> "Agent":
         """
         Create an agent by registered type name.
 

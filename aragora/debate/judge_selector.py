@@ -220,9 +220,10 @@ class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
         try:
             leaderboard = self._elo_system.get_leaderboard(limit=len(agent_names))
             for entry in leaderboard:
-                if entry.get("agent") in agent_names:
-                    top_name = entry["agent"]
-                    top_elo = entry.get("elo", 1500)
+                agent_name = getattr(entry, 'agent', None) or entry.get("agent") if hasattr(entry, 'get') else None  # type: ignore[union-attr]
+                if agent_name in agent_names:
+                    top_name = agent_name
+                    top_elo = getattr(entry, 'elo', None) or (entry.get("elo", 1500) if hasattr(entry, 'get') else 1500)  # type: ignore[union-attr]
                     judge = next((a for a in agents if a.name == top_name), None)
                     if judge:
                         logger.debug(f"Selected {top_name} (ELO: {top_elo}) as judge")

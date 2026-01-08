@@ -12,7 +12,7 @@ Arena._run_inner() method, handling:
 
 import asyncio
 import logging
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
@@ -671,7 +671,7 @@ class ConsensusPhase:
             if not isinstance(v, Exception):
                 canonical = choice_mapping.get(v.choice, v.choice)
                 weight = vote_weight_cache.get(v.agent, 1.0)
-                vote_counts[canonical] += weight
+                vote_counts[canonical] += weight  # type: ignore[assignment]
                 total_weighted += weight
 
         return vote_counts, total_weighted
