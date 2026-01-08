@@ -1724,6 +1724,8 @@ class NomicLoop:
         self.use_extracted_phases = os.environ.get("USE_EXTRACTED_PHASES", "1") == "1"
         if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
             print(f"[phases] Using extracted modular phase classes")
+            # Wire up Prometheus metrics for phase profiling
+            self._setup_phase_metrics()
         elif not self.use_extracted_phases:
             print(f"[phases] Using legacy inline implementations (USE_EXTRACTED_PHASES=0)")
         self._extracted_phases = {}
@@ -1754,6 +1756,26 @@ class NomicLoop:
                 asyncio.get_event_loop().create_task(self.persistence.save_event(event))
             except Exception as e:
                 logger.warning(f"[persistence] Event save failed: {e}")
+
+    def _setup_phase_metrics(self) -> None:
+        """Wire up Prometheus metrics for phase profiling.
+
+        Configures the extracted phase classes to record metrics via
+        aragora.server.prometheus recording functions.
+        """
+        try:
+            from aragora.server.prometheus import record_nomic_phase, record_nomic_agent_phase
+            from scripts.nomic.phases import set_metrics_recorder
+
+            set_metrics_recorder(
+                phase_recorder=record_nomic_phase,
+                agent_recorder=record_nomic_agent_phase,
+            )
+            print(f"[metrics] Phase profiling enabled via Prometheus")
+        except ImportError as e:
+            logger.debug(f"[metrics] Prometheus metrics not available: {e}")
+        except Exception as e:
+            logger.warning(f"[metrics] Failed to setup phase metrics: {e}")
 
     async def _persist_cycle(self, phase: str, stage: str, success: bool = None,
                               git_commit: str = None, task_description: str = None,
