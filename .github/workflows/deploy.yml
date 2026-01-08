@@ -102,17 +102,34 @@ jobs:
       - name: Deploy to Lightsail
         run: |
           ssh -i ~/.ssh/lightsail ubuntu@${{ secrets.LIGHTSAIL_HOST }} << 'EOF'
+            set -e
             cd /home/ubuntu/aragora
+            echo "Pulling latest code..."
             git pull origin main
             source venv/bin/activate
-            pip install -e .
+            echo "Installing package..."
+            pip install -e . --quiet
+            echo "Restarting service..."
             sudo systemctl restart aragora
+            echo "Checking service status..."
+            sleep 3
+            sudo systemctl status aragora --no-pager || true
+            echo "Deploy complete"
           EOF
 
       - name: Verify deployment
         run: |
-          sleep 10
-          curl -sf "http://${{ secrets.LIGHTSAIL_HOST }}:8080/api/health" || exit 1
+          # Wait for server to start (up to 60 seconds)
+          for i in {1..12}; do
+            if curl -sf "http://${{ secrets.LIGHTSAIL_HOST }}:8080/api/health" -o /dev/null 2>/dev/null; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Waiting for server... attempt $i/12"
+            sleep 5
+          done
+          echo "Health check failed after 60 seconds"
+          exit 1
 
   deploy-ec2:
     needs: test
@@ -133,17 +150,34 @@ jobs:
       - name: Deploy to EC2
         run: |
           ssh -i ~/.ssh/ec2 ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
-            cd ~/aragora || cd /home/ec2-user/aragora
+            set -e
+            cd ~/aragora || cd /home/ec2-user/aragora || cd /home/ubuntu/aragora
+            echo "Pulling latest code..."
             git pull origin main
             source venv/bin/activate || source ~/venv/bin/activate
-            pip install -e .
-            sudo systemctl restart aragora-staging || sudo systemctl restart aragora
+            echo "Installing package..."
+            pip install -e . --quiet
+            echo "Restarting service..."
+            sudo systemctl restart aragora-staging 2>/dev/null || sudo systemctl restart aragora
+            echo "Checking service status..."
+            sleep 3
+            sudo systemctl status aragora-staging --no-pager 2>/dev/null || sudo systemctl status aragora --no-pager || true
+            echo "Deploy complete"
           EOF
 
       - name: Verify deployment
         run: |
-          sleep 10
-          curl -sf "http://${{ secrets.EC2_HOST }}:8080/api/health" || exit 1
+          # Wait for server to start (up to 60 seconds)
+          for i in {1..12}; do
+            if curl -sf "http://${{ secrets.EC2_HOST }}:8080/api/health" -o /dev/null 2>/dev/null; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Waiting for server... attempt $i/12"
+            sleep 5
+          done
+          echo "Health check failed after 60 seconds"
+          exit 1
 
   notify:
     needs: [deploy-cloudflare, deploy-lightsail, deploy-ec2]
