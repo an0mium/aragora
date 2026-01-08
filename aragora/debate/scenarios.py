@@ -560,7 +560,7 @@ class MatrixDebateRunner:
                 ], return_exceptions=True)
 
                 for r in batch_results:
-                    if isinstance(r, Exception):
+                    if isinstance(r, BaseException):
                         logger.error(f"Scenario debate failed: {type(r).__name__}: {r}")
                         continue  # Skip failed scenarios
                     result.results.append(r)
