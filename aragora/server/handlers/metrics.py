@@ -160,7 +160,7 @@ class MetricsHandler(BaseHandler):
     def _get_health(self) -> HandlerResult:
         """Get detailed health check status."""
         try:
-            health = {
+            health: dict[str, object] = {
                 "status": "healthy",
                 "checks": {},
             }
