@@ -154,22 +154,24 @@ class AudioHandler(BaseHandler):
             host = get_host_header(handler)
             scheme = 'https' if handler and handler.headers.get('X-Forwarded-Proto') == 'https' else 'http'
 
+            episodes = []
             for i, debate in enumerate(debates_with_audio):
                 audio_url = f"{scheme}://{host}/audio/{debate['debate_id']}.mp3"
 
-                episode = PodcastEpisode(
+                episode = PodcastEpisode(  # type: ignore[call-arg]
                     guid=debate["debate_id"],
                     title=debate["task"],
                     description=f"AI debate: {debate['task']}",
+                    content=f"AI debate: {debate['task']}",
                     audio_url=audio_url,
                     pub_date=debate["created_at"],
                     duration_seconds=debate["duration_seconds"],
                     file_size_bytes=debate["file_size_bytes"],
                     episode_number=len(debates_with_audio) - i,
                 )
-                generator.add_episode(episode)
+                episodes.append(episode)
 
-            feed_xml = generator.generate(f"{scheme}://{host}")
+            feed_xml = generator.generate_feed(episodes)  # type: ignore[attr-defined]
 
             return HandlerResult(
                 status_code=200,

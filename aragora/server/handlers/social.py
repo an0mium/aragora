@@ -263,7 +263,7 @@ class SocialMediaHandler(BaseHandler):
             formatter = DebateContentFormatter()
 
             if thread_mode:
-                tweets = formatter.format_as_thread(
+                tweets = formatter.format_as_thread(  # type: ignore[attr-defined]
                     task=debate.get("task", ""),
                     agents=debate.get("agents", []),
                     verdict=debate.get("verdict"),
@@ -271,7 +271,7 @@ class SocialMediaHandler(BaseHandler):
                 )
                 result = _run_async(twitter.post_thread(tweets))
             else:
-                tweet_text = formatter.format_single_tweet(
+                tweet_text = formatter.format_single_tweet(  # type: ignore[attr-defined]
                     task=debate.get("task", ""),
                     agents=debate.get("agents", []),
                     verdict=debate.get("verdict"),

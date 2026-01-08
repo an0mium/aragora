@@ -11,7 +11,7 @@ import logging
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import ALLOWED_AGENT_TYPES, MAX_AGENTS_PER_DEBATE, MAX_CONCURRENT_DEBATES
 from aragora.server.debate_factory import DebateConfig, DebateFactory
@@ -99,13 +99,13 @@ class DebateResponse:
     error: Optional[str] = None
     status_code: int = 200
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
-        result = {"success": self.success}
+        result: dict[str, Any] = {"success": self.success}
         if self.debate_id:
-            result["debate_id"] = self.debate_id
+            result["debate_id"] = str(self.debate_id)
         if self.error:
-            result["error"] = self.error
+            result["error"] = str(self.error)
         return result
 
 
@@ -141,7 +141,7 @@ class DebateController:
         factory: DebateFactory,
         emitter: "SyncEventEmitter",
         elo_system: Optional[Any] = None,
-        auto_select_fn: Optional[callable] = None,
+        auto_select_fn: Optional[Callable[..., str]] = None,
     ):
         """Initialize the debate controller.
 

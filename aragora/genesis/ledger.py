@@ -548,7 +548,8 @@ class GenesisLedger:
 
     def verify_integrity(self) -> bool:
         """Verify the integrity of the ledger using the provenance chain."""
-        return self.provenance.verify_chain()
+        valid, _errors = self.provenance.verify_chain()
+        return valid
 
     def get_merkle_root(self) -> str:
         """Get Merkle root of all events for verification."""

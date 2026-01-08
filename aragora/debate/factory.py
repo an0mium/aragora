@@ -6,9 +6,12 @@ dependencies, eliminating lazy imports in orchestrator.py.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from aragora.core import Agent, Environment
+
+if TYPE_CHECKING:
+    from aragora.debate.orchestrator import Arena
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol
 from aragora.spectate.stream import SpectatorStream
 

@@ -506,7 +506,7 @@ class DashboardHandler(BaseHandler):
         try:
             from aragora.memory.consensus import ConsensusMemory
 
-            from aragora.storage.utils import get_wal_connection
+            from aragora.storage.schema import get_wal_connection
             from aragora.config import DB_TIMEOUT_SECONDS
 
             memory = ConsensusMemory()

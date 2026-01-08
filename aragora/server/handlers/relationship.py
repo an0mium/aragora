@@ -37,8 +37,8 @@ logger = logging.getLogger(__name__)
 _relationship_imports, RELATIONSHIP_TRACKER_AVAILABLE = try_import(
     "aragora.agents.grounded", "RelationshipTracker", "AgentRelationship"
 )
-RelationshipTracker = _relationship_imports["RelationshipTracker"]
-AgentRelationship = _relationship_imports["AgentRelationship"]
+RelationshipTracker = _relationship_imports["RelationshipTracker"]  # type: ignore[misc]
+AgentRelationship = _relationship_imports["AgentRelationship"]  # type: ignore[misc]
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 
