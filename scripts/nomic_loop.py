@@ -76,8 +76,24 @@ try:
         NOMIC_MAX_CYCLE_SECONDS as _NOMIC_MAX_CYCLE_SECONDS,
         NOMIC_STALL_THRESHOLD as _NOMIC_STALL_THRESHOLD,
     )
+    # Import extracted phase classes
+    from scripts.nomic.phases import (
+        ContextPhase,
+        DebatePhase,
+        DesignPhase,
+        ImplementPhase,
+        VerifyPhase,
+        CommitPhase,
+        DebateConfig,
+        DesignConfig,
+        LearningContext,
+        BeliefContext,
+        PostDebateHooks,
+    )
+    _NOMIC_PHASES_AVAILABLE = True
     _NOMIC_PACKAGE_AVAILABLE = True
 except ImportError:
+    _NOMIC_PHASES_AVAILABLE = False
     _NOMIC_PACKAGE_AVAILABLE = False
 
 # =============================================================================
@@ -1703,6 +1719,13 @@ class NomicLoop:
         with open(self.log_file, "w") as f:
             f.write(f"=== NOMIC LOOP STARTED: {datetime.now().isoformat()} ===\n")
 
+        # Initialize extracted phase classes (gradual migration)
+        # Set USE_EXTRACTED_PHASES=1 to use new modular phase implementations
+        self.use_extracted_phases = os.environ.get("USE_EXTRACTED_PHASES", "0") == "1"
+        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
+            print(f"[phases] Using extracted modular phase classes")
+        self._extracted_phases = {}
+
         # Initialize agents
         self._init_agents()
 
@@ -2430,6 +2453,47 @@ When proposing changes:
 Your role is to BUILD and EXTEND, not to remove or break.
 Propose additions that are practical, efficient, and well-designed.
 The most valuable proposals combine deep analysis with actionable implementation.""" + safety_footer
+
+    def _create_verify_phase(self) -> "VerifyPhase":
+        """Create an extracted VerifyPhase instance.
+
+        This method demonstrates how to use the extracted phase classes.
+        The extracted phases provide:
+        - Better testability (can test phases independently)
+        - Cleaner dependency injection
+        - Easier maintenance and refactoring
+
+        Usage:
+            verify_phase = self._create_verify_phase()
+            result = await verify_phase.execute()
+        """
+        if not _NOMIC_PHASES_AVAILABLE:
+            raise RuntimeError("Extracted phases not available")
+
+        return VerifyPhase(
+            aragora_path=self.aragora_path,
+            codex=self.codex if hasattr(self, 'codex') else None,
+            nomic_integration=self.nomic_integration if hasattr(self, 'nomic_integration') else None,
+            cycle_count=self.cycle_count,
+            log_fn=self._log,
+            stream_emit_fn=self._stream_emit,
+            record_replay_fn=self._record_replay_event if hasattr(self, '_record_replay_event') else None,
+            save_state_fn=self._save_state if hasattr(self, '_save_state') else None,
+        )
+
+    def _create_commit_phase(self) -> "CommitPhase":
+        """Create an extracted CommitPhase instance."""
+        if not _NOMIC_PHASES_AVAILABLE:
+            raise RuntimeError("Extracted phases not available")
+
+        return CommitPhase(
+            aragora_path=self.aragora_path,
+            require_human_approval=self.require_human_approval,
+            auto_commit=self.auto_commit,
+            cycle_count=self.cycle_count,
+            log_fn=self._log,
+            stream_emit_fn=self._stream_emit,
+        )
 
     def get_current_features(self) -> str:
         """Read current aragora state from the codebase."""
