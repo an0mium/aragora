@@ -35,6 +35,7 @@ from aragora.config import (
     CACHE_TTL_CALIBRATION_LB,
 )
 from aragora.ranking.database import EloDatabase
+from aragora.ranking.leaderboard_engine import LeaderboardEngine
 from aragora.ranking.relationships import RelationshipTracker, RelationshipStats, RelationshipMetrics
 from aragora.ranking.redteam import RedTeamIntegrator, RedTeamResult, VulnerabilitySummary
 from aragora.ranking.elo_core import (
@@ -192,6 +193,15 @@ class EloSystem:
         # Delegate to extracted modules (lazy initialization)
         self._relationship_tracker: RelationshipTracker | None = None
         self._redteam_integrator: RedTeamIntegrator | None = None
+
+        # Leaderboard engine for read-only analytics
+        self._leaderboard_engine = LeaderboardEngine(
+            db=self._db,
+            leaderboard_cache=self._leaderboard_cache,
+            stats_cache=self._stats_cache,
+            rating_cache=self._rating_cache,
+            rating_factory=self._rating_from_row,
+        )
 
     @property
     def relationship_tracker(self) -> RelationshipTracker:
@@ -387,6 +397,21 @@ class EloSystem:
         # Cache the result
         self._rating_cache.set(cache_key, rating)
         return rating
+
+    def _rating_from_row(self, row: tuple) -> AgentRating:
+        """Create AgentRating from a database row (leaderboard query format)."""
+        return AgentRating(
+            agent_name=row[0],
+            elo=row[1],
+            domain_elos=safe_json_loads(row[2], {}),
+            wins=row[3],
+            losses=row[4],
+            draws=row[5],
+            debates_count=row[6],
+            critiques_accepted=row[7],
+            critiques_total=row[8],
+            updated_at=row[9],
+        )
 
     def get_ratings_batch(self, agent_names: list[str]) -> dict[str, AgentRating]:
         """Get ratings for multiple agents in a single query (batch optimization).
@@ -881,237 +906,43 @@ class EloSystem:
         self._save_rating(rating)
 
     def get_leaderboard(self, limit: int = 20, domain: str | None = None) -> list[AgentRating]:
-        """Get top agents by ELO.
-
-        Args:
-            limit: Maximum number of agents to return
-            domain: Optional domain to sort by. If provided, sorts by domain-specific ELO
-                   using SQLite JSON extraction for efficiency.
-        """
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-
-            if domain:
-                # Use SQLite JSON extraction for domain-specific leaderboard
-                # COALESCE handles missing domain entries by falling back to global ELO
-                cursor.execute(
-                    """
-                    SELECT agent_name, elo, domain_elos, wins, losses, draws,
-                           debates_count, critiques_accepted, critiques_total, updated_at
-                    FROM ratings
-                    ORDER BY COALESCE(json_extract(domain_elos, ?), elo) DESC
-                    LIMIT ?
-                    """,
-                    (f'$."{domain}"', limit),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT agent_name, elo, domain_elos, wins, losses, draws,
-                           debates_count, critiques_accepted, critiques_total, updated_at
-                    FROM ratings
-                    ORDER BY elo DESC
-                    LIMIT ?
-                    """,
-                    (limit,),
-                )
-            rows = cursor.fetchall()
-
-        return [
-            AgentRating(
-                agent_name=row[0],
-                elo=row[1],
-                domain_elos=safe_json_loads(row[2], {}),
-                wins=row[3],
-                losses=row[4],
-                draws=row[5],
-                debates_count=row[6],
-                critiques_accepted=row[7],
-                critiques_total=row[8],
-                updated_at=row[9],
-            )
-            for row in rows
-        ]
+        """Get top agents by ELO. Delegates to LeaderboardEngine."""
+        return self._leaderboard_engine.get_leaderboard(limit=limit, domain=domain)
 
     def get_cached_leaderboard(
         self, limit: int = 20, domain: str | None = None
     ) -> list[AgentRating]:
-        """
-        Get leaderboard with caching for better performance.
-
-        Uses a 5-minute TTL cache. For real-time data, use get_leaderboard() directly.
-
-        Args:
-            limit: Maximum number of agents to return
-            domain: Optional domain to sort by
-
-        Returns:
-            Cached list of AgentRating sorted by ELO
-        """
-        cache_key = f"leaderboard:{limit}:{domain or 'global'}"
-        cached = self._leaderboard_cache.get(cache_key)
-        if cached is not None:
-            logger.debug(f"Leaderboard cache hit for {cache_key}")
-            return cached
-
-        # Cache miss - fetch from database
-        result = self.get_leaderboard(limit=limit, domain=domain)
-        self._leaderboard_cache.set(cache_key, result)
-        logger.debug(f"Leaderboard cache miss, stored {cache_key}")
-        return result
+        """Get leaderboard with caching. Delegates to LeaderboardEngine."""
+        return self._leaderboard_engine.get_cached_leaderboard(limit=limit, domain=domain)
 
     def invalidate_leaderboard_cache(self) -> int:
         """Invalidate all cached leaderboard data. Call after rating changes."""
-        self._stats_cache.clear()
         self._calibration_cache.clear()
-        return self._leaderboard_cache.clear()
+        return self._leaderboard_engine.invalidate_leaderboard_cache()
 
     def invalidate_rating_cache(self, agent_name: str | None = None) -> int:
-        """Invalidate cached ratings. Pass agent_name for specific agent, None for all."""
-        if agent_name:
-            return 1 if self._rating_cache.invalidate(f"rating:{agent_name}") else 0
-        return self._rating_cache.clear()
+        """Invalidate cached ratings. Delegates to LeaderboardEngine."""
+        return self._leaderboard_engine.invalidate_rating_cache(agent_name)
 
     def get_top_agents_for_domain(self, domain: str, limit: int = 5) -> list[AgentRating]:
-        """Get agents ranked by domain-specific performance.
-
-        Args:
-            domain: Domain to rank by (e.g., 'security', 'performance', 'architecture')
-            limit: Maximum number of agents to return
-
-        Returns:
-            List of AgentRating sorted by domain-specific ELO (highest first)
-        """
-        return self.get_cached_leaderboard(limit=limit, domain=domain)
+        """Get agents ranked by domain-specific performance. Delegates to LeaderboardEngine."""
+        return self._leaderboard_engine.get_top_agents_for_domain(domain=domain, limit=limit)
 
     def get_elo_history(self, agent_name: str, limit: int = 50) -> list[tuple[str, float]]:
-        """Get ELO history for an agent."""
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT created_at, elo FROM elo_history
-                WHERE agent_name = ?
-                ORDER BY created_at DESC
-                LIMIT ?
-                """,
-                (agent_name, limit),
-            )
-            rows = cursor.fetchall()
-            return [(row[0], row[1]) for row in rows]
+        """Get ELO history for an agent. Delegates to LeaderboardEngine."""
+        return self._leaderboard_engine.get_elo_history(agent_name, limit)
 
     def get_recent_matches(self, limit: int = 10) -> list[dict]:
-        """Get recent match results with ELO changes.
-
-        Returns list of dicts with: debate_id, winner, participants, domain,
-        elo_changes, created_at
-        """
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT debate_id, winner, participants, domain, elo_changes, created_at
-                FROM matches
-                ORDER BY created_at DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
-            rows = cursor.fetchall()
-
-        matches = []
-        for row in rows:
-            elo_changes = safe_json_loads(row[4], {})
-            participants = safe_json_loads(row[2], [])
-            matches.append({
-                "debate_id": row[0],
-                "winner": row[1],
-                "participants": participants,
-                "domain": row[3],
-                "elo_changes": elo_changes,
-                "created_at": row[5],
-            })
-        return matches
+        """Get recent match results with ELO changes. Delegates to LeaderboardEngine."""
+        return self._leaderboard_engine.get_recent_matches(limit)
 
     def get_head_to_head(self, agent_a: str, agent_b: str) -> dict:
-        """Get head-to-head statistics between two agents."""
-        _validate_agent_name(agent_a)
-        _validate_agent_name(agent_b)
-
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-
-            # Escape LIKE special characters to prevent SQL injection
-            escaped_a = _escape_like_pattern(agent_a)
-            escaped_b = _escape_like_pattern(agent_b)
-
-            cursor.execute(
-                """
-                SELECT winner, scores FROM matches
-                WHERE participants LIKE ? ESCAPE '\\' AND participants LIKE ? ESCAPE '\\'
-                """,
-                (f"%{escaped_a}%", f"%{escaped_b}%"),
-            )
-            rows = cursor.fetchall()
-
-        a_wins = 0
-        b_wins = 0
-        draws = 0
-
-        for winner, _ in rows:
-            if winner == agent_a:
-                a_wins += 1
-            elif winner == agent_b:
-                b_wins += 1
-            else:
-                draws += 1
-
-        return {
-            "matches": len(rows),
-            f"{agent_a}_wins": a_wins,
-            f"{agent_b}_wins": b_wins,
-            "draws": draws,
-        }
+        """Get head-to-head statistics between two agents. Delegates to LeaderboardEngine."""
+        return self._leaderboard_engine.get_head_to_head(agent_a, agent_b)
 
     def get_stats(self, use_cache: bool = True) -> dict:
-        """Get overall system statistics.
-
-        Args:
-            use_cache: Whether to use cached value (default True).
-
-        Returns:
-            Dict with total_agents, avg_elo, max_elo, min_elo, total_matches.
-        """
-        cache_key = "elo_stats"
-
-        if use_cache:
-            cached = self._stats_cache.get(cache_key)
-            if cached is not None:
-                return cached
-
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*), AVG(elo), MAX(elo), MIN(elo) FROM ratings")
-            ratings_row = cursor.fetchone()
-            cursor.execute("SELECT COUNT(*) FROM matches")
-            matches_row = cursor.fetchone()
-
-        # Handle case where fetchone returns None
-        if ratings_row is None:
-            ratings_row = (0, None, None, None)
-        if matches_row is None:
-            matches_row = (0,)
-
-        result = {
-            "total_agents": ratings_row[0] or 0,
-            "avg_elo": ratings_row[1] or DEFAULT_ELO,
-            "max_elo": ratings_row[2] or DEFAULT_ELO,
-            "min_elo": ratings_row[3] or DEFAULT_ELO,
-            "total_matches": matches_row[0] or 0,
-        }
-
-        self._stats_cache.set(cache_key, result)
-        return result
+        """Get overall system statistics. Delegates to LeaderboardEngine."""
+        return self._leaderboard_engine.get_stats(use_cache)
 
     # =========================================================================
     # Tournament Winner Calibration Scoring
