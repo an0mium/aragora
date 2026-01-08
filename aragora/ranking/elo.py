@@ -628,6 +628,99 @@ class EloSystem:
         """Calculate new ELO rating."""
         return current_elo + k * (actual - expected)
 
+    def _calculate_pairwise_elo_changes(
+        self,
+        participants: list[str],
+        scores: dict[str, float],
+        ratings: dict[str, "AgentRating"],
+        confidence_weight: float,
+    ) -> dict[str, float]:
+        """Calculate pairwise ELO changes for all participant combinations.
+
+        Args:
+            participants: List of agent names
+            scores: Dict of agent -> score
+            ratings: Dict of agent -> current rating
+            confidence_weight: Weight for ELO change (0-1)
+
+        Returns:
+            Dict of agent -> total ELO change
+        """
+        elo_changes: dict[str, float] = {}
+        effective_k = K_FACTOR * confidence_weight
+
+        for i, agent_a in enumerate(participants):
+            for agent_b in participants[i + 1:]:
+                rating_a = ratings[agent_a]
+                rating_b = ratings[agent_b]
+
+                # Expected scores
+                expected_a = self._expected_score(rating_a.elo, rating_b.elo)
+
+                # Actual scores (normalized to 0-1)
+                score_a = scores.get(agent_a, 0)
+                score_b = scores.get(agent_b, 0)
+                total = score_a + score_b
+                if total > 0:
+                    actual_a = score_a / total
+                else:
+                    actual_a = 0.5
+
+                # Calculate ELO changes
+                change_a = effective_k * (actual_a - expected_a)
+                change_b = -change_a  # Zero-sum
+
+                elo_changes[agent_a] = elo_changes.get(agent_a, 0) + change_a
+                elo_changes[agent_b] = elo_changes.get(agent_b, 0) + change_b
+
+        return elo_changes
+
+    def _apply_elo_changes(
+        self,
+        elo_changes: dict[str, float],
+        ratings: dict[str, "AgentRating"],
+        winner: Optional[str],
+        domain: Optional[str],
+        debate_id: str,
+    ) -> tuple[list["AgentRating"], list[tuple[str, float, str]]]:
+        """Apply ELO changes to ratings and prepare for batch save.
+
+        Args:
+            elo_changes: Dict of agent -> ELO change
+            ratings: Dict of agent -> current rating
+            winner: Name of winning agent (None for draw)
+            domain: Optional domain for domain-specific ELO
+            debate_id: Debate identifier for history
+
+        Returns:
+            Tuple of (ratings_to_save, history_entries)
+        """
+        ratings_to_save = []
+        history_entries = []
+        now = datetime.now().isoformat()
+
+        for agent_name, change in elo_changes.items():
+            rating = ratings[agent_name]
+            rating.elo += change
+            rating.debates_count += 1
+            rating.updated_at = now
+
+            if winner == agent_name:
+                rating.wins += 1
+            elif winner is None:
+                rating.draws += 1
+            else:
+                rating.losses += 1
+
+            if domain:
+                current_domain_elo = rating.domain_elos.get(domain, DEFAULT_ELO)
+                rating.domain_elos[domain] = current_domain_elo + change
+
+            ratings_to_save.append(rating)
+            history_entries.append((agent_name, rating.elo, debate_id))
+
+        return ratings_to_save, history_entries
+
     def record_match(
         self,
         debate_id: str,
@@ -664,61 +757,16 @@ class EloSystem:
 
         # Get current ratings (batch query to avoid N+1)
         ratings = self.get_ratings_batch(participants)
-        elo_changes = {}
 
-        # Calculate pairwise ELO updates
-        for i, agent_a in enumerate(participants):
-            for agent_b in participants[i + 1:]:
-                rating_a = ratings[agent_a]
-                rating_b = ratings[agent_b]
+        # Calculate pairwise ELO changes
+        elo_changes = self._calculate_pairwise_elo_changes(
+            participants, scores, ratings, confidence_weight
+        )
 
-                # Expected scores
-                expected_a = self._expected_score(rating_a.elo, rating_b.elo)
-                expected_b = 1 - expected_a
-
-                # Actual scores (normalized to 0-1)
-                score_a = scores.get(agent_a, 0)
-                score_b = scores.get(agent_b, 0)
-                total = score_a + score_b
-                if total > 0:
-                    actual_a = score_a / total
-                    actual_b = score_b / total
-                else:
-                    actual_a = actual_b = 0.5
-
-                # Update ELOs (scale by confidence_weight to reduce impact of uncertain debates)
-                effective_k = K_FACTOR * confidence_weight
-                change_a = effective_k * (actual_a - expected_a)
-                change_b = effective_k * (actual_b - expected_b)
-
-                elo_changes[agent_a] = elo_changes.get(agent_a, 0) + change_a
-                elo_changes[agent_b] = elo_changes.get(agent_b, 0) + change_b
-
-        # Apply changes and update stats - collect for batch save
-        ratings_to_save = []
-        history_entries = []
-        now = datetime.now().isoformat()
-
-        for agent_name, change in elo_changes.items():
-            rating = ratings[agent_name]
-            rating.elo += change
-            rating.debates_count += 1
-            rating.updated_at = now
-
-            if winner == agent_name:
-                rating.wins += 1
-            elif winner is None:
-                rating.draws += 1
-            else:
-                rating.losses += 1
-
-            # Update domain ELO if specified
-            if domain:
-                current_domain_elo = rating.domain_elos.get(domain, DEFAULT_ELO)
-                rating.domain_elos[domain] = current_domain_elo + change
-
-            ratings_to_save.append(rating)
-            history_entries.append((agent_name, rating.elo, debate_id))
+        # Apply changes and collect for batch save
+        ratings_to_save, history_entries = self._apply_elo_changes(
+            elo_changes, ratings, winner, domain, debate_id
+        )
 
         # Batch save all ratings and history (single transaction each)
         self._save_ratings_batch(ratings_to_save)

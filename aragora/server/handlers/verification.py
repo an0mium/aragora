@@ -18,6 +18,7 @@ from .base import (
     error_response,
     handle_errors,
 )
+from aragora.server.middleware.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,7 @@ class VerificationHandler(BaseHandler):
             "backends": status.get("backends", []),
         })
 
+    @rate_limit(requests_per_minute=10, burst=3, limiter_name="formal_verification")
     @handle_errors("formal verification")
     def _verify_claim(self, handler) -> HandlerResult:
         """Attempt formal verification of a claim using Z3 SMT solver.

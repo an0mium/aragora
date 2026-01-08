@@ -223,6 +223,73 @@ def clear_cache(key_prefix: str | None = None) -> int:
     return _cache.clear(key_prefix)
 
 
+def invalidates_cache(*events: str):
+    """
+    Decorator that invalidates cache entries after a function completes.
+
+    Use this decorator on methods that modify data to ensure related
+    caches are automatically invalidated, preventing stale data.
+
+    Args:
+        *events: Event names from CACHE_INVALIDATION_MAP (e.g., "elo_updated",
+                "debate_completed"). Each event invalidates its associated
+                cache prefixes.
+
+    Usage:
+        @invalidates_cache("elo_updated", "match_recorded")
+        def record_match(self, winner: str, loser: str):
+            # Record match logic
+            ...
+            # Caches for leaderboard, rankings, etc. are auto-invalidated
+
+        @invalidates_cache("debate_completed")
+        async def complete_debate(self, debate_id: str):
+            # Complete debate logic
+            ...
+
+    The decorator:
+    1. Executes the wrapped function
+    2. If successful, invalidates all caches for the specified events
+    3. Logs the number of cache entries cleared
+    4. Returns the function's result
+
+    Note: For async functions, use with await; the decorator auto-detects.
+    """
+    import asyncio
+    from functools import wraps
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            result = func(*args, **kwargs)
+            _invalidate_events(events, func.__name__)
+            return result
+
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            result = await func(*args, **kwargs)
+            _invalidate_events(events, func.__name__)
+            return result
+
+        # Return appropriate wrapper based on function type
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        return sync_wrapper
+
+    return decorator
+
+
+def _invalidate_events(events: tuple[str, ...], func_name: str) -> int:
+    """Helper to invalidate cache for multiple events."""
+    total_cleared = 0
+    for event in events:
+        cleared = invalidate_on_event(event)
+        total_cleared += cleared
+    if total_cleared > 0:
+        logger.debug(f"@invalidates_cache({events}): {func_name} cleared {total_cleared} entries")
+    return total_cleared
+
+
 def get_cache_stats() -> dict:
     """Get cache statistics for monitoring."""
     return _cache.stats

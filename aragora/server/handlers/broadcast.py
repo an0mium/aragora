@@ -18,6 +18,7 @@ from .base import (
     SAFE_SLUG_PATTERN,
 )
 from aragora.server.error_utils import safe_error_message as _safe_error_message
+from aragora.server.middleware.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -70,8 +71,12 @@ class BroadcastHandler(BaseHandler):
 
         return None
 
+    @rate_limit(requests_per_minute=3, burst=2, limiter_name="broadcast_generation")
     def _generate_broadcast(self, debate_id: str, handler) -> HandlerResult:
-        """Generate podcast audio from a debate trace."""
+        """Generate podcast audio from a debate trace.
+
+        Rate limited to 3 requests/min due to high CPU usage for TTS.
+        """
         if not BROADCAST_AVAILABLE:
             return error_response("Broadcast module not available", status=503)
 

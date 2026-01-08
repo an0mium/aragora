@@ -182,7 +182,8 @@ class DebateStreamServer(ServerBase):
                         return xff.split(",")[0].strip()
 
             return direct_ip
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Could not extract client IP: {e}")
             return "unknown"
 
     def _check_ws_connection_rate(self, ip: str) -> tuple[bool, str]:
@@ -529,223 +530,247 @@ class DebateStreamServer(ServerBase):
                 loop_id=loop_id,
             ))
 
-    async def handler(self, websocket) -> None:
-        """Handle a WebSocket connection with origin validation."""
-        # Extract client IP for rate limiting
+    async def _setup_connection(self, websocket) -> tuple[bool, str, str, str, bool, str | None]:
+        """Set up WebSocket connection with validation.
+
+        Returns:
+            Tuple of (success, client_ip, client_id, ws_id, is_authenticated, ws_token)
+            If success is False, connection has been closed with error.
+        """
         client_ip = self._extract_ws_ip(websocket)
 
-        # Check connection rate limit before accepting
+        # Check connection rate limit
         rate_allowed, rate_error = self._check_ws_connection_rate(client_ip)
         if not rate_allowed:
             logger.warning(f"[ws] Connection rejected for {client_ip}: {rate_error}")
             await websocket.close(4029, rate_error)
-            return
+            return (False, client_ip, "", 0, False, None)
 
-        # Validate origin for security
+        # Validate origin
         origin = self._extract_ws_origin(websocket)
         if origin and origin not in WS_ALLOWED_ORIGINS:
-            # Reject connection from unauthorized origin
             self._release_ws_connection(client_ip)
             await websocket.close(4003, "Origin not allowed")
-            return
+            return (False, client_ip, "", 0, False, None)
 
-        # Validate WebSocket authentication
-        # Read operations are allowed without auth, but write operations require it
+        # Validate authentication
         is_authenticated = self._validate_ws_auth(websocket)
-
-        # Store token for loop_id validation on write operations
         ws_token = self._extract_ws_token(websocket)
 
-        # Generate cryptographically secure client ID (not predictable memory address)
+        # Generate secure client ID
         ws_id = id(websocket)
         client_id = secrets.token_urlsafe(16)
-        # Enforce max size with LRU eviction
         if len(self._client_ids) >= self.config.max_client_ids:
-            self._client_ids.popitem(last=False)  # Remove oldest
+            self._client_ids.popitem(last=False)
         self._client_ids[ws_id] = client_id
 
         self.clients.add(websocket)
 
-        # Mark initial token validation time
         if is_authenticated:
             self._mark_token_validated(ws_id)
+
+        return (True, client_ip, client_id, ws_id, is_authenticated, ws_token)
+
+    async def _send_initial_state(self, websocket, client_id: str, is_authenticated: bool) -> None:
+        """Send initial connection state to client."""
+        await websocket.send(json.dumps({
+            "type": "connection_info",
+            "data": {
+                "authenticated": is_authenticated,
+                "client_id": client_id[:8] + "...",
+                "write_access": is_authenticated or not auth_config.enabled,
+            }
+        }))
+
+        await websocket.send(json.dumps({
+            "type": "loop_list",
+            "data": {
+                "loops": self.get_loop_list(),
+                "count": len(self.active_loops),
+            }
+        }))
+
+        for loop_id, state in self.debate_states.items():
+            await websocket.send(json.dumps({"type": "sync", "data": state}))
+
+    async def _parse_message(self, message: str) -> dict | None:
+        """Parse and validate incoming WebSocket message.
+
+        Returns parsed data dict, or None if invalid.
+        """
+        if len(message) > WS_MAX_MESSAGE_SIZE:
+            logger.warning(f"[ws] Message too large from client: {len(message)} bytes")
+            return None
+
+        try:
+            loop = asyncio.get_running_loop()
+            return await asyncio.wait_for(
+                loop.run_in_executor(None, json.loads, message),
+                timeout=5.0
+            )
+        except asyncio.TimeoutError:
+            logger.warning("[ws] JSON parsing timed out - possible DoS attempt")
+        except json.JSONDecodeError as e:
+            logger.warning(f"[ws] Invalid JSON from client: {e}")
+        except RuntimeError as e:
+            logger.error(f"[ws] Event loop error during JSON parsing: {e}")
+        return None
+
+    async def _handle_user_action(
+        self,
+        websocket,
+        data: dict,
+        ws_id: int,
+        ws_token: str | None,
+        is_authenticated: bool,
+        client_id: str,
+    ) -> bool:
+        """Handle user vote or suggestion message.
+
+        Returns:
+            Updated is_authenticated value (may change if token invalidated).
+        """
+        msg_type = data.get("type")
+
+        # Require authentication for write operations
+        if not is_authenticated and auth_config.enabled:
+            await websocket.send(json.dumps({
+                "type": "error",
+                "data": {"message": "Authentication required for voting/suggestions", "code": 401}
+            }))
+            return is_authenticated
+
+        # Periodic token revalidation
+        if is_authenticated and ws_token and self._should_revalidate_token(ws_id):
+            if not auth_config.validate_token(ws_token):
+                logger.warning(f"[ws] Token invalidated for client {client_id[:8]}...")
+                await websocket.send(json.dumps({
+                    "type": "auth_revoked",
+                    "data": {"message": "Token has been revoked or expired", "code": 401}
+                }))
+                return False
+            self._mark_token_validated(ws_id)
+
+        stored_client_id = self._client_ids.get(ws_id, secrets.token_urlsafe(16))
+        loop_id = data.get("loop_id", "")
+
+        # Validate loop_id
+        if not loop_id or loop_id not in self.active_loops:
+            await websocket.send(json.dumps({
+                "type": "error",
+                "data": {"message": f"Invalid or inactive loop_id: {loop_id}"}
+            }))
+            return is_authenticated
+
+        # Validate token for specific loop_id
+        if auth_config.enabled and ws_token:
+            is_valid, err_msg = auth_config.validate_token_for_loop(ws_token, loop_id)
+            if not is_valid:
+                await websocket.send(json.dumps({
+                    "type": "error",
+                    "data": {"message": err_msg, "code": 403}
+                }))
+                return is_authenticated
+
+        # Validate payload
+        payload, error = self._validate_audience_payload(data)
+        if error:
+            await websocket.send(json.dumps({"type": "error", "data": {"message": error}}))
+            return is_authenticated
+
+        # Rate limiting
+        should_cleanup = False
+        with self._rate_limiters_lock:
+            if stored_client_id not in self._rate_limiters:
+                self._rate_limiters[stored_client_id] = TokenBucket(rate_per_minute=10.0, burst_size=5)
+            self._rate_limiter_last_access[stored_client_id] = time.time()
+            rate_limiter = self._rate_limiters[stored_client_id]
+            self._rate_limiter_cleanup_counter += 1
+            if self._rate_limiter_cleanup_counter >= self._CLEANUP_INTERVAL:
+                self._rate_limiter_cleanup_counter = 0
+                should_cleanup = True
+        if should_cleanup:
+            self._cleanup_stale_rate_limiters()
+
+        if not rate_limiter.consume(1):
+            await websocket.send(json.dumps({
+                "type": "error",
+                "data": {"message": "Rate limited. Please wait before submitting again."}
+            }))
+            return is_authenticated
+
+        # Process the message
+        self._process_audience_message(msg_type, loop_id, payload, stored_client_id)
+        await websocket.send(json.dumps({
+            "type": "ack",
+            "data": {"message": "Message received", "msg_type": msg_type}
+        }))
+
+        return is_authenticated
+
+    def _cleanup_connection(self, client_ip: str, client_id: str, ws_id: int, websocket) -> None:
+        """Clean up resources after connection closes."""
+        self.clients.discard(websocket)
+        logger.info(
+            f"[ws] Client {client_id[:8]}... disconnected from {client_ip} "
+            f"(remaining_clients={len(self.clients)})"
+        )
+
+        stored_client_id = self._client_ids.pop(ws_id, None)
+        if stored_client_id:
+            with self._rate_limiters_lock:
+                self._rate_limiters.pop(stored_client_id, None)
+                self._rate_limiter_last_access.pop(stored_client_id, None)
+
+        self._release_ws_connection(client_ip)
+        self._ws_token_validated.pop(ws_id, None)
+
+    async def handler(self, websocket) -> None:
+        """Handle a WebSocket connection with origin validation."""
+        # Set up connection with validation
+        success, client_ip, client_id, ws_id, is_authenticated, ws_token = await self._setup_connection(websocket)
+        if not success:
+            return
 
         logger.info(
             f"[ws] Client {client_id[:8]}... connected from {client_ip} "
             f"(authenticated={is_authenticated}, total_clients={len(self.clients)})"
         )
         try:
-            # Send connection info including auth status
-            await websocket.send(json.dumps({
-                "type": "connection_info",
-                "data": {
-                    "authenticated": is_authenticated,
-                    "client_id": client_id[:8] + "...",  # Partial for privacy
-                    "write_access": is_authenticated or not auth_config.enabled,
-                }
-            }))
+            # Send initial connection state
+            await self._send_initial_state(websocket, client_id, is_authenticated)
 
-            # Send list of active loops
-            await websocket.send(json.dumps({
-                "type": "loop_list",
-                "data": {
-                    "loops": self.get_loop_list(),
-                    "count": len(self.active_loops),
-                }
-            }))
-
-            # Send sync for each active debate
-            for loop_id, state in self.debate_states.items():
-                await websocket.send(json.dumps({
-                    "type": "sync",
-                    "data": state
-                }))
-
-            # Keep connection alive, handle incoming messages if needed
+            # Handle incoming messages
             async for message in websocket:
-                # Handle client requests (e.g., switch active loop view)
-                try:
-                    # Validate message size before parsing (DoS protection)
-                    if len(message) > WS_MAX_MESSAGE_SIZE:
-                        logger.warning(f"[ws] Message too large from client: {len(message)} bytes")
-                        await websocket.send(json.dumps({
-                            "type": "error",
-                            "data": {"message": "Message too large"}
-                        }))
-                        continue
+                data = await self._parse_message(message)
+                if data is None:
+                    await websocket.send(json.dumps({
+                        "type": "error",
+                        "data": {"message": "Invalid message format"}
+                    }))
+                    continue
 
-                    # Parse JSON with timeout protection (prevents CPU-bound DoS)
-                    try:
-                        loop = asyncio.get_running_loop()
-                        data = await asyncio.wait_for(
-                            loop.run_in_executor(None, json.loads, message),
-                            timeout=5.0  # 5 second timeout for JSON parsing
-                        )
-                    except asyncio.TimeoutError:
-                        logger.warning("[ws] JSON parsing timed out - possible DoS attempt")
-                        continue
-                    except json.JSONDecodeError as e:
-                        logger.warning(f"[ws] Invalid JSON from client: {e}")
-                        continue
-                    except RuntimeError as e:
-                        logger.error(f"[ws] Event loop error during JSON parsing: {e}")
-                        continue
+                msg_type = data.get("type")
 
-                    msg_type = data.get("type")
+                if msg_type == "get_loops":
+                    await websocket.send(json.dumps({
+                        "type": "loop_list",
+                        "data": {
+                            "loops": self.get_loop_list(),
+                            "count": len(self.active_loops),
+                        }
+                    }))
+                elif msg_type in ("user_vote", "user_suggestion"):
+                    is_authenticated = await self._handle_user_action(
+                        websocket, data, ws_id, ws_token, is_authenticated, client_id
+                    )
 
-                    if msg_type == "get_loops":
-                        await websocket.send(json.dumps({
-                            "type": "loop_list",
-                            "data": {
-                                "loops": self.get_loop_list(),
-                                "count": len(self.active_loops),
-                            }
-                        }))
-
-                    elif msg_type in ("user_vote", "user_suggestion"):
-                        # Require authentication for write operations
-                        if not is_authenticated and auth_config.enabled:
-                            await websocket.send(json.dumps({
-                                "type": "error",
-                                "data": {"message": "Authentication required for voting/suggestions", "code": 401}
-                            }))
-                            continue
-
-                        # Periodic token revalidation for long-lived connections
-                        if is_authenticated and ws_token and self._should_revalidate_token(ws_id):
-                            if not auth_config.validate_token(ws_token):
-                                is_authenticated = False
-                                logger.warning(f"[ws] Token invalidated for client {client_id[:8]}...")
-                                await websocket.send(json.dumps({
-                                    "type": "auth_revoked",
-                                    "data": {"message": "Token has been revoked or expired", "code": 401}
-                                }))
-                                continue
-                            self._mark_token_validated(ws_id)
-
-                        stored_client_id = self._client_ids.get(ws_id, secrets.token_urlsafe(16))
-                        loop_id = data.get("loop_id", "")
-
-                        # Validate loop_id exists and is active
-                        if not loop_id or loop_id not in self.active_loops:
-                            await websocket.send(json.dumps({
-                                "type": "error",
-                                "data": {"message": f"Invalid or inactive loop_id: {loop_id}"}
-                            }))
-                            continue
-
-                        # Validate token is authorized for this specific loop_id
-                        if auth_config.enabled and ws_token:
-                            is_valid, err_msg = auth_config.validate_token_for_loop(ws_token, loop_id)
-                            if not is_valid:
-                                await websocket.send(json.dumps({
-                                    "type": "error",
-                                    "data": {"message": err_msg, "code": 403}
-                                }))
-                                continue
-
-                        # Validate payload
-                        payload, error = self._validate_audience_payload(data)
-                        if error:
-                            await websocket.send(json.dumps({"type": "error", "data": {"message": error}}))
-                            continue
-
-                        # Rate limiting (thread-safe)
-                        should_cleanup = False
-                        with self._rate_limiters_lock:
-                            if stored_client_id not in self._rate_limiters:
-                                self._rate_limiters[stored_client_id] = TokenBucket(rate_per_minute=10.0, burst_size=5)
-                            self._rate_limiter_last_access[stored_client_id] = time.time()
-                            rate_limiter = self._rate_limiters[stored_client_id]
-                            self._rate_limiter_cleanup_counter += 1
-                            if self._rate_limiter_cleanup_counter >= self._CLEANUP_INTERVAL:
-                                self._rate_limiter_cleanup_counter = 0
-                                should_cleanup = True
-                        if should_cleanup:
-                            self._cleanup_stale_rate_limiters()
-
-                        if not rate_limiter.consume(1):
-                            await websocket.send(json.dumps({
-                                "type": "error",
-                                "data": {"message": "Rate limited. Please wait before submitting again."}
-                            }))
-                            continue
-
-                        # Process the message
-                        self._process_audience_message(msg_type, loop_id, payload, stored_client_id)
-                        await websocket.send(json.dumps({
-                            "type": "ack",
-                            "data": {"message": "Message received", "msg_type": msg_type}
-                        }))
-
-                except json.JSONDecodeError as e:
-                    logger.warning(f"[ws] Invalid JSON from client: {e}")
         except Exception as e:
-            # Connection closed errors are normal during shutdown
             error_name = type(e).__name__
-            if "ConnectionClosed" in error_name or "ConnectionClosedOK" in error_name:
-                pass  # Normal disconnect, logged in finally block
-            else:
-                # Log unexpected errors for debugging (but don't expose to client)
+            if "ConnectionClosed" not in error_name and "ConnectionClosedOK" not in error_name:
                 logger.error(f"[ws] Unexpected error for client {client_id[:8]}...: {error_name}: {e}")
         finally:
-            self.clients.discard(websocket)
-            logger.info(
-                f"[ws] Client {client_id[:8]}... disconnected from {client_ip} "
-                f"(remaining_clients={len(self.clients)})"
-            )
-            # Clean up secure client ID mapping and rate limiters
-            stored_client_id = self._client_ids.pop(ws_id, None)
-            if stored_client_id:
-                with self._rate_limiters_lock:
-                    self._rate_limiters.pop(stored_client_id, None)
-                    self._rate_limiter_last_access.pop(stored_client_id, None)
-
-            # Release connection slot for this IP
-            self._release_ws_connection(client_ip)
-
-            # Clean up token validation tracker
-            self._ws_token_validated.pop(ws_id, None)
+            self._cleanup_connection(client_ip, client_id, ws_id, websocket)
 
     async def start(self) -> None:
         """Start the WebSocket server."""

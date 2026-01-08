@@ -450,6 +450,20 @@ class RateLimiterRegistry:
                 "/api/memory/continuum/cleanup", 2, key_type="ip"
             )
             self._default_limiter.configure_endpoint("/api/memory/*", 60, key_type="ip")
+
+            # CPU-intensive endpoints (stricter limits)
+            self._default_limiter.configure_endpoint(
+                "/api/debates/*/broadcast", 3, key_type="ip"  # Audio generation
+            )
+            self._default_limiter.configure_endpoint(
+                "/api/probes/*", 10, key_type="ip"  # Capability probes
+            )
+            self._default_limiter.configure_endpoint(
+                "/api/verification/*", 10, key_type="ip"  # Proof verification
+            )
+            self._default_limiter.configure_endpoint(
+                "/api/video/*", 2, key_type="ip"  # Video generation
+            )
         return self._default_limiter
 
     def get(

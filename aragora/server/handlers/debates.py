@@ -272,6 +272,7 @@ class DebatesHandler(BaseHandler):
             debates_list = [d.__dict__ if hasattr(d, '__dict__') else d for d in debates]
             return json_response({"debates": debates_list, "count": len(debates_list)})
         except Exception as e:
+            logger.error("Failed to list debates: %s: %s", type(e).__name__, e, exc_info=True)
             return error_response(f"Failed to list debates: {e}", 500)
 
     @require_storage
@@ -337,6 +338,7 @@ class DebatesHandler(BaseHandler):
                 "has_more": offset + len(results) < total,
             })
         except Exception as e:
+            logger.error("Search failed for query '%s': %s: %s", query, type(e).__name__, e, exc_info=True)
             return error_response(f"Search failed: {e}", 500)
 
     @require_storage
