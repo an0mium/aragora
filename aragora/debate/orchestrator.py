@@ -24,6 +24,7 @@ from aragora.debate.convergence import (
     get_similarity_backend,
 )
 from aragora.debate.disagreement import DisagreementReporter
+from aragora.debate.context_gatherer import ContextGatherer
 from aragora.debate.memory_manager import MemoryManager
 from aragora.debate.optional_imports import OptionalImports
 from aragora.debate.prompt_builder import PromptBuilder
@@ -503,6 +504,12 @@ class Arena:
             event_emitter=self.event_emitter,
             spectator=self.spectator,
             loop_id=self.loop_id,
+        )
+
+        # Initialize ContextGatherer for research and evidence collection
+        self.context_gatherer = ContextGatherer(
+            evidence_store_callback=self._store_evidence_in_memory,
+            prompt_builder=self.prompt_builder,
         )
 
         # Phase 0: Context Initialization
@@ -1353,180 +1360,41 @@ class Arena:
     async def _perform_research(self, task: str) -> str:
         """Perform multi-source research for the debate topic and return formatted context.
 
-        Uses EvidenceCollector with multiple connectors:
+        Delegates to ContextGatherer which uses EvidenceCollector with multiple connectors:
         - WebConnector: DuckDuckGo search for general web results
         - GitHubConnector: Code/docs from GitHub repositories
         - LocalDocsConnector: Local documentation files
 
         Also includes pulse/trending context when available.
         """
-        context_parts = []
-
-        # Gather context from multiple sources
-        aragora_ctx = await self._gather_aragora_context(task)
-        if aragora_ctx:
-            context_parts.append(aragora_ctx)
-
-        evidence_ctx = await self._gather_evidence_context(task)
-        if evidence_ctx:
-            context_parts.append(evidence_ctx)
-
-        trending_ctx = await self._gather_trending_context()
-        if trending_ctx:
-            context_parts.append(trending_ctx)
-
-        if context_parts:
-            return "\n\n".join(context_parts)
-        else:
-            return "No research context available."
+        result = await self.context_gatherer.gather_all(task)
+        # Update local cache for backwards compatibility
+        self._research_evidence_pack = self.context_gatherer.evidence_pack
+        return result
 
     async def _gather_aragora_context(self, task: str) -> Optional[str]:
-        """Gather Aragora-specific documentation context if relevant to task."""
-        task_lower = task.lower()
-        is_aragora_topic = any(
-            kw in task_lower
-            for kw in ["aragora", "multi-agent debate", "nomic loop", "debate framework"]
-        )
+        """Gather Aragora-specific documentation context if relevant to task.
 
-        if not is_aragora_topic:
-            return None
-
-        try:
-            from pathlib import Path
-            import asyncio
-
-            project_root = Path(__file__).parent.parent.parent
-            docs_dir = project_root / "docs"
-
-            aragora_context_parts: list[str] = []
-            loop = asyncio.get_running_loop()
-
-            def _read_file_sync(path: Path, limit: int) -> str | None:
-                try:
-                    if path.exists():
-                        return path.read_text()[:limit]
-                except (OSError, UnicodeDecodeError):
-                    pass
-                return None
-
-            # Read key documentation files
-            key_docs = ["FEATURES.md", "ARCHITECTURE.md", "QUICKSTART.md", "STATUS.md"]
-            for doc_name in key_docs:
-                doc_path = docs_dir / doc_name
-                content = await loop.run_in_executor(
-                    None, lambda p=doc_path: _read_file_sync(p, 3000)
-                )
-                if content:
-                    aragora_context_parts.append(f"### {doc_name}\n{content}")
-
-            # Also include CLAUDE.md for project overview
-            claude_md = project_root / "CLAUDE.md"
-            content = await loop.run_in_executor(
-                None, lambda: _read_file_sync(claude_md, 2000)
-            )
-            if content:
-                aragora_context_parts.insert(0, f"### Project Overview (CLAUDE.md)\n{content}")
-
-            if aragora_context_parts:
-                logger.info("Injected Aragora project documentation context")
-                return (
-                    "## ARAGORA PROJECT CONTEXT\n"
-                    "The following is internal documentation about the Aragora project:\n\n"
-                    + "\n\n---\n\n".join(aragora_context_parts[:4])
-                )
-
-        except Exception as e:
-            logger.warning(f"Failed to load Aragora context: {e}")
-
-        return None
+        Delegates to ContextGatherer.gather_aragora_context().
+        """
+        return await self.context_gatherer.gather_aragora_context(task)
 
     async def _gather_evidence_context(self, task: str) -> Optional[str]:
-        """Gather evidence from web, GitHub, and local docs connectors."""
-        try:
-            from aragora.evidence.collector import EvidenceCollector
+        """Gather evidence from web, GitHub, and local docs connectors.
 
-            collector = EvidenceCollector()
-            enabled_connectors = []
-
-            # Add web connector if available
-            try:
-                from aragora.connectors.web import WebConnector, DDGS_AVAILABLE
-                if DDGS_AVAILABLE:
-                    collector.add_connector("web", WebConnector())
-                    enabled_connectors.append("web")
-            except ImportError:
-                pass
-
-            # Add GitHub connector if available
-            try:
-                from aragora.connectors.github import GitHubConnector
-                import os
-                if os.environ.get("GITHUB_TOKEN"):
-                    collector.add_connector("github", GitHubConnector())
-                    enabled_connectors.append("github")
-            except ImportError:
-                pass
-
-            # Add local docs connector
-            try:
-                from aragora.connectors.local_docs import LocalDocsConnector
-                from pathlib import Path
-
-                project_root = Path(__file__).parent.parent.parent
-                collector.add_connector("local_docs", LocalDocsConnector(
-                    root_path=str(project_root / "docs"),
-                    file_types="docs"
-                ))
-                enabled_connectors.append("local_docs")
-            except ImportError:
-                pass
-
-            if not enabled_connectors:
-                return None
-
-            evidence_pack = await collector.collect_evidence(
-                task, enabled_connectors=enabled_connectors
-            )
-
-            if evidence_pack.snippets:
-                self._research_evidence_pack = evidence_pack
-                if hasattr(self, 'prompt_builder') and self.prompt_builder:
-                    self.prompt_builder.set_evidence_pack(evidence_pack)
-                self._store_evidence_in_memory(evidence_pack.snippets, task)
-                return f"## EVIDENCE CONTEXT\n{evidence_pack.to_context_string()}"
-
-        except Exception as e:
-            logger.warning(f"Evidence collection failed: {e}")
-
-        return None
+        Delegates to ContextGatherer.gather_evidence_context().
+        """
+        result = await self.context_gatherer.gather_evidence_context(task)
+        # Update local cache for backwards compatibility
+        self._research_evidence_pack = self.context_gatherer.evidence_pack
+        return result
 
     async def _gather_trending_context(self) -> Optional[str]:
-        """Gather pulse/trending context from social platforms."""
-        try:
-            from aragora.pulse.ingestor import (
-                PulseManager,
-                TwitterIngestor,
-                HackerNewsIngestor,
-                RedditIngestor,
-            )
+        """Gather pulse/trending context from social platforms.
 
-            manager = PulseManager()
-            manager.add_ingestor("twitter", TwitterIngestor())
-            manager.add_ingestor("hackernews", HackerNewsIngestor())
-            manager.add_ingestor("reddit", RedditIngestor())
-
-            topics = await manager.get_trending_topics(limit_per_platform=3)
-
-            if topics:
-                trending_context = "## TRENDING CONTEXT\nCurrent trending topics that may be relevant:\n"
-                for t in topics[:5]:
-                    trending_context += f"- {t.topic} ({t.platform}, {t.volume:,} engagement, {t.category})\n"
-                return trending_context
-
-        except Exception as e:
-            logger.debug(f"Pulse context unavailable: {e}")
-
-        return None
+        Delegates to ContextGatherer.gather_trending_context().
+        """
+        return await self.context_gatherer.gather_trending_context()
 
     def _format_conclusion(self, result: "DebateResult") -> str:
         """Format a clear, readable debate conclusion with full context."""
