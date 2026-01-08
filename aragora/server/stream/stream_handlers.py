@@ -569,6 +569,36 @@ class StreamAPIHandlersMixin:
     # Nomic State
     # =========================================================================
 
+    async def _handle_health(self, request) -> 'aiohttp.web.Response':
+        """GET /api/health - Health check endpoint."""
+        import aiohttp.web as web
+        from datetime import datetime
+        origin = request.headers.get("Origin")
+
+        health = {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "version": "0.07",
+        }
+        return web.json_response(health, headers=self._cors_headers(origin))
+
+    async def _handle_metrics(self, request) -> 'aiohttp.web.Response':
+        """GET /metrics - Prometheus-format metrics."""
+        import aiohttp.web as web
+
+        try:
+            from aragora.server.prometheus import get_prometheus_metrics, CONTENT_TYPE_LATEST
+            metrics_text = get_prometheus_metrics()
+            return web.Response(
+                text=metrics_text,
+                content_type=CONTENT_TYPE_LATEST,
+            )
+        except ImportError:
+            return web.Response(
+                text="# prometheus_client not installed\n",
+                content_type="text/plain",
+            )
+
     async def _handle_nomic_state(self, request) -> 'aiohttp.web.Response':
         """GET /api/nomic/state - Current nomic loop state."""
         import aiohttp.web as web

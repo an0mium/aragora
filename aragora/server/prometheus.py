@@ -281,6 +281,12 @@ def is_prometheus_available() -> bool:
     return PROMETHEUS_AVAILABLE
 
 
+def get_prometheus_metrics() -> str:
+    """Get metrics text in Prometheus format."""
+    content, _ = get_metrics_output()
+    return content
+
+
 # ============================================================================
 # Recording Functions
 # ============================================================================

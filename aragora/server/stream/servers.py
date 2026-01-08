@@ -1090,6 +1090,14 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
         """Start the unified HTTP+WebSocket server."""
         import aiohttp.web as web
 
+        # Initialize error monitoring (no-op if SENTRY_DSN not set)
+        try:
+            from aragora.server.error_monitoring import init_monitoring
+            if init_monitoring():
+                logger.info("Error monitoring enabled (Sentry)")
+        except ImportError:
+            pass  # sentry-sdk not installed
+
         self._running = True
 
         # Create aiohttp app
@@ -1112,6 +1120,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
             ("GET", "/memory/tier-stats", self._handle_memory_tier_stats),
             ("GET", "/laboratory/emergent-traits", self._handle_laboratory_emergent_traits),
             ("GET", "/laboratory/cross-pollinations/suggest", self._handle_laboratory_cross_pollinations),
+            ("GET", "/health", self._handle_health),
             ("GET", "/nomic/state", self._handle_nomic_state),
             ("GET", "/debate/{loop_id}/graph", self._handle_graph_json),
             ("GET", "/debate/{loop_id}/graph/mermaid", self._handle_graph_mermaid),
@@ -1128,6 +1137,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
         # WebSocket handlers (not versioned)
         app.router.add_get("/", self._websocket_handler)
         app.router.add_get("/ws", self._websocket_handler)
+
+        # Prometheus metrics endpoint (not under /api/)
+        app.router.add_get("/metrics", self._handle_metrics)
 
         # Start drain loop
         asyncio.create_task(self._drain_loop())

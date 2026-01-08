@@ -1166,6 +1166,14 @@ class UnifiedServer:
 
     async def start(self) -> None:
         """Start both HTTP and WebSocket servers."""
+        # Initialize error monitoring (no-op if SENTRY_DSN not set)
+        try:
+            from aragora.server.error_monitoring import init_monitoring
+            if init_monitoring():
+                logger.info("Error monitoring enabled (Sentry)")
+        except ImportError:
+            pass  # sentry-sdk not installed
+
         logger.info("Starting unified server...")
         protocol = "https" if self.ssl_enabled else "http"
         logger.info(f"  HTTP API:   {protocol}://localhost:{self.http_port}")
