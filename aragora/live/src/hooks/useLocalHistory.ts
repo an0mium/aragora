@@ -66,10 +66,10 @@ export function useLocalHistory(apiBase: string = '') {
 
     try {
       const [summaryRes, cyclesRes, eventsRes, debatesRes] = await Promise.all([
-        fetchWithRetry(`${apiBase}/api/history/summary`, undefined, { maxRetries: 2 }),
-        fetchWithRetry(`${apiBase}/api/history/cycles?limit=50`, undefined, { maxRetries: 2 }),
-        fetchWithRetry(`${apiBase}/api/history/events?limit=100`, undefined, { maxRetries: 2 }),
-        fetchWithRetry(`${apiBase}/api/history/debates?limit=20`, undefined, { maxRetries: 2 }),
+        fetchWithRetry(`${apiBase}/api/history/summary`, undefined, { maxAttempts: 2 }),
+        fetchWithRetry(`${apiBase}/api/history/cycles?limit=50`, undefined, { maxAttempts: 2 }),
+        fetchWithRetry(`${apiBase}/api/history/events?limit=100`, undefined, { maxAttempts: 2 }),
+        fetchWithRetry(`${apiBase}/api/history/debates?limit=20`, undefined, { maxAttempts: 2 }),
       ]);
 
       const [summary, cyclesData, eventsData, debatesData] = await Promise.all([
