@@ -136,13 +136,13 @@ class MomentsHandler(BaseHandler):
             all_moments = self._get_all_moments()
 
             # Count by type
-            by_type = {}
+            by_type: dict[str, int] = {}
             for moment in all_moments:
                 mt = moment.moment_type
                 by_type[mt] = by_type.get(mt, 0) + 1
 
             # Count by agent
-            by_agent = {}
+            by_agent: dict[str, int] = {}
             for moment in all_moments:
                 agent = moment.agent_name
                 by_agent[agent] = by_agent.get(agent, 0) + 1

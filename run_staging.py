@@ -16,6 +16,16 @@ from pathlib import Path
 # Add parent directory to path for development
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Load .env file if python-dotenv is available
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"Loaded environment from {env_path}")
+except ImportError:
+    pass  # dotenv not installed, use environment variables directly
+
 from aragora.server.unified_server import run_unified_server
 
 

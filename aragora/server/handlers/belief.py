@@ -50,7 +50,7 @@ from aragora.server.error_utils import safe_error_message as _safe_error_message
 class BeliefHandler(BaseHandler):
     """Handler for belief network and reasoning endpoints."""
 
-    ROUTES = [
+    ROUTES: list[str] = [
         # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
     ]
 

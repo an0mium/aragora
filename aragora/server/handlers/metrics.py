@@ -216,7 +216,7 @@ class MetricsHandler(BaseHandler):
             cache_stats = get_cache_stats()
 
             # Analyze cache entries by prefix
-            entries_by_prefix = {}
+            entries_by_prefix: dict[str, int] = {}
             oldest_entry = now
             newest_entry = 0
 
@@ -277,7 +277,7 @@ class MetricsHandler(BaseHandler):
 
     def _get_database_sizes(self) -> dict:
         """Get database file sizes."""
-        sizes = {}
+        sizes: dict[str, int] = {}
         nomic_dir = self.get_nomic_dir()
 
         if not nomic_dir or not nomic_dir.exists():

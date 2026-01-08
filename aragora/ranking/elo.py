@@ -1102,18 +1102,8 @@ class EloSystem:
         return self._domain_calibration_engine.get_expected_calibration_error(agent_name)
 
     def get_best_domains(self, agent_name: str, limit: int = 5) -> list[tuple[str, float]]:
-        """Get domains where agent is best calibrated."""
-        calibration = self.get_domain_calibration(agent_name)
-        domains = calibration.get("domains", {})
-        scored = []
-        for domain, stats in domains.items():
-            if stats["predictions"] < 5:
-                continue
-            confidence = min(1.0, 0.5 + 0.5 * (stats["predictions"] - 5) / 20)
-            score = (1 - stats["brier_score"]) * confidence
-            scored.append((domain, score))
-        scored.sort(key=lambda x: x[1], reverse=True)
-        return scored[:limit]
+        """Get domains where agent is best calibrated. Delegates to DomainCalibrationEngine."""
+        return self._domain_calibration_engine.get_best_domains(agent_name, limit=limit)
 
     # =========================================================================
     # Agent Relationship Tracking (Grounded Personas)
