@@ -2577,6 +2577,28 @@ The most valuable proposals combine deep analysis with actionable implementation
             save_state_fn=self.save_state if hasattr(self, 'save_state') else None,
         )
 
+    def _create_context_phase(self) -> "ContextPhase":
+        """Create an extracted ContextPhase instance.
+
+        The ContextPhase gathers codebase understanding from multiple agents
+        using their native exploration harnesses.
+        """
+        if not _NOMIC_PHASES_AVAILABLE:
+            raise RuntimeError("Extracted phases not available")
+
+        return ContextPhase(
+            aragora_path=self.aragora_path,
+            claude_agent=getattr(self, 'claude', None),
+            codex_agent=getattr(self, 'codex', None),
+            kilocode_available=KILOCODE_AVAILABLE if 'KILOCODE_AVAILABLE' in dir() else False,
+            skip_kilocode=SKIP_KILOCODE_CONTEXT_GATHERING if 'SKIP_KILOCODE_CONTEXT_GATHERING' in dir() else True,
+            kilocode_agent_factory=KiloCodeAgent if 'KiloCodeAgent' in dir() else None,
+            cycle_count=self.cycle_count,
+            log_fn=self._log,
+            stream_emit_fn=self._stream_emit,
+            get_features_fn=self.get_current_features if hasattr(self, 'get_current_features') else None,
+        )
+
     def _create_post_debate_hooks(self, debate_team: list = None) -> "PostDebateHooks":
         """Create PostDebateHooks with callbacks to NomicLoop's post-processing methods.
 
@@ -6061,6 +6083,19 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         This ensures ALL agents have first-hand knowledge of the codebase,
         preventing proposals for features that already exist.
         """
+        # Use extracted phase class if enabled
+        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
+            context_phase = self._create_context_phase()
+            result = await context_phase.execute()
+            # Convert ContextResult to dict for backward compatibility
+            return {
+                "phase": "context",
+                "codebase_context": result.codebase_summary,
+                "duration": result.duration_seconds,
+                "agents_succeeded": result.data.get("agents_succeeded", 0),
+            }
+
+        # Inline implementation (legacy)
         phase_start = datetime.now()
 
         # Determine how many agents will participate
