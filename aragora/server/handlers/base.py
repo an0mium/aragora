@@ -671,9 +671,9 @@ class RouteDispatcher:
     """
 
     def __init__(self):
-        self.routes: list[tuple[PathMatcher, callable]] = []
+        self.routes: list[tuple[PathMatcher, Callable]] = []
 
-    def add_route(self, pattern: str, handler: callable) -> "RouteDispatcher":
+    def add_route(self, pattern: str, handler: Callable) -> "RouteDispatcher":
         """Add a route pattern with its handler.
 
         Args:
@@ -687,7 +687,7 @@ class RouteDispatcher:
         self.routes.append((PathMatcher(pattern), handler))
         return self
 
-    def dispatch(self, path: str, query_params: dict = None) -> any:
+    def dispatch(self, path: str, query_params: dict = None) -> Any:
         """Dispatch a path to its handler.
 
         Args:

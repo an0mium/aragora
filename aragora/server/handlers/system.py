@@ -23,7 +23,7 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 from .base import (
@@ -160,7 +160,7 @@ class SystemHandler(BaseHandler):
         - elo_system: ELO ranking system is available
         - nomic_dir: Nomic state directory exists
         """
-        checks = {}
+        checks: Dict[str, Dict[str, Any]] = {}
         all_healthy = True
         start_time = time.time()
 
