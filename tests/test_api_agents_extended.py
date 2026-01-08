@@ -845,7 +845,9 @@ class TestOpenRouterAgent:
         mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session_cm.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("aiohttp.ClientSession", return_value=mock_session_cm):
+        # Mock asyncio.sleep to prevent actual waiting during retries
+        with patch("aiohttp.ClientSession", return_value=mock_session_cm), \
+             patch("asyncio.sleep", new_callable=AsyncMock):
             from aragora.agents.errors import AgentRateLimitError
             with pytest.raises(AgentRateLimitError) as exc_info:
                 await openrouter_agent.generate("Test")

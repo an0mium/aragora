@@ -70,6 +70,8 @@ from .verify import VerifyPhase
 from .commit import CommitPhase
 from .context import ContextPhase
 from .implement import ImplementPhase
+from .debate import DebatePhase, DebateConfig, LearningContext, PostDebateHooks
+from .design import DesignPhase, DesignConfig, BeliefContext
 
 __all__ = [
     # Result types
@@ -82,7 +84,15 @@ __all__ = [
     "CommitResult",
     # Phase implementations
     "ContextPhase",
+    "DebatePhase",
+    "DesignPhase",
     "ImplementPhase",
     "VerifyPhase",
     "CommitPhase",
+    # Config/helper classes
+    "DebateConfig",
+    "DesignConfig",
+    "LearningContext",
+    "BeliefContext",
+    "PostDebateHooks",
 ]
