@@ -56,7 +56,7 @@ class LogRecord:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
-        result = {
+        result: Dict[str, Any] = {
             "ts": self.timestamp,
             "level": self.level,
             "logger": self.logger,

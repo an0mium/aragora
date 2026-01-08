@@ -75,10 +75,10 @@ class AudienceManager:
         self._notify_callback: Optional[Callable[[str], None]] = None
 
     def set_notify_callback(
-        self, callback: Callable[[str, ...], None]
+        self, callback: Callable[..., None]
     ) -> None:
         """Set callback for spectator notifications."""
-        self._notify_callback = callback
+        self._notify_callback = callback  # type: ignore[assignment]
 
     def subscribe_to_emitter(self, event_emitter) -> None:
         """Subscribe to an event emitter for user participation events."""
@@ -141,7 +141,7 @@ class AudienceManager:
                 break
 
         if drained_count > 0 and self._notify_callback:
-            self._notify_callback(
+            self._notify_callback(  # type: ignore[call-arg]
                 "audience_drain",
                 details=f"Processed {drained_count} audience events",
             )

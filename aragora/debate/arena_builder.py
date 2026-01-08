@@ -29,10 +29,10 @@ if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
     from aragora.agents.grounded import MomentDetector
     from aragora.agents.personas import PersonaManager
-    from aragora.agents.truth_grounding import PositionLedger, PositionTracker
+    from aragora.agents.truth_grounding import PositionLedger, PositionTracker  # type: ignore[attr-defined]
     from aragora.insights.store import InsightStore
     from aragora.memory.continuum import ContinuumMemory
-    from aragora.memory.embeddings import DebateEmbeddingsDatabase
+    from aragora.memory.embeddings import DebateEmbeddingsDatabase  # type: ignore[attr-defined]
     from aragora.memory.store import CritiqueStore
     from aragora.ranking.dissent import DissentRetriever
     from aragora.ranking.elo import EloSystem
@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from aragora.connectors.evidence import EvidenceCollector
     from aragora.replay.recorder import ReplayRecorder
     from aragora.pulse.topics import TrendingTopic
+    from aragora.debate.orchestrator import Arena
 
 logger = logging.getLogger(__name__)
 

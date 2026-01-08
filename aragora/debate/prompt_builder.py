@@ -9,7 +9,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from aragora.agents import Agent
+    from aragora.core import Agent
     from aragora.debate.protocol import DebateProtocol
     from aragora.core import Environment
     from aragora.memory.critique_store import CritiqueStore

@@ -169,7 +169,7 @@ class EventEmitterBridge:
 
         try:
             from aragora.server.stream import StreamEvent, StreamEventType
-            self.event_emitter.emit(StreamEvent(
+            self.event_emitter.emit(StreamEvent(  # type: ignore[call-arg]
                 type=StreamEventType.MOMENT_DETECTED,
                 data=moment.to_dict(),
                 debate_id=self.loop_id or "unknown",

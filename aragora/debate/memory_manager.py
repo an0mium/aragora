@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from aragora.core import DebateResult
     from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.critique_store import CritiqueStore
-    from aragora.memory.embeddings import DebateEmbeddingsDatabase
+    from aragora.memory.embeddings import DebateEmbeddingsDatabase  # type: ignore[attr-defined]
     from aragora.spectate.stream import SpectatorStream
 
 from aragora.memory.continuum import MemoryTier
