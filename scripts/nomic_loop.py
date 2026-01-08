@@ -2553,6 +2553,30 @@ The most valuable proposals combine deep analysis with actionable implementation
             record_replay_fn=self._record_replay_event if hasattr(self, '_record_replay_event') else None,
         )
 
+    def _create_implement_phase(self) -> "ImplementPhase":
+        """Create an extracted ImplementPhase instance.
+
+        The ImplementPhase handles hybrid multi-model code generation with
+        crash recovery via checkpoints and pre-verification review.
+        """
+        if not _NOMIC_PHASES_AVAILABLE:
+            raise RuntimeError("Extracted phases not available")
+
+        return ImplementPhase(
+            aragora_path=self.aragora_path,
+            plan_generator=self._generate_implement_plan if hasattr(self, '_generate_implement_plan') else None,
+            executor=getattr(self, 'implement_executor', None),
+            progress_loader=lambda path: load_progress(path) if 'load_progress' in dir() else None,
+            progress_saver=lambda data, path: save_progress(data, path) if 'save_progress' in dir() else None,
+            progress_clearer=lambda path: clear_progress(path) if 'clear_progress' in dir() else None,
+            protected_files=getattr(self, 'protected_files', None),
+            cycle_count=self.cycle_count,
+            log_fn=self._log,
+            stream_emit_fn=self._stream_emit,
+            record_replay_fn=self._record_replay_event if hasattr(self, '_record_replay_event') else None,
+            save_state_fn=self.save_state if hasattr(self, 'save_state') else None,
+        )
+
     def _create_post_debate_hooks(self, debate_team: list = None) -> "PostDebateHooks":
         """Create PostDebateHooks with callbacks to NomicLoop's post-processing methods.
 
@@ -7813,6 +7837,20 @@ Designs missing any of these will be automatically rejected as non-viable.
 
     async def phase_implement(self, design: str) -> dict:
         """Phase 3: Hybrid multi-model implementation."""
+        # Use extracted phase class if enabled
+        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
+            implement_phase = self._create_implement_phase()
+            result = await implement_phase.execute(design)
+            # Convert ImplementResult to dict for backward compatibility
+            return {
+                "phase": "implement",
+                "success": result.success,
+                "files_modified": result.files_modified,
+                "diff_summary": result.diff_summary,
+                "error": result.error if hasattr(result, 'error') else None,
+            }
+
+        # Inline implementation (legacy)
         phase_start = datetime.now()
         self._log("\n" + "=" * 70)
         self._log("PHASE 3: IMPLEMENTATION (Hybrid)")
