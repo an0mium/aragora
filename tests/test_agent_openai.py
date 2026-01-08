@@ -288,7 +288,7 @@ class TestOpenAIStreaming:
 
         chunks = []
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            with patch("aragora.agents.api_agents.openai.iter_chunks_with_timeout", return_value=mock_iter()):
+            with patch("aragora.agents.api_agents.common.iter_chunks_with_timeout", return_value=mock_iter()):
                 async for chunk in agent.generate_stream("Test prompt"):
                     chunks.append(chunk)
 
