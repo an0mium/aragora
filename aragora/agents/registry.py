@@ -8,12 +8,10 @@ registration-based approach that's extensible and testable.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable
 
 from aragora.config import ALLOWED_AGENT_TYPES
-
-
-T = TypeVar("T")
+from aragora.agents.types import T
 
 
 @dataclass(frozen=True)

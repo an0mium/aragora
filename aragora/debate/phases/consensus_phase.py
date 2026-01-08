@@ -13,6 +13,7 @@ Arena._run_inner() method, handling:
 import asyncio
 import logging
 from collections import Counter
+from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -22,6 +23,48 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ConsensusDependencies:
+    """Core dependencies for consensus phase execution.
+
+    Groups the system components needed for consensus resolution,
+    making dependency injection cleaner and more explicit.
+    """
+
+    protocol: Any = None
+    elo_system: Any = None
+    memory: Any = None
+    agent_weights: dict[str, float] = field(default_factory=dict)
+    flip_detector: Any = None
+    position_tracker: Any = None
+    calibration_tracker: Any = None
+    recorder: Any = None
+    hooks: dict = field(default_factory=dict)
+    user_votes: list = field(default_factory=list)
+
+
+@dataclass
+class ConsensusCallbacks:
+    """Callback functions for consensus phase operations.
+
+    Separates the callback dependencies from core dependencies,
+    making the interface cleaner and more testable.
+    """
+
+    vote_with_agent: Optional[Callable] = None
+    with_timeout: Optional[Callable] = None
+    select_judge: Optional[Callable] = None
+    build_judge_prompt: Optional[Callable] = None
+    generate_with_agent: Optional[Callable] = None
+    group_similar_votes: Optional[Callable] = None
+    get_calibration_weight: Optional[Callable] = None
+    notify_spectator: Optional[Callable] = None
+    drain_user_events: Optional[Callable] = None
+    extract_debate_domain: Optional[Callable] = None
+    get_belief_analyzer: Optional[Callable] = None
+    user_vote_multiplier: Optional[Callable] = None
+
+
 class ConsensusPhase:
     """
     Executes the consensus resolution phase.
@@ -29,18 +72,31 @@ class ConsensusPhase:
     This class encapsulates the voting and consensus logic that was
     previously in Arena._run_inner() after the debate rounds.
 
-    Usage:
-        consensus_phase = ConsensusPhase(
+    Usage (new style with dataclasses):
+        deps = ConsensusDependencies(
             protocol=arena.protocol,
             elo_system=arena.elo_system,
             memory=arena.memory,
-            hooks=arena.hooks,
+        )
+        callbacks = ConsensusCallbacks(
+            vote_with_agent=arena._vote_with_agent,
+        )
+        consensus_phase = ConsensusPhase(deps, callbacks)
+        await consensus_phase.execute(ctx)
+
+    Usage (legacy style - backward compatible):
+        consensus_phase = ConsensusPhase(
+            protocol=arena.protocol,
+            elo_system=arena.elo_system,
         )
         await consensus_phase.execute(ctx)
     """
 
     def __init__(
         self,
+        deps: ConsensusDependencies | Any = None,
+        callbacks: ConsensusCallbacks | None = None,
+        # Legacy parameters for backward compatibility
         protocol: Any = None,
         elo_system: Any = None,
         memory: Any = None,
@@ -51,7 +107,7 @@ class ConsensusPhase:
         recorder: Any = None,
         hooks: Optional[dict] = None,
         user_votes: Optional[list] = None,
-        # Callbacks
+        # Legacy callbacks
         vote_with_agent: Optional[Callable] = None,
         with_timeout: Optional[Callable] = None,
         select_judge: Optional[Callable] = None,
@@ -69,53 +125,67 @@ class ConsensusPhase:
         Initialize the consensus phase.
 
         Args:
-            protocol: DebateProtocol with consensus mode and thresholds
-            elo_system: ELO ranking system for calibration weights
-            memory: Memory system for vote weights
-            agent_weights: Pre-computed agent weights from capability probing
-            flip_detector: FlipDetector for consistency weights
-            position_tracker: PositionTracker for truth-grounded personas
-            calibration_tracker: CalibrationTracker for prediction tracking
-            recorder: ReplayRecorder
-            hooks: Hook callbacks dict
-            user_votes: List of user votes
-            vote_with_agent: Async callback to cast vote with agent
-            with_timeout: Async callback for timeout wrapper
-            select_judge: Async callback to select judge
-            build_judge_prompt: Callback to build judge prompt
-            generate_with_agent: Async callback to generate with agent
-            group_similar_votes: Callback to group similar vote choices
-            get_calibration_weight: Callback to get calibration weight
-            notify_spectator: Callback for spectator notifications
-            drain_user_events: Callback to drain pending user events
-            extract_debate_domain: Callback to extract debate domain
-            get_belief_analyzer: Callback to get belief analyzer classes
-            user_vote_multiplier: Callback to compute user vote multiplier
-        """
-        self.protocol = protocol
-        self.elo_system = elo_system
-        self.memory = memory
-        self.agent_weights = agent_weights or {}
-        self.flip_detector = flip_detector
-        self.position_tracker = position_tracker
-        self.calibration_tracker = calibration_tracker
-        self.recorder = recorder
-        self.hooks = hooks or {}
-        self.user_votes = user_votes or []
+            deps: ConsensusDependencies dataclass (new style)
+            callbacks: ConsensusCallbacks dataclass (new style)
 
-        # Callbacks
-        self._vote_with_agent = vote_with_agent
-        self._with_timeout = with_timeout
-        self._select_judge = select_judge
-        self._build_judge_prompt = build_judge_prompt
-        self._generate_with_agent = generate_with_agent
-        self._group_similar_votes = group_similar_votes
-        self._get_calibration_weight = get_calibration_weight
-        self._notify_spectator = notify_spectator
-        self._drain_user_events = drain_user_events
-        self._extract_debate_domain = extract_debate_domain
-        self._get_belief_analyzer = get_belief_analyzer
-        self._user_vote_multiplier = user_vote_multiplier
+            Legacy args (for backward compatibility):
+            protocol, elo_system, memory, agent_weights, flip_detector,
+            position_tracker, calibration_tracker, recorder, hooks, user_votes,
+            and all callback parameters.
+        """
+        # Support both new dataclass style and legacy parameter style
+        if isinstance(deps, ConsensusDependencies):
+            # New style: use dataclasses
+            self.protocol = deps.protocol
+            self.elo_system = deps.elo_system
+            self.memory = deps.memory
+            self.agent_weights = deps.agent_weights
+            self.flip_detector = deps.flip_detector
+            self.position_tracker = deps.position_tracker
+            self.calibration_tracker = deps.calibration_tracker
+            self.recorder = deps.recorder
+            self.hooks = deps.hooks
+            self.user_votes = deps.user_votes
+        else:
+            # Legacy style: use individual parameters
+            self.protocol = deps if deps is not None else protocol
+            self.elo_system = elo_system
+            self.memory = memory
+            self.agent_weights = agent_weights or {}
+            self.flip_detector = flip_detector
+            self.position_tracker = position_tracker
+            self.calibration_tracker = calibration_tracker
+            self.recorder = recorder
+            self.hooks = hooks or {}
+            self.user_votes = user_votes or []
+
+        # Callbacks: prefer dataclass, fall back to legacy parameters
+        if callbacks is not None:
+            self._vote_with_agent = callbacks.vote_with_agent
+            self._with_timeout = callbacks.with_timeout
+            self._select_judge = callbacks.select_judge
+            self._build_judge_prompt = callbacks.build_judge_prompt
+            self._generate_with_agent = callbacks.generate_with_agent
+            self._group_similar_votes = callbacks.group_similar_votes
+            self._get_calibration_weight = callbacks.get_calibration_weight
+            self._notify_spectator = callbacks.notify_spectator
+            self._drain_user_events = callbacks.drain_user_events
+            self._extract_debate_domain = callbacks.extract_debate_domain
+            self._get_belief_analyzer = callbacks.get_belief_analyzer
+            self._user_vote_multiplier = callbacks.user_vote_multiplier
+        else:
+            self._vote_with_agent = vote_with_agent
+            self._with_timeout = with_timeout
+            self._select_judge = select_judge
+            self._build_judge_prompt = build_judge_prompt
+            self._generate_with_agent = generate_with_agent
+            self._group_similar_votes = group_similar_votes
+            self._get_calibration_weight = get_calibration_weight
+            self._notify_spectator = notify_spectator
+            self._drain_user_events = drain_user_events
+            self._extract_debate_domain = extract_debate_domain
+            self._get_belief_analyzer = get_belief_analyzer
+            self._user_vote_multiplier = user_vote_multiplier
 
     async def execute(self, ctx: "DebateContext") -> None:
         """

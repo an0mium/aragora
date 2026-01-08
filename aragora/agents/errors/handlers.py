@@ -8,13 +8,12 @@ handling agent failures.
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Optional
 
+from aragora.agents.types import T
 from .classifier import ErrorClassifier
 
 logger = logging.getLogger(__name__)
-
-T = TypeVar("T")
 
 
 async def handle_agent_operation(

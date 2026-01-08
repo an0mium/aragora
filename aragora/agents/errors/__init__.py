@@ -82,9 +82,8 @@ from aragora.utils.error_sanitizer import (
     SENSITIVE_PATTERNS as _SENSITIVE_PATTERNS,
 )
 
-# Type variable for generic return types (backward compat)
-from typing import TypeVar
-T = TypeVar("T")
+# Type variable for generic return types (re-export from types module)
+from aragora.agents.types import T
 
 
 __all__ = [
