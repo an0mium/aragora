@@ -35,6 +35,26 @@ class Position:
     verified_correct: Optional[bool] = None
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
+    @classmethod
+    def from_row(cls, row: tuple) -> "Position":
+        """Create Position from database row.
+
+        Expected row format:
+            (debate_id, agent_name, position_type, position_text, round_num,
+             confidence, was_winning, verified_correct, created_at)
+        """
+        return cls(
+            debate_id=row[0],
+            agent_name=row[1],
+            position_type=row[2],
+            position_text=row[3],
+            round_num=row[4],
+            confidence=row[5],
+            was_winning=bool(row[6]) if row[6] is not None else None,
+            verified_correct=bool(row[7]) if row[7] is not None else None,
+            created_at=row[8],
+        )
+
 
 class PositionTracker:
     """
@@ -287,20 +307,7 @@ class PositionTracker:
             cursor.execute(query, (agent_name, limit))
             rows = cursor.fetchall()
 
-        return [
-            Position(
-                debate_id=row[0],
-                agent_name=row[1],
-                position_type=row[2],
-                position_text=row[3],
-                round_num=row[4],
-                confidence=row[5],
-                was_winning=bool(row[6]) if row[6] is not None else None,
-                verified_correct=bool(row[7]) if row[7] is not None else None,
-                created_at=row[8],
-            )
-            for row in rows
-        ]
+        return [Position.from_row(row) for row in rows]
 
 
 @dataclass
