@@ -35,14 +35,16 @@ def _safe_log(level: int, msg: str) -> None:
     stream handlers may also have closed streams even if handlers exist.
     """
     try:
-        # Check if logging is still functional and streams are open
+        # Check if logging is still functional
         if not logging.root.handlers:
             return
-        # Verify at least one handler has a valid stream
+        # Verify ALL stream handlers have valid streams before logging
         for handler in logging.root.handlers:
-            if hasattr(handler, 'stream') and handler.stream and not handler.stream.closed:
-                logger.log(level, msg)
-                return
+            if hasattr(handler, 'stream'):
+                stream = handler.stream
+                if stream is None or (hasattr(stream, 'closed') and stream.closed):
+                    return  # At least one stream is invalid, skip logging
+        logger.log(level, msg)
     except (ValueError, RuntimeError, AttributeError, OSError):
         # Logging system is shutting down - silently ignore
         pass
