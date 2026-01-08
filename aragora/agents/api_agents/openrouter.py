@@ -198,6 +198,12 @@ class OpenRouterAgent(APIAgent):
                     cause=e,
                 )
 
+        # Should not reach here, but satisfy mypy
+        raise AgentAPIError(
+            f"OpenRouter request failed after {max_retries} retries: {last_error}",
+            agent_name=self.name,
+        )
+
     async def generate_stream(self, prompt: str, context: list[Message] | None = None) -> AsyncGenerator[str, None]:
         """Stream tokens from OpenRouter API with rate limiting and retry.
 

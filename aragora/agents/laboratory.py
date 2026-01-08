@@ -20,7 +20,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator
 
 from aragora.config import DB_LAB_PATH, DB_TIMEOUT_SECONDS
 from aragora.insights.database import InsightsDatabase
@@ -352,8 +352,8 @@ class PersonaLaboratory:
 
     def _row_to_experiment(self, row) -> PersonaExperiment:
         """Convert database row to PersonaExperiment."""
-        control_data = safe_json_loads(row[2], {})
-        variant_data = safe_json_loads(row[3], {})
+        control_data: dict[str, Any] = safe_json_loads(row[2], {})
+        variant_data: dict[str, Any] = safe_json_loads(row[3], {})
 
         return PersonaExperiment(
             experiment_id=row[0],
@@ -579,7 +579,7 @@ class PersonaLaboratory:
 
         Returns list of (source_agent, trait_or_domain, reason) tuples.
         """
-        suggestions = []
+        suggestions: list[tuple[str, str, str]] = []
 
         target = self.persona_manager.get_persona(target_agent)
         if not target:
