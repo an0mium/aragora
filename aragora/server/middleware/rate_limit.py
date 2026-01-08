@@ -376,6 +376,13 @@ class RateLimiter:
 
             return removed
 
+    def reset(self) -> None:
+        """Reset all rate limiter state. Primarily for testing."""
+        with self._lock:
+            self._ip_buckets.clear()
+            self._token_buckets.clear()
+            self._endpoint_buckets.clear()
+
     def get_stats(self) -> Dict[str, Any]:
         """Get rate limiter statistics."""
         with self._lock:
@@ -490,7 +497,13 @@ class RateLimiterRegistry:
         return removed
 
     def reset(self) -> None:
-        """Reset all rate limiters."""
+        """Reset all rate limiters, including their internal state."""
+        # Reset internal state of all limiters (decorators hold references)
+        if self._default_limiter is not None:
+            self._default_limiter.reset()
+        for limiter in self._limiters.values():
+            limiter.reset()
+        # Clear registry
         self._default_limiter = None
         self._limiters.clear()
 

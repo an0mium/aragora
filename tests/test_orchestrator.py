@@ -497,8 +497,8 @@ class TestUserEventQueue:
         protocol = DebateProtocol(rounds=1)
         arena = Arena(env, agents, protocol)
 
-        # Queue should have a maxsize set
-        assert arena._user_event_queue.maxsize == 10000
+        # Queue should have a maxsize set (via AudienceManager)
+        assert arena.audience_manager._event_queue.maxsize == 10000
 
     def test_drain_user_events_empty_queue(self):
         """Draining empty queue should not raise."""
@@ -522,12 +522,12 @@ class TestUserEventQueue:
         protocol = DebateProtocol(rounds=1)
         arena = Arena(env, agents, protocol)
 
-        # Manually enqueue some vote events
-        arena._user_event_queue.put_nowait((
+        # Manually enqueue some vote events (via AudienceManager)
+        arena.audience_manager._event_queue.put_nowait((
             StreamEventType.USER_VOTE,
             {"choice": "proposal_a", "user_id": "user1"}
         ))
-        arena._user_event_queue.put_nowait((
+        arena.audience_manager._event_queue.put_nowait((
             StreamEventType.USER_VOTE,
             {"choice": "proposal_b", "user_id": "user2"}
         ))
@@ -547,8 +547,8 @@ class TestUserEventQueue:
         protocol = DebateProtocol(rounds=1)
         arena = Arena(env, agents, protocol)
 
-        # Manually enqueue suggestion events
-        arena._user_event_queue.put_nowait((
+        # Manually enqueue suggestion events (via AudienceManager)
+        arena.audience_manager._event_queue.put_nowait((
             StreamEventType.USER_SUGGESTION,
             {"text": "Consider X", "user_id": "user1"}
         ))
@@ -568,19 +568,19 @@ class TestUserEventQueue:
         protocol = DebateProtocol(rounds=1)
         arena = Arena(env, agents, protocol)
 
-        # Replace queue with small one for testing
-        arena._user_event_queue = queue.Queue(maxsize=5)
+        # Replace queue with small one for testing (via AudienceManager)
+        arena.audience_manager._event_queue = queue.Queue(maxsize=5)
 
         # Fill the queue
         for i in range(5):
-            arena._user_event_queue.put_nowait((
+            arena.audience_manager._event_queue.put_nowait((
                 StreamEventType.USER_VOTE,
                 {"choice": f"choice_{i}"}
             ))
 
         # Queue is now full - additional put_nowait should raise
         with pytest.raises(queue.Full):
-            arena._user_event_queue.put_nowait((
+            arena.audience_manager._event_queue.put_nowait((
                 StreamEventType.USER_VOTE,
                 {"choice": "overflow"}
             ))
@@ -592,8 +592,7 @@ class TestUserEventQueue:
         agents = [MockAgent("agent1")]
         env = Environment(task="Test filter", max_rounds=1)
         protocol = DebateProtocol(rounds=1)
-        arena = Arena(env, agents, protocol)
-        arena.loop_id = "my-loop-123"
+        arena = Arena(env, agents, protocol, loop_id="my-loop-123")
 
         # Event for different loop should be ignored
         other_event = StreamEvent(
@@ -603,8 +602,8 @@ class TestUserEventQueue:
         )
         arena._handle_user_event(other_event)
 
-        # Queue should still be empty
-        assert arena._user_event_queue.empty()
+        # Queue should still be empty (via AudienceManager)
+        assert arena.audience_manager._event_queue.empty()
 
     def test_handle_user_event_accepts_matching_loop(self):
         """Events for matching loop should be enqueued."""
@@ -613,8 +612,7 @@ class TestUserEventQueue:
         agents = [MockAgent("agent1")]
         env = Environment(task="Test accept", max_rounds=1)
         protocol = DebateProtocol(rounds=1)
-        arena = Arena(env, agents, protocol)
-        arena.loop_id = "my-loop-123"
+        arena = Arena(env, agents, protocol, loop_id="my-loop-123")
 
         # Event for this loop should be enqueued
         my_event = StreamEvent(
@@ -624,8 +622,8 @@ class TestUserEventQueue:
         )
         arena._handle_user_event(my_event)
 
-        # Queue should have the event
-        assert not arena._user_event_queue.empty()
+        # Queue should have the event (via AudienceManager)
+        assert not arena.audience_manager._event_queue.empty()
 
 
 class TestForkInitialMessages:

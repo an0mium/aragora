@@ -62,9 +62,9 @@ class TestMailboxThreadSafety:
     """Test thread-safe event queue handling."""
 
     def test_queue_initialized(self, arena_with_emitter):
-        """Test that Arena initializes the event queue."""
-        assert hasattr(arena_with_emitter, '_user_event_queue')
-        assert isinstance(arena_with_emitter._user_event_queue, queue.Queue)
+        """Test that Arena initializes the event queue via AudienceManager."""
+        assert hasattr(arena_with_emitter, 'audience_manager')
+        assert isinstance(arena_with_emitter.audience_manager._event_queue, queue.Queue)
 
     def test_handle_user_event_enqueues(self, arena_with_emitter):
         """Test that _handle_user_event enqueues rather than direct append."""
@@ -79,22 +79,22 @@ class TestMailboxThreadSafety:
         # Handle event
         arena_with_emitter._handle_user_event(event)
 
-        # Verify it was enqueued, not directly appended
-        assert arena_with_emitter._user_event_queue.qsize() == 1
+        # Verify it was enqueued, not directly appended (via AudienceManager)
+        assert arena_with_emitter.audience_manager._event_queue.qsize() == 1
         assert len(arena_with_emitter.user_votes) == 0  # Not yet drained
 
     def test_drain_moves_to_lists(self, arena_with_emitter):
         """Test that _drain_user_events moves events from queue to lists."""
         from aragora.server.stream import StreamEventType
 
-        # Enqueue events directly
-        arena_with_emitter._user_event_queue.put(
+        # Enqueue events directly (via AudienceManager)
+        arena_with_emitter.audience_manager._event_queue.put(
             (StreamEventType.USER_VOTE, {"choice": "A"})
         )
-        arena_with_emitter._user_event_queue.put(
+        arena_with_emitter.audience_manager._event_queue.put(
             (StreamEventType.USER_SUGGESTION, {"suggestion": "Great idea"})
         )
-        arena_with_emitter._user_event_queue.put(
+        arena_with_emitter.audience_manager._event_queue.put(
             (StreamEventType.USER_VOTE, {"choice": "B"})
         )
 
@@ -104,7 +104,7 @@ class TestMailboxThreadSafety:
         # Verify moved to lists
         assert len(arena_with_emitter.user_votes) == 2
         assert len(arena_with_emitter.user_suggestions) == 1
-        assert arena_with_emitter._user_event_queue.empty()
+        assert arena_with_emitter.audience_manager._event_queue.empty()
 
     def test_concurrent_enqueue_and_drain(self, arena_with_emitter):
         """Test thread safety with concurrent enqueue and drain operations."""
@@ -277,7 +277,7 @@ class TestEdgeCases:
         """Test that multiple drain calls are safe."""
         from aragora.server.stream import StreamEventType
 
-        arena_with_emitter._user_event_queue.put(
+        arena_with_emitter.audience_manager._event_queue.put(
             (StreamEventType.USER_VOTE, {"choice": "A"})
         )
 
@@ -293,8 +293,8 @@ class TestEdgeCases:
         """Test handling of malformed event data."""
         from aragora.server.stream import StreamEventType
 
-        # Event with None data
-        arena_with_emitter._user_event_queue.put(
+        # Event with None data (via AudienceManager)
+        arena_with_emitter.audience_manager._event_queue.put(
             (StreamEventType.USER_VOTE, None)
         )
 
@@ -314,8 +314,8 @@ class TestEdgeCases:
 
         arena_with_emitter._handle_user_event(event)
 
-        # Should not be enqueued
-        assert arena_with_emitter._user_event_queue.empty()
+        # Should not be enqueued (via AudienceManager)
+        assert arena_with_emitter.audience_manager._event_queue.empty()
 
 
 # === Suggestion Integration Tests ===
@@ -327,9 +327,9 @@ class TestSuggestionIntegration:
         """Test that suggestions accumulate correctly."""
         from aragora.server.stream import StreamEventType
 
-        # Add multiple suggestions
+        # Add multiple suggestions (via AudienceManager)
         for i in range(5):
-            arena_with_emitter._user_event_queue.put(
+            arena_with_emitter.audience_manager._event_queue.put(
                 (StreamEventType.USER_SUGGESTION, {"suggestion": f"Idea {i}", "user_id": f"user{i}"})
             )
 
@@ -341,13 +341,13 @@ class TestSuggestionIntegration:
         """Test that votes and suggestions are kept in separate lists."""
         from aragora.server.stream import StreamEventType
 
-        arena_with_emitter._user_event_queue.put(
+        arena_with_emitter.audience_manager._event_queue.put(
             (StreamEventType.USER_VOTE, {"choice": "A"})
         )
-        arena_with_emitter._user_event_queue.put(
+        arena_with_emitter.audience_manager._event_queue.put(
             (StreamEventType.USER_SUGGESTION, {"suggestion": "Good point"})
         )
-        arena_with_emitter._user_event_queue.put(
+        arena_with_emitter.audience_manager._event_queue.put(
             (StreamEventType.USER_VOTE, {"choice": "B"})
         )
 

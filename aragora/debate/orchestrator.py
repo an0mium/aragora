@@ -9,19 +9,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import queue
 import time
 from collections import deque
 from dataclasses import dataclass
 from typing import Optional
 
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
-from aragora.config import USER_EVENT_QUEUE_SIZE
 from aragora.core import Agent, Critique, DebateResult, DisagreementReport, Environment, Message, Vote
 from aragora.debate.convergence import ConvergenceDetector
 from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.context_gatherer import ContextGatherer
 from aragora.debate.event_bridge import EventEmitterBridge
+from aragora.debate.audience_manager import AudienceManager
 from aragora.debate.autonomic_executor import AutonomicExecutor
 from aragora.debate.memory_manager import MemoryManager
 from aragora.debate.optional_imports import OptionalImports
@@ -452,16 +451,26 @@ class Arena:
 
     def _init_user_participation(self) -> None:
         """Initialize user participation tracking and event subscription."""
-        # User participation tracking (thread-safe mailbox pattern)
-        self._user_event_queue: queue.Queue = queue.Queue(maxsize=USER_EVENT_QUEUE_SIZE)
-        # Use deque with maxlen for O(1) bounded queue operations
-        self.user_votes: deque[dict] = deque(maxlen=USER_EVENT_QUEUE_SIZE)
-        self.user_suggestions: deque[dict] = deque(maxlen=USER_EVENT_QUEUE_SIZE)
+        # Create AudienceManager for thread-safe event handling
+        self.audience_manager = AudienceManager(
+            loop_id=self.loop_id,
+            strict_loop_scoping=self.strict_loop_scoping,
+        )
+        self.audience_manager.set_notify_callback(self._notify_spectator)
 
         # Subscribe to user participation events if emitter provided
         if self.event_emitter:
-            from aragora.server.stream import StreamEventType
-            self.event_emitter.subscribe(self._handle_user_event)
+            self.audience_manager.subscribe_to_emitter(self.event_emitter)
+
+    @property
+    def user_votes(self) -> deque[dict]:
+        """Get user votes from AudienceManager (backward compatibility)."""
+        return self.audience_manager._votes
+
+    @property
+    def user_suggestions(self) -> deque[dict]:
+        """Get user suggestions from AudienceManager (backward compatibility)."""
+        return self.audience_manager._suggestions
 
     def _init_roles_and_stances(self) -> None:
         """Initialize cognitive role rotation and agent stances."""
@@ -849,55 +858,17 @@ class Arena:
     def _handle_user_event(self, event) -> None:
         """Handle incoming user participation events (thread-safe).
 
-        Events are enqueued for later processing by _drain_user_events().
-        This method may be called from any thread (e.g., WebSocket server).
+        Delegates to AudienceManager for thread-safe event queuing.
         """
-        from aragora.server.stream import StreamEventType
-
-        # Ignore events from other loops to prevent cross-contamination
-        event_loop_id = getattr(event, 'loop_id', None)
-        if event_loop_id and event_loop_id != self.loop_id:
-            return
-
-        # In strict scoping mode, drop events without a loop_id
-        if self.strict_loop_scoping and not event_loop_id:
-            return
-
-        # Enqueue for processing (thread-safe)
-        if event.type in (StreamEventType.USER_VOTE, StreamEventType.USER_SUGGESTION):
-            try:
-                self._user_event_queue.put_nowait((event.type, event.data))
-            except queue.Full:
-                logger.warning(f"User event queue full, dropping {event.type}")
+        self.audience_manager.handle_event(event)
 
     def _drain_user_events(self) -> None:
         """Drain pending user events from queue into working lists.
 
-        This method should be called at safe points in the debate loop:
-        - Before building prompts that include audience suggestions
-        - Before vote aggregation that includes user votes
-
-        This is the 'digest' phase of the Stadium Mailbox pattern.
+        Delegates to AudienceManager for the 'digest' phase of the
+        Stadium Mailbox pattern.
         """
-        from aragora.server.stream import StreamEventType
-
-        drained_count = 0
-        while True:
-            try:
-                event_type, event_data = self._user_event_queue.get_nowait()
-                if event_type == StreamEventType.USER_VOTE:
-                    self.user_votes.append(event_data)  # deque auto-evicts oldest
-                elif event_type == StreamEventType.USER_SUGGESTION:
-                    self.user_suggestions.append(event_data)  # deque auto-evicts oldest
-                drained_count += 1
-            except queue.Empty:
-                break
-
-        if drained_count > 0:
-            self._notify_spectator(
-                "audience_drain",
-                details=f"Processed {drained_count} audience events",
-            )
+        self.audience_manager.drain_events()
 
     def _notify_spectator(self, event_type: str, **kwargs) -> None:
         """Delegate to event bridge for spectator/websocket emission."""
