@@ -106,9 +106,26 @@ class TestTrendingEndpoint:
     def test_caps_limit_at_50(self, handler):
         """Caps limit at maximum of 50."""
         # The handler caps at 50 internally: min(limit, 50)
-        result = handler.handle("/api/pulse/trending", {"limit": ["100"]}, None)
-        # Should either succeed or fail gracefully
-        assert result is not None
+        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm_class:
+            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
+                with patch('aragora.pulse.ingestor.RedditIngestor'):
+                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+                        mock_manager = MagicMock()
+                        mock_manager.ingestors = {}
+                        mock_manager.add_ingestor = lambda name, ing: mock_manager.ingestors.update({name: ing})
+                        mock_manager.get_trending_topics = AsyncMock(return_value=[])
+                        mock_pm_class.return_value = mock_manager
+
+                        result = handler.handle("/api/pulse/trending", {"limit": ["100"]}, None)
+
+                        # Should either succeed or fail gracefully
+                        assert result is not None
+                        # Verify limit was capped (handler uses min(limit, 50))
+                        mock_manager.get_trending_topics.assert_called_once()
+                        call_kwargs = mock_manager.get_trending_topics.call_args
+                        if call_kwargs:
+                            # Check limit_per_platform was passed as 50 (capped from 100)
+                            assert call_kwargs.kwargs.get('limit_per_platform', 50) <= 50
 
     def test_trending_response_structure(self, handler):
         """Returns proper response structure when successful."""
@@ -166,17 +183,23 @@ class TestTrendingEndpoint:
             with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
                 with patch('aragora.pulse.ingestor.RedditIngestor'):
                     with patch('aragora.pulse.ingestor.TwitterIngestor'):
-                        mock_manager = Mock()
+                        mock_manager = MagicMock()
+                        # Ensure ingestors dict properly tracks added ingestors
                         mock_manager.ingestors = {}
+                        mock_manager.add_ingestor = lambda name, ing: mock_manager.ingestors.update({name: ing})
                         mock_manager.get_trending_topics = AsyncMock(return_value=[])
                         mock_pm_class.return_value = mock_manager
 
                         result = handler._get_trending_topics(10)
 
+                        # Should either succeed with empty list or fail gracefully
+                        assert result.status_code in (200, 500), f"Unexpected status: {result.status_code}"
                         if result.status_code == 200:
                             data = json.loads(result.body)
                             assert data["count"] == 0
                             assert data["topics"] == []
+                            # Verify sources are tracked from add_ingestor calls
+                            assert "sources" in data
 
     def test_handles_fetch_exception(self, handler):
         """Returns 500 on fetch exception."""
