@@ -25,10 +25,17 @@ from .base import (
     error_response,
     require_storage,
     get_int_param,
+    ttl_cache,
 )
 from aragora.server.validation import validate_debate_id
 
 logger = logging.getLogger(__name__)
+
+# Cache TTLs for debates endpoints (in seconds)
+CACHE_TTL_DEBATES_LIST = 30  # Short TTL for list (may change frequently)
+CACHE_TTL_SEARCH = 60  # Search results cache
+CACHE_TTL_CONVERGENCE = 120  # Convergence status (changes less often)
+CACHE_TTL_IMPASSE = 120  # Impasse detection
 
 
 class DebatesHandler(BaseHandler):
@@ -266,6 +273,7 @@ class DebatesHandler(BaseHandler):
             return error_response(f"Failed to list debates: {e}", 500)
 
     @require_storage
+    @ttl_cache(ttl_seconds=CACHE_TTL_SEARCH, key_prefix="debates_search", skip_first=True)
     def _search_debates(self, query: str, limit: int, offset: int) -> HandlerResult:
         """Search debates by query string.
 
@@ -342,6 +350,7 @@ class DebatesHandler(BaseHandler):
             return error_response(f"Failed to get debate: {e}", 500)
 
     @require_storage
+    @ttl_cache(ttl_seconds=CACHE_TTL_IMPASSE, key_prefix="debates_impasse", skip_first=True)
     def _get_impasse(self, handler, debate_id: str) -> HandlerResult:
         """Detect impasse in a debate."""
         storage = self.get_storage()
@@ -372,6 +381,7 @@ class DebatesHandler(BaseHandler):
             return error_response(f"Impasse detection failed: {e}", 500)
 
     @require_storage
+    @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_convergence", skip_first=True)
     def _get_convergence(self, handler, debate_id: str) -> HandlerResult:
         """Get convergence status for a debate."""
         storage = self.get_storage()

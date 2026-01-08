@@ -33,7 +33,8 @@ from aragora.server.handlers.base import clear_cache
 def mock_storage():
     """Create a mock storage instance."""
     storage = Mock()
-    storage.list_debates.return_value = [
+    # Use list_recent (actual method name) instead of list_debates
+    storage.list_recent.return_value = [
         {
             "slug": "ai-safety-debate",
             "topic": "AI Safety Best Practices",
@@ -157,14 +158,14 @@ class TestListDebatesEndpoint:
         result = debates_handler.handle("/api/debates", {"limit": "10"}, None)
 
         assert result.status_code == 200
-        mock_storage.list_debates.assert_called_with(limit=10)
+        mock_storage.list_recent.assert_called_with(limit=10)
 
     def test_list_caps_limit_at_100(self, debates_handler, mock_storage):
         """Should cap limit at 100."""
         result = debates_handler.handle("/api/debates", {"limit": "500"}, None)
 
         assert result.status_code == 200
-        mock_storage.list_debates.assert_called_with(limit=100)
+        mock_storage.list_recent.assert_called_with(limit=100)
 
     def test_list_unavailable_returns_503(self):
         """Should return 503 when storage not available."""
@@ -552,7 +553,7 @@ class TestDebatesErrorHandling:
 
     def test_storage_exception_returns_500(self, debates_handler, mock_storage):
         """Should return 500 on storage exceptions."""
-        mock_storage.list_debates.side_effect = Exception("DB error")
+        mock_storage.list_recent.side_effect = Exception("DB error")
 
         result = debates_handler.handle("/api/debates", {}, None)
 
@@ -586,7 +587,7 @@ class TestDebatesEdgeCases:
 
     def test_empty_debates_list(self, debates_handler, mock_storage):
         """Should handle empty debates list."""
-        mock_storage.list_debates.return_value = []
+        mock_storage.list_recent.return_value = []
 
         result = debates_handler.handle("/api/debates", {}, None)
 
