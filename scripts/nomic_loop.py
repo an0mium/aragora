@@ -6142,12 +6142,12 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
             context_phase = self._create_context_phase()
             result = await context_phase.execute()
-            # Convert ContextResult to dict for backward compatibility
+            # Convert ContextResult (TypedDict) to dict for backward compatibility
             return {
                 "phase": "context",
-                "codebase_context": result.codebase_summary,
-                "duration": result.duration_seconds,
-                "agents_succeeded": result.data.get("agents_succeeded", 0),
+                "codebase_context": result["codebase_summary"],
+                "duration": result["duration_seconds"],
+                "agents_succeeded": result.get("data", {}).get("agents_succeeded", 0),
             }
 
         # DEPRECATED: Legacy inline implementation (opt-out only via USE_EXTRACTED_PHASES=0)
@@ -6300,12 +6300,12 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
                 learning_context=learning,
                 hooks=hooks,
             )
-            # Convert DebateResult to dict for backward compatibility
+            # Convert DebateResult (TypedDict) to dict for backward compatibility
             return {
                 "phase": "debate",
-                "improvement": result.improvement,
-                "consensus_reached": result.consensus_reached,
-                "confidence": result.confidence,
+                "improvement": result["improvement"],
+                "consensus_reached": result["consensus_reached"],
+                "confidence": result["confidence"],
             }
 
         # DEPRECATED: Legacy inline implementation (opt-out only via USE_EXTRACTED_PHASES=0)
@@ -7118,13 +7118,13 @@ Recent changes:
                 improvement=improvement,
                 belief_context=belief_ctx,
             )
-            # Convert DesignResult to dict for backward compatibility
+            # Convert DesignResult (TypedDict) to dict for backward compatibility
             return {
                 "phase": "design",
-                "success": result.success,
-                "design": result.design,
-                "files_affected": result.files_affected,
-                "complexity": result.complexity_estimate,
+                "success": result["success"],
+                "design": result["design"],
+                "files_affected": result["files_affected"],
+                "complexity": result["complexity_estimate"],
             }
 
         # DEPRECATED: Legacy inline implementation (opt-out only via USE_EXTRACTED_PHASES=0)
@@ -7931,13 +7931,13 @@ Designs missing any of these will be automatically rejected as non-viable.
         if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
             implement_phase = self._create_implement_phase()
             result = await implement_phase.execute(design)
-            # Convert ImplementResult to dict for backward compatibility
+            # Convert ImplementResult (TypedDict) to dict for backward compatibility
             return {
                 "phase": "implement",
-                "success": result.success,
-                "files_modified": result.files_modified,
-                "diff_summary": result.diff_summary,
-                "error": result.error if hasattr(result, 'error') else None,
+                "success": result["success"],
+                "files_modified": result["files_modified"],
+                "diff_summary": result["diff_summary"],
+                "error": result.get("error"),
             }
 
         # DEPRECATED: Legacy inline implementation (opt-out only via USE_EXTRACTED_PHASES=0)
@@ -8657,7 +8657,7 @@ Be concise - this is a quality gate, not a full review."""
                 self.phase_context_gathering()
             )
             cycle_result["phases"]["context"] = context_result
-            codebase_context = context_result.get("context", "")
+            codebase_context = context_result.get("codebase_context", "")
             self.phase_recovery.record_success("context")
         except PhaseError as e:
             self._log(f"PHASE TIMEOUT: Context gathering exceeded time limit: {e}")
