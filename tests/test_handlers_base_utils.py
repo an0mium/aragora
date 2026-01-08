@@ -76,8 +76,8 @@ class TestBoundedTTLCache:
         cache = BoundedTTLCache(max_entries=10)
         cache.set("key1", "value1")
 
-        # Simulate time passing
-        with patch('aragora.server.handlers.base.time.time') as mock_time:
+        # Simulate time passing (cache module was extracted from base)
+        with patch('aragora.server.handlers.cache.time.time') as mock_time:
             # Initial set was at time 0
             mock_time.return_value = 0
             cache.set("key2", "value2")
