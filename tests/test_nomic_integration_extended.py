@@ -143,7 +143,7 @@ class TestBeliefNetworkBuildingExtended:
                 confidence=0.7,
             )
         }
-        mock_kernel.relations = []
+        mock_kernel.relations = {}
 
         analysis = await integration_no_checkpoint.analyze_debate(
             sample_debate_result, claims_kernel=mock_kernel
@@ -515,7 +515,7 @@ class TestFullAnalysisFlow:
         """Test full analysis with claims kernel."""
         mock_kernel = MagicMock()
         mock_kernel.claims = {c.claim_id: c for c in sample_claims}
-        mock_kernel.relations = []
+        mock_kernel.relations = {}
 
         # Mock both resolve_deadlock and check_staleness to avoid bugs in the implementation
         with patch.object(integration_no_checkpoint, 'resolve_deadlock', new_callable=AsyncMock) as mock_resolve:
