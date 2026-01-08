@@ -148,7 +148,7 @@ from aragora.agents.grounded import (
 )
 
 # Evidence, Pulse, Uncertainty (newly exported)
-from aragora.evidence import EvidenceCollector, Evidence, EvidenceType, EvidenceSnippet, EvidencePack
+from aragora.evidence import EvidenceCollector, Evidence, EvidenceType, EvidenceSnippet, EvidencePack  # type: ignore[assignment]
 from aragora.pulse import TrendingTopic, PulseIngestor, PulseManager
 from aragora.uncertainty import (
     ConfidenceScore,

@@ -199,7 +199,7 @@ class MetaLearner:
                 row = cursor.fetchone()
 
             if row:
-                data = safe_json_loads(row[0], {})
+                data: dict[str, Any] = safe_json_loads(row[0], {})
                 if data:
                     return HyperparameterState.from_dict(data)
         except sqlite3.Error as e:

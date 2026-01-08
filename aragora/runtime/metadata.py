@@ -385,7 +385,7 @@ class MetadataStore:
 
             results = []
             for row in cursor.fetchall():
-                data = safe_json_loads(row[0], {})
+                data: dict[str, Any] = safe_json_loads(row[0], {})
                 if data:
                     results.append(DebateMetadata.from_dict(data))
 
