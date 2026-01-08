@@ -233,10 +233,20 @@ class TestSuggestEndpoint:
 
     def test_returns_503_without_pulse_module(self, handler):
         """Returns 503 when pulse module not available."""
-        # When module unavailable, should fail gracefully
-        result = handler.handle("/api/pulse/suggest", {}, None)
-        # Either works or returns appropriate error
-        assert result is not None
+        # Mock the pulse module to avoid real API calls
+        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
+            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
+                with patch('aragora.pulse.ingestor.RedditIngestor'):
+                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+                        mock_manager = MagicMock()
+                        mock_manager.ingestors = {}
+                        mock_manager.get_trending_topics = MagicMock(return_value=[])
+                        mock_manager.select_topic_for_debate = MagicMock(return_value=None)
+                        mock_pm.return_value = mock_manager
+
+                        result = handler.handle("/api/pulse/suggest", {}, None)
+                        # Either works or returns appropriate error
+                        assert result is not None
 
     def test_validates_category_parameter(self, handler):
         """Validates category parameter for security."""
@@ -252,18 +262,29 @@ class TestSuggestEndpoint:
 
     def test_accepts_valid_category(self, handler):
         """Accepts valid category parameter."""
-        result = handler.handle(
-            "/api/pulse/suggest",
-            {"category": ["technology"]},
-            None
-        )
+        # Mock the pulse module to avoid real API calls
+        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
+            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
+                with patch('aragora.pulse.ingestor.RedditIngestor'):
+                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+                        mock_manager = MagicMock()
+                        mock_manager.ingestors = {}
+                        mock_manager.get_trending_topics = MagicMock(return_value=[])
+                        mock_manager.select_topic_for_debate = MagicMock(return_value=None)
+                        mock_pm.return_value = mock_manager
 
-        # Should either succeed or fail for other reasons
-        assert result is not None
-        # If 400, it's not due to category validation
-        if result.status_code == 400:
-            data = json.loads(result.body)
-            assert "category" not in data.get("error", "").lower()
+                        result = handler.handle(
+                            "/api/pulse/suggest",
+                            {"category": ["technology"]},
+                            None
+                        )
+
+                        # Should either succeed or fail for other reasons
+                        assert result is not None
+                        # If 400, it's not due to category validation
+                        if result.status_code == 400:
+                            data = json.loads(result.body)
+                            assert "category" not in data.get("error", "").lower()
 
     def test_suggest_response_structure(self, handler):
         """Returns proper response structure when successful."""
@@ -331,19 +352,40 @@ class TestErrorHandling:
 
     def test_import_error_handled_trending(self, handler):
         """Handles ImportError gracefully for trending endpoint."""
-        result = handler._get_trending_topics(10)
+        # Mock the pulse module to avoid real API calls
+        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
+            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
+                with patch('aragora.pulse.ingestor.RedditIngestor'):
+                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+                        mock_manager = MagicMock()
+                        mock_manager.ingestors = {}
+                        mock_manager.get_trending_topics = MagicMock(return_value=[])
+                        mock_pm.return_value = mock_manager
 
-        # Should either work or return error
-        assert result is not None
-        assert result.status_code in [200, 500, 503]
+                        result = handler._get_trending_topics(10)
+
+                        # Should either work or return error
+                        assert result is not None
+                        assert result.status_code in [200, 500, 503]
 
     def test_import_error_handled_suggest(self, handler):
         """Handles ImportError gracefully for suggest endpoint."""
-        result = handler._suggest_debate_topic()
+        # Mock the pulse module to avoid real API calls
+        with patch('aragora.pulse.ingestor.PulseManager') as mock_pm:
+            with patch('aragora.pulse.ingestor.HackerNewsIngestor'):
+                with patch('aragora.pulse.ingestor.RedditIngestor'):
+                    with patch('aragora.pulse.ingestor.TwitterIngestor'):
+                        mock_manager = MagicMock()
+                        mock_manager.ingestors = {}
+                        mock_manager.get_trending_topics = MagicMock(return_value=[])
+                        mock_manager.select_topic_for_debate = MagicMock(return_value=None)
+                        mock_pm.return_value = mock_manager
 
-        # Should either work or return error
-        assert result is not None
-        assert result.status_code in [200, 404, 500, 503]
+                        result = handler._suggest_debate_topic()
+
+                        # Should either work or return error
+                        assert result is not None
+                        assert result.status_code in [200, 404, 500, 503]
 
     def test_async_loop_handling(self, handler):
         """Handles existing event loop correctly."""

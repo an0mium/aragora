@@ -484,3 +484,350 @@ class TestDashboardEdgeCases:
         # generated_at should be a recent timestamp
         assert isinstance(data["generated_at"], (int, float))
         assert data["generated_at"] > 0
+
+
+# ============================================================================
+# Single Pass Processing Tests
+# ============================================================================
+
+class TestSinglePassProcessing:
+    """Tests for _process_debates_single_pass method."""
+
+    @pytest.fixture
+    def handler(self):
+        """Create handler without storage for unit testing."""
+        return DashboardHandler({})
+
+    def test_empty_debates_list(self, handler):
+        """Should handle empty list gracefully."""
+        summary, activity, patterns = handler._process_debates_single_pass([], None, 24)
+
+        assert summary["total_debates"] == 0
+        assert summary["consensus_rate"] == 0.0
+        assert activity["debates_last_period"] == 0
+        assert patterns["disagreement_stats"]["with_disagreements"] == 0
+
+    def test_single_debate_with_consensus(self, handler):
+        """Should process single debate with consensus."""
+        debates = [{
+            "id": "d1",
+            "consensus_reached": True,
+            "confidence": 0.85,
+            "created_at": datetime.now().isoformat(),
+            "domain": "coding",
+        }]
+
+        summary, activity, patterns = handler._process_debates_single_pass(debates, None, 24)
+
+        assert summary["total_debates"] == 1
+        assert summary["consensus_reached"] == 1
+        assert summary["consensus_rate"] == 1.0
+        assert summary["avg_confidence"] == 0.85
+
+    def test_multiple_debates_metrics(self, handler):
+        """Should correctly aggregate metrics from multiple debates."""
+        now = datetime.now().isoformat()
+        debates = [
+            {"id": "d1", "consensus_reached": True, "confidence": 0.8, "created_at": now, "domain": "coding"},
+            {"id": "d2", "consensus_reached": False, "confidence": 0.6, "created_at": now, "domain": "reasoning"},
+            {"id": "d3", "consensus_reached": True, "confidence": 0.9, "created_at": now, "domain": "coding"},
+        ]
+
+        summary, activity, patterns = handler._process_debates_single_pass(debates, None, 24)
+
+        assert summary["total_debates"] == 3
+        assert summary["consensus_reached"] == 2
+        assert summary["consensus_rate"] == round(2/3, 3)
+        assert summary["avg_confidence"] == round((0.8 + 0.6 + 0.9) / 3, 3)
+
+    def test_recent_activity_filtering(self, handler):
+        """Should correctly filter recent debates."""
+        now = datetime.now()
+        old = (now - timedelta(hours=48)).isoformat()
+
+        debates = [
+            {"id": "d1", "consensus_reached": True, "created_at": now.isoformat(), "domain": "coding"},
+            {"id": "d2", "consensus_reached": False, "created_at": old, "domain": "old-domain"},
+        ]
+
+        summary, activity, patterns = handler._process_debates_single_pass(debates, None, 24)
+
+        # Only 1 recent debate
+        assert activity["debates_last_period"] == 1
+        assert activity["consensus_last_period"] == 1
+        assert "coding" in activity["domains_active"]
+        assert "old-domain" not in activity["domains_active"]
+
+    def test_domain_activity_tracking(self, handler):
+        """Should track most active domain."""
+        now = datetime.now().isoformat()
+        debates = [
+            {"id": "d1", "created_at": now, "domain": "coding"},
+            {"id": "d2", "created_at": now, "domain": "coding"},
+            {"id": "d3", "created_at": now, "domain": "reasoning"},
+        ]
+
+        summary, activity, patterns = handler._process_debates_single_pass(debates, None, 24)
+
+        assert activity["most_active_domain"] == "coding"
+        assert set(activity["domains_active"]) == {"coding", "reasoning"}
+
+    def test_disagreement_tracking(self, handler):
+        """Should track disagreement statistics."""
+        now = datetime.now().isoformat()
+        debates = [
+            {"id": "d1", "created_at": now, "disagreement_report": {"types": ["semantic"]}},
+            {"id": "d2", "created_at": now, "disagreement_report": {"types": ["factual", "semantic"]}},
+            {"id": "d3", "created_at": now},  # No disagreement
+        ]
+
+        summary, activity, patterns = handler._process_debates_single_pass(debates, None, 24)
+
+        assert patterns["disagreement_stats"]["with_disagreements"] == 2
+        assert patterns["disagreement_stats"]["disagreement_types"]["semantic"] == 2
+        assert patterns["disagreement_stats"]["disagreement_types"]["factual"] == 1
+
+    def test_early_stopping_tracking(self, handler):
+        """Should track early stopped debates."""
+        now = datetime.now().isoformat()
+        debates = [
+            {"id": "d1", "created_at": now, "early_stopped": True},
+            {"id": "d2", "created_at": now, "early_stopped": False},
+            {"id": "d3", "created_at": now},  # No early_stopped key
+        ]
+
+        summary, activity, patterns = handler._process_debates_single_pass(debates, None, 24)
+
+        assert patterns["early_stopping"]["early_stopped"] == 1
+        assert patterns["early_stopping"]["full_duration"] == 2
+
+    def test_handles_invalid_datetime(self, handler):
+        """Should handle invalid datetime gracefully."""
+        debates = [
+            {"id": "d1", "consensus_reached": True, "created_at": "not-a-date"},
+            {"id": "d2", "consensus_reached": True, "created_at": None},
+        ]
+
+        summary, activity, patterns = handler._process_debates_single_pass(debates, None, 24)
+
+        # Should still count total but not recent
+        assert summary["total_debates"] == 2
+        assert activity["debates_last_period"] == 0
+
+    def test_handles_missing_confidence(self, handler):
+        """Should handle missing confidence values."""
+        now = datetime.now().isoformat()
+        debates = [
+            {"id": "d1", "created_at": now, "confidence": 0.8},
+            {"id": "d2", "created_at": now, "confidence": None},
+            {"id": "d3", "created_at": now},  # No confidence key
+        ]
+
+        summary, activity, patterns = handler._process_debates_single_pass(debates, None, 24)
+
+        # Only count debates with valid confidence
+        assert summary["avg_confidence"] == 0.8
+
+
+# ============================================================================
+# Legacy Method Tests
+# ============================================================================
+
+class TestLegacySummaryMetrics:
+    """Tests for _get_summary_metrics legacy method."""
+
+    @pytest.fixture
+    def handler(self):
+        """Create handler for testing."""
+        return DashboardHandler({})
+
+    def test_empty_debates(self, handler):
+        """Should return defaults for empty list."""
+        result = handler._get_summary_metrics(None, [])
+
+        assert result["total_debates"] == 0
+        assert result["consensus_rate"] == 0.0
+
+    def test_basic_metrics(self, handler):
+        """Should calculate basic metrics correctly."""
+        debates = [
+            {"consensus_reached": True, "confidence": 0.9},
+            {"consensus_reached": False, "confidence": 0.7},
+        ]
+
+        result = handler._get_summary_metrics(None, debates)
+
+        assert result["total_debates"] == 2
+        assert result["consensus_reached"] == 1
+        assert result["consensus_rate"] == 0.5
+        assert result["avg_confidence"] == 0.8
+
+
+class TestLegacyRecentActivity:
+    """Tests for _get_recent_activity legacy method."""
+
+    @pytest.fixture
+    def handler(self):
+        """Create handler for testing."""
+        return DashboardHandler({})
+
+    def test_empty_debates(self, handler):
+        """Should return defaults for empty list."""
+        result = handler._get_recent_activity(None, 24, [])
+
+        assert result["debates_last_period"] == 0
+        assert result["most_active_domain"] is None
+
+    def test_recent_vs_old_debates(self, handler):
+        """Should correctly filter by time window."""
+        now = datetime.now()
+        old = (now - timedelta(days=7)).isoformat()
+
+        debates = [
+            {"id": "d1", "consensus_reached": True, "created_at": now.isoformat(), "domain": "recent"},
+            {"id": "d2", "consensus_reached": True, "created_at": old, "domain": "old"},
+        ]
+
+        result = handler._get_recent_activity(None, 24, debates)
+
+        assert result["debates_last_period"] == 1
+        assert result["consensus_last_period"] == 1
+        assert result["most_active_domain"] == "recent"
+
+
+class TestDebatePatterns:
+    """Tests for _get_debate_patterns method."""
+
+    @pytest.fixture
+    def handler(self):
+        """Create handler for testing."""
+        return DashboardHandler({})
+
+    def test_empty_debates(self, handler):
+        """Should return defaults for empty list."""
+        result = handler._get_debate_patterns([])
+
+        assert result["disagreement_stats"]["with_disagreements"] == 0
+        assert result["early_stopping"]["early_stopped"] == 0
+
+    def test_with_disagreements(self, handler):
+        """Should count disagreements correctly."""
+        debates = [
+            {"disagreement_report": {"types": ["logical", "factual"]}},
+            {"disagreement_report": {"types": ["factual"]}},
+            {},
+        ]
+
+        result = handler._get_debate_patterns(debates)
+
+        assert result["disagreement_stats"]["with_disagreements"] == 2
+        assert result["disagreement_stats"]["disagreement_types"]["logical"] == 1
+        assert result["disagreement_stats"]["disagreement_types"]["factual"] == 2
+
+    def test_early_stopping_stats(self, handler):
+        """Should track early stopping correctly."""
+        debates = [
+            {"early_stopped": True},
+            {"early_stopped": False},
+            {},
+        ]
+
+        result = handler._get_debate_patterns(debates)
+
+        assert result["early_stopping"]["early_stopped"] == 1
+        assert result["early_stopping"]["full_duration"] == 2
+
+
+# ============================================================================
+# Consensus Insights Tests
+# ============================================================================
+
+class TestConsensusInsights:
+    """Tests for _get_consensus_insights method."""
+
+    @pytest.fixture
+    def handler(self):
+        """Create handler for testing."""
+        return DashboardHandler({})
+
+    def test_handles_import_error(self, handler):
+        """Should handle missing ConsensusMemory gracefully."""
+        with patch("aragora.server.handlers.dashboard.DashboardHandler._get_consensus_insights") as mock:
+            mock.return_value = {
+                "total_consensus_topics": 0,
+                "high_confidence_count": 0,
+                "avg_confidence": 0.0,
+                "total_dissents": 0,
+                "domains": [],
+            }
+
+            result = mock(None)
+
+            assert result["total_consensus_topics"] == 0
+
+    def test_consensus_memory_integration(self, handler):
+        """Should query consensus memory stats."""
+        mock_memory = MagicMock()
+        mock_memory.get_statistics.return_value = {
+            "total_consensus": 10,
+            "total_dissents": 3,
+            "by_domain": {"coding": 5, "reasoning": 5},
+        }
+
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.side_effect = [(5,), (0.75,)]
+
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+
+        mock_memory.db.connection.return_value = mock_conn
+
+        with patch("aragora.memory.consensus.ConsensusMemory", return_value=mock_memory):
+            result = handler._get_consensus_insights(None)
+
+        assert "total_consensus_topics" in result
+
+
+# ============================================================================
+# System Health Tests
+# ============================================================================
+
+class TestSystemHealthDetails:
+    """Tests for _get_system_health method."""
+
+    @pytest.fixture
+    def handler(self):
+        """Create handler for testing."""
+        return DashboardHandler({})
+
+    def test_basic_health_structure(self, handler):
+        """Should return correct structure."""
+        result = handler._get_system_health()
+
+        assert "uptime_seconds" in result
+        assert "cache_entries" in result
+        assert "active_websocket_connections" in result
+        assert "prometheus_available" in result
+
+    def test_prometheus_availability_check(self, handler):
+        """Should check prometheus availability."""
+        with patch("aragora.server.prometheus.is_prometheus_available", return_value=True):
+            result = handler._get_system_health()
+            assert result["prometheus_available"] is True
+
+    def test_cache_entries_count(self, handler):
+        """Should count cache entries."""
+        from aragora.server.handlers.base import _cache
+
+        # Add some entries to cache
+        original_cache = dict(_cache)
+        _cache["test_key"] = ("value", 9999999999)
+
+        try:
+            result = handler._get_system_health()
+            assert result["cache_entries"] >= 1
+        finally:
+            _cache.clear()
+            _cache.update(original_cache)
