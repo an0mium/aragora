@@ -4,33 +4,41 @@ This document describes the HTTP and WebSocket APIs for the Aragora debate platf
 
 ## Endpoint Usage Status
 
-**Last audited:** 2026-01-07
+**Last audited:** 2026-01-08
 
 | Category | Count | Notes |
 |----------|-------|-------|
 | **Documented** | 96 | Fully documented in this file |
-| **Actively Used** | 27 | Called from frontend components |
-| **Ready to Wire** | 12 | High-value, not yet connected to frontend |
+| **Actively Used** | 35 | Called from frontend components |
+| **Ready to Wire** | 4 | High-value, not yet connected to frontend |
 | **Advanced/Analytics** | 57 | Specialized features, plugins, analytics |
 
-### High-Value Unused Endpoints (Ready to Wire)
+### Recently Connected Endpoints
 
-These endpoints are fully implemented but not yet connected to the frontend:
+The following endpoints were identified as unused but are now connected:
+
+| Endpoint | Component | Status |
+|----------|-----------|--------|
+| `GET /api/debates` | DebateListPanel | ✅ Connected |
+| `GET /api/agent/{agent}/profile` | AgentProfileWrapper | ✅ Connected |
+| `GET /api/agent/compare` | AgentComparePanel | ✅ Connected |
+| `GET /api/agent/{agent}/head-to-head/{opponent}` | AgentProfileWrapper | ✅ Connected |
+| `GET /api/agent/{agent}/network` | AgentProfileWrapper | ✅ Connected (includes rivals/allies) |
+| `GET /api/history/debates` | HistoryPanel | ✅ Connected (local API fallback) |
+| `GET /api/history/summary` | HistoryPanel | ✅ Connected (local API fallback) |
+| `GET /api/history/cycles` | HistoryPanel | ✅ Connected (local API fallback) |
+| `GET /api/history/events` | HistoryPanel | ✅ Connected (local API fallback) |
+| `GET /api/pulse/trending` | TrendingTopicsPanel | ✅ Connected |
+| `GET /api/analytics/disagreements` | AnalyticsPanel | ✅ Connected |
+
+### Remaining High-Value Endpoints (Ready to Wire)
 
 | Endpoint | Feature | Priority |
 |----------|---------|----------|
-| `GET /api/debates` | Debate listing/browsing | HIGH |
-| `GET /api/debates/{id}` | Individual debate view | HIGH |
-| `GET /api/agent/{agent}/profile` | Complete agent profile | HIGH |
-| `GET /api/agent/compare` | Side-by-side agent comparison | HIGH |
-| `GET /api/agent/{agent}/head-to-head/{opponent}` | Agent matchup stats | MEDIUM |
-| `GET /api/history/debates` | Historical debate browser | MEDIUM |
-| `GET /api/history/summary` | Historical analytics | MEDIUM |
-| `GET /api/pulse/trending` | Trending topics | MEDIUM |
 | `GET /api/agent/{agent}/history` | Agent debate history | MEDIUM |
-| `GET /api/agent/{agent}/rivals` | Agent rivalries | LOW |
-| `GET /api/agent/{agent}/allies` | Agent alliances | LOW |
-| `GET /api/analytics/disagreements` | Disagreement patterns | LOW |
+| `GET /api/agent/{agent}/rivals` | Direct rivals endpoint | LOW |
+| `GET /api/agent/{agent}/allies` | Direct allies endpoint | LOW |
+| `GET /api/debates/{id}` | Individual debate detail view | LOW |
 
 ## Server Configuration
 
