@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
-from aragora.config import ALLOWED_AGENT_TYPES, MAX_AGENTS_PER_DEBATE
+from aragora.config import ALLOWED_AGENT_TYPES, MAX_AGENTS_PER_DEBATE, MAX_CONCURRENT_DEBATES
 from aragora.server.debate_factory import DebateConfig, DebateFactory
 from aragora.server.debate_utils import (
     _active_debates,
@@ -35,9 +35,6 @@ if TYPE_CHECKING:
     from aragora.server.stream import SyncEventEmitter
 
 logger = logging.getLogger(__name__)
-
-# Maximum concurrent debates
-MAX_CONCURRENT_DEBATES = 10
 
 
 @dataclass

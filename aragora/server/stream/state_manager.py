@@ -13,6 +13,12 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Optional
 
+from aragora.config import (
+    MAX_ACTIVE_DEBATES,
+    MAX_ACTIVE_LOOPS,
+    MAX_DEBATE_STATES,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,7 +28,7 @@ class BoundedDebateDict(OrderedDict):
     Thread-safety must be provided externally via _active_debates_lock.
     """
 
-    def __init__(self, maxsize: int = 1000):
+    def __init__(self, maxsize: int = MAX_ACTIVE_DEBATES):
         super().__init__()
         self.maxsize = maxsize
 
@@ -54,7 +60,7 @@ class LoopInstance:
 # =============================================================================
 
 # Thread-safe debate tracking (bounded to prevent memory leaks)
-_active_debates: BoundedDebateDict = BoundedDebateDict(maxsize=1000)
+_active_debates: BoundedDebateDict = BoundedDebateDict(maxsize=MAX_ACTIVE_DEBATES)
 _active_debates_lock = threading.Lock()
 _debate_executor: Optional[ThreadPoolExecutor] = None
 _debate_executor_lock = threading.Lock()
@@ -132,14 +138,14 @@ class DebateStateManager:
         self._active_loops_lock = threading.Lock()
         self._active_loops_last_access: dict[str, float] = {}
         self._ACTIVE_LOOPS_TTL = 86400  # 24 hour TTL for stale loops
-        self._MAX_ACTIVE_LOOPS = 1000  # Max concurrent loops
+        self._MAX_ACTIVE_LOOPS = MAX_ACTIVE_LOOPS  # From config
 
         # Debate state caching with TTL cleanup
         self.debate_states: dict[str, dict] = {}
         self._debate_states_lock = threading.Lock()
         self._debate_states_last_access: dict[str, float] = {}
         self._DEBATE_STATES_TTL = 3600  # 1 hour TTL for ended debates
-        self._MAX_DEBATE_STATES = 500  # Max cached states
+        self._MAX_DEBATE_STATES = MAX_DEBATE_STATES  # From config
 
         # Rate limiter tracking with cleanup
         self._rate_limiter_cleanup_counter = 0

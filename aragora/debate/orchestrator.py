@@ -6,23 +6,17 @@ debate protocols and consensus mechanisms.
 """
 
 import asyncio
-import hashlib
 import logging
 import queue
-import random
 import time
-from collections import Counter, deque
-from dataclasses import dataclass, field
-from typing import Literal, Optional
+from collections import deque
+from dataclasses import dataclass
+from typing import Optional
 
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 from aragora.config import USER_EVENT_QUEUE_SIZE
 from aragora.core import Agent, Critique, DebateResult, DisagreementReport, Environment, Message, Vote
-from aragora.debate.convergence import (
-    ConvergenceDetector,
-    ConvergenceResult,
-    get_similarity_backend,
-)
+from aragora.debate.convergence import ConvergenceDetector
 from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.context_gatherer import ContextGatherer
 from aragora.debate.event_bridge import EventEmitterBridge
@@ -31,18 +25,14 @@ from aragora.debate.optional_imports import OptionalImports
 from aragora.debate.prompt_builder import PromptBuilder
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol, user_vote_multiplier
 from aragora.debate.roles import (
-    CognitiveRole,
     RoleAssignment,
     RoleRotationConfig,
     RoleRotator,
-    inject_role_into_prompt,
 )
 from aragora.debate.topology import TopologySelector
 from aragora.debate.judge_selector import JudgeSelector, JudgeScoringMixin
 from aragora.debate.sanitization import OutputSanitizer
 from aragora.reasoning.evidence_grounding import EvidenceGrounder
-from aragora.debate.security_barrier import SecurityBarrier, TelemetryVerifier
-from aragora.server.prometheus import record_debate_completed
 from aragora.spectate.stream import SpectatorStream
 
 # Phase classes for orchestrator decomposition
@@ -209,6 +199,46 @@ class Arena:
         trending_topic=None,  # Optional TrendingTopic to seed debate context
         evidence_collector=None,  # Optional EvidenceCollector for auto-collecting evidence
     ):
+        """Initialize the Arena with environment, agents, and optional subsystems.
+
+        Args:
+            environment: Task definition including topic and constraints
+            agents: List of Agent instances to participate in debate
+            protocol: Debate rules (rounds, consensus type, critique format)
+
+        Optional subsystems (all default to None):
+            memory: CritiqueStore for persisting critiques
+            event_hooks: Dict of callbacks for debate events
+            event_emitter: EventEmitter for user event subscriptions
+            spectator: SpectatorStream for real-time event broadcasting
+            debate_embeddings: Historical debate vector database
+            insight_store: InsightStore for extracting debate learnings
+            recorder: ReplayRecorder for debate playback
+            agent_weights: Reliability scores from capability probing
+            position_tracker/position_ledger: Truth-grounded position tracking
+            elo_system: ELO skill ratings for agents
+            persona_manager: Agent specialization management
+            dissent_retriever: Historical minority opinion retrieval
+            flip_detector: Position reversal detection
+            calibration_tracker: Prediction accuracy tracking
+            continuum_memory: Cross-debate learning memory
+            relationship_tracker: Agent interaction tracking
+            moment_detector: Significant moment detection
+            loop_id: ID for multi-loop scoping
+            circuit_breaker: Failure handling for agent errors
+            initial_messages: Pre-existing conversation (for forked debates)
+            trending_topic: Topic context from trending analysis
+            evidence_collector: Automatic evidence gathering
+
+        Initialization flow:
+            1. _init_core() - Core config, protocol, agents, event system
+            2. _init_trackers() - All tracking subsystems
+            3. _init_user_participation() - Vote/suggestion handling
+            4. _init_roles_and_stances() - Agent role assignment
+            5. _init_convergence() - Semantic similarity detection
+            6. _init_caches() - Cache initialization
+            7. _init_phases() - Phase manager setup
+        """
         # Initialize core configuration
         self._init_core(
             environment=environment,

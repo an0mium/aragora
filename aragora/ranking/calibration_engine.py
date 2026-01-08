@@ -153,7 +153,7 @@ class CalibrationEngine:
         # If we have an ELO system, batch load and update ratings
         if self.elo_system:
             predictor_names = [p[0] for p in predictions]
-            ratings = {name: self.elo_system.get_rating(name) for name in predictor_names}
+            ratings = self.elo_system.get_ratings_batch(predictor_names)
 
             now = datetime.now().isoformat()
             for predictor, predicted, confidence in predictions:

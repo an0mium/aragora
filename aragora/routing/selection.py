@@ -192,16 +192,16 @@ class AgentSelector:
         if not elo:
             return
 
+        # Batch fetch all ratings in single query
+        agent_names = list(self.agent_pool.keys())
+        ratings = elo.get_ratings_batch(agent_names)
+
         for agent_name, profile in self.agent_pool.items():
-            try:
-                rating = elo.get_rating(agent_name)
-                if rating:
-                    profile.elo_rating = rating.elo
-                    profile.domain_ratings = rating.domain_elos.copy() if rating.domain_elos else {}
-                    profile.success_rate = rating.win_rate
-            except Exception as e:
-                # Agent not in ELO system - keep existing values
-                logger.debug(f"Failed to sync ELO rating for {agent_name}: {e}. Keeping existing values.")
+            rating = ratings.get(agent_name)
+            if rating:
+                profile.elo_rating = rating.elo
+                profile.domain_ratings = rating.domain_elos.copy() if rating.domain_elos else {}
+                profile.success_rate = rating.win_rate
 
     def get_probe_adjusted_score(self, agent_name: str, base_score: float) -> float:
         """

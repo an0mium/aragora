@@ -118,19 +118,22 @@ class JudgeScoringMixin:
         Returns:
             List of JudgeScore objects sorted by composite score descending
         """
+        # Batch fetch all ratings in single query
+        ratings = {}
+        if self._elo_system:
+            agent_names = [a.name for a in agents]
+            ratings = self._elo_system.get_ratings_batch(agent_names)
+
         scores = []
         for agent in agents:
             elo_score = 0.0
             cal_score = 0.0
 
-            if self._elo_system:
-                try:
-                    rating = self._elo_system.get_rating(agent.name)
-                    elo_score = (rating.elo - 1000) / 500
-                    elo_score = max(0, elo_score)
-                    cal_score = rating.calibration_score
-                except Exception:
-                    pass
+            rating = ratings.get(agent.name)
+            if rating:
+                elo_score = (rating.elo - 1000) / 500
+                elo_score = max(0, elo_score)
+                cal_score = rating.calibration_score
 
             composite = (elo_score * 0.7) + (cal_score * 0.3)
             scores.append(JudgeScore(

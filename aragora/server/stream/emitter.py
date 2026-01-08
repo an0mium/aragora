@@ -12,6 +12,7 @@ import threading
 import time
 from typing import Any, Callable, Optional
 
+from aragora.config import MAX_EVENT_QUEUE_SIZE
 from aragora.server.stream.events import (
     StreamEvent,
     StreamEventType,
@@ -194,10 +195,11 @@ class SyncEventEmitter:
     """
 
     # Maximum queue size to prevent memory exhaustion (DoS protection)
-    MAX_QUEUE_SIZE = 10000
+    # Configurable via ARAGORA_MAX_EVENT_QUEUE_SIZE environment variable
+    MAX_QUEUE_SIZE = MAX_EVENT_QUEUE_SIZE
 
     def __init__(self, loop_id: str = ""):
-        self._queue: queue.Queue[StreamEvent] = queue.Queue(maxsize=self.MAX_QUEUE_SIZE)
+        self._queue: queue.Queue[StreamEvent] = queue.Queue(maxsize=MAX_EVENT_QUEUE_SIZE)
         self._subscribers: list[Callable[[StreamEvent], None]] = []
         self._loop_id = loop_id  # Default loop_id for all events
         self._overflow_count = 0  # Track dropped events for monitoring

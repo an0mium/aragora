@@ -115,9 +115,9 @@ class TestValidateWsAuth:
 
     def test_returns_false_when_no_token(self, mock_websocket):
         """Should return False when auth enabled but no token."""
-        from aragora.server.stream.servers import DebateStreamServer
+        from aragora.server.stream.debate_stream_server import DebateStreamServer
 
-        with patch('aragora.server.stream.servers.auth_config') as mock_auth:
+        with patch('aragora.server.stream.debate_stream_server.auth_config') as mock_auth:
             mock_auth.enabled = True
             server = DebateStreamServer(host='localhost', port=8765)
 
@@ -127,9 +127,9 @@ class TestValidateWsAuth:
 
     def test_validates_token_with_auth_config(self, mock_websocket):
         """Should call auth_config.validate_token when token present."""
-        from aragora.server.stream.servers import DebateStreamServer
+        from aragora.server.stream.debate_stream_server import DebateStreamServer
 
-        with patch('aragora.server.stream.servers.auth_config') as mock_auth:
+        with patch('aragora.server.stream.debate_stream_server.auth_config') as mock_auth:
             mock_auth.enabled = True
             mock_auth.validate_token = Mock(return_value=True)
             server = DebateStreamServer(host='localhost', port=8765)

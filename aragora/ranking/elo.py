@@ -67,6 +67,25 @@ def _escape_like_pattern(value: str) -> str:
     return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
 
 
+# Maximum agent name length (matches SAFE_AGENT_PATTERN in validation/entities.py)
+MAX_AGENT_NAME_LENGTH = 32
+
+
+def _validate_agent_name(agent_name: str) -> None:
+    """Validate agent name length to prevent performance issues.
+
+    Args:
+        agent_name: Agent name to validate
+
+    Raises:
+        ValueError: If agent name exceeds MAX_AGENT_NAME_LENGTH
+    """
+    if len(agent_name) > MAX_AGENT_NAME_LENGTH:
+        raise ValueError(
+            f"Agent name exceeds {MAX_AGENT_NAME_LENGTH} characters: {len(agent_name)}"
+        )
+
+
 @dataclass
 class AgentRating:
     """An agent's rating and statistics."""
@@ -314,6 +333,7 @@ class EloSystem:
             use_cache: Whether to use cached value (default True). Set False
                       for operations that need the latest data.
         """
+        _validate_agent_name(agent_name)
         cache_key = f"rating:{agent_name}"
 
         # Check cache first
@@ -1024,6 +1044,9 @@ class EloSystem:
 
     def get_head_to_head(self, agent_a: str, agent_b: str) -> dict:
         """Get head-to-head statistics between two agents."""
+        _validate_agent_name(agent_a)
+        _validate_agent_name(agent_b)
+
         with self._db.connection() as conn:
             cursor = conn.cursor()
 
@@ -1541,6 +1564,7 @@ class EloSystem:
         Delegates to RelationshipTracker. For new code, use:
             elo_system.relationship_tracker.get_all_for_agent(...)
         """
+        _validate_agent_name(agent_name)
         stats_list = self.relationship_tracker.get_all_for_agent(agent_name, limit)
         # Convert dataclasses to dicts for backwards compatibility
         return [
@@ -1616,6 +1640,7 @@ class EloSystem:
         Delegates to RelationshipTracker. For new code, use:
             elo_system.relationship_tracker.get_rivals(...)
         """
+        _validate_agent_name(agent_name)
         metrics_list = self.relationship_tracker.get_rivals(agent_name, limit)
         return [
             {
@@ -1635,6 +1660,7 @@ class EloSystem:
         Delegates to RelationshipTracker. For new code, use:
             elo_system.relationship_tracker.get_allies(...)
         """
+        _validate_agent_name(agent_name)
         metrics_list = self.relationship_tracker.get_allies(agent_name, limit)
         return [
             {

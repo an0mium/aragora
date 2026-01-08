@@ -29,6 +29,9 @@ from .state_manager import LoopInstance
 
 logger = logging.getLogger(__name__)
 
+# Token revalidation interval for long-lived WebSocket connections (5 minutes)
+WS_TOKEN_REVALIDATION_INTERVAL = 300.0
+
 
 @dataclass
 class ServerConfig:
@@ -103,6 +106,10 @@ class ServerBase:
 
         # Secure client ID mapping with LRU eviction
         self._client_ids: OrderedDict[int, str] = OrderedDict()
+
+        # WebSocket authentication tracking - Lock hierarchy level 4 (acquire last)
+        self._ws_auth_states: Dict[int, Dict[str, Any]] = {}  # ws_id -> auth state
+        self._ws_auth_lock = threading.Lock()  # Lock #4 in hierarchy
 
         # Subscribe to emitter to maintain debate states
         self._emitter.subscribe(self._update_debate_state)
@@ -359,8 +366,119 @@ class ServerBase:
         return self._client_ids.pop(ws_id, None)
 
     # =========================================================================
+    # WebSocket Authentication Tracking
+    # =========================================================================
+
+    def set_ws_auth_state(
+        self,
+        ws_id: int,
+        authenticated: bool,
+        token: Optional[str] = None,
+        ip_address: str = "",
+    ) -> None:
+        """Set authentication state for a WebSocket connection.
+
+        Args:
+            ws_id: WebSocket connection ID (id(websocket))
+            authenticated: Whether the connection is authenticated
+            token: The authentication token (for revalidation)
+            ip_address: Client IP address
+        """
+        with self._ws_auth_lock:
+            self._ws_auth_states[ws_id] = {
+                "authenticated": authenticated,
+                "token": token,
+                "ip_address": ip_address,
+                "last_validated": time.time(),
+                "created_at": time.time(),
+            }
+
+    def get_ws_auth_state(self, ws_id: int) -> Optional[Dict[str, Any]]:
+        """Get authentication state for a WebSocket connection."""
+        with self._ws_auth_lock:
+            return self._ws_auth_states.get(ws_id)
+
+    def is_ws_authenticated(self, ws_id: int) -> bool:
+        """Check if a WebSocket connection is authenticated."""
+        with self._ws_auth_lock:
+            state = self._ws_auth_states.get(ws_id)
+            return state.get("authenticated", False) if state else False
+
+    def should_revalidate_ws_token(self, ws_id: int) -> bool:
+        """Check if a WebSocket token should be revalidated.
+
+        Args:
+            ws_id: WebSocket connection ID
+
+        Returns:
+            True if token needs revalidation (older than WS_TOKEN_REVALIDATION_INTERVAL)
+        """
+        with self._ws_auth_lock:
+            state = self._ws_auth_states.get(ws_id)
+            if not state or not state.get("authenticated"):
+                return False
+            last_validated = state.get("last_validated", 0)
+            return (time.time() - last_validated) > WS_TOKEN_REVALIDATION_INTERVAL
+
+    def mark_ws_token_validated(self, ws_id: int) -> None:
+        """Mark a WebSocket token as recently validated."""
+        with self._ws_auth_lock:
+            if ws_id in self._ws_auth_states:
+                self._ws_auth_states[ws_id]["last_validated"] = time.time()
+
+    def revoke_ws_auth(self, ws_id: int, reason: str = "") -> bool:
+        """Revoke authentication for a WebSocket connection.
+
+        Args:
+            ws_id: WebSocket connection ID
+            reason: Reason for revocation (logged)
+
+        Returns:
+            True if auth was revoked
+        """
+        with self._ws_auth_lock:
+            if ws_id in self._ws_auth_states:
+                self._ws_auth_states[ws_id]["authenticated"] = False
+                self._ws_auth_states[ws_id]["revoked_at"] = time.time()
+                self._ws_auth_states[ws_id]["revoke_reason"] = reason
+                if reason:
+                    logger.info(f"Revoked WebSocket auth for {ws_id}: {reason}")
+                return True
+        return False
+
+    def remove_ws_auth_state(self, ws_id: int) -> Optional[Dict[str, Any]]:
+        """Remove authentication state for a WebSocket connection."""
+        with self._ws_auth_lock:
+            return self._ws_auth_states.pop(ws_id, None)
+
+    def get_ws_token(self, ws_id: int) -> Optional[str]:
+        """Get the stored token for a WebSocket connection."""
+        with self._ws_auth_lock:
+            state = self._ws_auth_states.get(ws_id)
+            return state.get("token") if state else None
+
+    # =========================================================================
     # Cleanup All
     # =========================================================================
+
+    def cleanup_ws_auth_states(self) -> int:
+        """Clean up stale WebSocket auth states (for disconnected clients)."""
+        # Auth states are cleaned up when clients disconnect via remove_ws_auth_state
+        # This is a fallback for any orphaned entries
+        with self._ws_auth_lock:
+            # Remove entries for WebSocket IDs not in clients
+            client_ws_ids = {id(c) for c in self.clients}
+            stale_keys = [
+                ws_id for ws_id in self._ws_auth_states
+                if ws_id not in client_ws_ids
+            ]
+            for ws_id in stale_keys:
+                del self._ws_auth_states[ws_id]
+
+            if stale_keys:
+                logger.debug(f"Cleaned up {len(stale_keys)} orphaned auth states")
+
+            return len(stale_keys)
 
     def cleanup_all(self) -> Dict[str, int]:
         """
@@ -372,6 +490,7 @@ class ServerBase:
             "rate_limiters": self.cleanup_rate_limiters(),
             "debate_states": self.cleanup_debate_states(),
             "active_loops": self.cleanup_active_loops(),
+            "auth_states": self.cleanup_ws_auth_states(),
         }
 
     def get_stats(self) -> Dict[str, Any]:
@@ -385,11 +504,87 @@ class ServerBase:
         with self._active_loops_lock:
             active_loop_count = len(self.active_loops)
 
+        with self._ws_auth_lock:
+            auth_states_count = len(self._ws_auth_states)
+            authenticated_count = sum(
+                1 for s in self._ws_auth_states.values()
+                if s.get("authenticated", False)
+            )
+
         return {
             "clients": len(self.clients),
             "rate_limiters": rate_limiter_count,
             "debate_states": debate_state_count,
             "active_loops": active_loop_count,
             "client_ids": len(self._client_ids),
+            "auth_states": auth_states_count,
+            "authenticated_clients": authenticated_count,
             "running": self._running,
         }
+
+    # =========================================================================
+    # Context Manager Support
+    # =========================================================================
+
+    def __enter__(self) -> "ServerBase":
+        """Enter context manager (synchronous).
+
+        Returns:
+            Self for use in with statement
+        """
+        self._running = True
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit context manager - cleanup all resources (synchronous).
+
+        Performs cleanup of all managed resources:
+        - Rate limiters
+        - Debate states
+        - Active loops
+        - Auth states
+        - Client tracking
+        """
+        self._running = False
+        self._cleanup_resources()
+
+    async def __aenter__(self) -> "ServerBase":
+        """Enter async context manager.
+
+        Returns:
+            Self for use in async with statement
+        """
+        self._running = True
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit async context manager - cleanup all resources.
+
+        Performs cleanup of all managed resources asynchronously.
+        """
+        self._running = False
+        self._cleanup_resources()
+
+    def _cleanup_resources(self) -> None:
+        """Internal cleanup of all server resources."""
+        # Clear all tracked state
+        with self._rate_limiters_lock:
+            self._rate_limiters.clear()
+            self._rate_limiter_last_access.clear()
+
+        with self._debate_states_lock:
+            self.debate_states.clear()
+            self._debate_states_last_access.clear()
+
+        with self._active_loops_lock:
+            self.active_loops.clear()
+            self._active_loops_last_access.clear()
+
+        with self._ws_auth_lock:
+            self._ws_auth_states.clear()
+
+        # Clear client tracking
+        self._client_ids.clear()
+        self.clients.clear()
+
+        logger.debug("ServerBase resources cleaned up")

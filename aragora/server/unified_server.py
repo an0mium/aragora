@@ -995,6 +995,35 @@ class UnifiedServer:
         ssl_cert: Optional[str] = None,
         ssl_key: Optional[str] = None,
     ):
+        """Initialize the unified HTTP/WebSocket server with all subsystems.
+
+        Args:
+            http_port: Port for HTTP API server (default 8080)
+            ws_port: Port for WebSocket streaming (default 8765)
+            ws_host: WebSocket bind address (default "0.0.0.0")
+            http_host: HTTP bind address (default "" for all interfaces)
+            static_dir: Optional path to static files for serving UI
+            nomic_dir: Optional path to nomic state directory (enables many features)
+            storage: Optional DebateStorage for debate persistence
+            enable_persistence: Enable Supabase persistence if configured
+            ssl_cert: Path to SSL certificate for HTTPS
+            ssl_key: Path to SSL key for HTTPS
+
+        Subsystems initialized when nomic_dir is provided:
+            - InsightStore: Extract learnings from debates
+            - EloSystem: Agent skill ratings
+            - FlipDetector: Position reversal detection
+            - DocumentStore: File upload handling
+            - AudioFileStore: Broadcast audio storage
+            - TwitterPosterConnector: Social media posting
+            - YouTubeUploaderConnector: Video uploads
+            - VideoGenerator: Video creation
+            - PersonaManager: Agent specialization
+            - PositionLedger: Truth-grounded positions
+            - DebateEmbeddingsDatabase: Historical debate vectors
+            - ConsensusMemory/DissentRetriever: Minority view tracking
+            - MomentDetector: Narrative moment detection
+        """
         self.http_port = http_port
         self.ws_port = ws_port
         self.ws_host = ws_host

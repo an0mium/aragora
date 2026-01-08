@@ -152,6 +152,27 @@ class ClientManager:
         """Number of connected clients."""
         return len(self.clients)
 
+    # Context manager support for proper cleanup
+    def __enter__(self) -> "ClientManager":
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit context manager - cleanup all resources."""
+        self.cleanup()
+
+    def cleanup(self) -> None:
+        """Clean up all tracked resources."""
+        with self._clients_lock:
+            self.clients.clear()
+            self._client_ids.clear()
+
+        with self._rate_limiters_lock:
+            self._rate_limiters.clear()
+            self._rate_limiter_last_access.clear()
+
+        logger.debug("ClientManager resources cleaned up")
+
 
 class DebateStateCache:
     """
@@ -291,6 +312,22 @@ class DebateStateCache:
                 removed += 1
         return removed
 
+    # Context manager support
+    def __enter__(self) -> "DebateStateCache":
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit context manager - cleanup all resources."""
+        self.cleanup()
+
+    def cleanup(self) -> None:
+        """Clean up all tracked resources."""
+        with self._lock:
+            self.debate_states.clear()
+            self._last_access.clear()
+        logger.debug("DebateStateCache resources cleaned up")
+
 
 class LoopRegistry:
     """
@@ -421,6 +458,22 @@ class LoopRegistry:
                 removed += 1
         return removed
 
+    # Context manager support
+    def __enter__(self) -> "LoopRegistry":
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit context manager - cleanup all resources."""
+        self.cleanup()
+
+    def cleanup(self) -> None:
+        """Clean up all tracked resources."""
+        with self._lock:
+            self.active_loops.clear()
+            self._last_access.clear()
+        logger.debug("LoopRegistry resources cleaned up")
+
 
 class WebSocketBroadcaster:
     """
@@ -550,6 +603,33 @@ class WebSocketBroadcaster:
             "debate_states": self.debate_state_cache.cleanup_stale(),
             "loops": self.loop_registry.cleanup_stale(),
         }
+
+    # Context manager support
+    def __enter__(self) -> "WebSocketBroadcaster":
+        """Enter context manager."""
+        self._running = True
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit context manager - cleanup all resources."""
+        self.cleanup()
+
+    async def __aenter__(self) -> "WebSocketBroadcaster":
+        """Enter async context manager."""
+        self._running = True
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit async context manager - cleanup all resources."""
+        self.cleanup()
+
+    def cleanup(self) -> None:
+        """Clean up all resources across all components."""
+        self._running = False
+        self.client_manager.cleanup()
+        self.debate_state_cache.cleanup()
+        self.loop_registry.cleanup()
+        logger.debug("WebSocketBroadcaster resources cleaned up")
 
 
 __all__ = [
