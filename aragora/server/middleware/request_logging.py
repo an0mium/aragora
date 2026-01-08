@@ -149,7 +149,7 @@ def log_request(
         headers: Optional headers (will be sanitized)
         log_level: Logging level (default: INFO)
     """
-    extra = {
+    extra: dict[str, Any] = {
         "request_id": ctx.request_id,
         "method": ctx.method,
         "path": ctx.path,

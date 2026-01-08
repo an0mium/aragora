@@ -95,7 +95,7 @@ def init_monitoring() -> bool:
     return _sentry_available
 
 
-def _filter_health_checks(event: dict, hint: dict) -> dict | None:
+def _filter_health_checks(event: Any, hint: dict[str, Any]) -> Any:
     """Filter out health check endpoints from transaction sampling."""
     if event.get("transaction", "").startswith("/api/health"):
         return None
