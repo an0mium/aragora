@@ -56,7 +56,7 @@ class PhaseRecovery:
     # Individual phase timeouts (seconds) - complements cycle-level timeout
     # Configurable via environment variables: NOMIC_<PHASE>_TIMEOUT
     PHASE_TIMEOUTS = {
-        "context": int(os.environ.get("NOMIC_CONTEXT_TIMEOUT", "600")),  # 10 min
+        "context": int(os.environ.get("NOMIC_CONTEXT_TIMEOUT", "1200")),  # 20 min (doubled for Codex)
         "debate": int(os.environ.get("NOMIC_DEBATE_TIMEOUT", "1800")),  # 30 min
         "design": int(os.environ.get("NOMIC_DESIGN_TIMEOUT", "900")),  # 15 min
         "implement": int(os.environ.get("NOMIC_IMPLEMENT_TIMEOUT", "2400")),  # 40 min

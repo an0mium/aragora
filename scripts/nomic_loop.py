@@ -169,7 +169,7 @@ class PhaseRecovery:
     # Individual phase timeouts (seconds) - complements cycle-level timeout
     # Configurable via environment variables: NOMIC_<PHASE>_TIMEOUT
     PHASE_TIMEOUTS = {
-        "context": int(os.environ.get("NOMIC_CONTEXT_TIMEOUT", "600")),      # 10 min - codebase exploration
+        "context": int(os.environ.get("NOMIC_CONTEXT_TIMEOUT", "1200")),     # 20 min - codebase exploration (doubled for Codex)
         "debate": int(os.environ.get("NOMIC_DEBATE_TIMEOUT", "1800")),       # 30 min - multi-agent discussion
         "design": int(os.environ.get("NOMIC_DESIGN_TIMEOUT", "900")),        # 15 min - architecture planning
         "implement": int(os.environ.get("NOMIC_IMPLEMENT_TIMEOUT", "2400")), # 40 min - code generation
@@ -2545,7 +2545,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             stream_emit_fn=self._stream_emit,
         )
 
-    def _create_debate_phase(self) -> "DebatePhase":
+    def _create_debate_phase(self, topic_hint: str = "") -> "DebatePhase":
         """Create an extracted DebatePhase instance.
 
         NOTE: The inline phase_debate() is ~787 lines with extensive post-processing
@@ -2554,13 +2554,19 @@ The most valuable proposals combine deep analysis with actionable implementation
 
         Current status: Factory method available for external callers.
         Full inline migration: Pending hooks architecture.
+
+        Args:
+            topic_hint: Optional topic hint for agent selection (e.g., from initial_proposal)
         """
         if not _NOMIC_PHASES_AVAILABLE:
             raise RuntimeError("Extracted phases not available")
 
+        # Select debate team dynamically (like the legacy inline implementation)
+        debate_team = self._select_debate_team(topic_hint)
+
         return DebatePhase(
             aragora_path=self.aragora_path,
-            agents=getattr(self, 'agents', []),
+            agents=debate_team,
             arena_factory=lambda *args, **kwargs: Arena(*args, **kwargs),
             environment_factory=lambda *args, **kwargs: Environment(*args, **kwargs),
             protocol_factory=lambda *args, **kwargs: DebateProtocol(*args, **kwargs),
@@ -6286,8 +6292,10 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
         """Phase 1: Agents debate what to improve."""
         # Use extracted phase class if enabled
         if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
-            debate_phase = self._create_debate_phase()
-            hooks = self._create_post_debate_hooks()
+            topic_hint = self.initial_proposal[:200] if self.initial_proposal else ""
+            debate_phase = self._create_debate_phase(topic_hint=topic_hint)
+            debate_team = debate_phase.agents  # Get the team for hooks
+            hooks = self._create_post_debate_hooks(debate_team=debate_team)
             # Build learning context
             from scripts.nomic.phases.debate import LearningContext
             learning = LearningContext(
@@ -6304,6 +6312,7 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
             return {
                 "phase": "debate",
                 "improvement": result["improvement"],
+                "final_answer": result["improvement"],  # Alias for backward compat with _run_cycle_impl
                 "consensus_reached": result["consensus_reached"],
                 "confidence": result["confidence"],
             }
