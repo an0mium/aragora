@@ -34,7 +34,41 @@ from .registry import (
     has_service,
 )
 
+
+# =============================================================================
+# Marker Types for Cache Services
+# =============================================================================
+# These marker types allow registering different cache instances with the
+# ServiceRegistry while maintaining type safety.
+
+
+class MethodCacheService:
+    """Marker type for the global method cache (utils/cache.py)."""
+    pass
+
+
+class QueryCacheService:
+    """Marker type for the global query cache (utils/cache.py)."""
+    pass
+
+
+class EmbeddingCacheService:
+    """Marker type for the embedding cache (memory/embeddings.py)."""
+    pass
+
+
+class HandlerCacheService:
+    """Marker type for the HTTP handler cache (server/handlers/base.py)."""
+    pass
+
+
+class EmbeddingProviderService:
+    """Marker type for the embedding provider reference (memory/streams.py)."""
+    pass
+
+
 __all__ = [
+    # Registry
     "ServiceRegistry",
     "ServiceNotFoundError",
     "ServiceScope",
@@ -43,4 +77,10 @@ __all__ = [
     "get_service",
     "register_service",
     "has_service",
+    # Cache markers
+    "MethodCacheService",
+    "QueryCacheService",
+    "EmbeddingCacheService",
+    "HandlerCacheService",
+    "EmbeddingProviderService",
 ]

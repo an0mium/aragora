@@ -28,6 +28,44 @@ if TYPE_CHECKING:
 
 # Module-level reference for embedding provider (used by cached function)
 _embedding_provider_ref: Optional["EmbeddingProvider"] = None
+_provider_registered = False
+
+
+def _register_embedding_provider(provider: "EmbeddingProvider") -> None:
+    """Register embedding provider with ServiceRegistry for observability."""
+    global _provider_registered, _embedding_provider_ref
+    _embedding_provider_ref = provider
+
+    if _provider_registered:
+        return
+
+    try:
+        from aragora.services import ServiceRegistry, EmbeddingProviderService
+
+        registry = ServiceRegistry.get()
+        if not registry.has(EmbeddingProviderService):
+            registry.register(EmbeddingProviderService, provider)
+        _provider_registered = True
+    except ImportError:
+        pass  # Services module not available
+
+
+def get_embedding_provider() -> Optional["EmbeddingProvider"]:
+    """Get the current embedding provider from registry or module-level ref."""
+    global _embedding_provider_ref
+
+    # Try ServiceRegistry first
+    try:
+        from aragora.services import ServiceRegistry, EmbeddingProviderService
+
+        registry = ServiceRegistry.get()
+        if registry.has(EmbeddingProviderService):
+            return registry.resolve(EmbeddingProviderService)
+    except ImportError:
+        pass
+
+    # Fall back to module-level reference
+    return _embedding_provider_ref
 
 
 @lru_cache(maxsize=1000)
@@ -38,10 +76,11 @@ def _get_cached_embedding(content: str) -> tuple[float, ...]:
     Uses module-level provider reference to enable @lru_cache decorator.
     Returns tuple for hashability in cache.
     """
-    if _embedding_provider_ref is None:
+    provider = get_embedding_provider()
+    if provider is None:
         raise RuntimeError("Embedding provider not initialized")
     # Use run_async() for safe sync/async bridging
-    result = run_async(_embedding_provider_ref.embed(content))
+    result = run_async(provider.embed(content))
     return tuple(result)
 
 logger = logging.getLogger(__name__)
@@ -101,13 +140,12 @@ class MemoryStream:
         db_path: str = DB_MEMORY_PATH,
         embedding_provider: Optional["EmbeddingProvider"] = None,
     ):
-        global _embedding_provider_ref
         self.db_path = Path(db_path)
         self.db = MemoryDatabase(db_path)
         self.embedding_provider = embedding_provider
-        # Set module-level reference for cached embedding function
+        # Register provider with ServiceRegistry for cached embedding function
         if embedding_provider is not None:
-            _embedding_provider_ref = embedding_provider
+            _register_embedding_provider(embedding_provider)
         self._init_db()
 
     def _init_db(self) -> None:
@@ -325,7 +363,7 @@ class MemoryStream:
         if self.embedding_provider:
             try:
                 return self._embedding_similarity(content, query)
-            except (ValueError, TypeError, AttributeError, RuntimeError, KeyError) as e:
+            except Exception as e:
                 logger.debug(f"[memory] Embedding similarity failed, using keyword fallback: {e}")
 
         # Keyword matching fallback

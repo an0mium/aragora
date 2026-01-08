@@ -121,31 +121,50 @@ _method_cache = TTLCache[Any](maxsize=1000, ttl_seconds=CACHE_TTL_METHOD)
 _query_cache = TTLCache[Any](maxsize=500, ttl_seconds=CACHE_TTL_QUERY)
 
 
+# Track registration status
+_caches_registered = False
+
+
 def _register_caches_with_service_registry() -> None:
     """Register caches with ServiceRegistry for observability.
 
     Called lazily on first access to avoid circular imports.
+    Uses marker types from aragora.services for proper registration.
     """
+    global _caches_registered
+    if _caches_registered:
+        return
+
     try:
-        from aragora.services import ServiceRegistry
+        from aragora.services import (
+            ServiceRegistry,
+            MethodCacheService,
+            QueryCacheService,
+        )
+
         registry = ServiceRegistry.get()
 
-        # Use string keys to avoid needing separate types
-        # Register as named services for observability
-        class MethodCache:
-            """Marker type for method cache registration."""
-            pass
+        if not registry.has(MethodCacheService):
+            registry.register(MethodCacheService, _method_cache)
+        if not registry.has(QueryCacheService):
+            registry.register(QueryCacheService, _query_cache)
 
-        class QueryCache:
-            """Marker type for query cache registration."""
-            pass
-
-        if not registry.has(MethodCache):
-            registry.register(MethodCache, _method_cache)
-        if not registry.has(QueryCache):
-            registry.register(QueryCache, _query_cache)
+        _caches_registered = True
+        logger.debug("Caches registered with ServiceRegistry")
     except ImportError:
         pass  # Services module not available
+
+
+def get_method_cache() -> TTLCache[Any]:
+    """Get the global method cache, registering with ServiceRegistry if available."""
+    _register_caches_with_service_registry()
+    return _method_cache
+
+
+def get_query_cache() -> TTLCache[Any]:
+    """Get the global query cache, registering with ServiceRegistry if available."""
+    _register_caches_with_service_registry()
+    return _query_cache
 
 
 def lru_cache_with_ttl(

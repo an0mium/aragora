@@ -79,6 +79,33 @@ _embedding_cache = EmbeddingCache(ttl_seconds=CACHE_TTL_EMBEDDINGS, max_size=100
 # Default API timeout
 _API_TIMEOUT = aiohttp.ClientTimeout(total=30)
 
+# Track registration status
+_embedding_cache_registered = False
+
+
+def _register_embedding_cache() -> None:
+    """Register embedding cache with ServiceRegistry for observability."""
+    global _embedding_cache_registered
+    if _embedding_cache_registered:
+        return
+
+    try:
+        from aragora.services import ServiceRegistry, EmbeddingCacheService
+
+        registry = ServiceRegistry.get()
+        if not registry.has(EmbeddingCacheService):
+            registry.register(EmbeddingCacheService, _embedding_cache)
+        _embedding_cache_registered = True
+        logger.debug("Embedding cache registered with ServiceRegistry")
+    except ImportError:
+        pass  # Services module not available
+
+
+def get_embedding_cache() -> EmbeddingCache:
+    """Get the global embedding cache, registering with ServiceRegistry if available."""
+    _register_embedding_cache()
+    return _embedding_cache
+
 
 async def _retry_with_backoff(coro_fn, max_retries=3, base_delay=1.0):
     """Retry async function with exponential backoff."""

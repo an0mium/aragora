@@ -9,12 +9,14 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import time
 import uuid
 from collections import OrderedDict
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Generator, Optional, Tuple
 from urllib.parse import parse_qs
 
 from aragora.config import DB_TIMEOUT_SECONDS
@@ -40,9 +42,99 @@ __all__ = [
     "clear_cache", "get_cache_stats", "CACHE_INVALIDATION_MAP", "invalidate_cache",
     "invalidate_on_event", "invalidate_leaderboard_cache", "invalidate_agent_cache",
     "invalidate_debate_cache", "PathMatcher", "RouteDispatcher", "safe_fetch",
+    "get_db_connection", "safe_get", "safe_get_nested",
 ]
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Database Connection Helper
+# =============================================================================
+
+@contextmanager
+def get_db_connection(db_path: str) -> Generator[sqlite3.Connection, None, None]:
+    """Get a database connection with proper cleanup.
+
+    Shared utility for handlers that need direct database access.
+    Uses DB_TIMEOUT_SECONDS for consistent timeout handling.
+
+    Args:
+        db_path: Path to the SQLite database file
+
+    Yields:
+        sqlite3.Connection with timeout configured
+
+    Example:
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM table")
+            rows = cursor.fetchall()
+    """
+    conn = sqlite3.connect(db_path, timeout=DB_TIMEOUT_SECONDS)
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+# =============================================================================
+# Dict Access Helpers
+# =============================================================================
+
+def safe_get(data: Any, key: str, default: Any = None) -> Any:
+    """Safely get a value from a dict-like object.
+
+    Handles None values, missing keys, and non-dict inputs gracefully.
+
+    Args:
+        data: Dict or dict-like object (can be None)
+        key: Key to look up
+        default: Default value if key not found or data is None
+
+    Returns:
+        The value at key, or default
+
+    Example:
+        # Before:
+        value = data.get("key", []) if data else []
+
+        # After:
+        value = safe_get(data, "key", [])
+    """
+    if data is None:
+        return default
+    if not isinstance(data, dict):
+        return default
+    return data.get(key, default)
+
+
+def safe_get_nested(data: Any, keys: list[str], default: Any = None) -> Any:
+    """Safely navigate nested dict structures.
+
+    Args:
+        data: Root dict or dict-like object (can be None)
+        keys: List of keys to traverse
+        default: Default value if any key not found
+
+    Returns:
+        The nested value, or default
+
+    Example:
+        # Before:
+        value = data.get("outer", {}).get("inner", {}).get("deep", [])
+
+        # After:
+        value = safe_get_nested(data, ["outer", "inner", "deep"], [])
+    """
+    current = data
+    for key in keys:
+        if current is None:
+            return default
+        if not isinstance(current, dict):
+            return default
+        current = current.get(key)
+    return current if current is not None else default
 
 
 # Cache configuration from environment
@@ -153,6 +245,33 @@ class BoundedTTLCache:
 
 # Global bounded cache instance
 _cache = BoundedTTLCache()
+
+# Track registration status
+_handler_cache_registered = False
+
+
+def _register_handler_cache() -> None:
+    """Register handler cache with ServiceRegistry for observability."""
+    global _handler_cache_registered
+    if _handler_cache_registered:
+        return
+
+    try:
+        from aragora.services import ServiceRegistry, HandlerCacheService
+
+        registry = ServiceRegistry.get()
+        if not registry.has(HandlerCacheService):
+            registry.register(HandlerCacheService, _cache)
+        _handler_cache_registered = True
+        logger.debug("Handler cache registered with ServiceRegistry")
+    except ImportError:
+        pass  # Services module not available
+
+
+def get_handler_cache() -> BoundedTTLCache:
+    """Get the global handler cache, registering with ServiceRegistry if available."""
+    _register_handler_cache()
+    return _cache
 
 
 def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool = True):
