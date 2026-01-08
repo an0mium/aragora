@@ -237,6 +237,26 @@ class RelationshipHandler(BaseHandler):
             logger.warning(f"Failed to create RelationshipTracker: {e}")
             return None
 
+    def _fetch_relationships(
+        self, tracker: "RelationshipTracker", min_debates: int = 0
+    ) -> list[tuple[str, str, int, int, int, int]]:
+        """Fetch relationship rows from database.
+
+        Returns list of (agent_a, agent_b, debate_count, agreement_count, a_wins, b_wins).
+        Returns empty list if table doesn't exist.
+        """
+        with get_db_connection(str(tracker.elo_db_path)) as conn:
+            cursor = conn.cursor()
+            if not table_exists(cursor, "agent_relationships"):
+                return []
+            cursor.execute("""
+                SELECT agent_a, agent_b, debate_count, agreement_count,
+                       a_wins_over_b, b_wins_over_a
+                FROM agent_relationships
+                WHERE debate_count >= ?
+            """, (min_debates,))
+            return cursor.fetchall()
+
     @require_tracker
     def _get_summary(self, tracker: "RelationshipTracker") -> HandlerResult:
         """Get global relationship overview."""
@@ -347,24 +367,7 @@ class RelationshipHandler(BaseHandler):
     ) -> HandlerResult:
         """Get full relationship graph for visualizations."""
         try:
-            with get_db_connection(str(tracker.elo_db_path)) as conn:
-                cursor = conn.cursor()
-
-                if not table_exists(cursor, "agent_relationships"):
-                    return json_response({
-                        "nodes": [],
-                        "edges": [],
-                        "stats": {"node_count": 0, "edge_count": 0}
-                    })
-
-                cursor.execute("""
-                    SELECT agent_a, agent_b, debate_count, agreement_count,
-                           a_wins_over_b, b_wins_over_a
-                    FROM agent_relationships
-                    WHERE debate_count >= ?
-                """, (min_debates,))
-                rows = cursor.fetchall()
-
+            rows = self._fetch_relationships(tracker, min_debates)
             if not rows:
                 return json_response({
                     "nodes": [],
@@ -484,42 +487,25 @@ class RelationshipHandler(BaseHandler):
         except Exception as e:
             return error_response(_safe_error_message(e, "relationship_pair_detail"), 500)
 
+    def _empty_stats_response(self) -> HandlerResult:
+        """Return empty stats response when no data available."""
+        return json_response({
+            "total_tracked_pairs": 0,
+            "total_debates_tracked": 0,
+            "rivalries": {"count": 0, "avg_score": 0.0},
+            "alliances": {"count": 0, "avg_score": 0.0},
+            "neutral": {"count": 0},
+            "most_debated_pair": None,
+            "highest_agreement_pair": None,
+        })
+
     @require_tracker
     def _get_stats(self, tracker: "RelationshipTracker") -> HandlerResult:
         """Get relationship system statistics."""
         try:
-            with get_db_connection(str(tracker.elo_db_path)) as conn:
-                cursor = conn.cursor()
-
-                if not table_exists(cursor, "agent_relationships"):
-                    return json_response({
-                        "total_tracked_pairs": 0,
-                        "total_debates_tracked": 0,
-                        "rivalries": {"count": 0, "avg_score": 0.0},
-                        "alliances": {"count": 0, "avg_score": 0.0},
-                        "neutral": {"count": 0},
-                        "most_debated_pair": None,
-                        "highest_agreement_pair": None,
-                    })
-
-                # Get all relationships with full data for score computation
-                cursor.execute("""
-                    SELECT agent_a, agent_b, debate_count, agreement_count,
-                           a_wins_over_b, b_wins_over_a
-                    FROM agent_relationships
-                """)
-                rows = cursor.fetchall()
-
+            rows = self._fetch_relationships(tracker)
             if not rows:
-                return json_response({
-                    "total_tracked_pairs": 0,
-                    "total_debates_tracked": 0,
-                    "rivalries": {"count": 0, "avg_score": 0.0},
-                    "alliances": {"count": 0, "avg_score": 0.0},
-                    "neutral": {"count": 0},
-                    "most_debated_pair": None,
-                    "highest_agreement_pair": None,
-                })
+                return self._empty_stats_response()
 
             # Process statistics
             total_debates = 0
