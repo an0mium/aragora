@@ -665,10 +665,10 @@ class TestRateLimiterCleanup:
         """Rate limiter exactly at TTL boundary should be kept."""
         server = DebateStreamServer(host="localhost", port=0)
 
-        # Add a rate limiter at exactly TTL - 1 second
+        # Add a rate limiter at exactly TTL - 1 second (using config value)
         with server._rate_limiters_lock:
             server._rate_limiters["boundary_client"] = TokenBucket(rate_per_minute=10, burst_size=5)
-            server._rate_limiter_last_access["boundary_client"] = time.time() - server._RATE_LIMITER_TTL + 1
+            server._rate_limiter_last_access["boundary_client"] = time.time() - server.config.rate_limiter_ttl + 1
 
         server._cleanup_stale_rate_limiters()
 

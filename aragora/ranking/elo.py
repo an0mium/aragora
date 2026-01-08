@@ -33,10 +33,25 @@ from aragora.config import (
     CACHE_TTL_CALIBRATION_LB,
 )
 from aragora.ranking.database import EloDatabase
+from aragora.ranking.relationships import RelationshipTracker, RelationshipStats, RelationshipMetrics
+from aragora.ranking.redteam import RedTeamIntegrator, RedTeamResult, VulnerabilitySummary
 from aragora.utils.json_helpers import safe_json_loads
 from aragora.utils.cache import TTLCache, lru_cache_with_ttl
 
 logger = logging.getLogger(__name__)
+
+# Re-export for backwards compatibility
+__all__ = [
+    "EloSystem",
+    "AgentRating",
+    "MatchResult",
+    "RelationshipTracker",
+    "RelationshipStats",
+    "RelationshipMetrics",
+    "RedTeamIntegrator",
+    "RedTeamResult",
+    "VulnerabilitySummary",
+]
 
 # Schema version - increment when making schema changes
 ELO_SCHEMA_VERSION = 2
@@ -146,6 +161,24 @@ class EloSystem:
         self.db_path = Path(db_path)
         self._db = EloDatabase(db_path)
         self._init_db()
+
+        # Delegate to extracted modules (lazy initialization)
+        self._relationship_tracker: RelationshipTracker | None = None
+        self._redteam_integrator: RedTeamIntegrator | None = None
+
+    @property
+    def relationship_tracker(self) -> RelationshipTracker:
+        """Get the relationship tracker (lazy initialized)."""
+        if self._relationship_tracker is None:
+            self._relationship_tracker = RelationshipTracker(self.db_path)
+        return self._relationship_tracker
+
+    @property
+    def redteam_integrator(self) -> RedTeamIntegrator:
+        """Get the red team integrator (lazy initialized)."""
+        if self._redteam_integrator is None:
+            self._redteam_integrator = RedTeamIntegrator(self)
+        return self._redteam_integrator
 
     def _init_db(self) -> None:
         """Initialize database schema using SchemaManager."""
@@ -1430,6 +1463,8 @@ class EloSystem:
 
     # =========================================================================
     # Agent Relationship Tracking (Grounded Personas)
+    # Delegated to RelationshipTracker for cleaner separation of concerns.
+    # These methods are kept for backwards compatibility.
     # =========================================================================
 
     def update_relationship(
@@ -1447,303 +1482,176 @@ class EloSystem:
         a_win: int = 0,
         b_win: int = 0,
     ) -> None:
-        """Update relationship stats between two agents (maintains canonical a < b ordering)."""
-        if agent_a > agent_b:
-            agent_a, agent_b = agent_b, agent_a
-            critique_a_to_b, critique_b_to_a = critique_b_to_a, critique_a_to_b
-            critique_accepted_a_to_b, critique_accepted_b_to_a = critique_accepted_b_to_a, critique_accepted_a_to_b
-            position_change_a_after_b, position_change_b_after_a = position_change_b_after_a, position_change_a_after_b
-            a_win, b_win = b_win, a_win
+        """Update relationship stats between two agents.
 
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO agent_relationships (agent_a, agent_b, debate_count, agreement_count,
-                    critique_count_a_to_b, critique_count_b_to_a, critique_accepted_a_to_b, critique_accepted_b_to_a,
-                    position_changes_a_after_b, position_changes_b_after_a, a_wins_over_b, b_wins_over_a, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(agent_a, agent_b) DO UPDATE SET
-                    debate_count = debate_count + ?, agreement_count = agreement_count + ?,
-                    critique_count_a_to_b = critique_count_a_to_b + ?, critique_count_b_to_a = critique_count_b_to_a + ?,
-                    critique_accepted_a_to_b = critique_accepted_a_to_b + ?, critique_accepted_b_to_a = critique_accepted_b_to_a + ?,
-                    position_changes_a_after_b = position_changes_a_after_b + ?, position_changes_b_after_a = position_changes_b_after_a + ?,
-                    a_wins_over_b = a_wins_over_b + ?, b_wins_over_a = b_wins_over_a + ?, updated_at = ?
-                """,
-                (agent_a, agent_b, debate_increment, agreement_increment, critique_a_to_b, critique_b_to_a,
-                 critique_accepted_a_to_b, critique_accepted_b_to_a, position_change_a_after_b, position_change_b_after_a,
-                 a_win, b_win, datetime.now().isoformat(),
-                 debate_increment, agreement_increment, critique_a_to_b, critique_b_to_a,
-                 critique_accepted_a_to_b, critique_accepted_b_to_a, position_change_a_after_b, position_change_b_after_a,
-                 a_win, b_win, datetime.now().isoformat()),
-            )
-            conn.commit()
-
-    def update_relationships_batch(
-        self,
-        updates: list[dict],
-    ) -> None:
-        """Batch update multiple agent relationships in a single transaction.
-
-        This is more efficient than calling update_relationship() in a loop,
-        as it uses a single database connection and transaction.
-
-        Args:
-            updates: List of dicts, each containing:
-                - agent_a: str
-                - agent_b: str
-                - debate_increment: int (default 0)
-                - agreement_increment: int (default 0)
-                - a_win: int (default 0)
-                - b_win: int (default 0)
+        Delegates to RelationshipTracker. For new code, use:
+            elo_system.relationship_tracker.update_relationship(...)
         """
-        if not updates:
-            return
+        self.relationship_tracker.update_relationship(
+            agent_a=agent_a,
+            agent_b=agent_b,
+            debate_increment=debate_increment,
+            agreement_increment=agreement_increment,
+            critique_a_to_b=critique_a_to_b,
+            critique_b_to_a=critique_b_to_a,
+            critique_accepted_a_to_b=critique_accepted_a_to_b,
+            critique_accepted_b_to_a=critique_accepted_b_to_a,
+            position_change_a_after_b=position_change_a_after_b,
+            position_change_b_after_a=position_change_b_after_a,
+            a_win=a_win,
+            b_win=b_win,
+        )
 
-        now = datetime.now().isoformat()
+    def update_relationships_batch(self, updates: list[dict]) -> None:
+        """Batch update multiple agent relationships.
 
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-            for upd in updates:
-                agent_a = upd.get("agent_a", "")
-                agent_b = upd.get("agent_b", "")
-                if not agent_a or not agent_b:
-                    continue
-
-                debate_increment = upd.get("debate_increment", 0)
-                agreement_increment = upd.get("agreement_increment", 0)
-                a_win = upd.get("a_win", 0)
-                b_win = upd.get("b_win", 0)
-
-                # Maintain canonical ordering (a < b)
-                if agent_a > agent_b:
-                    agent_a, agent_b = agent_b, agent_a
-                    a_win, b_win = b_win, a_win
-
-                cursor.execute(
-                    """
-                    INSERT INTO agent_relationships (agent_a, agent_b, debate_count, agreement_count,
-                        critique_count_a_to_b, critique_count_b_to_a, critique_accepted_a_to_b, critique_accepted_b_to_a,
-                        position_changes_a_after_b, position_changes_b_after_a, a_wins_over_b, b_wins_over_a, updated_at)
-                    VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0, 0, ?, ?, ?)
-                    ON CONFLICT(agent_a, agent_b) DO UPDATE SET
-                        debate_count = debate_count + ?, agreement_count = agreement_count + ?,
-                        a_wins_over_b = a_wins_over_b + ?, b_wins_over_a = b_wins_over_a + ?, updated_at = ?
-                    """,
-                    (agent_a, agent_b, debate_increment, agreement_increment, a_win, b_win, now,
-                     debate_increment, agreement_increment, a_win, b_win, now),
-                )
-            conn.commit()
+        Delegates to RelationshipTracker. For new code, use:
+            elo_system.relationship_tracker.update_batch(...)
+        """
+        self.relationship_tracker.update_batch(updates)
 
     def get_relationship_raw(self, agent_a: str, agent_b: str) -> Optional[dict]:
-        """Get raw relationship data between two agents."""
-        if agent_a > agent_b:
-            agent_a, agent_b = agent_b, agent_a
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT debate_count, agreement_count, critique_count_a_to_b, critique_count_b_to_a, critique_accepted_a_to_b, critique_accepted_b_to_a, position_changes_a_after_b, position_changes_b_after_a, a_wins_over_b, b_wins_over_a FROM agent_relationships WHERE agent_a = ? AND agent_b = ?",
-                (agent_a, agent_b),
-            )
-            row = cursor.fetchone()
-            if not row:
-                return None
-            return {
-                "agent_a": agent_a, "agent_b": agent_b, "debate_count": row[0], "agreement_count": row[1],
-                "critique_count_a_to_b": row[2], "critique_count_b_to_a": row[3],
-                "critique_accepted_a_to_b": row[4], "critique_accepted_b_to_a": row[5],
-                "position_changes_a_after_b": row[6], "position_changes_b_after_a": row[7],
-                "a_wins_over_b": row[8], "b_wins_over_a": row[9],
-            }
+        """Get raw relationship data between two agents.
+
+        Delegates to RelationshipTracker. For new code, use:
+            elo_system.relationship_tracker.get_raw(...)
+        """
+        stats = self.relationship_tracker.get_raw(agent_a, agent_b)
+        if stats is None:
+            return None
+        # Convert dataclass to dict for backwards compatibility
+        return {
+            "agent_a": stats.agent_a,
+            "agent_b": stats.agent_b,
+            "debate_count": stats.debate_count,
+            "agreement_count": stats.agreement_count,
+            "critique_count_a_to_b": stats.critique_count_a_to_b,
+            "critique_count_b_to_a": stats.critique_count_b_to_a,
+            "critique_accepted_a_to_b": stats.critique_accepted_a_to_b,
+            "critique_accepted_b_to_a": stats.critique_accepted_b_to_a,
+            "position_changes_a_after_b": stats.position_changes_a_after_b,
+            "position_changes_b_after_a": stats.position_changes_b_after_a,
+            "a_wins_over_b": stats.a_wins_over_b,
+            "b_wins_over_a": stats.b_wins_over_a,
+        }
 
     def get_all_relationships_for_agent(self, agent_name: str, limit: int = 100) -> list[dict]:
         """Get all relationships involving an agent.
 
-        Args:
-            agent_name: The agent to get relationships for
-            limit: Maximum number of relationships to return (default 100)
-
-        Returns:
-            List of relationship dicts, ordered by debate_count descending
+        Delegates to RelationshipTracker. For new code, use:
+            elo_system.relationship_tracker.get_all_for_agent(...)
         """
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """SELECT agent_a, agent_b, debate_count, agreement_count,
-                          critique_count_a_to_b, critique_count_b_to_a,
-                          critique_accepted_a_to_b, critique_accepted_b_to_a,
-                          position_changes_a_after_b, position_changes_b_after_a,
-                          a_wins_over_b, b_wins_over_a
-                   FROM agent_relationships
-                   WHERE agent_a = ? OR agent_b = ?
-                   ORDER BY debate_count DESC
-                   LIMIT ?""",
-                (agent_name, agent_name, limit),
-            )
-            rows = cursor.fetchall()
-            return [
-                {"agent_a": r[0], "agent_b": r[1], "debate_count": r[2], "agreement_count": r[3],
-                 "critique_count_a_to_b": r[4], "critique_count_b_to_a": r[5],
-                 "critique_accepted_a_to_b": r[6], "critique_accepted_b_to_a": r[7],
-                 "position_changes_a_after_b": r[8], "position_changes_b_after_a": r[9],
-                 "a_wins_over_b": r[10], "b_wins_over_a": r[11]}
-                for r in rows
-            ]
+        stats_list = self.relationship_tracker.get_all_for_agent(agent_name, limit)
+        # Convert dataclasses to dicts for backwards compatibility
+        return [
+            {
+                "agent_a": s.agent_a,
+                "agent_b": s.agent_b,
+                "debate_count": s.debate_count,
+                "agreement_count": s.agreement_count,
+                "critique_count_a_to_b": s.critique_count_a_to_b,
+                "critique_count_b_to_a": s.critique_count_b_to_a,
+                "critique_accepted_a_to_b": s.critique_accepted_a_to_b,
+                "critique_accepted_b_to_a": s.critique_accepted_b_to_a,
+                "position_changes_a_after_b": s.position_changes_a_after_b,
+                "position_changes_b_after_a": s.position_changes_b_after_a,
+                "a_wins_over_b": s.a_wins_over_b,
+                "b_wins_over_a": s.b_wins_over_a,
+            }
+            for s in stats_list
+        ]
 
     def compute_relationship_metrics(self, agent_a: str, agent_b: str) -> dict:
+        """Compute rivalry and alliance scores between two agents.
+
+        Delegates to RelationshipTracker. For new code, use:
+            elo_system.relationship_tracker.compute_metrics(...)
         """
-        Compute rivalry and alliance scores between two agents.
-
-        Rivalry is high when: many debates, low agreement, competitive wins.
-        Alliance is high when: high agreement, mutual critique acceptance.
-
-        Returns dict with rivalry_score, alliance_score, and relationship type.
-        """
-        raw = self.get_relationship_raw(agent_a, agent_b)
-        if not raw:
-            return {
-                "agent_a": agent_a,
-                "agent_b": agent_b,
-                "rivalry_score": 0.0,
-                "alliance_score": 0.0,
-                "relationship": "unknown",
-                "debate_count": 0,
-            }
-
-        debate_count = raw.get("debate_count", 0)
-        if debate_count == 0:
-            return {
-                "agent_a": agent_a,
-                "agent_b": agent_b,
-                "rivalry_score": 0.0,
-                "alliance_score": 0.0,
-                "relationship": "no_history",
-                "debate_count": 0,
-            }
-
-        # Agreement rate (0-1, higher = more allied)
-        agreement_rate = raw.get("agreement_count", 0) / debate_count
-
-        # Win competitiveness (how close are their win rates against each other)
-        a_wins = raw.get("a_wins_over_b", 0)
-        b_wins = raw.get("b_wins_over_a", 0)
-        total_wins = a_wins + b_wins
-        if total_wins > 0:
-            win_balance = min(a_wins, b_wins) / max(a_wins, b_wins) if max(a_wins, b_wins) > 0 else 0
-        else:
-            win_balance = 0.5
-
-        # Critique acceptance rate
-        critiques_given = raw.get("critique_count_a_to_b", 0) + raw.get("critique_count_b_to_a", 0)
-        critiques_accepted = raw.get("critique_accepted_a_to_b", 0) + raw.get("critique_accepted_b_to_a", 0)
-        critique_acceptance = critiques_accepted / critiques_given if critiques_given > 0 else 0.5
-
-        # Rivalry score: high debates + low agreement + competitive wins
-        rivalry_score = (
-            min(1.0, debate_count / 20) * 0.3 +  # Engagement factor (caps at 20 debates)
-            (1 - agreement_rate) * 0.4 +  # Disagreement factor
-            win_balance * 0.3  # Competitiveness factor
-        )
-
-        # Alliance score: high agreement + high critique acceptance
-        alliance_score = (
-            (agreement_rate * 0.5 + critique_acceptance * 0.3 + (1 - win_balance) * 0.2)
-            if total_wins > 2
-            else (agreement_rate * 0.5 + critique_acceptance * 0.5)
-        )
-
-        # Determine relationship type
-        if rivalry_score > 0.6 and rivalry_score > alliance_score:
-            relationship = "rival"
-        elif alliance_score > 0.6 and alliance_score > rivalry_score:
-            relationship = "ally"
-        elif debate_count < 3:
-            relationship = "acquaintance"
-        else:
-            relationship = "neutral"
-
+        metrics = self.relationship_tracker.compute_metrics(agent_a, agent_b)
+        # Convert dataclass to dict for backwards compatibility
         return {
-            "agent_a": agent_a,
-            "agent_b": agent_b,
-            "rivalry_score": round(rivalry_score, 3),
-            "alliance_score": round(alliance_score, 3),
-            "relationship": relationship,
-            "debate_count": debate_count,
-            "agreement_rate": round(agreement_rate, 3),
-            "head_to_head": f"{a_wins}-{b_wins}",
+            "agent_a": metrics.agent_a,
+            "agent_b": metrics.agent_b,
+            "rivalry_score": metrics.rivalry_score,
+            "alliance_score": metrics.alliance_score,
+            "relationship": metrics.relationship,
+            "debate_count": metrics.debate_count,
+            "agreement_rate": metrics.agreement_rate,
+            "head_to_head": metrics.head_to_head,
         }
 
     def _compute_metrics_from_raw(self, agent_a: str, agent_b: str, raw: dict) -> dict:
-        """Compute relationship metrics from raw data (no database call)."""
-        debate_count = raw.get("debate_count", 0)
-        if debate_count == 0:
-            return {
-                "agent_a": agent_a, "agent_b": agent_b,
-                "rivalry_score": 0.0, "alliance_score": 0.0,
-                "relationship": "no_history", "debate_count": 0,
-            }
+        """Compute relationship metrics from raw data (no database call).
 
-        agreement_rate = raw.get("agreement_count", 0) / debate_count
-        a_wins = raw.get("a_wins_over_b", 0)
-        b_wins = raw.get("b_wins_over_a", 0)
-        total_wins = a_wins + b_wins
-        win_balance = min(a_wins, b_wins) / max(a_wins, b_wins) if total_wins > 0 and max(a_wins, b_wins) > 0 else 0.5
-
-        critiques_given = raw.get("critique_count_a_to_b", 0) + raw.get("critique_count_b_to_a", 0)
-        critiques_accepted = raw.get("critique_accepted_a_to_b", 0) + raw.get("critique_accepted_b_to_a", 0)
-        critique_acceptance = critiques_accepted / critiques_given if critiques_given > 0 else 0.5
-
-        rivalry_score = min(1.0, debate_count / 20) * 0.3 + (1 - agreement_rate) * 0.4 + win_balance * 0.3
-        alliance_score = (
-            (agreement_rate * 0.5 + critique_acceptance * 0.3 + (1 - win_balance) * 0.2)
-            if total_wins > 2
-            else (agreement_rate * 0.5 + critique_acceptance * 0.5)
+        For backwards compatibility. New code should use RelationshipTracker.
+        """
+        # Create a RelationshipStats from the raw dict
+        stats = RelationshipStats(
+            agent_a=raw.get("agent_a", agent_a),
+            agent_b=raw.get("agent_b", agent_b),
+            debate_count=raw.get("debate_count", 0),
+            agreement_count=raw.get("agreement_count", 0),
+            critique_count_a_to_b=raw.get("critique_count_a_to_b", 0),
+            critique_count_b_to_a=raw.get("critique_count_b_to_a", 0),
+            critique_accepted_a_to_b=raw.get("critique_accepted_a_to_b", 0),
+            critique_accepted_b_to_a=raw.get("critique_accepted_b_to_a", 0),
+            position_changes_a_after_b=raw.get("position_changes_a_after_b", 0),
+            position_changes_b_after_a=raw.get("position_changes_b_after_a", 0),
+            a_wins_over_b=raw.get("a_wins_over_b", 0),
+            b_wins_over_a=raw.get("b_wins_over_a", 0),
         )
-
-        if rivalry_score > 0.6 and rivalry_score > alliance_score:
-            relationship = "rival"
-        elif alliance_score > 0.6 and alliance_score > rivalry_score:
-            relationship = "ally"
-        elif debate_count < 3:
-            relationship = "acquaintance"
-        else:
-            relationship = "neutral"
-
+        metrics = self.relationship_tracker._compute_metrics_from_stats(agent_a, agent_b, stats)
         return {
-            "agent_a": agent_a, "agent_b": agent_b,
-            "rivalry_score": round(rivalry_score, 3),
-            "alliance_score": round(alliance_score, 3),
-            "relationship": relationship, "debate_count": debate_count,
+            "agent_a": metrics.agent_a,
+            "agent_b": metrics.agent_b,
+            "rivalry_score": metrics.rivalry_score,
+            "alliance_score": metrics.alliance_score,
+            "relationship": metrics.relationship,
+            "debate_count": metrics.debate_count,
         }
 
     def get_rivals(self, agent_name: str, limit: int = 5) -> list[dict]:
-        """Get agent's top rivals by rivalry score (optimized: single DB query)."""
-        relationships = self.get_all_relationships_for_agent(agent_name)
-        scored = []
-        for rel in relationships:
-            other = rel["agent_b"] if rel["agent_a"] == agent_name else rel["agent_a"]
-            # Use cached raw data instead of additional DB call
-            metrics = self._compute_metrics_from_raw(agent_name, other, rel)
-            if metrics["rivalry_score"] > 0.3:
-                scored.append(metrics)
-        scored.sort(key=lambda x: x["rivalry_score"], reverse=True)
-        return scored[:limit]
+        """Get agent's top rivals by rivalry score.
+
+        Delegates to RelationshipTracker. For new code, use:
+            elo_system.relationship_tracker.get_rivals(...)
+        """
+        metrics_list = self.relationship_tracker.get_rivals(agent_name, limit)
+        return [
+            {
+                "agent_a": m.agent_a,
+                "agent_b": m.agent_b,
+                "rivalry_score": m.rivalry_score,
+                "alliance_score": m.alliance_score,
+                "relationship": m.relationship,
+                "debate_count": m.debate_count,
+            }
+            for m in metrics_list
+        ]
 
     def get_allies(self, agent_name: str, limit: int = 5) -> list[dict]:
-        """Get agent's top allies by alliance score (optimized: single DB query)."""
-        relationships = self.get_all_relationships_for_agent(agent_name)
-        scored = []
-        for rel in relationships:
-            other = rel["agent_b"] if rel["agent_a"] == agent_name else rel["agent_a"]
-            # Use cached raw data instead of additional DB call
-            metrics = self._compute_metrics_from_raw(agent_name, other, rel)
-            if metrics["alliance_score"] > 0.3:
-                scored.append(metrics)
-        scored.sort(key=lambda x: x["alliance_score"], reverse=True)
-        return scored[:limit]
+        """Get agent's top allies by alliance score.
+
+        Delegates to RelationshipTracker. For new code, use:
+            elo_system.relationship_tracker.get_allies(...)
+        """
+        metrics_list = self.relationship_tracker.get_allies(agent_name, limit)
+        return [
+            {
+                "agent_a": m.agent_a,
+                "agent_b": m.agent_b,
+                "rivalry_score": m.rivalry_score,
+                "alliance_score": m.alliance_score,
+                "relationship": m.relationship,
+                "debate_count": m.debate_count,
+            }
+            for m in metrics_list
+        ]
 
     # =========================================================================
     # Red Team Integration (Vulnerability-based ELO adjustment)
+    # Delegated to RedTeamIntegrator for cleaner separation of concerns.
+    # These methods are kept for backwards compatibility.
     # =========================================================================
 
     def record_redteam_result(
@@ -1755,86 +1663,30 @@ class EloSystem:
         critical_vulnerabilities: int = 0,
         session_id: str | None = None,
     ) -> float:
+        """Record red team results and adjust ELO based on vulnerability.
+
+        Delegates to RedTeamIntegrator. For new code, use:
+            elo_system.redteam_integrator.record_result(...)
         """
-        Record red team results and adjust ELO based on vulnerability.
-
-        The robustness score (0-1) affects ELO:
-        - robustness >= 0.8: Small ELO boost (+5 to +10)
-        - robustness 0.5-0.8: No change
-        - robustness < 0.5: ELO penalty (-5 to -20 based on critical vulns)
-
-        Args:
-            agent_name: Agent that was red-teamed
-            robustness_score: Overall robustness (0-1, higher is better)
-            successful_attacks: Number of attacks that succeeded
-            total_attacks: Total attacks attempted
-            critical_vulnerabilities: Count of critical severity issues
-            session_id: Optional red team session ID
-
-        Returns:
-            ELO change applied
-        """
-        rating = self.get_rating(agent_name)
-        elo_change = 0.0
-
-        # Calculate vulnerability rate
-        vulnerability_rate = successful_attacks / total_attacks if total_attacks > 0 else 0
-
-        # Robust agents get a boost
-        if robustness_score >= 0.8:
-            elo_change = K_FACTOR * 0.3 * robustness_score  # +5 to +10
-
-        # Vulnerable agents get penalized
-        elif robustness_score < 0.5:
-            # Base penalty from vulnerability rate
-            base_penalty = K_FACTOR * 0.5 * vulnerability_rate  # Up to -16
-
-            # Additional penalty for critical vulnerabilities
-            critical_penalty = critical_vulnerabilities * 2  # -2 per critical
-
-            elo_change = -(base_penalty + critical_penalty)
-            elo_change = max(elo_change, -30)  # Cap at -30
-
-        # Apply the change
-        if elo_change != 0:
-            rating.elo += elo_change
-            rating.updated_at = datetime.now().isoformat()
-            self._save_rating(rating)
-            self._record_elo_history(
-                agent_name,
-                rating.elo,
-                f"redteam_{session_id}" if session_id else "redteam"
-            )
-
-        return elo_change
+        return self.redteam_integrator.record_result(
+            agent_name=agent_name,
+            robustness_score=robustness_score,
+            successful_attacks=successful_attacks,
+            total_attacks=total_attacks,
+            critical_vulnerabilities=critical_vulnerabilities,
+            session_id=session_id,
+        )
 
     def get_vulnerability_summary(self, agent_name: str) -> dict:
+        """Get summary of agent's red team history.
+
+        Delegates to RedTeamIntegrator. For new code, use:
+            elo_system.redteam_integrator.get_vulnerability_summary(...)
         """
-        Get summary of agent's red team history from ELO adjustments.
-
-        Returns dict with:
-        - redteam_sessions: Count of red team sessions
-        - total_elo_impact: Net ELO change from red team
-        - last_session: Timestamp of last red team session
-        """
-        history = self.get_elo_history(agent_name, limit=100)
-
-        redteam_sessions = 0
-        total_impact = 0.0
-        last_session = None
-
-        prev_elo = None
-        for timestamp, elo in reversed(history):
-            if "redteam" in str(timestamp):
-                redteam_sessions += 1
-                if prev_elo is not None:
-                    total_impact += elo - prev_elo
-                if last_session is None:
-                    last_session = timestamp
-            prev_elo = elo
-
+        summary = self.redteam_integrator.get_vulnerability_summary(agent_name)
+        # Convert dataclass to dict for backwards compatibility
         return {
-            "redteam_sessions": redteam_sessions,
-            "total_elo_impact": round(total_impact, 1),
-            "last_session": last_session,
+            "redteam_sessions": summary.redteam_sessions,
+            "total_elo_impact": summary.total_elo_impact,
+            "last_session": summary.last_session,
         }

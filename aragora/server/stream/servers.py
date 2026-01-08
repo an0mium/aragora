@@ -60,6 +60,7 @@ from .arena_hooks import (
     wrap_agent_for_streaming,
 )
 from .stream_handlers import StreamAPIHandlersMixin
+from .server_base import ServerBase, ServerConfig
 
 # Import debate components (lazy-loaded for optional functionality)
 try:
@@ -142,22 +143,13 @@ WS_MAX_CONNECTIONS_PER_IP = int(os.getenv('ARAGORA_WS_MAX_PER_IP', '10'))
 # =============================================================================
 
 
-class DebateStreamServer:
+class DebateStreamServer(ServerBase):
     """
     WebSocket server broadcasting debate events to connected clients.
 
     Supports multiple concurrent nomic loop instances with view switching.
-
-    Lock Hierarchy (acquire in this order to prevent deadlocks):
-    ---------------------------------------------------------------
-    1. _rate_limiters_lock  - Protects _rate_limiters and _rate_limiter_last_access
-    2. _debate_states_lock  - Protects debate_states and _debate_states_last_access
-    3. _active_loops_lock   - Protects active_loops and _active_loops_last_access
-
-    IMPORTANT: Each method should only acquire ONE lock at a time. If multiple
-    locks must be acquired (e.g., in cleanup methods), acquire them sequentially
-    in the order above, releasing each before acquiring the next. Never nest
-    lock acquisitions to prevent deadlocks.
+    Inherits common functionality from ServerBase including rate limiting,
+    debate state caching, and active loops tracking.
 
     Usage:
         server = DebateStreamServer(port=8765)
@@ -170,40 +162,14 @@ class DebateStreamServer:
     """
 
     def __init__(self, host: str = "localhost", port: int = 8765):
+        # Initialize base class with common functionality
+        super().__init__()
+
         self.host = host
         self.port = port
-        self.clients: set = set()
         self.current_debate: Optional[dict] = None
-        self._emitter = SyncEventEmitter()
-        self._running = False
-        # Audience participation - Lock hierarchy level 1 (acquire first)
-        self.audience_inbox = AudienceInbox()
-        self._rate_limiters: dict[str, TokenBucket] = {}  # client_id -> TokenBucket
-        self._rate_limiter_last_access: dict[str, float] = {}  # client_id -> last access time
-        self._rate_limiters_lock = threading.Lock()  # Lock #1 in hierarchy
-        self._rate_limiter_cleanup_counter = 0  # Counter for periodic cleanup
-        self._RATE_LIMITER_TTL = 3600  # 1 hour TTL for rate limiters
-        self._CLEANUP_INTERVAL = 100  # Cleanup every N accesses
 
-        # Debate state caching for late joiner sync - Lock hierarchy level 2
-        self.debate_states: dict[str, dict] = {}  # loop_id -> debate state
-        self._debate_states_lock = threading.Lock()  # Lock #2 in hierarchy
-        self._debate_states_last_access: dict[str, float] = {}  # loop_id -> last access time
-        self._DEBATE_STATES_TTL = 3600  # 1 hour TTL for ended debates
-        self._MAX_DEBATE_STATES = 500  # Max cached states
-
-        # Multi-loop tracking with thread safety - Lock hierarchy level 3 (acquire last)
-        self.active_loops: dict[str, LoopInstance] = {}  # loop_id -> LoopInstance
-        self._active_loops_lock = threading.Lock()  # Lock #3 in hierarchy
-        self._active_loops_last_access: dict[str, float] = {}  # loop_id -> last access time
-        self._ACTIVE_LOOPS_TTL = 86400  # 24 hour TTL for stale loops
-        self._MAX_ACTIVE_LOOPS = 1000  # Max concurrent loops
-
-        # Secure client ID mapping with LRU eviction (cryptographically random, not memory address)
-        self._client_ids: OrderedDict[int, str] = OrderedDict()  # websocket id -> secure client_id
-        self._MAX_CLIENT_IDS = 10000  # Max tracked clients
-
-        # WebSocket connection rate limiting per IP
+        # WebSocket-specific: connection rate limiting per IP
         self._ws_conn_rate: dict[str, list[float]] = {}  # ip -> list of connection timestamps
         self._ws_conn_rate_lock = threading.Lock()
         self._ws_conn_per_ip: dict[str, int] = {}  # ip -> current connection count
@@ -211,27 +177,9 @@ class DebateStreamServer:
         # Token revalidation tracking for long-lived connections
         self._ws_token_validated: dict[int, float] = {}  # ws_id -> last validation time
 
-        # Subscribe to emitter to maintain debate states
-        self._emitter.subscribe(self._update_debate_state)
-
-    @property
-    def emitter(self) -> SyncEventEmitter:
-        """Get the event emitter for Arena hooks."""
-        return self._emitter
-
     def _cleanup_stale_rate_limiters(self) -> None:
         """Remove rate limiters not accessed within TTL period."""
-        now = time.time()
-        with self._rate_limiters_lock:
-            stale_keys = [
-                k for k, v in self._rate_limiter_last_access.items()
-                if now - v > self._RATE_LIMITER_TTL
-            ]
-            for k in stale_keys:
-                self._rate_limiters.pop(k, None)
-                self._rate_limiter_last_access.pop(k, None)
-        if stale_keys:
-            logger.debug(f"Cleaned up {len(stale_keys)} stale rate limiters")
+        self.cleanup_rate_limiters()
 
     def _extract_ws_token(self, websocket) -> Optional[str]:
         """Extract authentication token from WebSocket connection.
@@ -394,42 +342,25 @@ class DebateStreamServer:
         self._ws_token_validated[ws_id] = time.time()
 
     def _cleanup_stale_entries(self) -> None:
-        """Remove stale entries from all tracking dicts."""
-        now = time.time()
-        cleaned_count = 0
+        """Remove stale entries from all tracking dicts.
 
-        # Cleanup rate limiters
-        self._cleanup_stale_rate_limiters()
-
-        # Cleanup active_loops older than TTL
-        with self._active_loops_lock:
-            stale = [k for k, v in self._active_loops_last_access.items()
-                     if now - v > self._ACTIVE_LOOPS_TTL]
-            for k in stale:
-                self.active_loops.pop(k, None)
-                self._active_loops_last_access.pop(k, None)
-                cleaned_count += 1
-
-        # Cleanup debate_states older than TTL (only ended debates)
-        with self._debate_states_lock:
-            stale = [k for k, state in self.debate_states.items()
-                     if state.get("ended") and
-                        now - self._debate_states_last_access.get(k, 0) > self._DEBATE_STATES_TTL]
-            for k in stale:
-                self.debate_states.pop(k, None)
-                self._debate_states_last_access.pop(k, None)
-                cleaned_count += 1
-
-        if cleaned_count > 0:
-            logger.debug(f"Cleaned up {cleaned_count} stale entries")
+        Delegates to ServerBase.cleanup_all() and adds server-specific cleanup.
+        """
+        results = self.cleanup_all()
+        total = sum(results.values())
+        if total > 0:
+            logger.debug(f"Cleaned up {total} stale entries")
 
     def _update_debate_state(self, event: StreamEvent) -> None:
-        """Update cached debate state based on emitted events."""
+        """Update cached debate state based on emitted events.
+
+        Overrides ServerBase._update_debate_state with StreamEvent-specific handling.
+        """
         loop_id = event.loop_id
         with self._debate_states_lock:
             if event.type == StreamEventType.DEBATE_START:
                 # Enforce max size with LRU eviction (only evict ended debates)
-                if len(self.debate_states) >= self._MAX_DEBATE_STATES:
+                if len(self.debate_states) >= self.config.max_debate_states:
                     # Find oldest ended debate to evict
                     ended_states = [(k, self._debate_states_last_access.get(k, 0))
                                     for k, v in self.debate_states.items() if v.get("ended")]
@@ -548,9 +479,9 @@ class DebateStreamServer:
 
     def register_loop(self, loop_id: str, name: str, path: str = "") -> None:
         """Register a new nomic loop instance."""
-        # Trigger periodic cleanup
+        # Trigger periodic cleanup using base class config
         self._rate_limiter_cleanup_counter += 1
-        if self._rate_limiter_cleanup_counter >= self._CLEANUP_INTERVAL:
+        if self._rate_limiter_cleanup_counter >= self.config.rate_limiter_cleanup_interval:
             self._rate_limiter_cleanup_counter = 0
             self._cleanup_stale_entries()
 
@@ -560,16 +491,9 @@ class DebateStreamServer:
             started_at=time.time(),
             path=path,
         )
+        # Use base class method for active loop management
+        self.set_active_loop(loop_id, instance)
         with self._active_loops_lock:
-            # Enforce max size with LRU eviction
-            if len(self.active_loops) >= self._MAX_ACTIVE_LOOPS:
-                # Remove oldest by last access time
-                oldest = min(self._active_loops_last_access, key=self._active_loops_last_access.get, default=None)
-                if oldest:
-                    self.active_loops.pop(oldest, None)
-                    self._active_loops_last_access.pop(oldest, None)
-            self.active_loops[loop_id] = instance
-            self._active_loops_last_access[loop_id] = time.time()
             loop_count = len(self.active_loops)
         # Emit registration event
         self._emitter.emit(StreamEvent(
@@ -585,13 +509,11 @@ class DebateStreamServer:
 
     def unregister_loop(self, loop_id: str) -> None:
         """Unregister a nomic loop instance."""
+        removed = self.remove_active_loop(loop_id)
+        if removed is None:
+            return  # Loop not found, nothing to unregister
         with self._active_loops_lock:
-            if loop_id in self.active_loops:
-                del self.active_loops[loop_id]
-                self._active_loops_last_access.pop(loop_id, None)
-                loop_count = len(self.active_loops)
-            else:
-                return  # Loop not found, nothing to unregister
+            loop_count = len(self.active_loops)
         # Emit unregistration event
         self._emitter.emit(StreamEvent(
             type=StreamEventType.LOOP_UNREGISTER,
@@ -977,26 +899,15 @@ class DebateStreamServer:
 # Unified HTTP + WebSocket Server (aiohttp-based)
 # =============================================================================
 
-class AiohttpUnifiedServer(StreamAPIHandlersMixin):
+class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
     """
     Unified server using aiohttp to handle both HTTP API and WebSocket on a single port.
 
     This is the recommended server for production as it avoids CORS issues with
     separate ports for HTTP and WebSocket.
 
-    HTTP API handlers are provided by StreamAPIHandlersMixin from stream_handlers.py.
-
-    Lock Hierarchy (acquire in this order to prevent deadlocks):
-    ---------------------------------------------------------------
-    1. _rate_limiters_lock   - Protects _rate_limiters and _rate_limiter_last_access
-    2. _debate_states_lock   - Protects debate_states and _debate_states_last_access
-    3. _active_loops_lock    - Protects active_loops and _active_loops_last_access
-    4. _cartographers_lock   - Protects cartographers registry
-
-    IMPORTANT: Each method should only acquire ONE lock at a time. If multiple
-    locks must be acquired (e.g., in cleanup methods), acquire them sequentially
-    in the order above, releasing each before acquiring the next. Never nest
-    lock acquisitions to prevent deadlocks.
+    Inherits common functionality from ServerBase (rate limiting, state caching)
+    and HTTP API handlers from StreamAPIHandlersMixin.
 
     Usage:
         server = AiohttpUnifiedServer(port=8080, nomic_dir=Path(".nomic"))
@@ -1009,45 +920,16 @@ class AiohttpUnifiedServer(StreamAPIHandlersMixin):
         host: str = "0.0.0.0",
         nomic_dir: Optional[Path] = None,
     ):
+        # Initialize base class with common functionality
+        super().__init__()
+
         self.port = port
         self.host = host
         self.nomic_dir = nomic_dir
 
-        # WebSocket clients and event emitter
-        self.clients: set = set()
-        self._emitter = SyncEventEmitter()
-        self._running = False
-
-        # Audience participation - Lock hierarchy level 1 (acquire first)
-        self.audience_inbox = AudienceInbox()
-        self._rate_limiters: dict[str, TokenBucket] = {}
-        self._rate_limiter_last_access: dict[str, float] = {}
-        self._rate_limiters_lock = threading.Lock()  # Lock #1 in hierarchy
-        self._rate_limiter_cleanup_counter = 0
-        self._RATE_LIMITER_TTL = 3600  # 1 hour TTL
-        self._CLEANUP_INTERVAL = 100  # Cleanup every N accesses
-
-        # Debate state caching - Lock hierarchy level 2
-        self.debate_states: dict[str, dict] = {}
-        self._debate_states_lock = threading.Lock()  # Lock #2 in hierarchy
-        self._debate_states_last_access: dict[str, float] = {}
-        self._DEBATE_STATES_TTL = 3600  # 1 hour TTL for ended debates
-        self._MAX_DEBATE_STATES = 500  # Max cached states
-
-        # Multi-loop tracking - Lock hierarchy level 3
-        self.active_loops: dict[str, LoopInstance] = {}
-        self._active_loops_lock = threading.Lock()  # Lock #3 in hierarchy
-        self._active_loops_last_access: dict[str, float] = {}
-        self._ACTIVE_LOOPS_TTL = 86400  # 24 hour TTL for stale loops
-        self._MAX_ACTIVE_LOOPS = 1000  # Max concurrent loops
-
         # ArgumentCartographer registry - Lock hierarchy level 4 (acquire last)
         self.cartographers: Dict[str, Any] = {}
-        self._cartographers_lock = threading.Lock()  # Lock #4 in hierarchy
-
-        # Secure client ID mapping with LRU eviction
-        self._client_ids: OrderedDict[int, str] = OrderedDict()
-        self._MAX_CLIENT_IDS = 10000  # Max tracked clients
+        self._cartographers_lock = threading.Lock()
 
         # Optional stores (initialized from nomic_dir)
         self.elo_system = None
@@ -1055,9 +937,6 @@ class AiohttpUnifiedServer(StreamAPIHandlersMixin):
         self.flip_detector = None
         self.persona_manager = None
         self.debate_embeddings = None
-
-        # Subscribe to emitter to maintain debate states
-        self._emitter.subscribe(self._update_debate_state)
 
         # Initialize stores from nomic_dir
         if nomic_dir:
@@ -1115,54 +994,26 @@ class AiohttpUnifiedServer(StreamAPIHandlersMixin):
         except ImportError:
             logger.debug("[server] DebateEmbeddings not available (optional dependency)")
 
-    @property
-    def emitter(self) -> SyncEventEmitter:
-        """Get the event emitter for nomic loop integration."""
-        return self._emitter
-
     def _cleanup_stale_entries(self) -> None:
-        """Remove stale entries from all tracking dicts."""
-        now = time.time()
-        cleaned_count = 0
+        """Remove stale entries from all tracking dicts.
 
-        # Cleanup rate limiters
-        with self._rate_limiters_lock:
-            stale = [k for k, v in self._rate_limiter_last_access.items()
-                     if now - v > self._RATE_LIMITER_TTL]
-            for k in stale:
-                self._rate_limiters.pop(k, None)
-                self._rate_limiter_last_access.pop(k, None)
-                cleaned_count += 1
-
-        # Cleanup active_loops older than TTL
-        with self._active_loops_lock:
-            stale = [k for k, v in self._active_loops_last_access.items()
-                     if now - v > self._ACTIVE_LOOPS_TTL]
-            for k in stale:
-                self.active_loops.pop(k, None)
-                self._active_loops_last_access.pop(k, None)
-                cleaned_count += 1
-
-        # Cleanup debate_states older than TTL (only ended debates)
-        with self._debate_states_lock:
-            stale = [k for k, state in self.debate_states.items()
-                     if state.get("ended") and
-                        now - self._debate_states_last_access.get(k, 0) > self._DEBATE_STATES_TTL]
-            for k in stale:
-                self.debate_states.pop(k, None)
-                self._debate_states_last_access.pop(k, None)
-                cleaned_count += 1
-
-        if cleaned_count > 0:
-            logger.debug(f"Cleaned up {cleaned_count} stale entries")
+        Delegates to ServerBase.cleanup_all().
+        """
+        results = self.cleanup_all()
+        total = sum(results.values())
+        if total > 0:
+            logger.debug(f"Cleaned up {total} stale entries")
 
     def _update_debate_state(self, event: StreamEvent) -> None:
-        """Update cached debate state based on emitted events."""
+        """Update cached debate state based on emitted events.
+
+        Overrides ServerBase._update_debate_state with StreamEvent-specific handling.
+        """
         loop_id = event.loop_id
         with self._debate_states_lock:
             if event.type == StreamEventType.DEBATE_START:
                 # Enforce max size with LRU eviction (only evict ended debates)
-                if len(self.debate_states) >= self._MAX_DEBATE_STATES:
+                if len(self.debate_states) >= self.config.max_debate_states:
                     ended_states = [(k, self._debate_states_last_access.get(k, 0))
                                     for k, v in self.debate_states.items() if v.get("ended")]
                     if ended_states:
@@ -1187,38 +1038,30 @@ class AiohttpUnifiedServer(StreamAPIHandlersMixin):
 
     def register_loop(self, loop_id: str, name: str, path: str = "") -> None:
         """Register a new nomic loop instance."""
-        # Trigger periodic cleanup
+        # Trigger periodic cleanup using base class config
         self._rate_limiter_cleanup_counter += 1
-        if self._rate_limiter_cleanup_counter >= self._CLEANUP_INTERVAL:
+        if self._rate_limiter_cleanup_counter >= self.config.rate_limiter_cleanup_interval:
             self._rate_limiter_cleanup_counter = 0
             self._cleanup_stale_entries()
 
-        with self._active_loops_lock:
-            # Enforce max size with LRU eviction
-            if len(self.active_loops) >= self._MAX_ACTIVE_LOOPS:
-                oldest = min(self._active_loops_last_access, key=self._active_loops_last_access.get, default=None)
-                if oldest:
-                    self.active_loops.pop(oldest, None)
-                    self._active_loops_last_access.pop(oldest, None)
-            self.active_loops[loop_id] = LoopInstance(
-                loop_id=loop_id,
-                name=name,
-                started_at=time.time(),
-                path=path,
-            )
-            self._active_loops_last_access[loop_id] = time.time()
+        instance = LoopInstance(
+            loop_id=loop_id,
+            name=name,
+            started_at=time.time(),
+            path=path,
+        )
+        # Use base class method for active loop management
+        self.set_active_loop(loop_id, instance)
         # Broadcast loop registration
         self._emitter.emit(StreamEvent(
             type=StreamEventType.LOOP_REGISTER,
-            data={"loop_id": loop_id, "name": name, "started_at": time.time(), "path": path},
+            data={"loop_id": loop_id, "name": name, "started_at": instance.started_at, "path": path},
             loop_id=loop_id,
         ))
 
     def unregister_loop(self, loop_id: str) -> None:
         """Unregister a nomic loop instance."""
-        with self._active_loops_lock:
-            self.active_loops.pop(loop_id, None)
-            self._active_loops_last_access.pop(loop_id, None)
+        self.remove_active_loop(loop_id)
         # Also cleanup associated cartographer to prevent memory leak
         self.unregister_cartographer(loop_id)
         # Broadcast loop unregistration

@@ -36,6 +36,7 @@ from aragora.debate.roles import (
     RoleRotator,
     inject_role_into_prompt,
 )
+from aragora.debate.topology import TopologySelector
 from aragora.debate.sanitization import OutputSanitizer
 from aragora.debate.security_barrier import SecurityBarrier, TelemetryVerifier
 from aragora.server.prometheus import record_debate_completed
@@ -819,71 +820,12 @@ class Arena:
             return 0.0
 
     def _select_critics_for_proposal(self, proposal_agent: str, all_critics: list[Agent]) -> list[Agent]:
-        """Select which critics should critique the given proposal based on topology."""
-        if self.protocol.topology == "all-to-all":
-            # All critics except self
-            return [c for c in all_critics if c.name != proposal_agent]
+        """Select which critics should critique the given proposal based on topology.
 
-        elif self.protocol.topology == "round-robin":
-            # Simple round-robin: each critic critiques the next one in alphabetical order
-            # First, filter out the proposer from critics
-            eligible_critics = [c for c in all_critics if c.name != proposal_agent]
-            if not eligible_critics:
-                return []
-            # Sort critics by name for deterministic ordering
-            eligible_critics_sorted = sorted(eligible_critics, key=lambda c: c.name)
-            # Each proposal gets critiqued by the "next" critic based on hash
-            # Use stable hash for deterministic critic assignment across Python sessions
-            proposal_hash = int(hashlib.sha256(proposal_agent.encode()).hexdigest(), 16)
-            proposal_index = proposal_hash % len(eligible_critics_sorted)
-            return [eligible_critics_sorted[proposal_index]]
-
-        elif self.protocol.topology == "ring":
-            # Ring topology: each agent critiques its "neighbors"
-            agent_names = sorted([a.name for a in all_critics] + [proposal_agent])
-            agent_names.remove(proposal_agent)
-            if not agent_names:
-                return []
-            # Find position of proposal_agent in the ring
-            all_names = sorted([a.name for a in self.agents])
-            if proposal_agent not in all_names:
-                return all_critics  # fallback
-            idx = all_names.index(proposal_agent)
-            # Critique by left and right neighbors in the ring
-            left = all_names[(idx - 1) % len(all_names)]
-            right = all_names[(idx + 1) % len(all_names)]
-            return [c for c in all_critics if c.name in (left, right)]
-
-        elif self.protocol.topology == "star":
-            # Star topology: hub agent critiques everyone, or everyone critiques hub
-            if self.protocol.topology_hub_agent:
-                hub = self.protocol.topology_hub_agent
-            else:
-                # Default hub is first agent
-                hub = self._require_agents()[0].name
-            if proposal_agent == hub:
-                # Hub's proposal gets critiqued by all others
-                return [c for c in all_critics if c.name != hub]
-            else:
-                # Others' proposals get critiqued only by hub (if hub is a critic)
-                return [c for c in all_critics if c.name == hub]
-
-        elif self.protocol.topology in ("sparse", "random-graph"):
-            # Random subset based on sparsity
-            available_critics = [c for c in all_critics if c.name != proposal_agent]
-            if not available_critics:
-                return []
-            num_to_select = max(1, int(len(available_critics) * self.protocol.topology_sparsity))
-            # Deterministic random based on proposal_agent for reproducibility (stable hash)
-            stable_seed = int(hashlib.sha256(proposal_agent.encode()).hexdigest(), 16) % (2**32)
-            random.seed(stable_seed)
-            selected = random.sample(available_critics, min(num_to_select, len(available_critics)))
-            random.seed()  # Reset seed
-            return selected
-
-        else:
-            # Default to all-to-all
-            return [c for c in all_critics if c.name != proposal_agent]
+        Delegates to TopologySelector for cleaner topology strategy implementation.
+        """
+        selector = TopologySelector.from_protocol(self.protocol, self._require_agents())
+        return selector.select_critics(proposal_agent, all_critics)
 
     def _handle_user_event(self, event) -> None:
         """Handle incoming user participation events (thread-safe).

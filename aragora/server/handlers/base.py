@@ -1018,23 +1018,23 @@ class BaseHandler:
             result[param_name] = value
         return result, None
 
-    def get_storage(self):
+    def get_storage(self) -> Optional[Any]:
         """Get debate storage instance."""
         return self.ctx.get("storage")
 
-    def get_elo_system(self):
+    def get_elo_system(self) -> Optional[Any]:
         """Get ELO system instance."""
         return self.ctx.get("elo_system")
 
-    def get_debate_embeddings(self):
+    def get_debate_embeddings(self) -> Optional[Any]:
         """Get debate embeddings database."""
         return self.ctx.get("debate_embeddings")
 
-    def get_critique_store(self):
+    def get_critique_store(self) -> Optional[Any]:
         """Get critique store instance."""
         return self.ctx.get("critique_store")
 
-    def get_nomic_dir(self):
+    def get_nomic_dir(self) -> Optional[Any]:
         """Get nomic directory path."""
         return self.ctx.get("nomic_dir")
 

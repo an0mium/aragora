@@ -125,7 +125,7 @@ class BoundedTTLCache:
     def __contains__(self, key: str) -> bool:
         return key in self._cache
 
-    def items(self):
+    def items(self) -> Any:
         """Iterate over cache items."""
         return self._cache.items()
 
