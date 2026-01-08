@@ -2,6 +2,8 @@
 System and utility endpoint handlers.
 
 Endpoints:
+- GET /healthz - Kubernetes liveness probe (lightweight)
+- GET /readyz - Kubernetes readiness probe (checks dependencies)
 - GET /api/health - Health check
 - GET /api/health/detailed - Detailed health check with component status
 - GET /api/nomic/state - Get nomic loop state
@@ -42,6 +44,10 @@ class SystemHandler(BaseHandler):
     """Handler for system-related endpoints."""
 
     ROUTES = [
+        # Kubernetes-standard health probes
+        "/healthz",
+        "/readyz",
+        # API health endpoints
         "/api/health",
         "/api/health/detailed",
         "/api/nomic/state",
@@ -67,6 +73,13 @@ class SystemHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route system requests to appropriate methods."""
+        # Kubernetes-standard health probes
+        if path == "/healthz":
+            return self._liveness_probe()
+
+        if path == "/readyz":
+            return self._readiness_probe()
+
         if path == "/api/health":
             return self._health_check()
 
@@ -147,6 +160,60 @@ class SystemHandler(BaseHandler):
         if path == "/api/auth/revoke":
             return self._revoke_token(handler)
         return None
+
+    def _liveness_probe(self) -> HandlerResult:
+        """Kubernetes liveness probe - lightweight check that server is alive.
+
+        Returns 200 if the server process is running and can respond.
+        This should be very fast and not check external dependencies.
+        Used by k8s to determine if the container should be restarted.
+
+        Returns:
+            {"status": "ok"} with 200 status
+        """
+        return json_response({"status": "ok"})
+
+    def _readiness_probe(self) -> HandlerResult:
+        """Kubernetes readiness probe - check if ready to serve traffic.
+
+        Returns 200 if critical services are initialized and ready.
+        Returns 503 if the service is not ready to accept traffic.
+        Used by k8s to determine if traffic should be routed to this pod.
+
+        Checks:
+        - Storage initialized (if configured)
+        - ELO system available (if configured)
+        """
+        ready = True
+        checks: Dict[str, bool] = {}
+
+        # Check storage readiness
+        try:
+            storage = self.get_storage()
+            checks["storage"] = storage is not None
+            if not storage:
+                # Storage not configured is OK for readiness
+                checks["storage"] = True
+        except Exception:
+            checks["storage"] = False
+            ready = False
+
+        # Check ELO system readiness
+        try:
+            elo = self.get_elo_system()
+            checks["elo_system"] = elo is not None
+            if not elo:
+                # ELO not configured is OK for readiness
+                checks["elo_system"] = True
+        except Exception:
+            checks["elo_system"] = False
+            ready = False
+
+        status_code = 200 if ready else 503
+        return json_response(
+            {"status": "ready" if ready else "not_ready", "checks": checks},
+            status=status_code,
+        )
 
     def _health_check(self) -> HandlerResult:
         """Comprehensive health check for k8s/docker deployments.
