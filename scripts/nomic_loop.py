@@ -31,7 +31,17 @@ NOTE: Utility modules have been extracted to scripts/nomic/ package:
 - scripts/nomic/git/operations.py: Git operations
 - scripts/nomic/config.py: Configuration constants
 
-Original implementations are preserved here for backward compatibility.
+PHASE IMPLEMENTATIONS (2026-01):
+Modular phase classes are now the default (enabled via USE_EXTRACTED_PHASES=1):
+- scripts/nomic/phases/context.py: ContextPhase (codebase exploration)
+- scripts/nomic/phases/debate.py: DebatePhase (improvement proposals)
+- scripts/nomic/phases/design.py: DesignPhase (architecture planning)
+- scripts/nomic/phases/implement.py: ImplementPhase (code generation)
+- scripts/nomic/phases/verify.py: VerifyPhase (testing & quality)
+- scripts/nomic/phases/commit.py: CommitPhase (git operations)
+
+Legacy inline implementations are preserved for backward compatibility but
+marked as DEPRECATED. Set USE_EXTRACTED_PHASES=0 to use legacy code.
 """
 
 import asyncio
