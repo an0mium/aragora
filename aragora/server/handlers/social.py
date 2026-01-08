@@ -21,7 +21,7 @@ from .base import (
     HandlerResult,
     json_response,
     error_response,
-    validate_debate_id,
+    SAFE_SLUG_PATTERN,
 )
 
 logger = logging.getLogger(__name__)
@@ -111,25 +111,17 @@ class SocialMediaHandler(BaseHandler):
         """Handle POST requests."""
         # Twitter publishing
         if path.startswith('/api/debates/') and path.endswith('/publish/twitter'):
-            parts = path.split('/')
-            if len(parts) >= 5:
-                debate_id = parts[3]
-                # Early validation before processing
-                valid, err = validate_debate_id(debate_id)
-                if not valid:
-                    return error_response(err, status=400)
-                return self._publish_to_twitter(debate_id, handler)
+            debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
+            if err:
+                return err
+            return self._publish_to_twitter(debate_id, handler)
 
         # YouTube publishing
         if path.startswith('/api/debates/') and path.endswith('/publish/youtube'):
-            parts = path.split('/')
-            if len(parts) >= 5:
-                debate_id = parts[3]
-                # Early validation before processing
-                valid, err = validate_debate_id(debate_id)
-                if not valid:
-                    return error_response(err, status=400)
-                return self._publish_to_youtube(debate_id, handler)
+            debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
+            if err:
+                return err
+            return self._publish_to_youtube(debate_id, handler)
 
         return None
 
@@ -243,10 +235,6 @@ class SocialMediaHandler(BaseHandler):
                 "hint": "Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET"
             }, status=400)
 
-        valid, error = validate_debate_id(debate_id)
-        if not valid:
-            return error_response(error, status=400)
-
         storage = self.get_storage()
         if not storage:
             return error_response("Storage not available", status=503)
@@ -327,10 +315,6 @@ class SocialMediaHandler(BaseHandler):
                 "error": "YouTube API credentials not configured",
                 "hint": "Set YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN"
             }, status=400)
-
-        valid, error = validate_debate_id(debate_id)
-        if not valid:
-            return error_response(error, status=400)
 
         storage = self.get_storage()
         if not storage:

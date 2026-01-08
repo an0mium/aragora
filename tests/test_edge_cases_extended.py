@@ -537,6 +537,12 @@ class TestRateLimitPatternDetection:
         error_str = error_message.lower()
         return any(pattern in error_str for pattern in CLI_ERROR_PATTERNS)
 
+    def _check_auth_pattern(self, error_message: str) -> bool:
+        """Check if error message matches auth error patterns."""
+        from aragora.agents.errors import AUTH_ERROR_PATTERNS
+        error_str = error_message.lower()
+        return any(pattern in error_str for pattern in AUTH_ERROR_PATTERNS)
+
     def _check_all_fallback_patterns(self, error_message: str) -> bool:
         """Check if error message matches any fallback pattern."""
         from aragora.agents.errors import ALL_FALLBACK_PATTERNS
@@ -563,10 +569,10 @@ class TestRateLimitPatternDetection:
         assert self._check_network_pattern("name or service not known")
 
     def test_detects_auth_errors(self):
-        """Test detection of authentication errors (in CLI patterns)."""
-        assert self._check_cli_pattern("invalid_api_key")
-        assert self._check_cli_pattern("unauthorized")
-        assert self._check_cli_pattern("authentication failed")
+        """Test detection of authentication errors."""
+        assert self._check_auth_pattern("invalid_api_key")
+        assert self._check_auth_pattern("unauthorized")
+        assert self._check_auth_pattern("authentication failed")
 
     def test_detects_cli_errors(self):
         """Test detection of CLI-specific errors."""

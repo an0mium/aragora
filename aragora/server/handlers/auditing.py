@@ -21,8 +21,9 @@ from .base import (
     json_response,
     error_response,
     invalidate_leaderboard_cache,
+    SAFE_SLUG_PATTERN,
 )
-from aragora.server.validation import validate_debate_id, validate_agent_name, validate_id
+from aragora.server.validation import validate_agent_name, validate_id
 from aragora.utils.optional_imports import try_import_class
 
 logger = logging.getLogger(__name__)
@@ -339,14 +340,10 @@ class AuditingHandler(BaseHandler):
             return self._run_deep_audit(handler)
 
         if path.startswith("/api/debates/") and path.endswith("/red-team"):
-            # Extract debate_id from path
-            parts = path.split("/")
-            if len(parts) >= 4:
-                debate_id = parts[3]
-                is_valid, err = validate_debate_id(debate_id)
-                if not is_valid:
-                    return error_response(err, 400)
-                return self._run_red_team_analysis(debate_id, handler)
+            debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
+            if err:
+                return err
+            return self._run_red_team_analysis(debate_id, handler)
 
         return None
 

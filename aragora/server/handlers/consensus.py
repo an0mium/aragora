@@ -13,13 +13,9 @@ Endpoints:
 
 import json
 import logging
-import sqlite3
 from typing import Optional
 
-from contextlib import contextmanager
-
 from aragora.config import (
-    DB_TIMEOUT_SECONDS,
     CACHE_TTL_CONSENSUS_SIMILAR,
     CACHE_TTL_CONSENSUS_SETTLED,
     CACHE_TTL_CONSENSUS_STATS,
@@ -39,18 +35,9 @@ from .base import (
     SAFE_ID_PATTERN,
     ttl_cache,
     require_feature,
+    get_db_connection,
 )
 from aragora.utils.optional_imports import try_import
-
-
-@contextmanager
-def _get_connection(db_path: str):
-    """Get a database connection with proper cleanup."""
-    conn = sqlite3.connect(db_path, timeout=DB_TIMEOUT_SECONDS)
-    try:
-        yield conn
-    finally:
-        conn.close()
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +175,7 @@ class ConsensusHandler(BaseHandler):
         """Get high-confidence settled topics."""
         try:
             memory = ConsensusMemory()
-            with _get_connection(memory.db_path) as conn:
+            with get_db_connection(memory.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT topic, conclusion, confidence, strength, timestamp
@@ -224,7 +211,7 @@ class ConsensusHandler(BaseHandler):
             memory = ConsensusMemory()
             raw_stats = memory.get_statistics()
 
-            with _get_connection(memory.db_path) as conn:
+            with get_db_connection(memory.db_path) as conn:
                 cursor = conn.cursor()
                 # Combined query for better performance
                 cursor.execute("""
@@ -258,7 +245,7 @@ class ConsensusHandler(BaseHandler):
         try:
             memory = ConsensusMemory()
 
-            with _get_connection(memory.db_path) as conn:
+            with get_db_connection(memory.db_path) as conn:
                 cursor = conn.cursor()
                 query = """
                     SELECT d.data, c.topic, c.conclusion
@@ -306,7 +293,7 @@ class ConsensusHandler(BaseHandler):
                 retriever = DissentRetriever(memory)
                 records = retriever.find_contrarian_views(topic, domain=domain, limit=limit)
             else:
-                with _get_connection(memory.db_path) as conn:
+                with get_db_connection(memory.db_path) as conn:
                     cursor = conn.cursor()
                     query = """
                         SELECT data FROM dissent
@@ -353,7 +340,7 @@ class ConsensusHandler(BaseHandler):
                 retriever = DissentRetriever(memory)
                 records = retriever.find_risk_warnings(topic, domain=domain, limit=limit)
             else:
-                with _get_connection(memory.db_path) as conn:
+                with get_db_connection(memory.db_path) as conn:
                     cursor = conn.cursor()
                     query = """
                         SELECT data FROM dissent

@@ -7,7 +7,6 @@ Endpoints:
 """
 
 import logging
-import re
 
 logger = logging.getLogger(__name__)
 from pathlib import Path
@@ -19,8 +18,6 @@ from .base import (
     json_response,
     error_response,
     get_int_param,
-    validate_path_segment,
-    SAFE_ID_PATTERN,
 )
 
 # Optional import for tournament functionality
@@ -55,10 +52,10 @@ class TournamentHandler(BaseHandler):
 
         # Match /api/tournaments/{id}/standings
         if path.startswith("/api/tournaments/") and path.endswith("/standings"):
-            parts = path.split("/")
-            if len(parts) >= 4:
-                tournament_id = parts[3]
-                return self._get_tournament_standings(tournament_id)
+            tournament_id, err = self.extract_path_param(path, 2, "tournament_id")
+            if err:
+                return err
+            return self._get_tournament_standings(tournament_id)
 
         return None
 
@@ -103,11 +100,6 @@ class TournamentHandler(BaseHandler):
         """Get current tournament standings."""
         if not TOURNAMENT_AVAILABLE:
             return error_response("Tournament system not available", 503)
-
-        # Validate tournament_id to prevent path traversal
-        valid, err = validate_path_segment(tournament_id, "tournament ID", SAFE_ID_PATTERN)
-        if not valid:
-            return error_response(err, 400)
 
         nomic_dir = self.ctx.get("nomic_dir")
         if not nomic_dir:

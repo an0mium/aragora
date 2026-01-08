@@ -10,7 +10,6 @@ Endpoints:
 from typing import Optional
 from .base import (
     BaseHandler, HandlerResult, json_response, error_response,
-    validate_path_segment, SAFE_ID_PATTERN,
 )
 
 
@@ -41,13 +40,10 @@ class DocumentHandler(BaseHandler):
 
         if path.startswith("/api/documents/"):
             # Extract doc_id from /api/documents/{doc_id}
-            parts = path.split("/")
-            if len(parts) == 4:
-                doc_id = parts[3]
-                is_valid, err = validate_path_segment(doc_id, "document_id", SAFE_ID_PATTERN)
-                if not is_valid:
-                    return error_response(err, 400)
-                return self._get_document(doc_id)
+            doc_id, err = self.extract_path_param(path, 2, "document_id")
+            if err:
+                return err
+            return self._get_document(doc_id)
 
         return None
 

@@ -5,13 +5,19 @@ This module provides centralized initialization and routing for all modular
 HTTP handlers. The HandlerRegistryMixin can be mixed into request handler
 classes to add modular routing capabilities.
 
+Features:
+- O(1) exact path lookup via route index
+- LRU cached prefix matching for dynamic routes
+- Lazy handler initialization
+
 Usage:
     class MyHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):
         pass
 """
 
 import logging
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from functools import lru_cache
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import BaseHandler, HandlerResult
@@ -96,7 +102,7 @@ except ImportError:
 
 # Handler class registry - ordered list of (attr_name, handler_class) pairs
 # Handlers are tried in this order during routing
-HANDLER_REGISTRY: List[tuple] = [
+HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_system_handler", SystemHandler),
     ("_debates_handler", DebatesHandler),
     ("_agents_handler", AgentsHandler),
@@ -130,6 +136,125 @@ HANDLER_REGISTRY: List[tuple] = [
     ("_probes_handler", ProbesHandler),
     ("_insights_handler", InsightsHandler),
 ]
+
+
+class RouteIndex:
+    """O(1) route lookup index for handler dispatch.
+
+    Builds an index of exact paths and prefix patterns at initialization,
+    enabling fast route resolution without iterating through all handlers.
+
+    Performance:
+    - Exact paths: O(1) dict lookup
+    - Dynamic paths: O(1) LRU cache hit, O(n) cache miss with prefix scan
+    """
+
+    def __init__(self):
+        # Exact path → (attr_name, handler) mapping
+        self._exact_routes: Dict[str, Tuple[str, Any]] = {}
+        # Prefix patterns for dynamic routes: [(prefix, attr_name, handler)]
+        self._prefix_routes: List[Tuple[str, str, Any]] = []
+        # Cache for resolved dynamic routes
+        self._cache_size = 500
+
+    def build(self, registry_mixin: "HandlerRegistryMixin") -> None:
+        """Build route index from initialized handlers.
+
+        Extracts ROUTES from each handler for exact matching,
+        and identifies prefix patterns from can_handle logic.
+        """
+        self._exact_routes.clear()
+        self._prefix_routes.clear()
+
+        # Known prefix patterns by handler (extracted from can_handle implementations)
+        PREFIX_PATTERNS = {
+            "_debates_handler": ["/api/debates/", "/api/search"],
+            "_agents_handler": ["/api/agent/", "/api/agents", "/api/leaderboard",
+                               "/api/rankings", "/api/calibration/leaderboard",
+                               "/api/matches/recent"],
+            "_pulse_handler": ["/api/pulse/"],
+            "_consensus_handler": ["/api/consensus/"],
+            "_belief_handler": ["/api/belief-network/", "/api/laboratory/"],
+            "_genesis_handler": ["/api/genesis/"],
+            "_replays_handler": ["/api/replays/"],
+            "_tournament_handler": ["/api/tournaments/"],
+            "_memory_handler": ["/api/memory/"],
+            "_document_handler": ["/api/documents/"],
+            "_auditing_handler": ["/api/debates/"],  # for /red-team
+            "_relationship_handler": ["/api/relationship/"],
+            "_moments_handler": ["/api/moments/"],
+            "_persona_handler": ["/api/personas", "/api/agent/"],
+            "_introspection_handler": ["/api/introspection/"],
+            "_calibration_handler": ["/api/agent/"],
+            "_evolution_handler": ["/api/evolution/"],
+            "_plugins_handler": ["/api/plugins/"],
+            "_audio_handler": ["/audio/", "/api/podcast/"],
+            "_social_handler": ["/api/youtube/", "/api/debates/"],
+            "_broadcast_handler": ["/api/debates/"],
+            "_insights_handler": ["/api/insights/"],
+        }
+
+        for attr_name, _ in HANDLER_REGISTRY:
+            handler = getattr(registry_mixin, attr_name, None)
+            if handler is None:
+                continue
+
+            # Extract exact routes from ROUTES attribute
+            routes = getattr(handler, 'ROUTES', [])
+            for path in routes:
+                if path not in self._exact_routes:
+                    self._exact_routes[path] = (attr_name, handler)
+
+            # Add prefix patterns
+            prefixes = PREFIX_PATTERNS.get(attr_name, [])
+            for prefix in prefixes:
+                self._prefix_routes.append((prefix, attr_name, handler))
+
+        # Clear the LRU cache when index is rebuilt
+        self._get_handler_cached.cache_clear()
+
+        logger.debug(
+            f"[route-index] Built index: {len(self._exact_routes)} exact, "
+            f"{len(self._prefix_routes)} prefix patterns"
+        )
+
+    def get_handler(self, path: str) -> Optional[Tuple[str, Any]]:
+        """Get handler for path with O(1) lookup for known routes.
+
+        Args:
+            path: URL path to match
+
+        Returns:
+            Tuple of (attr_name, handler) or None if no match
+        """
+        # Fast path: exact match
+        if path in self._exact_routes:
+            return self._exact_routes[path]
+
+        # Cached prefix lookup for dynamic routes
+        return self._get_handler_cached(path)
+
+    @lru_cache(maxsize=500)
+    def _get_handler_cached(self, path: str) -> Optional[Tuple[str, Any]]:
+        """Cached prefix matching for dynamic routes."""
+        for prefix, attr_name, handler in self._prefix_routes:
+            if path.startswith(prefix):
+                # Verify with handler's can_handle for complex patterns
+                if handler.can_handle(path):
+                    return (attr_name, handler)
+        return None
+
+
+# Global route index instance
+_route_index: Optional[RouteIndex] = None
+
+
+def get_route_index() -> RouteIndex:
+    """Get or create the global route index."""
+    global _route_index
+    if _route_index is None:
+        _route_index = RouteIndex()
+    return _route_index
 
 
 class HandlerRegistryMixin:
@@ -224,6 +349,10 @@ class HandlerRegistryMixin:
         cls._handlers_initialized = True
         logger.info(f"[handlers] Modular handlers initialized ({len(HANDLER_REGISTRY)} handlers)")
 
+        # Build route index for O(1) dispatch
+        route_index = get_route_index()
+        route_index.build(cls)
+
         # Log resource availability for observability
         cls._log_resource_availability(nomic_dir)
 
@@ -265,6 +394,9 @@ class HandlerRegistryMixin:
     def _try_modular_handler(self, path: str, query: dict) -> bool:
         """Try to handle request via modular handlers.
 
+        Uses O(1) route index for fast handler lookup instead of iterating
+        through all handlers.
+
         Returns True if handled, False if should fall through to legacy routes.
         """
         if not HANDLERS_AVAILABLE:
@@ -279,32 +411,45 @@ class HandlerRegistryMixin:
         # Determine HTTP method for routing
         method = getattr(self, 'command', 'GET')
 
-        # Try each handler in order
-        for attr_name, _ in HANDLER_REGISTRY:
-            handler = getattr(self, attr_name, None)
-            if handler and handler.can_handle(path):
-                try:
-                    # Call handle() for GET, handle_post() for POST if available
-                    if method == 'POST' and hasattr(handler, 'handle_post'):
-                        result = handler.handle_post(path, query_dict, self)
-                    else:
-                        result = handler.handle(path, query_dict, self)
+        # O(1) route lookup via index
+        route_index = get_route_index()
+        route_match = route_index.get_handler(path)
 
-                    if result:
-                        self.send_response(result.status_code)
-                        self.send_header('Content-Type', result.content_type)
-                        for h_name, h_val in result.headers.items():
-                            self.send_header(h_name, h_val)
-                        # Add CORS and security headers for modular handlers
-                        self._add_cors_headers()
-                        self._add_security_headers()
-                        self.end_headers()
-                        self.wfile.write(result.body)
-                        return True
-                except Exception as e:
-                    logger.error(f"[handlers] Error in {handler.__class__.__name__}: {e}")
-                    # Fall through to legacy handler on error
-                    return False
+        if route_match is None:
+            # Fallback: iterate through handlers for edge cases not in index
+            for attr_name, _ in HANDLER_REGISTRY:
+                handler = getattr(self, attr_name, None)
+                if handler and handler.can_handle(path):
+                    route_match = (attr_name, handler)
+                    break
+
+        if route_match is None:
+            return False
+
+        attr_name, handler = route_match
+
+        try:
+            # Call handle() for GET, handle_post() for POST if available
+            if method == 'POST' and hasattr(handler, 'handle_post'):
+                result = handler.handle_post(path, query_dict, self)
+            else:
+                result = handler.handle(path, query_dict, self)
+
+            if result:
+                self.send_response(result.status_code)
+                self.send_header('Content-Type', result.content_type)
+                for h_name, h_val in result.headers.items():
+                    self.send_header(h_name, h_val)
+                # Add CORS and security headers for modular handlers
+                self._add_cors_headers()
+                self._add_security_headers()
+                self.end_headers()
+                self.wfile.write(result.body)
+                return True
+        except Exception as e:
+            logger.error(f"[handlers] Error in {handler.__class__.__name__}: {e}")
+            # Fall through to legacy handler on error
+            return False
 
         return False
 
@@ -334,4 +479,6 @@ __all__ = [
     "HandlerRegistryMixin",
     "HANDLER_REGISTRY",
     "HANDLERS_AVAILABLE",
+    "RouteIndex",
+    "get_route_index",
 ]

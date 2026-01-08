@@ -575,6 +575,101 @@ class TestErrorClassifier:
         assert ErrorClassifier.get_error_category(Exception("context length exceeded")) == "validation"
 
 
+class TestNewPatterns:
+    """Test newly added error patterns."""
+
+    def test_ssl_certificate_errors(self) -> None:
+        """SSL/TLS certificate errors are detected as network errors."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.is_network_error("ssl error: certificate verify failed") is True
+        assert ErrorClassifier.is_network_error("SSL handshake failed") is True
+        assert ErrorClassifier.is_network_error("certificate expired") is True
+        assert ErrorClassifier.is_network_error("cert verify failed") is True
+
+    def test_proxy_errors(self) -> None:
+        """Proxy-related errors are detected as network errors."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.is_network_error("proxy error: connection failed") is True
+        assert ErrorClassifier.is_network_error("HTTP 407 Proxy Authentication Required") is True
+        assert ErrorClassifier.is_network_error("tunnel connection failed") is True
+
+    def test_dns_resolution_errors(self) -> None:
+        """DNS resolution errors are detected as network errors."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.is_network_error("dns resolution failed") is True
+        assert ErrorClassifier.is_network_error("getaddrinfo failed") is True
+        assert ErrorClassifier.is_network_error("nodename nor servname provided") is True
+
+    def test_internal_server_error_500(self) -> None:
+        """HTTP 500 errors are detected as network errors."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.is_network_error("HTTP 500 Internal Server Error") is True
+        assert ErrorClassifier.is_network_error("internal server error") is True
+
+    def test_context_window_validation(self) -> None:
+        """Context window exceeded is detected as validation error."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.is_validation_error("context window exceeded") is True
+        assert ErrorClassifier.is_validation_error("maximum context limit") is True
+        assert ErrorClassifier.is_validation_error("token limit exceeded") is True
+        assert ErrorClassifier.is_validation_error("input too large") is True
+        assert ErrorClassifier.is_validation_error("prompt too long") is True
+
+    def test_provider_specific_validation(self) -> None:
+        """Provider-specific validation patterns are detected."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.is_validation_error("string_above_max_length") is True
+        assert ErrorClassifier.is_validation_error("please reduce your prompt") is True
+        assert ErrorClassifier.is_validation_error("reduce the length of your input") is True
+        assert ErrorClassifier.is_validation_error("exceeds the model's limit") is True
+        assert ErrorClassifier.is_validation_error("exceeds maximum allowed") is True
+
+    def test_model_access_errors(self) -> None:
+        """Model access and availability errors are detected."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.is_model_error("model does not exist") is True
+        assert ErrorClassifier.is_model_error("does not support this feature") is True
+        assert ErrorClassifier.is_model_error("model_access_denied") is True
+        assert ErrorClassifier.is_model_error("this model has been decommissioned") is True
+        assert ErrorClassifier.is_model_error("not available in your region") is True
+
+    def test_content_policy_natural_language(self) -> None:
+        """Natural language content policy responses are detected."""
+        from aragora.agents.errors import ErrorClassifier
+
+        assert ErrorClassifier.is_content_policy_error("I cannot assist with that") is True
+        assert ErrorClassifier.is_content_policy_error("I'm unable to generate") is True
+        assert ErrorClassifier.is_content_policy_error("output blocked by safety") is True
+        assert ErrorClassifier.is_content_policy_error("response blocked") is True
+        assert ErrorClassifier.is_content_policy_error("violates ethical guidelines") is True
+
+    def test_classify_full_with_new_patterns(self) -> None:
+        """classify_full correctly handles new patterns."""
+        from aragora.agents.errors import ErrorClassifier, ErrorCategory
+
+        # SSL error -> network
+        result = ErrorClassifier.classify_full(Exception("SSL certificate verify failed"))
+        assert result.category == ErrorCategory.NETWORK
+        assert result.should_fallback is True
+
+        # Context window -> validation
+        result = ErrorClassifier.classify_full(Exception("context window exceeded"))
+        assert result.category == ErrorCategory.VALIDATION
+        assert result.should_fallback is False
+
+        # Model access -> model
+        result = ErrorClassifier.classify_full(Exception("model_access_denied"))
+        assert result.category == ErrorCategory.MODEL
+        assert result.should_fallback is True
+
+
 class TestClassifyFull:
     """Test the comprehensive classify_full method."""
 

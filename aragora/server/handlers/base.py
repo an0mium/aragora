@@ -43,6 +43,7 @@ __all__ = [
     "invalidate_on_event", "invalidate_leaderboard_cache", "invalidate_agent_cache",
     "invalidate_debate_cache", "PathMatcher", "RouteDispatcher", "safe_fetch",
     "get_db_connection", "safe_get", "safe_get_nested",
+    "SAFE_ID_PATTERN", "SAFE_SLUG_PATTERN", "SAFE_AGENT_PATTERN",
 ]
 
 logger = logging.getLogger(__name__)

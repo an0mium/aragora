@@ -99,6 +99,7 @@ NETWORK_ERROR_PATTERNS: tuple[str, ...] = (
     # Capacity/availability errors
     "503", "service unavailable",
     "502", "bad gateway",
+    "500", "internal server error",
     "overloaded", "capacity",
     "temporarily unavailable", "try again later",
     "server busy", "high demand",
@@ -109,6 +110,16 @@ NETWORK_ERROR_PATTERNS: tuple[str, ...] = (
     "could not resolve host", "name or service not known",
     "econnrefused", "econnreset", "etimedout",
     "no route to host", "network is unreachable",
+    # SSL/TLS errors
+    "ssl error", "ssl_error", "certificate verify failed",
+    "ssl handshake", "ssl: certificate",
+    "certificate expired", "cert verify",
+    # Proxy errors
+    "proxy error", "proxy authentication",
+    "tunnel connection failed", "407",
+    # DNS errors
+    "dns resolution failed", "getaddrinfo failed",
+    "nodename nor servname provided",
 )
 
 CLI_ERROR_PATTERNS: tuple[str, ...] = (
@@ -134,13 +145,20 @@ AUTH_ERROR_PATTERNS: tuple[str, ...] = (
 VALIDATION_ERROR_PATTERNS: tuple[str, ...] = (
     # Input validation errors
     "context length", "context_length",
+    "context window", "context_window",
     "too long", "max_tokens",
+    "maximum context", "token limit",
+    "input too large", "prompt too long",
     "invalid input", "invalid_input",
     "bad request", "400",
     "validation error", "validation_error",
     "malformed", "invalid format",
     "missing required", "required field",
     "out of range", "invalid value",
+    # Provider-specific validation
+    "string_above_max_length",
+    "reduce your prompt", "reduce the length",
+    "exceeds the model", "exceeds maximum",
 )
 
 MODEL_ERROR_PATTERNS: tuple[str, ...] = (
@@ -151,6 +169,11 @@ MODEL_ERROR_PATTERNS: tuple[str, ...] = (
     "model unavailable", "model_unavailable",
     "unsupported model", "invalid model",
     "model deprecated", "model_deprecated",
+    # Provider-specific model errors
+    "does not exist", "does not support",
+    "model access", "model_access_denied",
+    "decommissioned", "no longer available",
+    "not available in your region",
 )
 
 CONTENT_POLICY_PATTERNS: tuple[str, ...] = (
@@ -162,6 +185,11 @@ CONTENT_POLICY_PATTERNS: tuple[str, ...] = (
     "harmful content", "inappropriate",
     "policy violation", "terms of service",
     "refused to generate", "cannot generate",
+    # Provider-specific content blocks
+    "i cannot", "i'm unable to",
+    "output blocked", "response blocked",
+    "content violation", "safety system",
+    "ethical guidelines", "usage policies",
 )
 
 # Combined patterns for fallback decisions (all error types that should trigger fallback)

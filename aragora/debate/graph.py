@@ -356,6 +356,17 @@ class DebateGraph:
         self.merge_history: list[MergeResult] = []
         self.created_at = datetime.now()
 
+        # Caching for graph traversal operations
+        self._cache_version: int = 0
+        self._branch_nodes_cache: dict[tuple[str, int], list[DebateNode]] = {}
+        self._path_cache: dict[tuple[str, int], list[DebateNode]] = {}
+        self._leaf_nodes_cache: tuple[int, list[DebateNode]] | None = None
+        self._active_branches_cache: tuple[int, list[Branch]] | None = None
+
+    def _invalidate_cache(self) -> None:
+        """Invalidate all caches when graph structure changes."""
+        self._cache_version += 1
+
     def add_node(
         self,
         node_type: NodeType,
@@ -402,6 +413,9 @@ class DebateGraph:
             self.branches[branch_id].node_count += 1
             self.branches[branch_id].end_node_id = node_id
 
+        # Invalidate caches when graph changes
+        self._invalidate_cache()
+
         return node
 
     def create_branch(
@@ -433,6 +447,9 @@ class DebateGraph:
             source_node.metadata["is_branch_point"] = True
             source_node.metadata["branch_ids"] = source_node.metadata.get("branch_ids", [])
             source_node.metadata["branch_ids"].append(branch_id)
+
+        # Invalidate caches when graph changes
+        self._invalidate_cache()
 
         return branch
 
@@ -497,20 +514,39 @@ class DebateGraph:
         )
 
         self.merge_history.append(result)
+
+        # Invalidate caches when graph changes
+        self._invalidate_cache()
+
         return result
 
     def get_branch_nodes(self, branch_id: str) -> list[DebateNode]:
-        """Get all nodes in a branch."""
-        return [n for n in self.nodes.values() if n.branch_id == branch_id]
+        """Get all nodes in a branch (cached)."""
+        cache_key = (branch_id, self._cache_version)
+        if cache_key in self._branch_nodes_cache:
+            return self._branch_nodes_cache[cache_key]
+
+        result = [n for n in self.nodes.values() if n.branch_id == branch_id]
+        self._branch_nodes_cache[cache_key] = result
+        return result
 
     def get_active_branches(self) -> list[Branch]:
-        """Get all active (unmerged) branches."""
-        return [b for b in self.branches.values() if b.is_active]
+        """Get all active (unmerged) branches (cached)."""
+        if self._active_branches_cache and self._active_branches_cache[0] == self._cache_version:
+            return self._active_branches_cache[1]
+
+        result = [b for b in self.branches.values() if b.is_active]
+        self._active_branches_cache = (self._cache_version, result)
+        return result
 
     def get_path_to_node(self, node_id: str) -> list[DebateNode]:
-        """Get the path from root to a specific node."""
+        """Get the path from root to a specific node (cached)."""
         if node_id not in self.nodes:
             return []
+
+        cache_key = (node_id, self._cache_version)
+        if cache_key in self._path_cache:
+            return self._path_cache[cache_key]
 
         path = []
         current_id = node_id
@@ -525,11 +561,18 @@ class DebateGraph:
             else:
                 break
 
-        return list(reversed(path))
+        result = list(reversed(path))
+        self._path_cache[cache_key] = result
+        return result
 
     def get_leaf_nodes(self) -> list[DebateNode]:
-        """Get all nodes with no children (current endpoints)."""
-        return [n for n in self.nodes.values() if not n.child_ids]
+        """Get all nodes with no children (current endpoints) (cached)."""
+        if self._leaf_nodes_cache and self._leaf_nodes_cache[0] == self._cache_version:
+            return self._leaf_nodes_cache[1]
+
+        result = [n for n in self.nodes.values() if not n.child_ids]
+        self._leaf_nodes_cache = (self._cache_version, result)
+        return result
 
     def check_convergence(self) -> list[tuple[Branch, Branch, float]]:
         """Check for convergent branches that could be merged."""

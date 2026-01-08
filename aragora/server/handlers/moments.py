@@ -18,8 +18,6 @@ from .base import (
     json_response,
     error_response,
     get_int_param,
-    validate_path_segment,
-    SAFE_ID_PATTERN,
 )
 from aragora.utils.optional_imports import try_import
 
@@ -80,17 +78,16 @@ class MomentsHandler(BaseHandler):
 
         # Handle /api/moments/by-type/{type}
         if path.startswith("/api/moments/by-type/"):
-            parts = path.split("/")
-            if len(parts) >= 5:
-                moment_type = parts[4]
-                # Validate moment type
-                is_valid, err = validate_path_segment(moment_type, "moment_type", SAFE_ID_PATTERN)
-                if not is_valid:
-                    return error_response(err, 400)
-                if moment_type not in VALID_MOMENT_TYPES:
-                    return error_response(f"Invalid moment type: {moment_type}. Valid types: {', '.join(sorted(VALID_MOMENT_TYPES))}", 400)
-                limit = get_int_param(query_params, 'limit', 50)
-                return self._get_by_type(moment_type, min(limit, 200))
+            moment_type, err = self.extract_path_param(path, 3, "moment_type")
+            if err:
+                return err
+            if moment_type not in VALID_MOMENT_TYPES:
+                return error_response(
+                    f"Invalid moment type: {moment_type}. Valid types: {', '.join(sorted(VALID_MOMENT_TYPES))}",
+                    400
+                )
+            limit = get_int_param(query_params, 'limit', 50)
+            return self._get_by_type(moment_type, min(limit, 200))
 
         return None
 

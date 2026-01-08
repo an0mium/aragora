@@ -683,7 +683,7 @@ class TestAgentsErrorHandling:
 
     def test_compare_exception_returns_500(self, agents_handler, mock_elo_system):
         """Should return 500 on compare exceptions."""
-        mock_elo_system.get_rating.side_effect = Exception("Compare error")
+        mock_elo_system.get_ratings_batch.side_effect = Exception("Compare error")
 
         result = agents_handler.handle("/api/agent/compare", {"agents": ["a", "b"]}, None)
 

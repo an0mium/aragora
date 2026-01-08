@@ -548,7 +548,7 @@ class TestAnalyticsHandlerE2E:
     def mock_storage_with_debates(self):
         """Create mock storage with debate data."""
         storage = Mock()
-        storage.list_recent.return_value = [
+        debates = [
             {
                 "id": "d1",
                 "result": {
@@ -574,6 +574,9 @@ class TestAnalyticsHandlerE2E:
                 ],
             },
         ]
+        # Configure both list_recent (debates handler) and list_debates (analytics handler)
+        storage.list_recent.return_value = debates
+        storage.list_debates.return_value = debates
         return storage
 
     @pytest.fixture

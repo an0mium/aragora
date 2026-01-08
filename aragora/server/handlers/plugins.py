@@ -20,7 +20,6 @@ from .base import (
     error_response,
     handle_errors,
 )
-from aragora.server.validation import validate_plugin_name
 
 logger = logging.getLogger(__name__)
 
@@ -58,13 +57,10 @@ class PluginsHandler(BaseHandler):
 
         # Get plugin details: /api/plugins/{name}
         if path.startswith("/api/plugins/") and not path.endswith("/run"):
-            parts = path.split("/")
-            if len(parts) == 4:
-                plugin_name = parts[3]
-                is_valid, err = validate_plugin_name(plugin_name)
-                if not is_valid:
-                    return error_response(err, 400)
-                return self._get_plugin(plugin_name)
+            plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
+            if err:
+                return err
+            return self._get_plugin(plugin_name)
 
         return None
 
@@ -72,13 +68,10 @@ class PluginsHandler(BaseHandler):
         """Route POST requests to appropriate methods."""
         # Run plugin: /api/plugins/{name}/run
         if path.startswith("/api/plugins/") and path.endswith("/run"):
-            parts = path.split("/")
-            if len(parts) == 5:
-                plugin_name = parts[3]
-                is_valid, err = validate_plugin_name(plugin_name)
-                if not is_valid:
-                    return error_response(err, 400)
-                return self._run_plugin(plugin_name, handler)
+            plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
+            if err:
+                return err
+            return self._run_plugin(plugin_name, handler)
         return None
 
     @handle_errors("list plugins")
