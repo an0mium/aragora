@@ -239,8 +239,8 @@ class Tournament:
         round_num = 0
 
         while len(remaining) > 1:
-            round_matches = []
-            next_round = []
+            round_matches: list[TournamentMatch] = []
+            next_round: list[str | None] = []
 
             for i in range(0, len(remaining), 2):
                 if i + 1 < len(remaining):
@@ -277,7 +277,7 @@ class Tournament:
         )
 
         # Pair adjacent agents
-        paired = set()
+        paired: set[str] = set()
         for i in range(0, len(sorted_agents), 2):
             if i + 1 < len(sorted_agents):
                 agent_a = sorted_agents[i].agent_name
