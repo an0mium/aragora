@@ -120,6 +120,31 @@ jobs:
               echo "Configuring Sentry DSN..."
               echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" > .env
             fi
+            # Update systemd service if needed
+            echo "Updating systemd service..."
+            sudo tee /etc/systemd/system/aragora.service > /dev/null << 'SERVICE'
+[Unit]
+Description=Aragora Debate Server
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/aragora
+Environment="PATH=/home/ubuntu/aragora/venv/bin"
+EnvironmentFile=-/home/ubuntu/aragora/.env
+ExecStart=/home/ubuntu/aragora/venv/bin/python -m aragora.server --host 0.0.0.0 --port 8765 --http-port 8080 --nomic-dir /home/ubuntu/aragora/.nomic
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aragora
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+            sudo systemctl daemon-reload
             echo "Restarting service..."
             sudo systemctl restart aragora
             echo "Checking service status..."
