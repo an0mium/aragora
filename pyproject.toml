@@ -146,6 +146,9 @@ module = [
     "aragora.server.validation",
     "aragora.protocols",
     "aragora.ranking.elo_core",
+    "aragora.debate.autonomic_executor",
+    "aragora.debate.sanitization",
+    "aragora.resilience",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

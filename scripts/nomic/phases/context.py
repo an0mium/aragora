@@ -8,11 +8,31 @@ Phase 0: Gather codebase understanding
 """
 
 import asyncio
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, List, Optional, Tuple
 
 from . import ContextResult
+
+# Optional metrics recording (imported lazily to avoid circular imports)
+_metrics_recorder: Optional[Callable[[str, str, float], None]] = None
+_agent_metrics_recorder: Optional[Callable[[str, str, float], None]] = None
+
+
+def set_metrics_recorder(
+    phase_recorder: Optional[Callable[[str, str, float], None]] = None,
+    agent_recorder: Optional[Callable[[str, str, float], None]] = None,
+) -> None:
+    """Set the metrics recorder callbacks for profiling.
+
+    Args:
+        phase_recorder: Callback(phase, outcome, duration_seconds)
+        agent_recorder: Callback(phase, agent, duration_seconds)
+    """
+    global _metrics_recorder, _agent_metrics_recorder
+    _metrics_recorder = phase_recorder
+    _agent_metrics_recorder = agent_recorder
 
 
 class ContextPhase:
@@ -72,7 +92,8 @@ class ContextPhase:
         Returns:
             ContextResult with gathered codebase context
         """
-        phase_start = datetime.now()
+        phase_start = time.perf_counter()
+        phase_start_dt = datetime.now()
 
         # Determine how many agents will participate
         use_kilocode = self.kilocode_available and not self.skip_kilocode
@@ -148,15 +169,20 @@ class ContextPhase:
 
         gathered_context = "\n\n".join(combined_context)
 
-        phase_duration = (datetime.now() - phase_start).total_seconds()
+        phase_duration = time.perf_counter() - phase_start
+        success = len(combined_context) > 0
         self._log(f"  Context gathered from {len(combined_context)} agents in {phase_duration:.1f}s")
         self._stream_emit(
-            "on_phase_end", "context", self.cycle_count, True,
+            "on_phase_end", "context", self.cycle_count, success,
             phase_duration, {"agents": len(combined_context), "context_length": len(gathered_context)}
         )
 
+        # Record metrics if configured
+        if _metrics_recorder:
+            _metrics_recorder("context", "success" if success else "failure", phase_duration)
+
         return ContextResult(
-            success=True,
+            success=success,
             data={"agents_succeeded": len(combined_context)},
             duration_seconds=phase_duration,
             codebase_summary=gathered_context,
@@ -200,6 +226,7 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
         harness: str
     ) -> Tuple[str, str, str]:
         """Run exploration with one agent."""
+        agent_start = time.perf_counter()
         try:
             self._log(f"  {name} ({harness}): exploring codebase...", agent=name)
             prompt = self._build_explore_prompt()
@@ -212,6 +239,11 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
         except Exception as e:
             self._log(f"  {name}: error - {e}", agent=name)
             return (name, harness, f"Error: {e}")
+        finally:
+            # Record per-agent metrics
+            if _agent_metrics_recorder:
+                agent_duration = time.perf_counter() - agent_start
+                _agent_metrics_recorder("context", name, agent_duration)
 
 
-__all__ = ["ContextPhase"]
+__all__ = ["ContextPhase", "set_metrics_recorder"]

@@ -13,7 +13,7 @@ import threading
 import time
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, AsyncGenerator, Generator, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -371,7 +371,7 @@ class CircuitBreaker:
         }
 
     @classmethod
-    def from_dict(cls, data: dict, **kwargs) -> "CircuitBreaker":
+    def from_dict(cls, data: dict[str, Any], **kwargs: Any) -> "CircuitBreaker":
         """Load from persisted dict."""
         cb = cls(**kwargs)
         entity_data = data.get("entity_mode", data)  # Support both formats
@@ -383,7 +383,9 @@ class CircuitBreaker:
         return cb
 
     @asynccontextmanager
-    async def protected_call(self, entity: str | None = None, circuit_name: str | None = None):
+    async def protected_call(
+        self, entity: str | None = None, circuit_name: str | None = None
+    ) -> AsyncGenerator[None, None]:
         """
         Async context manager for circuit-breaker-protected calls.
 
@@ -427,7 +429,9 @@ class CircuitBreaker:
             raise
 
     @contextmanager
-    def protected_call_sync(self, entity: str | None = None, circuit_name: str | None = None):
+    def protected_call_sync(
+        self, entity: str | None = None, circuit_name: str | None = None
+    ) -> Generator[None, None, None]:
         """
         Sync context manager for circuit-breaker-protected calls.
 

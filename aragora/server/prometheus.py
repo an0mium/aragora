@@ -192,6 +192,40 @@ if PROMETHEUS_AVAILABLE:
         ["operation"],  # store, retrieve, consolidate, prune
     )
 
+    # Nomic loop phase metrics
+    NOMIC_PHASE_DURATION = Histogram(
+        "aragora_nomic_phase_duration_seconds",
+        "Time spent in each nomic loop phase",
+        ["phase", "outcome"],  # phase: context, debate, design, implement, verify, commit
+        buckets=[1, 5, 10, 30, 60, 120, 300, 600, 1200],
+    )
+
+    NOMIC_PHASE_TOTAL = Counter(
+        "aragora_nomic_phases_total",
+        "Total nomic phases executed",
+        ["phase", "outcome"],  # outcome: success, failure, skipped
+    )
+
+    NOMIC_CYCLE_DURATION = Histogram(
+        "aragora_nomic_cycle_duration_seconds",
+        "Total time for a complete nomic cycle",
+        ["outcome"],  # outcome: success, failure, partial
+        buckets=[60, 120, 300, 600, 1200, 1800, 3600],
+    )
+
+    NOMIC_CYCLE_TOTAL = Counter(
+        "aragora_nomic_cycles_total",
+        "Total nomic cycles executed",
+        ["outcome"],
+    )
+
+    NOMIC_AGENT_PHASE_DURATION = Histogram(
+        "aragora_nomic_agent_phase_seconds",
+        "Time spent by each agent in a phase",
+        ["phase", "agent"],
+        buckets=[1, 5, 10, 30, 60, 120, 300],
+    )
+
 
 # ============================================================================
 # Fallback Implementation (when prometheus_client not available)
@@ -676,5 +710,118 @@ def timed_db_query_async(operation: str, table: str) -> Callable[[Callable], Cal
             finally:
                 duration = time.perf_counter() - start
                 record_db_query(operation, table, duration)
+        return wrapper
+    return decorator
+
+
+# ============================================================================
+# Nomic Loop Phase Metrics
+# ============================================================================
+
+def record_nomic_phase(
+    phase: str,
+    outcome: str,
+    duration_seconds: float,
+) -> None:
+    """Record a nomic loop phase execution.
+
+    Args:
+        phase: Phase name (context, debate, design, implement, verify, commit)
+        outcome: Phase outcome (success, failure, skipped)
+        duration_seconds: Time spent in the phase
+    """
+    if PROMETHEUS_AVAILABLE:
+        NOMIC_PHASE_DURATION.labels(phase=phase, outcome=outcome).observe(duration_seconds)
+        NOMIC_PHASE_TOTAL.labels(phase=phase, outcome=outcome).inc()
+    else:
+        _simple_metrics.observe_histogram(
+            "aragora_nomic_phase_duration_seconds",
+            duration_seconds,
+            {"phase": phase, "outcome": outcome},
+        )
+        _simple_metrics.inc_counter(
+            "aragora_nomic_phases_total",
+            {"phase": phase, "outcome": outcome},
+        )
+
+
+def record_nomic_cycle(
+    outcome: str,
+    duration_seconds: float,
+) -> None:
+    """Record a complete nomic cycle execution.
+
+    Args:
+        outcome: Cycle outcome (success, failure, partial)
+        duration_seconds: Total cycle time
+    """
+    if PROMETHEUS_AVAILABLE:
+        NOMIC_CYCLE_DURATION.labels(outcome=outcome).observe(duration_seconds)
+        NOMIC_CYCLE_TOTAL.labels(outcome=outcome).inc()
+    else:
+        _simple_metrics.observe_histogram(
+            "aragora_nomic_cycle_duration_seconds",
+            duration_seconds,
+            {"outcome": outcome},
+        )
+        _simple_metrics.inc_counter(
+            "aragora_nomic_cycles_total",
+            {"outcome": outcome},
+        )
+
+
+def record_nomic_agent_phase(
+    phase: str,
+    agent: str,
+    duration_seconds: float,
+) -> None:
+    """Record time spent by an agent in a phase.
+
+    Args:
+        phase: Phase name (context, debate, design, implement, verify)
+        agent: Agent name (claude, codex, gemini, grok)
+        duration_seconds: Time the agent spent in this phase
+    """
+    if PROMETHEUS_AVAILABLE:
+        NOMIC_AGENT_PHASE_DURATION.labels(phase=phase, agent=agent).observe(duration_seconds)
+    else:
+        _simple_metrics.observe_histogram(
+            "aragora_nomic_agent_phase_seconds",
+            duration_seconds,
+            {"phase": phase, "agent": agent},
+        )
+
+
+def timed_nomic_phase(phase: str) -> Callable[[Callable], Callable]:
+    """Async decorator to time nomic phase execution.
+
+    Args:
+        phase: Phase name (context, debate, design, implement, verify, commit)
+
+    Returns:
+        Async decorator that wraps phase execution with timing.
+
+    Usage:
+        @timed_nomic_phase("debate")
+        async def execute(self) -> DebateResult:
+            ...
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            start = time.perf_counter()
+            outcome = "success"
+            try:
+                result = await func(*args, **kwargs)
+                # Check result for success indicator
+                if hasattr(result, "get") and not result.get("success", True):
+                    outcome = "failure"
+                return result
+            except Exception as e:
+                outcome = "failure"
+                raise
+            finally:
+                duration = time.perf_counter() - start
+                record_nomic_phase(phase, outcome, duration)
         return wrapper
     return decorator

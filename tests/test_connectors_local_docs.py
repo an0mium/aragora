@@ -285,8 +285,8 @@ class TestFetchOperations:
         results = await connector.search("Documentation")
         if results:
             evidence_id = results[0].id
-            # Add to cache
-            connector._cache[evidence_id] = results[0]
+            # Add to cache using proper method
+            connector._cache_put(evidence_id, results[0])
 
             # Fetch from cache
             cached = await connector.fetch(evidence_id)

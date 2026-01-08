@@ -14,9 +14,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Awaitable, Optional, TypeVar
 
 from aragora.resilience import CircuitBreaker
+
+T = TypeVar("T")
 from aragora.debate.sanitization import OutputSanitizer
 
 if TYPE_CHECKING:
@@ -57,10 +59,10 @@ class AutonomicExecutor:
 
     async def with_timeout(
         self,
-        coro,
+        coro: Awaitable[T],
         agent_name: str,
         timeout_seconds: Optional[float] = None,
-    ):
+    ) -> T:
         """
         Wrap coroutine with per-agent timeout.
 

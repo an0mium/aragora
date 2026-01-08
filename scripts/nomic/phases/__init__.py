@@ -68,7 +68,7 @@ class CommitResult(PhaseResult):
 # Phase implementations
 from .verify import VerifyPhase
 from .commit import CommitPhase
-from .context import ContextPhase
+from .context import ContextPhase, set_metrics_recorder
 from .implement import ImplementPhase
 from .debate import DebatePhase, DebateConfig, LearningContext, PostDebateHooks
 from .design import DesignPhase, DesignConfig, BeliefContext
@@ -95,4 +95,6 @@ __all__ = [
     "LearningContext",
     "BeliefContext",
     "PostDebateHooks",
+    # Metrics integration
+    "set_metrics_recorder",
 ]

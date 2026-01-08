@@ -1719,11 +1719,13 @@ class NomicLoop:
         with open(self.log_file, "w") as f:
             f.write(f"=== NOMIC LOOP STARTED: {datetime.now().isoformat()} ===\n")
 
-        # Initialize extracted phase classes (gradual migration)
-        # Set USE_EXTRACTED_PHASES=1 to use new modular phase implementations
-        self.use_extracted_phases = os.environ.get("USE_EXTRACTED_PHASES", "0") == "1"
+        # Initialize extracted phase classes (enabled by default)
+        # Set USE_EXTRACTED_PHASES=0 to use legacy inline implementations
+        self.use_extracted_phases = os.environ.get("USE_EXTRACTED_PHASES", "1") == "1"
         if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
             print(f"[phases] Using extracted modular phase classes")
+        elif not self.use_extracted_phases:
+            print(f"[phases] Using legacy inline implementations (USE_EXTRACTED_PHASES=0)")
         self._extracted_phases = {}
 
         # Initialize agents
