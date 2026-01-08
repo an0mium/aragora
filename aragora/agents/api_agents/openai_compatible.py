@@ -12,7 +12,7 @@ This eliminates ~150 lines of duplicate code per agent.
 
 import aiohttp
 import logging
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Callable
 
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.api_agents.common import (
@@ -64,9 +64,9 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
     agent_type: str
     timeout: int
 
-    # Methods inherited from CritiqueMixin (via APIAgent):
-    def _build_context_prompt(self, context: list[Message]) -> str: ...
-    def _parse_critique(self, response: str, target_agent: str, target_content: str) -> Critique: ...
+    # Methods inherited from CritiqueMixin (via APIAgent) - type hints only
+    _build_context_prompt: Callable[[list[Message]], str]
+    _parse_critique: Callable[[str, str, str], Critique]
 
     def _build_headers(self) -> dict:
         """Build request headers. Override to add provider-specific headers."""

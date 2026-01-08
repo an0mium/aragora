@@ -625,7 +625,7 @@ class StaticHTMLExporter:
         x_offset = 50
         y_positions = {"root": 50, "proposal": 150, "critique": 250, "synthesis": 350, "conclusion": 450}
 
-        node_x: dict[str, int] = {}
+        node_x: dict[str, tuple[int, int]] = {}
         type_counts: dict[str, int] = {}
 
         for node_id, node in nodes.items():

@@ -390,13 +390,15 @@ class TestFetchOperations:
     @pytest.mark.asyncio
     async def test_fetch_returns_cached(self, connector):
         """fetch should return cached evidence if available."""
+        import time
         cached_evidence = Evidence(
             id="gh-issue:owner/repo:1",
             source_type=SourceType.EXTERNAL_API,
             source_id="github/owner/repo/issues/1",
             content="Cached content",
         )
-        connector._cache["gh-issue:owner/repo:1"] = cached_evidence
+        # Cache stores (timestamp, evidence) tuples
+        connector._cache["gh-issue:owner/repo:1"] = (time.time(), cached_evidence)
 
         result = await connector.fetch("gh-issue:owner/repo:1")
 

@@ -232,7 +232,8 @@ class TestListReplays:
             result = replays_handler.handle("/api/replays", {}, None)
 
             assert result is not None
-            assert result.status_code == 500
+            # PermissionError is correctly classified as 403 (access denied)
+            assert result.status_code == 403
             data = json.loads(result.body)
             assert "error" in data
 
@@ -341,7 +342,8 @@ class TestGetReplay:
             result = replays_handler.handle("/api/replays/test-id", {}, None)
 
             assert result is not None
-            assert result.status_code == 500
+            # PermissionError is correctly classified as 403 (access denied)
+            assert result.status_code == 403
             data = json.loads(result.body)
             assert "error" in data
 
