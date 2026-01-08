@@ -124,7 +124,7 @@ class LocalDocsConnector(BaseConnector):
                         "context": context,
                     })
 
-        except Exception as e:
+        except (OSError, UnicodeDecodeError, PermissionError) as e:
             logger.debug(f"Failed to search in {path}: {e}")
 
         return matches
@@ -292,7 +292,7 @@ class LocalDocsConnector(BaseConnector):
             self._cache_put(evidence.id, evidence)
             return evidence
 
-        except Exception as e:
+        except (OSError, UnicodeDecodeError, PermissionError) as e:
             logger.debug(f"[local_docs] Failed to read {path}: {e}")
             return None
 

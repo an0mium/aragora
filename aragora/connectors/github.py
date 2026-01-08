@@ -78,7 +78,7 @@ class GitHubConnector(BaseConnector):
                 shell=False,
             )
             self._gh_available = result.returncode == 0
-        except Exception as e:
+        except (subprocess.SubprocessError, FileNotFoundError, OSError, subprocess.TimeoutExpired) as e:
             logger.debug(f"[github] gh CLI check failed: {e}")
             self._gh_available = False
 
@@ -103,7 +103,7 @@ class GitHubConnector(BaseConnector):
             if proc.returncode == 0:
                 return stdout.decode("utf-8")
             return None
-        except Exception as e:
+        except (asyncio.TimeoutError, OSError, UnicodeDecodeError) as e:
             logger.warning(f"[github] gh command failed (args={args[:2]}...): {e}")
             return None
 

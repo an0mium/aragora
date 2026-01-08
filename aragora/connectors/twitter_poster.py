@@ -19,6 +19,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import httpx
+
 from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
@@ -339,8 +341,8 @@ class TwitterPosterConnector:
                         error=f"Twitter API error: {response.status_code}",
                     )
 
-        except Exception as e:
-            logger.error(f"Failed to post tweet: {e}")
+        except httpx.TimeoutException as e:
+            logger.error(f"Timeout posting tweet: {e}")
             self.circuit_breaker.record_failure()
             return TweetResult(
                 tweet_id="",
@@ -348,7 +350,29 @@ class TwitterPosterConnector:
                 created_at=datetime.now().isoformat(),
                 url="",
                 success=False,
-                error=str(e),
+                error=f"Request timeout: {e}",
+            )
+        except httpx.RequestError as e:
+            logger.error(f"Network error posting tweet: {e}")
+            self.circuit_breaker.record_failure()
+            return TweetResult(
+                tweet_id="",
+                text=text,
+                created_at=datetime.now().isoformat(),
+                url="",
+                success=False,
+                error=f"Network error: {e}",
+            )
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.error(f"Failed to parse Twitter response: {e}")
+            self.circuit_breaker.record_failure()
+            return TweetResult(
+                tweet_id="",
+                text=text,
+                created_at=datetime.now().isoformat(),
+                url="",
+                success=False,
+                error=f"Response parse error: {e}",
             )
 
     async def post_thread(self, tweets: list[str]) -> ThreadResult:

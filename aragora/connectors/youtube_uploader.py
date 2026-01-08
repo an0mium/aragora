@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlencode
 
+import httpx
+
 from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
@@ -335,8 +337,14 @@ class YouTubeUploaderConnector:
                     logger.error(f"Token refresh failed: HTTP {response.status_code}")
                     return False
 
-        except Exception as e:
-            logger.error(f"Token refresh error: {e}")
+        except httpx.TimeoutException as e:
+            logger.error(f"Token refresh timeout: {e}")
+            return False
+        except httpx.RequestError as e:
+            logger.error(f"Token refresh network error: {e}")
+            return False
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.error(f"Token refresh parse error: {e}")
             return False
 
     async def _get_access_token(self) -> Optional[str]:
@@ -494,15 +502,35 @@ class YouTubeUploaderConnector:
                         error=f"Upload failed: {upload_response.status_code}",
                     )
 
-        except Exception as e:
-            logger.error(f"YouTube upload failed: {e}")
+        except httpx.TimeoutException as e:
+            logger.error(f"YouTube upload timeout: {e}")
             self.circuit_breaker.record_failure()
             return UploadResult(
                 video_id="",
                 title=metadata.title,
                 url="",
                 success=False,
-                error=str(e),
+                error=f"Upload timeout: {e}",
+            )
+        except httpx.RequestError as e:
+            logger.error(f"YouTube upload network error: {e}")
+            self.circuit_breaker.record_failure()
+            return UploadResult(
+                video_id="",
+                title=metadata.title,
+                url="",
+                success=False,
+                error=f"Network error: {e}",
+            )
+        except (json.JSONDecodeError, KeyError, OSError) as e:
+            logger.error(f"YouTube upload error: {e}")
+            self.circuit_breaker.record_failure()
+            return UploadResult(
+                video_id="",
+                title=metadata.title,
+                url="",
+                success=False,
+                error=f"Upload error: {e}",
             )
 
     async def get_video_status(self, video_id: str) -> dict:
