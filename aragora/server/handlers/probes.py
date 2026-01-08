@@ -24,6 +24,7 @@ from .base import (
     handle_errors,
     invalidate_leaderboard_cache,
 )
+from aragora.server.middleware.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ class ProbesHandler(BaseHandler):
             return self._run_capability_probe(handler)
         return None
 
+    @rate_limit(requests_per_minute=10, burst=3, limiter_name="capability_probe")
     @handle_errors("capability probe")
     def _run_capability_probe(self, handler) -> HandlerResult:
         """Run capability probes on an agent to find vulnerabilities.

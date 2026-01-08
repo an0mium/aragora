@@ -43,6 +43,131 @@ FFPROBE_TIMEOUT = 30  # seconds
 FFMPEG_TIMEOUT = 600  # 10 minutes for video encoding
 IMAGEMAGICK_TIMEOUT = 60  # seconds
 
+# =============================================================================
+# Input Validation Constants
+# =============================================================================
+
+# Resolution limits (width x height)
+MIN_RESOLUTION = (320, 240)      # Minimum reasonable video size
+MAX_RESOLUTION = (3840, 2160)    # 4K max
+DEFAULT_RESOLUTION = (1920, 1080)  # Full HD
+
+# Duration limits (seconds)
+MIN_DURATION_SECONDS = 1
+MAX_DURATION_SECONDS = 3600 * 4  # 4 hours max
+
+# Audio file size limit (500 MB)
+MAX_AUDIO_FILE_SIZE = 500 * 1024 * 1024
+
+# Audio bitrate limits (kbps)
+MIN_AUDIO_BITRATE = 64
+MAX_AUDIO_BITRATE = 320
+DEFAULT_AUDIO_BITRATE = 192
+
+
+def _validate_resolution(width: int, height: int) -> tuple[int, int]:
+    """Validate and clamp resolution to safe bounds.
+
+    Args:
+        width: Requested width
+        height: Requested height
+
+    Returns:
+        Tuple of (clamped_width, clamped_height)
+
+    Raises:
+        ValueError: If resolution values are invalid types
+    """
+    if not isinstance(width, int) or not isinstance(height, int):
+        raise ValueError(f"Resolution must be integers, got width={type(width)}, height={type(height)}")
+
+    if width < 0 or height < 0:
+        raise ValueError(f"Resolution cannot be negative: {width}x{height}")
+
+    # Clamp to valid range
+    clamped_width = max(MIN_RESOLUTION[0], min(width, MAX_RESOLUTION[0]))
+    clamped_height = max(MIN_RESOLUTION[1], min(height, MAX_RESOLUTION[1]))
+
+    if clamped_width != width or clamped_height != height:
+        logger.warning(
+            f"Resolution {width}x{height} clamped to {clamped_width}x{clamped_height}"
+        )
+
+    return clamped_width, clamped_height
+
+
+def _validate_bitrate(bitrate: int) -> int:
+    """Validate and clamp audio bitrate.
+
+    Args:
+        bitrate: Requested bitrate in kbps
+
+    Returns:
+        Clamped bitrate value
+    """
+    if not isinstance(bitrate, int):
+        logger.warning(f"Invalid bitrate type {type(bitrate)}, using default")
+        return DEFAULT_AUDIO_BITRATE
+
+    clamped = max(MIN_AUDIO_BITRATE, min(bitrate, MAX_AUDIO_BITRATE))
+    if clamped != bitrate:
+        logger.warning(f"Bitrate {bitrate}kbps clamped to {clamped}kbps")
+
+    return clamped
+
+
+def _validate_audio_file(audio_path: Path) -> bool:
+    """Validate audio file exists and is within size limits.
+
+    Args:
+        audio_path: Path to audio file
+
+    Returns:
+        True if valid, False otherwise
+    """
+    if not audio_path.exists():
+        logger.error(f"Audio file not found: {audio_path}")
+        return False
+
+    file_size = audio_path.stat().st_size
+    if file_size > MAX_AUDIO_FILE_SIZE:
+        logger.error(
+            f"Audio file too large: {file_size:,} bytes > {MAX_AUDIO_FILE_SIZE:,} bytes limit"
+        )
+        return False
+
+    if file_size == 0:
+        logger.error(f"Audio file is empty: {audio_path}")
+        return False
+
+    return True
+
+
+def _validate_duration(duration: Optional[int]) -> bool:
+    """Validate duration is within acceptable bounds.
+
+    Args:
+        duration: Duration in seconds
+
+    Returns:
+        True if valid or None, False if invalid
+    """
+    if duration is None:
+        return True
+
+    if duration < MIN_DURATION_SECONDS:
+        logger.warning(f"Audio duration {duration}s is below minimum {MIN_DURATION_SECONDS}s")
+        return False
+
+    if duration > MAX_DURATION_SECONDS:
+        logger.error(
+            f"Audio duration {duration}s exceeds maximum {MAX_DURATION_SECONDS}s "
+            f"({MAX_DURATION_SECONDS // 3600} hours)"
+        )
+        return False
+
+    return True
+
 
 async def get_audio_duration(audio_path: Path) -> Optional[int]:
     """
@@ -107,12 +232,18 @@ async def generate_thumbnail(
         title: Video title
         agents: List of agent names
         output_path: Where to save the thumbnail
-        width: Image width
-        height: Image height
+        width: Image width (clamped to valid range)
+        height: Image height (clamped to valid range)
 
     Returns:
         True if successful
     """
+    # Validate and clamp resolution
+    try:
+        width, height = _validate_resolution(width, height)
+    except ValueError as e:
+        logger.error(f"Invalid thumbnail resolution: {e}")
+        return False
     # Check for ImageMagick
     if not shutil.which("convert"):
         # Create a simple blank PNG using pure Python
@@ -234,6 +365,7 @@ class VideoGenerator:
         title: str,
         agents: list[str],
         output_path: Optional[Path] = None,
+        audio_bitrate: int = DEFAULT_AUDIO_BITRATE,
     ) -> Optional[Path]:
         """
         Generate video with static thumbnail and audio track.
@@ -245,6 +377,7 @@ class VideoGenerator:
             title: Video title (used for thumbnail)
             agents: List of agents (used for thumbnail)
             output_path: Output video path. Auto-generated if not provided.
+            audio_bitrate: Audio bitrate in kbps (default 192, clamped to valid range)
 
         Returns:
             Path to video file or None if failed
@@ -253,9 +386,12 @@ class VideoGenerator:
             logger.error("ffmpeg not available")
             return None
 
-        if not audio_path.exists():
-            logger.error(f"Audio file not found: {audio_path}")
+        # Validate audio file (exists, size limits)
+        if not _validate_audio_file(audio_path):
             return None
+
+        # Validate bitrate
+        audio_bitrate = _validate_bitrate(audio_bitrate)
 
         # Generate output path
         if output_path is None:
@@ -272,8 +408,10 @@ class VideoGenerator:
                 # Create minimal valid PNG as fallback
                 thumb_path.write_bytes(b'\x89PNG\r\n\x1a\n' + b'\x00' * 100)
 
-            # Get audio duration
+            # Get audio duration and validate
             duration = await get_audio_duration(audio_path)
+            if not _validate_duration(duration):
+                return None
 
             # Generate video with ffmpeg
             # -loop 1: loop the image
@@ -288,7 +426,7 @@ class VideoGenerator:
                 "-c:v", "libx264",
                 "-tune", "stillimage",
                 "-c:a", "aac",
-                "-b:a", "192k",
+                "-b:a", f"{audio_bitrate}k",
                 "-pix_fmt", "yuv420p",
                 "-shortest",
                 "-movflags", "+faststart",  # Web optimization
@@ -334,6 +472,7 @@ class VideoGenerator:
         audio_path: Path,
         output_path: Optional[Path] = None,
         color: str = "0x4488ff",
+        audio_bitrate: int = DEFAULT_AUDIO_BITRATE,
     ) -> Optional[Path]:
         """
         Generate video with animated audio waveform.
@@ -344,6 +483,7 @@ class VideoGenerator:
             audio_path: Path to audio file
             output_path: Output video path
             color: Waveform color in hex (validated to prevent injection)
+            audio_bitrate: Audio bitrate in kbps (default 192, clamped to valid range)
 
         Returns:
             Path to video file or None if failed
@@ -359,15 +499,23 @@ class VideoGenerator:
             logger.error("ffmpeg not available")
             return None
 
-        if not audio_path.exists():
-            logger.error(f"Audio file not found: {audio_path}")
+        # Validate audio file (exists, size limits)
+        if not _validate_audio_file(audio_path):
             return None
+
+        # Validate bitrate
+        audio_bitrate = _validate_bitrate(audio_bitrate)
 
         if output_path is None:
             output_path = self.output_dir / f"{audio_path.stem}_waveform.mp4"
 
         process = None
         try:
+            # Get duration and validate
+            duration = await get_audio_duration(audio_path)
+            if not _validate_duration(duration):
+                return None
+
             # Generate waveform video using ffmpeg's showwaves filter
             cmd = [
                 "ffmpeg",
@@ -379,7 +527,7 @@ class VideoGenerator:
                 "-map", "0:a",
                 "-c:v", "libx264",
                 "-c:a", "aac",
-                "-b:a", "192k",
+                "-b:a", f"{audio_bitrate}k",
                 "-pix_fmt", "yuv420p",
                 "-movflags", "+faststart",
                 str(output_path),

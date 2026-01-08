@@ -16,11 +16,41 @@ from aragora.connectors.local_docs import LocalDocsConnector
 from aragora.connectors.github import GitHubConnector
 from aragora.connectors.web import WebConnector
 from aragora.connectors.base import BaseConnector, Evidence
+from aragora.connectors.exceptions import (
+    ConnectorError,
+    ConnectorAuthError,
+    ConnectorRateLimitError,
+    ConnectorTimeoutError,
+    ConnectorNetworkError,
+    ConnectorAPIError,
+    ConnectorValidationError,
+    ConnectorNotFoundError,
+    ConnectorQuotaError,
+    ConnectorParseError,
+    is_retryable_error,
+    get_retry_delay,
+)
 
 __all__ = [
+    # Base classes
     "BaseConnector",
     "Evidence",
+    # Connectors
     "LocalDocsConnector",
     "GitHubConnector",
     "WebConnector",
+    # Exceptions
+    "ConnectorError",
+    "ConnectorAuthError",
+    "ConnectorRateLimitError",
+    "ConnectorTimeoutError",
+    "ConnectorNetworkError",
+    "ConnectorAPIError",
+    "ConnectorValidationError",
+    "ConnectorNotFoundError",
+    "ConnectorQuotaError",
+    "ConnectorParseError",
+    # Utilities
+    "is_retryable_error",
+    "get_retry_delay",
 ]

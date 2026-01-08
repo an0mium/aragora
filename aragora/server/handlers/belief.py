@@ -51,7 +51,7 @@ class BeliefHandler(BaseHandler):
     """Handler for belief network and reasoning endpoints."""
 
     ROUTES = [
-        "/api/laboratory/emergent-traits",
+        # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -75,10 +75,7 @@ class BeliefHandler(BaseHandler):
         nomic_dir = self.ctx.get("nomic_dir")
         persona_manager = self.ctx.get("persona_manager")
 
-        if path == "/api/laboratory/emergent-traits":
-            min_confidence = get_bounded_float_param(query_params, 'min_confidence', 0.5, min_val=0.0, max_val=1.0)
-            limit = get_clamped_int_param(query_params, 'limit', 10, min_val=1, max_val=50)
-            return self._get_emergent_traits(nomic_dir, persona_manager, min_confidence, limit)
+        # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
 
         if path.startswith("/api/belief-network/") and path.endswith("/cruxes"):
             debate_id = self._extract_debate_id(path, 3)

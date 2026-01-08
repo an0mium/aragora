@@ -360,10 +360,25 @@ def clean_env(monkeypatch):
         "OPENAI_API_KEY",
         "GOOGLE_API_KEY",
         "ARAGORA_API_TOKEN",
+        "SUPABASE_URL",
+        "SUPABASE_KEY",
     ]
     for var in env_vars:
         monkeypatch.delenv(var, raising=False)
     return monkeypatch
+
+
+@pytest.fixture(autouse=True)
+def reset_supabase_env(monkeypatch):
+    """Reset Supabase environment variables between tests.
+
+    This prevents test pollution where earlier tests set SUPABASE_URL/KEY
+    that affect later tests expecting unconfigured clients.
+    """
+    # Clear Supabase env vars to ensure clean state
+    monkeypatch.delenv("SUPABASE_URL", raising=False)
+    monkeypatch.delenv("SUPABASE_KEY", raising=False)
+    yield
 
 
 @pytest.fixture

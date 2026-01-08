@@ -31,8 +31,6 @@ from .base import (
     get_clamped_int_param,
     get_bounded_float_param,
     get_bounded_string_param,
-    validate_path_segment,
-    SAFE_ID_PATTERN,
     ttl_cache,
     require_feature,
     get_db_connection,
@@ -126,16 +124,11 @@ class ConsensusHandler(BaseHandler):
             )
 
         if path.startswith("/api/consensus/domain/"):
-            # Extract domain from path
-            parts = path.split('/')
-            if len(parts) >= 5:
-                domain = parts[4]
-                # Validate domain to prevent path traversal and injection
-                valid, err = validate_path_segment(domain, "domain", SAFE_ID_PATTERN)
-                if not valid:
-                    return error_response(err, 400)
-                limit = get_clamped_int_param(query_params, 'limit', 50, min_val=1, max_val=200)
-                return self._get_domain_history(domain, limit)
+            domain, err = self.extract_path_param(path, 3, "domain")
+            if err:
+                return err
+            limit = get_clamped_int_param(query_params, 'limit', 50, min_val=1, max_val=200)
+            return self._get_domain_history(domain, limit)
 
         return None
 

@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 from aragora.server.http_utils import run_async
+from aragora.server.middleware.rate_limit import rate_limit
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -466,6 +467,7 @@ class AuditingHandler(BaseHandler):
             by_type_transformed[probe_type_key] = transformed_results
         return by_type_transformed
 
+    @rate_limit(requests_per_minute=5, burst=2, limiter_name="deep_audit")
     def _run_deep_audit(self, handler) -> HandlerResult:
         """Run a deep audit (Heavy3-inspired intensive multi-round debate protocol).
 
@@ -670,6 +672,7 @@ class AuditingHandler(BaseHandler):
 
         return findings
 
+    @rate_limit(requests_per_minute=5, burst=2, limiter_name="red_team")
     def _run_red_team_analysis(self, debate_id: str, handler) -> HandlerResult:
         """Run adversarial red-team analysis on a debate.
 

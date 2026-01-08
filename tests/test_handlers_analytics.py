@@ -119,9 +119,9 @@ class TestAnalyticsHandlerRouting:
         """Should handle /api/memory/stats."""
         assert analytics_handler.can_handle("/api/memory/stats") is True
 
-    def test_can_handle_memory_tier_stats(self, analytics_handler):
-        """Should handle /api/memory/tier-stats."""
-        assert analytics_handler.can_handle("/api/memory/tier-stats") is True
+    def test_cannot_handle_memory_tier_stats(self, analytics_handler):
+        """Should NOT handle /api/memory/tier-stats (moved to MemoryHandler)."""
+        assert analytics_handler.can_handle("/api/memory/tier-stats") is False
 
     def test_cannot_handle_unknown_routes(self, analytics_handler):
         """Should not handle unknown routes."""
@@ -394,19 +394,12 @@ class TestRankingStats:
 # ============================================================================
 
 class TestMemoryStats:
-    """Tests for /api/memory/stats and /api/memory/tier-stats endpoints."""
+    """Tests for /api/memory/stats endpoint."""
+    # Note: /api/memory/tier-stats moved to MemoryHandler
 
     def test_returns_memory_stats(self, analytics_handler):
         """Should return memory statistics."""
         result = analytics_handler.handle("/api/memory/stats", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert "stats" in data
-
-    def test_tier_stats_alias_works(self, analytics_handler):
-        """Should work with tier-stats alias."""
-        result = analytics_handler.handle("/api/memory/tier-stats", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)

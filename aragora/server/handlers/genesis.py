@@ -21,6 +21,7 @@ from .base import (
     error_response,
     get_int_param,
     DB_TIMEOUT_SECONDS,
+    safe_json_parse,
 )
 from aragora.server.validation import validate_genome_id, validate_debate_id
 from aragora.utils.optional_imports import try_import
@@ -180,7 +181,7 @@ class GenesisHandler(BaseHandler):
                         "timestamp": row[2],
                         "parent_event_id": row[3],
                         "content_hash": row[4][:16] + "..." if row[4] else None,
-                        "data": json.loads(row[5]) if row[5] else {},
+                        "data": safe_json_parse(row[5], {}),
                     })
 
             return json_response({

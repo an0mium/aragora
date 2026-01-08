@@ -108,7 +108,30 @@ class ProbeFilter:
         self.cache_ttl_seconds = cache_ttl_seconds
 
         # Cache profiles to avoid repeated file reads
-        self._profile_cache: dict[str, tuple[ProbeProfile, datetime]] = {}
+        # Format: agent_name -> (profile, cached_at, dir_mtime)
+        self._profile_cache: dict[str, tuple[ProbeProfile, datetime, float]] = {}
+
+    def _get_dir_mtime(self, agent_name: str) -> float:
+        """Get the latest modification time of probe files for an agent.
+
+        Returns 0.0 if directory doesn't exist.
+        """
+        agent_probes_dir = self.probes_dir / agent_name
+        if not agent_probes_dir.exists():
+            return 0.0
+
+        try:
+            # Get max mtime of all probe files + directory itself
+            mtimes = [agent_probes_dir.stat().st_mtime]
+            for probe_file in agent_probes_dir.glob("*.json"):
+                try:
+                    mtimes.append(probe_file.stat().st_mtime)
+                except OSError:
+                    continue
+            return max(mtimes)
+        except OSError as e:
+            logger.debug(f"Failed to get mtime for {agent_name}: {e}")
+            return 0.0
 
     def get_agent_profile(self, agent_name: str) -> ProbeProfile:
         """
@@ -116,16 +139,29 @@ class ProbeFilter:
 
         Loads and aggregates all probe reports for the agent,
         calculating overall vulnerability rate and identifying weaknesses.
+
+        Cache invalidation occurs when:
+        - TTL expires (cache_ttl_seconds)
+        - Probe files have been modified (mtime check)
         """
+        current_mtime = self._get_dir_mtime(agent_name)
+
         # Check cache
         if agent_name in self._profile_cache:
-            profile, cached_at = self._profile_cache[agent_name]
-            if (datetime.now() - cached_at).total_seconds() < self.cache_ttl_seconds:
+            profile, cached_at, cached_mtime = self._profile_cache[agent_name]
+
+            # Check TTL and mtime
+            ttl_valid = (datetime.now() - cached_at).total_seconds() < self.cache_ttl_seconds
+            mtime_valid = current_mtime <= cached_mtime
+
+            if ttl_valid and mtime_valid:
                 return profile
+            elif not mtime_valid:
+                logger.debug(f"Cache invalidated for {agent_name}: probe files modified")
 
         # Build fresh profile
         profile = self._load_profile(agent_name)
-        self._profile_cache[agent_name] = (profile, datetime.now())
+        self._profile_cache[agent_name] = (profile, datetime.now(), current_mtime)
         return profile
 
     def _load_profile(self, agent_name: str) -> ProbeProfile:

@@ -42,7 +42,7 @@ __all__ = [
     "clear_cache", "get_cache_stats", "CACHE_INVALIDATION_MAP", "invalidate_cache",
     "invalidate_on_event", "invalidate_leaderboard_cache", "invalidate_agent_cache",
     "invalidate_debate_cache", "PathMatcher", "RouteDispatcher", "safe_fetch",
-    "get_db_connection", "safe_get", "safe_get_nested",
+    "get_db_connection", "table_exists", "safe_get", "safe_get_nested", "safe_json_parse",
     "SAFE_ID_PATTERN", "SAFE_SLUG_PATTERN", "SAFE_AGENT_PATTERN",
 ]
 
@@ -77,6 +77,29 @@ def get_db_connection(db_path: str) -> Generator[sqlite3.Connection, None, None]
         yield conn
     finally:
         conn.close()
+
+
+def table_exists(cursor: sqlite3.Cursor, table_name: str) -> bool:
+    """Check if a table exists in the SQLite database.
+
+    Args:
+        cursor: Active database cursor
+        table_name: Name of the table to check
+
+    Returns:
+        True if the table exists, False otherwise
+
+    Example:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            if not table_exists(cursor, "agent_relationships"):
+                return json_response({"error": "Table not found"})
+    """
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,)
+    )
+    return cursor.fetchone() is not None
 
 
 # =============================================================================
@@ -136,6 +159,43 @@ def safe_get_nested(data: Any, keys: list[str], default: Any = None) -> Any:
             return default
         current = current.get(key)
     return current if current is not None else default
+
+
+def safe_json_parse(data: Any, default: Any = None) -> Any:
+    """Safely parse JSON string or return dict/list as-is.
+
+    Handles the common pattern where a value might be stored as either
+    a JSON string or already parsed as a dict/list.
+
+    Args:
+        data: JSON string, dict, list, or None
+        default: Default value if parsing fails or data is None
+
+    Returns:
+        Parsed dict/list, or default on failure
+
+    Example:
+        # Before (6 lines):
+        raw = debate.get("grounded_verdict")
+        if isinstance(raw, str):
+            try:
+                verdict = json.loads(raw)
+            except json.JSONDecodeError:
+                verdict = None
+
+        # After (1 line):
+        verdict = safe_json_parse(debate.get("grounded_verdict"))
+    """
+    if data is None:
+        return default
+    if isinstance(data, (dict, list)):
+        return data
+    if isinstance(data, str):
+        try:
+            return json.loads(data)
+        except (json.JSONDecodeError, ValueError):
+            return default
+    return default
 
 
 # Cache configuration from environment

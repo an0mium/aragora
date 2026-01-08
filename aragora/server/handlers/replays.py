@@ -21,6 +21,7 @@ from .base import (
     error_response,
     get_int_param,
     ttl_cache,
+    safe_json_parse,
 )
 from aragora.config import (
     DB_TIMEOUT_SECONDS,
@@ -29,7 +30,6 @@ from aragora.config import (
     CACHE_TTL_META_LEARNING,
 )
 from aragora.memory.database import MemoryDatabase
-from aragora.server.validation import validate_replay_id
 
 logger = logging.getLogger(__name__)
 
@@ -70,13 +70,9 @@ class ReplaysHandler(BaseHandler):
             return self._get_meta_learning_stats(nomic_dir, min(limit, 50))
 
         if path.startswith("/api/replays/"):
-            # Block path traversal
-            if '..' in path:
-                return error_response("Invalid replay ID", 400)
-            replay_id = path.split('/')[-1]
-            is_valid, err = validate_replay_id(replay_id)
-            if not is_valid:
-                return error_response(err, 400)
+            replay_id, err = self.extract_path_param(path, 2, "replay_id")
+            if err:
+                return err
             # Support pagination for large replay files
             offset = get_int_param(query_params, 'offset', 0)
             limit = get_int_param(query_params, 'limit', 1000)
@@ -256,12 +252,7 @@ class ReplaysHandler(BaseHandler):
                     LIMIT 1
                 """)
                 row = cursor.fetchone()
-                current_hyperparams = {}
-                if row:
-                    try:
-                        current_hyperparams = json.loads(row["hyperparams"]) if row["hyperparams"] else {}
-                    except json.JSONDecodeError:
-                        pass
+                current_hyperparams = safe_json_parse(row["hyperparams"], {}) if row else {}
 
                 # Get adjustment history
                 cursor = conn.execute("""
@@ -270,17 +261,15 @@ class ReplaysHandler(BaseHandler):
                     ORDER BY created_at DESC
                     LIMIT ?
                 """, (limit,))
-                adjustment_history = []
-                for row in cursor.fetchall():
-                    try:
-                        adjustment_history.append({
-                            "hyperparams": json.loads(row["hyperparams"]) if row["hyperparams"] else {},
-                            "metrics": json.loads(row["metrics"]) if row["metrics"] else None,
-                            "reason": row["adjustment_reason"],
-                            "timestamp": row["created_at"],
-                        })
-                    except json.JSONDecodeError:
-                        continue
+                adjustment_history = [
+                    {
+                        "hyperparams": safe_json_parse(row["hyperparams"], {}),
+                        "metrics": safe_json_parse(row["metrics"]),
+                        "reason": row["adjustment_reason"],
+                        "timestamp": row["created_at"],
+                    }
+                    for row in cursor.fetchall()
+                ]
 
                 # Get efficiency log
                 cursor = conn.execute("""
@@ -289,16 +278,14 @@ class ReplaysHandler(BaseHandler):
                     ORDER BY created_at DESC
                     LIMIT ?
                 """, (limit,))
-                efficiency_log = []
-                for row in cursor.fetchall():
-                    try:
-                        efficiency_log.append({
-                            "cycle": row["cycle_number"],
-                            "metrics": json.loads(row["metrics"]) if row["metrics"] else {},
-                            "timestamp": row["created_at"],
-                        })
-                    except json.JSONDecodeError:
-                        continue
+                efficiency_log = [
+                    {
+                        "cycle": row["cycle_number"],
+                        "metrics": safe_json_parse(row["metrics"], {}),
+                        "timestamp": row["created_at"],
+                    }
+                    for row in cursor.fetchall()
+                ]
 
                 # Compute trend from efficiency log
                 trend = "insufficient_data"

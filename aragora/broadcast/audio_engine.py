@@ -38,32 +38,86 @@ def _get_voice_for_speaker(speaker: str) -> str:
     return VOICE_MAP.get(speaker, VOICE_MAP["narrator"])
 
 
-async def _generate_edge_tts(text: str, voice: str, output_path: Path) -> bool:
-    """Generate audio using edge-tts."""
-    try:
-        cmd = [
-            "edge-tts",
-            "--voice", voice,
-            "--text", text,
-            "--write-media", str(output_path),
-            "--write-subtitles", str(output_path.with_suffix('.vtt'))  # Optional subtitles
-        ]
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
+async def _generate_edge_tts(
+    text: str,
+    voice: str,
+    output_path: Path,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    timeout: float = 60.0,
+) -> bool:
+    """Generate audio using edge-tts with retry logic.
+
+    Args:
+        text: Text to convert to speech
+        voice: Voice ID to use
+        output_path: Path to save the audio file
+        max_retries: Maximum number of retry attempts (default: 3)
+        base_delay: Base delay in seconds for exponential backoff (default: 1.0)
+        timeout: Timeout in seconds for each attempt (default: 60.0)
+
+    Returns:
+        True if audio was generated successfully, False otherwise
+    """
+    last_error: Optional[Exception] = None
+
+    for attempt in range(max_retries):
         try:
-            await asyncio.wait_for(process.communicate(), timeout=60)
-        except asyncio.TimeoutError:
-            process.kill()
-            await process.wait()
-            logger.warning("edge-tts timed out after 60s")
+            cmd = [
+                "edge-tts",
+                "--voice", voice,
+                "--text", text,
+                "--write-media", str(output_path),
+                "--write-subtitles", str(output_path.with_suffix('.vtt'))  # Optional subtitles
+            ]
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(), timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                logger.warning(
+                    f"edge-tts timed out after {timeout}s (attempt {attempt + 1}/{max_retries})"
+                )
+                last_error = TimeoutError(f"edge-tts timed out after {timeout}s")
+                # Continue to retry
+            else:
+                if process.returncode == 0 and output_path.exists():
+                    if attempt > 0:
+                        logger.info(f"edge-tts succeeded on attempt {attempt + 1}")
+                    return True
+
+                # Non-zero return code - capture error for logging
+                error_msg = stderr.decode('utf-8', errors='replace').strip() if stderr else "unknown error"
+                logger.debug(
+                    f"edge-tts failed (attempt {attempt + 1}/{max_retries}): "
+                    f"returncode={process.returncode}, error={error_msg[:200]}"
+                )
+                last_error = RuntimeError(f"edge-tts returned {process.returncode}: {error_msg[:100]}")
+
+        except FileNotFoundError:
+            # edge-tts not installed - no point retrying
+            logger.debug("edge-tts not found in PATH")
             return False
-        return process.returncode == 0 and output_path.exists()
-    except Exception as e:
-        logger.debug("edge-tts generation failed: %s", e)
-        return False
+        except Exception as e:
+            logger.debug(f"edge-tts generation failed (attempt {attempt + 1}/{max_retries}): {e}")
+            last_error = e
+
+        # Exponential backoff before retry (except on last attempt)
+        if attempt < max_retries - 1:
+            delay = base_delay * (2 ** attempt)
+            logger.debug(f"Retrying edge-tts in {delay:.1f}s...")
+            await asyncio.sleep(delay)
+
+    # All retries exhausted
+    logger.warning(f"edge-tts failed after {max_retries} attempts: {last_error}")
+    return False
 
 
 def _generate_fallback_tts(text: str, output_path: Path) -> bool:

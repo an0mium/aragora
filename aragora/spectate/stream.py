@@ -17,6 +17,25 @@ from .events import SpectatorEvents, EVENT_STYLES, EVENT_ASCII
 
 logger = logging.getLogger(__name__)
 
+# Valid event types for validation
+VALID_EVENT_TYPES = frozenset([
+    SpectatorEvents.DEBATE_START,
+    SpectatorEvents.DEBATE_END,
+    SpectatorEvents.ROUND_START,
+    SpectatorEvents.ROUND_END,
+    SpectatorEvents.PROPOSAL,
+    SpectatorEvents.CRITIQUE,
+    SpectatorEvents.REFINE,
+    SpectatorEvents.VOTE,
+    SpectatorEvents.JUDGE,
+    SpectatorEvents.CONSENSUS,
+    SpectatorEvents.CONVERGENCE,
+    SpectatorEvents.CONVERGED,
+    SpectatorEvents.MEMORY_RECALL,
+    SpectatorEvents.SYSTEM,
+    SpectatorEvents.ERROR,
+])
+
 
 @dataclass
 class SpectatorStream:
@@ -87,15 +106,26 @@ class SpectatorStream:
         if not self.enabled:
             return
 
+        # Validate event type
+        if event_type not in VALID_EVENT_TYPES:
+            logger.warning(f"Unknown spectator event type: {event_type!r}")
+            # Continue anyway - don't break on unknown events
+
         try:
             if self.format == "json":
                 self._emit_json(event_type, agent, details, metric, round_number)
             else:
                 self._emit_text(event_type, agent, details, metric, round_number)
+        except (KeyboardInterrupt, SystemExit):
+            # Re-raise critical signals - don't swallow user interrupts
+            raise
+        except (MemoryError, RecursionError):
+            # Re-raise resource exhaustion - indicates serious problem
+            raise
         except Exception as e:
-            # Never let spectator errors propagate to debate logic
-            # Log at debug level for troubleshooting
-            logger.debug(f"Spectator emit failed (non-fatal): {e}")
+            # Swallow non-critical errors (IO, encoding, etc.) to ensure
+            # spectating never breaks debates. Log at debug level.
+            logger.debug(f"Spectator emit failed (non-fatal): {type(e).__name__}: {e}")
 
     def _emit_json(
         self,

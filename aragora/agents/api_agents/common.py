@@ -34,6 +34,122 @@ from aragora.server.error_utils import sanitize_error_text as _sanitize_error_me
 
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# Connection Pool Configuration
+# =============================================================================
+
+# Per-host connection limit (prevents overwhelming single provider)
+DEFAULT_CONNECTIONS_PER_HOST = 10
+
+# Total connection limit across all hosts
+DEFAULT_TOTAL_CONNECTIONS = 100
+
+# Connection timeout for establishing new connections
+DEFAULT_CONNECT_TIMEOUT = 30.0
+
+# Total request timeout (for full request/response cycle)
+DEFAULT_REQUEST_TIMEOUT = 120.0
+
+
+def _get_connection_limits() -> tuple[int, int]:
+    """Get connection limits from settings or defaults."""
+    settings = get_settings()
+    per_host = getattr(settings.agent, 'connections_per_host', DEFAULT_CONNECTIONS_PER_HOST)
+    total = getattr(settings.agent, 'total_connections', DEFAULT_TOTAL_CONNECTIONS)
+    return per_host, total
+
+
+# Global session manager for connection pooling
+_session_lock = threading.Lock()
+_shared_connector: Optional[aiohttp.TCPConnector] = None
+
+
+def get_shared_connector() -> aiohttp.TCPConnector:
+    """Get or create a shared TCP connector with connection limits.
+
+    Uses a singleton pattern to reuse connections across requests,
+    reducing connection establishment overhead and preventing resource
+    exhaustion from too many simultaneous connections.
+
+    Returns:
+        Configured TCPConnector instance
+
+    Thread-safe: Uses lock for lazy initialization
+    """
+    global _shared_connector
+    with _session_lock:
+        if _shared_connector is None or _shared_connector.closed:
+            per_host, total = _get_connection_limits()
+            _shared_connector = aiohttp.TCPConnector(
+                limit=total,
+                limit_per_host=per_host,
+                ttl_dns_cache=300,  # Cache DNS for 5 minutes
+                enable_cleanup_closed=True,  # Clean up closed connections
+            )
+            logger.debug(
+                f"Created shared TCP connector: limit={total}, per_host={per_host}"
+            )
+        return _shared_connector
+
+
+def create_client_session(
+    timeout: Optional[float] = None,
+    connector: Optional[aiohttp.TCPConnector] = None,
+) -> aiohttp.ClientSession:
+    """Create an aiohttp ClientSession with proper connection limits.
+
+    This factory function ensures all API agents use consistent connection
+    pooling settings, preventing resource exhaustion.
+
+    Args:
+        timeout: Request timeout in seconds (default: DEFAULT_REQUEST_TIMEOUT)
+        connector: Custom connector (default: shared connector with limits)
+
+    Returns:
+        Configured ClientSession
+
+    Example:
+        async with create_client_session() as session:
+            async with session.post(url, json=data) as response:
+                ...
+
+    Note:
+        The session should be used with async context manager to ensure
+        proper cleanup. The shared connector is NOT closed when the
+        session closes - this is intentional for connection reuse.
+    """
+    if connector is None:
+        connector = get_shared_connector()
+
+    if timeout is None:
+        timeout = DEFAULT_REQUEST_TIMEOUT
+
+    client_timeout = aiohttp.ClientTimeout(
+        total=timeout,
+        connect=DEFAULT_CONNECT_TIMEOUT,
+    )
+
+    return aiohttp.ClientSession(
+        connector=connector,
+        connector_owner=False,  # Don't close connector when session closes
+        timeout=client_timeout,
+    )
+
+
+async def close_shared_connector() -> None:
+    """Close the shared connector, releasing all connections.
+
+    Call this during application shutdown to properly clean up
+    connection resources. Safe to call multiple times.
+    """
+    global _shared_connector
+    with _session_lock:
+        if _shared_connector is not None and not _shared_connector.closed:
+            await _shared_connector.close()
+            _shared_connector = None
+            logger.debug("Closed shared TCP connector")
+
+
 # Maximum buffer size for streaming responses (prevents DoS via memory exhaustion)
 # Now configurable via ARAGORA_STREAM_BUFFER_SIZE env var
 def _get_stream_buffer_size() -> int:
@@ -302,6 +418,14 @@ __all__ = [
     "calculate_retry_delay",
     "STREAM_CHUNK_TIMEOUT",
     "iter_chunks_with_timeout",
+    # Connection pooling
+    "DEFAULT_CONNECTIONS_PER_HOST",
+    "DEFAULT_TOTAL_CONNECTIONS",
+    "DEFAULT_CONNECT_TIMEOUT",
+    "DEFAULT_REQUEST_TIMEOUT",
+    "get_shared_connector",
+    "create_client_session",
+    "close_shared_connector",
     # SSE parsing
     "SSEStreamParser",
     "create_openai_sse_parser",

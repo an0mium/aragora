@@ -15,6 +15,7 @@ Inspired by ai-counsel's convergence detection system.
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -84,12 +85,25 @@ class JaccardBackend(SimilarityBackend):
     Cons:
         - Doesn't understand semantics
         - Order-independent
+
+    Performance optimization:
+        - Individual similarity computations are cached (256 pairs)
     """
+
+    _similarity_cache: dict[tuple[str, str], float] = {}
+    _cache_max_size = 256
 
     def compute_similarity(self, text1: str, text2: str) -> float:
         """Compute Jaccard similarity between two texts."""
         if not text1 or not text2:
             return 0.0
+
+        # Normalize key order for symmetric cache hits
+        cache_key = (text1, text2) if text1 <= text2 else (text2, text1)
+
+        # Check cache first
+        if cache_key in JaccardBackend._similarity_cache:
+            return JaccardBackend._similarity_cache[cache_key]
 
         # Normalize: lowercase and split into words
         words1 = set(text1.lower().split())
@@ -104,7 +118,21 @@ class JaccardBackend(SimilarityBackend):
         if not union:
             return 0.0
 
-        return len(intersection) / len(union)
+        result = len(intersection) / len(union)
+
+        # Cache result (with simple size limit)
+        if len(JaccardBackend._similarity_cache) >= JaccardBackend._cache_max_size:
+            keys = list(JaccardBackend._similarity_cache.keys())
+            for k in keys[:len(keys) // 2]:
+                del JaccardBackend._similarity_cache[k]
+
+        JaccardBackend._similarity_cache[cache_key] = result
+        return result
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clear the similarity cache."""
+        cls._similarity_cache.clear()
 
 
 # =============================================================================
@@ -121,7 +149,13 @@ class TFIDFBackend(SimilarityBackend):
     Better than Jaccard because:
         - Weighs rare words higher (more discriminative)
         - Reduces impact of common words
+
+    Performance optimization:
+        - Individual similarity computations are cached (256 pairs)
     """
+
+    _similarity_cache: dict[tuple[str, str], float] = {}
+    _cache_max_size = 256
 
     def __init__(self):
         """Initialize TF-IDF backend."""
@@ -142,10 +176,30 @@ class TFIDFBackend(SimilarityBackend):
         if not text1 or not text2:
             return 0.0
 
+        # Normalize key order for symmetric cache hits
+        cache_key = (text1, text2) if text1 <= text2 else (text2, text1)
+
+        # Check cache first
+        if cache_key in TFIDFBackend._similarity_cache:
+            return TFIDFBackend._similarity_cache[cache_key]
+
         tfidf_matrix = self.vectorizer.fit_transform([text1, text2])
         similarity = self.cosine_similarity(tfidf_matrix[0], tfidf_matrix[1])[0][0]
+        result = float(similarity)
 
-        return float(similarity)
+        # Cache result (with simple size limit)
+        if len(TFIDFBackend._similarity_cache) >= TFIDFBackend._cache_max_size:
+            keys = list(TFIDFBackend._similarity_cache.keys())
+            for k in keys[:len(keys) // 2]:
+                del TFIDFBackend._similarity_cache[k]
+
+        TFIDFBackend._similarity_cache[cache_key] = result
+        return result
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clear the similarity cache."""
+        cls._similarity_cache.clear()
 
 
 # =============================================================================
@@ -162,10 +216,16 @@ class SentenceTransformerBackend(SimilarityBackend):
     Best accuracy because:
         - Understands semantics and context
         - Captures paraphrasing and synonyms
+
+    Performance optimization:
+        - Model is cached at class level (avoids reloading)
+        - Individual similarity computations are cached with LRU (256 pairs)
     """
 
     _model_cache = None
     _model_name_cache = None
+    _similarity_cache: dict[tuple[str, str], float] = {}
+    _cache_max_size = 256
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         """Initialize sentence transformer backend."""
@@ -177,7 +237,7 @@ class SentenceTransformerBackend(SimilarityBackend):
                 SentenceTransformerBackend._model_cache is not None
                 and SentenceTransformerBackend._model_name_cache == model_name
             ):
-                logger.info(f"Reusing cached sentence transformer: {model_name}")
+                logger.debug(f"Reusing cached sentence transformer: {model_name}")
                 self.model = SentenceTransformerBackend._model_cache
             else:
                 logger.info(f"Loading sentence transformer: {model_name}")
@@ -195,16 +255,42 @@ class SentenceTransformerBackend(SimilarityBackend):
             ) from e
 
     def compute_similarity(self, text1: str, text2: str) -> float:
-        """Compute semantic similarity using sentence embeddings."""
+        """Compute semantic similarity using sentence embeddings.
+
+        Results are cached using (text1, text2) as key to avoid
+        recomputing similarity for the same text pairs.
+        """
         if not text1 or not text2:
             return 0.0
 
+        # Normalize key order for symmetric cache hits
+        cache_key = (text1, text2) if text1 <= text2 else (text2, text1)
+
+        # Check cache first
+        if cache_key in SentenceTransformerBackend._similarity_cache:
+            return SentenceTransformerBackend._similarity_cache[cache_key]
+
+        # Compute similarity
         embeddings = self.model.encode([text1, text2])
         similarity = self.cosine_similarity(
             embeddings[0].reshape(1, -1), embeddings[1].reshape(1, -1)
         )[0][0]
+        result = float(similarity)
 
-        return float(similarity)
+        # Cache result (with simple size limit)
+        if len(SentenceTransformerBackend._similarity_cache) >= SentenceTransformerBackend._cache_max_size:
+            # Clear oldest half when full
+            keys = list(SentenceTransformerBackend._similarity_cache.keys())
+            for k in keys[:len(keys) // 2]:
+                del SentenceTransformerBackend._similarity_cache[k]
+
+        SentenceTransformerBackend._similarity_cache[cache_key] = result
+        return result
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clear the similarity cache."""
+        cls._similarity_cache.clear()
 
     def compute_batch_similarity(self, texts: list[str]) -> float:
         """

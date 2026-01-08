@@ -13,6 +13,7 @@ This enables the system to:
 """
 
 import json
+import logging
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -24,6 +25,8 @@ import math
 from aragora.config import DB_MEMORY_PATH, DB_TIMEOUT_SECONDS
 from aragora.memory.database import MemoryDatabase
 from aragora.utils.json_helpers import safe_json_loads
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -145,68 +148,91 @@ class MetaLearner:
             yield conn
 
     def _init_db(self):
-        """Initialize meta-learning tables."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
+        """Initialize meta-learning tables.
 
-            # Hyperparameter history table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS meta_hyperparams (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    hyperparams TEXT NOT NULL,
-                    metrics TEXT,
-                    adjustment_reason TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+        Handles database errors gracefully - if table creation fails,
+        the system will operate with in-memory defaults only.
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
 
-            # Learning efficiency history
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS meta_efficiency_log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    cycle_number INTEGER,
-                    metrics TEXT NOT NULL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+                # Hyperparameter history table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS meta_hyperparams (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        hyperparams TEXT NOT NULL,
+                        metrics TEXT,
+                        adjustment_reason TEXT,
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
 
-            conn.commit()
+                # Learning efficiency history
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS meta_efficiency_log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        cycle_number INTEGER,
+                        metrics TEXT NOT NULL,
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+                conn.commit()
+        except sqlite3.Error as e:
+            logger.warning(f"Failed to initialize meta-learning tables: {e}")
+            # Continue without persistence - will use in-memory defaults
 
     def _load_state(self) -> HyperparameterState:
-        """Load the most recent hyperparameter state."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
+        """Load the most recent hyperparameter state.
 
-            cursor.execute("""
-                SELECT hyperparams FROM meta_hyperparams
-                ORDER BY created_at DESC LIMIT 1
-            """)
-            row = cursor.fetchone()
+        Returns default state if database is unavailable or corrupted.
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
 
-        if row:
-            data = safe_json_loads(row[0], {})
-            if data:
-                return HyperparameterState.from_dict(data)
+                cursor.execute("""
+                    SELECT hyperparams FROM meta_hyperparams
+                    ORDER BY created_at DESC LIMIT 1
+                """)
+                row = cursor.fetchone()
+
+            if row:
+                data = safe_json_loads(row[0], {})
+                if data:
+                    return HyperparameterState.from_dict(data)
+        except sqlite3.Error as e:
+            logger.warning(f"Failed to load hyperparameter state: {e}")
+            # Fall through to return defaults
+
         return HyperparameterState()  # Default state
 
     def _save_state(self, reason: str = "", metrics: LearningMetrics | None = None):
-        """Save current hyperparameter state."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
+        """Save current hyperparameter state.
 
-            cursor.execute(
-                """
-                INSERT INTO meta_hyperparams (hyperparams, metrics, adjustment_reason)
-                VALUES (?, ?, ?)
-                """,
-                (
-                    json.dumps(self.state.to_dict()),
-                    json.dumps(metrics.to_dict()) if metrics else None,
-                    reason,
-                ),
-            )
+        Logs warning if save fails but doesn't raise - in-memory state is preserved.
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
 
-            conn.commit()
+                cursor.execute(
+                    """
+                    INSERT INTO meta_hyperparams (hyperparams, metrics, adjustment_reason)
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        json.dumps(self.state.to_dict()),
+                        json.dumps(metrics.to_dict()) if metrics else None,
+                        reason,
+                    ),
+                )
+
+                conn.commit()
+        except sqlite3.Error as e:
+            logger.warning(f"Failed to save hyperparameter state: {e}")
+            # Continue with in-memory state - next save may succeed
 
     def get_current_hyperparams(self) -> Dict[str, Any]:
         """Get current hyperparameters for ContinuumMemory."""
@@ -238,60 +264,70 @@ class MetaLearner:
             cycle_results: Results from the most recent nomic cycle
 
         Returns:
-            LearningMetrics with computed efficiency scores
+            LearningMetrics with computed efficiency scores.
+            Returns partial metrics if DB queries fail.
         """
         metrics = LearningMetrics()
 
         # Get CMS stats
-        cms_stats = cms.get_stats()
+        try:
+            cms_stats = cms.get_stats()
+        except Exception as e:
+            logger.warning(f"Failed to get CMS stats: {e}")
+            cms_stats = {}
         total_memories = cms_stats.get("total_memories", 0)
 
         if total_memories == 0:
             return metrics
 
-        # Pattern retention: % of patterns with success_rate > 0.5
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
+        # Query pattern statistics from database
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
 
-            cursor.execute("""
-                SELECT COUNT(*) FROM continuum_memory
-                WHERE (success_count * 1.0 / NULLIF(success_count + failure_count, 0)) > 0.5
-            """)
-            row = cursor.fetchone()
-            useful_count = (row[0] if row else 0) or 0
-            metrics.pattern_retention_rate = useful_count / total_memories if total_memories > 0 else 0
-
-            # Forgetting rate: % of patterns that became less useful over time
-            cursor.execute("""
-                SELECT COUNT(*) FROM continuum_memory
-                WHERE failure_count > success_count
-                  AND update_count > 5
-            """)
-            row = cursor.fetchone()
-            forgotten_count = (row[0] if row else 0) or 0
-            metrics.forgetting_rate = forgotten_count / total_memories if total_memories > 0 else 0
-
-            # Tier efficiency: success rate per tier
-            for tier in ["fast", "medium", "slow", "glacial"]:
-                cursor.execute(
-                    """
-                    SELECT AVG(success_count * 1.0 / NULLIF(success_count + failure_count, 0))
-                    FROM continuum_memory
-                    WHERE tier = ? AND (success_count + failure_count) > 0
-                    """,
-                    (tier,),
-                )
+                # Pattern retention: % of patterns with success_rate > 0.5
+                cursor.execute("""
+                    SELECT COUNT(*) FROM continuum_memory
+                    WHERE (success_count * 1.0 / NULLIF(success_count + failure_count, 0)) > 0.5
+                """)
                 row = cursor.fetchone()
-                result = row[0] if row else None
-                metrics.tier_efficiency[tier] = result or 0.5
+                useful_count = (row[0] if row else 0) or 0
+                metrics.pattern_retention_rate = useful_count / total_memories if total_memories > 0 else 0
 
-            # Learning velocity: new patterns per cycle
-            cursor.execute("""
-                SELECT COUNT(*) FROM continuum_memory
-                WHERE julianday('now') - julianday(created_at) < 1
-            """)
-            row = cursor.fetchone()
-            metrics.learning_velocity = (row[0] if row else 0) or 0
+                # Forgetting rate: % of patterns that became less useful over time
+                cursor.execute("""
+                    SELECT COUNT(*) FROM continuum_memory
+                    WHERE failure_count > success_count
+                      AND update_count > 5
+                """)
+                row = cursor.fetchone()
+                forgotten_count = (row[0] if row else 0) or 0
+                metrics.forgetting_rate = forgotten_count / total_memories if total_memories > 0 else 0
+
+                # Tier efficiency: success rate per tier
+                for tier in ["fast", "medium", "slow", "glacial"]:
+                    cursor.execute(
+                        """
+                        SELECT AVG(success_count * 1.0 / NULLIF(success_count + failure_count, 0))
+                        FROM continuum_memory
+                        WHERE tier = ? AND (success_count + failure_count) > 0
+                        """,
+                        (tier,),
+                    )
+                    row = cursor.fetchone()
+                    result = row[0] if row else None
+                    metrics.tier_efficiency[tier] = result or 0.5
+
+                # Learning velocity: new patterns per cycle
+                cursor.execute("""
+                    SELECT COUNT(*) FROM continuum_memory
+                    WHERE julianday('now') - julianday(created_at) < 1
+                """)
+                row = cursor.fetchone()
+                metrics.learning_velocity = (row[0] if row else 0) or 0
+        except sqlite3.Error as e:
+            logger.warning(f"Failed to query learning metrics from DB: {e}")
+            # Continue with default values in metrics
 
         # Extract from cycle results
         metrics.cycles_evaluated = cycle_results.get("cycle", 0)
@@ -302,16 +338,20 @@ class MetaLearner:
         self.metrics_history.append(metrics)
 
         # Log to database
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO meta_efficiency_log (cycle_number, metrics)
-                VALUES (?, ?)
-                """,
-                (metrics.cycles_evaluated, json.dumps(metrics.to_dict())),
-            )
-            conn.commit()
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO meta_efficiency_log (cycle_number, metrics)
+                    VALUES (?, ?)
+                    """,
+                    (metrics.cycles_evaluated, json.dumps(metrics.to_dict())),
+                )
+                conn.commit()
+        except sqlite3.Error as e:
+            logger.warning(f"Failed to log efficiency metrics to DB: {e}")
+            # Continue - in-memory history is preserved
 
         return metrics
 
@@ -424,30 +464,37 @@ class MetaLearner:
         self.state.meta_learning_rate = max(0.001, min(0.1, self.state.meta_learning_rate))
 
     def get_adjustment_history(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """Get recent hyperparameter adjustments."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
+        """Get recent hyperparameter adjustments.
 
-            cursor.execute(
-                """
-                SELECT hyperparams, metrics, adjustment_reason, created_at
-                FROM meta_hyperparams
-                ORDER BY created_at DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
+        Returns empty list if database is unavailable.
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
 
-            history = []
-            for row in cursor.fetchall():
-                history.append({
-                    "hyperparams": safe_json_loads(row[0], {}),
-                    "metrics": safe_json_loads(row[1], None),
-                    "reason": row[2],
-                    "timestamp": row[3],
-                })
+                cursor.execute(
+                    """
+                    SELECT hyperparams, metrics, adjustment_reason, created_at
+                    FROM meta_hyperparams
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                )
 
-        return history
+                history = []
+                for row in cursor.fetchall():
+                    history.append({
+                        "hyperparams": safe_json_loads(row[0], {}),
+                        "metrics": safe_json_loads(row[1], None),
+                        "reason": row[2],
+                        "timestamp": row[3],
+                    })
+
+            return history
+        except sqlite3.Error as e:
+            logger.warning(f"Failed to get adjustment history: {e}")
+            return []
 
     def reset_to_defaults(self):
         """Reset hyperparameters to default values."""

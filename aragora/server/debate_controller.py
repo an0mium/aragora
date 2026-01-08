@@ -22,6 +22,7 @@ from aragora.server.debate_utils import (
     update_debate_status,
     wrap_agent_for_streaming,
 )
+from aragora.server.state import get_state_manager
 from aragora.server.error_utils import safe_error_message
 from aragora.server.http_utils import run_async
 from aragora.server.stream import (
@@ -117,15 +118,15 @@ class DebateController:
 
     Responsibilities:
     - Validates and processes debate requests
-    - Manages thread pool for concurrent debates
+    - Coordinates with StateManager for thread pool access
     - Coordinates with DebateFactory for arena creation
     - Handles trending topic integration
     - Manages debate state through debate_utils
 
     Thread Safety:
-        The class-level _executor is protected by _executor_thread_lock
-        using double-check locking pattern in _get_executor(). All debate
-        state is managed through StateManager which has its own locking.
+        The thread pool is managed by StateManager which handles
+        its own locking. All debate state is also managed through
+        StateManager.
 
     Usage:
         controller = DebateController(
@@ -137,10 +138,6 @@ class DebateController:
         request = DebateRequest.from_dict(json_data)
         response = controller.start_debate(request)
     """
-
-    # Class-level thread pool (shared across instances)
-    # Protected by _executor_thread_lock for thread-safe lazy initialization
-    _executor: Optional[ThreadPoolExecutor] = None
 
     def __init__(
         self,
@@ -161,9 +158,6 @@ class DebateController:
         self.emitter = emitter
         self.elo_system = elo_system
         self.auto_select_fn = auto_select_fn
-        # Thread lock for lazy-initializing shared executor from sync code (_get_executor)
-        import threading
-        self._executor_thread_lock = threading.Lock()
 
     def start_debate(self, request: DebateRequest) -> DebateResponse:
         """Start a new debate asynchronously.
@@ -237,14 +231,8 @@ class DebateController:
         )
 
     def _get_executor(self) -> ThreadPoolExecutor:
-        """Get or create the thread pool executor."""
-        with self._executor_thread_lock:
-            if DebateController._executor is None:
-                DebateController._executor = ThreadPoolExecutor(
-                    max_workers=MAX_CONCURRENT_DEBATES,
-                    thread_name_prefix="debate-",
-                )
-            return DebateController._executor
+        """Get the shared thread pool executor from StateManager."""
+        return get_state_manager().get_executor(max_workers=MAX_CONCURRENT_DEBATES)
 
     def _run_debate(self, config: DebateConfig, debate_id: str) -> None:
         """Execute debate in background thread.
@@ -394,7 +382,5 @@ class DebateController:
 
     @classmethod
     def shutdown(cls) -> None:
-        """Shutdown the thread pool executor."""
-        if cls._executor:
-            cls._executor.shutdown(wait=False)
-            cls._executor = None
+        """Shutdown the thread pool executor via StateManager."""
+        get_state_manager().shutdown_executor()

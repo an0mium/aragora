@@ -44,9 +44,9 @@ from .base import (
     get_string_param,
     ttl_cache,
     handle_errors,
-    validate_agent_name,
     validate_path_segment,
     SAFE_ID_PATTERN,
+    SAFE_AGENT_PATTERN,
 )
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
@@ -58,7 +58,7 @@ class AgentsHandler(BaseHandler):
         "/api/agents",
         "/api/leaderboard",
         "/api/rankings",
-        "/api/calibration/leaderboard",
+        # Note: /api/calibration/leaderboard handled by CalibrationHandler
         "/api/matches/recent",
         "/api/agent/compare",
         "/api/agent/*/profile",
@@ -81,7 +81,7 @@ class AgentsHandler(BaseHandler):
         """Check if this handler can process the given path."""
         if path == "/api/agents":
             return True
-        if path in ("/api/leaderboard", "/api/rankings", "/api/calibration/leaderboard"):
+        if path in ("/api/leaderboard", "/api/rankings"):
             return True
         if path == "/api/matches/recent":
             return True
@@ -110,9 +110,7 @@ class AgentsHandler(BaseHandler):
                     return error_response(err, 400)
             return self._get_leaderboard(limit, domain)
 
-        if path == "/api/calibration/leaderboard":
-            limit = get_int_param(query_params, 'limit', 20)
-            return self._get_calibration_leaderboard(limit)
+        # Note: /api/calibration/leaderboard now handled by CalibrationHandler
 
         if path == "/api/matches/recent":
             limit = get_int_param(query_params, 'limit', 10)
@@ -150,29 +148,23 @@ class AgentsHandler(BaseHandler):
         if len(parts) < 4:
             return error_response("Invalid agent path", 400)
 
-        agent_name = parts[3]
-
-        # Validate agent name
-        is_valid, err = validate_agent_name(agent_name)
-        if not is_valid:
-            return error_response(err, 400)
+        # Extract and validate agent name
+        agent_name, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
+        if err:
+            return err
 
         # Head-to-head: /api/agent/{name}/head-to-head/{opponent}
         if len(parts) >= 6 and parts[4] == "head-to-head":
-            opponent = parts[5]
-            # Validate opponent name
-            is_valid, err = validate_agent_name(opponent)
-            if not is_valid:
-                return error_response(err, 400)
+            opponent, err = self.extract_path_param(path, 4, "opponent", SAFE_AGENT_PATTERN)
+            if err:
+                return err
             return self._get_head_to_head(agent_name, opponent)
 
         # Opponent briefing: /api/agent/{name}/opponent-briefing/{opponent}
         if len(parts) >= 6 and parts[4] == "opponent-briefing":
-            opponent = parts[5]
-            # Validate opponent name
-            is_valid, err = validate_agent_name(opponent)
-            if not is_valid:
-                return error_response(err, 400)
+            opponent, err = self.extract_path_param(path, 4, "opponent", SAFE_AGENT_PATTERN)
+            if err:
+                return err
             return self._get_opponent_briefing(agent_name, opponent)
 
         # Other endpoints: /api/agent/{name}/{endpoint}

@@ -338,9 +338,9 @@ class TestBeliefHandler:
         }
         return BeliefHandler(ctx)
 
-    def test_can_handle_emergent_traits(self, handler):
-        """Test can_handle for emergent-traits endpoint."""
-        assert handler.can_handle("/api/laboratory/emergent-traits") is True
+    def test_cannot_handle_emergent_traits(self, handler):
+        """Test can_handle for emergent-traits (moved to LaboratoryHandler)."""
+        assert handler.can_handle("/api/laboratory/emergent-traits") is False
 
     def test_can_handle_cruxes(self, handler):
         """Test can_handle for cruxes endpoint."""
@@ -363,11 +363,10 @@ class TestBeliefHandler:
         assert handler.can_handle("/api/consensus/stats") is False
         assert handler.can_handle("/api/debates") is False
 
-    @patch("aragora.server.handlers.belief.LABORATORY_AVAILABLE", False)
-    def test_emergent_traits_503_when_unavailable(self, handler):
-        """Test returns 503 when laboratory unavailable."""
+    def test_emergent_traits_not_handled(self, handler):
+        """Test BeliefHandler does not handle emergent-traits (moved to LaboratoryHandler)."""
         result = handler.handle("/api/laboratory/emergent-traits", {}, Mock())
-        assert result.status_code == 503
+        assert result is None  # Route handled by LaboratoryHandler now
 
     @patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False)
     def test_cruxes_503_when_unavailable(self, handler):
@@ -539,9 +538,9 @@ class TestAgentsHandler:
         assert handler.can_handle("/api/leaderboard") is True
         assert handler.can_handle("/api/rankings") is True
 
-    def test_can_handle_calibration(self, handler):
-        """Test can_handle for calibration endpoint."""
-        assert handler.can_handle("/api/calibration/leaderboard") is True
+    def test_cannot_handle_calibration(self, handler):
+        """Test can_handle for calibration (moved to CalibrationHandler)."""
+        assert handler.can_handle("/api/calibration/leaderboard") is False
 
     def test_can_handle_matches(self, handler):
         """Test can_handle for matches endpoint."""
@@ -624,7 +623,8 @@ class TestAnalyticsHandler:
     def test_can_handle_memory_stats(self, handler):
         """Test can_handle for memory stats endpoint."""
         assert handler.can_handle("/api/memory/stats") is True
-        assert handler.can_handle("/api/memory/tier-stats") is True
+        # Note: /api/memory/tier-stats moved to MemoryHandler
+        assert handler.can_handle("/api/memory/tier-stats") is False
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""

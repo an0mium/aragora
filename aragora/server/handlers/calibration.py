@@ -19,7 +19,7 @@ from .base import (
     error_response,
     get_clamped_int_param,
     get_string_param,
-    validate_agent_name,
+    SAFE_AGENT_PATTERN,
 )
 from aragora.utils.optional_imports import try_import_class
 
@@ -64,14 +64,9 @@ class CalibrationHandler(BaseHandler):
             return None
 
         # Extract agent name: /api/agent/{name}/calibration-*
-        parts = path.split("/")
-        if len(parts) < 5:
-            return None
-
-        agent = parts[3]
-        is_valid, err = validate_agent_name(agent)
-        if not is_valid:
-            return error_response(err, 400)
+        agent, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
+        if err:
+            return err
 
         if path.endswith("/calibration-curve"):
             buckets = get_clamped_int_param(query_params, 'buckets', 10, min_val=5, max_val=20)

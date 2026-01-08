@@ -16,9 +16,9 @@ class TestBeliefHandlerRouting:
         """Create handler with mock context."""
         return BeliefHandler({"nomic_dir": Path("/tmp/test")})
 
-    def test_can_handle_emergent_traits(self, handler):
-        """Should handle /api/laboratory/emergent-traits."""
-        assert handler.can_handle("/api/laboratory/emergent-traits") is True
+    def test_cannot_handle_emergent_traits(self, handler):
+        """Should NOT handle /api/laboratory/emergent-traits (moved to LaboratoryHandler)."""
+        assert handler.can_handle("/api/laboratory/emergent-traits") is False
 
     def test_can_handle_cruxes(self, handler):
         """Should handle /api/belief-network/:debate_id/cruxes."""
@@ -48,45 +48,8 @@ class TestBeliefHandlerRouting:
         assert handler.can_handle("/api/laboratory") is False
 
 
-class TestEmergentTraitsEndpoint:
-    """Tests for /api/laboratory/emergent-traits endpoint."""
-
-    @pytest.fixture
-    def handler(self):
-        """Create handler with mock context."""
-        return BeliefHandler({"nomic_dir": Path("/tmp/test")})
-
-    @patch("aragora.server.handlers.belief.LABORATORY_AVAILABLE", False)
-    def test_503_when_laboratory_unavailable(self, handler):
-        """Should return 503 when laboratory not available."""
-        result = handler.handle("/api/laboratory/emergent-traits", {}, Mock())
-        assert result.status_code == 503
-        data = json.loads(result.body)
-        assert "not available" in data["error"]
-
-    @patch("aragora.server.handlers.belief.LABORATORY_AVAILABLE", True)
-    @patch("aragora.server.handlers.belief.PersonaLaboratory")
-    def test_returns_traits_list(self, mock_lab_class, handler):
-        """Should return filtered traits list."""
-        mock_trait = Mock()
-        mock_trait.agent_name = "claude"
-        mock_trait.trait_name = "analytical"
-        mock_trait.domain = "reasoning"
-        mock_trait.confidence = 0.8
-        mock_trait.evidence = ["won 5 debates"]
-        mock_trait.detected_at = "2025-01-01T00:00:00"
-
-        mock_lab = Mock()
-        mock_lab.detect_emergent_traits.return_value = [mock_trait]
-        mock_lab_class.return_value = mock_lab
-
-        result = handler.handle("/api/laboratory/emergent-traits", {"min_confidence": "0.5"}, Mock())
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert "emergent_traits" in data
-        assert len(data["emergent_traits"]) == 1
-        assert data["emergent_traits"][0]["agent"] == "claude"
+# Note: TestEmergentTraitsEndpoint moved to test_handlers_laboratory.py
+# since /api/laboratory/emergent-traits is now handled by LaboratoryHandler
 
 
 class TestCruxesEndpoint:
@@ -210,43 +173,5 @@ class TestHandlerImport:
         assert "BeliefHandler" in __all__
 
 
-class TestParameterValidation:
-    """Tests for query parameter validation."""
-
-    @pytest.fixture
-    def handler(self):
-        """Create handler with mock context."""
-        return BeliefHandler({"nomic_dir": Path("/tmp/test")})
-
-    @patch("aragora.server.handlers.belief.LABORATORY_AVAILABLE", True)
-    @patch("aragora.server.handlers.belief.PersonaLaboratory")
-    def test_min_confidence_clamped_to_valid_range(self, mock_lab_class, handler):
-        """min_confidence should be clamped to 0.0-1.0."""
-        mock_lab = Mock()
-        mock_lab.detect_emergent_traits.return_value = []
-        mock_lab_class.return_value = mock_lab
-
-        # Test with value > 1.0
-        result = handler.handle("/api/laboratory/emergent-traits", {"min_confidence": "2.0"}, Mock())
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["min_confidence"] == 1.0
-
-        # Test with negative value
-        result = handler.handle("/api/laboratory/emergent-traits", {"min_confidence": "-0.5"}, Mock())
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["min_confidence"] == 0.0
-
-    @patch("aragora.server.handlers.belief.LABORATORY_AVAILABLE", True)
-    @patch("aragora.server.handlers.belief.PersonaLaboratory")
-    def test_limit_capped_at_max(self, mock_lab_class, handler):
-        """limit should be capped at maximum value."""
-        mock_lab = Mock()
-        mock_lab.detect_emergent_traits.return_value = []
-        mock_lab_class.return_value = mock_lab
-
-        # Test with limit > 50
-        result = handler.handle("/api/laboratory/emergent-traits", {"limit": "100"}, Mock())
-        assert result.status_code == 200
-        # Implementation limits to 50
+# Note: TestParameterValidation for emergent-traits moved to test_handlers_laboratory.py
+# since /api/laboratory/emergent-traits is now handled by LaboratoryHandler

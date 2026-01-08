@@ -25,6 +25,64 @@ logger = logging.getLogger(__name__)
 # Pattern for valid debate IDs (alphanumeric, hyphens, underscores only)
 VALID_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
 
+# Allowed audio formats (whitelist)
+ALLOWED_AUDIO_FORMATS = frozenset(["mp3", "wav", "m4a", "ogg", "flac", "aac"])
+
+# Maximum file size (100 MB - reasonable for debate audio)
+MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024  # 100 MB
+
+# Audio file magic bytes for validation
+# Format: magic_bytes -> (format_name, offset)
+AUDIO_MAGIC_BYTES = {
+    b'\xff\xfb': "mp3",           # MP3 frame sync
+    b'\xff\xfa': "mp3",           # MP3 frame sync (alt)
+    b'\xff\xf3': "mp3",           # MP3 frame sync (alt)
+    b'\xff\xf2': "mp3",           # MP3 frame sync (alt)
+    b'ID3': "mp3",                # MP3 with ID3 tag
+    b'RIFF': "wav",               # WAV container
+    b'fLaC': "flac",              # FLAC
+    b'OggS': "ogg",               # Ogg container
+    b'\x00\x00\x00': "m4a",       # M4A/AAC (partial - needs ftyp check)
+}
+
+
+def _validate_audio_magic(data: bytes, claimed_format: str) -> bool:
+    """Validate audio file magic bytes match claimed format.
+
+    Args:
+        data: Audio file data (at least first 12 bytes)
+        claimed_format: The format the file claims to be
+
+    Returns:
+        True if magic bytes are consistent with format, False otherwise
+    """
+    if len(data) < 12:
+        return False  # Too small to be valid audio
+
+    # Check common magic bytes
+    for magic, fmt in AUDIO_MAGIC_BYTES.items():
+        if data.startswith(magic):
+            # MP3 magic matches multiple patterns
+            if fmt == "mp3" and claimed_format == "mp3":
+                return True
+            if fmt == claimed_format:
+                return True
+
+    # M4A/AAC special case - check for 'ftyp' at offset 4
+    if claimed_format in ("m4a", "aac"):
+        if data[4:8] == b'ftyp':
+            return True
+
+    # WAV special case - verify WAVE identifier
+    if claimed_format == "wav" and data[:4] == b'RIFF':
+        if data[8:12] == b'WAVE':
+            return True
+
+    # Allow if we couldn't detect (some formats are tricky)
+    # But log for monitoring
+    logger.debug(f"Could not validate magic bytes for claimed format {claimed_format}")
+    return True  # Permissive for now - log helps identify issues
+
 
 def _validate_debate_id(debate_id: str) -> bool:
     """Validate a debate ID to prevent path traversal.
@@ -185,12 +243,38 @@ class AudioFileStore:
             agents: List of participating agents
 
         Returns:
-            Path to the stored audio file, or None if debate_id is invalid
+            Path to the stored audio file, or None if validation fails
         """
-        dest_path = self._audio_path(debate_id, format)
+        # Validate format against whitelist
+        format_lower = format.lower()
+        if format_lower not in ALLOWED_AUDIO_FORMATS:
+            logger.error(f"Rejected audio format '{format}': not in whitelist {ALLOWED_AUDIO_FORMATS}")
+            return None
+
+        dest_path = self._audio_path(debate_id, format_lower)
         if dest_path is None:
             logger.error(f"Cannot save audio: invalid debate_id {debate_id!r}")
             return None
+
+        # Validate file size
+        audio_path = Path(audio_path)
+        if not audio_path.exists():
+            logger.error(f"Source audio file not found: {audio_path}")
+            return None
+
+        file_size = audio_path.stat().st_size
+        if file_size > MAX_FILE_SIZE_BYTES:
+            logger.error(
+                f"Audio file too large: {file_size:,} bytes > {MAX_FILE_SIZE_BYTES:,} bytes limit"
+            )
+            return None
+
+        # Validate magic bytes
+        with open(audio_path, "rb") as f:
+            header = f.read(12)
+        if not _validate_audio_magic(header, format_lower):
+            logger.warning(f"Audio magic bytes don't match format {format_lower} for {audio_path}")
+            # Continue anyway - logged for monitoring
 
         # Copy audio file to storage
         shutil.copy2(audio_path, dest_path)
@@ -241,9 +325,27 @@ class AudioFileStore:
             agents: List of participating agents
 
         Returns:
-            Path to the stored audio file, or None if debate_id is invalid
+            Path to the stored audio file, or None if validation fails
         """
-        dest_path = self._audio_path(debate_id, format)
+        # Validate format against whitelist
+        format_lower = format.lower()
+        if format_lower not in ALLOWED_AUDIO_FORMATS:
+            logger.error(f"Rejected audio format '{format}': not in whitelist {ALLOWED_AUDIO_FORMATS}")
+            return None
+
+        # Validate size
+        if len(audio_data) > MAX_FILE_SIZE_BYTES:
+            logger.error(
+                f"Audio data too large: {len(audio_data):,} bytes > {MAX_FILE_SIZE_BYTES:,} bytes limit"
+            )
+            return None
+
+        # Validate magic bytes
+        if not _validate_audio_magic(audio_data, format_lower):
+            logger.warning(f"Audio magic bytes don't match claimed format {format_lower}")
+            # Continue anyway - logged for monitoring
+
+        dest_path = self._audio_path(debate_id, format_lower)
         if dest_path is None:
             logger.error(f"Cannot save audio: invalid debate_id {debate_id!r}")
             return None

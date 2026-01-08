@@ -11,7 +11,8 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+import time
+from typing import Any, Optional, Tuple
 import hashlib
 
 from aragora.reasoning.provenance import (
@@ -125,19 +126,71 @@ class BaseConnector(ABC):
         provenance: Optional[ProvenanceManager] = None,
         default_confidence: float = 0.5,
         max_cache_entries: int = 500,
+        cache_ttl_seconds: float = 3600.0,  # 1 hour default TTL
     ):
         self.provenance = provenance
         self.default_confidence = default_confidence
-        self._cache: OrderedDict[str, Evidence] = OrderedDict()
+        # Cache stores (timestamp, evidence) tuples for TTL support
+        self._cache: OrderedDict[str, Tuple[float, Evidence]] = OrderedDict()
         self._max_cache_entries = max_cache_entries
+        self._cache_ttl = cache_ttl_seconds
+
+    def _cache_get(self, evidence_id: str) -> Optional[Evidence]:
+        """Get from cache if not expired."""
+        if evidence_id not in self._cache:
+            return None
+
+        cached_time, evidence = self._cache[evidence_id]
+        now = time.time()
+
+        # Check TTL
+        if now - cached_time > self._cache_ttl:
+            # Expired - remove and return None
+            del self._cache[evidence_id]
+            return None
+
+        # Move to end (LRU)
+        self._cache.move_to_end(evidence_id)
+        return evidence
 
     def _cache_put(self, evidence_id: str, evidence: Evidence) -> None:
-        """Add to cache with LRU eviction."""
+        """Add to cache with LRU eviction and TTL."""
+        now = time.time()
+
         if evidence_id in self._cache:
             self._cache.move_to_end(evidence_id)
-        self._cache[evidence_id] = evidence
+        self._cache[evidence_id] = (now, evidence)
+
+        # LRU eviction if over limit
         while len(self._cache) > self._max_cache_entries:
             self._cache.popitem(last=False)
+
+    def _cache_clear_expired(self) -> int:
+        """Clear expired entries from cache. Returns count cleared."""
+        now = time.time()
+        expired_keys = [
+            key for key, (cached_time, _) in self._cache.items()
+            if now - cached_time > self._cache_ttl
+        ]
+        for key in expired_keys:
+            del self._cache[key]
+        return len(expired_keys)
+
+    def _cache_stats(self) -> dict:
+        """Get cache statistics."""
+        now = time.time()
+        total = len(self._cache)
+        expired = sum(
+            1 for cached_time, _ in self._cache.values()
+            if now - cached_time > self._cache_ttl
+        )
+        return {
+            "total_entries": total,
+            "active_entries": total - expired,
+            "expired_entries": expired,
+            "max_entries": self._max_cache_entries,
+            "ttl_seconds": self._cache_ttl,
+        }
 
     @property
     @abstractmethod

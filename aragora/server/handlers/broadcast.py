@@ -15,7 +15,7 @@ from .base import (
     HandlerResult,
     json_response,
     error_response,
-    validate_debate_id,
+    SAFE_SLUG_PATTERN,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,14 +70,10 @@ class BroadcastHandler(BaseHandler):
         """Handle POST requests."""
         # Broadcast generation
         if path.startswith('/api/debates/') and path.endswith('/broadcast'):
-            parts = path.split('/')
-            if len(parts) >= 4:
-                debate_id = parts[3]
-                # Early validation before processing
-                valid, err = validate_debate_id(debate_id)
-                if not valid:
-                    return error_response(err, status=400)
-                return self._generate_broadcast(debate_id, handler)
+            debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
+            if err:
+                return err
+            return self._generate_broadcast(debate_id, handler)
 
         return None
 
@@ -85,10 +81,6 @@ class BroadcastHandler(BaseHandler):
         """Generate podcast audio from a debate trace."""
         if not BROADCAST_AVAILABLE:
             return error_response("Broadcast module not available", status=503)
-
-        valid, error = validate_debate_id(debate_id)
-        if not valid:
-            return error_response(error, status=400)
 
         storage = self.get_storage()
         if not storage:

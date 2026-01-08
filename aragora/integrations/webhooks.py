@@ -319,8 +319,36 @@ class WebhookDispatcher:
             return False
         return True
 
+    # Cloud metadata endpoints to block (SSRF targets)
+    BLOCKED_METADATA_IPS = frozenset([
+        # AWS
+        "169.254.169.254",
+        "fd00:ec2::254",
+        # GCP
+        "metadata.google.internal",
+        # Azure
+        "169.254.169.254",  # Same as AWS
+        # DigitalOcean
+        "169.254.169.254",  # Same as AWS
+    ])
+
+    BLOCKED_METADATA_HOSTNAMES = frozenset([
+        "metadata.google.internal",
+        "metadata.goog",
+        "169.254.169.254",
+        "instance-data",
+    ])
+
     def _validate_webhook_url(self, url: str) -> tuple[bool, str]:
         """Validate webhook URL is not pointing to internal services (SSRF protection).
+
+        Blocks:
+        - Non HTTP/HTTPS schemes
+        - Private IP ranges (10.x, 172.16-31.x, 192.168.x)
+        - Loopback addresses (127.x, ::1)
+        - Link-local addresses (169.254.x, fe80::)
+        - Reserved addresses
+        - Cloud metadata endpoints (AWS, GCP, Azure, etc.)
 
         Returns:
             Tuple of (is_valid, error_message). If valid, error_message is empty.
@@ -337,29 +365,56 @@ class WebhookDispatcher:
         if not parsed.hostname:
             return False, "URL must have a hostname"
 
+        hostname_lower = parsed.hostname.lower()
+
+        # Block known metadata hostnames
+        if hostname_lower in self.BLOCKED_METADATA_HOSTNAMES:
+            return False, f"Blocked metadata hostname: {parsed.hostname}"
+
+        # Block hostnames ending with internal suffixes
+        blocked_suffixes = ('.internal', '.local', '.localhost', '.lan')
+        if any(hostname_lower.endswith(suffix) for suffix in blocked_suffixes):
+            return False, f"Internal hostname not allowed: {parsed.hostname}"
+
         # Skip IP validation if localhost is allowed (for testing)
         if self._allow_localhost:
             return True, ""
 
-        # Resolve hostname to IP and check for private ranges
+        # Try to resolve hostname and check all returned IPs (IPv4 and IPv6)
         try:
-            ip = socket.gethostbyname(parsed.hostname)
-            ip_obj = ipaddress.ip_address(ip)
+            # Use getaddrinfo for both IPv4 and IPv6 resolution
+            addr_info = socket.getaddrinfo(
+                parsed.hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM
+            )
+            for family, _, _, _, sockaddr in addr_info:
+                ip_str = sockaddr[0]
+                try:
+                    ip_obj = ipaddress.ip_address(ip_str)
+                except ValueError:
+                    continue
 
-            if ip_obj.is_private:
-                return False, f"Private IP not allowed: {ip}"
-            if ip_obj.is_loopback:
-                return False, f"Loopback IP not allowed: {ip}"
-            if ip_obj.is_link_local:
-                return False, f"Link-local IP not allowed: {ip}"
-            if ip_obj.is_reserved:
-                return False, f"Reserved IP not allowed: {ip}"
-            # Block AWS/cloud metadata endpoints
-            if str(ip_obj) in ("169.254.169.254", "fd00:ec2::254"):
-                return False, "Cloud metadata endpoint not allowed"
+                if ip_obj.is_private:
+                    return False, f"Private IP not allowed: {ip_str}"
+                if ip_obj.is_loopback:
+                    return False, f"Loopback IP not allowed: {ip_str}"
+                if ip_obj.is_link_local:
+                    return False, f"Link-local IP not allowed: {ip_str}"
+                if ip_obj.is_reserved:
+                    return False, f"Reserved IP not allowed: {ip_str}"
+                if ip_obj.is_multicast:
+                    return False, f"Multicast IP not allowed: {ip_str}"
+                if ip_obj.is_unspecified:
+                    return False, f"Unspecified IP not allowed: {ip_str}"
+
+                # Block cloud metadata endpoints
+                if ip_str in self.BLOCKED_METADATA_IPS:
+                    return False, f"Cloud metadata endpoint not allowed: {ip_str}"
 
         except socket.gaierror:
             # DNS resolution failed - let the request fail naturally
+            pass
+        except OSError:
+            # Other socket errors - allow and let request handle it
             pass
 
         return True, ""

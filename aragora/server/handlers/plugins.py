@@ -13,6 +13,7 @@ from typing import Optional
 
 from aragora.utils.optional_imports import try_import
 from aragora.server.http_utils import run_async
+from aragora.server.middleware.rate_limit import rate_limit
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -110,6 +111,7 @@ class PluginsHandler(BaseHandler):
         else:
             return json_response(manifest.to_dict())
 
+    @rate_limit(requests_per_minute=20, burst=5, limiter_name="plugin_run")
     @handle_errors("run plugin")
     def _run_plugin(self, plugin_name: str, handler) -> HandlerResult:
         """Run a plugin with provided input.

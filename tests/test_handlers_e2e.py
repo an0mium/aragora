@@ -394,13 +394,9 @@ class TestAgentsHandlerE2E:
         assert "rivals" in data
         assert "allies" in data
 
-    def test_calibration_leaderboard(self, agents_handler):
-        """Test /api/calibration/leaderboard returns rankings."""
-        result = agents_handler.handle("/api/calibration/leaderboard", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert "rankings" in data
+    def test_cannot_handle_calibration_leaderboard(self, agents_handler):
+        """AgentsHandler should NOT handle /api/calibration/leaderboard (moved to CalibrationHandler)."""
+        assert agents_handler.can_handle("/api/calibration/leaderboard") is False
 
 
 # ============================================================================
@@ -607,7 +603,8 @@ class TestAnalyticsHandlerE2E:
         assert analytics_handler.can_handle("/api/analytics/early-stops") is True
         assert analytics_handler.can_handle("/api/ranking/stats") is True
         assert analytics_handler.can_handle("/api/memory/stats") is True
-        assert analytics_handler.can_handle("/api/memory/tier-stats") is True
+        # Note: /api/memory/tier-stats moved to MemoryHandler
+        assert analytics_handler.can_handle("/api/memory/tier-stats") is False
         assert analytics_handler.can_handle("/api/debates") is False
 
     def test_disagreement_stats_structure(self, analytics_handler):
@@ -731,12 +728,8 @@ class TestAnalyticsHandlerE2E:
         assert "insights_db" in stats
         assert "continuum_memory" in stats
 
-    def test_memory_tier_stats_same_as_memory_stats(self, analytics_handler):
-        """Test /api/memory/tier-stats returns same as memory stats."""
-        result1 = analytics_handler.handle("/api/memory/stats", {}, None)
-        result2 = analytics_handler.handle("/api/memory/tier-stats", {}, None)
-
-        assert result1.status_code == result2.status_code
+    # Note: test_memory_tier_stats_same_as_memory_stats removed
+    # /api/memory/tier-stats is now handled by MemoryHandler, not AnalyticsHandler
 
 
 # ============================================================================

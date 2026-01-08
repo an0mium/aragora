@@ -26,6 +26,7 @@ from .base import (
     require_storage,
     get_int_param,
     ttl_cache,
+    safe_json_parse,
 )
 from aragora.server.validation import validate_debate_id
 
@@ -696,13 +697,7 @@ class DebatesHandler(BaseHandler):
                 })
 
             # Parse grounded_verdict JSON if it's a string
-            if isinstance(grounded_verdict_raw, str):
-                try:
-                    grounded_verdict = json_module.loads(grounded_verdict_raw)
-                except json_module.JSONDecodeError:
-                    grounded_verdict = None
-            else:
-                grounded_verdict = grounded_verdict_raw
+            grounded_verdict = safe_json_parse(grounded_verdict_raw)
 
             if not grounded_verdict:
                 return json_response({
@@ -746,17 +741,7 @@ class DebatesHandler(BaseHandler):
                 return error_response(f"Debate not found: {debate_id}", 404)
 
             # Get grounded verdict from debate
-            grounded_verdict_raw = debate.get("grounded_verdict")
-            grounded_verdict = None
-
-            if grounded_verdict_raw:
-                if isinstance(grounded_verdict_raw, str):
-                    try:
-                        grounded_verdict = json_module.loads(grounded_verdict_raw)
-                    except json_module.JSONDecodeError:
-                        pass
-                else:
-                    grounded_verdict = grounded_verdict_raw
+            grounded_verdict = safe_json_parse(debate.get("grounded_verdict"))
 
             # Try to get related evidence from ContinuumMemory
             related_evidence = []

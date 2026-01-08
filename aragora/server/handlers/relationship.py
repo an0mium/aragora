@@ -24,10 +24,10 @@ from .base import (
     error_response,
     get_int_param,
     get_float_param,
-    validate_agent_name,
     get_db_connection,
+    table_exists,
+    SAFE_AGENT_PATTERN,
 )
-from aragora.server.validation import SAFE_ID_PATTERN
 from aragora.utils.optional_imports import try_import
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
@@ -96,6 +96,26 @@ def compute_alliance_score(debate_count: int, agreement_count: int) -> float:
     return agreement_rate * 0.6
 
 
+def determine_relationship_type(
+    rivalry_score: float, alliance_score: float, threshold: float = 0.3
+) -> str:
+    """Determine relationship type based on rivalry and alliance scores.
+
+    Args:
+        rivalry_score: Rivalry score (0.0 to 1.0)
+        alliance_score: Alliance score (0.0 to 1.0)
+        threshold: Minimum score to classify as rivalry/alliance (default: 0.3)
+
+    Returns:
+        Relationship type: "rivalry", "alliance", or "neutral"
+    """
+    if rivalry_score > alliance_score and rivalry_score > threshold:
+        return "rivalry"
+    elif alliance_score > rivalry_score and alliance_score > threshold:
+        return "alliance"
+    return "neutral"
+
+
 # =============================================================================
 # Handler Decorators
 # =============================================================================
@@ -160,19 +180,13 @@ class RelationshipHandler(BaseHandler):
 
         # Handle /api/relationship/{agent_a}/{agent_b}
         if path.startswith("/api/relationship/"):
-            parts = path.split("/")
-            if len(parts) >= 5:
-                agent_a = parts[3]
-                agent_b = parts[4]
-                # Validate agent names
-                is_valid_a, err_a = validate_agent_name(agent_a)
-                if not is_valid_a:
-                    return error_response(f"Invalid agent_a: {err_a}", 400)
-                is_valid_b, err_b = validate_agent_name(agent_b)
-                if not is_valid_b:
-                    return error_response(f"Invalid agent_b: {err_b}", 400)
-                return self._get_pair_detail(nomic_dir, agent_a, agent_b)
-            return error_response("Invalid path format", 400)
+            params, err = self.extract_path_params(path, [
+                (2, "agent_a", SAFE_AGENT_PATTERN),
+                (3, "agent_b", SAFE_AGENT_PATTERN),
+            ])
+            if err:
+                return err
+            return self._get_pair_detail(nomic_dir, params["agent_a"], params["agent_b"])
 
         return None
 
@@ -206,11 +220,7 @@ class RelationshipHandler(BaseHandler):
             with get_db_connection(str(tracker.elo_db_path)) as conn:
                 cursor = conn.cursor()
 
-                # Check if table exists
-                cursor.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_relationships'"
-                )
-                if not cursor.fetchone():
+                if not table_exists(cursor, "agent_relationships"):
                     return json_response({
                         "total_relationships": 0,
                         "strongest_rivalry": None,
@@ -312,11 +322,7 @@ class RelationshipHandler(BaseHandler):
             with get_db_connection(str(tracker.elo_db_path)) as conn:
                 cursor = conn.cursor()
 
-                # Check if table exists
-                cursor.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_relationships'"
-                )
-                if not cursor.fetchone():
+                if not table_exists(cursor, "agent_relationships"):
                     return json_response({
                         "nodes": [],
                         "edges": [],
@@ -363,17 +369,14 @@ class RelationshipHandler(BaseHandler):
                 if max_score < min_score:
                     continue
 
-                # Determine relationship type
-                if rivalry_score > alliance_score and rivalry_score > 0.3:
-                    rel_type = "rivalry"
+                # Determine relationship type and update node counters
+                rel_type = determine_relationship_type(rivalry_score, alliance_score)
+                if rel_type == "rivalry":
                     nodes_data[agent_a]["rivals"] += 1
                     nodes_data[agent_b]["rivals"] += 1
-                elif alliance_score > rivalry_score and alliance_score > 0.3:
-                    rel_type = "alliance"
+                elif rel_type == "alliance":
                     nodes_data[agent_a]["allies"] += 1
                     nodes_data[agent_b]["allies"] += 1
-                else:
-                    rel_type = "neutral"
 
                 # Update debate counts
                 nodes_data[agent_a]["debate_count"] += debate_count
@@ -428,14 +431,7 @@ class RelationshipHandler(BaseHandler):
             agreement_rate = rel.agreement_count / rel.debate_count if rel.debate_count > 0 else 0
             rivalry_score = rel.rivalry_score
             alliance_score = rel.alliance_score
-
-            # Determine relationship type
-            if rivalry_score > alliance_score and rivalry_score > 0.3:
-                rel_type = "rivalry"
-            elif alliance_score > rivalry_score and alliance_score > 0.3:
-                rel_type = "alliance"
-            else:
-                rel_type = "neutral"
+            rel_type = determine_relationship_type(rivalry_score, alliance_score)
 
             return json_response({
                 "agent_a": rel.agent_a,
@@ -471,11 +467,7 @@ class RelationshipHandler(BaseHandler):
             with get_db_connection(str(tracker.elo_db_path)) as conn:
                 cursor = conn.cursor()
 
-                # Check if table exists
-                cursor.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_relationships'"
-                )
-                if not cursor.fetchone():
+                if not table_exists(cursor, "agent_relationships"):
                     return json_response({
                         "total_tracked_pairs": 0,
                         "total_debates_tracked": 0,
@@ -542,9 +534,10 @@ class RelationshipHandler(BaseHandler):
                         debate_count, agreement_count
                     )
 
-                    if rivalry_score > alliance_score and rivalry_score > 0.3:
+                    rel_type = determine_relationship_type(rivalry_score, alliance_score)
+                    if rel_type == "rivalry":
                         rivalries.append(rivalry_score)
-                    elif alliance_score > rivalry_score and alliance_score > 0.3:
+                    elif rel_type == "alliance":
                         alliances.append(alliance_score)
                     else:
                         neutral_count += 1

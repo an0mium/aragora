@@ -19,8 +19,8 @@ from .base import (
     json_response,
     error_response,
     get_int_param,
-    validate_agent_name,
     ttl_cache,
+    SAFE_AGENT_PATTERN,
 )
 from aragora.config import DB_PERSONAS_PATH
 from aragora.utils.optional_imports import try_import_class
@@ -69,10 +69,9 @@ class IntrospectionHandler(BaseHandler):
         elif path == "/api/introspection/agents":
             return self._list_agents()
         elif path.startswith("/api/introspection/agents/"):
-            agent = path.split("/")[-1]
-            is_valid, err = validate_agent_name(agent)
-            if not is_valid:
-                return error_response(err, 400)
+            agent, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
+            if err:
+                return err
             return self._get_agent_introspection(agent)
         return None
 
@@ -133,8 +132,8 @@ class IntrospectionHandler(BaseHandler):
                         if reputation:
                             agent_info["reputation_score"] = getattr(reputation, "score", 0.5)
                             agent_info["total_critiques"] = getattr(reputation, "total_critiques", 0)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Failed to get reputation for {agent}: {e}")
 
                 agent_list.append(agent_info)
 

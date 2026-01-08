@@ -211,7 +211,8 @@ class TestBaseConnectorCache:
         connector._cache_put("e1", evidence)
 
         assert "e1" in connector._cache
-        assert connector._cache["e1"] == evidence
+        # Use _cache_get to retrieve (handles TTL format)
+        assert connector._cache_get("e1") == evidence
 
     def test_cache_eviction_at_limit(self, connector):
         """Cache should evict oldest when at max_cache_entries."""
@@ -383,6 +384,101 @@ class TestProvenanceRecording:
         connector_with_provenance.record_evidence(evidence, claim_id="claim-1")
 
         mock_provenance.cite_evidence.assert_called_once()
+
+
+class TestCacheTTL:
+    """Tests for TTL-based cache expiration."""
+
+    @pytest.fixture
+    def short_ttl_connector(self):
+        """Create connector with short TTL for testing."""
+        return ConcreteConnector(max_cache_entries=10, cache_ttl_seconds=0.1)
+
+    def test_cache_ttl_expiration(self, short_ttl_connector):
+        """Entries should expire after TTL."""
+        import time
+
+        evidence = Evidence(
+            id="e1",
+            source_type=SourceType.WEB_SEARCH,
+            source_id="test",
+            content="Test",
+        )
+        short_ttl_connector._cache_put("e1", evidence)
+
+        # Should be in cache immediately
+        assert short_ttl_connector._cache_get("e1") == evidence
+
+        # Wait for TTL to expire
+        time.sleep(0.15)
+
+        # Should be expired now
+        assert short_ttl_connector._cache_get("e1") is None
+
+    def test_cache_get_nonexistent_key(self, short_ttl_connector):
+        """Getting nonexistent key should return None."""
+        assert short_ttl_connector._cache_get("nonexistent") is None
+
+    def test_cache_clear_expired(self, short_ttl_connector):
+        """_cache_clear_expired should remove expired entries."""
+        import time
+
+        for i in range(3):
+            evidence = Evidence(
+                id=f"e{i}",
+                source_type=SourceType.WEB_SEARCH,
+                source_id=f"test{i}",
+                content=f"Content {i}",
+            )
+            short_ttl_connector._cache_put(f"e{i}", evidence)
+
+        # All should be present
+        assert len(short_ttl_connector._cache) == 3
+
+        # Wait for expiration
+        time.sleep(0.15)
+
+        # Clear expired
+        cleared = short_ttl_connector._cache_clear_expired()
+        assert cleared == 3
+        assert len(short_ttl_connector._cache) == 0
+
+    def test_cache_stats(self, short_ttl_connector):
+        """_cache_stats should return correct statistics."""
+        import time
+
+        evidence = Evidence(
+            id="e1",
+            source_type=SourceType.WEB_SEARCH,
+            source_id="test",
+            content="Test",
+        )
+        short_ttl_connector._cache_put("e1", evidence)
+
+        stats = short_ttl_connector._cache_stats()
+        assert stats["total_entries"] == 1
+        assert stats["active_entries"] == 1
+        assert stats["expired_entries"] == 0
+        assert stats["max_entries"] == 10
+        assert stats["ttl_seconds"] == 0.1
+
+        # Wait for expiration
+        time.sleep(0.15)
+
+        stats = short_ttl_connector._cache_stats()
+        assert stats["total_entries"] == 1
+        assert stats["active_entries"] == 0
+        assert stats["expired_entries"] == 1
+
+    def test_cache_default_ttl(self):
+        """Default TTL should be 1 hour."""
+        connector = ConcreteConnector()
+        assert connector._cache_ttl == 3600.0
+
+    def test_cache_custom_ttl(self):
+        """Custom TTL should be respected."""
+        connector = ConcreteConnector(cache_ttl_seconds=7200.0)
+        assert connector._cache_ttl == 7200.0
 
 
 class TestConnectorRepr:

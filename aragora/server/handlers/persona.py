@@ -21,7 +21,7 @@ from .base import (
     error_response,
     get_int_param,
     get_string_param,
-    validate_agent_name,
+    SAFE_AGENT_PATTERN,
 )
 from aragora.utils.optional_imports import try_import_class
 
@@ -75,27 +75,24 @@ class PersonaHandler(BaseHandler):
         # Agent-specific endpoints
         if path.startswith("/api/agent/"):
             # Extract agent name from path: /api/agent/{name}/endpoint
-            parts = path.split("/")
-            if len(parts) >= 4:
-                agent = parts[3]
-                is_valid, err = validate_agent_name(agent)
-                if not is_valid:
-                    return error_response(err, 400)
+            agent, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
+            if err:
+                return err
 
-                if path.endswith("/persona"):
-                    return self._get_agent_persona(agent)
-                elif path.endswith("/grounded-persona"):
-                    return self._get_grounded_persona(agent)
-                elif path.endswith("/identity-prompt"):
-                    sections = get_string_param(query_params, 'sections')
-                    return self._get_identity_prompt(agent, sections)
-                elif path.endswith("/performance"):
-                    return self._get_agent_performance(agent)
-                elif path.endswith("/domains"):
-                    limit = get_int_param(query_params, 'limit', 10)
-                    return self._get_agent_domains(agent, limit)
-                elif path.endswith("/accuracy"):
-                    return self._get_agent_accuracy(agent)
+            if path.endswith("/persona"):
+                return self._get_agent_persona(agent)
+            elif path.endswith("/grounded-persona"):
+                return self._get_grounded_persona(agent)
+            elif path.endswith("/identity-prompt"):
+                sections = get_string_param(query_params, 'sections')
+                return self._get_identity_prompt(agent, sections)
+            elif path.endswith("/performance"):
+                return self._get_agent_performance(agent)
+            elif path.endswith("/domains"):
+                limit = get_int_param(query_params, 'limit', 10)
+                return self._get_agent_domains(agent, limit)
+            elif path.endswith("/accuracy"):
+                return self._get_agent_accuracy(agent)
 
         return None
 

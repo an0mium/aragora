@@ -299,6 +299,19 @@ class AllProvidersExhaustedError(Exception):
         )
 
 
+class FallbackTimeoutError(Exception):
+    """Raised when fallback chain exceeds time limit."""
+
+    def __init__(self, elapsed: float, limit: float, tried: list[str]):
+        self.elapsed = elapsed
+        self.limit = limit
+        self.tried_providers = tried
+        super().__init__(
+            f"Fallback chain timeout after {elapsed:.1f}s (limit {limit}s). "
+            f"Tried: {', '.join(tried)}"
+        )
+
+
 class AgentFallbackChain:
     """Sequences agent providers with automatic fallback and CircuitBreaker integration.
 
@@ -312,6 +325,8 @@ class AgentFallbackChain:
         chain = AgentFallbackChain(
             providers=["openai", "openrouter", "anthropic"],
             circuit_breaker=CircuitBreaker(failure_threshold=3, cooldown_seconds=60),
+            max_retries=3,  # Only try 3 providers before giving up
+            max_fallback_time=30.0,  # Give up after 30 seconds total
         )
 
         # Register provider factories
@@ -326,19 +341,31 @@ class AgentFallbackChain:
         print(f"Fallback rate: {chain.metrics.fallback_rate:.1%}")
     """
 
+    # Default limits
+    DEFAULT_MAX_RETRIES = 5
+    DEFAULT_MAX_FALLBACK_TIME = 120.0  # 2 minutes
+
     def __init__(
         self,
         providers: list[str],
         circuit_breaker: Optional["CircuitBreaker"] = None,
+        max_retries: Optional[int] = None,
+        max_fallback_time: Optional[float] = None,
     ):
         """Initialize the fallback chain.
 
         Args:
             providers: Ordered list of provider names to try (first is primary)
             circuit_breaker: CircuitBreaker instance for tracking provider health
+            max_retries: Maximum number of providers to try (default: 5)
+            max_fallback_time: Maximum time in seconds for the entire fallback chain (default: 120)
         """
         self.providers = providers
         self.circuit_breaker = circuit_breaker
+        self.max_retries = max_retries if max_retries is not None else self.DEFAULT_MAX_RETRIES
+        self.max_fallback_time = (
+            max_fallback_time if max_fallback_time is not None else self.DEFAULT_MAX_FALLBACK_TIME
+        )
         self.metrics = FallbackMetrics()
         self._provider_factories: dict[str, Callable[[], Any]] = {}
         self._cached_agents: dict[str, Any] = {}
@@ -406,7 +433,7 @@ class AgentFallbackChain:
         """Generate a response using the fallback chain.
 
         Tries each provider in order, skipping those that are circuit-broken,
-        until one succeeds or all fail.
+        until one succeeds or all fail. Respects max_retries and max_fallback_time limits.
 
         Args:
             prompt: The prompt to send
@@ -417,11 +444,26 @@ class AgentFallbackChain:
 
         Raises:
             AllProvidersExhaustedError: If all providers fail
+            FallbackTimeoutError: If max_fallback_time is exceeded
         """
         last_error: Optional[Exception] = None
         tried_providers: list[str] = []
+        start_time = time.time()
+        retry_count = 0
 
         for i, provider in enumerate(self.providers):
+            # Check retry limit
+            if retry_count >= self.max_retries:
+                logger.warning(
+                    f"Max retries ({self.max_retries}) reached, stopping fallback chain"
+                )
+                break
+
+            # Check time limit
+            elapsed = time.time() - start_time
+            if elapsed > self.max_fallback_time:
+                raise FallbackTimeoutError(elapsed, self.max_fallback_time, tried_providers)
+
             # Skip if circuit breaker has this provider tripped
             if not self._is_available(provider):
                 logger.debug(f"Skipping circuit-broken provider: {provider}")
@@ -432,6 +474,7 @@ class AgentFallbackChain:
                 continue
 
             tried_providers.append(provider)
+            retry_count += 1
             is_primary = i == 0
 
             try:
@@ -479,6 +522,7 @@ class AgentFallbackChain:
         """Stream a response using the fallback chain.
 
         Tries each provider in order until one succeeds or all fail.
+        Respects max_retries and max_fallback_time limits.
 
         Args:
             prompt: The prompt to send
@@ -489,11 +533,26 @@ class AgentFallbackChain:
 
         Raises:
             AllProvidersExhaustedError: If all providers fail
+            FallbackTimeoutError: If max_fallback_time is exceeded
         """
         last_error: Optional[Exception] = None
         tried_providers: list[str] = []
+        start_time = time.time()
+        retry_count = 0
 
         for i, provider in enumerate(self.providers):
+            # Check retry limit
+            if retry_count >= self.max_retries:
+                logger.warning(
+                    f"Max retries ({self.max_retries}) reached for stream, stopping"
+                )
+                break
+
+            # Check time limit
+            elapsed = time.time() - start_time
+            if elapsed > self.max_fallback_time:
+                raise FallbackTimeoutError(elapsed, self.max_fallback_time, tried_providers)
+
             if not self._is_available(provider):
                 logger.debug(f"Skipping circuit-broken provider: {provider}")
                 continue
@@ -508,6 +567,7 @@ class AgentFallbackChain:
                 continue
 
             tried_providers.append(provider)
+            retry_count += 1
             is_primary = i == 0
 
             try:
@@ -559,6 +619,10 @@ class AgentFallbackChain:
         return {
             "providers": self.providers,
             "available_providers": self.get_available_providers(),
+            "limits": {
+                "max_retries": self.max_retries,
+                "max_fallback_time": self.max_fallback_time,
+            },
             "metrics": {
                 "primary_attempts": self.metrics.primary_attempts,
                 "primary_successes": self.metrics.primary_successes,

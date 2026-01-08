@@ -33,7 +33,7 @@ class AnalyticsHandler(BaseHandler):
         "/api/analytics/early-stops",
         "/api/ranking/stats",
         "/api/memory/stats",
-        "/api/memory/tier-stats",
+        # Note: /api/memory/tier-stats moved to MemoryHandler for more specific handling
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -54,7 +54,7 @@ class AnalyticsHandler(BaseHandler):
         if path == "/api/ranking/stats":
             return self._get_ranking_stats()
 
-        if path in ("/api/memory/stats", "/api/memory/tier-stats"):
+        if path == "/api/memory/stats":
             return self._get_memory_stats()
 
         return None

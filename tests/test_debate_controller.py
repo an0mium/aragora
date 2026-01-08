@@ -185,9 +185,11 @@ class TestDebateControllerInit:
         assert controller.auto_select_fn is auto_select
 
     def test_executor_lazy_initialization(self):
-        """Executor should be lazily initialized."""
-        # Start with no executor
-        DebateController._executor = None
+        """Executor should be lazily initialized via StateManager."""
+        from aragora.server.state import get_state_manager, reset_state_manager
+
+        # Start with fresh state
+        reset_state_manager()
 
         factory = Mock()
         emitter = Mock()
@@ -196,7 +198,8 @@ class TestDebateControllerInit:
         # Get executor triggers creation
         executor = controller._get_executor()
         assert executor is not None
-        assert DebateController._executor is executor
+        # Executor comes from StateManager
+        assert get_state_manager().get_executor() is executor
 
         # Cleanup
         DebateController.shutdown()
@@ -207,12 +210,13 @@ class TestDebateControllerStartDebate:
 
     def setup_method(self):
         """Set up mocks for each test."""
+        from aragora.server.state import reset_state_manager
         self.factory = Mock()
         self.emitter = Mock()
         self.emitter.set_loop_id = Mock()
 
-        # Clean up any previous executor
-        DebateController._executor = None
+        # Clean up any previous state
+        reset_state_manager()
 
     def teardown_method(self):
         """Clean up after each test."""
@@ -534,22 +538,33 @@ class TestDebateControllerShutdown:
     """Tests for DebateController.shutdown."""
 
     def test_shutdown_clears_executor(self):
-        """Should clear the class-level executor."""
+        """Should clear the executor via StateManager."""
+        from aragora.server.state import get_state_manager, reset_state_manager
+
+        # Start fresh
+        reset_state_manager()
+
         factory = Mock()
         emitter = Mock()
 
         controller = DebateController(factory=factory, emitter=emitter)
         controller._get_executor()  # Create executor
 
-        assert DebateController._executor is not None
+        # Verify executor exists
+        state_manager = get_state_manager()
+        assert state_manager._executor is not None
 
         DebateController.shutdown()
 
-        assert DebateController._executor is None
+        # Executor should be cleared
+        assert state_manager._executor is None
 
     def test_shutdown_without_executor(self):
         """Should handle shutdown when no executor exists."""
-        DebateController._executor = None
+        from aragora.server.state import reset_state_manager
+
+        # Start with no executor
+        reset_state_manager()
 
         # Should not raise
         DebateController.shutdown()
@@ -563,8 +578,11 @@ class TestDebateControllerConcurrency:
         assert MAX_CONCURRENT_DEBATES == 10
 
     def test_executor_thread_safe_creation(self):
-        """Executor creation should be thread-safe."""
-        DebateController._executor = None
+        """Executor creation should be thread-safe via StateManager."""
+        from aragora.server.state import reset_state_manager
+
+        # Start fresh
+        reset_state_manager()
 
         factory = Mock()
         emitter = Mock()

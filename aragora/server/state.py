@@ -394,6 +394,6 @@ def reset_state_manager() -> None:
         try:
             manager = registry.resolve(StateManager)
             manager.shutdown()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Error during StateManager shutdown: {e}")
         registry.unregister(StateManager)

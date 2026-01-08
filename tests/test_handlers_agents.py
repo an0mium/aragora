@@ -100,9 +100,9 @@ class TestAgentsHandlerRouting:
         """Should handle /api/rankings."""
         assert agents_handler.can_handle("/api/rankings") is True
 
-    def test_can_handle_calibration_leaderboard(self, agents_handler):
-        """Should handle /api/calibration/leaderboard."""
-        assert agents_handler.can_handle("/api/calibration/leaderboard") is True
+    def test_cannot_handle_calibration_leaderboard(self, agents_handler):
+        """Should NOT handle /api/calibration/leaderboard (moved to CalibrationHandler)."""
+        assert agents_handler.can_handle("/api/calibration/leaderboard") is False
 
     def test_can_handle_matches_recent(self, agents_handler):
         """Should handle /api/matches/recent."""
@@ -193,24 +193,8 @@ class TestLeaderboardEndpoint:
 # ============================================================================
 # Calibration Leaderboard Tests
 # ============================================================================
-
-class TestCalibrationLeaderboardEndpoint:
-    """Tests for /api/calibration/leaderboard endpoint."""
-
-    def test_calibration_leaderboard_returns_rankings(self, agents_handler):
-        """Should return calibration leaderboard."""
-        result = agents_handler.handle("/api/calibration/leaderboard", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert "rankings" in data
-
-    def test_calibration_unavailable_returns_503(self):
-        """Should return 503 when ELO system not available."""
-        handler = AgentsHandler({})
-        result = handler.handle("/api/calibration/leaderboard", {}, None)
-
-        assert result.status_code == 503
+# Note: /api/calibration/leaderboard moved to CalibrationHandler
+# See test_handlers_calibration.py for those tests
 
 
 # ============================================================================

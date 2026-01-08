@@ -14,7 +14,7 @@ from .base import (
     json_response,
     error_response,
     get_int_param,
-    validate_agent_name,
+    SAFE_AGENT_PATTERN,
 )
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
@@ -49,14 +49,9 @@ class EvolutionHandler(BaseHandler):
             return None
 
         # Extract agent name: /api/evolution/{agent}/history
-        parts = path.split("/")
-        if len(parts) < 5:
-            return error_response("Invalid path format", 400)
-
-        agent = parts[3]
-        is_valid, err = validate_agent_name(agent)
-        if not is_valid:
-            return error_response(err, 400)
+        agent, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
+        if err:
+            return err
 
         limit = get_int_param(query_params, 'limit', 10)
         limit = min(max(limit, 1), 50)

@@ -14,7 +14,57 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 import json
+import os
 from pathlib import Path
+
+
+# Allowed base directories for plugin manifests
+ALLOWED_PLUGIN_DIRS = frozenset([
+    "plugins",
+    ".aragora/plugins",
+    "aragora/plugins",
+])
+
+
+def _validate_manifest_path(path: Path, operation: str = "access") -> tuple[bool, str]:
+    """
+    Validate a manifest path for security.
+
+    Checks:
+    - No path traversal components (..)
+    - Not a symlink pointing outside allowed directories
+    - Path is within allowed plugin directories (if strict mode)
+
+    Returns:
+        (is_valid, error_message)
+    """
+    path_str = str(path)
+
+    # Check for path traversal
+    if ".." in path_str.split(os.sep):
+        return False, f"Path traversal not allowed: {path}"
+
+    # Resolve the path to check for symlink attacks
+    try:
+        resolved = path.resolve()
+    except (OSError, RuntimeError) as e:
+        return False, f"Cannot resolve path {path}: {e}"
+
+    # Check if it's a symlink and ensure it doesn't escape
+    if path.is_symlink():
+        # Get the link target and ensure it doesn't traverse outside
+        try:
+            target = path.readlink()
+            if ".." in str(target).split(os.sep):
+                return False, f"Symlink target contains path traversal: {path}"
+        except OSError:
+            pass  # Can't read symlink, let the actual operation fail
+
+    # Ensure the file extension is .json for manifest files
+    if path.suffix and path.suffix.lower() not in ('.json', ''):
+        return False, f"Plugin manifests must be .json files: {path}"
+
+    return True, ""
 
 
 class PluginCapability(Enum):
@@ -175,7 +225,18 @@ class PluginManifest:
         return json.dumps(self.to_dict(), indent=indent)
 
     def save(self, path: Path):
-        """Save manifest to file."""
+        """Save manifest to file.
+
+        Raises:
+            ValueError: If path fails security validation
+            OSError: If write fails
+        """
+        is_valid, error = _validate_manifest_path(path, "save")
+        if not is_valid:
+            raise ValueError(error)
+
+        # Ensure parent directory exists
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.to_json())
 
     @classmethod
@@ -224,7 +285,17 @@ class PluginManifest:
 
     @classmethod
     def load(cls, path: Path) -> "PluginManifest":
-        """Load manifest from file."""
+        """Load manifest from file.
+
+        Raises:
+            ValueError: If path fails security validation
+            FileNotFoundError: If manifest file doesn't exist
+            OSError: If read fails
+        """
+        is_valid, error = _validate_manifest_path(path, "load")
+        if not is_valid:
+            raise ValueError(error)
+
         if not path.exists():
             raise FileNotFoundError(f"Plugin manifest not found: {path}")
         try:
