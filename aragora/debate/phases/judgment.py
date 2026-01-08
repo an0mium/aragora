@@ -117,9 +117,9 @@ class JudgmentPhase:
         try:
             leaderboard = self.elo_system.get_leaderboard(limit=len(agent_names))
             for entry in leaderboard:
-                if entry.get("agent") in agent_names:
-                    top_agent_name = entry["agent"]
-                    top_elo = entry.get("elo", 1500)
+                if entry.agent_name in agent_names:
+                    top_agent_name = entry.agent_name
+                    top_elo = entry.elo
                     judge = next(
                         (a for a in self.agents if a.name == top_agent_name), None
                     )
@@ -223,11 +223,10 @@ class JudgmentPhase:
 
         if self.elo_system:
             try:
-                profile = self.elo_system.get_agent_profile(judge.name)
-                stats["elo"] = profile.get("elo", 1500)
-                stats["elo_rank"] = profile.get("rank")
+                rating = self.elo_system.get_rating(judge.name)
+                stats["elo"] = rating.elo
             except (KeyError, AttributeError) as e:
-                logger.debug(f"Could not get ELO profile for {judge.name}: {e}")
+                logger.debug(f"Could not get ELO rating for {judge.name}: {e}")
 
         if self._get_calibration_weight:
             try:

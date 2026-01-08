@@ -156,7 +156,7 @@ class ContinuumMemory:
         """Get tier transition metrics from the tier manager."""
         return self._tier_manager.get_metrics_dict()
 
-    def _init_db(self):
+    def _init_db(self) -> None:
         """Initialize the continuum memory tables using SchemaManager."""
         with get_wal_connection(self.db_path) as conn:
             manager = SchemaManager(conn, "continuum_memory", current_version=CONTINUUM_SCHEMA_VERSION)

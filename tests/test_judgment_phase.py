@@ -56,16 +56,23 @@ def protocol():
     return MockProtocol()
 
 
+@dataclass
+class MockAgentRating:
+    """Mock AgentRating for testing."""
+    agent_name: str
+    elo: float = 1500.0
+
+
 @pytest.fixture
 def mock_elo_system():
     """Mock ELO system."""
     elo = MagicMock()
     elo.get_leaderboard.return_value = [
-        {"agent": "agent2", "elo": 1600},
-        {"agent": "agent1", "elo": 1550},
-        {"agent": "agent3", "elo": 1500},
+        MockAgentRating(agent_name="agent2", elo=1600),
+        MockAgentRating(agent_name="agent1", elo=1550),
+        MockAgentRating(agent_name="agent3", elo=1500),
     ]
-    elo.get_agent_profile.return_value = {"elo": 1600, "rank": 1}
+    elo.get_rating.return_value = MockAgentRating(agent_name="agent1", elo=1600)
     return elo
 
 
@@ -478,7 +485,7 @@ class TestGetJudgeStats:
         self, protocol, three_agents, mock_elo_system, caplog
     ):
         """Should handle ELO lookup errors gracefully."""
-        mock_elo_system.get_agent_profile.side_effect = KeyError("Unknown agent")
+        mock_elo_system.get_rating.side_effect = KeyError("Unknown agent")
         phase = JudgmentPhase(protocol, three_agents, elo_system=mock_elo_system)
         judge = three_agents[0]
 
