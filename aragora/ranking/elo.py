@@ -29,6 +29,8 @@ from aragora.config import (
     ELO_CALIBRATION_MIN_COUNT,
     CACHE_TTL_LEADERBOARD,
     CACHE_TTL_RECENT_MATCHES,
+    CACHE_TTL_LB_STATS,
+    CACHE_TTL_CALIBRATION_LB,
 )
 from aragora.ranking.database import EloDatabase
 from aragora.utils.json_helpers import safe_json_loads
@@ -137,6 +139,8 @@ class EloSystem:
     # Class-level cache for leaderboard data (shared across instances)
     _leaderboard_cache: TTLCache[list] = TTLCache(maxsize=50, ttl_seconds=CACHE_TTL_LEADERBOARD)
     _rating_cache: TTLCache[AgentRating] = TTLCache(maxsize=200, ttl_seconds=CACHE_TTL_RECENT_MATCHES)
+    _stats_cache: TTLCache[dict] = TTLCache(maxsize=10, ttl_seconds=CACHE_TTL_LB_STATS)
+    _calibration_cache: TTLCache[list] = TTLCache(maxsize=20, ttl_seconds=CACHE_TTL_CALIBRATION_LB)
 
     def __init__(self, db_path: str = DB_ELO_PATH):
         self.db_path = Path(db_path)
@@ -478,6 +482,8 @@ class EloSystem:
         # Invalidate caches after write
         self._rating_cache.invalidate(f"rating:{rating.agent_name}")
         self._leaderboard_cache.clear()
+        self._stats_cache.clear()
+        self._calibration_cache.clear()
 
     def _save_ratings_batch(self, ratings: list[AgentRating]) -> None:
         """Save multiple ratings in a single transaction.
@@ -533,6 +539,8 @@ class EloSystem:
         for rating in ratings:
             self._rating_cache.invalidate(f"rating:{rating.agent_name}")
         self._leaderboard_cache.clear()
+        self._stats_cache.clear()
+        self._calibration_cache.clear()
 
     def _record_elo_history_batch(
         self, entries: list[tuple[str, float, str | None]]
@@ -910,6 +918,8 @@ class EloSystem:
 
     def invalidate_leaderboard_cache(self) -> int:
         """Invalidate all cached leaderboard data. Call after rating changes."""
+        self._stats_cache.clear()
+        self._calibration_cache.clear()
         return self._leaderboard_cache.clear()
 
     def invalidate_rating_cache(self, agent_name: str | None = None) -> int:
@@ -1016,8 +1026,22 @@ class EloSystem:
             "draws": draws,
         }
 
-    def get_stats(self) -> dict:
-        """Get overall system statistics."""
+    def get_stats(self, use_cache: bool = True) -> dict:
+        """Get overall system statistics.
+
+        Args:
+            use_cache: Whether to use cached value (default True).
+
+        Returns:
+            Dict with total_agents, avg_elo, max_elo, min_elo, total_matches.
+        """
+        cache_key = "elo_stats"
+
+        if use_cache:
+            cached = self._stats_cache.get(cache_key)
+            if cached is not None:
+                return cached
+
         with self._db.connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*), AVG(elo), MAX(elo), MIN(elo) FROM ratings")
@@ -1031,13 +1055,16 @@ class EloSystem:
         if matches_row is None:
             matches_row = (0,)
 
-        return {
+        result = {
             "total_agents": ratings_row[0] or 0,
             "avg_elo": ratings_row[1] or DEFAULT_ELO,
             "max_elo": ratings_row[2] or DEFAULT_ELO,
             "min_elo": ratings_row[3] or DEFAULT_ELO,
             "total_matches": matches_row[0] or 0,
         }
+
+        self._stats_cache.set(cache_key, result)
+        return result
 
     # =========================================================================
     # Tournament Winner Calibration Scoring
@@ -1127,12 +1154,23 @@ class EloSystem:
 
         return brier_scores
 
-    def get_calibration_leaderboard(self, limit: int = 20) -> list[AgentRating]:
+    def get_calibration_leaderboard(self, limit: int = 20, use_cache: bool = True) -> list[AgentRating]:
         """
         Get agents ranked by calibration score.
 
         Only includes agents with minimum predictions.
+
+        Args:
+            limit: Maximum number of agents to return
+            use_cache: Whether to use cached value (default True)
         """
+        cache_key = f"calibration_lb:{limit}"
+
+        if use_cache:
+            cached = self._calibration_cache.get(cache_key)
+            if cached is not None:
+                return cached
+
         with self._db.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -1150,7 +1188,7 @@ class EloSystem:
             )
             rows = cursor.fetchall()
 
-        return [
+        result = [
             AgentRating(
                 agent_name=row[0],
                 elo=row[1],
@@ -1168,6 +1206,9 @@ class EloSystem:
             )
             for row in rows
         ]
+
+        self._calibration_cache.set(cache_key, result)
+        return result
 
     def get_agent_calibration_history(
         self, agent_name: str, limit: int = 50
