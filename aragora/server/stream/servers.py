@@ -345,6 +345,21 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
         with self._cartographers_lock:
             self.cartographers.pop(loop_id, None)
 
+    def _get_loops_data(self) -> list[dict]:
+        """Get serializable list of active loops. Thread-safe."""
+        with self._active_loops_lock:
+            return [
+                {
+                    "loop_id": loop.loop_id,
+                    "name": loop.name,
+                    "started_at": loop.started_at,
+                    "cycle": loop.cycle,
+                    "phase": loop.phase,
+                    "path": loop.path,
+                }
+                for loop in self.active_loops.values()
+            ]
+
     def _cors_headers(self, origin: Optional[str] = None) -> dict:
         """Generate CORS headers with proper origin validation.
 

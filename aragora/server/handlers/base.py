@@ -1016,14 +1016,14 @@ class BaseHandler:
 
         return content_length
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
         """
         Handle a request. Override in subclasses.
 
         Args:
             path: The request path
             query_params: Parsed query parameters
-            handler: HTTP request handler for accessing request context
+            handler: Optional HTTP request handler for accessing request context
 
         Returns:
             HandlerResult if handled, None if not handled by this handler
