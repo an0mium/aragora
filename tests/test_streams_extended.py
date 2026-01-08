@@ -120,13 +120,23 @@ class TestEmbeddingCacheConcurrency:
 
     def test_cache_without_provider_raises_error(self, temp_db):
         """Cache should raise error if provider not initialized."""
+        from unittest.mock import patch, MagicMock
+
         _get_cached_embedding.cache_clear()
         # Reset the module-level provider reference
         streams_module._embedding_provider_ref = None
 
-        # Should raise RuntimeError
-        with pytest.raises(RuntimeError, match="Embedding provider not initialized"):
-            _get_cached_embedding("test")
+        # Mock ServiceRegistry to not have a provider (simulates fresh state)
+        mock_registry = MagicMock()
+        mock_registry.has.return_value = False
+
+        # Patch at the import location inside get_embedding_provider
+        with patch("aragora.services.ServiceRegistry") as mock_sr_class:
+            mock_sr_class.get.return_value = mock_registry
+
+            # Should raise RuntimeError
+            with pytest.raises(RuntimeError, match="Embedding provider not initialized"):
+                _get_cached_embedding("test")
 
     def test_provider_reference_set_on_init(self, temp_db, mock_embedding_provider):
         """Provider reference should be set when MemoryStream is initialized."""
