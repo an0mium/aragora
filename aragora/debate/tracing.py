@@ -23,7 +23,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, Generator, List, Optional
+from typing import Any, Callable, ContextManager, Dict, Generator, List, Optional
 
 # Use structured logging if available
 try:
@@ -399,13 +399,13 @@ def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
     return decorator
 
 
-def trace_round(round_num: int) -> Generator[Span, None, None]:
+def trace_round(round_num: int) -> ContextManager[Span]:
     """Context manager for tracing a debate round."""
     tracer = get_tracer()
     return tracer.span("debate.round", round_number=round_num)
 
 
-def trace_phase(phase: str, round_num: int) -> Generator[Span, None, None]:
+def trace_phase(phase: str, round_num: int) -> ContextManager[Span]:
     """Context manager for tracing a debate phase (proposal, critique, etc.)."""
     tracer = get_tracer()
     return tracer.span(f"debate.phase.{phase}", round_number=round_num, phase=phase)

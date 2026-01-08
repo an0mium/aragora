@@ -342,7 +342,7 @@ class DebateForker:
         # Filter out failed branches and log errors
         completed = []
         for result in results:
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Branch execution failed: {type(result).__name__}: {result}")
             else:
                 completed.append(result)

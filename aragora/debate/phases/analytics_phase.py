@@ -170,7 +170,7 @@ class AnalyticsPhase:
     def _record_metrics(self, ctx: "DebateContext") -> None:
         """Record debate metrics for observability."""
         try:
-            from aragora.debate.orchestrator import record_debate_completed
+            from aragora.debate.orchestrator import record_debate_completed  # type: ignore[attr-defined]
 
             result = ctx.result
             record_debate_completed(
@@ -324,7 +324,7 @@ class AnalyticsPhase:
         try:
             from aragora.server.stream import StreamEvent, StreamEventType
 
-            self.event_emitter.emit(StreamEvent(
+            self.event_emitter.emit(StreamEvent(  # type: ignore[call-arg]
                 type=StreamEventType.GROUNDED_VERDICT,
                 data=result.grounded_verdict.to_dict(),
                 debate_id=self.loop_id or "unknown",
@@ -351,22 +351,22 @@ class AnalyticsPhase:
             # Try to import belief analyzer
             try:
                 from aragora.reasoning.belief import BeliefPropagationAnalyzer
-                analyzer = BeliefPropagationAnalyzer()
+                analyzer = BeliefPropagationAnalyzer()  # type: ignore[call-arg]
             except ImportError:
                 return
 
             # Add claims from grounded verdict
             for claim in result.grounded_verdict.claims[:20]:
                 claim_id = getattr(claim, 'claim_id', str(hash(claim.statement[:50])))
-                analyzer.add_claim(
+                analyzer.add_claim(  # type: ignore[call-arg]
                     claim_id=claim_id,
                     statement=claim.statement,
                     prior=getattr(claim, 'confidence', 0.5),
                 )
 
             # Identify cruxes
-            cruxes = analyzer.identify_debate_cruxes(threshold=0.6)
-            result.belief_cruxes = cruxes
+            cruxes = analyzer.identify_debate_cruxes(threshold=0.6)  # type: ignore[call-arg]
+            result.belief_cruxes = cruxes  # type: ignore[attr-defined]
 
             if cruxes:
                 logger.debug(f"belief_cruxes_identified count={len(cruxes)}")

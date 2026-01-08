@@ -45,7 +45,6 @@ _prov_imports, PROVENANCE_AVAILABLE = try_import(
 )
 ProvenanceTracker = _prov_imports["ProvenanceTracker"]
 
-from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 
 class BeliefHandler(BaseHandler):
@@ -257,75 +256,72 @@ class BeliefHandler(BaseHandler):
             "support": support,
         })
 
+    @handle_errors("debate graph stats retrieval")
     def _get_debate_graph_stats(
         self, nomic_dir: Optional[Path], debate_id: str
     ) -> HandlerResult:
         """Get argument graph statistics for a debate."""
-        try:
-            from aragora.visualization.mapper import ArgumentCartographer
-            from aragora.debate.traces import DebateTrace
+        from aragora.visualization.mapper import ArgumentCartographer
+        from aragora.debate.traces import DebateTrace
 
-            if not nomic_dir:
-                return error_response("Nomic directory not configured", 503)
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
 
-            trace_path = nomic_dir / "traces" / f"{debate_id}.json"
-            if not trace_path.exists():
-                # Try replays directory as fallback
-                replay_path = nomic_dir / "replays" / debate_id / "events.jsonl"
-                if replay_path.exists():
-                    cartographer = ArgumentCartographer()
-                    cartographer.set_debate_context(debate_id, "")
-                    with replay_path.open() as f:
-                        for line in f:
-                            if line.strip():
-                                event = json.loads(line)
-                                if event.get("type") == "agent_message":
-                                    cartographer.update_from_message(
-                                        agent=event.get("agent", "unknown"),
-                                        content=event.get("data", {}).get("content", ""),
-                                        role=event.get("data", {}).get("role", "proposer"),
-                                        round_num=event.get("round", 1),
-                                    )
-                                elif event.get("type") == "critique":
-                                    cartographer.update_from_critique(
-                                        critic_agent=event.get("agent", "unknown"),
-                                        target_agent=event.get("data", {}).get("target", "unknown"),
-                                        severity=event.get("data", {}).get("severity", 0.5),
-                                        round_num=event.get("round", 1),
-                                        critique_text=event.get("data", {}).get("content", ""),
-                                    )
-                    stats = cartographer.get_statistics()
-                    return json_response(stats)
-                else:
-                    return error_response("Debate not found", 404)
+        trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+        if not trace_path.exists():
+            # Try replays directory as fallback
+            replay_path = nomic_dir / "replays" / debate_id / "events.jsonl"
+            if replay_path.exists():
+                cartographer = ArgumentCartographer()
+                cartographer.set_debate_context(debate_id, "")
+                with replay_path.open() as f:
+                    for line in f:
+                        if line.strip():
+                            event = json.loads(line)
+                            if event.get("type") == "agent_message":
+                                cartographer.update_from_message(
+                                    agent=event.get("agent", "unknown"),
+                                    content=event.get("data", {}).get("content", ""),
+                                    role=event.get("data", {}).get("role", "proposer"),
+                                    round_num=event.get("round", 1),
+                                )
+                            elif event.get("type") == "critique":
+                                cartographer.update_from_critique(
+                                    critic_agent=event.get("agent", "unknown"),
+                                    target_agent=event.get("data", {}).get("target", "unknown"),
+                                    severity=event.get("data", {}).get("severity", 0.5),
+                                    round_num=event.get("round", 1),
+                                    critique_text=event.get("data", {}).get("content", ""),
+                                )
+                stats = cartographer.get_statistics()
+                return json_response(stats)
+            else:
+                return error_response("Debate not found", 404)
 
-            # Load from trace file
-            trace = DebateTrace.load(trace_path)
-            result = trace.to_debate_result()
+        # Load from trace file
+        trace = DebateTrace.load(trace_path)
+        result = trace.to_debate_result()
 
-            # Build cartographer from debate result
-            cartographer = ArgumentCartographer()
-            cartographer.set_debate_context(debate_id, result.task or "")
+        # Build cartographer from debate result
+        cartographer = ArgumentCartographer()
+        cartographer.set_debate_context(debate_id, result.task or "")
 
-            for msg in result.messages:
-                cartographer.update_from_message(
-                    agent=msg.agent,
-                    content=msg.content,
-                    role=msg.role,
-                    round_num=msg.round,
-                )
+        for msg in result.messages:
+            cartographer.update_from_message(
+                agent=msg.agent,
+                content=msg.content,
+                role=msg.role,
+                round_num=msg.round,
+            )
 
-            for critique in result.critiques:
-                cartographer.update_from_critique(
-                    critic_agent=critique.agent,
-                    target_agent=critique.target or "",
-                    severity=critique.severity,
-                    round_num=getattr(critique, 'round', 1),
-                    critique_text=critique.reasoning,
-                )
+        for critique in result.critiques:
+            cartographer.update_from_critique(
+                critic_agent=critique.agent,
+                target_agent=critique.target or "",
+                severity=critique.severity,
+                round_num=getattr(critique, 'round', 1),
+                critique_text=critique.reasoning,
+            )
 
-            stats = cartographer.get_statistics()
-            return json_response(stats)
-
-        except Exception as e:
-            return error_response(_safe_error_message(e, "debate_graph_stats"), 500)
+        stats = cartographer.get_statistics()
+        return json_response(stats)
