@@ -368,7 +368,7 @@ class TestDebateFactoryResetCircuitBreakers:
         factory = DebateFactory()
         factory.reset_circuit_breakers(arena)
 
-        arena.circuit_breaker.reset_all.assert_called_once()
+        arena.circuit_breaker.reset.assert_called_once()
 
     def test_no_reset_when_all_closed(self):
         """Doesn't reset when all circuits are closed."""
@@ -381,7 +381,7 @@ class TestDebateFactoryResetCircuitBreakers:
         factory = DebateFactory()
         factory.reset_circuit_breakers(arena)
 
-        arena.circuit_breaker.reset_all.assert_not_called()
+        arena.circuit_breaker.reset.assert_not_called()
 
     def test_handles_empty_status(self):
         """Handles empty circuit breaker status."""
@@ -391,4 +391,4 @@ class TestDebateFactoryResetCircuitBreakers:
         factory = DebateFactory()
         factory.reset_circuit_breakers(arena)
 
-        arena.circuit_breaker.reset_all.assert_not_called()
+        arena.circuit_breaker.reset.assert_not_called()
