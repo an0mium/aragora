@@ -853,7 +853,7 @@ class BeliefPropagationAnalyzer:
                 "current_belief": node.posterior.to_dict(),
             })
 
-        return sorted(cruxes, key=lambda x: -x["crux_score"])[:top_k]
+        return sorted(cruxes, key=lambda x: -float(x["crux_score"]))[:top_k]
 
     def suggest_evidence_targets(self) -> list[dict]:
         """

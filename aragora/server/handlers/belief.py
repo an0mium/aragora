@@ -187,6 +187,7 @@ class BeliefHandler(BaseHandler):
             "count": len(cruxes),
         })
 
+    @handle_errors("load bearing claims retrieval")
     def _get_load_bearing_claims(
         self, nomic_dir: Optional[Path], debate_id: str, limit: int
     ) -> HandlerResult:
@@ -194,42 +195,40 @@ class BeliefHandler(BaseHandler):
         if not BELIEF_NETWORK_AVAILABLE:
             return error_response("Belief network not available", 503)
 
-        try:
-            from aragora.debate.traces import DebateTrace
+        from aragora.debate.traces import DebateTrace
 
-            if not nomic_dir:
-                return error_response("Nomic directory not configured", 503)
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
 
-            trace_path = nomic_dir / "traces" / f"{debate_id}.json"
-            if not trace_path.exists():
-                return error_response("Debate trace not found", 404)
+        trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+        if not trace_path.exists():
+            return error_response("Debate trace not found", 404)
 
-            trace = DebateTrace.load(trace_path)
-            result = trace.to_debate_result()
+        trace = DebateTrace.load(trace_path)
+        result = trace.to_debate_result()
 
-            # Build belief network from debate
-            network = BeliefNetwork(debate_id=debate_id)
-            for msg in result.messages:
-                network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
+        # Build belief network from debate
+        network = BeliefNetwork(debate_id=debate_id)
+        for msg in result.messages:
+            network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
 
-            load_bearing = network.get_load_bearing_claims(limit=limit)
+        load_bearing = network.get_load_bearing_claims(limit=limit)
 
-            return json_response({
-                "debate_id": debate_id,
-                "load_bearing_claims": [
-                    {
-                        "claim_id": node.claim_id,
-                        "statement": node.claim_statement,
-                        "author": node.author,
-                        "centrality": centrality,
-                    }
-                    for node, centrality in load_bearing
-                ],
-                "count": len(load_bearing),
-            })
-        except Exception as e:
-            return error_response(_safe_error_message(e, "load_bearing_claims"), 500)
+        return json_response({
+            "debate_id": debate_id,
+            "load_bearing_claims": [
+                {
+                    "claim_id": node.claim_id,
+                    "statement": node.claim_statement,
+                    "author": node.author,
+                    "centrality": centrality,
+                }
+                for node, centrality in load_bearing
+            ],
+            "count": len(load_bearing),
+        })
 
+    @handle_errors("claim support retrieval")
     def _get_claim_support(
         self, nomic_dir: Optional[Path], debate_id: str, claim_id: str
     ) -> HandlerResult:
@@ -237,29 +236,26 @@ class BeliefHandler(BaseHandler):
         if not PROVENANCE_AVAILABLE:
             return error_response("Provenance tracker not available", 503)
 
-        try:
-            if not nomic_dir:
-                return error_response("Nomic directory not configured", 503)
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
 
-            provenance_path = nomic_dir / "provenance" / f"{debate_id}.json"
-            if not provenance_path.exists():
-                return json_response({
-                    "debate_id": debate_id,
-                    "claim_id": claim_id,
-                    "support": None,
-                    "message": "No provenance data for this debate"
-                })
-
-            tracker = ProvenanceTracker.load(provenance_path)
-            support = tracker.get_claim_support(claim_id)
-
+        provenance_path = nomic_dir / "provenance" / f"{debate_id}.json"
+        if not provenance_path.exists():
             return json_response({
                 "debate_id": debate_id,
                 "claim_id": claim_id,
-                "support": support,
+                "support": None,
+                "message": "No provenance data for this debate"
             })
-        except Exception as e:
-            return error_response(_safe_error_message(e, "claim_support"), 500)
+
+        tracker = ProvenanceTracker.load(provenance_path)
+        support = tracker.get_claim_support(claim_id)
+
+        return json_response({
+            "debate_id": debate_id,
+            "claim_id": claim_id,
+            "support": support,
+        })
 
     def _get_debate_graph_stats(
         self, nomic_dir: Optional[Path], debate_id: str
