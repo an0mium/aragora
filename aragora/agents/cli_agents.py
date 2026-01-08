@@ -250,14 +250,22 @@ class CLIAgent(CritiqueMixin, Agent):
                 await proc.wait()  # Cleanup zombie processes
             raise
 
-    def _build_context_prompt(self, context: list[Message] | None = None) -> str:
+    def _build_context_prompt(
+        self,
+        context: list[Message] | None = None,
+        truncate: bool = True,
+        sanitize_fn: Callable[[str], str] | None = None,
+    ) -> str:
         """Build context from previous messages with truncation for large contexts.
 
         Delegates to CritiqueMixin with CLI-specific settings.
         """
+        # Use CLI sanitization by default if not specified
+        if sanitize_fn is None:
+            sanitize_fn = self._sanitize_cli_arg
         # Use mixin method with truncation and CLI sanitization
         return CritiqueMixin._build_context_prompt(
-            self, context, truncate=True, sanitize_fn=self._sanitize_cli_arg
+            self, context, truncate=truncate, sanitize_fn=sanitize_fn
         )
 
     # _parse_critique is inherited from CritiqueMixin
@@ -280,7 +288,7 @@ class CLIAgent(CritiqueMixin, Agent):
         prompt: str,
         context: list[Message] | None = None,
         input_text: str | None = None,
-        response_extractor: Callable | None = None,
+        response_extractor: Callable[[str], str] | None = None,
     ) -> str:
         """Execute CLI command with automatic fallback on errors.
 
