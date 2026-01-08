@@ -10,7 +10,7 @@ Endpoints:
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from aragora.config import (
     DB_INSIGHTS_PATH,
@@ -69,7 +69,7 @@ class AnalyticsHandler(BaseHandler):
         try:
             debates = storage.list_debates(limit=100)
 
-            stats = {
+            stats: dict[str, Any] = {
                 "total_debates": len(debates),
                 "with_disagreements": 0,
                 "unanimous": 0,
@@ -103,7 +103,7 @@ class AnalyticsHandler(BaseHandler):
         try:
             debates = storage.list_debates(limit=100)
 
-            stats = {
+            stats: dict[str, Any] = {
                 "total_debates": len(debates),
                 "with_rotation": 0,
                 "role_assignments": {},

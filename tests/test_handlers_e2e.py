@@ -998,7 +998,7 @@ class TestBaseHandlerContext:
         from aragora.server.handlers.base import BaseHandler
 
         handler = BaseHandler({})
-        result = handler.handle("/any/path", {})
+        result = handler.handle("/any/path", {}, None)
 
         assert result is None
 

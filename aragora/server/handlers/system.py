@@ -245,7 +245,7 @@ class SystemHandler(BaseHandler):
         storage = self.get_storage()
         elo = self.get_elo_system()
 
-        health = {
+        health: dict[str, object] = {
             "status": "healthy",
             "components": {
                 "storage": storage is not None,
@@ -253,6 +253,7 @@ class SystemHandler(BaseHandler):
                 "nomic_dir": nomic_dir is not None and nomic_dir.exists() if nomic_dir else False,
             },
             "version": "1.0.0",
+            "warnings": [],
         }
 
         # Add observer metrics if available
@@ -269,11 +270,17 @@ class SystemHandler(BaseHandler):
                 failure_rate = observer_report.get("failure_rate", 0)
                 if failure_rate > 0.5:
                     health["status"] = "degraded"
-                    health["warnings"] = health.get("warnings", [])
-                    health["warnings"].append(f"High failure rate: {failure_rate:.1%}")
+                    if "warnings" not in health:
+                        health["warnings"] = []
+                    warnings_list = health["warnings"]
+                    if isinstance(warnings_list, list):
+                        warnings_list.append(f"High failure rate: {failure_rate:.1%}")
                 elif failure_rate > 0.3:
-                    health["warnings"] = health.get("warnings", [])
-                    health["warnings"].append(f"Elevated failure rate: {failure_rate:.1%}")
+                    if "warnings" not in health:
+                        health["warnings"] = []
+                    warnings_list = health["warnings"]
+                    if isinstance(warnings_list, list):
+                        warnings_list.append(f"Elevated failure rate: {failure_rate:.1%}")
 
         except ImportError:
             health["observer"] = {"status": "unavailable", "reason": "module not found"}
@@ -499,11 +506,15 @@ class SystemHandler(BaseHandler):
             from aragora.modes.custom import CustomModeLoader
             nomic_dir = self.get_nomic_dir()
             if nomic_dir:
-                loader = CustomModeLoader(str(nomic_dir / "modes"))
-                custom = loader.list_modes()
-                for m in custom:
-                    m["type"] = "custom"
-                modes.extend(custom)
+                loader = CustomModeLoader([str(nomic_dir / "modes")])
+                custom_modes = loader.load_all()
+                for mode in custom_modes:
+                    modes.append({
+                        "slug": mode.slug,
+                        "name": mode.name,
+                        "type": "custom",
+                        "description": mode.description,
+                    })
         except Exception as e:
             logger.debug(f"Could not load custom modes: {e}")
 
@@ -608,7 +619,7 @@ class SystemHandler(BaseHandler):
             from aragora.maintenance import DatabaseMaintenance
 
             maintenance = DatabaseMaintenance(nomic_dir)
-            result = {"task": task}
+            result: dict[str, Any] = {"task": task}
 
             if task == "status":
                 result["stats"] = maintenance.get_stats()

@@ -8,7 +8,7 @@ Aggregates data from ELO, consensus, prometheus, and debate storage systems.
 import logging
 import time
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 from .base import (
     BaseHandler,
@@ -131,7 +131,7 @@ class DashboardHandler(BaseHandler):
         )
 
         # Initialize summary metrics
-        summary = {
+        summary: dict[str, Any] = {
             "total_debates": 0,
             "consensus_reached": 0,
             "consensus_rate": 0.0,
@@ -141,7 +141,7 @@ class DashboardHandler(BaseHandler):
         }
 
         # Initialize activity metrics
-        activity = {
+        activity: dict[str, Any] = {
             "debates_last_period": 0,
             "consensus_last_period": 0,
             "domains_active": [],
@@ -150,7 +150,7 @@ class DashboardHandler(BaseHandler):
         }
 
         # Initialize pattern metrics
-        patterns = {
+        patterns: dict[str, dict[str, Any]] = {
             "disagreement_stats": {
                 "with_disagreements": 0,
                 "disagreement_types": {},
@@ -371,8 +371,8 @@ class DashboardHandler(BaseHandler):
 
                 cutoff = datetime.now() - timedelta(hours=hours)
 
-                recent = []
-                domain_counts = {}
+                recent: list[dict] = []
+                domain_counts: dict[str, int] = {}
                 for d in debates:
                     created_at = d.get("created_at")
                     if created_at:
@@ -459,7 +459,7 @@ class DashboardHandler(BaseHandler):
             if debates:
                 # Analyze disagreements
                 with_disagreement = 0
-                disagreement_types = {}
+                disagreement_types: dict[str, int] = {}
                 early_stopped = 0
                 full_duration = 0
 
@@ -477,10 +477,15 @@ class DashboardHandler(BaseHandler):
                     else:
                         full_duration += 1
 
-                patterns["disagreement_stats"]["with_disagreements"] = with_disagreement
-                patterns["disagreement_stats"]["disagreement_types"] = disagreement_types
-                patterns["early_stopping"]["early_stopped"] = early_stopped
-                patterns["early_stopping"]["full_duration"] = full_duration
+                # Update patterns with computed stats
+                disagree_stats = patterns["disagreement_stats"]
+                if isinstance(disagree_stats, dict):
+                    disagree_stats["with_disagreements"] = with_disagreement
+                    disagree_stats["disagreement_types"] = disagreement_types
+                early_stats = patterns["early_stopping"]
+                if isinstance(early_stats, dict):
+                    early_stats["early_stopped"] = early_stopped
+                    early_stats["full_duration"] = full_duration
         except Exception as e:
             logger.warning("Debate patterns error: %s: %s", type(e).__name__, e)
 
@@ -499,6 +504,9 @@ class DashboardHandler(BaseHandler):
         try:
             from aragora.memory.consensus import ConsensusMemory
 
+            from aragora.storage.utils import get_wal_connection
+            from aragora.config import DB_TIMEOUT_SECONDS
+
             memory = ConsensusMemory()
             stats = memory.get_statistics()
 
@@ -507,7 +515,7 @@ class DashboardHandler(BaseHandler):
             insights["domains"] = list(stats.get("by_domain", {}).keys())
 
             # Get high confidence count from DB
-            with memory.db.connection() as conn:
+            with get_wal_connection(memory.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     "SELECT COUNT(*) FROM consensus WHERE confidence >= 0.7"
