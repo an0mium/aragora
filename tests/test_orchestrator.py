@@ -719,5 +719,162 @@ class TestForkInitialMessages:
         # depending on implementation - just verify no error occurred
 
 
+class TestArenaFromConfig:
+    """Tests for Arena.from_config class method."""
+
+    def test_from_config_creates_arena(self):
+        """Test from_config creates Arena correctly."""
+        from aragora.debate.orchestrator import ArenaConfig
+
+        agents = [MockAgent("agent1"), MockAgent("agent2")]
+        env = Environment(task="Test from_config", max_rounds=2)
+        protocol = DebateProtocol(rounds=2)
+        config = ArenaConfig()
+
+        arena = Arena.from_config(env, agents, protocol, config)
+
+        assert isinstance(arena, Arena)
+        assert len(arena.agents) == 2
+        assert arena.env.task == "Test from_config"
+
+    def test_from_config_with_none_config(self):
+        """Test from_config works with None config (uses defaults)."""
+        agents = [MockAgent("agent1")]
+        env = Environment(task="Test default config", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+
+        arena = Arena.from_config(env, agents, protocol, None)
+
+        assert isinstance(arena, Arena)
+
+
+class TestContinuumMemoryIntegration:
+    """Tests for ContinuumMemory integration in Arena."""
+
+    def test_get_continuum_context_without_memory(self):
+        """Test _get_continuum_context returns empty string without continuum memory."""
+        agents = [MockAgent("agent1")]
+        env = Environment(task="Test continuum", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+
+        arena = Arena(env, agents, protocol)
+        # No continuum_memory set
+
+        result = arena._get_continuum_context()
+
+        assert result == ""
+
+    def test_get_continuum_context_with_cache(self):
+        """Test _get_continuum_context returns cached value."""
+        agents = [MockAgent("agent1")]
+        env = Environment(task="Test cache", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+
+        arena = Arena(env, agents, protocol)
+        arena._continuum_context_cache = "Cached context"
+
+        result = arena._get_continuum_context()
+
+        assert result == "Cached context"
+
+    def test_get_continuum_context_with_mock_memory(self):
+        """Test _get_continuum_context retrieves from continuum memory."""
+        agents = [MockAgent("agent1")]
+        env = Environment(task="Design a caching system", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+
+        # Create mock continuum memory
+        mock_memory = MagicMock()
+        mock_entry = MagicMock()
+        mock_entry.content = "Previous learning about caching"
+        mock_entry.tier = MagicMock()
+        mock_entry.tier.value = "medium"
+        mock_entry.consolidation_score = 0.8
+        mock_entry.id = "mem-123"
+        mock_memory.retrieve.return_value = [mock_entry]
+
+        arena = Arena(env, agents, protocol, continuum_memory=mock_memory)
+
+        result = arena._get_continuum_context()
+
+        assert "Previous learning" in result
+        assert "[medium|high]" in result  # consolidation > 0.7 = high
+
+    def test_get_continuum_context_handles_empty_memories(self):
+        """Test _get_continuum_context handles empty memory retrieval."""
+        agents = [MockAgent("agent1")]
+        env = Environment(task="Test task", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+
+        mock_memory = MagicMock()
+        mock_memory.retrieve.return_value = []
+
+        arena = Arena(env, agents, protocol, continuum_memory=mock_memory)
+
+        result = arena._get_continuum_context()
+
+        assert result == ""
+
+    def test_get_continuum_context_handles_exception(self):
+        """Test _get_continuum_context handles retrieval errors gracefully."""
+        agents = [MockAgent("agent1")]
+        env = Environment(task="Test task", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+
+        mock_memory = MagicMock()
+        mock_memory.retrieve.side_effect = Exception("Database error")
+
+        arena = Arena(env, agents, protocol, continuum_memory=mock_memory)
+
+        result = arena._get_continuum_context()
+
+        assert result == ""
+
+
+class TestJudgeTermination:
+    """Tests for judge termination feature."""
+
+    @pytest.mark.asyncio
+    async def test_judge_termination_disabled_by_default(self):
+        """Test judge termination returns continue when disabled."""
+        agents = [MockAgent("agent1"), MockAgent("agent2")]
+        env = Environment(task="Test task", max_rounds=3)
+        protocol = DebateProtocol(rounds=3, judge_termination=False)
+
+        arena = Arena(env, agents, protocol)
+
+        should_continue, reason = await arena._check_judge_termination(
+            round_num=2,
+            proposals={"agent1": "Proposal 1"},
+            context=[]
+        )
+
+        assert should_continue is True
+        assert reason == ""
+
+    @pytest.mark.asyncio
+    async def test_judge_termination_skips_early_rounds(self):
+        """Test judge termination skips check in early rounds."""
+        agents = [MockAgent("agent1"), MockAgent("agent2")]
+        env = Environment(task="Test task", max_rounds=5)
+        protocol = DebateProtocol(
+            rounds=5,
+            judge_termination=True,
+            min_rounds_before_judge_check=3
+        )
+
+        arena = Arena(env, agents, protocol)
+
+        # Round 1 should skip check
+        should_continue, reason = await arena._check_judge_termination(
+            round_num=1,
+            proposals={"agent1": "Proposal"},
+            context=[]
+        )
+
+        assert should_continue is True
+        assert reason == ""
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

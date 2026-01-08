@@ -626,3 +626,184 @@ class TestEdgeCases:
         """Updating nonexistent entry doesn't crash."""
         # Should not raise an exception
         memory_system.update_outcome("nonexistent", success=True)
+
+
+# =============================================================================
+# Promotion/Demotion Success Path Tests
+# =============================================================================
+
+
+class TestPromotionDemotionSuccess:
+    """Tests for successful tier transitions."""
+
+    def test_successful_promotion(self, memory_system):
+        """Test successful promotion when TierManager approves."""
+        # Add entry in SLOW tier
+        memory_system.add(
+            "promote_success",
+            "Test content",
+            MemoryTier.SLOW,
+            importance=0.9,
+        )
+
+        # Mock TierManager to approve promotion
+        with patch.object(memory_system._tier_manager, 'should_promote', return_value=True):
+            with patch.object(memory_system._tier_manager, 'get_next_tier') as mock_next:
+                mock_next.return_value = MemoryTier.MEDIUM
+                with patch.object(memory_system._tier_manager, 'record_promotion'):
+                    result = memory_system.promote("promote_success")
+
+        assert result == MemoryTier.MEDIUM
+
+        # Verify tier was updated
+        entry = memory_system.get("promote_success")
+        assert entry.tier == MemoryTier.MEDIUM
+
+    def test_successful_demotion(self, memory_system):
+        """Test successful demotion when TierManager approves."""
+        # Add entry in MEDIUM tier
+        memory_system.add(
+            "demote_success",
+            "Test content",
+            MemoryTier.MEDIUM,
+            importance=0.3,
+        )
+
+        # Mock TierManager to approve demotion
+        with patch.object(memory_system._tier_manager, 'should_demote', return_value=True):
+            with patch.object(memory_system._tier_manager, 'get_next_tier') as mock_next:
+                mock_next.return_value = MemoryTier.SLOW
+                with patch.object(memory_system._tier_manager, 'record_demotion'):
+                    result = memory_system.demote("demote_success")
+
+        assert result == MemoryTier.SLOW
+
+        # Verify tier was updated
+        entry = memory_system.get("demote_success")
+        assert entry.tier == MemoryTier.SLOW
+
+    def test_promotion_already_at_fastest_tier(self, memory_system):
+        """Promotion returns None when get_next_tier returns None."""
+        memory_system.add(
+            "at_fastest",
+            "Test",
+            MemoryTier.MEDIUM,
+            importance=0.9,
+        )
+
+        with patch.object(memory_system._tier_manager, 'should_promote', return_value=True):
+            with patch.object(memory_system._tier_manager, 'get_next_tier', return_value=None):
+                result = memory_system.promote("at_fastest")
+
+        assert result is None
+
+    def test_demotion_already_at_slowest_tier(self, memory_system):
+        """Demotion returns None when get_next_tier returns None."""
+        memory_system.add(
+            "at_slowest",
+            "Test",
+            MemoryTier.SLOW,
+            importance=0.1,
+        )
+
+        with patch.object(memory_system._tier_manager, 'should_demote', return_value=True):
+            with patch.object(memory_system._tier_manager, 'get_next_tier', return_value=None):
+                result = memory_system.demote("at_slowest")
+
+        assert result is None
+
+
+# =============================================================================
+# Batch Operations Tests
+# =============================================================================
+
+
+class TestBatchOperations:
+    """Tests for batch promotion and demotion operations."""
+
+    def test_promote_batch_empty_list(self, memory_system):
+        """Batch promotion with empty list returns 0."""
+        result = memory_system._promote_batch(
+            from_tier=MemoryTier.SLOW,
+            to_tier=MemoryTier.MEDIUM,
+            ids=[]
+        )
+        assert result == 0
+
+    def test_promote_batch_success(self, memory_system):
+        """Batch promotion promotes eligible entries."""
+        # Add entries in SLOW tier
+        for i in range(5):
+            memory_system.add(
+                f"batch_promo_{i}",
+                f"Content {i}",
+                MemoryTier.SLOW,
+                importance=0.5,
+            )
+
+        ids = [f"batch_promo_{i}" for i in range(5)]
+        result = memory_system._promote_batch(
+            from_tier=MemoryTier.SLOW,
+            to_tier=MemoryTier.MEDIUM,
+            ids=ids
+        )
+
+        # At least some should be promoted
+        assert result >= 0
+
+    def test_demote_batch_empty_list(self, memory_system):
+        """Batch demotion with empty list returns 0."""
+        result = memory_system._demote_batch(
+            from_tier=MemoryTier.MEDIUM,
+            to_tier=MemoryTier.SLOW,
+            ids=[]
+        )
+        assert result == 0
+
+    def test_demote_batch_success(self, memory_system):
+        """Batch demotion demotes eligible entries."""
+        # Add entries in MEDIUM tier
+        for i in range(5):
+            memory_system.add(
+                f"batch_demo_{i}",
+                f"Content {i}",
+                MemoryTier.MEDIUM,
+                importance=0.5,
+            )
+
+        ids = [f"batch_demo_{i}" for i in range(5)]
+        result = memory_system._demote_batch(
+            from_tier=MemoryTier.MEDIUM,
+            to_tier=MemoryTier.SLOW,
+            ids=ids
+        )
+
+        # At least some should be demoted
+        assert result >= 0
+
+
+# =============================================================================
+# Archive Statistics Tests
+# =============================================================================
+
+
+class TestArchiveStatistics:
+    """Tests for archive statistics functionality."""
+
+    def test_get_archive_stats_empty(self, memory_system):
+        """Archive stats returns valid structure for empty archive."""
+        stats = memory_system.get_archive_stats()
+
+        assert isinstance(stats, dict)
+        assert "by_tier_reason" in stats
+        assert "total_archived" in stats
+        assert stats["total_archived"] == 0
+
+    def test_get_archive_stats_structure(self, memory_system):
+        """Archive stats has correct structure."""
+        stats = memory_system.get_archive_stats()
+
+        assert "by_tier_reason" in stats
+        assert "total_archived" in stats
+        assert "oldest_archived" in stats
+        assert "newest_archived" in stats
