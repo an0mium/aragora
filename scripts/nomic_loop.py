@@ -6987,6 +6987,33 @@ Recent changes:
             improvement: The improvement proposal from debate phase
             belief_analysis: Optional belief analysis from debate (contested/crux claims)
         """
+        # Use extracted phase class if enabled
+        if self.use_extracted_phases and _NOMIC_PHASES_AVAILABLE:
+            design_phase = self._create_design_phase()
+            # Build belief context from analysis
+            from scripts.nomic.phases.design import BeliefContext
+            belief_ctx = None
+            if belief_analysis:
+                belief_ctx = BeliefContext(
+                    contested_count=belief_analysis.get("contested_count", 0),
+                    crux_count=belief_analysis.get("crux_count", 0),
+                    posteriors=belief_analysis.get("posteriors"),
+                    convergence_achieved=belief_analysis.get("convergence_achieved", False),
+                )
+            result = await design_phase.execute(
+                improvement=improvement,
+                belief_context=belief_ctx,
+            )
+            # Convert DesignResult to dict for backward compatibility
+            return {
+                "phase": "design",
+                "success": result.success,
+                "design": result.design,
+                "files_affected": result.files_affected,
+                "complexity": result.complexity_estimate,
+            }
+
+        # Inline implementation (legacy)
         phase_start = datetime.now()
         self._log("\n" + "=" * 70)
         self._log("PHASE 2: IMPLEMENTATION DESIGN")
