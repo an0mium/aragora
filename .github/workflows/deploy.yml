@@ -105,7 +105,7 @@ jobs:
 
       - name: Deploy to Lightsail
         run: |
-          ssh -o ConnectTimeout=30 -i ~/.ssh/lightsail ubuntu@${{ secrets.LIGHTSAIL_HOST }} << EOF
+          ssh -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -i ~/.ssh/lightsail ubuntu@${{ secrets.LIGHTSAIL_HOST }} << EOF
             set -e
             cd /home/ubuntu/aragora
             echo "Stashing any local changes..."
@@ -113,8 +113,8 @@ jobs:
             echo "Pulling latest code..."
             git pull origin main
             source venv/bin/activate
-            echo "Installing package..."
-            pip install -e . --quiet
+            echo "Installing package (low memory mode)..."
+            pip install -e . --quiet --no-cache-dir
             # Configure Sentry DSN if provided
             if [ -n "${{ secrets.SENTRY_DSN }}" ]; then
               echo "Configuring Sentry DSN..."
