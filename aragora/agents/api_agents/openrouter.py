@@ -12,6 +12,10 @@ from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.api_agents.common import (
     Message,
     Critique,
+    AgentAPIError,
+    AgentRateLimitError,
+    AgentConnectionError,
+    AgentStreamError,
     get_api_key,
     _sanitize_error_message,
     iter_chunks_with_timeout,
@@ -108,7 +112,10 @@ class OpenRouterAgent(APIAgent):
             # Acquire rate limit token for each attempt
             limiter = get_openrouter_limiter()
             if not await limiter.acquire(timeout=DB_TIMEOUT_SECONDS):
-                raise RuntimeError("OpenRouter rate limit exceeded, request timed out")
+                raise AgentRateLimitError(
+                    "OpenRouter rate limit exceeded, request timed out",
+                    agent_name=self.name,
+                )
 
             try:
                 async with aiohttp.ClientSession() as session:
@@ -142,18 +149,28 @@ class OpenRouterAgent(APIAgent):
                                 last_error = f"Rate limited (429)"
                                 continue
                             else:
-                                raise RuntimeError(f"OpenRouter rate limited (429) after {max_retries} retries")
+                                raise AgentRateLimitError(
+                                    f"OpenRouter rate limited (429) after {max_retries} retries",
+                                    agent_name=self.name,
+                                )
 
                         if response.status != 200:
                             error_text = await response.text()
                             sanitized = _sanitize_error_message(error_text)
-                            raise RuntimeError(f"OpenRouter API error {response.status}: {sanitized}")
+                            raise AgentAPIError(
+                                f"OpenRouter API error {response.status}: {sanitized}",
+                                agent_name=self.name,
+                                status_code=response.status,
+                            )
 
                         data = await response.json()
                         try:
                             return data["choices"][0]["message"]["content"]
                         except (KeyError, IndexError):
-                            raise RuntimeError(f"Unexpected OpenRouter response format: {data}")
+                            raise AgentAPIError(
+                                f"Unexpected OpenRouter response format: {data}",
+                                agent_name=self.name,
+                            )
 
             except aiohttp.ClientError as e:
                 limiter.release_on_error()
@@ -163,7 +180,11 @@ class OpenRouterAgent(APIAgent):
                     logger.warning(f"OpenRouter connection error, waiting {wait_time:.0f}s before retry: {e}")
                     await asyncio.sleep(wait_time)
                     continue
-                raise RuntimeError(f"OpenRouter connection failed after {max_retries} retries: {last_error}")
+                raise AgentConnectionError(
+                    f"OpenRouter connection failed after {max_retries} retries: {last_error}",
+                    agent_name=self.name,
+                    cause=e,
+                )
 
     async def generate_stream(self, prompt: str, context: list[Message] | None = None) -> AsyncGenerator[str, None]:
         """Stream tokens from OpenRouter API with rate limiting and retry.
@@ -203,7 +224,10 @@ class OpenRouterAgent(APIAgent):
             # Acquire rate limit token for each attempt
             limiter = get_openrouter_limiter()
             if not await limiter.acquire(timeout=DB_TIMEOUT_SECONDS):
-                raise RuntimeError("OpenRouter rate limit exceeded, request timed out")
+                raise AgentRateLimitError(
+                    "OpenRouter rate limit exceeded, request timed out",
+                    agent_name=self.name,
+                )
 
             try:
                 async with aiohttp.ClientSession() as session:
@@ -237,12 +261,18 @@ class OpenRouterAgent(APIAgent):
                                 last_error = f"Rate limited (429)"
                                 continue
                             else:
-                                raise RuntimeError(f"OpenRouter streaming rate limited (429) after {max_retries} retries")
+                                raise AgentRateLimitError(
+                                    f"OpenRouter streaming rate limited (429) after {max_retries} retries",
+                                    agent_name=self.name,
+                                )
 
                         if response.status != 200:
                             error_text = await response.text()
                             sanitized = _sanitize_error_message(error_text)
-                            raise RuntimeError(f"OpenRouter streaming API error {response.status}: {sanitized}")
+                            raise AgentStreamError(
+                                f"OpenRouter streaming API error {response.status}: {sanitized}",
+                                agent_name=self.name,
+                            )
 
                         # OpenRouter uses SSE format (OpenAI-compatible)
                         buffer = ""
@@ -285,7 +315,11 @@ class OpenRouterAgent(APIAgent):
                     logger.warning(f"OpenRouter streaming connection error, waiting {wait_time:.0f}s before retry: {e}")
                     await asyncio.sleep(wait_time)
                     continue
-                raise RuntimeError(f"OpenRouter streaming failed after {max_retries} retries: {last_error}")
+                raise AgentConnectionError(
+                    f"OpenRouter streaming failed after {max_retries} retries: {last_error}",
+                    agent_name=self.name,
+                    cause=e,
+                )
 
     async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using OpenRouter API."""

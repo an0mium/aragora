@@ -13,8 +13,10 @@ from aragora.agents.api_agents.common import (
     Message,
     Critique,
     handle_agent_errors,
+    AgentAPIError,
     AgentRateLimitError,
     AgentConnectionError,
+    AgentStreamError,
     AgentTimeoutError,
     get_api_key,
     _sanitize_error_message,
@@ -128,7 +130,11 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                         if result is not None:
                             return result
 
-                    raise RuntimeError(f"Gemini API error {response.status}: {sanitized}")
+                    raise AgentAPIError(
+                        f"Gemini API error {response.status}: {sanitized}",
+                        agent_name=self.name,
+                        status_code=response.status,
+                    )
 
                 data = await response.json()
 
@@ -150,20 +156,28 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
 
                     if not text.strip():
                         if finish_reason == "MAX_TOKENS":
-                            raise RuntimeError(
+                            raise AgentAPIError(
                                 f"Gemini response truncated (MAX_TOKENS): output limit reached with no content. "
-                                f"Consider reducing prompt length or increasing maxOutputTokens."
+                                f"Consider reducing prompt length or increasing maxOutputTokens.",
+                                agent_name=self.name,
                             )
                         elif finish_reason == "SAFETY":
-                            raise RuntimeError(f"Gemini blocked response (SAFETY filter)")
+                            raise AgentAPIError(
+                                f"Gemini blocked response (SAFETY filter)",
+                                agent_name=self.name,
+                            )
                         else:
-                            raise RuntimeError(
-                                f"Gemini returned empty content (finishReason: {finish_reason})"
+                            raise AgentAPIError(
+                                f"Gemini returned empty content (finishReason: {finish_reason})",
+                                agent_name=self.name,
                             )
 
                     return text
                 except (KeyError, IndexError) as e:
-                    raise RuntimeError(f"Unexpected Gemini response format: {data}")
+                    raise AgentAPIError(
+                        f"Unexpected Gemini response format: {data}",
+                        agent_name=self.name,
+                    )
 
     async def generate_stream(self, prompt: str, context: list[Message] | None = None) -> AsyncGenerator[str, None]:
         """Stream tokens from Gemini API.
@@ -203,7 +217,10 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
-                    raise RuntimeError(f"Gemini streaming API error {response.status}: {sanitized}")
+                    raise AgentStreamError(
+                        f"Gemini streaming API error {response.status}: {sanitized}",
+                        agent_name=self.name,
+                    )
 
                 # Gemini streams as JSON array chunks
                 buffer = b""
@@ -213,7 +230,10 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                         buffer += chunk
                         # Prevent unbounded buffer growth (DoS protection)
                         if len(buffer) > MAX_STREAM_BUFFER_SIZE:
-                            raise RuntimeError("Streaming buffer exceeded maximum size")
+                            raise AgentStreamError(
+                                "Streaming buffer exceeded maximum size",
+                                agent_name=self.name,
+                            )
 
                         # Try to parse complete JSON objects from buffer
                         # Gemini streams as a JSON array: [{...}, {...}, ...]
@@ -267,7 +287,11 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                     raise
                 except aiohttp.ClientError as e:
                     logger.warning(f"[{self.name}] Streaming connection error: {e}")
-                    raise RuntimeError(f"Streaming connection error: {e}")
+                    raise AgentStreamError(
+                        f"Streaming connection error: {e}",
+                        agent_name=self.name,
+                        cause=e,
+                    )
 
     async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using Gemini."""

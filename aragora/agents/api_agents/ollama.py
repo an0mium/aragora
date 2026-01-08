@@ -12,6 +12,7 @@ from aragora.agents.api_agents.common import (
     Message,
     Critique,
     handle_agent_errors,
+    AgentAPIError,
     AgentRateLimitError,
     AgentConnectionError,
     AgentTimeoutError,
@@ -82,18 +83,27 @@ class OllamaAgent(APIAgent):
                     if response.status != 200:
                         error_text = await response.text()
                         sanitized = _sanitize_error_message(error_text)
-                        raise RuntimeError(f"Ollama API error {response.status}: {sanitized}")
+                        raise AgentAPIError(
+                            f"Ollama API error {response.status}: {sanitized}",
+                            agent_name=self.name,
+                            status_code=response.status,
+                        )
 
                     try:
                         data = await response.json()
                     except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
-                        raise RuntimeError(f"Ollama returned invalid JSON: {e}")
+                        raise AgentAPIError(
+                            f"Ollama returned invalid JSON: {e}",
+                            agent_name=self.name,
+                        )
                     return data.get("response", "")
 
-            except aiohttp.ClientConnectorError:
-                raise RuntimeError(
+            except aiohttp.ClientConnectorError as e:
+                raise AgentConnectionError(
                     f"Cannot connect to Ollama at {self.base_url}. "
-                    "Is Ollama running? Start with: ollama serve"
+                    "Is Ollama running? Start with: ollama serve",
+                    agent_name=self.name,
+                    cause=e,
                 )
 
     async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:

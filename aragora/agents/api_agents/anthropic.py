@@ -13,8 +13,10 @@ from aragora.agents.api_agents.common import (
     Message,
     Critique,
     handle_agent_errors,
+    AgentAPIError,
     AgentRateLimitError,
     AgentConnectionError,
+    AgentStreamError,
     AgentTimeoutError,
     get_api_key,
     _sanitize_error_message,
@@ -126,14 +128,21 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                         if result is not None:
                             return result
 
-                    raise RuntimeError(f"Anthropic API error {response.status}: {sanitized}")
+                    raise AgentAPIError(
+                        f"Anthropic API error {response.status}: {sanitized}",
+                        agent_name=self.name,
+                        status_code=response.status,
+                    )
 
                 data = await response.json()
 
                 try:
                     return data["content"][0]["text"]
                 except (KeyError, IndexError):
-                    raise RuntimeError(f"Unexpected Anthropic response format: {data}")
+                    raise AgentAPIError(
+                        f"Unexpected Anthropic response format: {data}",
+                        agent_name=self.name,
+                    )
 
     async def generate_stream(self, prompt: str, context: list[Message] | None = None) -> AsyncGenerator[str, None]:
         """Stream tokens from Anthropic API.
@@ -179,7 +188,10 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                             yield chunk
                         return
 
-                    raise RuntimeError(f"Anthropic streaming API error {response.status}: {sanitized}")
+                    raise AgentStreamError(
+                        f"Anthropic streaming API error {response.status}: {sanitized}",
+                        agent_name=self.name,
+                    )
 
                 # Anthropic uses SSE format: data: {...}\n\n
                 buffer = ""
@@ -189,7 +201,10 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                         buffer += chunk.decode('utf-8', errors='ignore')
                         # Prevent unbounded buffer growth (DoS protection)
                         if len(buffer) > MAX_STREAM_BUFFER_SIZE:
-                            raise RuntimeError("Streaming buffer exceeded maximum size")
+                            raise AgentStreamError(
+                                "Streaming buffer exceeded maximum size",
+                                agent_name=self.name,
+                            )
 
                         # Process complete SSE lines
                         while '\n' in buffer:
@@ -223,7 +238,11 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                     raise
                 except aiohttp.ClientError as e:
                     logger.warning(f"[{self.name}] Streaming connection error: {e}")
-                    raise RuntimeError(f"Streaming connection error: {e}")
+                    raise AgentStreamError(
+                        f"Streaming connection error: {e}",
+                        agent_name=self.name,
+                        cause=e,
+                    )
 
     async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using Anthropic API."""

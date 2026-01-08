@@ -19,9 +19,11 @@ from typing import AsyncGenerator, Callable, Optional
 
 from aragora.agents.base import CritiqueMixin
 from aragora.agents.errors import (
+    AgentAPIError,
     AgentCircuitOpenError,
     AgentConnectionError,
     AgentRateLimitError,
+    AgentStreamError,
     AgentTimeoutError,
     handle_agent_errors,
 )
@@ -280,9 +282,11 @@ __all__ = [
     "AsyncGenerator",
     # Aragora imports
     "CritiqueMixin",
+    "AgentAPIError",
     "AgentCircuitOpenError",
     "AgentConnectionError",
     "AgentRateLimitError",
+    "AgentStreamError",
     "AgentTimeoutError",
     "handle_agent_errors",
     "AgentRegistry",

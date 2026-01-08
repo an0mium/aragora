@@ -13,8 +13,10 @@ from aragora.agents.api_agents.common import (
     Message,
     Critique,
     handle_agent_errors,
+    AgentAPIError,
     AgentRateLimitError,
     AgentConnectionError,
+    AgentStreamError,
     AgentTimeoutError,
     get_api_key,
     _sanitize_error_message,
@@ -96,14 +98,21 @@ class GrokAgent(APIAgent):
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
-                    raise RuntimeError(f"Grok API error {response.status}: {sanitized}")
+                    raise AgentAPIError(
+                        f"Grok API error {response.status}: {sanitized}",
+                        agent_name=self.name,
+                        status_code=response.status,
+                    )
 
                 data = await response.json()
 
                 try:
                     return data["choices"][0]["message"]["content"]
                 except (KeyError, IndexError):
-                    raise RuntimeError(f"Unexpected Grok response format: {data}")
+                    raise AgentAPIError(
+                        f"Unexpected Grok response format: {data}",
+                        agent_name=self.name,
+                    )
 
     async def generate_stream(self, prompt: str, context: list[Message] | None = None) -> AsyncGenerator[str, None]:
         """Stream tokens from Grok API."""
@@ -139,7 +148,10 @@ class GrokAgent(APIAgent):
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
-                    raise RuntimeError(f"Grok streaming API error {response.status}: {sanitized}")
+                    raise AgentStreamError(
+                        f"Grok streaming API error {response.status}: {sanitized}",
+                        agent_name=self.name,
+                    )
 
                 try:
                     buffer = ""
@@ -149,7 +161,10 @@ class GrokAgent(APIAgent):
 
                         # Prevent unbounded buffer growth (DoS protection)
                         if len(buffer) > MAX_STREAM_BUFFER_SIZE:
-                            raise RuntimeError("Streaming buffer exceeded maximum size")
+                            raise AgentStreamError(
+                                "Streaming buffer exceeded maximum size",
+                                agent_name=self.name,
+                            )
 
                         while '\n' in buffer:
                             line, buffer = buffer.split('\n', 1)
@@ -179,7 +194,11 @@ class GrokAgent(APIAgent):
                     raise
                 except aiohttp.ClientError as e:
                     logger.warning(f"[{self.name}] Streaming connection error: {e}")
-                    raise RuntimeError(f"Streaming connection error: {e}")
+                    raise AgentStreamError(
+                        f"Streaming connection error: {e}",
+                        agent_name=self.name,
+                        cause=e,
+                    )
 
     async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
         """Critique a proposal using Grok API."""

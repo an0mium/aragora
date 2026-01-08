@@ -576,7 +576,8 @@ class TestStreamingErrorHandling:
         mock_session_cm.__aexit__ = AsyncMock(return_value=None)
 
         with patch("aiohttp.ClientSession", return_value=mock_session_cm):
-            with pytest.raises(RuntimeError) as exc_info:
+            from aragora.agents.errors import AgentStreamError
+            with pytest.raises(AgentStreamError) as exc_info:
                 chunks = []
                 async for chunk in anthropic_agent.generate_stream("Test"):
                     chunks.append(chunk)
@@ -672,7 +673,8 @@ class TestStreamingErrorHandling:
         mock_session_cm.__aexit__ = AsyncMock(return_value=None)
 
         with patch("aiohttp.ClientSession", return_value=mock_session_cm):
-            with pytest.raises(RuntimeError) as exc_info:
+            from aragora.agents.errors import AgentStreamError
+            with pytest.raises(AgentStreamError) as exc_info:
                 async for chunk in anthropic_agent.generate_stream("Test"):
                     pass
 
@@ -844,7 +846,8 @@ class TestOpenRouterAgent:
         mock_session_cm.__aexit__ = AsyncMock(return_value=None)
 
         with patch("aiohttp.ClientSession", return_value=mock_session_cm):
-            with pytest.raises(RuntimeError) as exc_info:
+            from aragora.agents.errors import AgentRateLimitError
+            with pytest.raises(AgentRateLimitError) as exc_info:
                 await openrouter_agent.generate("Test")
 
             assert "429" in str(exc_info.value)
