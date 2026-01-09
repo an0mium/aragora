@@ -20,6 +20,7 @@ import { DebateExportModal } from '@/components/DebateExportModal';
 import { TournamentPanel } from '@/components/TournamentPanel';
 import { CruxPanel } from '@/components/CruxPanel';
 import { MemoryInspector } from '@/components/MemoryInspector';
+import { LearningDashboard } from '@/components/LearningDashboard';
 import { CitationsPanel } from '@/components/CitationsPanel';
 import { CapabilityProbePanel } from '@/components/CapabilityProbePanel';
 import { OperationalModesPanel } from '@/components/OperationalModesPanel';
@@ -510,6 +511,9 @@ export default function Home() {
 
             {/* Section 4: Insights & Learning */}
             <CollapsibleSection id="insights-learning" title="INSIGHTS & LEARNING">
+              <PanelErrorBoundary panelName="Cross-Cycle Learning">
+                <LearningDashboard apiBase={apiBase} />
+              </PanelErrorBoundary>
               <PanelErrorBoundary panelName="Insights">
                 <InsightsPanel wsMessages={events} />
               </PanelErrorBoundary>

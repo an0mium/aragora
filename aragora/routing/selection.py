@@ -7,9 +7,11 @@ Routes tasks to best-fit agents by:
 - Using probe vulnerability scores for reliability
 - Forming optimal teams for debates
 - Maintaining a "bench" system with promotion/demotion
+- Auto-detecting domain from task text
 """
 
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Any, TYPE_CHECKING
@@ -17,6 +19,212 @@ import random
 import math
 
 logger = logging.getLogger(__name__)
+
+
+# Domain detection keywords
+DOMAIN_KEYWORDS: dict[str, list[str]] = {
+    "security": [
+        "security", "auth", "authentication", "authorization", "encrypt",
+        "vulnerability", "attack", "xss", "sql injection", "csrf", "token",
+        "password", "credential", "permission", "access control", "firewall",
+        "sanitize", "validate input", "owasp", "rate limit", "brute force",
+    ],
+    "performance": [
+        "performance", "optimize", "speed", "latency", "cache", "caching",
+        "memory", "cpu", "throughput", "bottleneck", "profil", "benchmark",
+        "slow", "fast", "efficient", "scale", "scaling", "load", "concurrent",
+    ],
+    "architecture": [
+        "architecture", "design", "pattern", "refactor", "structure",
+        "modular", "decouple", "interface", "abstract", "dependency",
+        "solid", "dry", "single responsibility", "microservice", "monolith",
+    ],
+    "testing": [
+        "test", "testing", "unittest", "pytest", "mock", "coverage",
+        "integration test", "e2e", "end-to-end", "tdd", "bdd", "fixture",
+        "assertion", "spec", "verify", "validate",
+    ],
+    "api": [
+        "api", "endpoint", "rest", "graphql", "grpc", "http", "request",
+        "response", "route", "handler", "middleware", "cors", "versioning",
+        "openapi", "swagger", "webhook",
+    ],
+    "database": [
+        "database", "db", "sql", "query", "schema", "migration", "index",
+        "transaction", "orm", "postgresql", "mysql", "sqlite", "mongodb",
+        "redis", "cache", "nosql", "join", "foreign key",
+    ],
+    "frontend": [
+        "frontend", "ui", "ux", "react", "vue", "angular", "css", "html",
+        "component", "render", "state", "redux", "hook", "responsive",
+        "accessibility", "a11y", "animation",
+    ],
+    "devops": [
+        "deploy", "deployment", "ci", "cd", "docker", "kubernetes", "k8s",
+        "pipeline", "github actions", "terraform", "aws", "cloud", "infra",
+        "monitoring", "logging", "observability",
+    ],
+    "debugging": [
+        "debug", "bug", "fix", "error", "exception", "traceback", "crash",
+        "issue", "problem", "broken", "fail", "not working", "investigate",
+    ],
+    "documentation": [
+        "document", "readme", "docstring", "comment", "explain", "tutorial",
+        "guide", "specification", "api doc",
+    ],
+}
+
+
+# Default agent expertise profiles
+DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
+    "claude": {
+        "security": 0.9,
+        "architecture": 0.9,
+        "documentation": 0.95,
+        "api": 0.85,
+        "debugging": 0.85,
+        "testing": 0.8,
+        "frontend": 0.75,
+        "database": 0.8,
+    },
+    "codex": {
+        "performance": 0.9,
+        "debugging": 0.9,
+        "testing": 0.85,
+        "api": 0.85,
+        "database": 0.85,
+        "architecture": 0.8,
+        "devops": 0.75,
+    },
+    "gemini": {
+        "architecture": 0.95,
+        "performance": 0.85,
+        "api": 0.85,
+        "documentation": 0.85,
+        "frontend": 0.8,
+        "database": 0.8,
+    },
+    "grok": {
+        "debugging": 0.9,
+        "security": 0.85,
+        "testing": 0.85,
+        "performance": 0.8,
+        "architecture": 0.75,
+    },
+    "deepseek": {
+        "architecture": 0.9,
+        "performance": 0.9,
+        "database": 0.85,
+        "api": 0.85,
+        "security": 0.8,
+    },
+}
+
+
+class DomainDetector:
+    """
+    Detects task domain from natural language description.
+
+    Uses keyword matching with weighted scoring to identify
+    the primary and secondary domains for a task.
+    """
+
+    def __init__(self, custom_keywords: Optional[dict[str, list[str]]] = None):
+        """Initialize with optional custom domain keywords."""
+        self.keywords = DOMAIN_KEYWORDS.copy()
+        if custom_keywords:
+            for domain, words in custom_keywords.items():
+                if domain in self.keywords:
+                    self.keywords[domain].extend(words)
+                else:
+                    self.keywords[domain] = words
+
+    def detect(self, task_text: str, top_n: int = 3) -> list[tuple[str, float]]:
+        """
+        Detect domains from task text.
+
+        Args:
+            task_text: The task description
+            top_n: Number of top domains to return
+
+        Returns:
+            List of (domain, confidence) tuples, sorted by confidence
+        """
+        text_lower = task_text.lower()
+        scores: dict[str, float] = {}
+
+        for domain, keywords in self.keywords.items():
+            score = 0.0
+            for keyword in keywords:
+                # Count occurrences with word boundaries
+                pattern = r'\b' + re.escape(keyword) + r'\b'
+                matches = len(re.findall(pattern, text_lower))
+                if matches > 0:
+                    # Longer keywords are more specific, weight them higher
+                    weight = 1.0 + len(keyword.split()) * 0.5
+                    score += matches * weight
+
+            if score > 0:
+                scores[domain] = score
+
+        # Normalize scores
+        if scores:
+            max_score = max(scores.values())
+            scores = {d: s / max_score for d, s in scores.items()}
+
+        # Sort by score descending
+        sorted_domains = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+
+        # Default to "general" if no domains detected
+        if not sorted_domains:
+            return [("general", 0.5)]
+
+        return sorted_domains[:top_n]
+
+    def get_primary_domain(self, task_text: str) -> str:
+        """Get the primary domain for a task."""
+        domains = self.detect(task_text, top_n=1)
+        return domains[0][0] if domains else "general"
+
+    def get_task_requirements(
+        self,
+        task_text: str,
+        task_id: Optional[str] = None,
+    ) -> "TaskRequirements":
+        """
+        Create TaskRequirements from task text with auto-detected domains.
+
+        Args:
+            task_text: The task description
+            task_id: Optional task identifier
+
+        Returns:
+            TaskRequirements with detected domains
+        """
+        domains = self.detect(task_text, top_n=3)
+
+        primary = domains[0][0] if domains else "general"
+        secondary = [d for d, _ in domains[1:] if _ > 0.3]  # Only include confident secondary
+
+        # Detect required traits from keywords
+        traits = []
+        text_lower = task_text.lower()
+        if any(w in text_lower for w in ["critical", "important", "careful"]):
+            traits.append("thorough")
+        if any(w in text_lower for w in ["fast", "quick", "asap"]):
+            traits.append("fast")
+        if any(w in text_lower for w in ["security", "secure", "safe"]):
+            traits.append("security")
+        if any(w in text_lower for w in ["creative", "novel", "innovative"]):
+            traits.append("creative")
+
+        return TaskRequirements(
+            task_id=task_id or f"task-{hash(task_text) % 10000:04d}",
+            description=task_text[:500],
+            primary_domain=primary,
+            secondary_domains=secondary,
+            required_traits=traits,
+        )
 
 if TYPE_CHECKING:
     from aragora.routing.probe_filter import ProbeFilter
@@ -830,3 +1038,115 @@ class AgentSelector:
             reasons.append("Excellent success rate")
 
         return "; ".join(reasons) if reasons else "General purpose agent"
+
+    def auto_route(
+        self,
+        task_text: str,
+        task_id: Optional[str] = None,
+        exclude: Optional[list[str]] = None,
+    ) -> TeamComposition:
+        """
+        Automatically route a task to the best team based on detected domain.
+
+        This is a convenience method that:
+        1. Detects the domain from task text
+        2. Creates TaskRequirements
+        3. Selects the optimal team
+
+        Args:
+            task_text: Natural language task description
+            task_id: Optional task identifier
+            exclude: Agent names to exclude
+
+        Returns:
+            TeamComposition with selected agents
+
+        Example:
+            team = selector.auto_route("Add rate limiting to the API endpoints")
+            # Returns team with agents strong in security and API domains
+        """
+        detector = DomainDetector()
+        requirements = detector.get_task_requirements(task_text, task_id)
+
+        logger.info(
+            f"Auto-routing task: domain={requirements.primary_domain}, "
+            f"secondary={requirements.secondary_domains}, traits={requirements.required_traits}"
+        )
+
+        return self.select_team(requirements, exclude=exclude)
+
+    def get_domain_leaderboard(self, domain: str, limit: int = 10) -> list[dict]:
+        """
+        Get agent leaderboard for a specific domain.
+
+        Args:
+            domain: The domain to rank by (e.g., "security", "performance")
+            limit: Maximum agents to return
+
+        Returns:
+            List of agent rankings with domain-specific scores
+        """
+        agents = list(self.agent_pool.values())
+
+        # Score agents by domain expertise + domain ELO
+        def domain_score(agent: AgentProfile) -> float:
+            expertise = agent.expertise.get(domain, 0.5)
+            domain_elo = agent.domain_ratings.get(domain, agent.elo_rating)
+            # Weight: 40% expertise, 40% domain ELO, 20% overall
+            return (
+                expertise * 0.4 +
+                (domain_elo - 1000) / 1000 * 0.4 +
+                agent.overall_score * 0.2
+            )
+
+        agents.sort(key=domain_score, reverse=True)
+
+        return [
+            {
+                "rank": i + 1,
+                "name": a.name,
+                "type": a.agent_type,
+                "domain_score": domain_score(a),
+                "expertise": a.expertise.get(domain, 0.5),
+                "domain_elo": a.domain_ratings.get(domain, a.elo_rating),
+                "overall_elo": a.elo_rating,
+                "on_bench": a.name in self.bench,
+            }
+            for i, a in enumerate(agents[:limit])
+        ]
+
+    @classmethod
+    def create_with_defaults(
+        cls,
+        elo_system: Optional[Any] = None,
+        persona_manager: Optional[Any] = None,
+    ) -> "AgentSelector":
+        """
+        Create an AgentSelector with default agent expertise profiles.
+
+        This factory method initializes the selector with predefined
+        expertise for common agents (Claude, Codex, Gemini, Grok, DeepSeek).
+
+        Args:
+            elo_system: Optional EloSystem for rating data
+            persona_manager: Optional PersonaManager for dynamic traits
+
+        Returns:
+            Configured AgentSelector
+        """
+        selector = cls(elo_system=elo_system, persona_manager=persona_manager)
+
+        # Register agents with default expertise
+        for agent_name, expertise in DEFAULT_AGENT_EXPERTISE.items():
+            profile = AgentProfile(
+                name=agent_name,
+                agent_type=agent_name,
+                expertise=expertise.copy(),
+            )
+            selector.register_agent(profile)
+
+        # Sync from ELO if available
+        if elo_system:
+            selector.refresh_from_elo_system()
+
+        return selector

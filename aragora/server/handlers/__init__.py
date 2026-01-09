@@ -58,6 +58,7 @@ from .probes import ProbesHandler
 from .insights import InsightsHandler
 from .gallery import GalleryHandler
 from .breakpoints import BreakpointsHandler
+from .learning import LearningHandler
 
 # List of all handler classes for automatic dispatch registration
 # Order matters: more specific handlers should come first
@@ -96,6 +97,7 @@ ALL_HANDLERS = [
     InsightsHandler,
     GalleryHandler,
     BreakpointsHandler,
+    LearningHandler,
 ]
 
 __all__ = [
@@ -141,4 +143,5 @@ __all__ = [
     "InsightsHandler",
     "GalleryHandler",
     "BreakpointsHandler",
+    "LearningHandler",
 ]

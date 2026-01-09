@@ -1,7 +1,8 @@
 """
 Agent routing and selection.
 
-Provides adaptive agent selection for optimal team composition.
+Provides adaptive agent selection for optimal team composition,
+including domain detection and auto-routing.
 """
 
 from aragora.routing.selection import (
@@ -9,6 +10,9 @@ from aragora.routing.selection import (
     AgentProfile,
     TaskRequirements,
     TeamComposition,
+    DomainDetector,
+    DOMAIN_KEYWORDS,
+    DEFAULT_AGENT_EXPERTISE,
 )
 
 __all__ = [
@@ -16,4 +20,7 @@ __all__ = [
     "AgentProfile",
     "TaskRequirements",
     "TeamComposition",
+    "DomainDetector",
+    "DOMAIN_KEYWORDS",
+    "DEFAULT_AGENT_EXPERTISE",
 ]
