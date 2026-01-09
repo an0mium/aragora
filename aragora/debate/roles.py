@@ -227,7 +227,7 @@ class RoleRotator:
         is_final_round = round_num == total_rounds - 1
         synthesizer_agent = None
 
-        if is_final_round and self.config.synthesizer_final_round:
+        if is_final_round and self.config.synthesizer_final_round and agent_names:
             # Give synthesizer to the agent who hasn't been synthesizer yet
             # or the first agent if all have been
             synthesizer_agent = agent_names[0]

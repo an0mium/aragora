@@ -7326,7 +7326,7 @@ Designs missing any of these will be automatically rejected as non-viable.
                     min_weight=0.5,
                 )
                 reliable_count = sum(1 for w in agent_weights.values() if w >= 0.7)
-                self._log(f"  [integration] Agent weights: {agent_weights} ({reliable_count}/4 reliable)")
+                self._log(f"  [integration] Agent weights: {reliable_count}/{len(design_agents)} reliable")
             except Exception as e:
                 self._log(f"  [integration] Probing failed: {e}")
 
