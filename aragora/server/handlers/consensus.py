@@ -59,6 +59,7 @@ class ConsensusHandler(BaseHandler):
         "/api/consensus/dissents",
         "/api/consensus/contrarian-views",
         "/api/consensus/risk-warnings",
+        "/api/consensus/seed-demo",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -122,6 +123,9 @@ class ConsensusHandler(BaseHandler):
                 domain,
                 limit
             )
+
+        if path == "/api/consensus/seed-demo":
+            return self._seed_demo_data()
 
         if path.startswith("/api/consensus/domain/"):
             domain, err = self.extract_path_param(path, 3, "domain")
@@ -222,6 +226,25 @@ class ConsensusHandler(BaseHandler):
             "by_strength": raw_stats.get("by_strength", {}),
             "by_domain": raw_stats.get("by_domain", {}),
         })
+
+    @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
+    @handle_errors("demo data seeding")
+    def _seed_demo_data(self) -> HandlerResult:
+        """Seed demo consensus data for search functionality."""
+        try:
+            from aragora.fixtures import load_demo_consensus
+            memory = ConsensusMemory()
+            seeded = load_demo_consensus(memory)
+            return json_response({
+                "success": True,
+                "seeded": seeded,
+                "message": f"Seeded {seeded} demo consensus records" if seeded > 0 else "Database already has data, skipped seeding",
+            })
+        except ImportError as e:
+            return error_response(f"Fixtures module not available: {e}", 500)
+        except Exception as e:
+            logger.error(f"Failed to seed demo data: {e}")
+            return error_response(f"Seeding failed: {e}", 500)
 
     @ttl_cache(ttl_seconds=CACHE_TTL_RECENT_DISSENTS, key_prefix="recent_dissents", skip_first=True)
     @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")

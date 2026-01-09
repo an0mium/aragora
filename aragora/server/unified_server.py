@@ -1259,9 +1259,10 @@ async def run_unified_server(
     # Ensure demo data is loaded for search functionality
     try:
         from aragora.fixtures import ensure_demo_data
+        logger.info("[server] Checking demo data initialization...")
         ensure_demo_data()
     except Exception as e:
-        logger.debug(f"[server] Demo data initialization skipped: {e}")
+        logger.warning(f"[server] Demo data initialization failed: {e}")
 
     server = UnifiedServer(
         http_port=http_port,
