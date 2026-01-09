@@ -470,6 +470,7 @@ from aragora.debate.roles import RoleRotationConfig, CognitiveRole
 from aragora.core import Environment
 from aragora.agents.api_agents import GeminiAgent, DeepSeekV3Agent
 from aragora.agents.cli_agents import CodexAgent, ClaudeAgent, GrokCLIAgent, KiloCodeAgent
+from aragora.agents.airlock import AirlockProxy, AirlockConfig
 
 # Check if Kilo Code CLI is available for Gemini/Grok codebase exploration
 KILOCODE_AVAILABLE = False
@@ -2504,6 +2505,23 @@ Your role is to BUILD and EXTEND, not to remove or break.
 Propose additions that are practical, efficient, and well-designed.
 The most valuable proposals combine deep analysis with actionable implementation.""" + safety_footer
 
+        # Wrap all agents with Airlock for resilience
+        # This adds timeout handling, null byte sanitization, and fallback responses
+        airlock_config = AirlockConfig(
+            generate_timeout=180.0,  # 3 min for generation
+            critique_timeout=120.0,  # 2 min for critiques
+            vote_timeout=60.0,       # 1 min for votes
+            max_retries=1,
+            fallback_on_timeout=True,
+            fallback_on_error=True,
+        )
+        self.gemini = AirlockProxy(self.gemini, airlock_config)
+        self.codex = AirlockProxy(self.codex, airlock_config)
+        self.claude = AirlockProxy(self.claude, airlock_config)
+        self.grok = AirlockProxy(self.grok, airlock_config)
+        self.deepseek = AirlockProxy(self.deepseek, airlock_config)
+        self._log("  [airlock] All 5 agents wrapped with resilience layer")
+
     def _create_verify_phase(self) -> "VerifyPhase":
         """Create an extracted VerifyPhase instance.
 
@@ -2592,9 +2610,19 @@ The most valuable proposals combine deep analysis with actionable implementation
         if not _NOMIC_PHASES_AVAILABLE:
             raise RuntimeError("Extracted phases not available")
 
+        # Select agents with fallback to all agents if selection returns empty
+        design_agents = self._select_debate_team("design")
+        if not design_agents:
+            self._log("  [design] WARNING: No agents from selection, using all available")
+            design_agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
+            design_agents = [a for a in design_agents if a is not None]
+
+        if not design_agents:
+            raise RuntimeError("No agents available for design phase")
+
         return DesignPhase(
             aragora_path=self.aragora_path,
-            agents=self._select_debate_team("design"),
+            agents=design_agents,
             arena_factory=lambda *args, **kwargs: Arena(*args, **kwargs),
             environment_factory=lambda *args, **kwargs: Environment(*args, **kwargs),
             protocol_factory=lambda *args, **kwargs: DebateProtocol(*args, **kwargs),
