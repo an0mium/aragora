@@ -1105,16 +1105,8 @@ class TestOptionalTraceSupport:
         assert "<!DOCTYPE html>" in html
 
     @pytest.mark.skipif(not HAS_TRACE_SUPPORT, reason="Trace support not available")
-    @pytest.mark.xfail(
-        reason="Bug in replay.py: uses event.type instead of event.event_type",
-        strict=False,
-    )
     def test_generate_with_trace(self, generator, sample_debate_result):
-        """Test generate with trace if available.
-
-        Note: This test is expected to fail due to a bug in replay.py line 132
-        where it accesses event.type but TraceEvent uses event_type.
-        """
+        """Test generate with trace if available."""
         from datetime import datetime
         from aragora.debate.traces import DebateTrace, EventType, TraceEvent
 
