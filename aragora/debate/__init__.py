@@ -104,6 +104,15 @@ from aragora.debate.rhetorical_observer import (
     get_rhetorical_observer,
     reset_rhetorical_observer,
 )
+from aragora.debate.chaos_theater import (
+    ChaosDirector,
+    TheaterResponse,
+    FailureType,
+    DramaLevel,
+    get_chaos_director,
+    theatrical_timeout,
+    theatrical_error,
+)
 
 __all__ = [
     "Arena",
@@ -198,4 +207,12 @@ __all__ = [
     "RhetoricalPattern",
     "get_rhetorical_observer",
     "reset_rhetorical_observer",
+    # Chaos Theater
+    "ChaosDirector",
+    "TheaterResponse",
+    "FailureType",
+    "DramaLevel",
+    "get_chaos_director",
+    "theatrical_timeout",
+    "theatrical_error",
 ]

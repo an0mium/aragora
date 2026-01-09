@@ -21,6 +21,7 @@ from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.context_gatherer import ContextGatherer
 from aragora.debate.event_bridge import EventEmitterBridge
 from aragora.debate.immune_system import TransparentImmuneSystem, get_immune_system
+from aragora.debate.chaos_theater import ChaosDirector, get_chaos_director, DramaLevel
 from aragora.debate.audience_manager import AudienceManager
 from aragora.debate.autonomic_executor import AutonomicExecutor
 from aragora.debate.memory_manager import MemoryManager
@@ -396,9 +397,13 @@ class Arena:
         # Transparent immune system for health monitoring and broadcasting
         self.immune_system = get_immune_system()
 
+        # Chaos director for theatrical failure messages
+        self.chaos_director = get_chaos_director(DramaLevel.MODERATE)
+
         self.autonomic = AutonomicExecutor(
             circuit_breaker=self.circuit_breaker,
             immune_system=self.immune_system,
+            chaos_director=self.chaos_director,
         )
         self.initial_messages = initial_messages or []
         self.trending_topic = trending_topic
