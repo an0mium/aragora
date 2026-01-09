@@ -1256,6 +1256,13 @@ async def run_unified_server(
         except Exception as e:
             logger.warning(f"[server] Failed to initialize DebateStorage: {e}")
 
+    # Ensure demo data is loaded for search functionality
+    try:
+        from aragora.fixtures import ensure_demo_data
+        ensure_demo_data()
+    except Exception as e:
+        logger.debug(f"[server] Demo data initialization skipped: {e}")
+
     server = UnifiedServer(
         http_port=http_port,
         ws_port=ws_port,

@@ -1,0 +1,42 @@
+[
+  {
+    "topic": "Live Debate Viewer with Shareable Permalinks",
+    "conclusion": "A real-time web interface that visualizes multi-agent debates as they happen, generating unique shareable URLs for each debate session. Extends the existing export/static_html.py artifact export system, adds WebSocket streaming to push rounds in real-time, and generates permalink slugs. Implementation scope: ~300 lines Python (WebSocket server + permalink generation), ~200 lines HTML/JS (viewer component).",
+    "confidence": 0.8,
+    "strength": "strong",
+    "domain": "architecture",
+    "participants": ["gemini-visionary", "codex-pragmatist", "claude-synthesizer"]
+  },
+  {
+    "topic": "Airlock Resilience Layer for Agent Failures",
+    "conclusion": "A defensive wrapper (AirlockProxy) for agents providing Circuit Breaking (timeouts via asyncio.wait_for) and Sanitization (null byte stripping, JSON repair). Transforms aragora from a fragile system that crashes when an agent fails, into a resilient system that observes failures and continues. Implementation in aragora/agents/airlock.py with injection via AgentFactory.",
+    "confidence": 0.8,
+    "strength": "strong",
+    "domain": "architecture",
+    "participants": ["gemini-visionary", "deepseek-v3", "claude-visionary", "codex-engineer"]
+  },
+  {
+    "topic": "Public Debate Archive with Stabilized IDs",
+    "conclusion": "A system to expose completed debates publicly with stable, predictable IDs. Fixes the critical loop_id bug that breaks multi-loop scenarios. Creates natural growth loops through shareable debate replays. Minimal implementation (~150 LOC) building directly on existing infrastructure.",
+    "confidence": 0.8,
+    "strength": "strong",
+    "domain": "architecture",
+    "participants": ["claude-visionary", "deepseek-v3", "gemini-visionary", "codex-engineer"]
+  },
+  {
+    "topic": "Stream Package Refactoring",
+    "conclusion": "Refactor monolithic stream.py (2500+ LOC) into modular package structure: servers.py (WebSocket server classes), broadcaster.py (event broadcasting), state_manager.py (connection state), loop_manager.py (loop lifecycle), message_handlers.py (message routing), serializers.py (event serialization). Improves maintainability and testability.",
+    "confidence": 0.75,
+    "strength": "medium",
+    "domain": "architecture",
+    "participants": ["claude-visionary", "codex-engineer"]
+  },
+  {
+    "topic": "Multi-Agent Debate Consensus Mechanisms",
+    "conclusion": "Implement weighted voting based on ELO ratings and calibration scores. Agents with higher accuracy get more influence on final consensus. Support for judge-based, majority, and supermajority consensus modes. Early stopping when consensus threshold reached.",
+    "confidence": 0.85,
+    "strength": "strong",
+    "domain": "architecture",
+    "participants": ["claude-visionary", "gemini-visionary", "deepseek-v3", "grok-lateral-thinker"]
+  }
+]
