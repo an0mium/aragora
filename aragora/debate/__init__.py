@@ -54,6 +54,36 @@ from aragora.debate.checkpoint import (
     CheckpointWebhook,
     checkpoint_debate,
 )
+from aragora.debate.blackbox import (
+    BlackboxRecorder,
+    BlackboxEvent,
+    BlackboxSnapshot,
+    get_blackbox,
+    close_blackbox,
+)
+from aragora.debate.immune_system import (
+    TransparentImmuneSystem,
+    HealthEvent,
+    HealthStatus,
+    AgentStatus,
+    AgentHealthState,
+    get_immune_system,
+    reset_immune_system,
+)
+from aragora.debate.wisdom_injector import (
+    WisdomInjector,
+    WisdomSubmission,
+    WisdomInjection,
+    get_wisdom_injector,
+    close_wisdom_injector,
+)
+from aragora.debate.complexity_governor import (
+    AdaptiveComplexityGovernor,
+    GovernorConstraints,
+    StressLevel,
+    get_complexity_governor,
+    reset_complexity_governor,
+)
 
 __all__ = [
     "Arena",
@@ -105,4 +135,30 @@ __all__ = [
     "AgentState",
     "CheckpointWebhook",
     "checkpoint_debate",
+    # Blackbox Protocol
+    "BlackboxRecorder",
+    "BlackboxEvent",
+    "BlackboxSnapshot",
+    "get_blackbox",
+    "close_blackbox",
+    # Transparent Immune System
+    "TransparentImmuneSystem",
+    "HealthEvent",
+    "HealthStatus",
+    "AgentStatus",
+    "AgentHealthState",
+    "get_immune_system",
+    "reset_immune_system",
+    # Wisdom Injector
+    "WisdomInjector",
+    "WisdomSubmission",
+    "WisdomInjection",
+    "get_wisdom_injector",
+    "close_wisdom_injector",
+    # Complexity Governor
+    "AdaptiveComplexityGovernor",
+    "GovernorConstraints",
+    "StressLevel",
+    "get_complexity_governor",
+    "reset_complexity_governor",
 ]
