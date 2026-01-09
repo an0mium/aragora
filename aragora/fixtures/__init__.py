@@ -48,12 +48,13 @@ def load_demo_consensus(consensus_memory: Optional[object] = None) -> int:
 
     # Check if already seeded
     try:
-        stats = consensus_memory.get_stats()
-        if stats.get("total_topics", 0) > 0:
-            logger.info(f"Consensus memory already has {stats['total_topics']} topics, skipping seed")
+        stats = consensus_memory.get_statistics()
+        total = stats.get("total_consensus", 0)
+        if total > 0:
+            logger.info(f"Consensus memory already has {total} topics, skipping seed")
             return 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Could not check existing data: {e}")
 
     # Seed the demos
     seeded = 0
