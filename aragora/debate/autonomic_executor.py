@@ -30,6 +30,7 @@ from aragora.debate.sanitization import OutputSanitizer
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message, Vote
+    from aragora.insights.store import InsightStore
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,8 @@ class AutonomicExecutor:
         timeout_escalation_factor: float = 1.5,
         max_timeout: float = 300.0,
         streaming_buffer: Optional[StreamingContentBuffer] = None,
+        wisdom_store: Optional["InsightStore"] = None,
+        loop_id: Optional[str] = None,
     ):
         """
         Initialize the autonomic executor.
@@ -116,14 +119,53 @@ class AutonomicExecutor:
             timeout_escalation_factor: Multiplier for timeout on each retry (default 1.5x)
             max_timeout: Maximum timeout cap in seconds (default 300s / 5 min)
             streaming_buffer: Optional buffer for capturing partial streaming content
+            wisdom_store: Optional InsightStore for audience wisdom fallback
+            loop_id: Current loop/debate ID for wisdom retrieval
         """
         self.circuit_breaker = circuit_breaker
         self.default_timeout = default_timeout
         self.timeout_escalation_factor = timeout_escalation_factor
         self.max_timeout = max_timeout
         self.streaming_buffer = streaming_buffer or StreamingContentBuffer()
+        self.wisdom_store = wisdom_store
+        self.loop_id = loop_id
         # Track retry counts per agent for timeout escalation
         self._retry_counts: dict[str, int] = defaultdict(int)
+
+    def set_loop_id(self, loop_id: str) -> None:
+        """Set the current loop/debate ID for wisdom retrieval."""
+        self.loop_id = loop_id
+
+    def _get_wisdom_fallback(self, failed_agent: str) -> Optional[str]:
+        """
+        Get audience wisdom as fallback when agent fails.
+
+        Returns formatted wisdom response if available, None otherwise.
+        """
+        if not self.wisdom_store or not self.loop_id:
+            return None
+
+        try:
+            wisdom_list = self.wisdom_store.get_relevant_wisdom(self.loop_id, limit=1)
+            if not wisdom_list:
+                return None
+
+            wisdom = wisdom_list[0]
+            self.wisdom_store.mark_wisdom_used(wisdom['id'])
+
+            logger.info(
+                f"[wisdom] Injecting audience wisdom for failed agent {failed_agent}"
+            )
+
+            return (
+                f"[Audience Wisdom - submitted by {wisdom['submitter_id']}]\n\n"
+                f"{wisdom['text']}\n\n"
+                f"[System: This response was provided by the audience after "
+                f"{failed_agent} failed to respond]"
+            )
+        except Exception as e:
+            logger.warning(f"[wisdom] Failed to retrieve wisdom: {e}")
+            return None
 
     def get_escalated_timeout(self, agent_name: str, base_timeout: Optional[float] = None) -> float:
         """
@@ -400,6 +442,11 @@ class AutonomicExecutor:
                 )
                 sanitized = OutputSanitizer.sanitize_agent_output(partial, tried_agent.name)
                 return f"{sanitized}\n\n[System: Response truncated due to timeout]"
+
+        # Try audience wisdom as final fallback
+        wisdom_response = self._get_wisdom_fallback(agent.name)
+        if wisdom_response:
+            return wisdom_response
 
         # Total failure
         tried_names = [a.name for a in all_agents]

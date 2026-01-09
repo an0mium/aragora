@@ -708,6 +708,78 @@ class DebateStreamServer(ServerBase):
 
         return is_authenticated
 
+    async def _handle_wisdom_submission(
+        self,
+        websocket,
+        data: dict,
+        ws_id: int,
+        ws_token: str | None,
+        is_authenticated: bool,
+        client_id: str,
+    ) -> None:
+        """Handle wisdom submission from audience.
+
+        Wisdom submissions are stored and can be injected as fallback
+        when AI agents fail to respond.
+        """
+        # Require authentication if enabled
+        if not is_authenticated and auth_config.enabled:
+            await websocket.send(json.dumps({
+                "type": "error",
+                "data": {"message": "Authentication required for wisdom submissions", "code": 401}
+            }))
+            return
+
+        loop_id = data.get("loop_id", "")
+
+        # Validate loop_id
+        if not loop_id or loop_id not in self.active_loops:
+            await websocket.send(json.dumps({
+                "type": "error",
+                "data": {"message": f"Invalid or inactive loop_id: {loop_id}"}
+            }))
+            return
+
+        # Extract wisdom text
+        text = data.get("text", "").strip()
+        if not text or len(text) < 10:
+            await websocket.send(json.dumps({
+                "type": "error",
+                "data": {"message": "Wisdom text must be at least 10 characters"}
+            }))
+            return
+
+        if len(text) > 280:
+            text = text[:280]
+
+        # Get wisdom store
+        try:
+            from aragora.insights.store import InsightStore
+            wisdom_store = InsightStore()
+
+            wisdom_id = wisdom_store.add_wisdom_submission(
+                loop_id=loop_id,
+                wisdom_data={
+                    "text": text,
+                    "submitter_id": client_id[:16],
+                    "context_tags": data.get("tags", []),
+                }
+            )
+
+            await websocket.send(json.dumps({
+                "type": "wisdom_confirmed",
+                "data": {"wisdom_id": wisdom_id, "message": "Wisdom received"}
+            }))
+
+            logger.info(f"[wisdom] Stored submission {wisdom_id} for loop {loop_id}")
+
+        except Exception as e:
+            logger.error(f"[wisdom] Failed to store submission: {e}")
+            await websocket.send(json.dumps({
+                "type": "error",
+                "data": {"message": "Failed to store wisdom submission"}
+            }))
+
     def _cleanup_connection(self, client_ip: str, client_id: str, ws_id: int, websocket) -> None:
         """Clean up resources after connection closes."""
         self.clients.discard(websocket)
@@ -762,6 +834,10 @@ class DebateStreamServer(ServerBase):
                     }))
                 elif msg_type in ("user_vote", "user_suggestion"):
                     is_authenticated = await self._handle_user_action(
+                        websocket, data, ws_id, ws_token, is_authenticated, client_id
+                    )
+                elif msg_type == "wisdom_submission":
+                    await self._handle_wisdom_submission(
                         websocket, data, ws_id, ws_token, is_authenticated, client_id
                     )
 
