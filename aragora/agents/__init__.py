@@ -58,6 +58,16 @@ from aragora.agents.airlock import (
     wrap_agent,
     wrap_agents,
 )
+from aragora.agents.telemetry import (
+    AgentTelemetry,
+    with_telemetry,
+    TelemetryContext,
+    register_telemetry_collector,
+    unregister_telemetry_collector,
+    setup_default_collectors,
+    get_telemetry_stats,
+    reset_telemetry,
+)
 
 __all__ = [
     # CLI-based
@@ -110,4 +120,13 @@ __all__ = [
     "AirlockMetrics",
     "wrap_agent",
     "wrap_agents",
+    # Telemetry
+    "AgentTelemetry",
+    "with_telemetry",
+    "TelemetryContext",
+    "register_telemetry_collector",
+    "unregister_telemetry_collector",
+    "setup_default_collectors",
+    "get_telemetry_stats",
+    "reset_telemetry",
 ]

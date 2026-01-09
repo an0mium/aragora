@@ -4,10 +4,15 @@ Demo fixtures for seeding databases.
 Provides sample consensus data for search functionality.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aragora.memory.consensus import ConsensusMemory
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +60,7 @@ def get_demo_records_by_domain(domain: str) -> list[dict]:
 def get_demo_statistics() -> dict:
     """Get statistics about demo data."""
     records = get_demo_records()
-    domains = {}
+    domains: dict[str, int] = {}
     strengths = {"strong": 0, "medium": 0, "weak": 0}
 
     for record in records:
@@ -73,7 +78,7 @@ def get_demo_statistics() -> dict:
     }
 
 
-def load_demo_consensus(consensus_memory: Optional[object] = None) -> int:
+def load_demo_consensus(consensus_memory: Optional["ConsensusMemory"] = None) -> int:
     """
     Load demo consensus data into the database.
 

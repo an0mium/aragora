@@ -15,6 +15,8 @@ import asyncio
 import logging
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
+from aragora.config import AGENT_TIMEOUT_SECONDS
+
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message
     from aragora.debate.context import DebateContext
@@ -220,7 +222,7 @@ class DebateRoundsPhase:
                             critic, proposal, ctx.env.task if ctx.env else "", ctx.context_messages
                         ),
                         critic.name,
-                        timeout_seconds=90.0,
+                        timeout_seconds=float(AGENT_TIMEOUT_SECONDS),
                     )
                 else:
                     crit_result = await self._critique_with_agent(

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections import defaultdict
 from typing import TYPE_CHECKING, Awaitable, Optional, TypeVar
 
@@ -31,6 +32,7 @@ from aragora.debate.sanitization import OutputSanitizer
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message, Vote
     from aragora.insights.store import InsightStore
+    from aragora.debate.immune_system import TransparentImmuneSystem
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +111,7 @@ class AutonomicExecutor:
         streaming_buffer: Optional[StreamingContentBuffer] = None,
         wisdom_store: Optional["InsightStore"] = None,
         loop_id: Optional[str] = None,
+        immune_system: Optional["TransparentImmuneSystem"] = None,
     ):
         """
         Initialize the autonomic executor.
@@ -121,9 +124,11 @@ class AutonomicExecutor:
             streaming_buffer: Optional buffer for capturing partial streaming content
             wisdom_store: Optional InsightStore for audience wisdom fallback
             loop_id: Current loop/debate ID for wisdom retrieval
+            immune_system: Optional TransparentImmuneSystem for health monitoring
         """
         self.circuit_breaker = circuit_breaker
         self.default_timeout = default_timeout
+        self.immune_system = immune_system
         self.timeout_escalation_factor = timeout_escalation_factor
         self.max_timeout = max_timeout
         self.streaming_buffer = streaming_buffer or StreamingContentBuffer()
@@ -257,19 +262,47 @@ class AutonomicExecutor:
         Returns:
             Generated response (or system message on failure)
         """
+        start_time = time.time()
+
+        # Notify immune system that agent started
+        if self.immune_system:
+            self.immune_system.agent_started(agent.name, task=prompt[:100])
+
         try:
             raw_output = await agent.generate(prompt, context)
+            response_ms = (time.time() - start_time) * 1000
+
+            # Notify immune system of successful completion
+            if self.immune_system:
+                self.immune_system.agent_completed(agent.name, response_ms, success=True)
+
             return OutputSanitizer.sanitize_agent_output(raw_output, agent.name)
         except asyncio.TimeoutError:
+            timeout_seconds = time.time() - start_time
             logger.warning(f"[Autonomic] Agent {agent.name} timed out")
+
+            # Notify immune system of timeout
+            if self.immune_system:
+                self.immune_system.agent_timeout(agent.name, timeout_seconds)
+
             return f"[System: Agent {agent.name} timed out - skipping this turn]"
         except (ConnectionError, OSError) as e:
             # Network/OS errors - log without full traceback
             logger.warning(f"[Autonomic] Agent {agent.name} connection error: {e}")
+
+            # Notify immune system of failure
+            if self.immune_system:
+                self.immune_system.agent_failed(agent.name, str(e), recoverable=True)
+
             return f"[System: Agent {agent.name} connection failed - skipping this turn]"
         except Exception as e:
             # Autonomic containment: convert crashes to valid responses
             logger.exception(f"[Autonomic] Agent {agent.name} failed: {type(e).__name__}: {e}")
+
+            # Notify immune system of failure
+            if self.immune_system:
+                self.immune_system.agent_failed(agent.name, str(e), recoverable=False)
+
             return f"[System: Agent {agent.name} encountered an error - skipping this turn]"
 
     async def critique(
@@ -363,7 +396,7 @@ class AutonomicExecutor:
 
         for current_agent in all_agents:
             # Skip agents that are circuit-broken
-            if self.circuit_breaker and not self.circuit_breaker.allow(current_agent.name):
+            if self.circuit_breaker and not self.circuit_breaker.is_available(current_agent.name):
                 logger.info(f"[Autonomic] Skipping circuit-broken agent {current_agent.name}")
                 continue
 

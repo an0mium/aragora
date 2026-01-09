@@ -8,10 +8,15 @@ Creates structured test plans based on:
 - Integration points
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from enum import Enum
+
+if TYPE_CHECKING:
+    from aragora.export.artifact import DebateArtifact
 
 
 class VerificationType(Enum):

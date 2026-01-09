@@ -10,10 +10,15 @@ Analyzes debate traces for:
 Produces a structured risk register for project management.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from enum import Enum
+
+if TYPE_CHECKING:
+    from aragora.export.artifact import DebateArtifact
 
 
 class RiskLevel(Enum):

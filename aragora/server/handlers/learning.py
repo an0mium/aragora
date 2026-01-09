@@ -8,6 +8,8 @@ Endpoints:
 - GET /api/learning/insights - Get aggregated insights from cycles
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from pathlib import Path
@@ -122,7 +124,7 @@ class LearningHandler(BaseHandler):
             return error_response("Nomic directory not configured", 503)
 
         # Try to load from consensus memory
-        patterns = {
+        patterns: dict[str, list | dict] = {
             "successful_patterns": [],
             "failed_patterns": [],
             "recurring_themes": [],

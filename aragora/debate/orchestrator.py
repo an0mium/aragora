@@ -20,6 +20,7 @@ from aragora.debate.convergence import ConvergenceDetector
 from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.context_gatherer import ContextGatherer
 from aragora.debate.event_bridge import EventEmitterBridge
+from aragora.debate.immune_system import TransparentImmuneSystem, get_immune_system
 from aragora.debate.audience_manager import AudienceManager
 from aragora.debate.autonomic_executor import AutonomicExecutor
 from aragora.debate.memory_manager import MemoryManager
@@ -391,7 +392,14 @@ class Arena:
         self.loop_id = loop_id
         self.strict_loop_scoping = strict_loop_scoping
         self.circuit_breaker = circuit_breaker or CircuitBreaker()
-        self.autonomic = AutonomicExecutor(circuit_breaker=self.circuit_breaker)
+
+        # Transparent immune system for health monitoring and broadcasting
+        self.immune_system = get_immune_system()
+
+        self.autonomic = AutonomicExecutor(
+            circuit_breaker=self.circuit_breaker,
+            immune_system=self.immune_system,
+        )
         self.initial_messages = initial_messages or []
         self.trending_topic = trending_topic
         self.evidence_collector = evidence_collector
@@ -412,6 +420,19 @@ class Arena:
             cartographer=self.cartographer,
             loop_id=self.loop_id,
         )
+
+        # Connect immune system to event bridge for WebSocket broadcasting
+        self.immune_system.set_broadcast_callback(self._broadcast_health_event)
+
+    def _broadcast_health_event(self, event: dict) -> None:
+        """Broadcast health events to WebSocket clients via event bridge."""
+        try:
+            self.event_bridge.notify(
+                event_type="health_event",
+                **event.get("data", event),
+            )
+        except Exception as e:
+            logger.debug(f"health_broadcast_failed error={e}")
 
     def _init_trackers(
         self,
@@ -1643,12 +1664,17 @@ and building on others' ideas."""
             # Create debate snapshot for breakpoint evaluation
             snapshot = DebateSnapshot(
                 debate_id=self.env.debate_id if hasattr(self.env, 'debate_id') else "",
-                round_num=round_num,
                 task=self.env.task,
-                proposals=proposals,
-                current_confidence=confidence,
-                agent_names=[a.name for a in self.agents],
-                context_summary=f"Round {round_num}: {len(proposals)} proposals",
+                current_round=round_num,
+                total_rounds=self.protocol.rounds,
+                latest_messages=[],  # Would need message history
+                active_proposals=list(proposals.values()) if isinstance(proposals, dict) else proposals,
+                open_critiques=[],
+                current_consensus=None,
+                confidence=confidence,
+                agent_positions={a.name: "" for a in self.agents},
+                unresolved_issues=[],
+                key_disagreements=[],
             )
 
             # Check for triggers
@@ -1661,14 +1687,12 @@ and building on others' ideas."""
 
             if breakpoint:
                 # Emit breakpoint event
-                self.event_bridge.emit(
+                self.event_bridge.notify(
                     event_type="breakpoint",
-                    data={
-                        "breakpoint_id": breakpoint.breakpoint_id,
-                        "trigger": breakpoint.trigger.value,
-                        "round": round_num,
-                        "message": breakpoint.message,
-                    }
+                    breakpoint_id=breakpoint.breakpoint_id,
+                    trigger=breakpoint.trigger.value,
+                    round=round_num,
+                    message=breakpoint.message,
                 )
 
                 # Wait for human guidance
@@ -1676,20 +1700,18 @@ and building on others' ideas."""
 
                 if guidance:
                     # Emit resolution event
-                    self.event_bridge.emit(
+                    self.event_bridge.notify(
                         event_type="breakpoint_resolved",
-                        data={
-                            "breakpoint_id": breakpoint.breakpoint_id,
-                            "action": guidance.action.value,
-                            "message": guidance.message,
-                        }
+                        breakpoint_id=breakpoint.breakpoint_id,
+                        action=guidance.action,
+                        reasoning=guidance.reasoning,
                     )
 
                     # Handle abort action
-                    if guidance.action.value == "abort":
-                        raise RuntimeError(f"Debate aborted by human: {guidance.message}")
+                    if guidance.action == "abort":
+                        raise RuntimeError(f"Debate aborted by human: {guidance.reasoning}")
 
-                    return guidance.message
+                    return guidance.reasoning or guidance.decision
 
         except ImportError:
             logger.debug("Breakpoints module not available")

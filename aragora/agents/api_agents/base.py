@@ -40,7 +40,7 @@ class APIAgent(CritiqueMixin, Agent):
             self._circuit_breaker = circuit_breaker
         elif enable_circuit_breaker:
             self._circuit_breaker = CircuitBreaker(
-                failure_threshold=3,
+                failure_threshold=5,  # Increased from 3 for nomic loop stability
                 cooldown_seconds=60.0,
             )
         else:

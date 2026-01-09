@@ -11,9 +11,20 @@ Strategies:
 - elo_ranked: Highest ELO agent judges
 - calibrated: Best composite score (ELO + calibration)
 
+Features:
+- Circuit breaker awareness: filters unavailable agents before selection
+- Fallback selection: provides ordered list of candidates for retry
+
 Usage:
     selector = JudgeSelector(agents, elo_system, protocol)
     judge = await selector.select_judge(proposals, context)
+
+    # With circuit breaker awareness
+    selector = JudgeSelector(agents, elo_system, circuit_breaker=breaker)
+    judge = await selector.select_judge(proposals, context)
+
+    # Get fallback list for retry
+    candidates = await selector.get_judge_candidates(proposals, context)
 """
 
 import logging
@@ -25,6 +36,7 @@ from typing import TYPE_CHECKING, Callable, Optional, Protocol, Sequence
 if TYPE_CHECKING:
     from aragora.core import Agent, Message
     from aragora.ranking.elo import EloSystem
+    from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +342,8 @@ class JudgeSelector(JudgeScoringMixin):
     Main judge selection coordinator.
 
     Provides unified interface for all judge selection strategies.
+    Supports circuit breaker integration to filter unavailable agents
+    and provides fallback candidate lists for retry scenarios.
 
     Usage:
         selector = JudgeSelector(
@@ -338,6 +352,16 @@ class JudgeSelector(JudgeScoringMixin):
             judge_selection="calibrated",
         )
         judge = await selector.select_judge(proposals, context)
+
+        # With circuit breaker (filters unavailable agents)
+        selector = JudgeSelector(
+            agents=agents,
+            elo_system=elo_system,
+            circuit_breaker=breaker,
+        )
+
+        # Get ordered fallback candidates
+        candidates = await selector.get_judge_candidates(proposals, context)
     """
 
     def __init__(
@@ -348,6 +372,7 @@ class JudgeSelector(JudgeScoringMixin):
         generate_fn: Optional[Callable] = None,
         build_vote_prompt_fn: Optional[Callable] = None,
         sanitize_fn: Optional[Callable] = None,
+        circuit_breaker: Optional["CircuitBreaker"] = None,
     ):
         """
         Initialize the judge selector.
@@ -359,6 +384,7 @@ class JudgeSelector(JudgeScoringMixin):
             generate_fn: Agent generation function (required for voted strategy)
             build_vote_prompt_fn: Vote prompt builder (required for voted strategy)
             sanitize_fn: Output sanitizer function
+            circuit_breaker: Optional circuit breaker for filtering unavailable agents
         """
         JudgeScoringMixin.__init__(self, elo_system)
         self._agents = list(agents)
@@ -366,6 +392,7 @@ class JudgeSelector(JudgeScoringMixin):
         self._generate_fn = generate_fn
         self._build_vote_prompt_fn = build_vote_prompt_fn
         self._sanitize_fn = sanitize_fn
+        self._circuit_breaker = circuit_breaker
 
         # Initialize strategies
         self._strategies: dict[str, JudgeSelectionStrategy] = {
@@ -383,6 +410,39 @@ class JudgeSelector(JudgeScoringMixin):
                 sanitize_fn=sanitize_fn,
             )
 
+    def _filter_available_agents(self, agents: Sequence["Agent"]) -> list["Agent"]:
+        """
+        Filter agents by circuit breaker availability.
+
+        Args:
+            agents: Agents to filter
+
+        Returns:
+            List of agents with circuit breaker in closed/half-open state.
+            Returns all agents if no circuit breaker configured.
+        """
+        if not self._circuit_breaker:
+            return list(agents)
+
+        available = []
+        for agent in agents:
+            if self._circuit_breaker.is_available(agent.name):
+                available.append(agent)
+            else:
+                logger.debug(f"judge_filter_unavailable agent={agent.name}")
+
+        if not available:
+            # All agents unavailable - fall back to all agents with warning
+            logger.warning(
+                f"judge_selection_all_unavailable count={len(agents)}, using all"
+            )
+            return list(agents)
+
+        logger.debug(
+            f"judge_filter_result available={len(available)}/{len(agents)}"
+        )
+        return available
+
     async def select_judge(
         self,
         proposals: dict[str, str],
@@ -391,6 +451,8 @@ class JudgeSelector(JudgeScoringMixin):
         """
         Select a judge using the configured strategy.
 
+        Filters unavailable agents (via circuit breaker) before selection.
+
         Args:
             proposals: Current proposals by agent name
             context: Debate context messages
@@ -398,19 +460,70 @@ class JudgeSelector(JudgeScoringMixin):
         Returns:
             Selected judge agent
         """
+        # Filter available agents first
+        available_agents = self._filter_available_agents(self._agents)
+
         strategy = self._strategies.get(self._judge_selection)
 
         if not strategy:
             logger.warning(f"Unknown judge selection '{self._judge_selection}', using random")
             strategy = self._strategies["random"]
 
-        judge = await strategy.select(self._agents, proposals, context)
+        judge = await strategy.select(available_agents, proposals, context)
 
-        if judge is None and self._agents:
+        if judge is None and available_agents:
             logger.warning("Judge selection returned None, falling back to random")
-            judge = random.choice(self._agents)
+            judge = random.choice(available_agents)
 
         return judge
+
+    async def get_judge_candidates(
+        self,
+        proposals: dict[str, str],
+        context: list["Message"],
+        max_candidates: int = 3,
+    ) -> list["Agent"]:
+        """
+        Get an ordered list of judge candidates for fallback selection.
+
+        Returns candidates sorted by composite score (ELO + calibration),
+        filtered by circuit breaker availability.
+
+        Args:
+            proposals: Current proposals by agent name
+            context: Debate context messages
+            max_candidates: Maximum number of candidates to return
+
+        Returns:
+            Ordered list of agent candidates (best first)
+        """
+        available_agents = self._filter_available_agents(self._agents)
+
+        if not available_agents:
+            return []
+
+        # Get scores for all available agents
+        scores = self.get_all_scores(available_agents)
+
+        # Return agents in score order
+        candidates = []
+        for score in scores[:max_candidates]:
+            agent = next(
+                (a for a in available_agents if a.name == score.agent_name), None
+            )
+            if agent:
+                candidates.append(agent)
+
+        # If we got no scores (no ELO system), use random shuffling
+        if not candidates:
+            candidates = list(available_agents)[:max_candidates]
+            random.shuffle(candidates)
+
+        logger.debug(
+            f"judge_candidates count={len(candidates)} "
+            f"agents={[a.name for a in candidates]}"
+        )
+        return candidates
 
     @classmethod
     def from_protocol(
@@ -421,6 +534,7 @@ class JudgeSelector(JudgeScoringMixin):
         generate_fn: Optional[Callable] = None,
         build_vote_prompt_fn: Optional[Callable] = None,
         sanitize_fn: Optional[Callable] = None,
+        circuit_breaker: Optional["CircuitBreaker"] = None,
     ) -> "JudgeSelector":
         """
         Create JudgeSelector from a debate protocol.
@@ -432,6 +546,7 @@ class JudgeSelector(JudgeScoringMixin):
             generate_fn: Agent generation function
             build_vote_prompt_fn: Vote prompt builder
             sanitize_fn: Output sanitizer
+            circuit_breaker: Optional circuit breaker for filtering
 
         Returns:
             Configured JudgeSelector
@@ -443,4 +558,5 @@ class JudgeSelector(JudgeScoringMixin):
             generate_fn=generate_fn,
             build_vote_prompt_fn=build_vote_prompt_fn,
             sanitize_fn=sanitize_fn,
+            circuit_breaker=circuit_breaker,
         )

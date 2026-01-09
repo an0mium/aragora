@@ -16,6 +16,8 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
+from aragora.config import AGENT_TIMEOUT_SECONDS
+
 if TYPE_CHECKING:
     from aragora.core import Agent, Vote, DebateResult
     from aragora.debate.context import DebateContext
@@ -188,7 +190,9 @@ class ConsensusPhase:
             self._user_vote_multiplier = user_vote_multiplier
 
     # Default timeout for consensus phase (can be overridden via protocol)
-    DEFAULT_CONSENSUS_TIMEOUT = 120  # 2 minutes
+    # Judge mode needs more time due to LLM generation latency
+    DEFAULT_CONSENSUS_TIMEOUT = 180  # 3 minutes (increased from 2 min for judge mode)
+    JUDGE_TIMEOUT_PER_ATTEMPT = 90  # Per-judge timeout for fallback retries
 
     async def execute(self, ctx: "DebateContext") -> None:
         """
@@ -375,7 +379,12 @@ class ConsensusPhase:
             result.confidence = 0.0
 
     async def _handle_judge_consensus(self, ctx: "DebateContext") -> None:
-        """Handle 'judge' consensus mode - single judge synthesis."""
+        """Handle 'judge' consensus mode - single judge synthesis with fallback.
+
+        Tries the primary judge first, then falls back to alternative judges
+        if the primary times out or fails. This provides resilience against
+        individual agent failures during consensus.
+        """
         result = ctx.result
         proposals = ctx.proposals
 
@@ -385,66 +394,110 @@ class ConsensusPhase:
             result.consensus_reached = False
             return
 
-        # Select judge
-        judge = await self._select_judge(proposals, ctx.context_messages)
         judge_method = self.protocol.judge_selection if self.protocol else "random"
-        logger.info(f"judge_selected judge={judge.name} method={judge_method}")
-
-        # Notify spectator
-        if self._notify_spectator:
-            self._notify_spectator(
-                "judge",
-                agent=judge.name,
-                details=f"Selected as judge via {judge_method}",
-            )
-
-        # Emit judge selection hook
-        if "on_judge_selected" in self.hooks:
-            self.hooks["on_judge_selected"](judge.name, judge_method)
-
-        # Build judge prompt and generate synthesis
         task = ctx.env.task if ctx.env else ""
+
+        # Build judge prompt (same for all judges)
         judge_prompt = (
             self._build_judge_prompt(proposals, task, result.critiques)
             if self._build_judge_prompt
             else f"Synthesize these proposals: {proposals}"
         )
 
-        try:
-            synthesis = await self._generate_with_agent(
-                judge, judge_prompt, ctx.context_messages
-            )
-            result.final_answer = synthesis
-            result.consensus_reached = True
-            result.confidence = 0.8
-            # Set winner to judge for ELO tracking
-            ctx.winner_agent = judge.name
-            result.winner = judge.name
-            logger.info(f"judge_synthesis judge={judge.name} length={len(synthesis)}")
+        # Get judge candidates for fallback (if selector supports it)
+        judge_candidates = []
+        if hasattr(self._select_judge, '__self__') and hasattr(self._select_judge.__self__, 'get_judge_candidates'):
+            # Using JudgeSelector instance - get ordered candidates
+            try:
+                judge_candidates = await self._select_judge.__self__.get_judge_candidates(
+                    proposals, ctx.context_messages, max_candidates=3
+                )
+            except Exception as e:
+                logger.debug(f"Failed to get judge candidates: {e}")
+
+        # If no candidates from selector, use single judge selection
+        if not judge_candidates:
+            judge = await self._select_judge(proposals, ctx.context_messages)
+            judge_candidates = [judge] if judge else []
+
+        # Try each judge candidate until one succeeds
+        tried_judges = []
+        for judge in judge_candidates:
+            if judge is None:
+                continue
+
+            tried_judges.append(judge.name)
+            logger.info(f"judge_attempt judge={judge.name} method={judge_method} attempt={len(tried_judges)}")
 
             # Notify spectator
             if self._notify_spectator:
                 self._notify_spectator(
-                    "consensus",
+                    "judge",
                     agent=judge.name,
-                    details=f"Judge synthesis ({len(synthesis)} chars)",
-                    metric=0.8,
+                    details=f"Selected as judge via {judge_method}" +
+                            (f" (attempt {len(tried_judges)})" if len(tried_judges) > 1 else ""),
                 )
 
-            # Emit message for activity feed
-            if "on_message" in self.hooks:
-                rounds = self.protocol.rounds if self.protocol else 0
-                self.hooks["on_message"](
-                    agent=judge.name,
-                    content=synthesis,
-                    role="judge",
-                    round_num=rounds + 1,
+            # Emit judge selection hook
+            if "on_judge_selected" in self.hooks:
+                self.hooks["on_judge_selected"](judge.name, judge_method)
+
+            try:
+                # Use per-attempt timeout with overall timeout managed by execute()
+                synthesis = await asyncio.wait_for(
+                    self._generate_with_agent(judge, judge_prompt, ctx.context_messages),
+                    timeout=self.JUDGE_TIMEOUT_PER_ATTEMPT
                 )
 
-        except Exception as e:
-            logger.error(f"judge_error error={e}")
-            result.final_answer = list(proposals.values())[0] if proposals else ""
-            result.consensus_reached = False
+                result.final_answer = synthesis
+                result.consensus_reached = True
+                result.confidence = 0.8
+                # Set winner to judge for ELO tracking
+                ctx.winner_agent = judge.name
+                result.winner = judge.name
+
+                logger.info(
+                    f"judge_synthesis judge={judge.name} length={len(synthesis)} "
+                    f"attempts={len(tried_judges)}"
+                )
+
+                # Notify spectator
+                if self._notify_spectator:
+                    self._notify_spectator(
+                        "consensus",
+                        agent=judge.name,
+                        details=f"Judge synthesis ({len(synthesis)} chars)",
+                        metric=0.8,
+                    )
+
+                # Emit message for activity feed
+                if "on_message" in self.hooks:
+                    rounds = self.protocol.rounds if self.protocol else 0
+                    self.hooks["on_message"](
+                        agent=judge.name,
+                        content=synthesis,
+                        role="judge",
+                        round_num=rounds + 1,
+                    )
+
+                # Success - return early
+                return
+
+            except asyncio.TimeoutError:
+                logger.warning(
+                    f"judge_timeout judge={judge.name} timeout={self.JUDGE_TIMEOUT_PER_ATTEMPT}s"
+                )
+                # Continue to next candidate
+            except Exception as e:
+                logger.error(f"judge_error judge={judge.name} error={e}")
+                # Continue to next candidate
+
+        # All judges failed - use fallback
+        logger.error(
+            f"judge_all_failed tried={tried_judges} falling back to first proposal"
+        )
+        result.final_answer = list(proposals.values())[0] if proposals else ""
+        result.consensus_reached = False
 
     async def _collect_votes(self, ctx: "DebateContext") -> list["Vote"]:
         """Collect votes from all agents."""
@@ -462,7 +515,7 @@ class ConsensusPhase:
                     vote_result = await self._with_timeout(
                         self._vote_with_agent(agent, ctx.proposals, task),
                         agent.name,
-                        timeout_seconds=90.0,
+                        timeout_seconds=float(AGENT_TIMEOUT_SECONDS),
                     )
                 else:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
@@ -510,7 +563,7 @@ class ConsensusPhase:
                     vote_result = await self._with_timeout(
                         self._vote_with_agent(agent, ctx.proposals, task),
                         agent.name,
-                        timeout_seconds=90.0,
+                        timeout_seconds=float(AGENT_TIMEOUT_SECONDS),
                     )
                 else:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)

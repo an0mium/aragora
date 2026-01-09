@@ -222,21 +222,16 @@ class BreakpointsHandler(BaseHandler):
         redirect_task = body.get("redirect_task")
 
         try:
-            from aragora.debate.breakpoints import HumanGuidance, GuidanceAction
-
-            # Map action string to enum
-            action_map = {
-                "continue": GuidanceAction.CONTINUE,
-                "abort": GuidanceAction.ABORT,
-                "redirect": GuidanceAction.REDIRECT,
-                "inject": GuidanceAction.INJECT,
-            }
+            from aragora.debate.breakpoints import HumanGuidance
+            import uuid
 
             guidance = HumanGuidance(
-                action=action_map[action],
-                message=message,
-                redirect_task=redirect_task,
-                reviewer_id=body.get("reviewer_id", "api_user"),
+                guidance_id=str(uuid.uuid4()),
+                debate_id=breakpoint_id.split("_")[0] if "_" in breakpoint_id else "",
+                human_id=body.get("reviewer_id", "api_user"),
+                action=action,
+                reasoning=message,
+                preferred_direction=redirect_task,
             )
 
             # Resolve the breakpoint

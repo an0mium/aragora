@@ -27,6 +27,13 @@ from aragora.nomic.integration import (
     PhaseCheckpoint,
     create_nomic_integration,
 )
+from aragora.nomic.preflight import (
+    PreflightHealthCheck,
+    PreflightResult,
+    CheckResult,
+    CheckStatus,
+    run_preflight,
+)
 
 __all__ = [
     "NomicIntegration",
@@ -35,4 +42,10 @@ __all__ = [
     "StalenessReport",
     "PhaseCheckpoint",
     "create_nomic_integration",
+    # Preflight
+    "PreflightHealthCheck",
+    "PreflightResult",
+    "CheckResult",
+    "CheckStatus",
+    "run_preflight",
 ]

@@ -14,6 +14,8 @@ import asyncio
 import logging
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
+from aragora.config import AGENT_TIMEOUT_SECONDS
+
 if TYPE_CHECKING:
     from aragora.core import Agent, Message
     from aragora.debate.context import DebateContext
@@ -200,7 +202,7 @@ class ProposalPhase:
                 result = await self._with_timeout(
                     self._generate_with_agent(agent, prompt, ctx.context_messages),
                     agent.name,
-                    timeout_seconds=90.0,
+                    timeout_seconds=float(AGENT_TIMEOUT_SECONDS),
                 )
             else:
                 result = await self._generate_with_agent(
