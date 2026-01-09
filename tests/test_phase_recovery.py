@@ -373,12 +373,17 @@ class TestPhaseRecoveryPhaseTimeouts:
         for phase, timeout in PhaseRecovery.PHASE_TIMEOUTS.items():
             assert 60 <= timeout <= 3600, f"Timeout for {phase} ({timeout}s) outside bounds"
 
-    def test_implement_has_longest_timeout(self):
-        """Implement phase should have the longest timeout."""
+    def test_heavy_phases_have_longest_timeouts(self):
+        """Debate and implement phases should have the longest timeouts."""
+        debate_timeout = PhaseRecovery.PHASE_TIMEOUTS["debate"]
         implement_timeout = PhaseRecovery.PHASE_TIMEOUTS["implement"]
+
+        # Debate and implement are the heaviest phases
+        heavy_phases = {"debate", "implement"}
         for phase, timeout in PhaseRecovery.PHASE_TIMEOUTS.items():
-            if phase != "implement":
-                assert implement_timeout >= timeout
+            if phase not in heavy_phases:
+                assert debate_timeout >= timeout or implement_timeout >= timeout, \
+                    f"{phase} timeout ({timeout}s) exceeds both debate ({debate_timeout}s) and implement ({implement_timeout}s)"
 
 
 class TestPhaseRecoveryPhaseConfig:
