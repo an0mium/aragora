@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from aragora.insights.store import InsightStore
     from aragora.debate.immune_system import TransparentImmuneSystem
     from aragora.debate.chaos_theater import ChaosDirector
+    from aragora.agents.performance_monitor import AgentPerformanceMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +115,7 @@ class AutonomicExecutor:
         loop_id: Optional[str] = None,
         immune_system: Optional["TransparentImmuneSystem"] = None,
         chaos_director: Optional["ChaosDirector"] = None,
+        performance_monitor: Optional["AgentPerformanceMonitor"] = None,
     ):
         """
         Initialize the autonomic executor.
@@ -128,6 +130,7 @@ class AutonomicExecutor:
             loop_id: Current loop/debate ID for wisdom retrieval
             immune_system: Optional TransparentImmuneSystem for health monitoring
             chaos_director: Optional ChaosDirector for theatrical failure messages
+            performance_monitor: Optional AgentPerformanceMonitor for telemetry
         """
         self.circuit_breaker = circuit_breaker
         self.default_timeout = default_timeout
@@ -138,6 +141,7 @@ class AutonomicExecutor:
         self.streaming_buffer = streaming_buffer or StreamingContentBuffer()
         self.wisdom_store = wisdom_store
         self.loop_id = loop_id
+        self.performance_monitor = performance_monitor
         # Track retry counts per agent for timeout escalation
         self._retry_counts: dict[str, int] = defaultdict(int)
 
@@ -251,6 +255,8 @@ class AutonomicExecutor:
         agent: "Agent",
         prompt: str,
         context: list["Message"],
+        phase: str = "",
+        round_num: int = 0,
     ) -> str:
         """
         Generate response with an agent, handling errors and sanitizing output.
@@ -262,11 +268,20 @@ class AutonomicExecutor:
             agent: Agent to generate response
             prompt: Prompt for the agent
             context: Conversation context
+            phase: Current debate phase (for telemetry)
+            round_num: Current round number (for telemetry)
 
         Returns:
             Generated response (or system message on failure)
         """
         start_time = time.time()
+
+        # Start performance tracking
+        tracking_id = None
+        if self.performance_monitor:
+            tracking_id = self.performance_monitor.track_agent_call(
+                agent.name, "generate", phase=phase, round_num=round_num
+            )
 
         # Notify immune system that agent started
         if self.immune_system:
@@ -280,10 +295,24 @@ class AutonomicExecutor:
             if self.immune_system:
                 self.immune_system.agent_completed(agent.name, response_ms, success=True)
 
-            return OutputSanitizer.sanitize_agent_output(raw_output, agent.name)
+            sanitized = OutputSanitizer.sanitize_agent_output(raw_output, agent.name)
+
+            # Record successful completion
+            if tracking_id and self.performance_monitor:
+                self.performance_monitor.record_completion(
+                    tracking_id, success=True, response=sanitized
+                )
+
+            return sanitized
         except asyncio.TimeoutError:
             timeout_seconds = time.time() - start_time
             logger.warning(f"[Autonomic] Agent {agent.name} timed out")
+
+            # Record timeout failure
+            if tracking_id and self.performance_monitor:
+                self.performance_monitor.record_completion(
+                    tracking_id, success=False, error=f"timeout after {timeout_seconds:.1f}s"
+                )
 
             # Notify immune system of timeout
             if self.immune_system:
@@ -298,6 +327,12 @@ class AutonomicExecutor:
             # Network/OS errors - log without full traceback
             logger.warning(f"[Autonomic] Agent {agent.name} connection error: {e}")
 
+            # Record connection failure
+            if tracking_id and self.performance_monitor:
+                self.performance_monitor.record_completion(
+                    tracking_id, success=False, error=f"connection error: {e}"
+                )
+
             # Notify immune system of failure
             if self.immune_system:
                 self.immune_system.agent_failed(agent.name, str(e), recoverable=True)
@@ -310,6 +345,12 @@ class AutonomicExecutor:
         except Exception as e:
             # Autonomic containment: convert crashes to valid responses
             logger.exception(f"[Autonomic] Agent {agent.name} failed: {type(e).__name__}: {e}")
+
+            # Record exception failure
+            if tracking_id and self.performance_monitor:
+                self.performance_monitor.record_completion(
+                    tracking_id, success=False, error=f"{type(e).__name__}: {e}"
+                )
 
             # Notify immune system of failure
             if self.immune_system:
@@ -326,6 +367,8 @@ class AutonomicExecutor:
         proposal: str,
         task: str,
         context: list["Message"],
+        phase: str = "",
+        round_num: int = 0,
     ) -> Optional["Critique"]:
         """
         Get critique from an agent with autonomic error handling.
@@ -335,20 +378,45 @@ class AutonomicExecutor:
             proposal: Proposal to critique
             task: Task description
             context: Conversation context
+            phase: Current debate phase (for telemetry)
+            round_num: Current round number (for telemetry)
 
         Returns:
             Critique object or None on failure
         """
+        tracking_id = None
+        if self.performance_monitor:
+            tracking_id = self.performance_monitor.track_agent_call(
+                agent.name, "critique", phase=phase, round_num=round_num
+            )
+
         try:
-            return await agent.critique(proposal, task, context)
+            result = await agent.critique(proposal, task, context)
+            if tracking_id and self.performance_monitor:
+                self.performance_monitor.record_completion(
+                    tracking_id, success=True, response=str(result) if result else None
+                )
+            return result
         except asyncio.TimeoutError:
             logger.warning(f"[Autonomic] Agent {agent.name} critique timed out")
+            if tracking_id and self.performance_monitor:
+                self.performance_monitor.record_completion(
+                    tracking_id, success=False, error="timeout"
+                )
             return None
         except (ConnectionError, OSError) as e:
             logger.warning(f"[Autonomic] Agent {agent.name} critique connection error: {e}")
+            if tracking_id and self.performance_monitor:
+                self.performance_monitor.record_completion(
+                    tracking_id, success=False, error=f"connection error: {e}"
+                )
             return None
         except Exception as e:
             logger.exception(f"[Autonomic] Agent {agent.name} critique failed: {e}")
+            if tracking_id and self.performance_monitor:
+                self.performance_monitor.record_completion(
+                    tracking_id, success=False, error=f"{type(e).__name__}: {e}"
+                )
             return None
 
     async def vote(
@@ -356,6 +424,8 @@ class AutonomicExecutor:
         agent: "Agent",
         proposals: dict[str, str],
         task: str,
+        phase: str = "",
+        round_num: int = 0,
     ) -> Optional["Vote"]:
         """
         Get vote from an agent with autonomic error handling.
@@ -364,20 +434,45 @@ class AutonomicExecutor:
             agent: Agent to vote
             proposals: Dict of agent_name -> proposal text
             task: Task description
+            phase: Current debate phase (for telemetry)
+            round_num: Current round number (for telemetry)
 
         Returns:
             Vote object or None on failure
         """
+        tracking_id = None
+        if self.performance_monitor:
+            tracking_id = self.performance_monitor.track_agent_call(
+                agent.name, "vote", phase=phase, round_num=round_num
+            )
+
         try:
-            return await agent.vote(proposals, task)
+            result = await agent.vote(proposals, task)
+            if tracking_id and self.performance_monitor:
+                self.performance_monitor.record_completion(
+                    tracking_id, success=True, response=str(result) if result else None
+                )
+            return result
         except asyncio.TimeoutError:
             logger.warning(f"[Autonomic] Agent {agent.name} vote timed out")
+            if tracking_id and self.performance_monitor:
+                self.performance_monitor.record_completion(
+                    tracking_id, success=False, error="timeout"
+                )
             return None
         except (ConnectionError, OSError) as e:
             logger.warning(f"[Autonomic] Agent {agent.name} vote connection error: {e}")
+            if tracking_id and self.performance_monitor:
+                self.performance_monitor.record_completion(
+                    tracking_id, success=False, error=f"connection error: {e}"
+                )
             return None
         except Exception as e:
             logger.exception(f"[Autonomic] Agent {agent.name} vote failed: {e}")
+            if tracking_id and self.performance_monitor:
+                self.performance_monitor.record_completion(
+                    tracking_id, success=False, error=f"{type(e).__name__}: {e}"
+                )
             return None
 
     async def generate_with_fallback(

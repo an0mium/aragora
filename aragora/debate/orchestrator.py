@@ -150,6 +150,7 @@ class ArenaConfig:
     elo_system: Optional[object] = None
     persona_manager: Optional[object] = None
     dissent_retriever: Optional[object] = None
+    consensus_memory: Optional[object] = None  # ConsensusMemory for historical outcomes
     flip_detector: Optional[object] = None
     calibration_tracker: Optional[object] = None
     continuum_memory: Optional[object] = None
@@ -162,6 +163,10 @@ class ArenaConfig:
 
     # Human-in-the-loop breakpoints
     breakpoint_manager: Optional[object] = None  # BreakpointManager
+
+    # Performance telemetry
+    performance_monitor: Optional[object] = None  # AgentPerformanceMonitor
+    enable_performance_monitor: bool = False
 
 
 class Arena:
@@ -194,6 +199,7 @@ class Arena:
         elo_system=None,  # Optional EloSystem for relationship tracking
         persona_manager=None,  # Optional PersonaManager for agent specialization
         dissent_retriever=None,  # Optional DissentRetriever for historical minority views
+        consensus_memory=None,  # Optional ConsensusMemory for historical outcomes
         flip_detector=None,  # Optional FlipDetector for position reversal detection
         calibration_tracker=None,  # Optional CalibrationTracker for prediction accuracy
         continuum_memory=None,  # Optional ContinuumMemory for cross-debate learning
@@ -206,6 +212,8 @@ class Arena:
         trending_topic=None,  # Optional TrendingTopic to seed debate context
         evidence_collector=None,  # Optional EvidenceCollector for auto-collecting evidence
         breakpoint_manager=None,  # Optional BreakpointManager for human-in-the-loop
+        performance_monitor=None,  # Optional AgentPerformanceMonitor for telemetry
+        enable_performance_monitor: bool = False,  # Auto-create PerformanceMonitor if True
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
@@ -238,6 +246,7 @@ class Arena:
             trending_topic: Topic context from trending analysis
             evidence_collector: Automatic evidence gathering
             breakpoint_manager: Human-in-the-loop breakpoint handling
+            consensus_memory: Historical debate outcomes storage
 
         Initialization flow:
             1. _init_core() - Core config, protocol, agents, event system
@@ -268,6 +277,8 @@ class Arena:
             trending_topic=trending_topic,
             evidence_collector=evidence_collector,
             breakpoint_manager=breakpoint_manager,
+            performance_monitor=performance_monitor,
+            enable_performance_monitor=enable_performance_monitor,
         )
 
         # Initialize tracking subsystems
@@ -277,6 +288,7 @@ class Arena:
             elo_system=elo_system,
             persona_manager=persona_manager,
             dissent_retriever=dissent_retriever,
+            consensus_memory=consensus_memory,
             flip_detector=flip_detector,
             calibration_tracker=calibration_tracker,
             continuum_memory=continuum_memory,
@@ -343,6 +355,7 @@ class Arena:
             elo_system=config.elo_system,
             persona_manager=config.persona_manager,
             dissent_retriever=config.dissent_retriever,
+            consensus_memory=config.consensus_memory,
             flip_detector=config.flip_detector,
             calibration_tracker=config.calibration_tracker,
             continuum_memory=config.continuum_memory,
@@ -355,6 +368,8 @@ class Arena:
             trending_topic=config.trending_topic,
             evidence_collector=config.evidence_collector,
             breakpoint_manager=config.breakpoint_manager,
+            performance_monitor=config.performance_monitor,
+            enable_performance_monitor=config.enable_performance_monitor,
         )
 
     def _init_core(
@@ -377,6 +392,8 @@ class Arena:
         trending_topic,
         evidence_collector,
         breakpoint_manager,
+        performance_monitor,
+        enable_performance_monitor: bool,
     ) -> None:
         """Initialize core Arena configuration."""
         self.env = environment
@@ -400,10 +417,20 @@ class Arena:
         # Chaos director for theatrical failure messages
         self.chaos_director = get_chaos_director(DramaLevel.MODERATE)
 
+        # Performance monitor for agent telemetry
+        if performance_monitor:
+            self.performance_monitor = performance_monitor
+        elif enable_performance_monitor:
+            from aragora.agents.performance_monitor import AgentPerformanceMonitor
+            self.performance_monitor = AgentPerformanceMonitor()
+        else:
+            self.performance_monitor = None
+
         self.autonomic = AutonomicExecutor(
             circuit_breaker=self.circuit_breaker,
             immune_system=self.immune_system,
             chaos_director=self.chaos_director,
+            performance_monitor=self.performance_monitor,
         )
         self.initial_messages = initial_messages or []
         self.trending_topic = trending_topic
@@ -446,6 +473,7 @@ class Arena:
         elo_system,
         persona_manager,
         dissent_retriever,
+        consensus_memory,
         flip_detector,
         calibration_tracker,
         continuum_memory,
@@ -458,6 +486,7 @@ class Arena:
         self.elo_system = elo_system
         self.persona_manager = persona_manager
         self.dissent_retriever = dissent_retriever
+        self.consensus_memory = consensus_memory
         self.flip_detector = flip_detector
         self.calibration_tracker = calibration_tracker
         self.continuum_memory = continuum_memory
@@ -472,6 +501,21 @@ class Arena:
         # Only upgrade from default "random" - don't override explicit user choice
         if self.elo_system and self.protocol.judge_selection == "random":
             self.protocol.judge_selection = "elo_ranked"
+
+        # Auto-initialize CalibrationTracker when enable_calibration is True
+        if self.protocol.enable_calibration and self.calibration_tracker is None:
+            self._auto_init_calibration_tracker()
+
+    def _auto_init_calibration_tracker(self) -> None:
+        """Auto-initialize CalibrationTracker when enable_calibration is True."""
+        try:
+            from aragora.agents.calibration import CalibrationTracker
+            self.calibration_tracker = CalibrationTracker()
+            logger.debug("Auto-initialized CalibrationTracker for prediction calibration")
+        except ImportError:
+            logger.warning("CalibrationTracker not available - calibration disabled")
+        except Exception as e:
+            logger.warning("CalibrationTracker auto-init failed: %s", e)
 
     def _auto_init_moment_detector(self) -> None:
         """Auto-initialize MomentDetector when elo_system is available."""
@@ -635,6 +679,7 @@ class Arena:
             memory=self.memory,
             protocol=self.protocol,
             evidence_collector=self.evidence_collector,
+            dissent_retriever=self.dissent_retriever,
             fetch_historical_context=self._fetch_historical_context,
             format_patterns_for_prompt=self._format_patterns_for_prompt,
             get_successful_patterns_from_memory=self._get_successful_patterns_from_memory,
@@ -735,6 +780,8 @@ class Arena:
             store_debate_outcome_as_memory=self._store_debate_outcome_as_memory,
             update_continuum_memory_outcomes=self._update_continuum_memory_outcomes,
             index_debate_async=self._index_debate_async,
+            consensus_memory=self.consensus_memory,
+            calibration_tracker=self.calibration_tracker,
         )
 
     def _require_agents(self) -> list[Agent]:

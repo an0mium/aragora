@@ -113,6 +113,10 @@ class DebateProtocol:
     enable_breakpoints: bool = False  # Enable breakpoint detection
     breakpoint_config: Optional["BreakpointConfig"] = None  # Custom breakpoint thresholds
 
+    # Calibration tracking: Record prediction accuracy for calibration curves
+    # When enabled, agent prediction confidence is tracked against outcomes
+    enable_calibration: bool = False  # Enable calibration tracking
+
 
 def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
     """

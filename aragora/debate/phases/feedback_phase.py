@@ -64,6 +64,10 @@ class FeedbackPhase:
         store_debate_outcome_as_memory: Optional[Callable] = None,
         update_continuum_memory_outcomes: Optional[Callable] = None,
         index_debate_async: Optional[Callable] = None,
+        # ConsensusMemory for storing historical outcomes
+        consensus_memory: Any = None,
+        # CalibrationTracker for prediction accuracy
+        calibration_tracker: Any = None,
     ):
         """
         Initialize the feedback phase.
@@ -83,6 +87,8 @@ class FeedbackPhase:
             store_debate_outcome_as_memory: Callback to store debate outcome
             update_continuum_memory_outcomes: Callback to update memory outcomes
             index_debate_async: Async callback to index debate
+            consensus_memory: Optional ConsensusMemory for storing historical outcomes
+            calibration_tracker: Optional CalibrationTracker for prediction accuracy
         """
         self.elo_system = elo_system
         self.persona_manager = persona_manager
@@ -94,6 +100,8 @@ class FeedbackPhase:
         self.continuum_memory = continuum_memory
         self.event_emitter = event_emitter
         self.loop_id = loop_id
+        self.consensus_memory = consensus_memory
+        self.calibration_tracker = calibration_tracker
 
         # Callbacks
         self._emit_moment_event = emit_moment_event
@@ -133,11 +141,52 @@ class FeedbackPhase:
         # 7. Detect position flips
         self._detect_flips(ctx)
 
-        # 8. Store debate outcome in ContinuumMemory
+        # 8. Store debate outcome in ConsensusMemory for historical retrieval
+        self._store_consensus_outcome(ctx)
+
+        # 9. Store belief cruxes for future seeding
+        self._store_cruxes(ctx)
+
+        # 10. Store debate outcome in ContinuumMemory
         self._store_memory(ctx)
 
-        # 9. Update memory outcomes
+        # 11. Update memory outcomes
         self._update_memory_outcomes(ctx)
+
+        # 12. Record calibration data for prediction accuracy
+        self._record_calibration(ctx)
+
+    def _record_calibration(self, ctx: "DebateContext") -> None:
+        """Record calibration data from agent votes with confidence."""
+        if not self.calibration_tracker:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        # Determine the actual outcome
+        outcome = result.winner or "no_consensus"
+
+        try:
+            # Record each vote with confidence as a calibration data point
+            for vote in result.votes:
+                # Check if vote has confidence attribute
+                confidence = getattr(vote, 'confidence', None)
+                if confidence is None:
+                    continue
+
+                # Record the prediction
+                self.calibration_tracker.record_prediction(
+                    agent_name=vote.voter,
+                    prediction=vote.choice,
+                    confidence=confidence,
+                    outcome=outcome,
+                )
+
+            logger.debug(f"[calibration] Recorded {len(result.votes)} predictions")
+        except Exception as e:
+            logger.warning(f"[calibration] Failed to record: {e}")
 
     def _record_elo_match(self, ctx: "DebateContext") -> None:
         """Record ELO match results."""
@@ -425,3 +474,119 @@ class FeedbackPhase:
 
         if self._update_continuum_memory_outcomes:
             self._update_continuum_memory_outcomes(ctx.result)
+
+    def _store_consensus_outcome(self, ctx: "DebateContext") -> None:
+        """Store debate outcome in ConsensusMemory for historical retrieval.
+
+        This enables future debates to benefit from past decisions,
+        dissenting views, and learned patterns.
+        """
+        if not self.consensus_memory:
+            return
+
+        result = ctx.result
+        if not result or not result.final_answer:
+            return
+
+        try:
+            from aragora.memory.consensus import ConsensusStrength, DissentType
+
+            # Determine consensus strength from confidence
+            strength = self._confidence_to_strength(result.confidence)
+
+            # Determine agreeing vs dissenting agents from votes
+            agreeing_agents = []
+            dissenting_agents = []
+            winner_agent = getattr(result, 'winner', None)
+
+            if result.votes and winner_agent:
+                for vote in result.votes:
+                    canonical = ctx.choice_mapping.get(vote.choice, vote.choice)
+                    if canonical == winner_agent:
+                        agreeing_agents.append(vote.agent)
+                    else:
+                        dissenting_agents.append(vote.agent)
+
+            # Store the consensus record
+            consensus_record = self.consensus_memory.store_consensus(
+                topic=ctx.env.task,
+                conclusion=result.final_answer[:2000],
+                strength=strength,
+                confidence=result.confidence,
+                participating_agents=[a.name for a in ctx.agents],
+                agreeing_agents=agreeing_agents,
+                dissenting_agents=dissenting_agents,
+                key_claims=[],
+                domain=ctx.domain,
+                tags=[],
+                debate_duration=getattr(result, 'duration_seconds', 0.0),
+                rounds=result.rounds_used,
+            )
+
+            # Store dissenting views as dissent records
+            if dissenting_agents and result.votes:
+                self._store_dissenting_views(
+                    ctx, consensus_record.id, dissenting_agents
+                )
+
+            logger.info(
+                "[consensus_memory] Stored outcome for debate %s: "
+                "strength=%s, confidence=%.2f, dissents=%d",
+                ctx.debate_id,
+                strength.value,
+                result.confidence,
+                len(dissenting_agents),
+            )
+
+        except ImportError:
+            logger.debug("ConsensusMemory storage skipped: module not available")
+        except Exception as e:
+            logger.warning("ConsensusMemory storage failed: %s", e)
+
+    def _confidence_to_strength(self, confidence: float) -> "ConsensusStrength":
+        """Convert confidence score to ConsensusStrength enum."""
+        from aragora.memory.consensus import ConsensusStrength
+
+        if confidence >= 0.9:
+            return ConsensusStrength.UNANIMOUS
+        elif confidence >= 0.8:
+            return ConsensusStrength.STRONG
+        elif confidence >= 0.6:
+            return ConsensusStrength.MODERATE
+        elif confidence >= 0.5:
+            return ConsensusStrength.WEAK
+        else:
+            return ConsensusStrength.SPLIT
+
+    def _store_dissenting_views(
+        self,
+        ctx: "DebateContext",
+        consensus_id: str,
+        dissenting_agents: list[str],
+    ) -> None:
+        """Store dissenting agent views as DissentRecords."""
+        from aragora.memory.consensus import DissentType
+
+        result = ctx.result
+
+        # Find dissenting votes and their reasoning
+        for vote in result.votes:
+            if vote.agent not in dissenting_agents:
+                continue
+
+            # Get the vote's reasoning as dissent content
+            reasoning = getattr(vote, 'reasoning', '') or ''
+            if not reasoning:
+                reasoning = f"Voted for {vote.choice} instead of {result.winner}"
+
+            try:
+                self.consensus_memory.store_dissent(
+                    debate_id=consensus_id,
+                    agent_id=vote.agent,
+                    dissent_type=DissentType.ALTERNATIVE_APPROACH,
+                    content=reasoning[:500],
+                    reasoning=f"Preferred: {vote.choice}",
+                    confidence=getattr(vote, 'confidence', 0.5),
+                )
+            except Exception as e:
+                logger.debug("Dissent storage failed for %s: %s", vote.agent, e)
