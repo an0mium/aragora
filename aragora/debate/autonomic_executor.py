@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message, Vote
     from aragora.insights.store import InsightStore
     from aragora.debate.immune_system import TransparentImmuneSystem
+    from aragora.debate.chaos_theater import ChaosDirector
 
 logger = logging.getLogger(__name__)
 
@@ -105,13 +106,14 @@ class AutonomicExecutor:
     def __init__(
         self,
         circuit_breaker: Optional[CircuitBreaker] = None,
-        default_timeout: float = 90.0,
+        default_timeout: float = 150.0,
         timeout_escalation_factor: float = 1.5,
         max_timeout: float = 300.0,
         streaming_buffer: Optional[StreamingContentBuffer] = None,
         wisdom_store: Optional["InsightStore"] = None,
         loop_id: Optional[str] = None,
         immune_system: Optional["TransparentImmuneSystem"] = None,
+        chaos_director: Optional["ChaosDirector"] = None,
     ):
         """
         Initialize the autonomic executor.
@@ -125,10 +127,12 @@ class AutonomicExecutor:
             wisdom_store: Optional InsightStore for audience wisdom fallback
             loop_id: Current loop/debate ID for wisdom retrieval
             immune_system: Optional TransparentImmuneSystem for health monitoring
+            chaos_director: Optional ChaosDirector for theatrical failure messages
         """
         self.circuit_breaker = circuit_breaker
         self.default_timeout = default_timeout
         self.immune_system = immune_system
+        self.chaos_director = chaos_director
         self.timeout_escalation_factor = timeout_escalation_factor
         self.max_timeout = max_timeout
         self.streaming_buffer = streaming_buffer or StreamingContentBuffer()
@@ -285,7 +289,11 @@ class AutonomicExecutor:
             if self.immune_system:
                 self.immune_system.agent_timeout(agent.name, timeout_seconds)
 
+            # Use theatrical message if chaos director available
+            if self.chaos_director:
+                return self.chaos_director.timeout_response(agent.name, timeout_seconds).message
             return f"[System: Agent {agent.name} timed out - skipping this turn]"
+
         except (ConnectionError, OSError) as e:
             # Network/OS errors - log without full traceback
             logger.warning(f"[Autonomic] Agent {agent.name} connection error: {e}")
@@ -294,7 +302,11 @@ class AutonomicExecutor:
             if self.immune_system:
                 self.immune_system.agent_failed(agent.name, str(e), recoverable=True)
 
+            # Use theatrical message if chaos director available
+            if self.chaos_director:
+                return self.chaos_director.connection_response(agent.name).message
             return f"[System: Agent {agent.name} connection failed - skipping this turn]"
+
         except Exception as e:
             # Autonomic containment: convert crashes to valid responses
             logger.exception(f"[Autonomic] Agent {agent.name} failed: {type(e).__name__}: {e}")
@@ -303,6 +315,9 @@ class AutonomicExecutor:
             if self.immune_system:
                 self.immune_system.agent_failed(agent.name, str(e), recoverable=False)
 
+            # Use theatrical message if chaos director available
+            if self.chaos_director:
+                return self.chaos_director.internal_error_response(agent.name).message
             return f"[System: Agent {agent.name} encountered an error - skipping this turn]"
 
     async def critique(

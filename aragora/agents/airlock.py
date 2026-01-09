@@ -18,7 +18,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message, Vote
@@ -68,10 +68,10 @@ class AirlockMetrics:
 class AirlockConfig:
     """Configuration for the airlock wrapper."""
 
-    # Timeout settings
-    generate_timeout: float = 120.0  # seconds
-    critique_timeout: float = 90.0
-    vote_timeout: float = 60.0
+    # Timeout settings (increased for complex debate prompts)
+    generate_timeout: float = 180.0  # seconds
+    critique_timeout: float = 150.0
+    vote_timeout: float = 90.0
 
     # Retry settings
     max_retries: int = 1
@@ -147,9 +147,12 @@ class AirlockProxy:
         context: Optional[list["Message"]] = None,
     ) -> str:
         """Generate a response with timeout and sanitization."""
+        async def coro_factory() -> str:
+            return await self._agent.generate(prompt, context)
+
         return await self._safe_call(
             "generate",
-            self._agent.generate(prompt, context),
+            coro_factory,
             timeout=self._config.generate_timeout,
             fallback=self._generate_fallback(prompt),
         )
@@ -163,9 +166,12 @@ class AirlockProxy:
         """Critique a proposal with timeout handling."""
         from aragora.core import Critique
 
+        async def coro_factory() -> "Critique":
+            return await self._agent.critique(proposal, task, context)
+
         result = await self._safe_call(
             "critique",
-            self._agent.critique(proposal, task, context),
+            coro_factory,
             timeout=self._config.critique_timeout,
             fallback=self._critique_fallback(proposal, task),
         )
@@ -183,9 +189,12 @@ class AirlockProxy:
         """Vote on proposals with timeout handling."""
         from aragora.core import Vote
 
+        async def coro_factory() -> "Vote":
+            return await self._agent.vote(proposals, task)
+
         result = await self._safe_call(
             "vote",
-            self._agent.vote(proposals, task),
+            coro_factory,
             timeout=self._config.vote_timeout,
             fallback=self._vote_fallback(proposals, task),
         )
@@ -200,7 +209,7 @@ class AirlockProxy:
     async def _safe_call(
         self,
         operation: str,
-        coro: Any,
+        coro_factory: Callable[[], Awaitable[Any]],
         timeout: float,
         fallback: Any,
     ) -> Any:
@@ -209,7 +218,7 @@ class AirlockProxy:
 
         Args:
             operation: Name of the operation (for logging)
-            coro: The coroutine to execute
+            coro_factory: Callable that returns a fresh coroutine for each attempt
             timeout: Timeout in seconds
             fallback: Value to return on failure
 
@@ -221,6 +230,8 @@ class AirlockProxy:
 
         for attempt in range(self._config.max_retries + 1):
             try:
+                # Create fresh coroutine for each attempt (fixes reuse bug)
+                coro = coro_factory()
                 result = await asyncio.wait_for(coro, timeout=timeout)
                 elapsed_ms = (time.time() - start_time) * 1000
 
