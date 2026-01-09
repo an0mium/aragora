@@ -48,6 +48,7 @@ class DebateRoundsPhase:
         convergence_detector: Any = None,
         recorder: Any = None,
         hooks: Optional[dict] = None,
+        trickster: Any = None,  # EvidencePoweredTrickster for hollow consensus detection
         # Callbacks
         update_role_assignments: Optional[Callable] = None,
         assign_stances: Optional[Callable] = None,
@@ -60,6 +61,7 @@ class DebateRoundsPhase:
         record_grounded_position: Optional[Callable] = None,
         check_judge_termination: Optional[Callable] = None,
         check_early_stopping: Optional[Callable] = None,
+        inject_challenge: Optional[Callable] = None,  # Callback to inject trickster challenges
     ):
         """
         Initialize the debate rounds phase.
@@ -70,6 +72,7 @@ class DebateRoundsPhase:
             convergence_detector: ConvergenceDetector for semantic similarity
             recorder: ReplayRecorder
             hooks: Hook callbacks dict
+            trickster: EvidencePoweredTrickster for hollow consensus detection
             update_role_assignments: Callback to update role assignments
             assign_stances: Callback to assign stances for asymmetric debates
             select_critics_for_proposal: Callback to select critics
@@ -81,12 +84,14 @@ class DebateRoundsPhase:
             record_grounded_position: Callback to record grounded position
             check_judge_termination: Async callback for judge termination
             check_early_stopping: Async callback for early stopping
+            inject_challenge: Callback to inject trickster challenge into context
         """
         self.protocol = protocol
         self.circuit_breaker = circuit_breaker
         self.convergence_detector = convergence_detector
         self.recorder = recorder
         self.hooks = hooks or {}
+        self.trickster = trickster
 
         # Callbacks
         self._update_role_assignments = update_role_assignments
@@ -100,6 +105,7 @@ class DebateRoundsPhase:
         self._record_grounded_position = record_grounded_position
         self._check_judge_termination = check_judge_termination
         self._check_early_stopping = check_early_stopping
+        self._inject_challenge = inject_challenge
 
         # Internal state
         self._partial_messages: list["Message"] = []
@@ -473,6 +479,43 @@ class DebateRoundsPhase:
                 per_agent=convergence.per_agent_similarity,
                 round_num=round_num,
             )
+
+        # Check for hollow consensus using trickster
+        if self.trickster and convergence.avg_similarity > 0.5:
+            intervention = self.trickster.check_and_intervene(
+                responses=current_responses,
+                convergence_similarity=convergence.avg_similarity,
+                round_num=round_num,
+            )
+            if intervention:
+                logger.info(
+                    f"trickster_intervention round={round_num} "
+                    f"type={intervention.intervention_type.value} "
+                    f"targets={intervention.target_agents}"
+                )
+                # Notify spectator about hollow consensus
+                if self._notify_spectator:
+                    self._notify_spectator(
+                        "hollow_consensus",
+                        details=f"Evidence quality challenge triggered",
+                        metric=intervention.priority,
+                        agent="trickster",
+                    )
+                # Emit trickster event
+                if "on_trickster_intervention" in self.hooks:
+                    self.hooks["on_trickster_intervention"](
+                        intervention_type=intervention.intervention_type.value,
+                        targets=intervention.target_agents,
+                        challenge=intervention.challenge_text,
+                        round_num=round_num,
+                    )
+                # Inject challenge into context for next round
+                if self._inject_challenge:
+                    self._inject_challenge(intervention.challenge_text, ctx)
+                # Don't declare convergence if hollow - continue debate
+                if intervention.priority > 0.5:
+                    logger.info(f"hollow_consensus_blocked round={round_num}")
+                    return False
 
         if convergence.converged:
             logger.info(f"debate_converged round={round_num}")
