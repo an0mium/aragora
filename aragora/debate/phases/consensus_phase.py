@@ -417,6 +417,9 @@ class ConsensusPhase:
             result.final_answer = synthesis
             result.consensus_reached = True
             result.confidence = 0.8
+            # Set winner to judge for ELO tracking
+            ctx.winner_agent = judge.name
+            result.winner = judge.name
             logger.info(f"judge_synthesis judge={judge.name} length={len(synthesis)}")
 
             # Notify spectator
@@ -737,6 +740,7 @@ class ConsensusPhase:
         result.consensus_reached = count / total_votes >= threshold
         result.confidence = count / total_votes
         ctx.winner_agent = winner
+        result.winner = winner  # Set winner for ELO tracking
 
         # Calculate consensus variance and strength
         if len(vote_counts) > 1:
@@ -832,6 +836,7 @@ class ConsensusPhase:
         result.consensus_strength = "unanimous"
         result.consensus_variance = 0.0
         ctx.winner_agent = winner
+        result.winner = winner  # Set winner for ELO tracking
 
         logger.info(
             f"consensus_unanimous winner={winner} votes={count}/{total_voters} "

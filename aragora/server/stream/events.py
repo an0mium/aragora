@@ -73,6 +73,10 @@ class StreamEventType(Enum):
     # Position tracking events
     FLIP_DETECTED = "flip_detected"      # Agent position reversal detected
 
+    # Human intervention breakpoint events
+    BREAKPOINT = "breakpoint"            # Human intervention breakpoint triggered
+    BREAKPOINT_RESOLVED = "breakpoint_resolved"  # Breakpoint resolved with guidance
+
     # Mood/sentiment events (Real-Time Debate Drama)
     MOOD_DETECTED = "mood_detected"      # Agent emotional state analyzed
     MOOD_SHIFT = "mood_shift"            # Significant mood change detected

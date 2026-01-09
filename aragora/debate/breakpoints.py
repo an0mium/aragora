@@ -193,10 +193,14 @@ class BreakpointManager:
         self,
         config: Optional[BreakpointConfig] = None,
         get_human_input: Optional[Callable[[Breakpoint], Awaitable[HumanGuidance]]] = None,
+        event_emitter: Optional[Any] = None,
+        loop_id: Optional[str] = None,
     ):
         self.config = config or BreakpointConfig()
         self.get_human_input = get_human_input or self._default_human_input
         self.notifier = HumanNotifier(self.config)
+        self.event_emitter = event_emitter
+        self.loop_id = loop_id
 
         self.breakpoints: list[Breakpoint] = []
         self._breakpoint_counter = 0
@@ -334,7 +338,41 @@ class BreakpointManager:
         )
 
         self.breakpoints.append(breakpoint)
+
+        # Emit WebSocket event
+        self._emit_breakpoint_event(breakpoint)
+
         return breakpoint
+
+    def _emit_breakpoint_event(self, breakpoint: Breakpoint) -> None:
+        """Emit BREAKPOINT event to WebSocket clients."""
+        if not self.event_emitter:
+            return
+
+        try:
+            from aragora.server.stream import StreamEvent, StreamEventType
+
+            snapshot = breakpoint.debate_snapshot
+            self.event_emitter.emit(StreamEvent(
+                type=StreamEventType.BREAKPOINT,
+                loop_id=self.loop_id or "",
+                data={
+                    "breakpoint_id": breakpoint.breakpoint_id,
+                    "trigger": breakpoint.trigger.value,
+                    "debate_id": snapshot.debate_id,
+                    "task": snapshot.task[:200],
+                    "round": snapshot.current_round,
+                    "confidence": snapshot.confidence,
+                    "escalation_level": breakpoint.escalation_level,
+                    "timeout_minutes": breakpoint.timeout_minutes,
+                    "agent_positions": snapshot.agent_positions,
+                    "key_disagreements": snapshot.key_disagreements,
+                    "triggered_at": breakpoint.triggered_at,
+                }
+            ))
+            logger.info(f"Emitted BREAKPOINT event for {breakpoint.breakpoint_id}")
+        except Exception as e:
+            logger.warning(f"Failed to emit breakpoint event: {e}")
 
     async def handle_breakpoint(self, breakpoint: Breakpoint) -> HumanGuidance:
         """Handle a breakpoint by getting human input."""
@@ -361,6 +399,9 @@ class BreakpointManager:
         breakpoint.resolved = True
         breakpoint.guidance = guidance
         breakpoint.resolved_at = datetime.now().isoformat()
+
+        # Emit WebSocket event
+        self._emit_breakpoint_resolved_event(breakpoint)
 
         return guidance
 
@@ -447,8 +488,40 @@ How would you like to proceed?
         bp.guidance = guidance
         bp.resolved_at = datetime.now().isoformat()
 
+        # Emit WebSocket event
+        self._emit_breakpoint_resolved_event(bp)
+
         logger.info(f"Breakpoint {breakpoint_id} resolved with action: {guidance.action}")
         return True
+
+    def _emit_breakpoint_resolved_event(self, breakpoint: Breakpoint) -> None:
+        """Emit BREAKPOINT_RESOLVED event to WebSocket clients."""
+        if not self.event_emitter or not breakpoint.guidance:
+            return
+
+        try:
+            from aragora.server.stream import StreamEvent, StreamEventType
+
+            guidance = breakpoint.guidance
+            self.event_emitter.emit(StreamEvent(
+                type=StreamEventType.BREAKPOINT_RESOLVED,
+                loop_id=self.loop_id or "",
+                data={
+                    "breakpoint_id": breakpoint.breakpoint_id,
+                    "trigger": breakpoint.trigger.value,
+                    "debate_id": breakpoint.debate_snapshot.debate_id,
+                    "action": guidance.action,
+                    "decision": guidance.decision,
+                    "hints": guidance.hints,
+                    "constraints": guidance.constraints,
+                    "human_id": guidance.human_id,
+                    "reasoning": guidance.reasoning[:200] if guidance.reasoning else "",
+                    "resolved_at": breakpoint.resolved_at,
+                }
+            ))
+            logger.info(f"Emitted BREAKPOINT_RESOLVED event for {breakpoint.breakpoint_id}")
+        except Exception as e:
+            logger.warning(f"Failed to emit breakpoint resolved event: {e}")
 
     def inject_guidance(
         self,
