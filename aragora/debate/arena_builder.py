@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from aragora.replay.recorder import ReplayRecorder
     from aragora.pulse.topics import TrendingTopic
     from aragora.debate.orchestrator import Arena
+    from aragora.templates import DebateTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,7 @@ class ArenaBuilder:
 
         # Protocol configuration
         self._protocol: Optional[DebateProtocol] = None
+        self._template: Optional["DebateTemplate"] = None
 
         # Memory and persistence
         self._memory: Optional["CritiqueStore"] = None
@@ -147,6 +149,32 @@ class ArenaBuilder:
             self._protocol = DebateProtocol(rounds=rounds)
         else:
             self._protocol.rounds = rounds
+        return self
+
+    def with_template(
+        self,
+        template: "DebateTemplate",
+        overrides: Optional[dict] = None,
+    ) -> ArenaBuilder:
+        """Configure arena from a DebateTemplate.
+
+        Converts the template to a DebateProtocol with appropriate settings:
+        - Role rotation using template roles
+        - Rounds from template phases
+        - Consensus threshold from template
+        - Topology based on template type
+
+        Args:
+            template: DebateTemplate to apply
+            overrides: Optional dict of protocol fields to override
+
+        Returns:
+            Self for method chaining
+        """
+        from aragora.templates import template_to_protocol
+
+        self._protocol = template_to_protocol(template, overrides)
+        self._template = template
         return self
 
     # =========================================================================

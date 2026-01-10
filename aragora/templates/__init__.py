@@ -569,6 +569,65 @@ def list_templates() -> list[dict]:
     ]
 
 
+def template_to_protocol(
+    template: DebateTemplate,
+    overrides: Optional[dict] = None,
+) -> "DebateProtocol":
+    """Convert a DebateTemplate to a DebateProtocol.
+
+    Maps template structure to protocol mechanics:
+    - template.max_rounds -> protocol.rounds
+    - template.consensus_threshold -> protocol.consensus_threshold
+    - template.phases -> total rounds from phase durations
+    - Multiple roles -> round-robin topology for structured exchanges
+
+    Note: Template roles (e.g., "author", "security_critic") are domain-specific
+    and don't directly map to CognitiveRole. Role rotation uses default cognitive
+    roles (analyst, skeptic, lateral_thinker, synthesizer) which complement
+    the template structure.
+
+    Args:
+        template: The DebateTemplate to convert
+        overrides: Optional dict of protocol fields to override
+
+    Returns:
+        Configured DebateProtocol matching the template structure
+    """
+    from aragora.debate.protocol import DebateProtocol
+
+    overrides = overrides or {}
+
+    # Calculate total rounds from phases
+    total_rounds = sum(phase.duration_rounds for phase in template.phases)
+    rounds = overrides.get("rounds", max(total_rounds, template.max_rounds))
+
+    # Determine topology based on template structure
+    # Templates with distinct critic roles benefit from round-robin
+    # Research templates benefit from all-to-all for synthesis
+    topology = overrides.get("topology")
+    if topology is None:
+        if template.template_type == TemplateType.RESEARCH_SYNTHESIS:
+            topology = "all-to-all"
+        elif len(template.roles) >= 4:
+            topology = "round-robin"
+        else:
+            topology = "all-to-all"
+
+    return DebateProtocol(
+        rounds=rounds,
+        topology=topology,
+        consensus=overrides.get("consensus", "majority"),
+        consensus_threshold=overrides.get(
+            "consensus_threshold", template.consensus_threshold
+        ),
+        role_rotation=overrides.get("role_rotation", True),
+        require_reasoning=True,
+        early_stopping=overrides.get("early_stopping", True),
+        convergence_detection=overrides.get("convergence_detection", True),
+        enable_calibration=overrides.get("enable_calibration", True),
+    )
+
+
 __all__ = [
     "DebateTemplate",
     "DebateRole",
@@ -580,5 +639,6 @@ __all__ = [
     "RESEARCH_SYNTHESIS_TEMPLATE",
     "get_template",
     "list_templates",
+    "template_to_protocol",
     "TEMPLATES",
 ]
