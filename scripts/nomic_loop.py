@@ -9300,6 +9300,18 @@ Be concise - this is a quality gate, not a full review."""
                 cycle_result["outcome"] = "skipped_deadlock"
                 return cycle_result
 
+        # Check memory pressure and cleanup if needed (prevents OOM on long runs)
+        if self.continuum and CONTINUUM_AVAILABLE:
+            try:
+                pressure = self.continuum.get_memory_pressure()
+                if pressure > 0.8:  # 80% threshold
+                    self._log(f"  [memory] Pressure at {pressure*100:.1f}%, running cleanup")
+                    result = self.continuum.cleanup_expired_memories(archive=True)
+                    if result["archived"] > 0 or result["deleted"] > 0:
+                        self._log(f"  [memory] Cleanup: archived={result['archived']}, deleted={result['deleted']}")
+            except Exception as e:
+                self._log(f"  [memory] Pressure check failed: {e}")
+
         # Update circuit breaker cooldowns at cycle start
         self.circuit_breaker.start_new_cycle()
 

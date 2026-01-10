@@ -841,5 +841,70 @@ class TestPromotionCooldown:
         assert new_tier is None  # Cooldown prevents promotion
 
 
+class TestMemoryPressure:
+    """Test memory pressure monitoring."""
+
+    def test_empty_memory_returns_zero_pressure(self, cms):
+        """Empty memory should have zero pressure."""
+        pressure = cms.get_memory_pressure()
+        assert pressure == 0.0
+
+    def test_pressure_increases_with_entries(self, cms):
+        """Adding entries should increase pressure."""
+        # Add entries to the fast tier (limit is 1000 by default)
+        for i in range(100):
+            cms.add(
+                id=f"pressure_test_{i}",
+                content=f"Test content {i}",
+                tier=MemoryTier.FAST,
+            )
+
+        pressure = cms.get_memory_pressure()
+        # 100 entries out of 1000 = 10% pressure
+        assert pressure > 0.0
+        assert pressure <= 0.15  # Allow some margin
+
+    def test_pressure_capped_at_one(self, cms):
+        """Pressure should not exceed 1.0."""
+        # Set a very low limit
+        cms.hyperparams["max_entries_per_tier"] = {"fast": 10}
+
+        # Add more entries than the limit
+        for i in range(20):
+            cms.add(
+                id=f"pressure_cap_{i}",
+                content=f"Test content {i}",
+                tier=MemoryTier.FAST,
+            )
+
+        pressure = cms.get_memory_pressure()
+        assert pressure == 1.0
+
+    def test_pressure_returns_max_across_tiers(self, cms):
+        """Pressure should return the highest utilization across tiers."""
+        cms.hyperparams["max_entries_per_tier"] = {
+            "fast": 100,
+            "medium": 100,
+            "slow": 100,
+            "glacial": 100,
+        }
+
+        # Add 50 to fast (50%), 80 to medium (80%)
+        for i in range(50):
+            cms.add(id=f"fast_{i}", content=f"Fast {i}", tier=MemoryTier.FAST)
+        for i in range(80):
+            cms.add(id=f"medium_{i}", content=f"Medium {i}", tier=MemoryTier.MEDIUM)
+
+        pressure = cms.get_memory_pressure()
+        # Should be 80% (medium tier is highest)
+        assert 0.75 <= pressure <= 0.85
+
+    def test_pressure_with_empty_limits(self, cms):
+        """Empty limits should return zero pressure."""
+        cms.hyperparams["max_entries_per_tier"] = {}
+        pressure = cms.get_memory_pressure()
+        assert pressure == 0.0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
