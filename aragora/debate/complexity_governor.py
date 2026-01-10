@@ -121,9 +121,10 @@ class GovernorConstraints:
     max_history_messages: int = 20
     max_prompt_length: int = 4000
 
-    # Timing constraints (increased for CLI agents like codex/claude)
-    agent_timeout_seconds: float = 600.0
-    round_timeout_seconds: float = 1200.0
+    # Timing constraints - defaults from AGENT_TIMEOUT_SECONDS config
+    # Set to None to use config value, or override explicitly
+    agent_timeout_seconds: Optional[float] = None
+    round_timeout_seconds: Optional[float] = None
 
     # Complexity constraints
     max_agents_per_round: int = 5
@@ -134,6 +135,14 @@ class GovernorConstraints:
     enable_deep_analysis: bool = True
     enable_cross_references: bool = True
     enable_formal_verification: bool = True
+
+    def __post_init__(self):
+        """Apply defaults from config when not explicitly set."""
+        if self.agent_timeout_seconds is None:
+            self.agent_timeout_seconds = float(AGENT_TIMEOUT_SECONDS)
+        if self.round_timeout_seconds is None:
+            # Round timeout is 2x agent timeout by default
+            self.round_timeout_seconds = self.agent_timeout_seconds * 2
 
     def to_dict(self) -> dict:
         return {
