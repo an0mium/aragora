@@ -690,3 +690,245 @@ class TestConvergenceDetectorBatchIntegration:
         # Should have called individual method twice
         assert mock_backend.compute_similarity.call_count == 2
         assert result is not None
+
+
+# =============================================================================
+# Edge Case Tests (F2)
+# =============================================================================
+
+
+class TestConvergenceEdgeCases:
+    """Edge case tests for convergence detection."""
+
+    def test_jaccard_with_unicode_text(self):
+        """Jaccard should handle Unicode text correctly."""
+        backend = JaccardBackend()
+        text1 = "你好世界 hello world"
+        text2 = "你好世界 hello everyone"
+
+        similarity = backend.compute_similarity(text1, text2)
+        # Should have some overlap (你好世界, hello)
+        assert 0.0 < similarity < 1.0
+
+    def test_jaccard_with_emojis(self):
+        """Jaccard should handle emoji characters."""
+        backend = JaccardBackend()
+        text1 = "I love Python 🐍 programming"
+        text2 = "I love JavaScript ☕ programming"
+
+        similarity = backend.compute_similarity(text1, text2)
+        # Shared: {I, love, programming} = 3, unique words differ
+        assert 0.0 < similarity < 1.0
+
+    def test_jaccard_with_numbers(self):
+        """Jaccard should handle numeric text."""
+        backend = JaccardBackend()
+        text1 = "The answer is 42"
+        text2 = "The answer is 42"
+
+        similarity = backend.compute_similarity(text1, text2)
+        assert similarity == 1.0
+
+    def test_jaccard_whitespace_only_returns_zero(self):
+        """Jaccard should return 0.0 for whitespace-only text."""
+        backend = JaccardBackend()
+        similarity = backend.compute_similarity("   ", "text")
+        assert similarity == 0.0
+
+    def test_jaccard_cache_symmetric(self):
+        """Jaccard cache should be symmetric (text1, text2) == (text2, text1)."""
+        JaccardBackend.clear_cache()
+        backend = JaccardBackend()
+
+        sim1 = backend.compute_similarity("hello world", "world peace")
+        sim2 = backend.compute_similarity("world peace", "hello world")
+
+        assert sim1 == sim2
+
+    def test_jaccard_cache_eviction(self):
+        """Jaccard cache should evict old entries when full."""
+        JaccardBackend.clear_cache()
+        backend = JaccardBackend()
+
+        # Fill cache beyond max size
+        for i in range(JaccardBackend._cache_max_size + 50):
+            backend.compute_similarity(f"text{i} unique", f"other{i} unique")
+
+        # Cache should not exceed max size
+        assert len(JaccardBackend._similarity_cache) <= JaccardBackend._cache_max_size
+
+    def test_tfidf_with_special_characters(self):
+        """TF-IDF should handle special characters."""
+        pytest.importorskip("sklearn")
+        backend = TFIDFBackend()
+
+        text1 = "C++ is fast! @performance #systems"
+        text2 = "C++ is fast? @speed #optimization"
+
+        similarity = backend.compute_similarity(text1, text2)
+        assert 0.0 <= similarity <= 1.0
+
+    def test_tfidf_cache_symmetric(self):
+        """TF-IDF cache should be symmetric."""
+        pytest.importorskip("sklearn")
+        TFIDFBackend.clear_cache()
+        backend = TFIDFBackend()
+
+        sim1 = backend.compute_similarity("machine learning", "deep learning")
+        sim2 = backend.compute_similarity("deep learning", "machine learning")
+
+        assert sim1 == pytest.approx(sim2, rel=1e-9)
+
+    def test_convergence_detector_very_long_text(self):
+        """Detector should handle very long text."""
+        detector = ConvergenceDetector(min_rounds_before_check=1)
+
+        # Generate long text
+        long_text = " ".join(["word"] * 1000)
+
+        current = {"agent": long_text}
+        previous = {"agent": long_text}
+
+        result = detector.check_convergence(current, previous, round_number=2)
+        assert result is not None
+        assert result.converged is True
+
+    def test_convergence_detector_single_agent(self):
+        """Detector should work with single agent."""
+        detector = ConvergenceDetector(min_rounds_before_check=1)
+
+        current = {"agent1": "same response"}
+        previous = {"agent1": "same response"}
+
+        result = detector.check_convergence(current, previous, round_number=2)
+        assert result is not None
+        assert result.min_similarity == result.avg_similarity
+
+    def test_convergence_detector_many_agents(self):
+        """Detector should handle many agents efficiently."""
+        detector = ConvergenceDetector(min_rounds_before_check=1)
+
+        # Create 10 agents with identical responses
+        current = {f"agent{i}": "consistent position" for i in range(10)}
+        previous = {f"agent{i}": "consistent position" for i in range(10)}
+
+        result = detector.check_convergence(current, previous, round_number=2)
+
+        assert result is not None
+        assert result.converged is True
+        assert len(result.per_agent_similarity) == 10
+
+    def test_convergence_detector_partial_agent_overlap(self):
+        """Detector should work with partial agent overlap."""
+        detector = ConvergenceDetector(min_rounds_before_check=1)
+
+        current = {"agent1": "response", "agent2": "response", "agent3": "new"}
+        previous = {"agent1": "response", "agent2": "response", "agent4": "old"}
+
+        result = detector.check_convergence(current, previous, round_number=2)
+
+        # Should compute for common agents only (agent1, agent2)
+        assert result is not None
+        assert "agent1" in result.per_agent_similarity
+        assert "agent2" in result.per_agent_similarity
+        assert "agent3" not in result.per_agent_similarity
+        assert "agent4" not in result.per_agent_similarity
+
+
+class TestBackendFallbackChain:
+    """Test backend fallback behavior."""
+
+    def test_auto_falls_back_on_import_error(self):
+        """Auto-select should fall back gracefully on import errors."""
+        with patch(
+            "aragora.debate.convergence.SentenceTransformerBackend",
+            side_effect=ImportError("No module"),
+        ):
+            with patch(
+                "aragora.debate.convergence.TFIDFBackend",
+                side_effect=ImportError("No sklearn"),
+            ):
+                backend = get_similarity_backend("auto")
+                assert isinstance(backend, JaccardBackend)
+
+    def test_auto_falls_back_on_runtime_error(self):
+        """Auto-select should fall back on RuntimeError (Keras issues)."""
+        with patch(
+            "aragora.debate.convergence.SentenceTransformerBackend",
+            side_effect=RuntimeError("Keras 3 incompatible"),
+        ):
+            with patch(
+                "aragora.debate.convergence.TFIDFBackend",
+                side_effect=ImportError("No sklearn"),
+            ):
+                backend = get_similarity_backend("auto")
+                assert isinstance(backend, JaccardBackend)
+
+    def test_auto_falls_back_on_os_error(self):
+        """Auto-select should fall back on OSError (model files)."""
+        with patch(
+            "aragora.debate.convergence.SentenceTransformerBackend",
+            side_effect=OSError("Model file corrupted"),
+        ):
+            with patch(
+                "aragora.debate.convergence.TFIDFBackend",
+                side_effect=ImportError("No sklearn"),
+            ):
+                backend = get_similarity_backend("auto")
+                assert isinstance(backend, JaccardBackend)
+
+    def test_detector_selects_backend_with_fallback(self):
+        """ConvergenceDetector should use fallback chain."""
+        with patch(
+            "aragora.debate.convergence.SentenceTransformerBackend",
+            side_effect=ImportError,
+        ):
+            with patch(
+                "aragora.debate.convergence.TFIDFBackend",
+                side_effect=ImportError,
+            ):
+                detector = ConvergenceDetector()
+                assert isinstance(detector.backend, JaccardBackend)
+
+
+class TestCacheBehavior:
+    """Test cache behavior across backends."""
+
+    def test_jaccard_clear_cache(self):
+        """JaccardBackend.clear_cache() should clear the cache."""
+        backend = JaccardBackend()
+        backend.compute_similarity("test", "test")
+
+        assert len(JaccardBackend._similarity_cache) > 0
+        JaccardBackend.clear_cache()
+        assert len(JaccardBackend._similarity_cache) == 0
+
+    def test_tfidf_clear_cache(self):
+        """TFIDFBackend.clear_cache() should clear the cache."""
+        pytest.importorskip("sklearn")
+        backend = TFIDFBackend()
+        backend.compute_similarity("test", "test")
+
+        assert len(TFIDFBackend._similarity_cache) > 0
+        TFIDFBackend.clear_cache()
+        assert len(TFIDFBackend._similarity_cache) == 0
+
+    @requires_sentence_transformers
+    def test_sentence_transformer_clear_cache(self):
+        """SentenceTransformerBackend.clear_cache() should clear similarity cache."""
+        backend = SentenceTransformerBackend()
+        backend.compute_similarity("test", "test")
+
+        assert len(SentenceTransformerBackend._similarity_cache) > 0
+        SentenceTransformerBackend.clear_cache()
+        assert len(SentenceTransformerBackend._similarity_cache) == 0
+
+    def test_cache_hit_returns_same_value(self):
+        """Cache hit should return identical value."""
+        JaccardBackend.clear_cache()
+        backend = JaccardBackend()
+
+        result1 = backend.compute_similarity("hello world", "hello there")
+        result2 = backend.compute_similarity("hello world", "hello there")
+
+        assert result1 == result2

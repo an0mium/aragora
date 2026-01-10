@@ -340,6 +340,116 @@ class NomicStateError(NomicError):
 
 
 # ============================================================================
+# Checkpoint Errors
+# ============================================================================
+
+class CheckpointError(AragoraError):
+    """Base exception for checkpoint operations."""
+    pass
+
+
+class CheckpointNotFoundError(CheckpointError):
+    """Raised when a checkpoint cannot be found."""
+
+    def __init__(self, checkpoint_id: str):
+        super().__init__(
+            f"Checkpoint not found: {checkpoint_id}",
+            {"checkpoint_id": checkpoint_id}
+        )
+        self.checkpoint_id = checkpoint_id
+
+
+class CheckpointCorruptedError(CheckpointError):
+    """Raised when checkpoint data is corrupted."""
+
+    def __init__(self, checkpoint_id: str, reason: str):
+        super().__init__(
+            f"Checkpoint corrupted: {checkpoint_id} - {reason}",
+            {"checkpoint_id": checkpoint_id, "reason": reason}
+        )
+        self.checkpoint_id = checkpoint_id
+        self.reason = reason
+
+
+class CheckpointSaveError(CheckpointError):
+    """Raised when saving a checkpoint fails."""
+
+    def __init__(self, checkpoint_id: str, reason: str):
+        super().__init__(
+            f"Failed to save checkpoint {checkpoint_id}: {reason}",
+            {"checkpoint_id": checkpoint_id, "reason": reason}
+        )
+        self.checkpoint_id = checkpoint_id
+        self.reason = reason
+
+
+# ============================================================================
+# Convergence Errors
+# ============================================================================
+
+class ConvergenceError(AragoraError):
+    """Base exception for convergence detection errors."""
+    pass
+
+
+class ConvergenceBackendError(ConvergenceError):
+    """Raised when a convergence backend fails."""
+
+    def __init__(self, backend_name: str, reason: str):
+        super().__init__(
+            f"Convergence backend '{backend_name}' failed: {reason}",
+            {"backend_name": backend_name, "reason": reason}
+        )
+        self.backend_name = backend_name
+        self.reason = reason
+
+
+class ConvergenceThresholdError(ConvergenceError):
+    """Raised when convergence threshold is invalid."""
+
+    def __init__(self, threshold: float, reason: str):
+        super().__init__(
+            f"Invalid convergence threshold {threshold}: {reason}",
+            {"threshold": threshold, "reason": reason}
+        )
+        self.threshold = threshold
+        self.reason = reason
+
+
+# ============================================================================
+# Cache Errors
+# ============================================================================
+
+class CacheError(AragoraError):
+    """Base exception for cache operations."""
+    pass
+
+
+class CacheKeyError(CacheError):
+    """Raised when a cache key is invalid."""
+
+    def __init__(self, key: str, reason: str):
+        super().__init__(
+            f"Invalid cache key '{key}': {reason}",
+            {"key": key, "reason": reason}
+        )
+        self.key = key
+        self.reason = reason
+
+
+class CacheCapacityError(CacheError):
+    """Raised when cache capacity is exceeded."""
+
+    def __init__(self, current_size: int, max_size: int):
+        super().__init__(
+            f"Cache capacity exceeded: {current_size}/{max_size}",
+            {"current_size": current_size, "max_size": max_size}
+        )
+        self.current_size = current_size
+        self.max_size = max_size
+
+
+# ============================================================================
 # Verification Errors
 # ============================================================================
 
