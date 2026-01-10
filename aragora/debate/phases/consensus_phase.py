@@ -443,7 +443,7 @@ class ConsensusPhase:
         else:
             result.final_answer = list(proposals.values())[0] if proposals else ""
             result.consensus_reached = False
-            result.confidence = 0.0
+            result.confidence = 0.5  # Neutral default when no votes (not 0.0 failure)
 
     async def _handle_judge_consensus(self, ctx: "DebateContext") -> None:
         """Handle 'judge' consensus mode - single judge synthesis with fallback.
@@ -1016,7 +1016,7 @@ class ConsensusPhase:
         if not most_common:
             result.final_answer = list(proposals.values())[0] if proposals else ""
             result.consensus_reached = False
-            result.confidence = 0.0
+            result.confidence = 0.5  # Neutral default when no winner (not 0.0 failure)
             return
 
         winner_choice, count = most_common[0]
@@ -1029,8 +1029,8 @@ class ConsensusPhase:
         result.final_answer = proposals.get(
             winner_agent, list(proposals.values())[0] if proposals else ""
         )
-        result.consensus_reached = count / total_votes >= threshold
-        result.confidence = count / total_votes
+        result.consensus_reached = (count / total_votes >= threshold) if total_votes > 0 else False
+        result.confidence = count / total_votes if total_votes > 0 else 0.5
         ctx.winner_agent = winner_agent
         result.winner = winner_agent  # Set winner for ELO tracking (agent name)
 

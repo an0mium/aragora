@@ -73,15 +73,15 @@ class TricksterIntervention:
 class TricksterConfig:
     """Configuration for the trickster system."""
 
-    # Thresholds
-    min_quality_threshold: float = 0.4  # Minimum acceptable evidence quality
-    hollow_detection_threshold: float = 0.3  # Alert severity to trigger
-    intervention_cooldown_rounds: int = 2  # Rounds between interventions
+    # Thresholds - tuned for earlier detection of hollow consensus
+    min_quality_threshold: float = 0.65  # Minimum acceptable evidence quality (raised from 0.4)
+    hollow_detection_threshold: float = 0.5  # Alert severity to trigger (raised from 0.3)
+    intervention_cooldown_rounds: int = 1  # Rounds between interventions (reduced from 2)
 
     # Features
     enable_challenge_prompts: bool = True
     enable_role_assignment: bool = True
-    enable_extended_rounds: bool = False
+    enable_extended_rounds: bool = True  # Allow adding rounds when needed (was False)
     enable_breakpoints: bool = True
 
     # Limits
