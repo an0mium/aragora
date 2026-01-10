@@ -127,6 +127,20 @@ export default function DebatesPage() {
                 <p className="text-xs text-text-muted font-mono">
                   Browse and share past debates with permalinks
                 </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Link
+                    href="/debates/graph"
+                    className="px-2 py-1 text-xs font-mono bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/30 hover:bg-acid-cyan/20 transition-colors"
+                  >
+                    GRAPH DEBATES
+                  </Link>
+                  <Link
+                    href="/debates/matrix"
+                    className="px-2 py-1 text-xs font-mono bg-gold/10 text-gold border border-gold/30 hover:bg-gold/20 transition-colors"
+                  >
+                    SCENARIO MATRIX
+                  </Link>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-text-muted font-mono">Filter:</span>
