@@ -29,6 +29,7 @@ import { ContraryViewsPanel } from '@/components/ContraryViewsPanel';
 import { RiskWarningsPanel } from '@/components/RiskWarningsPanel';
 import { AnalyticsPanel } from '@/components/AnalyticsPanel';
 import { CalibrationPanel } from '@/components/CalibrationPanel';
+import { TricksterAlertPanel } from '@/components/TricksterAlertPanel';
 import { ConsensusKnowledgeBase } from '@/components/ConsensusKnowledgeBase';
 import { DebateListPanel } from '@/components/DebateListPanel';
 import { AgentComparePanel } from '@/components/AgentComparePanel';
@@ -474,6 +475,9 @@ export default function Home() {
                   onAck={onAck}
                   onError={onError}
                 />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Trickster Alerts">
+                <TricksterAlertPanel events={events} />
               </PanelErrorBoundary>
               <PanelErrorBoundary panelName="Citations">
                 <CitationsPanel events={events} />
