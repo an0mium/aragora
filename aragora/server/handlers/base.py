@@ -70,7 +70,7 @@ __all__ = [
     "invalidate_on_event", "invalidate_leaderboard_cache", "invalidate_agent_cache",
     "invalidate_debate_cache", "PathMatcher", "RouteDispatcher", "safe_fetch",
     "get_db_connection", "table_exists", "safe_get", "safe_get_nested", "safe_json_parse",
-    "get_host_header", "get_agent_name", "agent_to_dict",
+    "get_host_header", "get_agent_name", "agent_to_dict", "validate_params",
     "SAFE_ID_PATTERN", "SAFE_SLUG_PATTERN", "SAFE_AGENT_PATTERN",
 ]
 
@@ -255,6 +255,92 @@ def _map_exception_to_status(e: Exception, default: int = 500) -> int:
     """Map exception type to appropriate HTTP status code."""
     error_type = type(e).__name__
     return _EXCEPTION_STATUS_MAP.get(error_type, default)
+
+
+def validate_params(
+    param_specs: dict[str, tuple],
+    query_params_arg: str = "query_params",
+) -> Callable[[Callable], Callable]:
+    """
+    Decorator for declarative query parameter validation.
+
+    Validates and extracts query parameters before calling the handler method.
+    If validation fails, returns an error response without calling the handler.
+
+    Args:
+        param_specs: Dict of param_name -> (type, default, min_val, max_val)
+                    - type: int, float, str, or bool
+                    - default: Default value if param not provided
+                    - min_val: Minimum value (for int/float) or None
+                    - max_val: Maximum value (for int/float/str length) or None
+        query_params_arg: Name of the query_params argument in the function
+
+    Returns:
+        Decorator that validates params and passes extracted values.
+
+    Usage:
+        @validate_params({
+            "limit": (int, 20, 1, 100),
+            "offset": (int, 0, 0, None),
+            "domain": (str, None, None, 50),
+        })
+        @handle_errors("list debates")
+        def _list_debates(self, query_params: dict, limit: int, offset: int, domain: str):
+            # limit, offset, domain are already validated and typed
+            ...
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Find query_params in kwargs or positional args
+            params = kwargs.get(query_params_arg)
+            if params is None:
+                # Try to find it in positional args by introspection
+                import inspect
+                sig = inspect.signature(func)
+                param_names = list(sig.parameters.keys())
+                if query_params_arg in param_names:
+                    idx = param_names.index(query_params_arg)
+                    # Account for 'self' being first arg
+                    if idx < len(args):
+                        params = args[idx]
+
+            if params is None:
+                params = {}
+
+            # Validate and extract each parameter
+            extracted = {}
+            for name, spec in param_specs.items():
+                param_type, default, min_val, max_val = spec
+
+                if param_type == int:
+                    val = get_int_param(params, name, default)
+                    if min_val is not None:
+                        val = max(val, min_val)
+                    if max_val is not None:
+                        val = min(val, max_val)
+                elif param_type == float:
+                    val = get_float_param(params, name, default)
+                    if min_val is not None:
+                        val = max(val, min_val)
+                    if max_val is not None:
+                        val = min(val, max_val)
+                elif param_type == bool:
+                    val = get_bool_param(params, name, default)
+                elif param_type == str:
+                    val = get_string_param(params, name, default)
+                    if val is not None and max_val is not None:
+                        val = val[:max_val]
+                else:
+                    val = params.get(name, default)
+
+                extracted[name] = val
+
+            # Merge extracted params into kwargs
+            kwargs.update(extracted)
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable], Callable]:
