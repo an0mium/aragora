@@ -8,10 +8,10 @@ This document describes the HTTP and WebSocket APIs for the Aragora debate platf
 
 | Category | Count | Notes |
 |----------|-------|-------|
-| **Documented** | 106 | Fully documented in this file |
+| **Documented** | 124 | Fully documented in this file |
 | **Actively Used** | 35 | Called from frontend components |
 | **Ready to Wire** | 4 | High-value, not yet connected to frontend |
-| **Advanced/Analytics** | 67 | Specialized features, plugins, analytics |
+| **Advanced/Analytics** | 85 | Specialized features, plugins, analytics |
 
 ### New Endpoints (2026-01-09)
 
@@ -25,6 +25,24 @@ This document describes the HTTP and WebSocket APIs for the Aragora debate platf
 | `GET /api/debates/matrix/:id` | Get matrix debate by ID | NEW |
 | `GET /api/debates/matrix/:id/scenarios` | Get scenario results | NEW |
 | `GET /api/debates/matrix/:id/conclusions` | Get matrix conclusions | NEW |
+| `GET /api/breakpoints/pending` | List pending human-in-the-loop breakpoints | NEW |
+| `GET /api/breakpoints/:id/status` | Get breakpoint status | NEW |
+| `POST /api/breakpoints/:id/resolve` | Resolve breakpoint with human input | NEW |
+| `GET /api/introspection/all` | Get all agent introspection data | NEW |
+| `GET /api/introspection/leaderboard` | Agents ranked by reputation | NEW |
+| `GET /api/introspection/agents` | List available agents | NEW |
+| `GET /api/introspection/agents/:name` | Get agent introspection | NEW |
+| `GET /api/gallery` | List public debates | NEW |
+| `GET /api/gallery/:id` | Get public debate details | NEW |
+| `GET /api/gallery/:id/embed` | Get embeddable debate summary | NEW |
+| `GET /api/billing/plans` | List subscription plans | NEW |
+| `GET /api/billing/usage` | Get current usage | NEW |
+| `GET /api/billing/subscription` | Get subscription status | NEW |
+| `POST /api/billing/checkout` | Create Stripe checkout | NEW |
+| `POST /api/billing/portal` | Create billing portal session | NEW |
+| `POST /api/billing/cancel` | Cancel subscription | NEW |
+| `POST /api/billing/resume` | Resume subscription | NEW |
+| `POST /api/webhooks/stripe` | Handle Stripe webhooks | NEW |
 
 ### Recently Connected Endpoints
 
@@ -2854,6 +2872,299 @@ history = evolver.get_evolution_history("claude", limit=10)
 
 ---
 
+## Breakpoints API
+
+Human-in-the-loop breakpoint management for debate supervision.
+
+### List Pending Breakpoints
+
+```http
+GET /api/breakpoints/pending
+```
+
+Returns all breakpoints awaiting human resolution.
+
+**Response:**
+```json
+{
+  "breakpoints": [
+    {
+      "id": "bp_abc123",
+      "debate_id": "debate_xyz",
+      "type": "consensus_uncertain",
+      "created_at": "2026-01-09T10:00:00Z",
+      "context": {
+        "agents_involved": ["claude", "gpt4"],
+        "disagreement_score": 0.85
+      }
+    }
+  ]
+}
+```
+
+### Get Breakpoint Status
+
+```http
+GET /api/breakpoints/:id/status
+```
+
+Returns the current status of a specific breakpoint.
+
+### Resolve Breakpoint
+
+```http
+POST /api/breakpoints/:id/resolve
+```
+
+Resolve a pending breakpoint with human guidance.
+
+**Request Body:**
+```json
+{
+  "resolution": "continue",
+  "guidance": "The agents should focus on practical implementation",
+  "override_winner": null
+}
+```
+
+---
+
+## Introspection API
+
+Agent self-awareness and reputation metrics.
+
+### Get All Agent Introspection
+
+```http
+GET /api/introspection/all
+```
+
+Returns introspection data for all agents.
+
+### Get Introspection Leaderboard
+
+```http
+GET /api/introspection/leaderboard
+```
+
+Returns agents ranked by reputation score.
+
+**Response:**
+```json
+{
+  "rankings": [
+    {
+      "agent": "claude-api",
+      "reputation_score": 0.92,
+      "consistency": 0.88,
+      "win_rate": 0.67
+    }
+  ]
+}
+```
+
+### List Available Agents
+
+```http
+GET /api/introspection/agents
+```
+
+Returns list of agents available for introspection.
+
+### Get Agent Introspection
+
+```http
+GET /api/introspection/agents/:name
+```
+
+Returns detailed introspection for a specific agent.
+
+---
+
+## Gallery API
+
+Public debate gallery for sharing and embedding.
+
+### List Public Debates
+
+```http
+GET /api/gallery
+```
+
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | int | 20 | Max debates to return |
+| `offset` | int | 0 | Pagination offset |
+| `agent` | string | - | Filter by agent name |
+
+**Response:**
+```json
+{
+  "debates": [
+    {
+      "id": "gallery_abc123",
+      "title": "Should AI systems be open-sourced?",
+      "agents": ["claude", "gpt4"],
+      "winner": "claude",
+      "created_at": "2026-01-09T10:00:00Z",
+      "view_count": 1234
+    }
+  ],
+  "total": 156,
+  "has_more": true
+}
+```
+
+### Get Public Debate
+
+```http
+GET /api/gallery/:id
+```
+
+Returns full debate history for a public debate.
+
+### Get Embeddable Summary
+
+```http
+GET /api/gallery/:id/embed
+```
+
+Returns an embeddable summary suitable for sharing.
+
+**Response:**
+```json
+{
+  "embed_html": "<div class='aragora-embed'>...</div>",
+  "og_tags": {
+    "title": "AI Debate: Open Source AI",
+    "description": "Claude vs GPT-4 debate on open-source AI",
+    "image": "https://api.aragora.ai/og/gallery_abc123.png"
+  }
+}
+```
+
+---
+
+## Billing API
+
+Subscription and usage management (requires authentication).
+
+### List Plans
+
+```http
+GET /api/billing/plans
+```
+
+Returns available subscription plans with features and pricing.
+
+**Response:**
+```json
+{
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free",
+      "price": 0,
+      "debates_per_month": 10,
+      "features": ["basic_agents", "public_gallery"]
+    },
+    {
+      "id": "pro",
+      "name": "Pro",
+      "price": 29,
+      "debates_per_month": 500,
+      "features": ["all_agents", "private_debates", "api_access"]
+    }
+  ]
+}
+```
+
+### Get Current Usage
+
+```http
+GET /api/billing/usage
+```
+
+Returns current usage for the authenticated user.
+
+**Response:**
+```json
+{
+  "debates_used": 45,
+  "debates_limit": 500,
+  "api_calls_used": 1234,
+  "api_calls_limit": 10000,
+  "period_ends": "2026-02-01T00:00:00Z"
+}
+```
+
+### Get Subscription Status
+
+```http
+GET /api/billing/subscription
+```
+
+Returns current subscription details.
+
+### Create Checkout Session
+
+```http
+POST /api/billing/checkout
+```
+
+Create a Stripe checkout session for plan upgrade.
+
+**Request Body:**
+```json
+{
+  "plan_id": "pro",
+  "success_url": "https://aragora.ai/billing/success",
+  "cancel_url": "https://aragora.ai/billing/cancel"
+}
+```
+
+**Response:**
+```json
+{
+  "checkout_url": "https://checkout.stripe.com/..."
+}
+```
+
+### Create Billing Portal Session
+
+```http
+POST /api/billing/portal
+```
+
+Create a Stripe billing portal session for subscription management.
+
+### Cancel Subscription
+
+```http
+POST /api/billing/cancel
+```
+
+Cancel subscription at end of current billing period.
+
+### Resume Subscription
+
+```http
+POST /api/billing/resume
+```
+
+Resume a previously canceled subscription.
+
+### Stripe Webhook
+
+```http
+POST /api/webhooks/stripe
+```
+
+Handle Stripe webhook events (subscription updates, payment events).
+
+---
+
 ## Deprecated Endpoints
 
 The following endpoints are deprecated and will be removed in future versions.
@@ -2920,6 +3231,15 @@ Link: </api/debates>; rel="successor-version"
 ---
 
 ## Changelog
+
+### 2026-01-09
+- Added Graph Debates API (4 endpoints for branching debates)
+- Added Matrix Debates API (4 endpoints for parallel scenarios)
+- Added Breakpoints API (3 endpoints for human-in-the-loop)
+- Added Introspection API (4 endpoints for agent self-awareness)
+- Added Gallery API (3 endpoints for public debate sharing)
+- Added Billing API (8 endpoints for subscription management)
+- Updated endpoint count from 106 to 124
 
 ### 2026-01-05
 - Added CSV and HTML export formats for debates

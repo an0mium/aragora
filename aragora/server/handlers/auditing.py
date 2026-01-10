@@ -319,6 +319,7 @@ class AuditingHandler(BaseHandler):
     ROUTES = [
         "/api/debates/capability-probe",
         "/api/debates/deep-audit",
+        "/api/redteam/attack-types",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -341,6 +342,9 @@ class AuditingHandler(BaseHandler):
         if path == "/api/debates/deep-audit":
             return self._run_deep_audit(handler)
 
+        if path == "/api/redteam/attack-types":
+            return self._get_attack_types()
+
         if path.startswith("/api/debates/") and path.endswith("/red-team"):
             debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
             if err:
@@ -348,6 +352,57 @@ class AuditingHandler(BaseHandler):
             return self._run_red_team_analysis(debate_id, handler)
 
         return None
+
+    def _get_attack_types(self) -> HandlerResult:
+        """Get available red team attack types metadata.
+
+        GET /api/redteam/attack-types
+
+        Returns list of attack types with descriptions.
+        """
+        if not REDTEAM_AVAILABLE:
+            return error_response("Red team module not available", 503)
+
+        try:
+            from aragora.modes.redteam import AttackType
+
+            attack_types = []
+            for attack_type in AttackType:
+                attack_types.append({
+                    "type": attack_type.value,
+                    "name": attack_type.name.replace("_", " ").title(),
+                    "category": self._get_attack_category(attack_type),
+                })
+
+            return json_response({
+                "attack_types": attack_types,
+                "count": len(attack_types),
+            })
+
+        except Exception as e:
+            return error_response(f"Failed to get attack types: {e}", 500)
+
+    def _get_attack_category(self, attack_type) -> str:
+        """Categorize attack types for easier filtering."""
+        from aragora.modes.redteam import AttackType
+
+        logic_attacks = {
+            AttackType.LOGICAL_FALLACY,
+            AttackType.UNSTATED_ASSUMPTION,
+            AttackType.COUNTEREXAMPLE,
+        }
+        system_attacks = {
+            AttackType.SECURITY,
+            AttackType.RESOURCE_EXHAUSTION,
+            AttackType.RACE_CONDITION,
+            AttackType.DEPENDENCY_FAILURE,
+        }
+        if attack_type in logic_attacks:
+            return "logic"
+        elif attack_type in system_attacks:
+            return "system"
+        else:
+            return "robustness"
 
     def _run_capability_probe(self, handler) -> HandlerResult:
         """Run capability probes on an agent to find vulnerabilities.

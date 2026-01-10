@@ -6,6 +6,9 @@ Endpoints:
 - GET /api/genesis/events - Get recent genesis events
 - GET /api/genesis/lineage/:genome_id - Get genome ancestry
 - GET /api/genesis/tree/:debate_id - Get debate tree structure
+- GET /api/genesis/genomes - List all genomes
+- GET /api/genesis/genomes/top - Get top genomes by fitness
+- GET /api/genesis/genomes/:genome_id - Get single genome details
 """
 
 import json
@@ -35,6 +38,12 @@ _genesis_imports, GENESIS_AVAILABLE = try_import(
 GenesisLedger = _genesis_imports["GenesisLedger"]
 GenesisEventType = _genesis_imports["GenesisEventType"]
 
+_genome_imports, GENOME_AVAILABLE = try_import(
+    "aragora.genesis.genome", "GenomeStore", "AgentGenome"
+)
+GenomeStore = _genome_imports["GenomeStore"]
+AgentGenome = _genome_imports["AgentGenome"]
+
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 
@@ -44,6 +53,8 @@ class GenesisHandler(BaseHandler):
     ROUTES = [
         "/api/genesis/stats",
         "/api/genesis/events",
+        "/api/genesis/genomes",
+        "/api/genesis/genomes/top",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -54,6 +65,8 @@ class GenesisHandler(BaseHandler):
         if path.startswith("/api/genesis/lineage/"):
             return True
         if path.startswith("/api/genesis/tree/"):
+            return True
+        if path.startswith("/api/genesis/genomes/") and path != "/api/genesis/genomes/top":
             return True
         return False
 
@@ -71,6 +84,27 @@ class GenesisHandler(BaseHandler):
             if isinstance(event_type, list):
                 event_type = event_type[0] if event_type else None
             return self._get_genesis_events(nomic_dir, limit, event_type)
+
+        if path == "/api/genesis/genomes":
+            limit = get_int_param(query_params, 'limit', 50)
+            limit = min(limit, 200)
+            offset = get_int_param(query_params, 'offset', 0)
+            return self._get_genomes(nomic_dir, limit, offset)
+
+        if path == "/api/genesis/genomes/top":
+            limit = get_int_param(query_params, 'limit', 10)
+            limit = min(limit, 50)
+            return self._get_top_genomes(nomic_dir, limit)
+
+        if path.startswith("/api/genesis/genomes/"):
+            # Block path traversal attempts
+            if '..' in path:
+                return error_response("Invalid genome ID", 400)
+            genome_id = path.split('/')[-1]
+            is_valid, err = validate_genome_id(genome_id)
+            if not is_valid:
+                return error_response(err, 400)
+            return self._get_genome(nomic_dir, genome_id)
 
         if path.startswith("/api/genesis/lineage/"):
             # Block path traversal attempts
@@ -241,3 +275,80 @@ class GenesisHandler(BaseHandler):
 
         except Exception as e:
             return error_response(_safe_error_message(e, "debate_tree"), 500)
+
+    def _get_genomes(
+        self, nomic_dir: Optional[Path], limit: int, offset: int
+    ) -> HandlerResult:
+        """Get all genomes with pagination."""
+        if not GENOME_AVAILABLE:
+            return error_response("Genesis genome module not available", 503)
+
+        try:
+            db_path = ".nomic/genesis.db"
+            if nomic_dir:
+                db_path = str(nomic_dir / "genesis.db")
+
+            store = GenomeStore(db_path)
+            all_genomes = store.get_all()
+
+            # Apply pagination
+            total = len(all_genomes)
+            paginated = all_genomes[offset:offset + limit]
+
+            return json_response({
+                "genomes": [g.to_dict() for g in paginated],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            })
+
+        except Exception as e:
+            return error_response(_safe_error_message(e, "genomes_list"), 500)
+
+    def _get_top_genomes(
+        self, nomic_dir: Optional[Path], limit: int
+    ) -> HandlerResult:
+        """Get top genomes by fitness score."""
+        if not GENOME_AVAILABLE:
+            return error_response("Genesis genome module not available", 503)
+
+        try:
+            db_path = ".nomic/genesis.db"
+            if nomic_dir:
+                db_path = str(nomic_dir / "genesis.db")
+
+            store = GenomeStore(db_path)
+            top_genomes = store.get_top_by_fitness(limit)
+
+            return json_response({
+                "genomes": [g.to_dict() for g in top_genomes],
+                "count": len(top_genomes),
+            })
+
+        except Exception as e:
+            return error_response(_safe_error_message(e, "genomes_top"), 500)
+
+    def _get_genome(
+        self, nomic_dir: Optional[Path], genome_id: str
+    ) -> HandlerResult:
+        """Get a single genome by ID."""
+        if not GENOME_AVAILABLE:
+            return error_response("Genesis genome module not available", 503)
+
+        try:
+            db_path = ".nomic/genesis.db"
+            if nomic_dir:
+                db_path = str(nomic_dir / "genesis.db")
+
+            store = GenomeStore(db_path)
+            genome = store.get(genome_id)
+
+            if genome:
+                return json_response({
+                    "genome": genome.to_dict(),
+                })
+            else:
+                return error_response(f"Genome not found: {genome_id}", 404)
+
+        except Exception as e:
+            return error_response(_safe_error_message(e, "genome_get"), 500)
