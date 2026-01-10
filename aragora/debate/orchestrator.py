@@ -24,6 +24,10 @@ from aragora.debate.immune_system import TransparentImmuneSystem, get_immune_sys
 from aragora.debate.chaos_theater import ChaosDirector, get_chaos_director, DramaLevel
 from aragora.debate.audience_manager import AudienceManager
 from aragora.debate.autonomic_executor import AutonomicExecutor
+from aragora.debate.complexity_governor import (
+    classify_task_complexity,
+    get_complexity_governor,
+)
 from aragora.debate.memory_manager import MemoryManager
 from aragora.debate.optional_imports import OptionalImports
 from aragora.debate.prompt_builder import PromptBuilder
@@ -178,6 +182,10 @@ class ArenaConfig:
     enable_performance_monitor: bool = False
     enable_telemetry: bool = False  # Enable Prometheus/Blackbox telemetry emission
 
+    # Agent selection (performance-based team formation)
+    agent_selector: Optional[object] = None  # AgentSelector for performance-based selection
+    use_performance_selection: bool = False  # Enable ELO/calibration-based agent selection
+
     # Airlock resilience layer
     use_airlock: bool = False  # Wrap agents with AirlockProxy for timeout/fallback
     airlock_config: Optional[object] = None  # AirlockConfig for customization
@@ -237,6 +245,8 @@ class Arena:
         enable_telemetry: bool = False,  # Enable Prometheus/Blackbox telemetry emission
         use_airlock: bool = False,  # Wrap agents with AirlockProxy for timeout protection
         airlock_config=None,  # Optional AirlockConfig for customization
+        agent_selector=None,  # Optional AgentSelector for performance-based team selection
+        use_performance_selection: bool = False,  # Enable ELO/calibration-based agent selection
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
@@ -310,6 +320,8 @@ class Arena:
             enable_telemetry=enable_telemetry,
             use_airlock=use_airlock,
             airlock_config=airlock_config,
+            agent_selector=agent_selector,
+            use_performance_selection=use_performance_selection,
         )
 
         # Initialize tracking subsystems
@@ -411,6 +423,8 @@ class Arena:
             enable_telemetry=config.enable_telemetry,
             use_airlock=config.use_airlock,
             airlock_config=config.airlock_config,
+            agent_selector=config.agent_selector,
+            use_performance_selection=config.use_performance_selection,
         )
 
     def _init_core(
@@ -443,6 +457,8 @@ class Arena:
         enable_telemetry: bool,
         use_airlock: bool,
         airlock_config,
+        agent_selector,
+        use_performance_selection: bool,
     ) -> None:
         """Initialize core Arena configuration."""
         self.env = environment
@@ -498,6 +514,8 @@ class Arena:
         self.breeding_threshold = breeding_threshold
         self.evidence_collector = evidence_collector
         self.breakpoint_manager = breakpoint_manager
+        self.agent_selector = agent_selector
+        self.use_performance_selection = use_performance_selection
 
         # Auto-initialize BreakpointManager if enable_breakpoints is True
         if self.protocol.enable_breakpoints and self.breakpoint_manager is None:
@@ -865,6 +883,11 @@ class Arena:
             extract_debate_domain=self._extract_debate_domain,
             get_belief_analyzer=OptionalImports.get_belief_analyzer,
             user_vote_multiplier=user_vote_multiplier,
+            # Verification callback for claim verification during consensus
+            # When protocol.verify_claims_during_consensus is True, this callback
+            # is used to verify claims in proposals and boost verified ones.
+            # Future: wire to verification_manager.verify_claims_in_text()
+            verify_claims=None,
         )
 
         # Phases 4-6: Analytics
@@ -1058,6 +1081,89 @@ class Arena:
         # Cache and return
         self._debate_domain_cache = domain
         return domain
+
+    def _select_debate_team(self, requested_agents: list[Agent]) -> list[Agent]:
+        """Select debate team using performance metrics if enabled.
+
+        When use_performance_selection is True and an agent_selector is configured,
+        agents are scored based on ELO ratings, calibration scores, and domain
+        expertise, then sorted by performance. This allows high-performing agents
+        to be prioritized for the debate.
+
+        Args:
+            requested_agents: Original list of agents requested for the debate
+
+        Returns:
+            Sorted list of agents, prioritized by performance if enabled,
+            otherwise the original list unchanged.
+        """
+        if not self.use_performance_selection:
+            return requested_agents
+
+        if not self.agent_selector:
+            logger.debug("performance_selection enabled but no agent_selector configured")
+            return requested_agents
+
+        # Get domain for task-specific scoring
+        domain = self._extract_debate_domain()
+
+        # Filter out unavailable agents via circuit breaker
+        available_names = {a.name for a in requested_agents}
+        if self.circuit_breaker:
+            try:
+                available_names = set(
+                    self.circuit_breaker.filter_available_agents(
+                        [a.name for a in requested_agents]
+                    )
+                )
+            except Exception as e:
+                logger.debug(f"circuit_breaker filter error: {e}")
+
+        # Score agents using ELO and calibration
+        scored: list[tuple[Agent, float]] = []
+        for agent in requested_agents:
+            if agent.name not in available_names:
+                logger.info(f"agent_filtered_by_circuit_breaker agent={agent.name}")
+                continue
+
+            score = 1.0  # Base score
+
+            # ELO contribution (if available)
+            if self.elo_system:
+                try:
+                    elo = self.elo_system.get_rating(agent.name)
+                    # Normalize: 1000 is average, each 100 points = 0.1 bonus
+                    score += (elo - 1000) / 1000 * 0.3
+                except Exception:
+                    pass
+
+            # Calibration contribution (well-calibrated agents get a bonus)
+            if self.calibration_tracker:
+                try:
+                    brier = self.calibration_tracker.get_brier_score(agent.name)
+                    # Lower Brier = better calibration = higher score
+                    # Brier ranges 0-1, so (1 - brier) gives 0-1 bonus
+                    score += (1 - brier) * 0.2
+                except Exception:
+                    pass
+
+            scored.append((agent, score))
+
+        if not scored:
+            logger.warning("No agents available after performance filtering")
+            return requested_agents
+
+        # Sort by score descending
+        scored.sort(key=lambda x: x[1], reverse=True)
+
+        selected = [agent for agent, _ in scored]
+        logger.info(
+            f"performance_selection domain={domain} "
+            f"selected={[a.name for a in selected]} "
+            f"scores={[f'{s:.2f}' for _, s in scored]}"
+        )
+
+        return selected
 
     def _get_calibration_weight(self, agent_name: str) -> float:
         """Get agent weight based on calibration score (0.5-1.5 range).
@@ -1437,6 +1543,21 @@ class Arena:
             debate_id=debate_id,
             correlation_id=correlation_id,
             domain=self._extract_debate_domain(),
+        )
+
+        # Classify task complexity and configure adaptive timeouts
+        task_complexity = classify_task_complexity(self.env.task)
+        governor = get_complexity_governor()
+        governor.set_task_complexity(task_complexity)
+
+        # Apply performance-based agent selection if enabled
+        if self.use_performance_selection:
+            self.agents = self._select_debate_team(self.agents)
+            ctx.agents = self.agents  # Update context with selected agents
+
+        logger.info(
+            f"debate_start id={debate_id[:8]} complexity={task_complexity.value} "
+            f"agents={[a.name for a in self.agents]}"
         )
 
         # Initialize result early for timeout recovery

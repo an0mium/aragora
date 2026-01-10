@@ -143,6 +143,13 @@ class DebateProtocol:
     # When enabled, PromptEvolver extracts winning patterns and updates prompts
     enable_evolution: bool = False  # Enable prompt evolution from debate outcomes
 
+    # Formal verification during consensus: Optional claim verification
+    # When enabled, claims in proposals are verified using Z3/Lean backends
+    # during vote weighting. Verified claims get a weight bonus.
+    verify_claims_during_consensus: bool = False  # Enable claim verification
+    verification_weight_bonus: float = 0.2  # Boost for verified claims (0.0-1.0)
+    verification_timeout_seconds: float = 5.0  # Quick timeout per verification
+
 
 def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
     """

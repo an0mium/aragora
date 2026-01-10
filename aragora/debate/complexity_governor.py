@@ -120,9 +120,9 @@ class GovernorConstraints:
     max_history_messages: int = 20
     max_prompt_length: int = 4000
 
-    # Timing constraints
-    agent_timeout_seconds: float = 180.0
-    round_timeout_seconds: float = 600.0
+    # Timing constraints (increased for CLI agents like codex/claude)
+    agent_timeout_seconds: float = 600.0
+    round_timeout_seconds: float = 1200.0
 
     # Complexity constraints
     max_agents_per_round: int = 5

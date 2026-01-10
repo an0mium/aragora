@@ -15,6 +15,7 @@ import logging
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
 from aragora.config import AGENT_TIMEOUT_SECONDS
+from aragora.debate.complexity_governor import get_complexity_governor
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Message
@@ -198,11 +199,15 @@ class ProposalPhase:
         logger.debug(f"agent_generating agent={agent.name} phase=proposal")
 
         try:
+            # Use complexity-scaled timeout from governor
+            timeout = get_complexity_governor().get_scaled_timeout(
+                float(AGENT_TIMEOUT_SECONDS)
+            )
             if self._with_timeout:
                 result = await self._with_timeout(
                     self._generate_with_agent(agent, prompt, ctx.context_messages),
                     agent.name,
-                    timeout_seconds=float(AGENT_TIMEOUT_SECONDS),
+                    timeout_seconds=timeout,
                 )
             else:
                 result = await self._generate_with_agent(

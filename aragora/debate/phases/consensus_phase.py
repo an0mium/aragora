@@ -18,6 +18,7 @@ from typing import Any, Callable, Optional, TYPE_CHECKING
 
 from aragora.agents.errors import _build_error_action
 from aragora.config import AGENT_TIMEOUT_SECONDS
+from aragora.debate.complexity_governor import get_complexity_governor
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Vote, DebateResult
@@ -66,6 +67,7 @@ class ConsensusCallbacks:
     extract_debate_domain: Optional[Callable] = None
     get_belief_analyzer: Optional[Callable] = None
     user_vote_multiplier: Optional[Callable] = None
+    verify_claims: Optional[Callable] = None  # Optional verification callback
 
 
 class ConsensusPhase:
@@ -123,6 +125,7 @@ class ConsensusPhase:
         extract_debate_domain: Optional[Callable] = None,
         get_belief_analyzer: Optional[Callable] = None,
         user_vote_multiplier: Optional[Callable] = None,
+        verify_claims: Optional[Callable] = None,
     ):
         """
         Initialize the consensus phase.
@@ -176,6 +179,7 @@ class ConsensusPhase:
             self._extract_debate_domain = callbacks.extract_debate_domain
             self._get_belief_analyzer = callbacks.get_belief_analyzer
             self._user_vote_multiplier = callbacks.user_vote_multiplier
+            self._verify_claims = callbacks.verify_claims
         else:
             self._vote_with_agent = vote_with_agent
             self._with_timeout = with_timeout
@@ -189,6 +193,7 @@ class ConsensusPhase:
             self._extract_debate_domain = extract_debate_domain
             self._get_belief_analyzer = get_belief_analyzer
             self._user_vote_multiplier = user_vote_multiplier
+            self._verify_claims = verify_claims
 
     # Default timeout for consensus phase (can be overridden via protocol)
     # Judge mode needs more time due to LLM generation latency
@@ -362,6 +367,11 @@ class ConsensusPhase:
         # Include user votes
         vote_counts, total_weighted = self._add_user_votes(
             vote_counts, total_weighted, choice_mapping
+        )
+
+        # Apply verification bonuses if enabled
+        vote_counts = await self._apply_verification_bonuses(
+            vote_counts, proposals, choice_mapping
         )
 
         ctx.vote_tally = dict(vote_counts)
@@ -568,11 +578,15 @@ class ConsensusPhase:
         async def cast_vote(agent):
             logger.debug(f"agent_voting agent={agent.name}")
             try:
+                # Use complexity-scaled timeout from governor
+                timeout = get_complexity_governor().get_scaled_timeout(
+                    float(AGENT_TIMEOUT_SECONDS)
+                )
                 if self._with_timeout:
                     vote_result = await self._with_timeout(
                         self._vote_with_agent(agent, ctx.proposals, task),
                         agent.name,
-                        timeout_seconds=float(AGENT_TIMEOUT_SECONDS),
+                        timeout_seconds=timeout,
                     )
                 else:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
@@ -634,11 +648,15 @@ class ConsensusPhase:
         async def cast_vote(agent):
             logger.debug(f"agent_voting_unanimous agent={agent.name}")
             try:
+                # Use complexity-scaled timeout from governor
+                timeout = get_complexity_governor().get_scaled_timeout(
+                    float(AGENT_TIMEOUT_SECONDS)
+                )
                 if self._with_timeout:
                     vote_result = await self._with_timeout(
                         self._vote_with_agent(agent, ctx.proposals, task),
                         agent.name,
-                        timeout_seconds=float(AGENT_TIMEOUT_SECONDS),
+                        timeout_seconds=timeout,
                     )
                 else:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
@@ -858,6 +876,63 @@ class ConsensusPhase:
                 )
 
         return vote_counts, total_weighted
+
+    async def _apply_verification_bonuses(
+        self,
+        vote_counts: Counter,
+        proposals: dict[str, str],
+        choice_mapping: dict[str, str],
+    ) -> Counter:
+        """Apply verification bonuses to vote counts for verified proposals.
+
+        When verify_claims_during_consensus is enabled in the protocol,
+        proposals with verified claims get a weight bonus.
+
+        Args:
+            vote_counts: Current vote counts by choice
+            proposals: Dict of agent_name -> proposal_text
+            choice_mapping: Mapping from vote choice to canonical form
+
+        Returns:
+            Updated vote counts with verification bonuses applied
+        """
+        if not self.protocol or not getattr(self.protocol, 'verify_claims_during_consensus', False):
+            return vote_counts
+
+        if not self._verify_claims:
+            return vote_counts
+
+        verification_bonus = getattr(self.protocol, 'verification_weight_bonus', 0.2)
+        verification_timeout = getattr(self.protocol, 'verification_timeout_seconds', 5.0)
+
+        for agent_name, proposal_text in proposals.items():
+            # Map agent name to canonical choice
+            canonical = choice_mapping.get(agent_name, agent_name)
+            if canonical not in vote_counts:
+                continue
+
+            try:
+                # Verify top claims in the proposal (async with timeout)
+                verified_count = await asyncio.wait_for(
+                    self._verify_claims(proposal_text, limit=2),
+                    timeout=verification_timeout
+                )
+
+                if verified_count and verified_count > 0:
+                    # Apply bonus: boost votes for this proposal
+                    current_count = vote_counts[canonical]
+                    bonus = current_count * verification_bonus * verified_count
+                    vote_counts[canonical] = current_count + bonus
+                    logger.info(
+                        f"verification_bonus agent={agent_name} "
+                        f"verified={verified_count} bonus={bonus:.2f}"
+                    )
+            except asyncio.TimeoutError:
+                logger.debug(f"verification_timeout agent={agent_name}")
+            except Exception as e:
+                logger.debug(f"verification_error agent={agent_name} error={e}")
+
+        return vote_counts
 
     def _determine_majority_winner(
         self,

@@ -16,6 +16,7 @@ import logging
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
 from aragora.config import AGENT_TIMEOUT_SECONDS
+from aragora.debate.complexity_governor import get_complexity_governor
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message
@@ -282,6 +283,10 @@ class DebateRoundsPhase:
         async def generate_critique(critic, proposal_agent, proposal):
             """Generate critique and return (critic, proposal_agent, result_or_error)."""
             logger.debug(f"critique_generating critic={critic.name} target={proposal_agent}")
+            # Use complexity-scaled timeout from governor
+            timeout = get_complexity_governor().get_scaled_timeout(
+                float(AGENT_TIMEOUT_SECONDS)
+            )
             try:
                 if self._with_timeout:
                     crit_result = await self._with_timeout(
@@ -289,7 +294,7 @@ class DebateRoundsPhase:
                             critic, proposal, ctx.env.task if ctx.env else "", ctx.context_messages
                         ),
                         critic.name,
-                        timeout_seconds=float(AGENT_TIMEOUT_SECONDS),
+                        timeout_seconds=timeout,
                     )
                 else:
                     crit_result = await self._critique_with_agent(
@@ -415,6 +420,8 @@ class DebateRoundsPhase:
             return
 
         # Build revision tasks for all proposers
+        # Use complexity-scaled timeout from governor (base 600s for CLI agents)
+        timeout = get_complexity_governor().get_scaled_timeout(600.0)
         revision_tasks = []
         revision_agents = []
         for agent in ctx.proposers:
@@ -426,7 +433,7 @@ class DebateRoundsPhase:
                 task = self._with_timeout(
                     self._generate_with_agent(agent, revision_prompt, ctx.context_messages),
                     agent.name,
-                    timeout_seconds=180.0,
+                    timeout_seconds=timeout,
                 )
             else:
                 task = self._generate_with_agent(agent, revision_prompt, ctx.context_messages)

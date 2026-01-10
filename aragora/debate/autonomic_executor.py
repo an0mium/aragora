@@ -124,9 +124,9 @@ class AutonomicExecutor:
     def __init__(
         self,
         circuit_breaker: Optional[CircuitBreaker] = None,
-        default_timeout: float = 180.0,
+        default_timeout: float = 600.0,  # Increased for CLI agents
         timeout_escalation_factor: float = 1.5,
-        max_timeout: float = 300.0,
+        max_timeout: float = 900.0,  # Increased max
         streaming_buffer: Optional[StreamingContentBuffer] = None,
         wisdom_store: Optional["InsightStore"] = None,
         loop_id: Optional[str] = None,
