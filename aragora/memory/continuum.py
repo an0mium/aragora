@@ -119,12 +119,16 @@ class ContinuumMemory:
         self,
         db_path: str = DB_MEMORY_PATH,
         tier_manager: Optional[TierManager] = None,
+        event_emitter: Any = None,
     ):
         self.db_path = Path(db_path)
         self._init_db()
 
         # Use provided TierManager or get the shared instance
         self._tier_manager = tier_manager or get_tier_manager()
+
+        # Optional event emitter for WebSocket streaming
+        self.event_emitter = event_emitter
 
         # Hyperparameters (can be modified by MetaLearner)
         self.hyperparams = {
@@ -633,6 +637,9 @@ class ContinuumMemory:
         # Record metrics in TierManager
         self._tier_manager.record_promotion(tm_current, tm_new)
 
+        # Emit promotion event if event_emitter is available
+        self._emit_tier_event("promotion", id, current_tier, new_tier, surprise_score)
+
         return new_tier
 
     def demote(self, id: str) -> Optional[MemoryTier]:
@@ -705,7 +712,43 @@ class ContinuumMemory:
         # Record metrics in TierManager
         self._tier_manager.record_demotion(tm_current, tm_new)
 
+        # Emit demotion event if event_emitter is available
+        self._emit_tier_event("demotion", id, current_tier, new_tier, surprise_score)
+
         return new_tier
+
+    def _emit_tier_event(
+        self,
+        event_type: str,
+        memory_id: str,
+        from_tier: MemoryTier,
+        to_tier: MemoryTier,
+        surprise_score: float,
+    ) -> None:
+        """Emit MEMORY_TIER_PROMOTION or MEMORY_TIER_DEMOTION event."""
+        if not self.event_emitter:
+            return
+
+        try:
+            from aragora.server.stream import StreamEvent, StreamEventType
+
+            stream_type = (
+                StreamEventType.MEMORY_TIER_PROMOTION
+                if event_type == "promotion"
+                else StreamEventType.MEMORY_TIER_DEMOTION
+            )
+
+            self.event_emitter.emit(StreamEvent(
+                type=stream_type,
+                data={
+                    "memory_id": memory_id,
+                    "from_tier": from_tier.value,
+                    "to_tier": to_tier.value,
+                    "surprise_score": surprise_score,
+                }
+            ))
+        except Exception as e:
+            logger.debug(f"[memory] Event emission error: {e}")
 
     def _promote_batch(
         self,

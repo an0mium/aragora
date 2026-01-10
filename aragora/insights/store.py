@@ -667,3 +667,167 @@ class InsightStore:
         except Exception as e:
             # Never crash main loop due to logging, but note the failure
             logger.warning(f"Failed to log wisdom event: {e}")
+
+    # =========================================================================
+    # Insight Application Cycle (B2)
+    # =========================================================================
+
+    def _sync_get_relevant_insights(
+        self,
+        domain: Optional[str],
+        min_confidence: float,
+        limit: int,
+    ) -> list[tuple]:
+        """Sync helper: Get high-confidence insights for a domain."""
+        with self.db.connection() as conn:
+            cursor = conn.cursor()
+
+            sql = """
+                SELECT * FROM insights
+                WHERE confidence >= ?
+            """
+            params: list = [min_confidence]
+
+            if domain:
+                # Search for domain in metadata or title/description
+                escaped_domain = _escape_like_pattern(domain)
+                sql += """ AND (
+                    metadata LIKE ? ESCAPE '\\'
+                    OR title LIKE ? ESCAPE '\\'
+                    OR description LIKE ? ESCAPE '\\'
+                )"""
+                params.extend([
+                    f'%"{escaped_domain}"%',
+                    f'%{escaped_domain}%',
+                    f'%{escaped_domain}%',
+                ])
+
+            sql += " ORDER BY confidence DESC, created_at DESC LIMIT ?"
+            params.append(limit)
+
+            cursor.execute(sql, params)
+            return cursor.fetchall()
+
+    async def get_relevant_insights(
+        self,
+        domain: Optional[str] = None,
+        min_confidence: float = 0.7,
+        limit: int = 5,
+    ) -> list[Insight]:
+        """
+        Get high-confidence insights relevant to a domain for injection into debates.
+
+        This method retrieves insights that can be applied as "learned practices"
+        in future debates, closing the insight application cycle.
+
+        Args:
+            domain: Optional domain to filter by (e.g., "security", "design")
+            min_confidence: Minimum confidence threshold (default 0.7)
+            limit: Maximum number of insights to return
+
+        Returns:
+            List of high-confidence Insight objects
+        """
+        rows = await asyncio.to_thread(
+            self._sync_get_relevant_insights, domain, min_confidence, limit
+        )
+        return [self._row_to_insight(row) for row in rows]
+
+    def _sync_record_insight_usage(
+        self,
+        insight_id: str,
+        debate_id: str,
+        was_successful: bool,
+    ) -> None:
+        """Sync helper: Record that an insight was applied to a debate."""
+        with self.db.connection() as conn:
+            cursor = conn.cursor()
+
+            # Ensure usage tracking table exists
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS insight_usage (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    insight_id TEXT NOT NULL,
+                    debate_id TEXT NOT NULL,
+                    was_successful INTEGER DEFAULT 0,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(insight_id, debate_id)
+                )
+            """)
+
+            # Record the usage
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO insight_usage
+                (insight_id, debate_id, was_successful, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (insight_id, debate_id, 1 if was_successful else 0, datetime.now().isoformat())
+            )
+
+            # Update insight confidence based on usage success
+            # Increase confidence if successful, decrease if not
+            adjustment = 0.05 if was_successful else -0.03
+            cursor.execute(
+                """
+                UPDATE insights
+                SET confidence = MIN(0.99, MAX(0.1, confidence + ?))
+                WHERE id = ?
+                """,
+                (adjustment, insight_id)
+            )
+
+            conn.commit()
+
+    async def record_insight_usage(
+        self,
+        insight_id: str,
+        debate_id: str,
+        was_successful: bool = True,
+    ) -> None:
+        """
+        Record that an insight was applied to a debate.
+
+        This tracks insight usage and adjusts confidence based on success,
+        completing the learning loop.
+
+        Args:
+            insight_id: ID of the insight that was applied
+            debate_id: ID of the debate where it was applied
+            was_successful: Whether the debate outcome correlated with success
+        """
+        await asyncio.to_thread(
+            self._sync_record_insight_usage, insight_id, debate_id, was_successful
+        )
+        logger.debug(
+            f"[insight] Recorded usage: insight={insight_id} "
+            f"debate={debate_id} success={was_successful}"
+        )
+
+    def _sync_get_insight_usage_stats(self, insight_id: str) -> dict:
+        """Sync helper: Get usage statistics for an insight."""
+        with self.db.connection() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT
+                    COUNT(*) as total_uses,
+                    SUM(was_successful) as successful_uses
+                FROM insight_usage
+                WHERE insight_id = ?
+                """,
+                (insight_id,)
+            )
+            row = cursor.fetchone()
+
+            return {
+                "insight_id": insight_id,
+                "total_uses": row[0] if row else 0,
+                "successful_uses": row[1] if row else 0,
+                "success_rate": (row[1] / row[0]) if row and row[0] > 0 else 0.0,
+            }
+
+    async def get_insight_usage_stats(self, insight_id: str) -> dict:
+        """Get usage statistics for a specific insight."""
+        return await asyncio.to_thread(self._sync_get_insight_usage_stats, insight_id)

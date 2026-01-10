@@ -157,6 +157,9 @@ class DebateResult:
     # Belief network analysis - identifies key claims that drive disagreement
     debate_cruxes: list[dict] = field(default_factory=list)  # From BeliefPropagationAnalyzer
     evidence_suggestions: list[dict] = field(default_factory=list)  # Claims needing evidence
+    # Verification results - claim verification during consensus
+    verification_results: dict[str, int] = field(default_factory=dict)  # Agent -> verified_claim_count
+    verification_bonuses: dict[str, float] = field(default_factory=dict)  # Agent -> vote_bonus_applied
     # Novelty tracking - semantic distance from prior proposals
     per_agent_novelty: dict[str, list[float]] = field(default_factory=dict)  # Agent -> novelty by round
     avg_novelty: float = 1.0  # Average novelty (1.0 = fresh ideas, 0.0 = repetitive)

@@ -40,6 +40,11 @@ class EventEmitterBridge:
         "token_start": "TOKEN_START",
         "token_delta": "TOKEN_DELTA",
         "token_end": "TOKEN_END",
+        # New event mappings for feedback loop events
+        "claim_verification": "CLAIM_VERIFICATION_RESULT",
+        "memory_tier_promotion": "MEMORY_TIER_PROMOTION",
+        "memory_tier_demotion": "MEMORY_TIER_DEMOTION",
+        "agent_elo_updated": "AGENT_ELO_UPDATED",
     }
 
     def __init__(

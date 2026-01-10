@@ -137,6 +137,15 @@ class DebateContext:
     ratings_cache: dict[str, Any] = field(default_factory=dict)
     """Batch-fetched AgentRating objects by agent name."""
 
+    event_emitter: Any = None
+    """Optional event emitter for WebSocket event streaming."""
+
+    loop_id: str = ""
+    """Loop ID for event correlation."""
+
+    applied_insight_ids: list[str] = field(default_factory=list)
+    """IDs of insights that were injected into this debate (for usage tracking)."""
+
     # =========================================================================
     # Convergence State
     # =========================================================================

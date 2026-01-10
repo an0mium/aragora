@@ -283,11 +283,17 @@ class ContextInitializer:
             ctx.historical_context_cache = ""
 
     async def _inject_insight_patterns(self, ctx: "DebateContext") -> None:
-        """Inject learned patterns from past debates."""
+        """Inject learned patterns and high-confidence insights from past debates.
+
+        This method now uses the enhanced get_relevant_insights() to find
+        domain-specific insights with high confidence scores, in addition to
+        common patterns. Applied insight IDs are stored for usage tracking.
+        """
         if not self.insight_store:
             return
 
         try:
+            # 1. Inject common patterns (original behavior)
             patterns = await self.insight_store.get_common_patterns(
                 min_occurrences=2, limit=5
             )
@@ -297,6 +303,41 @@ class ContextInitializer:
                     ctx.env.context += "\n\n" + pattern_context
                 else:
                     ctx.env.context = pattern_context
+
+            # 2. Inject high-confidence insights as "learned practices" (B2 enhancement)
+            domain = getattr(ctx, 'domain', None)
+            if domain == 'general':
+                domain = None
+
+            relevant_insights = await self.insight_store.get_relevant_insights(
+                domain=domain,
+                min_confidence=0.7,
+                limit=3,
+            )
+
+            if relevant_insights:
+                # Format insights as learned practices
+                insight_context = "\n\n## LEARNED PRACTICES (from previous debates)\n"
+                insight_context += "The following insights have proven valuable in similar debates:\n"
+
+                for insight in relevant_insights:
+                    insight_context += f"\n• **{insight.title}** (confidence: {insight.confidence:.0%})\n"
+                    if insight.description:
+                        insight_context += f"  {insight.description[:200]}\n"
+
+                    # Track applied insight IDs for usage feedback
+                    ctx.applied_insight_ids.append(insight.id)
+
+                if ctx.env.context:
+                    ctx.env.context += insight_context
+                else:
+                    ctx.env.context = insight_context.strip()
+
+                logger.info(
+                    "[insight] Injected %d learned practices into debate context",
+                    len(relevant_insights),
+                )
+
         except Exception as e:
             logger.debug(f"Pattern injection error: {e}")
 

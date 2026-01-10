@@ -64,6 +64,14 @@ class StreamEventType(Enum):
     LEADERBOARD_UPDATE = "leaderboard_update"  # Periodic leaderboard snapshot
     GROUNDED_VERDICT = "grounded_verdict"  # Evidence-backed verdict with citations
     MOMENT_DETECTED = "moment_detected"  # Significant narrative moment detected
+    AGENT_ELO_UPDATED = "agent_elo_updated"  # Individual agent ELO change
+
+    # Claim verification events
+    CLAIM_VERIFICATION_RESULT = "claim_verification_result"  # Claim verification outcome
+
+    # Memory tier events
+    MEMORY_TIER_PROMOTION = "memory_tier_promotion"  # Memory promoted to faster tier
+    MEMORY_TIER_DEMOTION = "memory_tier_demotion"    # Memory demoted to slower tier
 
     # Graph debate events (branching/merging visualization)
     GRAPH_NODE_ADDED = "graph_node_added"  # New node added to debate graph

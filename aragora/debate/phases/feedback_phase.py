@@ -78,6 +78,8 @@ class FeedbackPhase:
         pulse_manager: Any = None,
         # Prompt evolution for learning from debates
         prompt_evolver: Any = None,  # PromptEvolver for extracting winning patterns
+        # Insight store for tracking applied insights
+        insight_store: Any = None,  # InsightStore for insight usage tracking
     ):
         """
         Initialize the feedback phase.
@@ -104,6 +106,7 @@ class FeedbackPhase:
             breeding_threshold: Minimum confidence to trigger evolution (default 0.8)
             pulse_manager: Optional PulseManager for trending topic analytics
             prompt_evolver: Optional PromptEvolver for extracting winning patterns
+            insight_store: Optional InsightStore for insight usage tracking
         """
         self.elo_system = elo_system
         self.persona_manager = persona_manager
@@ -122,6 +125,7 @@ class FeedbackPhase:
         self.breeding_threshold = breeding_threshold
         self.pulse_manager = pulse_manager
         self.prompt_evolver = prompt_evolver
+        self.insight_store = insight_store
 
         # Callbacks
         self._emit_moment_event = emit_moment_event
@@ -193,6 +197,9 @@ class FeedbackPhase:
 
         # 18. Assess domain risks and emit warnings
         self._assess_risks(ctx)
+
+        # 19. Record insight usage for learning loop (B2)
+        await self._record_insight_usage(ctx)
 
     def _assess_risks(self, ctx: "DebateContext") -> None:
         """Assess domain-specific risks and emit RISK_WARNING events.
@@ -437,6 +444,23 @@ class FeedbackPhase:
                     "winner": ctx.result.winner,
                 }
             ))
+
+            # Emit per-agent ELO updates for granular tracking
+            for agent_name in participants:
+                rating = ratings_batch.get(agent_name)
+                if rating:
+                    self.event_emitter.emit(StreamEvent(
+                        type=StreamEventType.AGENT_ELO_UPDATED,
+                        loop_id=self.loop_id,
+                        agent=agent_name,
+                        data={
+                            "agent": agent_name,
+                            "new_elo": rating.elo,
+                            "debate_id": ctx.debate_id,
+                            "domain": ctx.domain,
+                            "is_winner": agent_name == ctx.result.winner,
+                        }
+                    ))
         except Exception as e:
             logger.warning(f"ELO event emission error: {e}")
 
@@ -1187,3 +1211,60 @@ class FeedbackPhase:
 
         except Exception as e:
             logger.debug("[evolution] Pattern extraction failed: %s", e)
+
+    async def _record_insight_usage(self, ctx: "DebateContext") -> None:
+        """Record insight usage to complete the insight application cycle (B2).
+
+        When insights were injected into this debate (tracked via ctx.applied_insight_ids),
+        this method records whether the debate was successful. This feedback adjusts
+        insight confidence scores over time, enabling the system to learn which
+        insights are actually valuable.
+
+        Success criteria:
+        - Consensus reached = success
+        - High confidence (>=0.7) = success
+        - Otherwise = neutral (no feedback recorded)
+        """
+        if not self.insight_store:
+            return
+
+        # Get applied insight IDs from context
+        applied_ids = getattr(ctx, 'applied_insight_ids', [])
+        if not applied_ids:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        # Determine if debate was successful
+        # Only record usage for clear success/failure to avoid noise
+        was_successful = (
+            result.consensus_reached and
+            result.confidence >= 0.7
+        )
+
+        # Only record for clear outcomes
+        if not result.consensus_reached:
+            logger.debug(
+                "[insight] Skipping usage record - no consensus reached for %d insights",
+                len(applied_ids)
+            )
+            return
+
+        try:
+            for insight_id in applied_ids:
+                await self.insight_store.record_insight_usage(
+                    insight_id=insight_id,
+                    debate_id=ctx.debate_id,
+                    was_successful=was_successful,
+                )
+
+            logger.info(
+                "[insight] Recorded usage for %d insights (success=%s) in debate %s",
+                len(applied_ids),
+                was_successful,
+                ctx.debate_id[:8],
+            )
+        except Exception as e:
+            logger.debug(f"[insight] Usage recording failed: {e}")

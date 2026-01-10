@@ -371,7 +371,7 @@ class ConsensusPhase:
 
         # Apply verification bonuses if enabled
         vote_counts = await self._apply_verification_bonuses(
-            vote_counts, proposals, choice_mapping
+            ctx, vote_counts, proposals, choice_mapping
         )
 
         ctx.vote_tally = dict(vote_counts)
@@ -894,6 +894,7 @@ class ConsensusPhase:
 
     async def _apply_verification_bonuses(
         self,
+        ctx: "DebateContext",
         vote_counts: Counter,
         proposals: dict[str, str],
         choice_mapping: dict[str, str],
@@ -901,9 +902,11 @@ class ConsensusPhase:
         """Apply verification bonuses to vote counts for verified proposals.
 
         When verify_claims_during_consensus is enabled in the protocol,
-        proposals with verified claims get a weight bonus.
+        proposals with verified claims get a weight bonus. Results are
+        stored in ctx.result.verification_results for feedback loop.
 
         Args:
+            ctx: DebateContext to store verification results
             vote_counts: Current vote counts by choice
             proposals: Dict of agent_name -> proposal_text
             choice_mapping: Mapping from vote choice to canonical form
@@ -919,6 +922,7 @@ class ConsensusPhase:
 
         verification_bonus = getattr(self.protocol, 'verification_weight_bonus', 0.2)
         verification_timeout = getattr(self.protocol, 'verification_timeout_seconds', 5.0)
+        result = ctx.result
 
         for agent_name, proposal_text in proposals.items():
             # Map agent name to canonical choice
@@ -933,21 +937,76 @@ class ConsensusPhase:
                     timeout=verification_timeout
                 )
 
+                # Store verification count for feedback loop
+                if hasattr(result, 'verification_results'):
+                    result.verification_results[agent_name] = verified_count or 0
+
                 if verified_count and verified_count > 0:
                     # Apply bonus: boost votes for this proposal
                     current_count = vote_counts[canonical]
                     bonus = current_count * verification_bonus * verified_count
                     vote_counts[canonical] = current_count + bonus
+
+                    # Store bonus for feedback loop
+                    if hasattr(result, 'verification_bonuses'):
+                        result.verification_bonuses[agent_name] = bonus
+
                     logger.info(
                         f"verification_bonus agent={agent_name} "
                         f"verified={verified_count} bonus={bonus:.2f}"
                     )
+
+                # Emit verification result event
+                self._emit_verification_event(
+                    ctx, agent_name, verified_count or 0, bonus if verified_count else 0.0
+                )
             except asyncio.TimeoutError:
                 logger.debug(f"verification_timeout agent={agent_name}")
+                if hasattr(result, 'verification_results'):
+                    result.verification_results[agent_name] = -1  # Timeout indicator
+                self._emit_verification_event(ctx, agent_name, -1, 0.0, timeout=True)
             except Exception as e:
                 logger.debug(f"verification_error agent={agent_name} error={e}")
 
         return vote_counts
+
+    def _emit_verification_event(
+        self,
+        ctx: "DebateContext",
+        agent_name: str,
+        verified_count: int,
+        bonus: float,
+        timeout: bool = False,
+    ) -> None:
+        """Emit CLAIM_VERIFICATION_RESULT event to WebSocket.
+
+        Args:
+            ctx: DebateContext with event_emitter
+            agent_name: Name of agent whose proposal was verified
+            verified_count: Number of verified claims (-1 if timeout)
+            bonus: Vote bonus applied
+            timeout: Whether verification timed out
+        """
+        if not ctx.event_emitter:
+            return
+
+        try:
+            from aragora.server.stream import StreamEvent, StreamEventType
+
+            ctx.event_emitter.emit(StreamEvent(
+                type=StreamEventType.CLAIM_VERIFICATION_RESULT,
+                loop_id=ctx.loop_id,
+                agent=agent_name,
+                data={
+                    "agent": agent_name,
+                    "verified_count": verified_count,
+                    "bonus_applied": bonus,
+                    "timeout": timeout,
+                    "debate_id": ctx.debate_id,
+                }
+            ))
+        except Exception as e:
+            logger.debug(f"verification_event_error: {e}")
 
     def _normalize_choice_to_agent(
         self,

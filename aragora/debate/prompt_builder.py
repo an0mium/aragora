@@ -44,6 +44,8 @@ class PromptBuilder:
         flip_detector: Optional["FlipDetector"] = None,
         evidence_pack: Optional["EvidencePack"] = None,
         calibration_tracker: Optional["CalibrationTracker"] = None,
+        elo_system: Optional[object] = None,
+        domain: str = "general",
     ) -> None:
         """Initialize prompt builder with debate context.
 
@@ -58,6 +60,8 @@ class PromptBuilder:
             flip_detector: Optional position consistency tracking
             evidence_pack: Optional evidence pack with research snippets
             calibration_tracker: Optional calibration tracker for confidence feedback
+            elo_system: Optional ELO system for agent ranking context
+            domain: Debate domain for domain-specific ELO lookup
         """
         self.protocol = protocol
         self.env = env
@@ -69,6 +73,8 @@ class PromptBuilder:
         self.flip_detector = flip_detector
         self.evidence_pack = evidence_pack
         self.calibration_tracker = calibration_tracker
+        self.elo_system = elo_system
+        self.domain = domain
 
         # Current state (set externally by Arena)
         self.current_role_assignments: dict[str, "RoleAssignment"] = {}
@@ -385,6 +391,88 @@ and building on others' ideas."""
             logger.debug(f"Calibration context injection error: {e}")
             return ""
 
+    def get_elo_context(self, agent: "Agent", all_agents: list["Agent"]) -> str:
+        """Inject ELO ranking context for agent awareness of relative expertise (B3).
+
+        Provides agents with information about their own and other agents'
+        ELO ratings and calibration scores. This enables:
+        - More informed deference to domain experts
+        - Appropriate confidence based on track record
+        - Strategic adaptation based on relative standings
+
+        Args:
+            agent: The agent to get ELO context for
+            all_agents: All agents in the debate for comparison
+
+        Returns:
+            Formatted ELO context string, or empty string if no data
+        """
+        if not self.elo_system:
+            return ""
+
+        try:
+            # Get all agent names for batch lookup
+            agent_names = [a.name for a in all_agents]
+
+            # Batch fetch ratings
+            ratings_batch = self.elo_system.get_ratings_batch(agent_names)
+            if not ratings_batch:
+                return ""
+
+            # Get domain-specific ELO if domain is set
+            domain_suffix = ""
+            if self.domain and self.domain != "general":
+                domain_suffix = f" ({self.domain})"
+
+            lines = [f"## Agent Rankings{domain_suffix}"]
+            lines.append("Consider these rankings when weighing arguments:\n")
+
+            # Sort by ELO for display
+            sorted_ratings = sorted(
+                [(name, rating) for name, rating in ratings_batch.items()],
+                key=lambda x: x[1].elo,
+                reverse=True
+            )
+
+            for rank, (name, rating) in enumerate(sorted_ratings, 1):
+                elo = rating.elo
+                wins = getattr(rating, 'wins', 0)
+                losses = getattr(rating, 'losses', 0)
+                total = wins + losses
+
+                # Mark this agent
+                marker = " (you)" if name == agent.name else ""
+
+                # Show calibration if available
+                calib_str = ""
+                if self.calibration_tracker:
+                    try:
+                        summary = self.calibration_tracker.get_calibration_summary(name)
+                        if summary.total_predictions >= 5:
+                            accuracy = 1.0 - summary.brier_score  # Convert Brier to accuracy
+                            calib_str = f", {accuracy:.0%} calibration"
+                    except Exception:
+                        pass
+
+                lines.append(f"  {rank}. {name}: {elo:.0f} ELO ({total} debates{calib_str}){marker}")
+
+            # Add guidance for this agent
+            self_rating = ratings_batch.get(agent.name)
+            if self_rating:
+                lines.append("")
+                if self_rating.elo >= 1600:
+                    lines.append("You have a strong track record. Lead with confidence but remain open to critique.")
+                elif self_rating.elo <= 1400:
+                    lines.append("Consider carefully weighing arguments from higher-ranked agents.")
+                else:
+                    lines.append("Engage constructively and let the quality of arguments guide the debate.")
+
+            return "\n".join(lines)
+
+        except Exception as e:
+            logger.debug(f"ELO context injection error: {e}")
+            return ""
+
     def format_evidence_for_prompt(self, max_snippets: int = 5) -> str:
         """Format evidence pack as citable references for agent prompts.
 
@@ -431,12 +519,14 @@ and building on others' ideas."""
         self,
         agent: "Agent",
         audience_section: str = "",
+        all_agents: Optional[list["Agent"]] = None,
     ) -> str:
         """Build the initial proposal prompt.
 
         Args:
             agent: The agent to build the prompt for
             audience_section: Optional pre-formatted audience suggestions section
+            all_agents: Optional list of all agents for ELO context injection
         """
         context_str = f"\n\nContext: {self.env.context}" if self.env.context else ""
 
@@ -509,6 +599,13 @@ and building on others' ideas."""
         if calibration_context:
             calibration_section = f"\n\n{calibration_context}"
 
+        # Include ELO ranking context for agent awareness of relative expertise (B3)
+        elo_section = ""
+        if all_agents:
+            elo_context = self.get_elo_context(agent, all_agents)
+            if elo_context:
+                elo_section = f"\n\n{elo_context}"
+
         # Include evidence citations if available
         evidence_section = ""
         evidence_context = self.format_evidence_for_prompt(max_snippets=5)
@@ -520,7 +617,7 @@ and building on others' ideas."""
             audience_section = f"\n\n{audience_section}"
 
         return f"""You are acting as a {agent.role} in a multi-agent debate.{stance_section}{role_section}{persona_section}{flip_section}
-{historical_section}{continuum_section}{belief_section}{dissent_section}{patterns_section}{calibration_section}{evidence_section}{audience_section}
+{historical_section}{continuum_section}{belief_section}{dissent_section}{patterns_section}{calibration_section}{elo_section}{evidence_section}{audience_section}
 Task: {self.env.task}{context_str}{research_status}
 
 IMPORTANT: If this task mentions a specific website, company, product, or current topic, you MUST:
@@ -537,6 +634,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         original: str,
         critiques: list["Critique"],
         audience_section: str = "",
+        all_agents: Optional[list["Agent"]] = None,
     ) -> str:
         """Build the revision prompt including critiques.
 
@@ -545,6 +643,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
             original: The original proposal text
             critiques: List of critiques received
             audience_section: Optional pre-formatted audience suggestions section
+            all_agents: Optional list of all agents for ELO context injection
         """
         critiques_str = "\n\n".join(c.to_prompt() for c in critiques)
         intensity_guidance = self.get_agreement_intensity_guidance()
@@ -586,6 +685,13 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if calibration_context:
             calibration_section = f"\n\n{calibration_context}"
 
+        # Include ELO ranking context for agent awareness of relative expertise (B3)
+        elo_section = ""
+        if all_agents:
+            elo_context = self.get_elo_context(agent, all_agents)
+            if elo_context:
+                elo_section = f"\n\n{elo_context}"
+
         # Include evidence for strengthening revised claims
         evidence_section = ""
         evidence_context = self.format_evidence_for_prompt(max_snippets=3)
@@ -598,7 +704,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
 
         return f"""You are revising your proposal based on critiques from other agents.{role_section}{persona_section}{flip_section}
 
-{intensity_guidance}{stance_section}{patterns_section}{belief_section}{calibration_section}{evidence_section}{audience_section}
+{intensity_guidance}{stance_section}{patterns_section}{belief_section}{calibration_section}{elo_section}{evidence_section}{audience_section}
 
 Original Task: {self.env.task}
 
