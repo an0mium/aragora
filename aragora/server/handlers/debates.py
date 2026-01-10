@@ -206,7 +206,7 @@ class DebatesHandler(BaseHandler):
         # Exact path matches
         if path == "/api/debates":
             limit = min(get_int_param(query_params, 'limit', 20), 100)
-            return self._list_debates(handler, limit)
+            return self._list_debates(limit)
 
         if path.startswith("/api/debates/slug/"):
             slug = path.split("/")[-1]
@@ -266,8 +266,12 @@ class DebatesHandler(BaseHandler):
         return debate_id, None
 
     @require_storage
-    def _list_debates(self, handler, limit: int) -> HandlerResult:
-        """List recent debates."""
+    @ttl_cache(ttl_seconds=CACHE_TTL_DEBATES_LIST, key_prefix="debates_list", skip_first=True)
+    def _list_debates(self, limit: int) -> HandlerResult:
+        """List recent debates.
+
+        Cached for 30 seconds to reduce database load on high-traffic listing.
+        """
         storage = self.get_storage()
         try:
             debates = storage.list_recent(limit=limit)

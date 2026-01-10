@@ -215,6 +215,48 @@ def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool 
     return decorator
 
 
+def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool = True):
+    """
+    Async decorator for caching coroutine results with TTL expiry.
+
+    Same as ttl_cache but works with async functions.
+
+    Args:
+        ttl_seconds: How long to cache results (default 60s)
+        key_prefix: Prefix for cache key to namespace different functions
+        skip_first: If True, skip first arg (self) when building cache key for methods.
+
+    Usage:
+        @async_ttl_cache(ttl_seconds=120, key_prefix="graph_debate")
+        async def _get_graph_debate(self, debate_id: str):
+            ...
+    """
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            record_hit, record_miss = _get_metrics()
+
+            # Skip 'self' when building cache key for methods
+            cache_args = args[1:] if skip_first and args else args
+            # Build cache key from function name, args and kwargs
+            cache_key = f"{key_prefix}:{func.__name__}:{cache_args}:{sorted(kwargs.items())}"
+
+            hit, cached_value = _cache.get(cache_key, ttl_seconds)
+            if hit:
+                record_hit(key_prefix or func.__name__)
+                logger.debug(f"Cache hit for {cache_key}")
+                return cached_value
+
+            # Cache miss or expired
+            record_miss(key_prefix or func.__name__)
+            result = await func(*args, **kwargs)
+            _cache.set(cache_key, result)
+            logger.debug(f"Cache miss, stored {cache_key}")
+            return result
+        return wrapper
+    return decorator
+
+
 def clear_cache(key_prefix: str | None = None) -> int:
     """Clear cached entries, optionally filtered by prefix.
 

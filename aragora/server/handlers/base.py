@@ -39,6 +39,7 @@ from aragora.server.handlers.cache import (
     CACHE_MAX_ENTRIES,
     CACHE_EVICT_PERCENT,
     _cache,  # Re-export for backwards compatibility
+    async_ttl_cache,
     clear_cache,
     get_cache_stats,
     get_handler_cache,
@@ -66,7 +67,7 @@ from aragora.server.validation import (
 __all__ = [
     "DB_TIMEOUT_SECONDS", "require_auth", "require_storage", "require_feature",
     "error_response", "json_response", "handle_errors", "log_request", "ttl_cache",
-    "clear_cache", "get_cache_stats", "CACHE_INVALIDATION_MAP", "invalidate_cache",
+    "async_ttl_cache", "clear_cache", "get_cache_stats", "CACHE_INVALIDATION_MAP", "invalidate_cache",
     "invalidate_on_event", "invalidate_leaderboard_cache", "invalidate_agent_cache",
     "invalidate_debate_cache", "PathMatcher", "RouteDispatcher", "safe_fetch",
     "get_db_connection", "table_exists", "safe_get", "safe_get_nested", "safe_json_parse",
