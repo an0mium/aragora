@@ -10,7 +10,7 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
 
 // === Debate Defaults ===
-export const DEFAULT_AGENTS = process.env.NEXT_PUBLIC_DEFAULT_AGENTS || 'grok,anthropic-api,openai-api,deepseek,mistral-api,gemini';
+export const DEFAULT_AGENTS = process.env.NEXT_PUBLIC_DEFAULT_AGENTS || 'grok,anthropic-api,openai-api,deepseek,mistral-api,gemini,qwen,kimi';
 export const DEFAULT_ROUNDS = parseInt(process.env.NEXT_PUBLIC_DEFAULT_ROUNDS || '3', 10);
 export const MAX_ROUNDS = parseInt(process.env.NEXT_PUBLIC_MAX_ROUNDS || '10', 10);
 
@@ -18,11 +18,16 @@ export const MAX_ROUNDS = parseInt(process.env.NEXT_PUBLIC_MAX_ROUNDS || '10', 1
 export const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'grok': 'Grok 4',
   'anthropic-api': 'Opus 4.5',
-  'openai-api': 'GPT 5.2',
-  'deepseek': 'DeepSeek V3.2',
+  'openai-api': 'GPT-4o',
+  'deepseek': 'DeepSeek V3',
   'mistral-api': 'Mistral Large',
   'codestral': 'Codestral',
   'gemini': 'Gemini 2.5',
+  'qwen': 'Qwen 2.5',
+  'qwen-max': 'Qwen Max',
+  'kimi': 'Kimi',
+  'yi': 'Yi Large',
+  'llama': 'Llama 3.3',
 };
 
 // === Streaming Configuration ===

@@ -21,6 +21,10 @@ from aragora.agents.api_agents.openrouter import (
     DeepSeekV3Agent,
     LlamaAgent,
     MistralAgent,
+    QwenAgent,
+    QwenMaxAgent,
+    YiAgent,
+    KimiAgent,
 )
 from aragora.agents.api_agents.mistral import MistralAPIAgent, CodestralAgent
 from aragora.agents.api_agents.rate_limiter import (
@@ -53,6 +57,10 @@ __all__ = [
     "DeepSeekV3Agent",
     "LlamaAgent",
     "MistralAgent",
+    "QwenAgent",
+    "QwenMaxAgent",
+    "YiAgent",
+    "KimiAgent",
     # Rate limiting
     "OpenRouterRateLimiter",
     "OpenRouterTier",
