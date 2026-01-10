@@ -4,11 +4,11 @@ This document describes the HTTP and WebSocket APIs for the Aragora debate platf
 
 ## Endpoint Usage Status
 
-**Last audited:** 2026-01-09
+**Last audited:** 2026-01-10
 
 | Category | Count | Notes |
 |----------|-------|-------|
-| **Documented** | 124 | Fully documented in this file |
+| **Documented** | 134 | Fully documented in this file |
 | **Actively Used** | 35 | Called from frontend components |
 | **Ready to Wire** | 4 | High-value, not yet connected to frontend |
 | **Advanced/Analytics** | 85 | Specialized features, plugins, analytics |
@@ -43,6 +43,16 @@ This document describes the HTTP and WebSocket APIs for the Aragora debate platf
 | `POST /api/billing/cancel` | Cancel subscription | NEW |
 | `POST /api/billing/resume` | Resume subscription | NEW |
 | `POST /api/webhooks/stripe` | Handle Stripe webhooks | NEW |
+| `GET /api/memory/analytics` | Get comprehensive memory tier analytics | NEW |
+| `GET /api/memory/analytics/tier/:tier` | Get stats for specific tier | NEW |
+| `POST /api/memory/analytics/snapshot` | Take manual analytics snapshot | NEW |
+| `GET /api/evolution/ab-tests` | List all A/B tests | NEW |
+| `GET /api/evolution/ab-tests/:id` | Get specific A/B test | NEW |
+| `GET /api/evolution/ab-tests/:agent/active` | Get active test for agent | NEW |
+| `POST /api/evolution/ab-tests` | Create new A/B test | NEW |
+| `POST /api/evolution/ab-tests/:id/record` | Record debate result | NEW |
+| `POST /api/evolution/ab-tests/:id/conclude` | Conclude test | NEW |
+| `DELETE /api/evolution/ab-tests/:id` | Cancel test | NEW |
 
 ### Recently Connected Endpoints
 
@@ -1039,6 +1049,60 @@ Get memory tier statistics from continuum memory system.
 }
 ```
 
+#### GET /api/memory/analytics
+Get comprehensive memory tier analytics.
+
+**Parameters:**
+- `days` (int, default=30, min=1, max=365): Number of days to analyze
+
+**Response:**
+```json
+{
+  "total_memories": 1000,
+  "tier_stats": {
+    "fast": {"count": 100, "avg_importance": 0.8},
+    "medium": {"count": 300, "avg_importance": 0.6},
+    "slow": {"count": 400, "avg_importance": 0.4},
+    "glacial": {"count": 200, "avg_importance": 0.2}
+  },
+  "learning_velocity": 0.75,
+  "promotion_effectiveness": 0.82
+}
+```
+
+#### GET /api/memory/analytics/tier/:tier
+Get stats for a specific memory tier.
+
+**Path Parameters:**
+- `tier` (string, required): Tier name - `fast`, `medium`, `slow`, or `glacial`
+
+**Parameters:**
+- `days` (int, default=30, min=1, max=365): Number of days to analyze
+
+**Response:**
+```json
+{
+  "tier": "fast",
+  "count": 100,
+  "avg_importance": 0.8,
+  "hit_rate": 0.95,
+  "promotion_rate": 0.3
+}
+```
+
+#### POST /api/memory/analytics/snapshot
+Take a manual analytics snapshot for all memory tiers.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Snapshot recorded for all tiers"
+}
+```
+
+---
+
 #### GET /api/critiques/patterns
 Get successful critique patterns for learning.
 
@@ -1644,6 +1708,168 @@ Get prompt evolution history for an agent.
     }
   ],
   "count": 3
+}
+```
+
+---
+
+### Evolution A/B Testing
+
+Run controlled experiments comparing prompt versions to determine which performs better.
+
+#### GET /api/evolution/ab-tests
+List all A/B tests with optional filters.
+
+**Parameters:**
+- `agent` (string, optional): Filter by agent name
+- `status` (string, optional): Filter by status (active, concluded, cancelled)
+- `limit` (int, default=50, max=200): Maximum tests to return
+
+**Response:**
+```json
+{
+  "tests": [
+    {
+      "id": "test-123",
+      "agent": "claude",
+      "baseline_prompt_version": 1,
+      "evolved_prompt_version": 2,
+      "status": "active",
+      "baseline_wins": 5,
+      "evolved_wins": 7,
+      "started_at": "2026-01-10T12:00:00Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+#### GET /api/evolution/ab-tests/:id
+Get a specific A/B test by ID.
+
+**Response:**
+```json
+{
+  "id": "test-123",
+  "agent": "claude",
+  "baseline_prompt_version": 1,
+  "evolved_prompt_version": 2,
+  "status": "active",
+  "baseline_wins": 5,
+  "evolved_wins": 7,
+  "baseline_debates": 10,
+  "evolved_debates": 10,
+  "evolved_win_rate": 0.58,
+  "is_significant": false,
+  "started_at": "2026-01-10T12:00:00Z",
+  "concluded_at": null
+}
+```
+
+#### GET /api/evolution/ab-tests/:agent/active
+Get the active A/B test for a specific agent.
+
+**Response:**
+```json
+{
+  "agent": "claude",
+  "has_active_test": true,
+  "test": {
+    "id": "test-123",
+    "baseline_prompt_version": 1,
+    "evolved_prompt_version": 2,
+    "status": "active"
+  }
+}
+```
+
+#### POST /api/evolution/ab-tests
+Create a new A/B test.
+
+**Request Body:**
+```json
+{
+  "agent": "claude",
+  "baseline_version": 1,
+  "evolved_version": 2,
+  "metadata": {"description": "Test new reasoning patterns"}
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "message": "A/B test created",
+  "test": {
+    "id": "test-456",
+    "agent": "claude",
+    "status": "active"
+  }
+}
+```
+
+**Error (409 Conflict):** Agent already has an active test.
+
+#### POST /api/evolution/ab-tests/:id/record
+Record a debate result for an A/B test.
+
+**Request Body:**
+```json
+{
+  "debate_id": "debate-789",
+  "variant": "evolved",
+  "won": true
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Result recorded",
+  "test": {
+    "id": "test-123",
+    "baseline_wins": 5,
+    "evolved_wins": 8
+  }
+}
+```
+
+#### POST /api/evolution/ab-tests/:id/conclude
+Conclude an A/B test and determine the winner.
+
+**Request Body:**
+```json
+{
+  "force": false
+}
+```
+
+**Response:**
+```json
+{
+  "message": "A/B test concluded",
+  "result": {
+    "test_id": "test-123",
+    "winner": "evolved",
+    "confidence": 0.85,
+    "recommendation": "Adopt evolved prompt",
+    "stats": {
+      "evolved_win_rate": 0.65,
+      "baseline_win_rate": 0.35,
+      "total_debates": 20
+    }
+  }
+}
+```
+
+#### DELETE /api/evolution/ab-tests/:id
+Cancel an active A/B test.
+
+**Response:**
+```json
+{
+  "message": "A/B test cancelled",
+  "test_id": "test-123"
 }
 ```
 
