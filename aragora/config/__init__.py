@@ -39,8 +39,19 @@ from .settings import (
     ALLOWED_AGENT_TYPES,
 )
 
+# Re-export stability markers for honest epistemics
+from .stability import (
+    Stability,
+    FeatureStabilityInfo,
+    stability_marker,
+    get_feature_stability,
+    get_feature_info,
+    list_features_by_stability,
+    get_stability_badge,
+    get_stability_color,
+)
+
 # Re-export legacy constants for backward compatibility
-# Using explicit imports for better type checking and IDE support
 from .legacy import (
     # Helper functions
     get_api_key,
@@ -181,6 +192,15 @@ __all__ = [
     "SSLSettings",
     "StorageSettings",
     "EvidenceSettings",
+    # Stability markers
+    "Stability",
+    "FeatureStabilityInfo",
+    "stability_marker",
+    "get_feature_stability",
+    "get_feature_info",
+    "list_features_by_stability",
+    "get_stability_badge",
+    "get_stability_color",
     # Constants
     "ALLOWED_AGENT_TYPES",
 ]
