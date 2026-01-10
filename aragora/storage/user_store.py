@@ -129,14 +129,54 @@ class UserStore:
                 )
             """)
 
+            # OAuth providers table (for SSO)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS oauth_providers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    provider TEXT NOT NULL,
+                    provider_user_id TEXT NOT NULL,
+                    email TEXT,
+                    linked_at TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    UNIQUE(provider, provider_user_id)
+                )
+            """)
+
+            # Audit log table (for billing/subscription changes)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    user_id TEXT,
+                    org_id TEXT,
+                    action TEXT NOT NULL,
+                    resource_type TEXT NOT NULL,
+                    resource_id TEXT,
+                    old_value TEXT,
+                    new_value TEXT,
+                    metadata TEXT DEFAULT '{}',
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (org_id) REFERENCES organizations(id)
+                )
+            """)
+
             # Create indexes
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_api_key ON users(api_key)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_api_key_hash ON users(api_key_hash)")
+            cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key_hash ON users(api_key_hash)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(org_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_orgs_slug ON organizations(slug)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_orgs_stripe ON organizations(stripe_customer_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_usage_org ON usage_events(org_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_oauth_user ON oauth_providers(user_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_oauth_provider ON oauth_providers(provider, provider_user_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_org ON audit_log(org_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)")
 
         logger.info(f"UserStore initialized: {self.db_path}")
 
@@ -147,8 +187,11 @@ class UserStore:
         existing_columns = {row[1] for row in cursor.fetchall()}
 
         # Add new columns if missing
+        # Note: SQLite doesn't support ALTER TABLE ADD COLUMN with UNIQUE constraint
+        # when the table has data. We add the column without constraint, then create
+        # a unique index separately (done in _init_schema after migrations).
         if "api_key_hash" not in existing_columns:
-            cursor.execute("ALTER TABLE users ADD COLUMN api_key_hash TEXT UNIQUE")
+            cursor.execute("ALTER TABLE users ADD COLUMN api_key_hash TEXT")
             logger.info("Migration: Added api_key_hash column")
 
         if "api_key_prefix" not in existing_columns:
@@ -158,6 +201,19 @@ class UserStore:
         if "api_key_expires_at" not in existing_columns:
             cursor.execute("ALTER TABLE users ADD COLUMN api_key_expires_at TEXT")
             logger.info("Migration: Added api_key_expires_at column")
+
+        # MFA columns
+        if "mfa_secret" not in existing_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN mfa_secret TEXT")
+            logger.info("Migration: Added mfa_secret column")
+
+        if "mfa_enabled" not in existing_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN mfa_enabled INTEGER DEFAULT 0")
+            logger.info("Migration: Added mfa_enabled column")
+
+        if "mfa_backup_codes" not in existing_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN mfa_backup_codes TEXT")
+            logger.info("Migration: Added mfa_backup_codes column")
 
     def migrate_plaintext_api_keys(self) -> int:
         """
@@ -372,6 +428,9 @@ class UserStore:
             "api_key_created_at": "api_key_created_at",
             "api_key_expires_at": "api_key_expires_at",
             "last_login_at": "last_login_at",
+            "mfa_secret": "mfa_secret",
+            "mfa_enabled": "mfa_enabled",
+            "mfa_backup_codes": "mfa_backup_codes",
         }
 
         updates = []
@@ -439,6 +498,9 @@ class UserStore:
             last_login_at=datetime.fromisoformat(row["last_login_at"])
             if row["last_login_at"]
             else None,
+            mfa_secret=safe_get("mfa_secret"),
+            mfa_enabled=bool(safe_get("mfa_enabled", 0)),
+            mfa_backup_codes=safe_get("mfa_backup_codes"),
         )
 
     # =========================================================================
@@ -742,6 +804,307 @@ class UserStore:
         if hasattr(self._local, "connection"):
             self._local.connection.close()
             del self._local.connection
+
+    # =========================================================================
+    # OAuth Provider Operations
+    # =========================================================================
+
+    def link_oauth_provider(
+        self,
+        user_id: str,
+        provider: str,
+        provider_user_id: str,
+        email: Optional[str] = None,
+    ) -> bool:
+        """
+        Link an OAuth provider to a user account.
+
+        Args:
+            user_id: User ID to link to
+            provider: OAuth provider name (e.g., 'google', 'github')
+            provider_user_id: User ID from the OAuth provider
+            email: Email from OAuth provider (optional)
+
+        Returns:
+            True if linked successfully
+        """
+        try:
+            with self._transaction() as cursor:
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO oauth_providers
+                    (user_id, provider, provider_user_id, email, linked_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        user_id,
+                        provider.lower(),
+                        provider_user_id,
+                        email,
+                        datetime.utcnow().isoformat(),
+                    ),
+                )
+            logger.info(f"OAuth linked: user={user_id} provider={provider}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to link OAuth: {e}")
+            return False
+
+    def unlink_oauth_provider(self, user_id: str, provider: str) -> bool:
+        """
+        Unlink an OAuth provider from a user account.
+
+        Args:
+            user_id: User ID to unlink from
+            provider: OAuth provider name
+
+        Returns:
+            True if unlinked successfully
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                "DELETE FROM oauth_providers WHERE user_id = ? AND provider = ?",
+                (user_id, provider.lower()),
+            )
+            if cursor.rowcount > 0:
+                logger.info(f"OAuth unlinked: user={user_id} provider={provider}")
+                return True
+        return False
+
+    def get_user_by_oauth(self, provider: str, provider_user_id: str) -> Optional[User]:
+        """
+        Get user by OAuth provider ID.
+
+        Args:
+            provider: OAuth provider name
+            provider_user_id: User ID from the OAuth provider
+
+        Returns:
+            User if found, None otherwise
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                """
+                SELECT user_id FROM oauth_providers
+                WHERE provider = ? AND provider_user_id = ?
+                """,
+                (provider.lower(), provider_user_id),
+            )
+            row = cursor.fetchone()
+            if row:
+                return self.get_user_by_id(row[0])
+        return None
+
+    def get_user_oauth_providers(self, user_id: str) -> list[dict]:
+        """
+        Get all OAuth providers linked to a user.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            List of linked providers with their details
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                """
+                SELECT provider, provider_user_id, email, linked_at
+                FROM oauth_providers
+                WHERE user_id = ?
+                """,
+                (user_id,),
+            )
+            return [
+                {
+                    "provider": row[0],
+                    "provider_user_id": row[1],
+                    "email": row[2],
+                    "linked_at": row[3],
+                }
+                for row in cursor.fetchall()
+            ]
+
+    # =========================================================================
+    # Audit Logging Operations
+    # =========================================================================
+
+    def log_audit_event(
+        self,
+        action: str,
+        resource_type: str,
+        resource_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        org_id: Optional[str] = None,
+        old_value: Optional[dict] = None,
+        new_value: Optional[dict] = None,
+        metadata: Optional[dict] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ) -> int:
+        """
+        Log an audit event.
+
+        Args:
+            action: Action performed (e.g., 'subscription.created', 'tier.changed')
+            resource_type: Type of resource (e.g., 'subscription', 'user', 'organization')
+            resource_id: ID of the affected resource
+            user_id: User who performed the action
+            org_id: Organization context
+            old_value: Previous value (for changes)
+            new_value: New value (for changes)
+            metadata: Additional context
+            ip_address: Client IP address
+            user_agent: Client user agent
+
+        Returns:
+            Audit log entry ID
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO audit_log
+                (timestamp, user_id, org_id, action, resource_type, resource_id,
+                 old_value, new_value, metadata, ip_address, user_agent)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    datetime.utcnow().isoformat(),
+                    user_id,
+                    org_id,
+                    action,
+                    resource_type,
+                    resource_id,
+                    json.dumps(old_value) if old_value else None,
+                    json.dumps(new_value) if new_value else None,
+                    json.dumps(metadata or {}),
+                    ip_address,
+                    user_agent,
+                ),
+            )
+            return cursor.lastrowid
+
+    def get_audit_log(
+        self,
+        org_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        action: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        since: Optional[datetime] = None,
+        until: Optional[datetime] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict]:
+        """
+        Query audit log entries.
+
+        Args:
+            org_id: Filter by organization
+            user_id: Filter by user
+            action: Filter by action (supports prefix match with *)
+            resource_type: Filter by resource type
+            since: Filter entries after this time
+            until: Filter entries before this time
+            limit: Maximum entries to return
+            offset: Pagination offset
+
+        Returns:
+            List of audit log entries
+        """
+        conditions = []
+        params = []
+
+        if org_id:
+            conditions.append("org_id = ?")
+            params.append(org_id)
+        if user_id:
+            conditions.append("user_id = ?")
+            params.append(user_id)
+        if action:
+            if action.endswith("*"):
+                conditions.append("action LIKE ?")
+                params.append(action[:-1] + "%")
+            else:
+                conditions.append("action = ?")
+                params.append(action)
+        if resource_type:
+            conditions.append("resource_type = ?")
+            params.append(resource_type)
+        if since:
+            conditions.append("timestamp >= ?")
+            params.append(since.isoformat())
+        if until:
+            conditions.append("timestamp <= ?")
+            params.append(until.isoformat())
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        params.extend([limit, offset])
+
+        with self._transaction() as cursor:
+            cursor.execute(
+                f"""
+                SELECT id, timestamp, user_id, org_id, action, resource_type,
+                       resource_id, old_value, new_value, metadata, ip_address, user_agent
+                FROM audit_log
+                WHERE {where_clause}
+                ORDER BY timestamp DESC
+                LIMIT ? OFFSET ?
+                """,
+                params,
+            )
+            return [
+                {
+                    "id": row[0],
+                    "timestamp": row[1],
+                    "user_id": row[2],
+                    "org_id": row[3],
+                    "action": row[4],
+                    "resource_type": row[5],
+                    "resource_id": row[6],
+                    "old_value": json.loads(row[7]) if row[7] else None,
+                    "new_value": json.loads(row[8]) if row[8] else None,
+                    "metadata": json.loads(row[9]) if row[9] else {},
+                    "ip_address": row[10],
+                    "user_agent": row[11],
+                }
+                for row in cursor.fetchall()
+            ]
+
+    def get_audit_log_count(
+        self,
+        org_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        action: Optional[str] = None,
+        resource_type: Optional[str] = None,
+    ) -> int:
+        """Get count of audit log entries matching filters."""
+        conditions = []
+        params = []
+
+        if org_id:
+            conditions.append("org_id = ?")
+            params.append(org_id)
+        if user_id:
+            conditions.append("user_id = ?")
+            params.append(user_id)
+        if action:
+            if action.endswith("*"):
+                conditions.append("action LIKE ?")
+                params.append(action[:-1] + "%")
+            else:
+                conditions.append("action = ?")
+                params.append(action)
+        if resource_type:
+            conditions.append("resource_type = ?")
+            params.append(resource_type)
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+
+        with self._transaction() as cursor:
+            cursor.execute(
+                f"SELECT COUNT(*) FROM audit_log WHERE {where_clause}",
+                params,
+            )
+            return cursor.fetchone()[0]
 
 
 __all__ = ["UserStore"]
