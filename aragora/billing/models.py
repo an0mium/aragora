@@ -266,6 +266,11 @@ class User:
     # Legacy field for backward compatibility during migration
     api_key: Optional[str] = None  # DEPRECATED: Plaintext key, will be removed
 
+    # MFA/2FA fields
+    mfa_secret: Optional[str] = None  # TOTP secret (encrypted)
+    mfa_enabled: bool = False
+    mfa_backup_codes: Optional[str] = None  # JSON-encoded list of hashed backup codes
+
     def set_password(self, password: str) -> None:
         """Set user password."""
         self.password_hash, self.password_salt = hash_password(password)
@@ -623,6 +628,101 @@ class Subscription:
         return sub
 
 
+@dataclass
+class OrganizationInvitation:
+    """An organization invitation for a user.
+
+    Invitations are sent to email addresses. When the user registers or
+    logs in with that email, they can accept the invitation to join.
+    Invitations expire after a configurable number of days.
+    """
+
+    id: str = field(default_factory=lambda: str(uuid4()))
+    org_id: str = ""
+    email: str = ""  # Email address of invitee
+    role: str = "member"  # Role to assign on acceptance (member, admin)
+    token: str = field(default_factory=lambda: secrets.token_urlsafe(32))
+    invited_by: Optional[str] = None  # User ID of inviter
+    status: str = "pending"  # pending, accepted, expired, revoked
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    expires_at: datetime = field(
+        default_factory=lambda: datetime.utcnow() + timedelta(days=7)
+    )
+    accepted_at: Optional[datetime] = None
+
+    @property
+    def is_expired(self) -> bool:
+        """Check if invitation has expired."""
+        return datetime.utcnow() > self.expires_at
+
+    @property
+    def is_pending(self) -> bool:
+        """Check if invitation is still pending and valid."""
+        return self.status == "pending" and not self.is_expired
+
+    def accept(self) -> bool:
+        """Mark invitation as accepted.
+
+        Returns:
+            True if successfully accepted, False if already processed or expired
+        """
+        if not self.is_pending:
+            return False
+        self.status = "accepted"
+        self.accepted_at = datetime.utcnow()
+        return True
+
+    def revoke(self) -> bool:
+        """Revoke the invitation.
+
+        Returns:
+            True if successfully revoked, False if already processed
+        """
+        if self.status != "pending":
+            return False
+        self.status = "revoked"
+        return True
+
+    def to_dict(self, include_token: bool = False) -> dict[str, Any]:
+        """Convert to dictionary."""
+        data = {
+            "id": self.id,
+            "org_id": self.org_id,
+            "email": self.email,
+            "role": self.role,
+            "invited_by": self.invited_by,
+            "status": self.status,
+            "is_pending": self.is_pending,
+            "is_expired": self.is_expired,
+            "created_at": self.created_at.isoformat(),
+            "expires_at": self.expires_at.isoformat(),
+            "accepted_at": self.accepted_at.isoformat() if self.accepted_at else None,
+        }
+        if include_token:
+            data["token"] = self.token
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "OrganizationInvitation":
+        """Create from dictionary."""
+        inv = cls(
+            id=data.get("id", str(uuid4())),
+            org_id=data.get("org_id", ""),
+            email=data.get("email", "").lower(),
+            role=data.get("role", "member"),
+            token=data.get("token", secrets.token_urlsafe(32)),
+            invited_by=data.get("invited_by"),
+            status=data.get("status", "pending"),
+        )
+        for field_name in ["created_at", "expires_at", "accepted_at"]:
+            if field_name in data and data[field_name]:
+                value = data[field_name]
+                if isinstance(value, str):
+                    value = datetime.fromisoformat(value)
+                setattr(inv, field_name, value)
+        return inv
+
+
 def generate_slug(name: str) -> str:
     """Generate URL-friendly slug from name."""
     import re
@@ -641,6 +741,7 @@ __all__ = [
     "User",
     "Organization",
     "Subscription",
+    "OrganizationInvitation",
     "hash_password",
     "verify_password",
     "needs_rehash",

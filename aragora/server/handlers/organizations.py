@@ -1,0 +1,690 @@
+"""
+Organization Management Handlers.
+
+Endpoints:
+- GET /api/org/{org_id} - Get organization details
+- PUT /api/org/{org_id} - Update organization settings
+- GET /api/org/{org_id}/members - List organization members
+- POST /api/org/{org_id}/invite - Invite user to organization
+- GET /api/org/{org_id}/invitations - List pending invitations
+- DELETE /api/org/{org_id}/invitations/{invitation_id} - Revoke invitation
+- DELETE /api/org/{org_id}/members/{user_id} - Remove member
+- PUT /api/org/{org_id}/members/{user_id}/role - Update member role
+- GET /api/invitations/pending - List pending invitations for current user
+- POST /api/invitations/{token}/accept - Accept an invitation
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+import secrets
+from datetime import datetime, timedelta
+from typing import Optional
+
+from aragora.billing.models import OrganizationInvitation
+
+from .base import (
+    BaseHandler,
+    HandlerResult,
+    error_response,
+    handle_errors,
+    json_response,
+    log_request,
+)
+
+logger = logging.getLogger(__name__)
+
+# Role hierarchy (higher number = more permissions)
+ROLE_HIERARCHY = {
+    "member": 1,
+    "admin": 2,
+    "owner": 3,
+}
+
+
+class OrganizationsHandler(BaseHandler):
+    """Handler for organization management endpoints."""
+
+    # Route patterns
+    ORG_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)$")
+    MEMBERS_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)/members$")
+    INVITE_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)/invite$")
+    INVITATIONS_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)/invitations$")
+    INVITATION_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)/invitations/([a-zA-Z0-9_-]+)$")
+    MEMBER_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)/members/([a-zA-Z0-9_-]+)$")
+    ROLE_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)/members/([a-zA-Z0-9_-]+)/role$")
+    # User-facing invitation endpoints
+    PENDING_INVITATIONS_PATTERN = re.compile(r"^/api/invitations/pending$")
+    ACCEPT_INVITATION_PATTERN = re.compile(r"^/api/invitations/([a-zA-Z0-9_-]+)/accept$")
+
+    # In-memory invitation store (production should use database)
+    _invitations: dict[str, OrganizationInvitation] = {}
+
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can process the given path."""
+        return (
+            self.ORG_PATTERN.match(path) is not None
+            or self.MEMBERS_PATTERN.match(path) is not None
+            or self.INVITE_PATTERN.match(path) is not None
+            or self.INVITATIONS_PATTERN.match(path) is not None
+            or self.INVITATION_PATTERN.match(path) is not None
+            or self.MEMBER_PATTERN.match(path) is not None
+            or self.ROLE_PATTERN.match(path) is not None
+            or self.PENDING_INVITATIONS_PATTERN.match(path) is not None
+            or self.ACCEPT_INVITATION_PATTERN.match(path) is not None
+        )
+
+    def handle(
+        self, path: str, query_params: dict, handler, method: str = "GET"
+    ) -> Optional[HandlerResult]:
+        """Route organization requests to appropriate methods."""
+        if hasattr(handler, "command"):
+            method = handler.command
+
+        # GET/PUT /api/org/{org_id}
+        match = self.ORG_PATTERN.match(path)
+        if match:
+            org_id = match.group(1)
+            if method == "GET":
+                return self._get_organization(handler, org_id)
+            elif method == "PUT":
+                return self._update_organization(handler, org_id)
+            return error_response("Method not allowed", 405)
+
+        # GET /api/org/{org_id}/members
+        match = self.MEMBERS_PATTERN.match(path)
+        if match:
+            org_id = match.group(1)
+            if method == "GET":
+                return self._list_members(handler, org_id)
+            return error_response("Method not allowed", 405)
+
+        # POST /api/org/{org_id}/invite
+        match = self.INVITE_PATTERN.match(path)
+        if match:
+            org_id = match.group(1)
+            if method == "POST":
+                return self._invite_member(handler, org_id)
+            return error_response("Method not allowed", 405)
+
+        # GET /api/org/{org_id}/invitations - List pending invitations
+        match = self.INVITATIONS_PATTERN.match(path)
+        if match:
+            org_id = match.group(1)
+            if method == "GET":
+                return self._list_invitations(handler, org_id)
+            return error_response("Method not allowed", 405)
+
+        # DELETE /api/org/{org_id}/invitations/{invitation_id} - Revoke invitation
+        match = self.INVITATION_PATTERN.match(path)
+        if match:
+            org_id = match.group(1)
+            invitation_id = match.group(2)
+            if method == "DELETE":
+                return self._revoke_invitation(handler, org_id, invitation_id)
+            return error_response("Method not allowed", 405)
+
+        # GET /api/invitations/pending - User's pending invitations
+        match = self.PENDING_INVITATIONS_PATTERN.match(path)
+        if match:
+            if method == "GET":
+                return self._get_pending_invitations(handler)
+            return error_response("Method not allowed", 405)
+
+        # POST /api/invitations/{token}/accept - Accept invitation
+        match = self.ACCEPT_INVITATION_PATTERN.match(path)
+        if match:
+            token = match.group(1)
+            if method == "POST":
+                return self._accept_invitation(handler, token)
+            return error_response("Method not allowed", 405)
+
+        # DELETE /api/org/{org_id}/members/{user_id}
+        match = self.MEMBER_PATTERN.match(path)
+        if match:
+            org_id = match.group(1)
+            user_id = match.group(2)
+            if method == "DELETE":
+                return self._remove_member(handler, org_id, user_id)
+            return error_response("Method not allowed", 405)
+
+        # PUT /api/org/{org_id}/members/{user_id}/role
+        match = self.ROLE_PATTERN.match(path)
+        if match:
+            org_id = match.group(1)
+            user_id = match.group(2)
+            if method == "PUT":
+                return self._update_member_role(handler, org_id, user_id)
+            return error_response("Method not allowed", 405)
+
+        return None
+
+    def _get_user_store(self):
+        """Get user store from context."""
+        return self.ctx.get("user_store")
+
+    def _get_current_user(self, handler):
+        """Get authenticated user from request."""
+        user_store = self._get_user_store()
+        if not user_store:
+            return None, None
+
+        from aragora.billing.jwt_auth import extract_user_from_request
+        auth_ctx = extract_user_from_request(handler, user_store)
+
+        if not auth_ctx.is_authenticated:
+            return None, None
+
+        user = user_store.get_user_by_id(auth_ctx.user_id)
+        return user, auth_ctx
+
+    def _check_org_access(self, user, org_id: str, min_role: str = "member") -> tuple[bool, str]:
+        """Check if user has access to organization with minimum role."""
+        if not user:
+            return False, "Authentication required"
+        if user.org_id != org_id:
+            return False, "Not a member of this organization"
+
+        user_level = ROLE_HIERARCHY.get(user.role, 0)
+        min_level = ROLE_HIERARCHY.get(min_role, 0)
+
+        if user_level < min_level:
+            return False, f"Requires {min_role} role or higher"
+
+        return True, ""
+
+    @handle_errors("get organization")
+    @log_request("get organization")
+    def _get_organization(self, handler, org_id: str) -> HandlerResult:
+        """Get organization details."""
+        user, auth_ctx = self._get_current_user(handler)
+        has_access, err = self._check_org_access(user, org_id)
+        if not has_access:
+            return error_response(err, 403 if user else 401)
+
+        user_store = self._get_user_store()
+        org = user_store.get_organization_by_id(org_id)
+        if not org:
+            return error_response("Organization not found", 404)
+
+        # Get member count
+        members = user_store.get_org_members(org_id)
+
+        return json_response({
+            "organization": {
+                "id": org.id,
+                "name": org.name,
+                "slug": org.slug,
+                "tier": org.tier.value,
+                "owner_id": org.owner_id,
+                "member_count": len(members),
+                "debates_used": org.debates_used_this_month,
+                "debates_limit": org.limits.debates_per_month,
+                "settings": org.settings,
+                "created_at": org.created_at.isoformat(),
+            }
+        })
+
+    @handle_errors("update organization")
+    @log_request("update organization")
+    def _update_organization(self, handler, org_id: str) -> HandlerResult:
+        """Update organization settings."""
+        user, auth_ctx = self._get_current_user(handler)
+        has_access, err = self._check_org_access(user, org_id, min_role="admin")
+        if not has_access:
+            return error_response(err, 403 if user else 401)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        user_store = self._get_user_store()
+
+        # Allowed fields for update
+        updates = {}
+        if "name" in body:
+            name = body["name"].strip()
+            if len(name) < 2:
+                return error_response("Name must be at least 2 characters", 400)
+            if len(name) > 100:
+                return error_response("Name must be at most 100 characters", 400)
+            updates["name"] = name
+
+        if "settings" in body and isinstance(body["settings"], dict):
+            updates["settings"] = body["settings"]
+
+        if not updates:
+            return error_response("No valid fields to update", 400)
+
+        success = user_store.update_organization(org_id, **updates)
+        if not success:
+            return error_response("Failed to update organization", 500)
+
+        logger.info(f"Organization {org_id} updated by user {user.id}")
+
+        org = user_store.get_organization_by_id(org_id)
+        return json_response({
+            "organization": {
+                "id": org.id,
+                "name": org.name,
+                "settings": org.settings,
+            },
+            "message": "Organization updated",
+        })
+
+    @handle_errors("list members")
+    @log_request("list members")
+    def _list_members(self, handler, org_id: str) -> HandlerResult:
+        """List organization members."""
+        user, auth_ctx = self._get_current_user(handler)
+        has_access, err = self._check_org_access(user, org_id)
+        if not has_access:
+            return error_response(err, 403 if user else 401)
+
+        user_store = self._get_user_store()
+        members = user_store.get_org_members(org_id)
+
+        return json_response({
+            "members": [
+                {
+                    "id": m.id,
+                    "email": m.email,
+                    "name": m.name,
+                    "role": m.role,
+                    "is_active": m.is_active,
+                    "created_at": m.created_at.isoformat(),
+                    "last_login_at": m.last_login_at.isoformat() if m.last_login_at else None,
+                }
+                for m in members
+            ],
+            "count": len(members),
+        })
+
+    @handle_errors("invite member")
+    @log_request("invite member")
+    def _invite_member(self, handler, org_id: str) -> HandlerResult:
+        """Invite a user to the organization."""
+        user, auth_ctx = self._get_current_user(handler)
+        has_access, err = self._check_org_access(user, org_id, min_role="admin")
+        if not has_access:
+            return error_response(err, 403 if user else 401)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        email = body.get("email", "").strip().lower()
+        role = body.get("role", "member")
+
+        if not email:
+            return error_response("Email is required", 400)
+
+        if role not in ["member", "admin"]:
+            return error_response("Invalid role. Must be 'member' or 'admin'", 400)
+
+        # Check org limits
+        user_store = self._get_user_store()
+        org = user_store.get_organization_by_id(org_id)
+        if not org:
+            return error_response("Organization not found", 404)
+
+        members = user_store.get_org_members(org_id)
+        if len(members) >= org.limits.users_per_org:
+            return error_response(
+                f"Organization member limit reached ({org.limits.users_per_org}). "
+                "Upgrade your plan to add more members.",
+                403
+            )
+
+        # Check if user exists
+        existing_user = user_store.get_user_by_email(email)
+
+        if existing_user:
+            if existing_user.org_id == org_id:
+                return error_response("User is already a member of this organization", 400)
+
+            if existing_user.org_id:
+                return error_response(
+                    "User is already a member of another organization. "
+                    "They must leave their current organization first.",
+                    400
+                )
+
+            # Add existing user to org
+            success = user_store.add_user_to_org(existing_user.id, org_id, role)
+            if not success:
+                return error_response("Failed to add user to organization", 500)
+
+            logger.info(f"User {existing_user.id} added to org {org_id} by {user.id}")
+
+            return json_response({
+                "message": f"User {email} added to organization",
+                "user_id": existing_user.id,
+                "role": role,
+            })
+
+        # User doesn't exist - create invitation
+        # Check if there's already a pending invitation for this email
+        existing_invite = self._get_invitation_by_email(org_id, email)
+        if existing_invite and existing_invite.is_pending:
+            return error_response(
+                f"An invitation has already been sent to {email}. "
+                "It expires on " + existing_invite.expires_at.strftime("%Y-%m-%d"),
+                400
+            )
+
+        # Create new invitation
+        invitation = OrganizationInvitation(
+            org_id=org_id,
+            email=email,
+            role=role,
+            invited_by=user.id,
+            expires_at=datetime.utcnow() + timedelta(days=7),
+        )
+
+        # Store invitation (in-memory for now, production should use database)
+        self._invitations[invitation.id] = invitation
+
+        logger.info(
+            f"Invitation created: {email} invited to org {org_id} by {user.id} "
+            f"(token={invitation.token[:8]}...)"
+        )
+
+        return json_response({
+            "message": f"Invitation sent to {email}",
+            "invitation_id": invitation.id,
+            "expires_at": invitation.expires_at.isoformat(),
+            "invite_link": f"/invite/{invitation.token}",
+        }, status=201)
+
+    @handle_errors("remove member")
+    @log_request("remove member")
+    def _remove_member(self, handler, org_id: str, target_user_id: str) -> HandlerResult:
+        """Remove a member from the organization."""
+        user, auth_ctx = self._get_current_user(handler)
+        has_access, err = self._check_org_access(user, org_id, min_role="admin")
+        if not has_access:
+            return error_response(err, 403 if user else 401)
+
+        user_store = self._get_user_store()
+
+        # Get target user
+        target_user = user_store.get_user_by_id(target_user_id)
+        if not target_user:
+            return error_response("User not found", 404)
+
+        if target_user.org_id != org_id:
+            return error_response("User is not a member of this organization", 400)
+
+        # Cannot remove owner
+        if target_user.role == "owner":
+            return error_response(
+                "Cannot remove the organization owner. Transfer ownership first.",
+                403
+            )
+
+        # Cannot remove self (use leave instead)
+        if target_user.id == user.id:
+            return error_response(
+                "Cannot remove yourself. Use the leave organization option instead.",
+                400
+            )
+
+        # Only owner can remove admins
+        if target_user.role == "admin" and user.role != "owner":
+            return error_response("Only the owner can remove admin members", 403)
+
+        # Remove from org
+        success = user_store.remove_user_from_org(target_user_id)
+        if not success:
+            return error_response("Failed to remove user from organization", 500)
+
+        logger.info(f"User {target_user_id} removed from org {org_id} by {user.id}")
+
+        return json_response({
+            "message": f"User removed from organization",
+            "user_id": target_user_id,
+        })
+
+    @handle_errors("update member role")
+    @log_request("update member role")
+    def _update_member_role(self, handler, org_id: str, target_user_id: str) -> HandlerResult:
+        """Update a member's role in the organization."""
+        user, auth_ctx = self._get_current_user(handler)
+        has_access, err = self._check_org_access(user, org_id, min_role="owner")
+        if not has_access:
+            return error_response(err, 403 if user else 401)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        new_role = body.get("role", "").lower()
+        if new_role not in ["member", "admin"]:
+            return error_response("Invalid role. Must be 'member' or 'admin'", 400)
+
+        user_store = self._get_user_store()
+
+        # Get target user
+        target_user = user_store.get_user_by_id(target_user_id)
+        if not target_user:
+            return error_response("User not found", 404)
+
+        if target_user.org_id != org_id:
+            return error_response("User is not a member of this organization", 400)
+
+        # Cannot change owner's role
+        if target_user.role == "owner":
+            return error_response(
+                "Cannot change the owner's role. Transfer ownership instead.",
+                403
+            )
+
+        # Update role
+        success = user_store.update_user(target_user_id, role=new_role)
+        if not success:
+            return error_response("Failed to update user role", 500)
+
+        logger.info(f"User {target_user_id} role changed to {new_role} in org {org_id} by {user.id}")
+
+        return json_response({
+            "message": f"User role updated to {new_role}",
+            "user_id": target_user_id,
+            "role": new_role,
+        })
+
+    # =========================================================================
+    # Invitation Helper Methods
+    # =========================================================================
+
+    def _get_invitation_by_email(
+        self, org_id: str, email: str
+    ) -> Optional[OrganizationInvitation]:
+        """Find a pending invitation by org and email."""
+        for invitation in self._invitations.values():
+            if invitation.org_id == org_id and invitation.email == email:
+                return invitation
+        return None
+
+    def _get_invitation_by_token(self, token: str) -> Optional[OrganizationInvitation]:
+        """Find an invitation by token."""
+        for invitation in self._invitations.values():
+            if invitation.token == token:
+                return invitation
+        return None
+
+    def _get_invitations_by_email(self, email: str) -> list[OrganizationInvitation]:
+        """Get all pending invitations for an email address."""
+        return [
+            inv for inv in self._invitations.values()
+            if inv.email == email and inv.is_pending
+        ]
+
+    def _get_invitations_for_org(self, org_id: str) -> list[OrganizationInvitation]:
+        """Get all invitations for an organization."""
+        return [
+            inv for inv in self._invitations.values()
+            if inv.org_id == org_id
+        ]
+
+    # =========================================================================
+    # Invitation Endpoints
+    # =========================================================================
+
+    @handle_errors("list invitations")
+    @log_request("list invitations")
+    def _list_invitations(self, handler, org_id: str) -> HandlerResult:
+        """List all invitations for an organization."""
+        user, auth_ctx = self._get_current_user(handler)
+        has_access, err = self._check_org_access(user, org_id, min_role="admin")
+        if not has_access:
+            return error_response(err, 403 if user else 401)
+
+        invitations = self._get_invitations_for_org(org_id)
+
+        # Clean up expired invitations
+        for inv in invitations:
+            if inv.is_expired and inv.status == "pending":
+                inv.status = "expired"
+
+        return json_response({
+            "invitations": [
+                inv.to_dict() for inv in invitations
+            ],
+            "count": len(invitations),
+            "pending_count": sum(1 for inv in invitations if inv.is_pending),
+        })
+
+    @handle_errors("revoke invitation")
+    @log_request("revoke invitation")
+    def _revoke_invitation(
+        self, handler, org_id: str, invitation_id: str
+    ) -> HandlerResult:
+        """Revoke a pending invitation."""
+        user, auth_ctx = self._get_current_user(handler)
+        has_access, err = self._check_org_access(user, org_id, min_role="admin")
+        if not has_access:
+            return error_response(err, 403 if user else 401)
+
+        invitation = self._invitations.get(invitation_id)
+        if not invitation:
+            return error_response("Invitation not found", 404)
+
+        if invitation.org_id != org_id:
+            return error_response("Invitation not found", 404)
+
+        if not invitation.is_pending:
+            return error_response(
+                f"Cannot revoke invitation (status: {invitation.status})",
+                400
+            )
+
+        invitation.revoke()
+
+        logger.info(f"Invitation {invitation_id} revoked by {user.id}")
+
+        return json_response({
+            "message": "Invitation revoked",
+            "invitation_id": invitation_id,
+        })
+
+    @handle_errors("get pending invitations")
+    @log_request("get pending invitations")
+    def _get_pending_invitations(self, handler) -> HandlerResult:
+        """Get pending invitations for the authenticated user."""
+        user, auth_ctx = self._get_current_user(handler)
+        if not user:
+            return error_response("Authentication required", 401)
+
+        invitations = self._get_invitations_by_email(user.email)
+
+        # Get org names for the invitations
+        user_store = self._get_user_store()
+        invitation_data = []
+        for inv in invitations:
+            org = user_store.get_organization_by_id(inv.org_id) if user_store else None
+            invitation_data.append({
+                **inv.to_dict(),
+                "org_name": org.name if org else "Unknown Organization",
+            })
+
+        return json_response({
+            "invitations": invitation_data,
+            "count": len(invitation_data),
+        })
+
+    @handle_errors("accept invitation")
+    @log_request("accept invitation")
+    def _accept_invitation(self, handler, token: str) -> HandlerResult:
+        """Accept an organization invitation."""
+        user, auth_ctx = self._get_current_user(handler)
+        if not user:
+            return error_response("Authentication required", 401)
+
+        invitation = self._get_invitation_by_token(token)
+        if not invitation:
+            return error_response("Invitation not found or expired", 404)
+
+        if not invitation.is_pending:
+            return error_response(
+                f"Invitation is no longer valid (status: {invitation.status})",
+                400
+            )
+
+        # Verify the invitation is for this user's email
+        if invitation.email.lower() != user.email.lower():
+            return error_response(
+                "This invitation was sent to a different email address",
+                403
+            )
+
+        # Check if user is already in an organization
+        if user.org_id:
+            return error_response(
+                "You are already a member of an organization. "
+                "Leave your current organization first.",
+                400
+            )
+
+        # Check org limits
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
+
+        org = user_store.get_organization_by_id(invitation.org_id)
+        if not org:
+            return error_response("Organization no longer exists", 404)
+
+        members = user_store.get_org_members(invitation.org_id)
+        if len(members) >= org.limits.users_per_org:
+            return error_response(
+                "Organization has reached its member limit",
+                403
+            )
+
+        # Add user to organization
+        success = user_store.add_user_to_org(user.id, invitation.org_id, invitation.role)
+        if not success:
+            return error_response("Failed to join organization", 500)
+
+        # Mark invitation as accepted
+        invitation.accept()
+
+        logger.info(
+            f"User {user.id} accepted invitation to org {invitation.org_id} "
+            f"with role {invitation.role}"
+        )
+
+        return json_response({
+            "message": f"Successfully joined {org.name}",
+            "organization": {
+                "id": org.id,
+                "name": org.name,
+                "slug": org.slug,
+            },
+            "role": invitation.role,
+        })
+
+
+__all__ = ["OrganizationsHandler"]
