@@ -123,6 +123,9 @@ class MetricsHandler(BaseHandler):
         if path == "/api/metrics/cache":
             return self._get_cache_stats()
 
+        if path == "/api/metrics/verification":
+            return self._get_verification_stats()
+
         if path == "/api/metrics/system":
             return self._get_system_info()
 
@@ -300,6 +303,22 @@ class MetricsHandler(BaseHandler):
         except Exception as e:
             logger.error("Failed to get cache stats: %s", e, exc_info=True)
             return error_response(f"Failed to get cache stats: {e}", 500)
+
+    def _get_verification_stats(self) -> HandlerResult:
+        """Get formal verification statistics.
+
+        Returns metrics on Z3 claim verification including:
+        - Total claims processed
+        - Z3 verification outcomes (verified, disproved, timeout, failed)
+        - Confidence fallback count
+        - Average verification time
+        """
+        try:
+            stats = get_verification_stats()
+            return json_response(stats)
+        except Exception as e:
+            logger.error("Failed to get verification stats: %s", e, exc_info=True)
+            return error_response(f"Failed to get verification stats: {e}", 500)
 
     def _get_system_info(self) -> HandlerResult:
         """Get system information."""
