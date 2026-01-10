@@ -192,7 +192,12 @@ class FeedbackPhase:
         self._record_evolution_patterns(ctx)
 
     def _record_calibration(self, ctx: "DebateContext") -> None:
-        """Record calibration data from agent votes with confidence."""
+        """Record calibration data from agent votes with confidence.
+
+        Tracks (confidence, outcome) pairs for measuring prediction accuracy.
+        Each vote with confidence is recorded as a calibration data point,
+        comparing the voted choice against the actual debate winner.
+        """
         if not self.calibration_tracker:
             return
 
@@ -201,25 +206,32 @@ class FeedbackPhase:
             return
 
         # Determine the actual outcome
-        outcome = result.winner or "no_consensus"
+        actual_winner = result.winner or "no_consensus"
 
         try:
             # Record each vote with confidence as a calibration data point
+            recorded = 0
             for vote in result.votes:
                 # Check if vote has confidence attribute
                 confidence = getattr(vote, 'confidence', None)
                 if confidence is None:
                     continue
 
-                # Record the prediction
-                self.calibration_tracker.record_prediction(
-                    agent_name=vote.voter,
-                    prediction=vote.choice,
-                    confidence=confidence,
-                    outcome=outcome,
-                )
+                # Determine if the prediction was correct
+                # A vote is "correct" if the voted choice matches the actual winner
+                correct = (vote.choice == actual_winner)
 
-            logger.debug(f"[calibration] Recorded {len(result.votes)} predictions")
+                # Record the prediction with correct parameter names
+                self.calibration_tracker.record_prediction(
+                    agent=vote.voter,
+                    confidence=confidence,
+                    correct=correct,
+                    debate_id=getattr(result, 'debate_id', ''),
+                )
+                recorded += 1
+
+            if recorded > 0:
+                logger.debug(f"[calibration] Recorded {recorded} predictions")
         except Exception as e:
             logger.warning(f"[calibration] Failed to record: {e}")
 
