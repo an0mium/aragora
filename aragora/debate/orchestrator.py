@@ -972,7 +972,7 @@ class Arena:
                     elo = self.elo_system.get_rating(agent.name)
                     # Normalize: 1000 is average, each 100 points = 0.1 bonus
                     score += (elo - 1000) / 1000 * 0.3
-                except Exception:
+                except (KeyError, AttributeError):
                     pass
 
             # Calibration contribution (well-calibrated agents get a bonus)
@@ -982,7 +982,7 @@ class Arena:
                     # Lower Brier = better calibration = higher score
                     # Brier ranges 0-1, so (1 - brier) gives 0-1 bonus
                     score += (1 - brier) * 0.2
-                except Exception:
+                except (KeyError, AttributeError):
                     pass
 
             scored.append((agent, score))

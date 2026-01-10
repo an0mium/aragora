@@ -749,7 +749,7 @@ class EloSystem:
                 else:
                     # Poorly calibrated: significant penalty
                     multipliers[agent] = 1.4
-            except Exception:
+            except (KeyError, AttributeError):
                 # If calibration lookup fails, use default multiplier
                 multipliers[agent] = 1.0
 

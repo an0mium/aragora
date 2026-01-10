@@ -228,7 +228,7 @@ def check_server() -> list[CheckResult]:
                     "pass",
                     "API server running at localhost:8080"
                 ))
-    except Exception:
+    except (OSError, TimeoutError):
         results.append(CheckResult(
             "server",
             "warn",

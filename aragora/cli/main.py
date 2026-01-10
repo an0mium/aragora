@@ -228,7 +228,7 @@ def cmd_status(args: argparse.Namespace) -> None:
                 print(f"  ✓ Server running at {server_url}")
             else:
                 print(f"  ⚠ Server returned status {resp.status}")
-    except Exception:
+    except (OSError, TimeoutError):
         print(f"  ✗ Server not reachable at {server_url}")
 
     # Check database

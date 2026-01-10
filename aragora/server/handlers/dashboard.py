@@ -677,7 +677,7 @@ class DashboardHandler(BaseHandler):
                                 "debates_count": version.debates_count,
                             }
                             metrics["total_versions"] += version.version
-                    except Exception:
+                    except (AttributeError, KeyError):
                         pass
 
                 # Get pattern count
