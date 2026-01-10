@@ -42,6 +42,24 @@ class TrendingTopic:
         return f"Debate the implications of trending topic: '{self.topic}' ({self.platform}, {self.volume} engagement)"
 
 
+@dataclass
+class TrendingTopicOutcome:
+    """Records the outcome of a debate on a trending topic.
+
+    This enables analytics on which trending topics lead to productive debates.
+    """
+
+    topic: str
+    platform: str
+    debate_id: str
+    consensus_reached: bool
+    confidence: float
+    rounds_used: int = 0
+    timestamp: float = field(default_factory=time.time)
+    category: str = ""
+    volume: int = 0  # Original volume at debate time
+
+
 class PulseIngestor(ABC):
     """Abstract base class for social media ingestors."""
 
@@ -415,6 +433,9 @@ class PulseManager:
 
     def __init__(self):
         self.ingestors: Dict[str, PulseIngestor] = {}
+        # Store debate outcomes for analytics
+        self._outcomes: List[TrendingTopicOutcome] = []
+        self._max_outcomes: int = 1000  # Rolling window
 
     def add_ingestor(self, name: str, ingestor: PulseIngestor):
         """Add an ingestor."""
@@ -470,3 +491,143 @@ class PulseManager:
 
         # Fallback to highest volume
         return max(topics, key=lambda t: t.volume)
+
+    def record_debate_outcome(
+        self,
+        topic: str,
+        platform: str,
+        debate_id: str,
+        consensus_reached: bool,
+        confidence: float,
+        rounds_used: int = 0,
+        category: str = "",
+        volume: int = 0,
+    ) -> TrendingTopicOutcome:
+        """Record the outcome of a debate on a trending topic.
+
+        This enables analytics on which trending topics lead to productive debates.
+
+        Args:
+            topic: The trending topic text
+            platform: Source platform (twitter, hackernews, reddit)
+            debate_id: Unique debate identifier
+            consensus_reached: Whether the debate reached consensus
+            confidence: Final confidence score (0-1)
+            rounds_used: Number of debate rounds
+            category: Topic category (tech, politics, etc.)
+            volume: Original engagement volume
+
+        Returns:
+            The created TrendingTopicOutcome record
+        """
+        outcome = TrendingTopicOutcome(
+            topic=topic,
+            platform=platform,
+            debate_id=debate_id,
+            consensus_reached=consensus_reached,
+            confidence=confidence,
+            rounds_used=rounds_used,
+            category=category,
+            volume=volume,
+        )
+
+        self._outcomes.append(outcome)
+
+        # Trim to max size (rolling window)
+        if len(self._outcomes) > self._max_outcomes:
+            self._outcomes = self._outcomes[-self._max_outcomes:]
+
+        logger.info(
+            f"[pulse] Recorded debate outcome: {platform}/{topic[:50]}... "
+            f"(consensus={consensus_reached}, confidence={confidence:.2f})"
+        )
+
+        return outcome
+
+    def get_analytics(self) -> Dict[str, Any]:
+        """Get analytics on trending topic debate outcomes.
+
+        Returns:
+            Dictionary with analytics data including:
+            - total_debates: Total debates with trending topics
+            - consensus_rate: Percentage that reached consensus
+            - avg_confidence: Average confidence score
+            - by_platform: Breakdown by platform
+            - by_category: Breakdown by category
+            - recent_outcomes: Last 10 outcomes
+        """
+        if not self._outcomes:
+            return {
+                "total_debates": 0,
+                "consensus_rate": 0.0,
+                "avg_confidence": 0.0,
+                "by_platform": {},
+                "by_category": {},
+                "recent_outcomes": [],
+            }
+
+        total = len(self._outcomes)
+        consensus_count = sum(1 for o in self._outcomes if o.consensus_reached)
+        avg_confidence = sum(o.confidence for o in self._outcomes) / total
+
+        # Group by platform
+        by_platform: Dict[str, Dict[str, Any]] = {}
+        for outcome in self._outcomes:
+            if outcome.platform not in by_platform:
+                by_platform[outcome.platform] = {
+                    "total": 0,
+                    "consensus_count": 0,
+                    "confidence_sum": 0.0,
+                }
+            by_platform[outcome.platform]["total"] += 1
+            if outcome.consensus_reached:
+                by_platform[outcome.platform]["consensus_count"] += 1
+            by_platform[outcome.platform]["confidence_sum"] += outcome.confidence
+
+        # Calculate platform stats
+        for platform, stats in by_platform.items():
+            stats["consensus_rate"] = stats["consensus_count"] / stats["total"] if stats["total"] > 0 else 0.0
+            stats["avg_confidence"] = stats["confidence_sum"] / stats["total"] if stats["total"] > 0 else 0.0
+            del stats["confidence_sum"]
+
+        # Group by category
+        by_category: Dict[str, Dict[str, Any]] = {}
+        for outcome in self._outcomes:
+            cat = outcome.category or "general"
+            if cat not in by_category:
+                by_category[cat] = {
+                    "total": 0,
+                    "consensus_count": 0,
+                    "confidence_sum": 0.0,
+                }
+            by_category[cat]["total"] += 1
+            if outcome.consensus_reached:
+                by_category[cat]["consensus_count"] += 1
+            by_category[cat]["confidence_sum"] += outcome.confidence
+
+        # Calculate category stats
+        for cat, stats in by_category.items():
+            stats["consensus_rate"] = stats["consensus_count"] / stats["total"] if stats["total"] > 0 else 0.0
+            stats["avg_confidence"] = stats["confidence_sum"] / stats["total"] if stats["total"] > 0 else 0.0
+            del stats["confidence_sum"]
+
+        # Recent outcomes (last 10)
+        recent = [
+            {
+                "topic": o.topic[:100],
+                "platform": o.platform,
+                "consensus_reached": o.consensus_reached,
+                "confidence": o.confidence,
+                "timestamp": o.timestamp,
+            }
+            for o in self._outcomes[-10:]
+        ]
+
+        return {
+            "total_debates": total,
+            "consensus_rate": consensus_count / total,
+            "avg_confidence": avg_confidence,
+            "by_platform": by_platform,
+            "by_category": by_category,
+            "recent_outcomes": recent,
+        }

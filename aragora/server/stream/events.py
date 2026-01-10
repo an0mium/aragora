@@ -73,6 +73,9 @@ class StreamEventType(Enum):
     # Position tracking events
     FLIP_DETECTED = "flip_detected"      # Agent position reversal detected
 
+    # Rhetorical analysis events
+    RHETORICAL_OBSERVATION = "rhetorical_observation"  # Rhetorical pattern detected
+
     # Human intervention breakpoint events
     BREAKPOINT = "breakpoint"            # Human intervention breakpoint triggered
     BREAKPOINT_RESOLVED = "breakpoint_resolved"  # Breakpoint resolved with guidance

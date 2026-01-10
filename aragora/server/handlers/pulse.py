@@ -4,6 +4,7 @@ Pulse and trending topics endpoint handlers.
 Endpoints:
 - GET /api/pulse/trending - Get trending topics from multiple sources
 - GET /api/pulse/suggest - Suggest a trending topic for debate
+- GET /api/pulse/analytics - Get analytics on trending topic debate outcomes
 """
 
 import logging
@@ -19,12 +20,39 @@ from .base import (
 )
 
 
+# Shared PulseManager singleton for analytics tracking
+# This allows FeedbackPhase to record outcomes that persist across requests
+_shared_pulse_manager = None
+
+
+def get_pulse_manager():
+    """Get or create the shared PulseManager singleton.
+
+    Returns:
+        PulseManager instance for recording and retrieving analytics
+    """
+    global _shared_pulse_manager
+    if _shared_pulse_manager is None:
+        try:
+            from aragora.pulse.ingestor import (
+                PulseManager, TwitterIngestor, HackerNewsIngestor, RedditIngestor
+            )
+            _shared_pulse_manager = PulseManager()
+            _shared_pulse_manager.add_ingestor("hackernews", HackerNewsIngestor())
+            _shared_pulse_manager.add_ingestor("reddit", RedditIngestor())
+            _shared_pulse_manager.add_ingestor("twitter", TwitterIngestor())
+        except ImportError:
+            return None
+    return _shared_pulse_manager
+
+
 class PulseHandler(BaseHandler):
     """Handler for pulse/trending topic endpoints."""
 
     ROUTES = [
         "/api/pulse/trending",
         "/api/pulse/suggest",
+        "/api/pulse/analytics",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -44,6 +72,9 @@ class PulseHandler(BaseHandler):
                 if not is_valid:
                     return error_response(err, 400)
             return self._suggest_debate_topic(category)
+
+        if path == "/api/pulse/analytics":
+            return self._get_analytics()
 
         return None
 
@@ -168,3 +199,25 @@ class PulseHandler(BaseHandler):
 
         except Exception as e:
             return error_response(f"Failed to suggest debate topic: {e}", 500)
+
+    def _get_analytics(self) -> HandlerResult:
+        """Get analytics on trending topic debate outcomes.
+
+        Returns analytics data including:
+        - total_debates: Total number of debates with trending topics
+        - consensus_rate: Percentage that reached consensus
+        - avg_confidence: Average confidence score
+        - by_platform: Breakdown by source platform
+        - by_category: Breakdown by topic category
+        - recent_outcomes: Last 10 debate outcomes
+        """
+        manager = get_pulse_manager()
+        if not manager:
+            return error_response("Pulse module not available", 503)
+
+        try:
+            analytics = manager.get_analytics()
+            return json_response(analytics)
+
+        except Exception as e:
+            return error_response(f"Failed to get pulse analytics: {e}", 500)
