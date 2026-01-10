@@ -356,10 +356,49 @@ class MemoryManager:
 
             if stored_count > 0:
                 logger.info(f"  [continuum] Stored {stored_count} evidence snippets for future retrieval")
+                # Emit EVIDENCE_FOUND event for real-time panel updates
+                self._emit_evidence_found(stored_count, domain, task, evidence_snippets[:stored_count])
 
         except Exception as e:
             _, msg, exc_info = _build_error_action(e, "continuum")
             logger.warning(f"  [continuum] Failed to store evidence: {msg}", exc_info=exc_info)
+
+    def _emit_evidence_found(
+        self,
+        count: int,
+        domain: str,
+        task: str,
+        snippets: list,
+    ) -> None:
+        """Emit EVIDENCE_FOUND event to WebSocket."""
+        if not self.event_emitter:
+            return
+
+        try:
+            from aragora.server.stream import StreamEvent, StreamEventType
+
+            # Build snippet summaries for the event
+            snippet_summaries = []
+            for snippet in snippets[:5]:  # Limit to 5 in event
+                content = getattr(snippet, 'content', str(snippet))[:150]
+                source = getattr(snippet, 'source', 'unknown')
+                snippet_summaries.append({
+                    "content": content,
+                    "source": source,
+                })
+
+            self.event_emitter.emit(StreamEvent(
+                type=StreamEventType.EVIDENCE_FOUND,
+                loop_id=self.loop_id,
+                data={
+                    "count": count,
+                    "domain": domain,
+                    "task": task[:100],
+                    "snippets": snippet_summaries,
+                }
+            ))
+        except Exception as e:
+            logger.debug(f"Evidence event emission error: {e}")
 
     def update_memory_outcomes(self, result: "DebateResult") -> None:
         """Update retrieved memories based on debate outcome.

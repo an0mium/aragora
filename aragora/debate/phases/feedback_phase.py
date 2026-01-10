@@ -191,6 +191,53 @@ class FeedbackPhase:
         # 17. Record evolution patterns from high-confidence debates
         self._record_evolution_patterns(ctx)
 
+        # 18. Assess domain risks and emit warnings
+        self._assess_risks(ctx)
+
+    def _assess_risks(self, ctx: "DebateContext") -> None:
+        """Assess domain-specific risks and emit RISK_WARNING events.
+
+        Analyzes the debate topic for safety-sensitive domains (medical, legal,
+        financial, etc.) and emits warnings for real-time panel updates.
+        """
+        if not self.event_emitter:
+            return
+
+        try:
+            from aragora.debate.risk_assessor import assess_debate_risk
+            from aragora.server.stream import StreamEvent, StreamEventType
+
+            # Assess risks for the debate topic
+            risks = assess_debate_risk(ctx.env.task, domain=ctx.domain)
+
+            for risk in risks:
+                self.event_emitter.emit(StreamEvent(
+                    type=StreamEventType.RISK_WARNING,
+                    loop_id=self.loop_id,
+                    data={
+                        "level": risk.level.value,
+                        "domain": risk.domain,
+                        "category": risk.category,
+                        "description": risk.description,
+                        "mitigations": risk.mitigations,
+                        "confidence": risk.confidence,
+                        "debate_id": ctx.debate_id,
+                    }
+                ))
+
+            if risks:
+                logger.info(
+                    "[risk] Identified %d risks for debate %s: %s",
+                    len(risks),
+                    ctx.debate_id,
+                    [r.level.value for r in risks],
+                )
+
+        except ImportError:
+            logger.debug("Risk assessment unavailable: module not found")
+        except Exception as e:
+            logger.debug(f"Risk assessment error: {e}")
+
     def _record_calibration(self, ctx: "DebateContext") -> None:
         """Record calibration data from agent votes with confidence.
 
@@ -232,8 +279,37 @@ class FeedbackPhase:
 
             if recorded > 0:
                 logger.debug(f"[calibration] Recorded {recorded} predictions")
+                # Emit CALIBRATION_UPDATE event for real-time panel updates
+                self._emit_calibration_update(ctx, recorded)
         except Exception as e:
             logger.warning(f"[calibration] Failed to record: {e}")
+
+    def _emit_calibration_update(self, ctx: "DebateContext", recorded_count: int) -> None:
+        """Emit CALIBRATION_UPDATE event to WebSocket."""
+        if not self.event_emitter or not self.calibration_tracker:
+            return
+
+        try:
+            from aragora.server.stream import StreamEvent, StreamEventType
+
+            # Get summary stats from calibration tracker
+            summary = {}
+            if hasattr(self.calibration_tracker, 'get_summary'):
+                summary = self.calibration_tracker.get_summary()
+
+            self.event_emitter.emit(StreamEvent(
+                type=StreamEventType.CALIBRATION_UPDATE,
+                loop_id=self.loop_id,
+                data={
+                    "debate_id": ctx.debate_id,
+                    "predictions_recorded": recorded_count,
+                    "total_predictions": summary.get("total_predictions", 0),
+                    "overall_accuracy": summary.get("overall_accuracy", 0.0),
+                    "domain": ctx.domain,
+                }
+            ))
+        except Exception as e:
+            logger.debug(f"Calibration event emission error: {e}")
 
     def _record_pulse_outcome(self, ctx: "DebateContext") -> None:
         """Record pulse outcome if the debate was on a trending topic.
@@ -380,9 +456,107 @@ class FeedbackPhase:
                     domain=ctx.domain,
                     success=success,
                 )
+
+            # Check for trait emergence after performance updates
+            self._check_trait_emergence(ctx)
         except Exception as e:
             _, msg, exc_info = _build_error_action(e, "persona")
             logger.warning("Persona update failed: %s", msg, exc_info=exc_info)
+
+    def _check_trait_emergence(self, ctx: "DebateContext") -> None:
+        """Check if any new agent traits emerged from performance patterns.
+
+        Traits emerge when an agent demonstrates consistent behavior patterns:
+        - High win rates in specific domains
+        - Consistent prediction accuracy
+        - Distinct communication styles
+        """
+        if not self.persona_manager or not self.event_emitter:
+            return
+
+        try:
+            from aragora.server.stream import StreamEvent, StreamEventType
+
+            for agent in ctx.agents:
+                # Get agent's current traits
+                persona = self.persona_manager.get_persona(agent.name)
+                if not persona:
+                    continue
+
+                # Check for newly emerged traits
+                new_traits = getattr(persona, 'emerging_traits', [])
+                if not new_traits:
+                    # Try to detect traits from performance history
+                    new_traits = self._detect_emerging_traits(agent.name, ctx)
+
+                for trait in new_traits:
+                    self.event_emitter.emit(StreamEvent(
+                        type=StreamEventType.TRAIT_EMERGED,
+                        loop_id=self.loop_id,
+                        data={
+                            "agent": agent.name,
+                            "trait": trait.get("name", "unknown"),
+                            "description": trait.get("description", ""),
+                            "confidence": trait.get("confidence", 0.5),
+                            "domain": ctx.domain,
+                            "debate_id": ctx.debate_id,
+                        }
+                    ))
+                    logger.info(
+                        "[persona] Trait emerged for %s: %s",
+                        agent.name, trait.get("name", "unknown")
+                    )
+
+        except Exception as e:
+            logger.debug(f"Trait emergence check error: {e}")
+
+    def _detect_emerging_traits(self, agent_name: str, ctx: "DebateContext") -> list:
+        """Detect traits based on agent performance patterns.
+
+        Returns list of trait dicts with name, description, confidence.
+        """
+        traits = []
+
+        try:
+            # Get performance stats if available
+            if not hasattr(self.persona_manager, 'get_performance_stats'):
+                return traits
+
+            stats = self.persona_manager.get_performance_stats(agent_name)
+            if not stats:
+                return traits
+
+            # Domain specialist: High win rate in specific domain
+            domain_wins = stats.get('domain_wins', {})
+            if ctx.domain in domain_wins and domain_wins[ctx.domain] >= 3:
+                traits.append({
+                    "name": f"{ctx.domain}_specialist",
+                    "description": f"Demonstrated expertise in {ctx.domain} domain",
+                    "confidence": min(0.9, 0.5 + (domain_wins[ctx.domain] * 0.1)),
+                })
+
+            # High calibration: Consistent accurate predictions
+            accuracy = stats.get('prediction_accuracy', 0.0)
+            if accuracy >= 0.8 and stats.get('total_predictions', 0) >= 5:
+                traits.append({
+                    "name": "well_calibrated",
+                    "description": f"Highly accurate predictions ({accuracy:.0%})",
+                    "confidence": accuracy,
+                })
+
+            # Consistent winner: High overall win rate
+            win_rate = stats.get('win_rate', 0.0)
+            if win_rate >= 0.7 and stats.get('total_debates', 0) >= 5:
+                traits.append({
+                    "name": "consistent_winner",
+                    "description": f"Wins {win_rate:.0%} of debates",
+                    "confidence": win_rate,
+                })
+
+        except Exception as e:
+            logger.debug(f"Trait detection error for {agent_name}: {e}")
+
+        return traits
 
     def _resolve_positions(self, ctx: "DebateContext") -> None:
         """Resolve positions in PositionLedger."""
@@ -927,12 +1101,18 @@ class FeedbackPhase:
 
             # Emit event if event_emitter available
             if self.event_emitter:
-                self.event_emitter.emit(
-                    "genesis_evolution",
-                    generation=evolved.generation,
-                    genome_count=len(evolved.genomes),
+                from aragora.server.stream import StreamEvent, StreamEventType
+
+                self.event_emitter.emit(StreamEvent(
+                    type=StreamEventType.GENESIS_EVOLUTION,
                     loop_id=self.loop_id,
-                )
+                    data={
+                        "generation": evolved.generation,
+                        "genome_count": len(evolved.genomes),
+                        "population_id": getattr(population, 'id', ''),
+                        "top_fitness": getattr(evolved, 'top_fitness', 0.0),
+                    }
+                ))
 
         except Exception as e:
             logger.warning("[genesis] Evolution failed: %s", e)
