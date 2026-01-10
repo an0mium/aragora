@@ -3,6 +3,8 @@ Broadcast generation handler.
 
 Endpoints:
 - POST /api/debates/{id}/broadcast - Generate podcast audio from debate trace
+- POST /api/debates/{id}/broadcast/full - Run full broadcast pipeline
+- GET /api/podcast/feed.xml - Get RSS podcast feed
 """
 
 import logging
@@ -17,6 +19,9 @@ from .base import (
     HandlerResult,
     json_response,
     error_response,
+    get_bool_param,
+    get_string_param,
+    get_int_param,
     SAFE_SLUG_PATTERN,
 )
 from aragora.server.error_utils import safe_error_message as _safe_error_message
@@ -33,6 +38,14 @@ except ImportError:
     broadcast_debate = None
 
 try:
+    from aragora.broadcast.pipeline import BroadcastPipeline, BroadcastOptions
+    PIPELINE_AVAILABLE = True
+except ImportError:
+    PIPELINE_AVAILABLE = False
+    BroadcastPipeline = None
+    BroadcastOptions = None
+
+try:
     from mutagen.mp3 import MP3
     MUTAGEN_AVAILABLE = True
 except ImportError:
@@ -46,25 +59,41 @@ def _run_async(coro: Coroutine[Any, Any, T]) -> T:
 
 
 class BroadcastHandler(BaseHandler):
-    """Handler for broadcast generation endpoint."""
+    """Handler for broadcast generation endpoints."""
 
     ROUTES = [
         "/api/debates/*/broadcast",
+        "/api/debates/*/broadcast/full",
+        "/api/podcast/feed.xml",
     ]
+
+    # Cached pipeline instance
+    _pipeline: Optional["BroadcastPipeline"] = None
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the request."""
-        if path.startswith('/api/debates/') and path.endswith('/broadcast'):
+        if path.startswith('/api/debates/') and '/broadcast' in path:
+            return True
+        if path == '/api/podcast/feed.xml':
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
-        """Handle GET requests (none for this handler)."""
+        """Handle GET requests."""
+        if path == '/api/podcast/feed.xml':
+            return self._get_rss_feed()
         return None
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests."""
-        # Broadcast generation
+        # Full pipeline
+        if path.startswith('/api/debates/') and path.endswith('/broadcast/full'):
+            debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
+            if err:
+                return err
+            return self._run_full_pipeline(debate_id, query_params, handler)
+
+        # Basic broadcast generation
         if path.startswith('/api/debates/') and path.endswith('/broadcast'):
             debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
             if err:
@@ -72,6 +101,87 @@ class BroadcastHandler(BaseHandler):
             return self._generate_broadcast(debate_id, handler)
 
         return None
+
+    def _get_pipeline(self) -> Optional["BroadcastPipeline"]:
+        """Get or create the broadcast pipeline."""
+        if not PIPELINE_AVAILABLE:
+            return None
+
+        if self._pipeline is None:
+            nomic_dir = self.get_nomic_dir()
+            if nomic_dir:
+                audio_store = self.ctx.get("audio_store")
+                self._pipeline = BroadcastPipeline(
+                    nomic_dir=nomic_dir,
+                    audio_store=audio_store,
+                )
+        return self._pipeline
+
+    @rate_limit(requests_per_minute=2, burst=1, limiter_name="broadcast_full_pipeline")
+    def _run_full_pipeline(
+        self, debate_id: str, query_params: dict, handler
+    ) -> HandlerResult:
+        """Run the full broadcast pipeline with all options.
+
+        Query params:
+            video: bool - Generate video (default: false)
+            title: str - Custom title
+            description: str - Custom description
+            episode_number: int - Episode number for RSS
+        """
+        pipeline = self._get_pipeline()
+        if not pipeline:
+            return error_response("Broadcast pipeline not available", status=503)
+
+        # Parse options from query params
+        options = BroadcastOptions(
+            audio_enabled=True,
+            video_enabled=get_bool_param(query_params, 'video', False),
+            generate_rss_episode=get_bool_param(query_params, 'rss', True),
+            custom_title=get_string_param(query_params, 'title'),
+            custom_description=get_string_param(query_params, 'description'),
+            episode_number=get_int_param(query_params, 'episode_number'),
+        )
+
+        try:
+            result = _run_async(pipeline.run(debate_id, options))
+
+            return json_response({
+                "debate_id": result.debate_id,
+                "success": result.success,
+                "audio_path": str(result.audio_path) if result.audio_path else None,
+                "audio_url": f"/audio/{debate_id}.mp3" if result.audio_path else None,
+                "video_path": str(result.video_path) if result.video_path else None,
+                "video_url": f"/video/{debate_id}.mp4" if result.video_path else None,
+                "rss_episode_guid": result.rss_episode_guid,
+                "duration_seconds": result.duration_seconds,
+                "steps_completed": result.steps_completed,
+                "generated_at": result.generated_at,
+                "error": result.error_message,
+            })
+        except Exception as e:
+            logger.error(f"Pipeline failed for {debate_id}: {e}", exc_info=True)
+            return error_response(_safe_error_message(e, "broadcast_pipeline"), status=500)
+
+    def _get_rss_feed(self) -> HandlerResult:
+        """Get the RSS podcast feed."""
+        pipeline = self._get_pipeline()
+        if not pipeline:
+            return error_response("Broadcast pipeline not available", status=503)
+
+        feed_xml = pipeline.get_rss_feed()
+        if not feed_xml:
+            # Return empty feed if no episodes yet
+            try:
+                from aragora.broadcast.rss_gen import PodcastFeedGenerator, PodcastConfig
+                config = PodcastConfig()
+                generator = PodcastFeedGenerator(config)
+                feed_xml = generator.generate()
+            except ImportError:
+                return error_response("RSS generator not available", status=503)
+
+        # Return XML with correct content type
+        return (feed_xml.encode('utf-8'), 200, "application/rss+xml; charset=utf-8")
 
     @rate_limit(requests_per_minute=3, burst=2, limiter_name="broadcast_generation")
     def _generate_broadcast(self, debate_id: str, handler) -> HandlerResult:

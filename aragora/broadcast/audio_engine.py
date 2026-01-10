@@ -6,9 +6,12 @@ Uses edge-tts for high-quality text-to-speech generation.
 
 import asyncio
 import hashlib
+import importlib.util
 import logging
 import tempfile
 import os
+import shutil
+import sys
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -22,7 +25,7 @@ VOICE_MAP: Dict[str, str] = {
     "codex-engineer": "en-US-GuyNeural",
     "gemini-visionary": "en-AU-NatashaNeural",
     "grok-lateral-thinker": "en-US-ChristopherNeural",
-    "narrator": "en-US-ZiraNeural",  # Narrator voice
+    "narrator": "en-US-AriaNeural",  # Narrator voice
 }
 
 # Fallback TTS if edge-tts fails
@@ -36,6 +39,16 @@ except ImportError:
 def _get_voice_for_speaker(speaker: str) -> str:
     """Get voice ID for a speaker."""
     return VOICE_MAP.get(speaker, VOICE_MAP["narrator"])
+
+
+def _edge_tts_command() -> Optional[list[str]]:
+    """Resolve the edge-tts command in a venv/pyenv-safe way."""
+    cmd = shutil.which("edge-tts")
+    if cmd:
+        return [cmd]
+    if importlib.util.find_spec("edge_tts") is not None:
+        return [sys.executable, "-m", "edge_tts"]
+    return None
 
 
 async def _generate_edge_tts(
@@ -63,8 +76,11 @@ async def _generate_edge_tts(
 
     for attempt in range(max_retries):
         try:
-            cmd = [
-                "edge-tts",
+            cmd = _edge_tts_command()
+            if not cmd:
+                logger.debug("edge-tts not found in PATH or environment")
+                return False
+            cmd += [
                 "--voice", voice,
                 "--text", text,
                 "--write-media", str(output_path),
