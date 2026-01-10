@@ -5,6 +5,8 @@ import { UserParticipation } from '@/components/UserParticipation';
 import { CitationsPanel } from '@/components/CitationsPanel';
 import { TranscriptMessageCard } from './TranscriptMessageCard';
 import { StreamingMessageCard } from './StreamingMessageCard';
+import { ConsensusMeter } from './ConsensusMeter';
+import { CritiqueSeverityMeter } from './CritiqueSeverityMeter';
 import type { LiveDebateViewProps } from './types';
 
 const STATUS_CONFIG = {
@@ -79,6 +81,14 @@ export function LiveDebateView({
           </div>
         </div>
       </div>
+
+      {/* Analytics Meters - visible during streaming */}
+      {status === 'streaming' && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <ConsensusMeter events={streamEvents} agents={agents} />
+          <CritiqueSeverityMeter events={streamEvents} agents={agents} />
+        </div>
+      )}
 
       {/* Live Transcript + User Participation Grid */}
       <div className={`grid gap-4 ${showParticipation ? 'lg:grid-cols-3' : 'grid-cols-1'}`}>
