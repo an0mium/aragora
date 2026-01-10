@@ -559,12 +559,22 @@ class ConsensusPhase:
                 logger.error(f"judge_error judge={judge.name} error={e}")
                 # Continue to next candidate
 
-        # All judges failed - use fallback
-        logger.error(
-            f"judge_all_failed tried={tried_judges} falling back to first proposal"
+        # All judges failed - fall back to majority voting
+        logger.warning(
+            f"judge_all_failed tried={tried_judges} falling back to majority voting"
         )
-        result.final_answer = list(proposals.values())[0] if proposals else ""
-        result.consensus_reached = False
+
+        # Try majority consensus as fallback
+        try:
+            await self._handle_majority_consensus(ctx)
+            if result.consensus_reached:
+                logger.info("judge_fallback_majority_success")
+                return
+        except Exception as e:
+            logger.warning(f"judge_fallback_majority_failed error={e}")
+
+        # Majority also failed - use generic fallback
+        await self._handle_fallback_consensus(ctx, reason="judge_and_majority_failed")
 
     async def _collect_votes(self, ctx: "DebateContext") -> list["Vote"]:
         """Collect votes from all agents with outer timeout protection.

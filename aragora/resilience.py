@@ -22,6 +22,33 @@ logger = logging.getLogger(__name__)
 _circuit_breakers: dict[str, "CircuitBreaker"] = {}
 _circuit_breakers_lock = threading.Lock()
 
+# Configuration for circuit breaker pruning
+MAX_CIRCUIT_BREAKERS = 1000  # Maximum registry size before forced pruning
+STALE_THRESHOLD_SECONDS = 24 * 60 * 60  # 24 hours - prune if not accessed
+
+
+def _prune_stale_circuit_breakers() -> int:
+    """Remove circuit breakers not accessed within STALE_THRESHOLD_SECONDS.
+
+    Called automatically when registry exceeds MAX_CIRCUIT_BREAKERS.
+    Must be called with _circuit_breakers_lock held.
+
+    Returns:
+        Number of circuit breakers pruned.
+    """
+    now = time.time()
+    stale_names = []
+    for name, cb in _circuit_breakers.items():
+        if hasattr(cb, '_last_accessed') and (now - cb._last_accessed) > STALE_THRESHOLD_SECONDS:
+            stale_names.append(name)
+
+    for name in stale_names:
+        del _circuit_breakers[name]
+
+    if stale_names:
+        logger.info(f"Pruned {len(stale_names)} stale circuit breakers: {stale_names[:5]}...")
+    return len(stale_names)
+
 
 def get_circuit_breaker(
     name: str,
@@ -34,6 +61,9 @@ def get_circuit_breaker(
     This ensures consistent circuit breaker state across components
     for the same service/agent.
 
+    Automatically prunes stale circuit breakers (not accessed in 24h) when
+    the registry exceeds MAX_CIRCUIT_BREAKERS entries.
+
     Args:
         name: Unique identifier for this circuit breaker (e.g., "agent_claude")
         failure_threshold: Failures before opening circuit
@@ -43,13 +73,26 @@ def get_circuit_breaker(
         CircuitBreaker instance (shared if already exists)
     """
     with _circuit_breakers_lock:
+        # Prune if registry is getting too large
+        if len(_circuit_breakers) >= MAX_CIRCUIT_BREAKERS:
+            pruned = _prune_stale_circuit_breakers()
+            # If still too large after pruning, log warning
+            if len(_circuit_breakers) >= MAX_CIRCUIT_BREAKERS:
+                logger.warning(
+                    f"Circuit breaker registry still large after pruning {pruned}: "
+                    f"{len(_circuit_breakers)} entries"
+                )
+
         if name not in _circuit_breakers:
             _circuit_breakers[name] = CircuitBreaker(
                 failure_threshold=failure_threshold,
                 cooldown_seconds=cooldown_seconds,
             )
             logger.debug(f"Created circuit breaker: {name}")
-        return _circuit_breakers[name]
+
+        cb = _circuit_breakers[name]
+        cb._last_accessed = time.time()  # Update access timestamp
+        return cb
 
 
 def reset_all_circuit_breakers() -> None:
@@ -65,12 +108,28 @@ def get_circuit_breaker_status() -> dict[str, dict]:
     """Get status of all registered circuit breakers (thread-safe)."""
     with _circuit_breakers_lock:
         return {
-            name: {
-                "status": cb.get_status(),
-                "failures": cb.failures,
+            "_registry_size": len(_circuit_breakers),
+            **{
+                name: {
+                    "status": cb.get_status(),
+                    "failures": cb.failures,
+                    "last_accessed": getattr(cb, '_last_accessed', 0),
+                }
+                for name, cb in _circuit_breakers.items()
             }
-            for name, cb in _circuit_breakers.items()
         }
+
+
+def prune_circuit_breakers() -> int:
+    """Manually prune stale circuit breakers from the registry.
+
+    Removes circuit breakers not accessed within STALE_THRESHOLD_SECONDS (24h).
+
+    Returns:
+        Number of circuit breakers pruned.
+    """
+    with _circuit_breakers_lock:
+        return _prune_stale_circuit_breakers()
 
 
 class CircuitOpenError(Exception):
@@ -128,6 +187,9 @@ class CircuitBreaker:
     _single_failures: int = field(default=0, repr=False)
     _single_open_at: float = field(default=0.0, repr=False)
     _single_successes: int = field(default=0, repr=False)
+
+    # Access tracking for memory management (pruning stale circuit breakers)
+    _last_accessed: float = field(default_factory=time.time, repr=False)
 
     # Backward-compatible properties for single-entity mode
     @property

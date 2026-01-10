@@ -141,17 +141,19 @@ class OpenRouterAgent(APIAgent):
                         limiter.update_from_headers(dict(response.headers))
 
                         if response.status == 429:
-                            # Rate limited by API - release token and calculate wait time
-                            limiter.release_on_error()
+                            # Rate limited - use centralized backoff
+                            # This records failure and calculates delay with jitter
+                            backoff_delay = limiter.record_rate_limit_error(429)
+
+                            # Check for Retry-After header override
                             retry_after_header = response.headers.get("Retry-After")
                             if retry_after_header:
                                 try:
-                                    wait_time = float(retry_after_header)
+                                    wait_time = min(float(retry_after_header), 300)
                                 except ValueError:
-                                    wait_time = base_delay * (2 ** attempt)
+                                    wait_time = min(backoff_delay, 300)
                             else:
-                                wait_time = base_delay * (2 ** attempt)
-                            wait_time = min(wait_time, 300)  # Cap at 5 minutes
+                                wait_time = min(backoff_delay, 300)
 
                             if attempt < max_retries - 1:
                                 logger.warning(
@@ -177,7 +179,10 @@ class OpenRouterAgent(APIAgent):
 
                         data = await response.json()
                         try:
-                            return data["choices"][0]["message"]["content"]
+                            content = data["choices"][0]["message"]["content"]
+                            # Success - reset backoff state
+                            limiter.record_success()
+                            return content
                         except (KeyError, IndexError):
                             raise AgentAPIError(
                                 f"Unexpected OpenRouter response format: {data}",
@@ -259,17 +264,18 @@ class OpenRouterAgent(APIAgent):
                         limiter.update_from_headers(dict(response.headers))
 
                         if response.status == 429:
-                            # Rate limited by API - release token and calculate wait time
-                            limiter.release_on_error()
+                            # Rate limited - use centralized backoff
+                            backoff_delay = limiter.record_rate_limit_error(429)
+
+                            # Check for Retry-After header override
                             retry_after_header = response.headers.get("Retry-After")
                             if retry_after_header:
                                 try:
-                                    wait_time = float(retry_after_header)
+                                    wait_time = min(float(retry_after_header), 300)
                                 except ValueError:
-                                    wait_time = base_delay * (2 ** attempt)
+                                    wait_time = min(backoff_delay, 300)
                             else:
-                                wait_time = base_delay * (2 ** attempt)
-                            wait_time = min(wait_time, 300)  # Cap at 5 minutes
+                                wait_time = min(backoff_delay, 300)
 
                             if attempt < max_retries - 1:
                                 logger.warning(
@@ -297,6 +303,8 @@ class OpenRouterAgent(APIAgent):
                             parser = create_openai_sse_parser()
                             async for content in parser.parse_stream(response.content, self.name):
                                 yield content
+                            # Success - reset backoff state
+                            limiter.record_success()
                         except RuntimeError as e:
                             raise AgentStreamError(str(e), agent_name=self.name)
                         # Successfully streamed - exit retry loop

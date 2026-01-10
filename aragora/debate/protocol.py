@@ -117,9 +117,9 @@ class DebateProtocol:
     timeout_seconds: int = DEBATE_TIMEOUT_SECONDS  # Max time for entire debate
 
     # Round timeout should exceed agent timeout (AGENT_TIMEOUT_SECONDS)
-    # to allow at least one agent to complete. Default allows 1-2 agents serially
-    # or many agents in parallel. Uses AGENT_TIMEOUT + 60s margin.
-    round_timeout_seconds: int = AGENT_TIMEOUT_SECONDS + 60  # Per-round timeout
+    # to allow all parallel agents to complete. Uses 2x agent timeout for headroom
+    # covering network latency, rate limiting stagger, and processing overhead.
+    round_timeout_seconds: int = AGENT_TIMEOUT_SECONDS * 2  # Per-round timeout
 
     # Breakpoints: Human-in-the-loop intervention points
     # When enabled, debates can pause at critical moments for human guidance

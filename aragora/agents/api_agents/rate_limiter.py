@@ -2,18 +2,63 @@
 OpenRouter rate limiting infrastructure.
 
 Provides token bucket rate limiting for OpenRouter API calls,
-with configurable tiers and thread-safe operation.
+with configurable tiers, thread-safe operation, and exponential backoff.
 """
 
 import asyncio
 import logging
 import os
+import random
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ExponentialBackoff:
+    """Exponential backoff with jitter for rate limit recovery.
+
+    When quota is exhausted (429/403), uses exponential backoff to avoid
+    hammering the API. Each consecutive failure doubles the delay up to max_delay.
+    """
+    base_delay: float = 1.0  # Initial delay in seconds
+    max_delay: float = 60.0  # Maximum delay cap
+    jitter: float = 0.1  # Jitter factor (0.1 = 10% random variance)
+    failure_count: int = field(default=0, init=False)
+    _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
+
+    def get_delay(self) -> float:
+        """Calculate next delay with exponential backoff and jitter."""
+        with self._lock:
+            delay = min(self.base_delay * (2 ** self.failure_count), self.max_delay)
+            jitter_amount = delay * self.jitter
+            return delay + random.uniform(0, jitter_amount)
+
+    def record_failure(self) -> float:
+        """Record a failure and return the delay to wait."""
+        with self._lock:
+            self.failure_count += 1
+            delay = min(self.base_delay * (2 ** self.failure_count), self.max_delay)
+            jitter_amount = delay * self.jitter
+            final_delay = delay + random.uniform(0, jitter_amount)
+            logger.info(f"backoff_failure count={self.failure_count} delay={final_delay:.1f}s")
+            return final_delay
+
+    def reset(self) -> None:
+        """Reset failure count after successful request."""
+        with self._lock:
+            if self.failure_count > 0:
+                logger.debug(f"backoff_reset previous_failures={self.failure_count}")
+                self.failure_count = 0
+
+    @property
+    def is_backing_off(self) -> bool:
+        """Check if currently in backoff state."""
+        with self._lock:
+            return self.failure_count > 0
 
 
 @dataclass
@@ -60,6 +105,9 @@ class OpenRouterRateLimiter:
         self._api_remaining: Optional[int] = None
         self._api_reset: Optional[float] = None
 
+        # Exponential backoff for quota exhaustion recovery
+        self._backoff = ExponentialBackoff(base_delay=2.0, max_delay=60.0, jitter=0.15)
+
         logger.debug(f"OpenRouter rate limiter initialized: tier={self.tier.name}, rpm={self.tier.requests_per_minute}")
 
     def _refill(self) -> None:
@@ -75,9 +123,20 @@ class OpenRouterRateLimiter:
         Acquire permission to make an API request.
 
         Blocks until a token is available or timeout is reached.
+        Uses exponential backoff when recovering from rate limit errors.
         Returns True if acquired, False if timed out.
         """
         deadline = time.monotonic() + timeout
+
+        # If in backoff state, wait before trying
+        if self._backoff.is_backing_off:
+            backoff_delay = self._backoff.get_delay()
+            remaining = deadline - time.monotonic()
+            if backoff_delay > remaining:
+                logger.warning(f"Backoff delay {backoff_delay:.1f}s exceeds timeout {remaining:.1f}s")
+                return False
+            logger.info(f"rate_limiter_backoff_wait delay={backoff_delay:.1f}s")
+            await asyncio.sleep(backoff_delay)
 
         while True:
             with self._lock:
@@ -100,7 +159,11 @@ class OpenRouterRateLimiter:
                 logger.warning("OpenRouter rate limit timeout")
                 return False
 
-            wait_time = 60.0 / self.tier.requests_per_minute  # Time for 1 token
+            # Use backoff delay if in backoff state, otherwise use token refill time
+            if self._backoff.is_backing_off:
+                wait_time = min(self._backoff.get_delay(), deadline - time.monotonic())
+            else:
+                wait_time = 60.0 / self.tier.requests_per_minute  # Time for 1 token
             await asyncio.sleep(min(wait_time, 1.0))
 
     def update_from_headers(self, headers: dict) -> None:
@@ -135,6 +198,37 @@ class OpenRouterRateLimiter:
         with self._lock:
             self._tokens = min(self.tier.burst_size, self._tokens + 1.0)
 
+    def record_rate_limit_error(self, status_code: int = 429) -> float:
+        """Record a rate limit error (429/403) and return backoff delay.
+
+        Call this when the API returns a rate limit error. The limiter will
+        enter backoff state and subsequent acquire() calls will wait accordingly.
+
+        Args:
+            status_code: HTTP status code (429=rate limited, 403=quota exceeded)
+
+        Returns:
+            The recommended delay before retrying (in seconds)
+        """
+        logger.warning(f"rate_limit_error status={status_code}")
+        delay = self._backoff.record_failure()
+        # Also release the token back since request failed
+        self.release_on_error()
+        return delay
+
+    def record_success(self) -> None:
+        """Record a successful API request.
+
+        Call this after a request succeeds to reset backoff state.
+        This allows normal rate limiting to resume after recovery.
+        """
+        self._backoff.reset()
+
+    @property
+    def is_backing_off(self) -> bool:
+        """Check if currently in exponential backoff due to rate limit errors."""
+        return self._backoff.is_backing_off
+
     @property
     def stats(self) -> dict:
         """Get current rate limiter statistics."""
@@ -146,6 +240,8 @@ class OpenRouterRateLimiter:
                 "burst_size": self.tier.burst_size,
                 "api_limit": self._api_limit,
                 "api_remaining": self._api_remaining,
+                "backoff_failures": self._backoff.failure_count,
+                "is_backing_off": self._backoff.is_backing_off,
             }
 
     def request(self, timeout: float = 30.0) -> "RateLimitContext":
@@ -234,6 +330,7 @@ def set_openrouter_tier(tier: str) -> None:
 
 
 __all__ = [
+    "ExponentialBackoff",
     "OpenRouterTier",
     "OPENROUTER_TIERS",
     "OpenRouterRateLimiter",
