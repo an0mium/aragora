@@ -468,18 +468,30 @@ class GitCheckpointStore(CheckpointStore):
         self.checkpoint_dir = self.repo_path / ".checkpoints"
         self.checkpoint_dir.mkdir(exist_ok=True)
 
-    def _run_git(self, args: list[str]) -> tuple[bool, str]:
-        import subprocess
+    async def _run_git(self, args: list[str]) -> tuple[bool, str]:
+        """Run git command asynchronously (non-blocking).
+
+        Uses asyncio.create_subprocess_exec to avoid blocking the event loop.
+        """
         try:
-            result = subprocess.run(
-                ["git"] + args,
+            proc = await asyncio.create_subprocess_exec(
+                "git", *args,
                 cwd=self.repo_path,
-                capture_output=True,
-                text=True,
-                timeout=30,
-                shell=False,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
-            return result.returncode == 0, result.stdout.strip()
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(),
+                    timeout=30.0,
+                )
+                return proc.returncode == 0, stdout.decode("utf-8").strip()
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                return False, "git command timed out"
+        except FileNotFoundError:
+            return False, "git not found in PATH"
         except Exception as e:
             return False, str(e)
 
@@ -494,10 +506,10 @@ class GitCheckpointStore(CheckpointStore):
 
         # Create git branch
         branch_name = f"{self.branch_prefix}{checkpoint.checkpoint_id}"
-        self._run_git(["checkout", "-b", branch_name])
-        self._run_git(["add", str(path)])
-        self._run_git(["commit", "-m", f"Checkpoint: {checkpoint.checkpoint_id}"])
-        self._run_git(["checkout", "-"])  # Return to previous branch
+        await self._run_git(["checkout", "-b", branch_name])
+        await self._run_git(["add", str(path)])
+        await self._run_git(["commit", "-m", f"Checkpoint: {checkpoint.checkpoint_id}"])
+        await self._run_git(["checkout", "-"])  # Return to previous branch
 
         return f"git:{branch_name}"
 
@@ -515,10 +527,10 @@ class GitCheckpointStore(CheckpointStore):
 
         # Try loading from git branch
         branch_name = f"{self.branch_prefix}{checkpoint_id}"
-        success, _ = self._run_git(["show", f"{branch_name}:.checkpoints/{checkpoint_id}.json"])
+        success, _ = await self._run_git(["show", f"{branch_name}:.checkpoints/{checkpoint_id}.json"])
 
         if success:
-            success, content = self._run_git(["show", f"{branch_name}:.checkpoints/{checkpoint_id}.json"])
+            success, content = await self._run_git(["show", f"{branch_name}:.checkpoints/{checkpoint_id}.json"])
             if success:
                 data = json.loads(content)
                 return DebateCheckpoint.from_dict(data)
@@ -530,7 +542,7 @@ class GitCheckpointStore(CheckpointStore):
         debate_id: Optional[str] = None,
         limit: int = 100,
     ) -> list[dict]:
-        success, branches = self._run_git(["branch", "-a"])
+        success, branches = await self._run_git(["branch", "-a"])
         checkpoints = []
 
         if success:
@@ -553,7 +565,7 @@ class GitCheckpointStore(CheckpointStore):
 
     async def delete(self, checkpoint_id: str) -> bool:
         branch_name = f"{self.branch_prefix}{checkpoint_id}"
-        success, _ = self._run_git(["branch", "-D", branch_name])
+        success, _ = await self._run_git(["branch", "-D", branch_name])
 
         path = self.checkpoint_dir / f"{checkpoint_id}.json"
         if path.exists():

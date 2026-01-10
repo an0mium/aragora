@@ -752,42 +752,53 @@ class TestGitCheckpointStore:
     def store(self, temp_checkpoint_dir):
         return GitCheckpointStore(repo_path=str(temp_checkpoint_dir))
 
-    def test_run_git_success(self, store):
+    @pytest.mark.asyncio
+    async def test_run_git_success(self, store):
         """_run_git should return success for valid git command."""
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0, stdout="branch-name\n")
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(b"branch-name\n", b""))
 
-            success, output = store._run_git(["branch", "--show-current"])
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
+            success, output = await store._run_git(["branch", "--show-current"])
 
             assert success is True
             assert output == "branch-name"
 
-    def test_run_git_failure(self, store):
+    @pytest.mark.asyncio
+    async def test_run_git_failure(self, store):
         """_run_git should return failure for failed git command."""
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout="")
+        mock_proc = MagicMock()
+        mock_proc.returncode = 1
+        mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
 
-            success, output = store._run_git(["checkout", "nonexistent"])
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+            success, output = await store._run_git(["checkout", "nonexistent"])
 
             assert success is False
 
-    def test_run_git_timeout(self, store):
+    @pytest.mark.asyncio
+    async def test_run_git_timeout(self, store):
         """_run_git should handle timeout."""
-        with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = subprocess.TimeoutExpired(cmd="git", timeout=30)
+        mock_proc = MagicMock()
+        mock_proc.kill = MagicMock()
+        mock_proc.wait = AsyncMock()
+        mock_proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
 
-            success, output = store._run_git(["status"])
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+            success, output = await store._run_git(["status"])
 
             assert success is False
+            assert "timed out" in output
 
-    def test_run_git_exception(self, store):
+    @pytest.mark.asyncio
+    async def test_run_git_exception(self, store):
         """_run_git should handle exceptions."""
-        with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = Exception("Unexpected error")
-
-            success, output = store._run_git(["status"])
+        with patch("asyncio.create_subprocess_exec", side_effect=Exception("Unexpected error")):
+            success, output = await store._run_git(["status"])
 
             assert success is False
+            assert "Unexpected error" in output
 
     @pytest.mark.asyncio
     async def test_save_validates_checkpoint_id(self, store):

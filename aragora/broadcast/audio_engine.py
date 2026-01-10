@@ -169,8 +169,11 @@ async def _generate_edge_tts(
     return False
 
 
-def _generate_fallback_tts(text: str, output_path: Path) -> bool:
-    """Generate audio using pyttsx3 fallback."""
+def _generate_fallback_tts_sync(text: str, output_path: Path) -> bool:
+    """Generate audio using pyttsx3 fallback (synchronous).
+
+    This is a blocking function - use _generate_fallback_tts() for async contexts.
+    """
     if not FALLBACK_AVAILABLE:
         return False
 
@@ -182,6 +185,18 @@ def _generate_fallback_tts(text: str, output_path: Path) -> bool:
     except Exception as e:
         logger.debug("pyttsx3 fallback TTS failed: %s", e)
         return False
+
+
+async def _generate_fallback_tts(text: str, output_path: Path) -> bool:
+    """Generate audio using pyttsx3 fallback (non-blocking).
+
+    Runs the synchronous pyttsx3 engine in a thread pool to avoid
+    blocking the event loop.
+    """
+    if not FALLBACK_AVAILABLE:
+        return False
+
+    return await asyncio.to_thread(_generate_fallback_tts_sync, text, output_path)
 
 
 async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Optional[Path]:
@@ -222,7 +237,7 @@ async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Op
         return output_path
 
     # Fallback to pyttsx3
-    if _generate_fallback_tts(segment.text, output_path):
+    if await _generate_fallback_tts(segment.text, output_path):
         return output_path
 
     return None

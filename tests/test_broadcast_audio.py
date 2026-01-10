@@ -10,6 +10,7 @@ from aragora.broadcast.audio_engine import (
     VOICE_MAP,
     _generate_edge_tts,
     _generate_fallback_tts,
+    _generate_fallback_tts_sync,
     _get_voice_for_speaker,
     generate_audio,
     generate_audio_segment,
@@ -47,7 +48,7 @@ class TestVoiceMapping:
         """_get_voice_for_speaker returns correct voice for known speakers."""
         assert _get_voice_for_speaker("claude-visionary") == "en-GB-SoniaNeural"
         assert _get_voice_for_speaker("codex-engineer") == "en-US-GuyNeural"
-        assert _get_voice_for_speaker("narrator") == "en-US-ZiraNeural"
+        assert _get_voice_for_speaker("narrator") == "en-US-AriaNeural"
 
     def test_get_voice_for_unknown_speaker(self):
         """_get_voice_for_speaker returns narrator voice for unknown speakers."""
@@ -171,17 +172,17 @@ class TestEdgeTTS:
 class TestFallbackTTS:
     """Tests for pyttsx3 fallback TTS."""
 
-    def test_fallback_tts_unavailable(self, tmp_path):
-        """Return False when pyttsx3 is unavailable."""
+    def test_fallback_tts_sync_unavailable(self, tmp_path):
+        """Return False when pyttsx3 is unavailable (sync version)."""
         output_path = tmp_path / "test.mp3"
 
         with patch("aragora.broadcast.audio_engine.FALLBACK_AVAILABLE", False):
-            result = _generate_fallback_tts("Hello world", output_path)
+            result = _generate_fallback_tts_sync("Hello world", output_path)
 
         assert result is False
 
-    def test_fallback_tts_success(self, tmp_path):
-        """Successfully generate audio with pyttsx3 fallback."""
+    def test_fallback_tts_sync_success(self, tmp_path):
+        """Successfully generate audio with pyttsx3 fallback (sync version)."""
         output_path = tmp_path / "test.mp3"
 
         mock_engine = MagicMock()
@@ -193,14 +194,14 @@ class TestFallbackTTS:
             with patch("aragora.broadcast.audio_engine.pyttsx3", mock_pyttsx3, create=True):
                 # Simulate file creation
                 output_path.write_bytes(b"fake audio")
-                result = _generate_fallback_tts("Hello world", output_path)
+                result = _generate_fallback_tts_sync("Hello world", output_path)
 
         assert result is True
         mock_engine.save_to_file.assert_called_once()
         mock_engine.runAndWait.assert_called_once()
 
-    def test_fallback_tts_exception(self, tmp_path):
-        """Handle exceptions during pyttsx3 fallback."""
+    def test_fallback_tts_sync_exception(self, tmp_path):
+        """Handle exceptions during pyttsx3 fallback (sync version)."""
         output_path = tmp_path / "test.mp3"
 
         mock_pyttsx3 = MagicMock()
@@ -209,12 +210,12 @@ class TestFallbackTTS:
         with patch("aragora.broadcast.audio_engine.FALLBACK_AVAILABLE", True):
             # Use create=True since pyttsx3 may not be imported if not installed
             with patch("aragora.broadcast.audio_engine.pyttsx3", mock_pyttsx3, create=True):
-                result = _generate_fallback_tts("Hello world", output_path)
+                result = _generate_fallback_tts_sync("Hello world", output_path)
 
         assert result is False
 
-    def test_fallback_tts_no_file_created(self, tmp_path):
-        """Return False when pyttsx3 doesn't create file."""
+    def test_fallback_tts_sync_no_file_created(self, tmp_path):
+        """Return False when pyttsx3 doesn't create file (sync version)."""
         output_path = tmp_path / "test.mp3"
 
         mock_engine = MagicMock()
@@ -225,9 +226,32 @@ class TestFallbackTTS:
             # Use create=True since pyttsx3 may not be imported if not installed
             with patch("aragora.broadcast.audio_engine.pyttsx3", mock_pyttsx3, create=True):
                 # Don't create file
-                result = _generate_fallback_tts("Hello world", output_path)
+                result = _generate_fallback_tts_sync("Hello world", output_path)
 
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_fallback_tts_async_unavailable(self, tmp_path):
+        """Return False when pyttsx3 is unavailable (async version)."""
+        output_path = tmp_path / "test.mp3"
+
+        with patch("aragora.broadcast.audio_engine.FALLBACK_AVAILABLE", False):
+            result = await _generate_fallback_tts("Hello world", output_path)
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_fallback_tts_async_success(self, tmp_path):
+        """Async wrapper calls sync function in thread pool."""
+        output_path = tmp_path / "test.mp3"
+
+        with patch("aragora.broadcast.audio_engine._generate_fallback_tts_sync") as mock_sync:
+            mock_sync.return_value = True
+            with patch("aragora.broadcast.audio_engine.FALLBACK_AVAILABLE", True):
+                result = await _generate_fallback_tts("Hello world", output_path)
+
+        assert result is True
+        mock_sync.assert_called_once_with("Hello world", output_path)
 
 
 # =============================================================================
@@ -269,25 +293,37 @@ class TestGenerateAudioSegment:
     @pytest.mark.asyncio
     async def test_generate_audio_segment_fallback_on_edge_failure(self, tmp_path, sample_segment):
         """Fall back to pyttsx3 when edge-tts fails."""
-        with patch("aragora.broadcast.audio_engine._generate_edge_tts", return_value=False):
-            with patch("aragora.broadcast.audio_engine._generate_fallback_tts") as mock_fallback:
-                # _generate_fallback_tts is sync, so mock should be sync too
-                def mock_generate(text, output_path):
-                    output_path.write_bytes(b"fake audio")
-                    return True
+        # Mock the backend to return None (fail) so we hit the legacy path
+        mock_backend = MagicMock()
+        mock_backend.synthesize = AsyncMock(return_value=None)
+        mock_backend.name = "mock"
 
-                mock_fallback.side_effect = mock_generate
+        with patch("aragora.broadcast.audio_engine.get_audio_backend", return_value=mock_backend):
+            with patch("aragora.broadcast.audio_engine._generate_edge_tts", return_value=False):
+                with patch("aragora.broadcast.audio_engine._generate_fallback_tts") as mock_fallback:
+                    # _generate_fallback_tts is now async
+                    async def mock_generate(text, output_path):
+                        output_path.write_bytes(b"fake audio")
+                        return True
 
-                result = await generate_audio_segment(sample_segment, tmp_path)
+                    mock_fallback.side_effect = mock_generate
+
+                    result = await generate_audio_segment(sample_segment, tmp_path)
 
         mock_fallback.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_generate_audio_segment_both_fail(self, tmp_path, sample_segment):
         """Return None when both edge-tts and fallback fail."""
-        with patch("aragora.broadcast.audio_engine._generate_edge_tts", return_value=False):
-            with patch("aragora.broadcast.audio_engine._generate_fallback_tts", return_value=False):
-                result = await generate_audio_segment(sample_segment, tmp_path)
+        # Mock the backend to return None (fail) so we hit the legacy path
+        mock_backend = MagicMock()
+        mock_backend.synthesize = AsyncMock(return_value=None)
+        mock_backend.name = "mock"
+
+        with patch("aragora.broadcast.audio_engine.get_audio_backend", return_value=mock_backend):
+            with patch("aragora.broadcast.audio_engine._generate_edge_tts", return_value=False):
+                with patch("aragora.broadcast.audio_engine._generate_fallback_tts", new=AsyncMock(return_value=False)):
+                    result = await generate_audio_segment(sample_segment, tmp_path)
 
         assert result is None
 
@@ -299,14 +335,20 @@ class TestGenerateAudioSegment:
             text="Hello from Codex.",
         )
 
-        with patch("aragora.broadcast.audio_engine._generate_edge_tts") as mock_edge:
-            mock_edge.return_value = False  # Will fail, just check the voice
-            with patch("aragora.broadcast.audio_engine._generate_fallback_tts", return_value=False):
-                await generate_audio_segment(segment, tmp_path)
+        # Mock the backend to return None (fail) so we hit the legacy path
+        mock_backend = MagicMock()
+        mock_backend.synthesize = AsyncMock(return_value=None)
+        mock_backend.name = "mock"
 
-        # Check that edge-tts was called with codex voice
-        call_args = mock_edge.call_args
-        assert call_args[0][1] == "en-US-GuyNeural"  # Codex voice
+        with patch("aragora.broadcast.audio_engine.get_audio_backend", return_value=mock_backend):
+            with patch("aragora.broadcast.audio_engine._generate_edge_tts") as mock_edge:
+                mock_edge.return_value = False  # Will fail, just check the voice
+                with patch("aragora.broadcast.audio_engine._generate_fallback_tts", new=AsyncMock(return_value=False)):
+                    await generate_audio_segment(segment, tmp_path)
+
+            # Check that edge-tts was called with codex voice
+            call_args = mock_edge.call_args
+            assert call_args[0][1] == "en-US-GuyNeural"  # Codex voice
 
     @pytest.mark.asyncio
     async def test_generate_audio_segment_deterministic_filename(self, tmp_path, sample_segment):
