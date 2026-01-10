@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 9, 2026 (19:00 UTC)*
+*Last updated: January 9, 2026 (23:00 UTC)*
 
 ## Current State
 
@@ -42,6 +42,21 @@
 | `anthropic-api` | Claude Opus 4.5 | Anthropic |
 | `openai-api` | GPT 5.2 | OpenAI |
 | `deepseek-r1` | DeepSeek V3.2 | OpenRouter |
+
+### Recent Changes (2026-01-09 Night)
+- **Nomic Loop Extraction (Waves 1-4 Complete)**:
+  - Wave 1: DeadlockManager, ContextFormatter, BackupManager (~990 LOC)
+  - Wave 2: DeepAuditRunner, DisagreementHandler, GraphDebateRunner, ForkingRunner (~550 LOC)
+  - Wave 3: ArenaFactory (~291 LOC), PostDebateProcessor (~454 LOC)
+  - Wave 4: DebatePhase and DesignPhase validated as complete
+  - Total: ~2,300 LOC extracted from nomic_loop.py into modular components
+- **Runtime Artifact Cleanup**:
+  - Removed ~548 files from git tracking (.nomic/backups, .nomic/replays, etc.)
+  - Updated .gitignore to comprehensively exclude .nomic state files
+  - 262k+ lines of runtime data removed from repository
+- **Dependency Alignment**:
+  - Updated requirements.txt to mirror pyproject.toml core dependencies
+  - Added comments clarifying relationship between requirements.txt and pyproject.toml
 
 ### Recent Changes (2026-01-09 Evening)
 - **Feature Integration Sprint**:
