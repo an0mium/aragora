@@ -23,13 +23,19 @@ aragora/
 ├── debate/           # Core debate orchestration
 │   ├── orchestrator.py     # Arena class - main debate engine
 │   ├── phases/             # Extracted phase implementations
+│   ├── team_selector.py    # Agent team selection (ELO + calibration)
 │   ├── memory_manager.py   # Memory coordination
 │   ├── prompt_builder.py   # Prompt construction
 │   ├── consensus.py        # Consensus detection and proofs
 │   └── convergence.py      # Semantic similarity detection
 ├── agents/           # Agent implementations
 │   ├── cli_agents.py       # CLI agents (claude, codex, gemini, grok)
-│   ├── api_agents/         # API agents (anthropic, openai, gemini, openrouter)
+│   ├── api_agents/         # API agents directory
+│   │   ├── anthropic.py    # Anthropic API agent
+│   │   ├── openai.py       # OpenAI API agent
+│   │   ├── mistral.py      # Mistral API agent (Large, Codestral)
+│   │   ├── grok.py         # xAI Grok agent
+│   │   └── openrouter.py   # OpenRouter (DeepSeek, Llama, Qwen, Yi, Kimi)
 │   ├── fallback.py         # OpenRouter fallback on quota errors
 │   └── airlock.py          # AirlockProxy for agent resilience
 ├── memory/           # Learning and persistence
@@ -114,11 +120,12 @@ git status && git diff --stat
 ## Environment Variables
 
 **Required** (at least one):
-- `ANTHROPIC_API_KEY` - Anthropic API
-- `OPENAI_API_KEY` - OpenAI API
+- `ANTHROPIC_API_KEY` - Anthropic API (Claude)
+- `OPENAI_API_KEY` - OpenAI API (GPT)
 
 **Recommended:**
 - `OPENROUTER_API_KEY` - Fallback when primary APIs fail (auto-used on 429)
+- `MISTRAL_API_KEY` - Mistral API (Large, Codestral)
 
 **Optional:**
 - `GEMINI_API_KEY`, `XAI_API_KEY`, `GROK_API_KEY` - Additional providers

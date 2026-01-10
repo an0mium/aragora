@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 9, 2026 (23:00 UTC)*
+*Last updated: January 10, 2026 (00:30 UTC)*
 
 ## Current State
 
@@ -35,13 +35,36 @@
 - **Position Ledger**: Implemented in `aragora/agents/grounded.py`
 - **NomicIntegration**: Fully wired up (probing, belief analysis, checkpointing, staleness)
 
-### Active Agents (4 default, 12+ total)
+### Active Agents (6 default, 20+ total)
 | Agent | Model | API |
 |-------|-------|-----|
 | `grok` | Grok 4 | xAI |
 | `anthropic-api` | Claude Opus 4.5 | Anthropic |
-| `openai-api` | GPT 5.2 | OpenAI |
-| `deepseek-r1` | DeepSeek V3.2 | OpenRouter |
+| `openai-api` | GPT-4o | OpenAI |
+| `deepseek` | DeepSeek V3.2 | OpenRouter |
+| `mistral-api` | Mistral Large | Mistral |
+| `gemini` | Gemini 2.5 | Google |
+
+### Recent Changes (2026-01-10)
+- **Mistral API Integration**:
+  - Added `MistralAPIAgent` for direct Mistral API access
+  - Added `CodestralAgent` for code-specialized tasks
+  - Uses `MISTRAL_API_KEY` environment variable
+  - Registered in AgentRegistry with `mistral-api` and `codestral` names
+  - Added to `DEFAULT_AGENTS` and `STREAMING_CAPABLE_AGENTS`
+- **Technical Debt Reduction**:
+  - Extracted `TeamSelector` from orchestrator (-53 LOC)
+  - Replaced 7 bare exception catches with specific types (13→6 remaining)
+  - All remaining bare catches are correct patterns (transaction rollback)
+- **UI Enhancements**:
+  - Wired `TricksterAlertPanel` to dashboard
+  - Created `RhetoricalObserverPanel` (165 LOC) for debate pattern analysis
+  - Added debate mode selector (Standard/Graph/Matrix) to DebateInput
+- **Documentation Update**:
+  - Updated README.md with Mistral and multi-provider support
+  - Updated AGENTS.md with 20+ agent types
+  - Updated ENVIRONMENT.md with MISTRAL_API_KEY
+  - Comprehensive cross-document consistency check
 
 ### Recent Changes (2026-01-09 Night)
 - **Nomic Loop Extraction (Waves 1-4 Complete)**:
@@ -55,8 +78,8 @@
   - Updated .gitignore to comprehensively exclude .nomic state files
   - 262k+ lines of runtime data removed from repository
 - **Dependency Alignment**:
-  - Updated requirements.txt to mirror pyproject.toml core dependencies
-  - Added comments clarifying relationship between requirements.txt and pyproject.toml
+  - Standardized installs on `pyproject.toml` + `uv.lock` (pip install .)
+  - Removed legacy requirements.txt usage from deploy/docs paths
 
 ### Recent Changes (2026-01-09 Evening)
 - **Feature Integration Sprint**:
@@ -316,7 +339,7 @@
 
 ## Feature Integration Status
 
-### Fully Integrated (59)
+### Fully Integrated (63)
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
@@ -381,6 +404,10 @@
 | Broadcast Audio Generation | Active | `aragora/broadcast/` (TTS, mixing, storage) |
 | Podcast RSS Feed | Active | `aragora/server/handlers/audio.py` (/api/podcast/feed.xml) |
 | Audio File Serving | Active | `aragora/server/handlers/audio.py` (/audio/{id}.mp3) |
+| Mistral Direct API | Active | `aragora/agents/api_agents/mistral.py` (MistralAPIAgent, CodestralAgent) |
+| TeamSelector | Active | `aragora/debate/team_selector.py` (ELO+calibration scoring) |
+| TricksterAlertPanel | Active | `aragora/live/src/components/TricksterAlertPanel.tsx` |
+| RhetoricalObserverPanel | Active | `aragora/live/src/components/RhetoricalObserverPanel.tsx` |
 
 ### Recently Surfaced (6)
 | Feature | Status | Location |
@@ -535,7 +562,8 @@ Required (at least one):
 Optional:
 - `GEMINI_API_KEY` - Google Gemini API
 - `XAI_API_KEY` - xAI Grok API
-- `OPENROUTER_API_KEY` - OpenRouter (DeepSeek, Llama, Mistral)
+- `MISTRAL_API_KEY` - Mistral AI API (Large, Codestral)
+- `OPENROUTER_API_KEY` - OpenRouter (DeepSeek, Llama, Qwen, Yi)
 - `ARAGORA_API_TOKEN` - Optional authentication token
 - `ARAGORA_ALLOWED_ORIGINS` - CORS origins (default: http://localhost:3000)
 

@@ -4,7 +4,7 @@ Aragora is a multi-agent debate framework implementing dialectical reasoning thr
 
 ## Agent Types
 
-Aragora supports 12 agent types across two backends:
+Aragora supports 20+ agent types across three backends:
 
 ### CLI-Based Agents
 
@@ -12,7 +12,7 @@ These agents invoke external CLI tools:
 
 | Agent | CLI Tool | Model |
 |-------|----------|-------|
-| `ClaudeAgent` | claude-code | claude-sonnet-4-20250514 |
+| `ClaudeAgent` | claude-code | claude-sonnet-4 |
 | `CodexAgent` | codex | codex |
 | `OpenAIAgent` | openai | gpt-4o |
 | `GeminiCLIAgent` | gemini | gemini |
@@ -21,16 +21,36 @@ These agents invoke external CLI tools:
 | `DeepseekCLIAgent` | deepseek | deepseek |
 | `KiloCodeAgent` | kilocode | kilocode |
 
-### API-Based Agents
+### API-Based Agents (Direct)
 
-These agents make direct HTTP API calls:
+These agents make direct HTTP API calls to provider endpoints:
 
-| Agent | API | Default Model |
-|-------|-----|---------------|
-| `AnthropicAPIAgent` | Anthropic | claude-sonnet-4-20250514 |
-| `OpenAIAPIAgent` | OpenAI | gpt-4o |
-| `GeminiAgent` | Google Gemini | gemini-2.0-flash |
-| `OllamaAgent` | Local Ollama | llama3.2 |
+| Agent | API | Default Model | Env Var |
+|-------|-----|---------------|---------|
+| `AnthropicAPIAgent` | Anthropic | claude-sonnet-4 | `ANTHROPIC_API_KEY` |
+| `OpenAIAPIAgent` | OpenAI | gpt-4o | `OPENAI_API_KEY` |
+| `GeminiAgent` | Google | gemini-2.0-flash | `GEMINI_API_KEY` |
+| `GrokAgent` | xAI | grok-3 | `XAI_API_KEY` |
+| `MistralAPIAgent` | Mistral | mistral-large-latest | `MISTRAL_API_KEY` |
+| `CodestralAgent` | Mistral | codestral-latest | `MISTRAL_API_KEY` |
+| `OllamaAgent` | Local Ollama | llama3.2 | `OLLAMA_HOST` |
+
+### API-Based Agents (via OpenRouter)
+
+These agents use OpenRouter for unified multi-model access:
+
+| Agent | Model | Description |
+|-------|-------|-------------|
+| `DeepSeekAgent` | deepseek/deepseek-v3.2 | DeepSeek V3.2 - excellent for coding |
+| `DeepSeekReasonerAgent` | deepseek/deepseek-r1 | DeepSeek R1 - chain-of-thought reasoning |
+| `LlamaAgent` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
+| `MistralAgent` | mistralai/mistral-large-2411 | Mistral Large via OpenRouter |
+| `QwenAgent` | qwen/qwen-2.5-coder-32b-instruct | Qwen 2.5 Coder |
+| `QwenMaxAgent` | qwen/qwen-max | Qwen Max - flagship reasoning |
+| `YiAgent` | 01-ai/yi-large | Yi Large - balanced capabilities |
+| `KimiAgent` | moonshot-v1-8k | Kimi - Moonshot AI |
+
+All OpenRouter agents require `OPENROUTER_API_KEY`.
 
 ## Agent Creation
 

@@ -20,6 +20,7 @@ At least one AI provider key is required.
 | `GEMINI_API_KEY` | Optional | Google Gemini API key | - |
 | `XAI_API_KEY` | Optional | Grok/XAI API key | - |
 | `GROK_API_KEY` | Optional | Alias for XAI_API_KEY | - |
+| `MISTRAL_API_KEY` | Optional | Mistral AI API key (Large, Codestral) | - |
 | `OPENROUTER_API_KEY` | Optional | OpenRouter for multi-model access | - |
 | `DEEPSEEK_API_KEY` | Optional | DeepSeek API key | - |
 
@@ -28,11 +29,20 @@ At least one AI provider key is required.
 ### OpenRouter Models
 
 OpenRouter provides access to multiple models through a single API:
-- DeepSeek (V3, Reasoner)
+- DeepSeek (V3, R1 Reasoner)
 - Llama (Meta's open models)
-- Mistral
+- Mistral (also available via direct `MISTRAL_API_KEY`)
+- Qwen (Alibaba's code and reasoning models)
+- Yi (01.AI's balanced models)
 
 See [OpenRouter docs](https://openrouter.ai/docs) for available models.
+
+### Mistral Direct API
+
+For best performance with Mistral models, use the direct API:
+- `mistral-api` agent uses `MISTRAL_API_KEY` directly
+- `codestral` agent for code-specialized tasks
+- Falls back to OpenRouter if direct API fails
 
 ## Ollama (Local Models)
 
@@ -269,6 +279,7 @@ OPENAI_API_KEY=sk-xxx
 # Optional: Additional providers
 GEMINI_API_KEY=AIzaSy...
 XAI_API_KEY=xai-xxx
+MISTRAL_API_KEY=xxx
 OPENROUTER_API_KEY=sk-or-xxx
 DEEPSEEK_API_KEY=sk-xxx
 

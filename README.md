@@ -48,11 +48,12 @@ The **nomic loop** (self-modifying rules) mirrors Hegel's concept of Spirit deve
 ## Key Features
 
 ### Core Capabilities
-- **Heterogeneous Agents**: Mix Claude, GPT/Codex, Gemini, Grok, and local models in the same debate
+- **Heterogeneous Agents**: Mix Claude, GPT, Gemini, Grok, Mistral, DeepSeek, and local models in the same debate
 - **Structured Debate Protocol**: Propose → Critique → Revise loop with configurable rounds
 - **Multiple Consensus Mechanisms**: Majority voting, unanimous, judge-based, or none
 - **Self-Improvement**: SQLite-based pattern store learns from successful critiques
 - **CLI Interface**: One command, multiple agents working behind the scenes
+- **12+ Model Providers**: Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, Qwen, and more via OpenRouter
 
 ### Nomic Loop (Self-Improving System)
 The **Nomic Loop** is aragora's autonomous self-improvement system—a society of AI agents that debates and implements improvements to its own codebase:
@@ -117,10 +118,12 @@ Experimental/research (may change; use in a sandbox):
 
 ```bash
 # Set one or more API keys in .env or environment
-ANTHROPIC_API_KEY=sk-ant-xxx    # For Claude
+ANTHROPIC_API_KEY=sk-ant-xxx    # For Claude (Opus 4.5, Sonnet 4)
 OPENAI_API_KEY=sk-xxx           # For GPT models
-GEMINI_API_KEY=AIzaSy...        # For Gemini
-XAI_API_KEY=xai-xxx             # For Grok
+GEMINI_API_KEY=AIzaSy...        # For Gemini 2.5
+XAI_API_KEY=xai-xxx             # For Grok 4
+MISTRAL_API_KEY=xxx             # For Mistral Large, Codestral
+OPENROUTER_API_KEY=sk-or-xxx    # For DeepSeek, Llama, Qwen, Yi (multi-model access)
 ```
 
 **CLI Agents (Optional):** For local CLI-based agents, install the corresponding tools:
@@ -143,14 +146,14 @@ npm install -g grok-cli
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         AAGORA FRAMEWORK                         │
+│                         ARAGORA FRAMEWORK                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │    ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐       │
-│    │ Claude │ │ Codex  │ │ Gemini │ │  Grok  │ │ OpenAI │       │
+│    │ Claude │ │ Gemini │ │  Grok  │ │Mistral │ │ OpenAI │       │
 │    └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘       │
 │        │    ┌─────┴─────┐    │    ┌─────┴─────┐    │            │
-│        │    │   Qwen    │    │    │ Deepseek  │    │            │
+│        │    │ DeepSeek  │    │    │   Qwen    │    │            │
 │        │    └─────┬─────┘    │    └─────┬─────┘    │            │
 │        └──────────┴──────────┴──────────┴──────────┘            │
 │                             ▼                                   │
@@ -383,6 +386,7 @@ Aragora has evolved through 21 phases of self-improvement, with the nomic loop d
 - [x] **Hybrid Model Architecture**: Gemini=Designer, Claude=Implementer, Codex=Verifier ✓
 - [x] **Security Hardening**: API key header auth, rate limiting, input validation ✓
 - [x] **Feature Integration**: PerformanceMonitor, CalibrationTracker, Airlock, Telemetry ✓
+- [x] **Multi-Provider Agents**: Mistral, DeepSeek, Qwen, Yi, Kimi via direct API and OpenRouter ✓
 - [ ] **LeanBackend**: Lean 4 theorem proving integration
 - [ ] **Emergent Society**: Society simulation (ala Project Sid)
 - [ ] **Multi-Codebase**: Cross-repository coordination
@@ -477,11 +481,12 @@ export ARAGORA_WS_MAX_SIZE=65536                # Max WebSocket message size (by
 
 Contributions welcome! Areas of interest:
 
-- Additional agent backends (Llama, Mistral, Cohere)
-- Debate visualization
-- Benchmark datasets
+- Additional agent backends (Cohere, Inflection, Reka)
+- Debate visualization enhancements
+- Benchmark datasets for agent evaluation
 - Prompt engineering for better critiques
-- Self-improvement mechanisms
+- Self-improvement mechanism research
+- Lean 4 theorem proving integration
 
 ## License
 
