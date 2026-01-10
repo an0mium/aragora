@@ -14,27 +14,7 @@ import { HistoryPanel } from '@/components/HistoryPanel';
 import { UserParticipation } from '@/components/UserParticipation';
 import { ReplayBrowser } from '@/components/ReplayBrowser';
 import { DebateBrowser } from '@/components/DebateBrowser';
-import { ImpasseDetectionPanel } from '@/components/ImpasseDetectionPanel';
-import { LearningEvolution } from '@/components/LearningEvolution';
 import { DebateExportModal } from '@/components/DebateExportModal';
-import { TournamentPanel } from '@/components/TournamentPanel';
-import { CruxPanel } from '@/components/CruxPanel';
-import { MemoryInspector } from '@/components/MemoryInspector';
-import { LearningDashboard } from '@/components/LearningDashboard';
-import { CitationsPanel } from '@/components/CitationsPanel';
-import { CapabilityProbePanel } from '@/components/CapabilityProbePanel';
-import { OperationalModesPanel } from '@/components/OperationalModesPanel';
-import { RedTeamAnalysisPanel } from '@/components/RedTeamAnalysisPanel';
-import { ContraryViewsPanel } from '@/components/ContraryViewsPanel';
-import { RiskWarningsPanel } from '@/components/RiskWarningsPanel';
-import { AnalyticsPanel } from '@/components/AnalyticsPanel';
-import { CalibrationPanel } from '@/components/CalibrationPanel';
-import { TricksterAlertPanel } from '@/components/TricksterAlertPanel';
-import { RhetoricalObserverPanel } from '@/components/RhetoricalObserverPanel';
-import { ConsensusKnowledgeBase } from '@/components/ConsensusKnowledgeBase';
-import { DebateListPanel } from '@/components/DebateListPanel';
-import { AgentComparePanel } from '@/components/AgentComparePanel';
-import { TrendingTopicsPanel } from '@/components/TrendingTopicsPanel';
 import { VerdictCard } from '@/components/VerdictCard';
 import { CompareButton } from '@/components/CompareView';
 import { DeepAuditToggle } from '@/components/DeepAuditView';
@@ -103,6 +83,107 @@ const BreakpointsPanel = dynamic(() => import('@/components/BreakpointsPanel').t
 const MetricsPanel = dynamic(() => import('@/components/MetricsPanel').then(m => ({ default: m.MetricsPanel })), {
   ssr: false,
   loading: () => <div className="card p-4 animate-pulse"><div className="h-40 bg-surface rounded" /></div>,
+});
+
+// Secondary panels - dynamically loaded for code splitting
+const TournamentPanel = dynamic(() => import('@/components/TournamentPanel').then(m => ({ default: m.TournamentPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const CruxPanel = dynamic(() => import('@/components/CruxPanel').then(m => ({ default: m.CruxPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const MemoryInspector = dynamic(() => import('@/components/MemoryInspector').then(m => ({ default: m.MemoryInspector })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const LearningDashboard = dynamic(() => import('@/components/LearningDashboard').then(m => ({ default: m.LearningDashboard })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const CitationsPanel = dynamic(() => import('@/components/CitationsPanel').then(m => ({ default: m.CitationsPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const CapabilityProbePanel = dynamic(() => import('@/components/CapabilityProbePanel').then(m => ({ default: m.CapabilityProbePanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const OperationalModesPanel = dynamic(() => import('@/components/OperationalModesPanel').then(m => ({ default: m.OperationalModesPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const RedTeamAnalysisPanel = dynamic(() => import('@/components/RedTeamAnalysisPanel').then(m => ({ default: m.RedTeamAnalysisPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const ContraryViewsPanel = dynamic(() => import('@/components/ContraryViewsPanel').then(m => ({ default: m.ContraryViewsPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const RiskWarningsPanel = dynamic(() => import('@/components/RiskWarningsPanel').then(m => ({ default: m.RiskWarningsPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const AnalyticsPanel = dynamic(() => import('@/components/AnalyticsPanel').then(m => ({ default: m.AnalyticsPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const CalibrationPanel = dynamic(() => import('@/components/CalibrationPanel').then(m => ({ default: m.CalibrationPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const TricksterAlertPanel = dynamic(() => import('@/components/TricksterAlertPanel').then(m => ({ default: m.TricksterAlertPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const RhetoricalObserverPanel = dynamic(() => import('@/components/RhetoricalObserverPanel').then(m => ({ default: m.RhetoricalObserverPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const ConsensusKnowledgeBase = dynamic(() => import('@/components/ConsensusKnowledgeBase').then(m => ({ default: m.ConsensusKnowledgeBase })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const DebateListPanel = dynamic(() => import('@/components/DebateListPanel').then(m => ({ default: m.DebateListPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const AgentComparePanel = dynamic(() => import('@/components/AgentComparePanel').then(m => ({ default: m.AgentComparePanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const TrendingTopicsPanel = dynamic(() => import('@/components/TrendingTopicsPanel').then(m => ({ default: m.TrendingTopicsPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const ImpasseDetectionPanel = dynamic(() => import('@/components/ImpasseDetectionPanel').then(m => ({ default: m.ImpasseDetectionPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const LearningEvolution = dynamic(() => import('@/components/LearningEvolution').then(m => ({ default: m.LearningEvolution })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
 });
 
 type ViewMode = 'tabs' | 'stream' | 'deep-audit';
@@ -500,9 +581,11 @@ export default function Home() {
 
             {/* Section 2: Browse & Discover */}
             <CollapsibleSection id="browse-discover" title="BROWSE & DISCOVER">
-              <PanelErrorBoundary panelName="Trending Topics">
-                <TrendingTopicsPanel apiBase={apiBase} />
-              </PanelErrorBoundary>
+              <FeatureGuard featureId="pulse">
+                <PanelErrorBoundary panelName="Trending Topics">
+                  <TrendingTopicsPanel apiBase={apiBase} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
               <PanelErrorBoundary panelName="Debate List">
                 <DebateListPanel />
               </PanelErrorBoundary>
@@ -525,12 +608,16 @@ export default function Home() {
               <PanelErrorBoundary panelName="Leaderboard">
                 <LeaderboardPanel wsMessages={events} loopId={effectiveLoopId} apiBase={apiBase} />
               </PanelErrorBoundary>
-              <PanelErrorBoundary panelName="Calibration">
-                <CalibrationPanel apiBase={apiBase} events={events} />
-              </PanelErrorBoundary>
-              <PanelErrorBoundary panelName="Tournament">
-                <TournamentPanel apiBase={apiBase} />
-              </PanelErrorBoundary>
+              <FeatureGuard featureId="calibration">
+                <PanelErrorBoundary panelName="Calibration">
+                  <CalibrationPanel apiBase={apiBase} events={events} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+              <FeatureGuard featureId="tournaments">
+                <PanelErrorBoundary panelName="Tournament">
+                  <TournamentPanel apiBase={apiBase} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
             </CollapsibleSection>
 
             {/* Section 4: Insights & Learning */}
@@ -566,9 +653,11 @@ export default function Home() {
               <PanelErrorBoundary panelName="Red Team">
                 <RedTeamAnalysisPanel apiBase={apiBase} />
               </PanelErrorBoundary>
-              <PanelErrorBoundary panelName="Laboratory">
-                <LaboratoryPanel apiBase={apiBase} events={events} />
-              </PanelErrorBoundary>
+              <FeatureGuard featureId="laboratory">
+                <PanelErrorBoundary panelName="Laboratory">
+                  <LaboratoryPanel apiBase={apiBase} events={events} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
               <PanelErrorBoundary panelName="Breakpoints">
                 <BreakpointsPanel apiBase={apiBase} />
               </PanelErrorBoundary>
@@ -585,9 +674,11 @@ export default function Home() {
               <PanelErrorBoundary panelName="Consensus KB">
                 <ConsensusKnowledgeBase apiBase={apiBase} />
               </PanelErrorBoundary>
-              <PanelErrorBoundary panelName="Memory Inspector">
-                <MemoryInspector apiBase={apiBase} />
-              </PanelErrorBoundary>
+              <FeatureGuard featureId="memory">
+                <PanelErrorBoundary panelName="Memory Inspector">
+                  <MemoryInspector apiBase={apiBase} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
               {currentDebateId && (
                 <PanelErrorBoundary panelName="Impasse Detection">
                   <ImpasseDetectionPanel debateId={currentDebateId} apiBase={apiBase} />
