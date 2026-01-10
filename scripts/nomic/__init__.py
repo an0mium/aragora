@@ -23,6 +23,10 @@ creates emergent complexity and self-criticality.
 
 from .recovery import PhaseError, PhaseRecovery
 from .circuit_breaker import AgentCircuitBreaker
+from .deadlock import DeadlockManager, DeadlockState, DeadlockResolution
+from .formatters import ContextFormatter, FormatterDependencies
+from .deep_audit import DeepAuditRunner, AuditResult
+from .disagreement import DisagreementHandler, DisagreementActions
 from .config import (
     NOMIC_AUTO_COMMIT,
     NOMIC_AUTO_CONTINUE,
@@ -37,6 +41,19 @@ __all__ = [
     "PhaseRecovery",
     # Circuit Breaker
     "AgentCircuitBreaker",
+    # Deadlock
+    "DeadlockManager",
+    "DeadlockState",
+    "DeadlockResolution",
+    # Formatters
+    "ContextFormatter",
+    "FormatterDependencies",
+    # Deep Audit
+    "DeepAuditRunner",
+    "AuditResult",
+    # Disagreement
+    "DisagreementHandler",
+    "DisagreementActions",
     # Config
     "NOMIC_AUTO_COMMIT",
     "NOMIC_AUTO_CONTINUE",
