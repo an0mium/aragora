@@ -57,14 +57,16 @@ export function RiskWarningsPanel({ apiBase = '' }: RiskWarningsPanelProps) {
   if (!isExpanded) {
     return (
       <div
-        className={`border bg-surface/50 p-3 cursor-pointer hover:border-acid-green/50 transition-colors ${
-          criticalCount > 0 ? 'border-red-400/50' : highCount > 0 ? 'border-orange-400/50' : 'border-acid-green/30'
+        className={`panel panel-compact cursor-pointer transition-colors ${
+          criticalCount > 0 ? 'border-red-400/50' : highCount > 0 ? 'border-orange-400/50' : ''
         }`}
         onClick={() => setIsExpanded(true)}
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-mono text-acid-green">
-            {'>'} RISK_WARNINGS [{warnings.length}]
+          <h3 className="panel-title-sm flex items-center gap-2">
+            <span className="text-acid-green">{'>'}</span>
+            RISK_WARNINGS
+            {warnings.length > 0 && <span className="panel-badge">{warnings.length}</span>}
           </h3>
           <div className="flex items-center gap-2">
             {criticalCount > 0 && (
@@ -77,7 +79,7 @@ export function RiskWarningsPanel({ apiBase = '' }: RiskWarningsPanelProps) {
                 {highCount} HIGH
               </span>
             )}
-            <span className="text-xs text-text-muted">[EXPAND]</span>
+            <span className="panel-toggle">[EXPAND]</span>
           </div>
         </div>
       </div>
@@ -85,14 +87,15 @@ export function RiskWarningsPanel({ apiBase = '' }: RiskWarningsPanelProps) {
   }
 
   return (
-    <div className="border border-acid-green/30 bg-surface/50 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-mono text-acid-green">
-          {'>'} RISK_WARNINGS
+    <div className="panel">
+      <div className="panel-header">
+        <h3 className="panel-title-sm flex items-center gap-2">
+          <span className="text-acid-green">{'>'}</span>
+          RISK_WARNINGS
         </h3>
         <button
           onClick={() => setIsExpanded(false)}
-          className="text-xs text-text-muted hover:text-acid-green"
+          className="panel-toggle hover:text-acid-green transition-colors"
         >
           [COLLAPSE]
         </button>
