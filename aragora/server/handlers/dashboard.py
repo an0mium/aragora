@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class DashboardHandler(BaseHandler):
     """Handler for dashboard endpoint."""
 
-    ROUTES = ["/api/dashboard/debates"]
+    ROUTES = ["/api/dashboard/debates", "/api/dashboard/quality-metrics"]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -39,6 +39,8 @@ class DashboardHandler(BaseHandler):
             limit = get_int_param(query_params, "limit", 10)
             hours = get_int_param(query_params, "hours", 24)
             return self._get_debates_dashboard(domain, min(limit, 50), hours)
+        elif path == "/api/dashboard/quality-metrics":
+            return self._get_quality_metrics()
         return None
 
     @ttl_cache(ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="dashboard_debates", skip_first=True)
@@ -564,3 +566,161 @@ class DashboardHandler(BaseHandler):
             logger.warning("System health error: %s: %s", type(e).__name__, e)
 
         return health
+
+    @ttl_cache(ttl_seconds=60, key_prefix="quality_metrics", skip_first=True)
+    def _get_quality_metrics(self) -> HandlerResult:
+        """Get unified quality metrics across all subsystems.
+
+        Aggregates:
+        - Agent calibration trends (over/underconfidence)
+        - Performance metrics (latency, success rate)
+        - Evolution progress (prompt versions)
+        - Debate quality scores
+
+        Returns:
+            Consolidated quality metrics from available subsystems
+        """
+        result: dict[str, Any] = {
+            "calibration": {},
+            "performance": {},
+            "evolution": {},
+            "debate_quality": {},
+            "generated_at": time.time(),
+        }
+
+        # Calibration metrics
+        result["calibration"] = self._get_calibration_metrics()
+
+        # Performance metrics
+        result["performance"] = self._get_performance_metrics()
+
+        # Evolution metrics
+        result["evolution"] = self._get_evolution_metrics()
+
+        # Debate quality metrics
+        result["debate_quality"] = self._get_debate_quality_metrics()
+
+        return json_response(result)
+
+    def _get_calibration_metrics(self) -> dict:
+        """Get agent calibration trends."""
+        metrics: dict[str, Any] = {
+            "agents": {},
+            "overall_calibration": 0.0,
+            "overconfident_agents": [],
+            "underconfident_agents": [],
+        }
+
+        try:
+            calibration_tracker = self._context.get("calibration_tracker")
+            if calibration_tracker:
+                summary = calibration_tracker.get_calibration_summary()
+                if summary:
+                    metrics["agents"] = summary.get("agents", {})
+                    metrics["overall_calibration"] = summary.get("overall", 0.0)
+
+                    # Identify over/underconfident agents
+                    for agent, data in metrics["agents"].items():
+                        bias = data.get("calibration_bias", 0)
+                        if bias > 0.1:
+                            metrics["overconfident_agents"].append(agent)
+                        elif bias < -0.1:
+                            metrics["underconfident_agents"].append(agent)
+        except Exception as e:
+            logger.warning("Calibration metrics error: %s", e)
+
+        return metrics
+
+    def _get_performance_metrics(self) -> dict:
+        """Get agent performance metrics."""
+        metrics: dict[str, Any] = {
+            "agents": {},
+            "avg_latency_ms": 0.0,
+            "success_rate": 0.0,
+            "total_calls": 0,
+        }
+
+        try:
+            performance_monitor = self._context.get("performance_monitor")
+            if performance_monitor:
+                insights = performance_monitor.get_performance_insights()
+                if insights:
+                    metrics["agents"] = insights.get("agents", {})
+                    metrics["avg_latency_ms"] = insights.get("avg_latency_ms", 0.0)
+                    metrics["success_rate"] = insights.get("success_rate", 0.0)
+                    metrics["total_calls"] = insights.get("total_calls", 0)
+        except Exception as e:
+            logger.warning("Performance metrics error: %s", e)
+
+        return metrics
+
+    def _get_evolution_metrics(self) -> dict:
+        """Get prompt evolution progress."""
+        metrics: dict[str, Any] = {
+            "agents": {},
+            "total_versions": 0,
+            "patterns_extracted": 0,
+            "last_evolution": None,
+        }
+
+        try:
+            prompt_evolver = self._context.get("prompt_evolver")
+            if prompt_evolver:
+                # Get version counts per agent
+                for agent_name in ["claude", "gemini", "codex", "grok"]:
+                    try:
+                        version = prompt_evolver.get_prompt_version(agent_name)
+                        if version:
+                            metrics["agents"][agent_name] = {
+                                "current_version": version.version,
+                                "performance_score": version.performance_score,
+                                "debates_count": version.debates_count,
+                            }
+                            metrics["total_versions"] += version.version
+                    except Exception:
+                        pass
+
+                # Get pattern count
+                patterns = prompt_evolver.get_top_patterns(limit=100)
+                metrics["patterns_extracted"] = len(patterns) if patterns else 0
+        except Exception as e:
+            logger.warning("Evolution metrics error: %s", e)
+
+        return metrics
+
+    def _get_debate_quality_metrics(self) -> dict:
+        """Get debate quality scores."""
+        metrics: dict[str, Any] = {
+            "avg_confidence": 0.0,
+            "consensus_rate": 0.0,
+            "avg_rounds": 0.0,
+            "evidence_quality": 0.0,
+            "recent_winners": [],
+        }
+
+        try:
+            # Get from ELO system
+            elo_system = self._context.get("elo_system")
+            if elo_system:
+                recent = elo_system.get_recent_matches(limit=10)
+                if recent:
+                    winners = [m.get("winner") for m in recent if m.get("winner")]
+                    metrics["recent_winners"] = winners[:5]
+
+                    # Calculate avg confidence from matches
+                    confidences = [m.get("confidence", 0) for m in recent if m.get("confidence")]
+                    if confidences:
+                        metrics["avg_confidence"] = sum(confidences) / len(confidences)
+
+            # Get from storage
+            storage = self.get_storage()
+            if storage:
+                summary = self._get_summary_metrics_sql(storage, None)
+                if summary:
+                    metrics["consensus_rate"] = summary.get("consensus_rate", 0.0)
+                    metrics["avg_rounds"] = summary.get("avg_rounds", 0.0)
+
+        except Exception as e:
+            logger.warning("Debate quality metrics error: %s", e)
+
+        return metrics

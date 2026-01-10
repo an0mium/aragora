@@ -55,6 +55,7 @@ class GenesisHandler(BaseHandler):
         "/api/genesis/events",
         "/api/genesis/genomes",
         "/api/genesis/genomes/top",
+        "/api/genesis/population",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -95,6 +96,9 @@ class GenesisHandler(BaseHandler):
             limit = get_int_param(query_params, 'limit', 10)
             limit = min(limit, 50)
             return self._get_top_genomes(nomic_dir, limit)
+
+        if path == "/api/genesis/population":
+            return self._get_population(nomic_dir)
 
         if path.startswith("/api/genesis/genomes/"):
             # Block path traversal attempts
@@ -352,3 +356,63 @@ class GenesisHandler(BaseHandler):
 
         except Exception as e:
             return error_response(_safe_error_message(e, "genome_get"), 500)
+
+    def _get_population(self, nomic_dir: Optional[Path]) -> HandlerResult:
+        """Get the active population and its status.
+
+        Returns:
+            Population details including genomes, generation, and average fitness
+        """
+        try:
+            db_path = ".nomic/genesis.db"
+            if nomic_dir:
+                db_path = str(nomic_dir / "genesis.db")
+
+            # Try to import PopulationManager
+            try:
+                from aragora.genesis.breeding import PopulationManager
+            except ImportError:
+                return error_response("Genesis breeding module not available", 503)
+
+            manager = PopulationManager(db_path=db_path)
+
+            # Get or create population with common agent names
+            population = manager.get_or_create_population(
+                base_agents=["claude", "gemini", "codex", "grok"]
+            )
+
+            # Build response
+            result = {
+                "population_id": population.population_id,
+                "generation": population.generation,
+                "size": population.size,
+                "average_fitness": population.average_fitness,
+                "genomes": [],
+                "best_genome": None,
+                "debate_history_count": len(population.debate_history),
+            }
+
+            # Add genome summaries
+            for genome in population.genomes:
+                result["genomes"].append({
+                    "genome_id": genome.genome_id,
+                    "agent_name": genome.agent_name,
+                    "fitness_score": genome.fitness_score,
+                    "generation": genome.generation,
+                    "personality_traits": genome.personality_traits[:3] if genome.personality_traits else [],
+                    "expertise_domains": genome.expertise_domains[:3] if genome.expertise_domains else [],
+                })
+
+            # Add best genome
+            best = population.best_genome
+            if best:
+                result["best_genome"] = {
+                    "genome_id": best.genome_id,
+                    "agent_name": best.agent_name,
+                    "fitness_score": best.fitness_score,
+                }
+
+            return json_response(result)
+
+        except Exception as e:
+            return error_response(_safe_error_message(e, "population"), 500)
