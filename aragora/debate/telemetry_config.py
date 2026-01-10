@@ -6,11 +6,16 @@ Controls observation levels for agent thought streaming:
 - DIAGNOSTIC: Internal debugging only (logs, no broadcast)
 - CONTROLLED: Filtered telemetry with security redaction
 - SPECTACLE: Full transparency for demos/debugging
+
+Now integrated with ServiceRegistry for centralized dependency management.
 """
 
+import logging
 import os
 from enum import Enum, auto
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 class TelemetryLevel(Enum):
@@ -59,14 +64,45 @@ class TelemetryConfig:
 
     @classmethod
     def get_instance(cls) -> 'TelemetryConfig':
-        """Get singleton instance."""
+        """Get singleton instance via ServiceRegistry.
+
+        Falls back to class-level singleton if ServiceRegistry unavailable.
+        """
+        # Try ServiceRegistry first (preferred)
+        try:
+            from aragora.services import ServiceRegistry
+            registry = ServiceRegistry.get()
+            if registry.has(cls):
+                return registry.resolve(cls)
+            # Not in registry, create and register
+            instance = cls()
+            registry.register(cls, instance)
+            logger.debug("TelemetryConfig registered with ServiceRegistry")
+            return instance
+        except ImportError:
+            pass
+
+        # Fallback to class-level singleton
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
 
     @classmethod
     def reset_instance(cls) -> None:
-        """Reset singleton instance (for testing)."""
+        """Reset singleton instance (for testing).
+
+        Clears both ServiceRegistry and class-level singleton.
+        """
+        # Clear from ServiceRegistry
+        try:
+            from aragora.services import ServiceRegistry
+            registry = ServiceRegistry.get()
+            if registry.has(cls):
+                registry.unregister(cls)
+        except ImportError:
+            pass
+
+        # Clear class-level singleton
         cls._instance = None
 
     def _load_from_env(self) -> TelemetryLevel:
@@ -80,8 +116,7 @@ class TelemetryConfig:
         level = _LEVEL_NAMES.get(env_value)
         if level is None:
             # Invalid value, log warning and default to CONTROLLED
-            import logging
-            logging.getLogger(__name__).warning(
+            logger.warning(
                 f"Invalid ARAGORA_TELEMETRY_LEVEL '{env_value}', "
                 f"defaulting to CONTROLLED. Valid values: {list(_LEVEL_NAMES.keys())}"
             )
