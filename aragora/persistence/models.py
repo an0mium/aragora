@@ -121,3 +121,98 @@ class AgentMetrics:
             'avg_response_time_ms': self.avg_response_time_ms,
             'timestamp': self.timestamp.isoformat(),
         }
+
+
+@dataclass
+class NomicRollback:
+    """
+    Records a rollback event in the nomic loop.
+
+    Tracks what was rolled back, why, and where the failed work was preserved.
+    Enables learning from failures and surfacing historical evolution.
+    """
+    id: str
+    loop_id: str
+    cycle_number: int
+    phase: str  # debate, design, implement, verify, commit
+    reason: str  # verify_failure, manual_intervention, timeout, conflict
+    severity: str  # low, medium, high, critical
+    rolled_back_commit: Optional[str] = None  # Git commit that was reverted
+    preserved_branch: Optional[str] = None  # Where failed work was saved
+    files_affected: list[str] = field(default_factory=list)
+    diff_summary: str = ""  # git diff --stat summary
+    error_message: Optional[str] = None
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'loop_id': self.loop_id,
+            'cycle_number': self.cycle_number,
+            'phase': self.phase,
+            'reason': self.reason,
+            'severity': self.severity,
+            'rolled_back_commit': self.rolled_back_commit,
+            'preserved_branch': self.preserved_branch,
+            'files_affected': self.files_affected,
+            'diff_summary': self.diff_summary,
+            'error_message': self.error_message,
+            'created_at': self.created_at.isoformat(),
+        }
+
+
+@dataclass
+class CycleEvolution:
+    """
+    Tracks the evolution of the codebase through nomic cycles.
+
+    Links debates to their outcomes, tracks what files changed,
+    and connects to any rollbacks that occurred.
+    """
+    id: str
+    loop_id: str
+    cycle_number: int
+    debate_artifact_id: Optional[str] = None  # Link to DebateArtifact
+    winning_proposal_summary: Optional[str] = None
+    files_changed: list[str] = field(default_factory=list)
+    git_commit: Optional[str] = None
+    rollback_id: Optional[str] = None  # If this cycle was rolled back
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'loop_id': self.loop_id,
+            'cycle_number': self.cycle_number,
+            'debate_artifact_id': self.debate_artifact_id,
+            'winning_proposal_summary': self.winning_proposal_summary,
+            'files_changed': self.files_changed,
+            'git_commit': self.git_commit,
+            'rollback_id': self.rollback_id,
+            'created_at': self.created_at.isoformat(),
+        }
+
+
+@dataclass
+class CycleFileChange:
+    """
+    Tracks individual file changes within a cycle.
+
+    Enables querying which cycles touched a specific file.
+    """
+    loop_id: str
+    cycle_number: int
+    file_path: str
+    change_type: str  # added, modified, deleted, renamed
+    insertions: int = 0
+    deletions: int = 0
+
+    def to_dict(self) -> dict:
+        return {
+            'loop_id': self.loop_id,
+            'cycle_number': self.cycle_number,
+            'file_path': self.file_path,
+            'change_type': self.change_type,
+            'insertions': self.insertions,
+            'deletions': self.deletions,
+        }

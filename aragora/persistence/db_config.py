@@ -55,6 +55,9 @@ class DatabaseType(Enum):
     GENESIS = "genesis"
     GENOMES = "genomes"
 
+    # Evolution databases
+    EVOLUTION = "evolution"  # Nomic rollbacks and cycle evolution history
+
 
 class DatabaseMode(Enum):
     """Database organization modes."""
@@ -91,6 +94,8 @@ LEGACY_DB_NAMES = {
     DatabaseType.TRUTH_GROUNDING: "aragora_positions.db",
     DatabaseType.GENESIS: "genesis.db",
     DatabaseType.GENOMES: "genesis.db",
+    # Evolution
+    DatabaseType.EVOLUTION: "evolution.db",
 }
 
 # Mapping from DatabaseType to consolidated database
@@ -121,6 +126,8 @@ CONSOLIDATED_DB_MAPPING = {
     DatabaseType.TRUTH_GROUNDING: "agents.db",
     DatabaseType.GENESIS: "agents.db",
     DatabaseType.GENOMES: "agents.db",
+    # Evolution
+    DatabaseType.EVOLUTION: "core.db",
 }
 
 
