@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 from .base import (
     BaseHandler, HandlerResult, json_response, error_response,
     get_int_param, get_string_param, validate_path_segment, SAFE_ID_PATTERN,
-    ttl_cache,
+    ttl_cache, safe_error_message,
 )
 
 # Cache TTLs for system endpoints (in seconds)
@@ -49,6 +49,8 @@ class SystemHandler(BaseHandler):
         # Kubernetes-standard health probes
         "/healthz",
         "/readyz",
+        # Debug endpoint
+        "/api/debug/test",
         # API health endpoints
         "/api/health",
         "/api/health/detailed",
@@ -67,6 +69,8 @@ class SystemHandler(BaseHandler):
         "/api/openapi.yaml",
         "/api/auth/stats",
         "/api/auth/revoke",
+        # Prometheus metrics
+        "/metrics",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -75,6 +79,15 @@ class SystemHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route system requests to appropriate methods."""
+        # Debug endpoint for testing
+        if path == "/api/debug/test":
+            method = getattr(handler, 'command', 'GET')
+            return json_response({
+                "status": "ok",
+                "method": method,
+                "message": "Modular handler works"
+            })
+
         # Kubernetes-standard health probes
         if path == "/healthz":
             return self._liveness_probe()
@@ -154,6 +167,9 @@ class SystemHandler(BaseHandler):
 
         if path == "/api/auth/stats":
             return self._get_auth_stats()
+
+        if path == "/metrics":
+            return self._get_prometheus_metrics()
 
         return None
 
@@ -400,7 +416,7 @@ class SystemHandler(BaseHandler):
             return json_response(state)
         except Exception as e:
             logger.error("Failed to read nomic state: %s", e, exc_info=True)
-            return error_response(f"Failed to read state: {e}", 500)
+            return error_response(safe_error_message(e, "read state"), 500)
 
     def _get_nomic_log(self, lines: int) -> HandlerResult:
         """Get recent nomic loop log lines."""
@@ -424,7 +440,7 @@ class SystemHandler(BaseHandler):
             })
         except Exception as e:
             logger.error("Failed to read nomic log: %s", e, exc_info=True)
-            return error_response(f"Failed to read log: {e}", 500)
+            return error_response(safe_error_message(e, "read log"), 500)
 
     def _get_nomic_health(self) -> HandlerResult:
         """Get nomic loop health with stall detection.
@@ -556,7 +572,7 @@ class SystemHandler(BaseHandler):
             })
         except Exception as e:
             logger.error("Failed to read risk register: %s", e, exc_info=True)
-            return error_response(f"Failed to read risk register: {e}", 500)
+            return error_response(safe_error_message(e, "read risk register"), 500)
 
     def _get_modes(self) -> HandlerResult:
         """Get available operational modes (builtin + custom)."""
@@ -609,7 +625,7 @@ class SystemHandler(BaseHandler):
             return json_response({"cycles": []})
         except Exception as e:
             logger.error("Failed to get history cycles: %s", e, exc_info=True)
-            return error_response(f"Failed to get cycles: {e}", 500)
+            return error_response(safe_error_message(e, "get cycles"), 500)
 
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_events", skip_first=True)
     def _get_history_events(self, loop_id: Optional[str], limit: int) -> HandlerResult:
@@ -628,7 +644,7 @@ class SystemHandler(BaseHandler):
             return json_response({"events": []})
         except Exception as e:
             logger.error("Failed to get history events: %s", e, exc_info=True)
-            return error_response(f"Failed to get events: {e}", 500)
+            return error_response(safe_error_message(e, "get events"), 500)
 
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_debates", skip_first=True)
     def _get_history_debates(self, loop_id: Optional[str], limit: int) -> HandlerResult:
@@ -645,7 +661,7 @@ class SystemHandler(BaseHandler):
             return json_response({"debates": debates})
         except Exception as e:
             logger.error("Failed to get history debates: %s", e, exc_info=True)
-            return error_response(f"Failed to get debates: {e}", 500)
+            return error_response(safe_error_message(e, "get debates"), 500)
 
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_summary", skip_first=True)
     def _get_history_summary(self, loop_id: Optional[str]) -> HandlerResult:
@@ -671,7 +687,7 @@ class SystemHandler(BaseHandler):
             return json_response(summary)
         except Exception as e:
             logger.error("Failed to get history summary: %s", e, exc_info=True)
-            return error_response(f"Failed to get summary: {e}", 500)
+            return error_response(safe_error_message(e, "get summary"), 500)
 
     def _run_maintenance(self, task: str) -> HandlerResult:
         """Run database maintenance tasks.
@@ -720,7 +736,7 @@ class SystemHandler(BaseHandler):
             return error_response("Maintenance module not available", 503)
         except Exception as e:
             logger.exception(f"Maintenance task '{task}' failed: {e}")
-            return error_response(f"Maintenance failed: {e}", 500)
+            return error_response(safe_error_message(e, "maintenance"), 500)
 
     @ttl_cache(ttl_seconds=CACHE_TTL_OPENAPI, key_prefix="openapi_spec", skip_first=True)
     def _get_openapi_spec(self, format: str = "json") -> HandlerResult:
@@ -745,7 +761,7 @@ class SystemHandler(BaseHandler):
             return error_response("OpenAPI module not available", 503)
         except Exception as e:
             logger.exception(f"OpenAPI generation failed: {e}")
-            return error_response(f"OpenAPI generation failed: {e}", 500)
+            return error_response(safe_error_message(e, "OpenAPI generation"), 500)
 
     def _get_auth_stats(self) -> HandlerResult:
         """Get authentication and rate limiting statistics.
@@ -801,3 +817,30 @@ class SystemHandler(BaseHandler):
             "success": success,
             "revoked_count": auth_config.get_revocation_count(),
         })
+
+    def _get_prometheus_metrics(self) -> HandlerResult:
+        """Get Prometheus-format metrics.
+
+        Exposes metrics for:
+        - Subscription events and active subscriptions by tier
+        - Usage (debates, tokens) by tier
+        - API request counts and latency
+        - Agent performance metrics
+
+        Returns:
+            Prometheus text format metrics
+        """
+        try:
+            from aragora.server.metrics import generate_metrics
+
+            metrics_text = generate_metrics()
+            return HandlerResult(
+                status_code=200,
+                content_type="text/plain; version=0.0.4; charset=utf-8",
+                body=metrics_text.encode("utf-8"),
+            )
+        except ImportError:
+            return error_response("Metrics module not available", 503)
+        except Exception as e:
+            logger.exception(f"Metrics generation failed: {e}")
+            return error_response(safe_error_message(e, "metrics"), 500)
