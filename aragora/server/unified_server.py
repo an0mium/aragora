@@ -434,12 +434,8 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
                 )
             return False
 
-        # Add rate limit headers
-        if remaining >= 0:
-            self.send_response(200)
-            self.send_header("X-RateLimit-Remaining", str(remaining))
-            self.send_header("X-RateLimit-Limit", str(auth_config.rate_limit_per_minute))
-
+        # Note: Rate limit headers are now added by individual handlers
+        # that need to include them in their responses
         return True
 
     def _check_tier_rate_limit(self) -> bool:
