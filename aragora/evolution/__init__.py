@@ -19,6 +19,7 @@ from aragora.evolution.ab_testing import (
     ABTestStatus,
     ABTestManager,
 )
+from aragora.evolution.tracker import EvolutionTracker
 
 __all__ = [
     "PromptEvolver",
@@ -33,4 +34,5 @@ __all__ = [
     "ABTestResult",
     "ABTestStatus",
     "ABTestManager",
+    "EvolutionTracker",
 ]

@@ -74,6 +74,7 @@ try:
         GraphDebatesHandler,
         MatrixDebatesHandler,
         FeaturesHandler,
+        MemoryAnalyticsHandler,
         HandlerResult,
     )
     HANDLERS_AVAILABLE = True
@@ -120,6 +121,7 @@ except ImportError:
     GraphDebatesHandler = None  # type: ignore[misc, assignment]
     MatrixDebatesHandler = None  # type: ignore[misc, assignment]
     FeaturesHandler = None  # type: ignore[misc, assignment]
+    MemoryAnalyticsHandler = None  # type: ignore[misc, assignment]
     HandlerResult = None  # type: ignore[misc, assignment]
 
 
@@ -166,6 +168,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_graph_debates_handler", GraphDebatesHandler),
     ("_matrix_debates_handler", MatrixDebatesHandler),
     ("_features_handler", FeaturesHandler),
+    ("_memory_analytics_handler", MemoryAnalyticsHandler),
 ]
 
 
