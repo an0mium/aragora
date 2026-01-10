@@ -1,28 +1,15 @@
+"""Handler utilities module.
+
+Provides reusable utilities for HTTP handlers including:
+- Rate limiting (token bucket algorithm)
+- Response formatting (to be extracted from base.py)
+- Authentication decorators (to be extracted from base.py)
 """
-Handler utility modules.
 
-This package contains focused utility modules extracted from base.py
-for better organization and maintainability.
-
-All utilities are re-exported from base.py for backwards compatibility.
-"""
-
-from aragora.server.handlers.utils.safe_data import (
-    safe_get,
-    safe_get_nested,
-    safe_json_parse,
-)
-from aragora.server.handlers.utils.database import (
-    get_db_connection,
-    table_exists,
-)
+from .rate_limit import RateLimiter, rate_limit, get_client_ip
 
 __all__ = [
-    # Safe data access
-    "safe_get",
-    "safe_get_nested",
-    "safe_json_parse",
-    # Database utilities
-    "get_db_connection",
-    "table_exists",
+    "RateLimiter",
+    "rate_limit",
+    "get_client_ip",
 ]

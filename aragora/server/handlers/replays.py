@@ -8,6 +8,8 @@ Endpoints:
 - GET /api/meta-learning/stats - Get meta-learning hyperparameters and efficiency stats
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import sqlite3

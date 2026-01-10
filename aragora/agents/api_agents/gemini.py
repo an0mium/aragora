@@ -142,6 +142,13 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
 
                 data = await response.json()
 
+                # Record token usage for billing (Gemini format)
+                usage_metadata = data.get("usageMetadata", {})
+                self._record_token_usage(
+                    tokens_in=usage_metadata.get("promptTokenCount", 0),
+                    tokens_out=usage_metadata.get("candidatesTokenCount", 0),
+                )
+
                 # Extract text from response with robust error handling
                 try:
                     candidate = data["candidates"][0]

@@ -23,6 +23,8 @@ Usage:
         result = debates.handle(path, query_params, handler)
 """
 
+from __future__ import annotations
+
 from .base import HandlerResult, BaseHandler, json_response, error_response
 from .debates import DebatesHandler
 from .agents import AgentsHandler

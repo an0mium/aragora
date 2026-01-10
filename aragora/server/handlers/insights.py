@@ -6,6 +6,8 @@ Endpoints:
 - POST /api/insights/extract-detailed - Extract detailed insights from content
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import re

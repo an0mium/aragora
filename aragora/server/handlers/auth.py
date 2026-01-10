@@ -31,6 +31,7 @@ from .base import (
     json_response,
     log_request,
 )
+from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,7 @@ class AuthHandler(BaseHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
+    @rate_limit(rpm=5, limiter_name="auth_register")
     @handle_errors("user registration")
     @log_request("user registration")
     def _handle_register(self, handler) -> HandlerResult:
@@ -205,6 +207,7 @@ class AuthHandler(BaseHandler):
             status=201,
         )
 
+    @rate_limit(rpm=10, limiter_name="auth_login")
     @handle_errors("user login")
     @log_request("user login")
     def _handle_login(self, handler) -> HandlerResult:

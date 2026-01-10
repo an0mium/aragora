@@ -8,6 +8,8 @@ Endpoints:
 - GET /api/debates/matrix/{id}/conclusions - Get universal/conditional conclusions
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from typing import Any, Optional
@@ -36,7 +38,7 @@ class MatrixDebatesHandler(BaseHandler):
         "/api/debates/matrix",
     ]
 
-    @handle_errors
+    @handle_errors("matrix debates GET")
     async def handle_get(self, handler, path: str, query_params: dict) -> HandlerResult:
         """Handle GET requests for matrix debates."""
         parts = path.rstrip("/").split("/")
@@ -57,7 +59,7 @@ class MatrixDebatesHandler(BaseHandler):
 
         return error_response("Not found", 404)
 
-    @handle_errors
+    @handle_errors("matrix debates POST")
     async def handle_post(self, handler, path: str, data: dict) -> HandlerResult:
         """Handle POST requests for matrix debates.
 

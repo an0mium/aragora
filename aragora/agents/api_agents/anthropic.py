@@ -139,6 +139,13 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
                 data = await response.json()
 
+                # Record token usage for billing
+                usage = data.get("usage", {})
+                self._record_token_usage(
+                    tokens_in=usage.get("input_tokens", 0),
+                    tokens_out=usage.get("output_tokens", 0),
+                )
+
                 try:
                     return data["content"][0]["text"]
                 except (KeyError, IndexError):

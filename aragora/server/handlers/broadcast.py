@@ -7,6 +7,8 @@ Endpoints:
 - GET /api/podcast/feed.xml - Get RSS podcast feed
 """
 
+from __future__ import annotations
+
 import logging
 import os
 from typing import Any, Coroutine, Optional, TypeVar

@@ -7,6 +7,8 @@ Endpoints:
 - POST /api/plugins/{name}/run - Run a plugin with provided input
 """
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 from typing import Optional

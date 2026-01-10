@@ -7,6 +7,8 @@ Endpoints:
 - GET /api/breakpoints/{id}/status - Get status of a specific breakpoint
 """
 
+from __future__ import annotations
+
 import logging
 import re
 from typing import Optional

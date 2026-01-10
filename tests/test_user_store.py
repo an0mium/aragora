@@ -77,21 +77,34 @@ class TestPasswordHashing:
     """Tests for password hashing utilities."""
 
     def test_hash_password_generates_salt(self):
-        """hash_password should generate a salt if not provided."""
+        """hash_password should produce different hashes for same password."""
         hash1, salt1 = hash_password("password")
         hash2, salt2 = hash_password("password")
 
-        assert salt1 != salt2  # Different salts
+        # With bcrypt, salt is embedded in hash (returned salt is empty)
+        # With SHA-256, salt is returned separately
+        # Either way, hashes should differ due to different salts
         assert hash1 != hash2  # Different hashes due to different salts
 
     def test_hash_password_with_salt(self):
-        """hash_password should use provided salt."""
-        salt = "fixed_salt"
-        hash1, salt1 = hash_password("password", salt)
-        hash2, salt2 = hash_password("password", salt)
+        """hash_password produces consistent results (SHA-256 mode)."""
+        # This test verifies SHA-256 fallback mode with explicit salt
+        # With bcrypt, the salt parameter is ignored (salt embedded in hash)
+        from aragora.billing.models import HAS_BCRYPT
 
-        assert salt1 == salt2 == salt
-        assert hash1 == hash2  # Same hashes with same salt
+        if HAS_BCRYPT:
+            # bcrypt ignores the salt parameter and generates its own
+            hash1, _ = hash_password("password", "fixed_salt")
+            hash2, _ = hash_password("password", "fixed_salt")
+            # Hashes will differ because bcrypt generates new salt each time
+            assert hash1 != hash2
+        else:
+            # SHA-256 fallback uses provided salt
+            salt = "fixed_salt"
+            hash1, salt1 = hash_password("password", salt)
+            hash2, salt2 = hash_password("password", salt)
+            assert salt1 == salt2 == salt
+            assert hash1 == hash2  # Same hashes with same salt
 
     def test_verify_password_correct(self):
         """verify_password should return True for correct password."""

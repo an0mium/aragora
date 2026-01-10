@@ -6,6 +6,8 @@ Endpoints:
 - POST /api/verification/formal-verify - Verify a claim using Z3 SMT solver
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 

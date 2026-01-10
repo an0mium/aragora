@@ -60,6 +60,33 @@ interface HeadToHeadData {
   by_domain?: Record<string, { wins: number; losses: number; draws: number }>;
 }
 
+interface DomainData {
+  agent: string;
+  overall_elo: number;
+  domains: { domain: string; elo: number; relative: number }[];
+  domain_count: number;
+}
+
+interface PerformanceData {
+  agent: string;
+  elo: number;
+  total_games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  win_rate: number;
+  recent_win_rate: number;
+  elo_trend: number;
+  critiques_accepted: number;
+  critiques_total: number;
+  critique_acceptance_rate: number;
+  calibration: {
+    accuracy: number;
+    brier_score: number;
+    prediction_count: number;
+  };
+}
+
 const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
 export function AgentProfileWrapper() {
@@ -74,10 +101,12 @@ export function AgentProfileWrapper() {
   const [moments, setMoments] = useState<Moment[]>([]);
   const [network, setNetwork] = useState<NetworkData | null>(null);
   const [headToHead, setHeadToHead] = useState<HeadToHeadData | null>(null);
+  const [domains, setDomains] = useState<DomainData | null>(null);
+  const [performance, setPerformance] = useState<PerformanceData | null>(null);
   const [selectedRival, setSelectedRival] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'moments' | 'network' | 'compare'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'moments' | 'network' | 'compare' | 'domains' | 'performance'>('overview');
 
   const apiBase = DEFAULT_API_BASE;
 
@@ -91,11 +120,13 @@ export function AgentProfileWrapper() {
       setLoading(true);
       setError(null);
 
-      // Fetch profile, moments, and network in parallel
-      const [profileRes, momentsRes, networkRes] = await Promise.all([
+      // Fetch profile, moments, network, domains, and performance in parallel
+      const [profileRes, momentsRes, networkRes, domainsRes, performanceRes] = await Promise.all([
         fetch(`${apiBase}/api/agent/${encodeURIComponent(agentName)}/profile`),
         fetch(`${apiBase}/api/agent/${encodeURIComponent(agentName)}/moments?limit=10`),
         fetch(`${apiBase}/api/agent/${encodeURIComponent(agentName)}/network`),
+        fetch(`${apiBase}/api/agent/${encodeURIComponent(agentName)}/domains`),
+        fetch(`${apiBase}/api/agent/${encodeURIComponent(agentName)}/performance`),
       ]);
 
       if (profileRes.ok) {
@@ -115,6 +146,16 @@ export function AgentProfileWrapper() {
         if (data.rivals?.length > 0 && !selectedRival) {
           setSelectedRival(data.rivals[0].agent);
         }
+      }
+
+      if (domainsRes.ok) {
+        const data = await domainsRes.json();
+        setDomains(data);
+      }
+
+      if (performanceRes.ok) {
+        const data = await performanceRes.json();
+        setPerformance(data);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch agent data');
@@ -301,12 +342,12 @@ export function AgentProfileWrapper() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex space-x-1 bg-surface border border-border rounded p-1 mb-6">
-          {(['overview', 'moments', 'network', 'compare'] as const).map((tab) => (
+        <div className="flex flex-wrap gap-1 bg-surface border border-border rounded p-1 mb-6">
+          {(['overview', 'performance', 'domains', 'moments', 'network', 'compare'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded text-sm transition-colors flex-1 capitalize ${
+              className={`px-3 py-2 rounded text-sm transition-colors capitalize ${
                 activeTab === tab
                   ? 'bg-accent text-bg font-medium'
                   : 'text-text-muted hover:text-text'
@@ -632,6 +673,166 @@ export function AgentProfileWrapper() {
               ) : (
                 <div className="text-center text-text-muted py-8">
                   Select an opponent to see head-to-head statistics
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Performance Tab */}
+          {activeTab === 'performance' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-text mb-4">Performance Statistics</h3>
+
+              {performance ? (
+                <>
+                  {/* Key Metrics */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-bg border border-border rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-text font-mono">
+                        {(performance.win_rate * 100).toFixed(1)}%
+                      </div>
+                      <div className="text-xs text-text-muted">Win Rate</div>
+                    </div>
+                    <div className="bg-bg border border-border rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-accent font-mono">
+                        {(performance.recent_win_rate * 100).toFixed(1)}%
+                      </div>
+                      <div className="text-xs text-text-muted">Recent (Last 10)</div>
+                    </div>
+                    <div className="bg-bg border border-border rounded-lg p-4 text-center">
+                      <div className={`text-2xl font-bold font-mono ${
+                        performance.elo_trend > 0 ? 'text-green-400' :
+                        performance.elo_trend < 0 ? 'text-red-400' : 'text-text-muted'
+                      }`}>
+                        {performance.elo_trend > 0 ? '+' : ''}{performance.elo_trend}
+                      </div>
+                      <div className="text-xs text-text-muted">ELO Trend</div>
+                    </div>
+                    <div className="bg-bg border border-border rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-text font-mono">
+                        {performance.total_games}
+                      </div>
+                      <div className="text-xs text-text-muted">Total Games</div>
+                    </div>
+                  </div>
+
+                  {/* Win/Loss Breakdown */}
+                  <div className="bg-bg border border-border rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-text mb-3">Match Breakdown</h4>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <div className="flex h-4 rounded overflow-hidden bg-surface">
+                          {performance.total_games > 0 && (
+                            <>
+                              <div
+                                className="bg-green-500"
+                                style={{ width: `${(performance.wins / performance.total_games) * 100}%` }}
+                                title={`${performance.wins} wins`}
+                              />
+                              <div
+                                className="bg-gray-500"
+                                style={{ width: `${(performance.draws / performance.total_games) * 100}%` }}
+                                title={`${performance.draws} draws`}
+                              />
+                              <div
+                                className="bg-red-500"
+                                style={{ width: `${(performance.losses / performance.total_games) * 100}%` }}
+                                title={`${performance.losses} losses`}
+                              />
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-xs text-text-muted whitespace-nowrap">
+                        {performance.wins}W / {performance.draws}D / {performance.losses}L
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Critique Stats */}
+                  <div className="bg-bg border border-border rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-text mb-3">Critique Performance</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-xs text-text-muted mb-1">Acceptance Rate</div>
+                        <div className="text-lg font-mono text-text">
+                          {(performance.critique_acceptance_rate * 100).toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-text-muted">
+                          {performance.critiques_accepted}/{performance.critiques_total} accepted
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-text-muted mb-1">Calibration Accuracy</div>
+                        <div className="text-lg font-mono text-text">
+                          {(performance.calibration.accuracy * 100).toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-text-muted">
+                          Brier: {performance.calibration.brier_score.toFixed(3)} ({performance.calibration.prediction_count} predictions)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center text-text-muted py-8">
+                  No performance data available.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Domains Tab */}
+          {activeTab === 'domains' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-text mb-4">Domain Expertise</h3>
+
+              {domains && domains.domains.length > 0 ? (
+                <>
+                  <div className="text-sm text-text-muted mb-4">
+                    Overall ELO: <span className="font-mono text-text">{domains.overall_elo}</span>
+                    {' '}&middot;{' '}
+                    {domains.domain_count} domain{domains.domain_count !== 1 ? 's' : ''}
+                  </div>
+
+                  <div className="space-y-3">
+                    {domains.domains.map((domain) => (
+                      <div
+                        key={domain.domain}
+                        className="bg-bg border border-border rounded-lg p-4"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-text capitalize">
+                            {domain.domain.replace(/_/g, ' ')}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-text">{Math.round(domain.elo)}</span>
+                            <span className={`text-xs font-mono ${
+                              domain.relative > 0 ? 'text-green-400' :
+                              domain.relative < 0 ? 'text-red-400' : 'text-text-muted'
+                            }`}>
+                              {domain.relative > 0 ? '+' : ''}{domain.relative}
+                            </span>
+                          </div>
+                        </div>
+                        {/* Progress bar showing ELO relative to range */}
+                        <div className="h-2 rounded overflow-hidden bg-surface">
+                          <div
+                            className={`h-full ${
+                              domain.elo >= 1600 ? 'bg-green-500' :
+                              domain.elo >= 1500 ? 'bg-yellow-500' :
+                              domain.elo >= 1400 ? 'bg-orange-500' : 'bg-red-500'
+                            }`}
+                            style={{ width: `${Math.min(100, Math.max(0, (domain.elo - 1000) / 10))}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center text-text-muted py-8">
+                  No domain expertise data available. This agent needs more debates in specific topic areas.
                 </div>
               )}
             </div>

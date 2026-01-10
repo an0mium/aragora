@@ -256,6 +256,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     dissent_retriever: Optional["DissentRetriever"] = None  # DissentRetriever for minority views
     moment_detector: Optional["MomentDetector"] = None  # MomentDetector for significant moments
     user_store: Optional["UserStore"] = None  # UserStore for user/org persistence
+    usage_tracker: Optional["UsageTracker"] = None  # UsageTracker for billing events
 
     # Note: Modular HTTP handlers are provided by HandlerRegistryMixin
     # Handler instance variables (_system_handler, etc.) and _handlers_initialized
@@ -1232,6 +1233,12 @@ class UnifiedServer:
             user_db_path = nomic_dir / "users.db"
             UnifiedHandler.user_store = UserStore(user_db_path)
             logger.info(f"[server] UserStore initialized at {user_db_path}")
+
+            # Initialize UsageTracker for billing/usage events
+            from aragora.billing.usage import UsageTracker
+            usage_db_path = nomic_dir / "usage.db"
+            UnifiedHandler.usage_tracker = UsageTracker(db_path=usage_db_path)
+            logger.info(f"[server] UsageTracker initialized at {usage_db_path}")
 
     @property
     def emitter(self) -> SyncEventEmitter:

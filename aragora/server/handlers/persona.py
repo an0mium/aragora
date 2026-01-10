@@ -11,6 +11,8 @@ Endpoints:
 - GET /api/agent/{name}/accuracy - Get position accuracy stats
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 

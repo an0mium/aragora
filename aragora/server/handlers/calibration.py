@@ -9,6 +9,8 @@ Endpoints:
 - GET /api/calibration/leaderboard - Get top agents by calibration score
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 

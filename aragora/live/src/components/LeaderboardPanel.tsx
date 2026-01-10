@@ -370,7 +370,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
       <div className="panel-tabs mb-4">
         <button
           onClick={() => setActiveTab('rankings')}
-          className={`px-3 py-1 rounded text-sm transition-colors flex-1 ${
+          className={`px-3 py-1 rounded text-sm transition-colors whitespace-nowrap ${
             activeTab === 'rankings'
               ? 'bg-accent text-bg font-medium'
               : 'text-text-muted hover:text-text'
@@ -380,7 +380,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
         </button>
         <button
           onClick={() => setActiveTab('matches')}
-          className={`px-3 py-1 rounded text-sm transition-colors flex-1 ${
+          className={`px-3 py-1 rounded text-sm transition-colors whitespace-nowrap ${
             activeTab === 'matches'
               ? 'bg-accent text-bg font-medium'
               : 'text-text-muted hover:text-text'
@@ -390,7 +390,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
         </button>
         <button
           onClick={() => setActiveTab('reputation')}
-          className={`px-3 py-1 rounded text-sm transition-colors flex-1 ${
+          className={`px-3 py-1 rounded text-sm transition-colors whitespace-nowrap ${
             activeTab === 'reputation'
               ? 'bg-accent text-bg font-medium'
               : 'text-text-muted hover:text-text'
@@ -400,7 +400,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
         </button>
         <button
           onClick={() => setActiveTab('teams')}
-          className={`px-3 py-1 rounded text-sm transition-colors flex-1 ${
+          className={`px-3 py-1 rounded text-sm transition-colors whitespace-nowrap ${
             activeTab === 'teams'
               ? 'bg-accent text-bg font-medium'
               : 'text-text-muted hover:text-text'
@@ -410,7 +410,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
         </button>
         <button
           onClick={() => setActiveTab('stats')}
-          className={`px-3 py-1 rounded text-sm transition-colors flex-1 ${
+          className={`px-3 py-1 rounded text-sm transition-colors whitespace-nowrap ${
             activeTab === 'stats'
               ? 'bg-accent text-bg font-medium'
               : 'text-text-muted hover:text-text'
@@ -420,7 +420,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
         </button>
         <button
           onClick={() => setActiveTab('minds')}
-          className={`px-3 py-1 rounded text-sm transition-colors flex-1 ${
+          className={`px-3 py-1 rounded text-sm transition-colors whitespace-nowrap ${
             activeTab === 'minds'
               ? 'bg-accent text-bg font-medium'
               : 'text-text-muted hover:text-text'

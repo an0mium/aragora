@@ -69,7 +69,14 @@ export type StreamEventType =
   | 'risk_warning'
   | 'evidence_found'
   | 'calibration_update'
-  | 'genesis_evolution';
+  | 'genesis_evolution'
+  // Graph debate events
+  | 'debate_branch'
+  | 'debate_merge'
+  | 'graph_node_added'
+  // Matrix debate events
+  | 'scenario_complete'
+  | 'matrix_complete';
 
 // Base interface for all stream events
 interface StreamEventBase {

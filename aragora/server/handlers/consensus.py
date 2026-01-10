@@ -11,6 +11,8 @@ Endpoints:
 - GET /api/consensus/domain/:domain - Get domain-specific history
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from typing import Optional

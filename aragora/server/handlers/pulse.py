@@ -7,6 +7,8 @@ Endpoints:
 - GET /api/pulse/analytics - Get analytics on trending topic debate outcomes
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 
@@ -17,7 +19,7 @@ logger = logging.getLogger(__name__)
 from .base import (
     BaseHandler, HandlerResult, json_response, error_response,
     get_int_param, get_string_param, validate_path_segment, SAFE_ID_PATTERN,
-    feature_unavailable_response,
+    feature_unavailable_response, auto_error_response,
 )
 
 
@@ -201,6 +203,7 @@ class PulseHandler(BaseHandler):
         except Exception as e:
             return error_response(f"Failed to suggest debate topic: {e}", 500)
 
+    @auto_error_response("get pulse analytics")
     def _get_analytics(self) -> HandlerResult:
         """Get analytics on trending topic debate outcomes.
 
@@ -216,9 +219,5 @@ class PulseHandler(BaseHandler):
         if not manager:
             return feature_unavailable_response("pulse")
 
-        try:
-            analytics = manager.get_analytics()
-            return json_response(analytics)
-
-        except Exception as e:
-            return error_response(f"Failed to get pulse analytics: {e}", 500)
+        analytics = manager.get_analytics()
+        return json_response(analytics)

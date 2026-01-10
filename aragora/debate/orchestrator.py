@@ -243,6 +243,10 @@ class Arena:
         use_performance_selection: bool = False,  # Enable ELO/calibration-based agent selection
         prompt_evolver=None,  # Optional PromptEvolver for extracting winning patterns
         enable_prompt_evolution: bool = False,  # Auto-create PromptEvolver if True
+        # Billing/usage tracking
+        org_id: str = "",  # Organization ID for multi-tenancy
+        user_id: str = "",  # User ID for usage attribution
+        usage_tracker=None,  # UsageTracker instance for recording token usage
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
@@ -320,6 +324,9 @@ class Arena:
             use_performance_selection=use_performance_selection,
             prompt_evolver=prompt_evolver,
             enable_prompt_evolution=enable_prompt_evolution,
+            org_id=org_id,
+            user_id=user_id,
+            usage_tracker=usage_tracker,
         )
 
         # Initialize tracking subsystems
@@ -463,6 +470,9 @@ class Arena:
         use_performance_selection: bool,
         prompt_evolver,
         enable_prompt_evolution: bool,
+        org_id: str = "",
+        user_id: str = "",
+        usage_tracker=None,
     ) -> None:
         """Initialize core Arena configuration."""
         self.env = environment
@@ -530,6 +540,11 @@ class Arena:
         self.breakpoint_manager = breakpoint_manager
         self.agent_selector = agent_selector
         self.use_performance_selection = use_performance_selection
+
+        # Billing/usage tracking
+        self.org_id = org_id
+        self.user_id = user_id
+        self.usage_tracker = usage_tracker
 
         # Auto-initialize BreakpointManager if enable_breakpoints is True
         if self.protocol.enable_breakpoints and self.breakpoint_manager is None:
@@ -1468,6 +1483,9 @@ class Arena:
             ctx.result.rounds_used = ctx.partial_rounds
             logger.warning("Debate timed out, returning partial results")
 
+        # Record token usage for billing (before returning)
+        self._record_token_usage(ctx)
+
         return ctx.result
 
     # NOTE: Legacy _run_inner code (1,300+ lines) removed after successful phase integration.
@@ -1478,6 +1496,53 @@ class Arena:
     # - ConsensusPhase (Phase 3)
     # - AnalyticsPhase (Phases 4-6)
     # - FeedbackPhase (Phase 7)
+
+    def _record_token_usage(self, ctx) -> None:
+        """Record token usage from all agents for billing.
+
+        Aggregates token usage across all API agents and records
+        via the usage_tracker if configured.
+
+        Args:
+            ctx: DebateContext containing result and debate metadata
+        """
+        if not self.usage_tracker:
+            return
+
+        try:
+            # Aggregate usage across all agents
+            total_tokens_in = 0
+            total_tokens_out = 0
+
+            for agent in self.agents:
+                # Check if agent has token tracking (APIAgent subclasses)
+                if hasattr(agent, 'get_token_usage'):
+                    usage = agent.get_token_usage()
+                    total_tokens_in += usage.get('total_tokens_in', 0)
+                    total_tokens_out += usage.get('total_tokens_out', 0)
+
+            # Only record if we have actual usage
+            if total_tokens_in > 0 or total_tokens_out > 0:
+                # Get debate ID from result
+                debate_id = getattr(ctx.result, 'id', '') or getattr(ctx, 'debate_id', '')
+
+                # Record via usage tracker
+                self.usage_tracker.record_debate(
+                    user_id=self.user_id,
+                    org_id=self.org_id,
+                    debate_id=debate_id,
+                    tokens_in=total_tokens_in,
+                    tokens_out=total_tokens_out,
+                    provider="mixed",  # Multiple providers may be used
+                    model="mixed",  # Multiple models may be used
+                )
+                logger.info(
+                    f"Recorded usage: {total_tokens_in} in, {total_tokens_out} out "
+                    f"for debate {debate_id} (org={self.org_id})"
+                )
+        except Exception as e:
+            # Don't fail the debate if usage recording fails
+            logger.warning(f"Failed to record token usage: {e}")
 
     async def _index_debate_async(self, artifact: dict) -> None:
         """Index debate asynchronously to avoid blocking."""

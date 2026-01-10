@@ -12,6 +12,8 @@ import type {
   EmergentTrait,
   CrossPollination,
   GenesisStats,
+  GenesisEvent,
+  Genome,
   CritiquePattern,
   LaboratoryPanelProps,
   LaboratoryTab,
@@ -37,6 +39,8 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
   const [traits, setTraits] = useState<EmergentTrait[]>([]);
   const [pollinations, setPollinations] = useState<CrossPollination[]>([]);
   const [genesisStats, setGenesisStats] = useState<GenesisStats | null>(null);
+  const [genesisEvents, setGenesisEvents] = useState<GenesisEvent[]>([]);
+  const [topGenomes, setTopGenomes] = useState<Genome[]>([]);
   const [patterns, setPatterns] = useState<CritiquePattern[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,10 +56,12 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
       fetchWithRetry(`${apiBase}/api/laboratory/emergent-traits?min_confidence=0.3&limit=10`, undefined, { maxRetries: 2 }),
       fetchWithRetry(`${apiBase}/api/laboratory/cross-pollinations/suggest`, undefined, { maxRetries: 2 }),
       fetchWithRetry(`${apiBase}/api/genesis/stats`, undefined, { maxRetries: 2 }),
+      fetchWithRetry(`${apiBase}/api/genesis/events?limit=10`, undefined, { maxRetries: 2 }),
+      fetchWithRetry(`${apiBase}/api/genesis/genomes/top?limit=5`, undefined, { maxRetries: 2 }),
       fetchWithRetry(`${apiBase}/api/critiques/patterns?limit=15&min_success=0.5`, undefined, { maxRetries: 2 }),
     ]);
 
-    const [traitsResult, pollinationsResult, genesisResult, patternsResult] = results;
+    const [traitsResult, pollinationsResult, genesisResult, eventsResult, genomesResult, patternsResult] = results;
     let hasError = false;
 
     if (traitsResult.status === 'fulfilled' && traitsResult.value.ok) {
@@ -77,6 +83,16 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
       setGenesisStats(data);
     } else {
       hasError = true;
+    }
+
+    if (eventsResult.status === 'fulfilled' && eventsResult.value.ok) {
+      const data = await eventsResult.value.json();
+      setGenesisEvents(data.events || []);
+    }
+
+    if (genomesResult.status === 'fulfilled' && genomesResult.value.ok) {
+      const data = await genomesResult.value.json();
+      setTopGenomes(data.genomes || []);
     }
 
     if (patternsResult.status === 'fulfilled' && patternsResult.value.ok) {
@@ -173,7 +189,14 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE }: LaboratoryPanelP
           {/* Tab Content */}
           {activeTab === 'traits' && <TraitsTab traits={traits} loading={loading} />}
           {activeTab === 'pollinations' && <PollinationsTab pollinations={pollinations} loading={loading} />}
-          {activeTab === 'evolution' && <EvolutionTab genesisStats={genesisStats} loading={loading} />}
+          {activeTab === 'evolution' && (
+            <EvolutionTab
+              genesisStats={genesisStats}
+              events={genesisEvents}
+              topGenomes={topGenomes}
+              loading={loading}
+            />
+          )}
           {activeTab === 'patterns' && <PatternsTab patterns={patterns} loading={loading} />}
         </>
       )}

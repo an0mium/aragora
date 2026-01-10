@@ -42,11 +42,12 @@ interface GraphStats {
 interface AnalyticsPanelProps {
   apiBase: string;
   loopId?: string;
+  events?: StreamEvent[];
 }
 
 type TabType = 'disagreements' | 'roles' | 'early-stops' | 'graph';
 
-export function AnalyticsPanel({ apiBase, loopId }: AnalyticsPanelProps) {
+export function AnalyticsPanel({ apiBase, loopId, events = [] }: AnalyticsPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('disagreements');
   const [disagreements, setDisagreements] = useState<Disagreement[]>([]);
@@ -101,6 +102,22 @@ export function AnalyticsPanel({ apiBase, loopId }: AnalyticsPanelProps) {
     }
   }, [expanded, activeTab, fetchData]);
 
+  // Refresh on relevant events (match_recorded, leaderboard_update, debate_end)
+  const latestRelevantEvent = useMemo(() => {
+    const relevant = events.filter(e =>
+      e.type === 'match_recorded' ||
+      e.type === 'leaderboard_update' ||
+      e.type === 'debate_end'
+    );
+    return relevant[relevant.length - 1];
+  }, [events]);
+
+  useEffect(() => {
+    if (latestRelevantEvent && expanded) {
+      fetchData(activeTab);
+    }
+  }, [latestRelevantEvent, expanded, activeTab, fetchData]);
+
   const formatTimestamp = (ts: string) => {
     if (!ts) return 'Unknown';
     const date = new Date(ts);
@@ -124,12 +141,12 @@ export function AnalyticsPanel({ apiBase, loopId }: AnalyticsPanelProps) {
       {expanded && (
         <div className="px-4 pb-4 space-y-3">
           {/* Tabs */}
-          <div className="flex gap-1 border-b border-acid-green/20 pb-2">
+          <div className="flex flex-wrap gap-1 border-b border-acid-green/20 pb-2">
             {(['disagreements', 'roles', 'early-stops', 'graph'] as TabType[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-2 py-1 text-xs font-mono transition-colors ${
+                className={`px-2 py-1 text-xs font-mono transition-colors whitespace-nowrap ${
                   activeTab === tab
                     ? 'bg-acid-green text-bg'
                     : 'text-text-muted hover:text-acid-green'

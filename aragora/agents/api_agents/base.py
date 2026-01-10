@@ -56,6 +56,12 @@ class APIAgent(CritiqueMixin, Agent):
         else:
             self._circuit_breaker = None
 
+        # Token usage tracking for billing
+        self._last_tokens_in: int = 0
+        self._last_tokens_out: int = 0
+        self._total_tokens_in: int = 0
+        self._total_tokens_out: int = 0
+
     def set_generation_params(
         self,
         temperature: float | None = None,
@@ -91,6 +97,60 @@ class APIAgent(CritiqueMixin, Agent):
         if self._circuit_breaker is None:
             return False
         return not self._circuit_breaker.can_proceed()
+
+    def _record_token_usage(self, tokens_in: int, tokens_out: int) -> None:
+        """Record token usage from an API call.
+
+        Called by subclasses after successful API calls to track usage.
+
+        Args:
+            tokens_in: Input/prompt tokens used
+            tokens_out: Output/completion tokens used
+        """
+        self._last_tokens_in = tokens_in
+        self._last_tokens_out = tokens_out
+        self._total_tokens_in += tokens_in
+        self._total_tokens_out += tokens_out
+
+    @property
+    def last_tokens_in(self) -> int:
+        """Get input tokens from last API call."""
+        return self._last_tokens_in
+
+    @property
+    def last_tokens_out(self) -> int:
+        """Get output tokens from last API call."""
+        return self._last_tokens_out
+
+    @property
+    def total_tokens_in(self) -> int:
+        """Get total input tokens across all API calls."""
+        return self._total_tokens_in
+
+    @property
+    def total_tokens_out(self) -> int:
+        """Get total output tokens across all API calls."""
+        return self._total_tokens_out
+
+    def get_token_usage(self) -> dict[str, int]:
+        """Get token usage summary for billing.
+
+        Returns:
+            Dict with tokens_in, tokens_out, total_tokens_in, total_tokens_out
+        """
+        return {
+            "tokens_in": self._last_tokens_in,
+            "tokens_out": self._last_tokens_out,
+            "total_tokens_in": self._total_tokens_in,
+            "total_tokens_out": self._total_tokens_out,
+        }
+
+    def reset_token_usage(self) -> None:
+        """Reset token usage counters (e.g., at start of new debate)."""
+        self._last_tokens_in = 0
+        self._last_tokens_out = 0
+        self._total_tokens_in = 0
+        self._total_tokens_out = 0
 
     def _build_context_prompt(
         self,

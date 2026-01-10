@@ -9,8 +9,10 @@ Provides CRUD operations for:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import secrets
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -81,13 +83,19 @@ class UserStore:
                     is_active INTEGER DEFAULT 1,
                     email_verified INTEGER DEFAULT 0,
                     api_key TEXT UNIQUE,
+                    api_key_hash TEXT UNIQUE,
+                    api_key_prefix TEXT,
                     api_key_created_at TEXT,
+                    api_key_expires_at TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     last_login_at TEXT,
                     FOREIGN KEY (org_id) REFERENCES organizations(id)
                 )
             """)
+
+            # Migration: Add new columns if they don't exist
+            self._migrate_api_key_columns(cursor)
 
             # Organizations table
             cursor.execute("""
@@ -124,12 +132,81 @@ class UserStore:
             # Create indexes
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_api_key ON users(api_key)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_api_key_hash ON users(api_key_hash)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(org_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_orgs_slug ON organizations(slug)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_orgs_stripe ON organizations(stripe_customer_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_usage_org ON usage_events(org_id)")
 
         logger.info(f"UserStore initialized: {self.db_path}")
+
+    def _migrate_api_key_columns(self, cursor: sqlite3.Cursor) -> None:
+        """Migrate schema to add new API key columns if they don't exist."""
+        # Check which columns exist
+        cursor.execute("PRAGMA table_info(users)")
+        existing_columns = {row[1] for row in cursor.fetchall()}
+
+        # Add new columns if missing
+        if "api_key_hash" not in existing_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN api_key_hash TEXT UNIQUE")
+            logger.info("Migration: Added api_key_hash column")
+
+        if "api_key_prefix" not in existing_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN api_key_prefix TEXT")
+            logger.info("Migration: Added api_key_prefix column")
+
+        if "api_key_expires_at" not in existing_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN api_key_expires_at TEXT")
+            logger.info("Migration: Added api_key_expires_at column")
+
+    def migrate_plaintext_api_keys(self) -> int:
+        """
+        Migrate existing plaintext API keys to hashed storage.
+
+        Call this once during deployment to migrate existing keys.
+        After migration, plaintext keys will continue to work but will
+        be validated against the hash.
+
+        Returns:
+            Number of keys migrated
+        """
+        migrated = 0
+        with self._transaction() as cursor:
+            # Find users with plaintext keys but no hash
+            cursor.execute("""
+                SELECT id, api_key, api_key_created_at
+                FROM users
+                WHERE api_key IS NOT NULL
+                  AND api_key_hash IS NULL
+            """)
+
+            from datetime import timedelta
+            for row in cursor.fetchall():
+                user_id = row[0]
+                api_key = row[1]
+                created_at = row[2]
+
+                # Generate hash from plaintext
+                key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+                prefix = api_key[:12]
+
+                # Set expiration to 1 year from now for existing keys
+                expires_at = (datetime.utcnow() + timedelta(days=365)).isoformat()
+
+                cursor.execute("""
+                    UPDATE users
+                    SET api_key_hash = ?,
+                        api_key_prefix = ?,
+                        api_key_expires_at = ?,
+                        updated_at = ?
+                    WHERE id = ?
+                """, (key_hash, prefix, expires_at, datetime.utcnow().isoformat(), user_id))
+
+                migrated += 1
+                logger.info(f"Migrated API key for user {user_id}")
+
+        logger.info(f"API key migration complete: {migrated} keys migrated")
+        return migrated
 
     # =========================================================================
     # User Operations
@@ -224,12 +301,45 @@ class UserStore:
         return None
 
     def get_user_by_api_key(self, api_key: str) -> Optional[User]:
-        """Get user by API key."""
+        """
+        Get user by API key.
+
+        Supports both hash-based lookup (preferred) and legacy plaintext
+        lookup for backward compatibility during migration.
+
+        Args:
+            api_key: The plaintext API key
+
+        Returns:
+            User if found and key is valid/not expired, None otherwise
+        """
+        # Compute hash for lookup
+        key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+
         with self._transaction() as cursor:
+            # Try hash-based lookup first (preferred)
+            cursor.execute("SELECT * FROM users WHERE api_key_hash = ?", (key_hash,))
+            row = cursor.fetchone()
+
+            if row:
+                user = self._row_to_user(row)
+                # Check expiration
+                if user.api_key_expires_at and datetime.utcnow() > user.api_key_expires_at:
+                    logger.debug(f"API key expired for user {user.id}")
+                    return None
+                return user
+
+            # Fall back to legacy plaintext lookup
             cursor.execute("SELECT * FROM users WHERE api_key = ?", (api_key,))
             row = cursor.fetchone()
             if row:
-                return self._row_to_user(row)
+                user = self._row_to_user(row)
+                logger.warning(
+                    f"Legacy plaintext API key lookup for user {user.id}. "
+                    "Run migrate_plaintext_api_keys() to upgrade."
+                )
+                return user
+
         return None
 
     def update_user(self, user_id: str, **fields) -> bool:
@@ -256,8 +366,11 @@ class UserStore:
             "role": "role",
             "is_active": "is_active",
             "email_verified": "email_verified",
-            "api_key": "api_key",
+            "api_key": "api_key",  # Legacy, kept for migration
+            "api_key_hash": "api_key_hash",
+            "api_key_prefix": "api_key_prefix",
             "api_key_created_at": "api_key_created_at",
+            "api_key_expires_at": "api_key_expires_at",
             "last_login_at": "last_login_at",
         }
 
@@ -295,6 +408,13 @@ class UserStore:
 
     def _row_to_user(self, row: sqlite3.Row) -> User:
         """Convert database row to User object."""
+        # Helper to safely get column that may not exist yet
+        def safe_get(name: str, default=None):
+            try:
+                return row[name]
+            except (IndexError, KeyError):
+                return default
+
         return User(
             id=row["id"],
             email=row["email"],
@@ -305,9 +425,14 @@ class UserStore:
             role=row["role"] or "member",
             is_active=bool(row["is_active"]),
             email_verified=bool(row["email_verified"]),
-            api_key=row["api_key"],
+            api_key=row["api_key"],  # Legacy field
+            api_key_hash=safe_get("api_key_hash"),
+            api_key_prefix=safe_get("api_key_prefix"),
             api_key_created_at=datetime.fromisoformat(row["api_key_created_at"])
             if row["api_key_created_at"]
+            else None,
+            api_key_expires_at=datetime.fromisoformat(safe_get("api_key_expires_at"))
+            if safe_get("api_key_expires_at")
             else None,
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),

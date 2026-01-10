@@ -6,6 +6,8 @@ Endpoints:
 - POST /api/laboratory/cross-pollinations/suggest - Suggest beneficial trait transfers
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 

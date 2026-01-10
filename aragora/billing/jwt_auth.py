@@ -158,29 +158,131 @@ def get_token_blacklist() -> TokenBlacklist:
         _token_blacklist = TokenBlacklist()
     return _token_blacklist
 
+
+def get_persistent_blacklist():
+    """
+    Get the persistent blacklist backend.
+
+    This is the preferred method for production. Uses SQLite by default,
+    or Redis for multi-instance deployments.
+
+    Returns:
+        BlacklistBackend instance (SQLite, Redis, or in-memory)
+    """
+    from aragora.storage.token_blacklist_store import get_blacklist_backend
+    return get_blacklist_backend()
+
+
+def revoke_token_persistent(token: str) -> bool:
+    """
+    Revoke a token using the persistent blacklist backend.
+
+    Args:
+        token: The JWT token string
+
+    Returns:
+        True if token was valid and revoked, False otherwise
+    """
+    payload = decode_jwt(token)
+    if payload is None:
+        return False
+    token_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
+    backend = get_persistent_blacklist()
+    backend.add(token_jti, payload.exp)
+    logger.info(f"token_revoked_persistent jti={token_jti[:16]}...")
+    return True
+
+
+def is_token_revoked_persistent(token: str) -> bool:
+    """
+    Check if a token has been revoked using persistent backend.
+
+    Args:
+        token: The JWT token string
+
+    Returns:
+        True if token is revoked
+    """
+    token_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
+    backend = get_persistent_blacklist()
+    return backend.contains(token_jti)
+
 # Configuration
+ARAGORA_ENVIRONMENT = os.environ.get("ARAGORA_ENVIRONMENT", "development")
 JWT_SECRET = os.environ.get("ARAGORA_JWT_SECRET", "")
+JWT_SECRET_PREVIOUS = os.environ.get("ARAGORA_JWT_SECRET_PREVIOUS", "")
 JWT_ALGORITHM = "HS256"
+ALLOWED_ALGORITHMS = frozenset(["HS256"])  # Explicitly allowed algorithms
 JWT_EXPIRY_HOURS = int(os.environ.get("ARAGORA_JWT_EXPIRY_HOURS", "24"))
 REFRESH_TOKEN_EXPIRY_DAYS = int(os.environ.get("ARAGORA_REFRESH_TOKEN_EXPIRY_DAYS", "30"))
+
+# Security constraints
+MIN_SECRET_LENGTH = 32
+MAX_ACCESS_TOKEN_HOURS = 168  # 7 days max
+MAX_REFRESH_TOKEN_DAYS = 90  # 90 days max
+
+
+def _is_production() -> bool:
+    """Check if running in production environment."""
+    return ARAGORA_ENVIRONMENT.lower() == "production"
 
 
 def _allow_format_only_api_keys() -> bool:
     """Allow format-only API key validation (development/testing only)."""
+    if _is_production():
+        # Never allow format-only validation in production
+        return False
     return os.environ.get("ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS", "0") == "1"
 
 
+def _validate_secret_strength(secret: str) -> bool:
+    """Validate JWT secret meets minimum entropy requirements."""
+    return len(secret) >= MIN_SECRET_LENGTH
+
+
 def _get_secret() -> bytes:
-    """Get JWT secret, generating one if not set."""
+    """
+    Get JWT secret with strict validation in production.
+
+    In production: ARAGORA_JWT_SECRET must be set and meet minimum length.
+    In development: Generates ephemeral secret with warning.
+
+    Raises:
+        RuntimeError: If secret is missing or weak in production.
+    """
     global JWT_SECRET
     if not JWT_SECRET:
+        if _is_production():
+            raise RuntimeError(
+                "ARAGORA_JWT_SECRET must be set in production. "
+                "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
         # Generate a random secret for development
         JWT_SECRET = base64.b64encode(os.urandom(32)).decode("utf-8")
         logger.warning(
-            "ARAGORA_JWT_SECRET not set, using random secret. "
+            "DEV MODE: ARAGORA_JWT_SECRET not set, using ephemeral secret. "
             "Tokens will be invalidated on restart."
         )
+
+    if not _validate_secret_strength(JWT_SECRET):
+        if _is_production():
+            raise RuntimeError(
+                f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters. "
+                f"Current length: {len(JWT_SECRET)}"
+            )
+        logger.warning(
+            f"JWT secret is weak (< {MIN_SECRET_LENGTH} chars). "
+            "This is acceptable in development but not production."
+        )
+
     return JWT_SECRET.encode("utf-8")
+
+
+def _get_previous_secret() -> Optional[bytes]:
+    """Get previous JWT secret for rotation support."""
+    if JWT_SECRET_PREVIOUS and len(JWT_SECRET_PREVIOUS) >= MIN_SECRET_LENGTH:
+        return JWT_SECRET_PREVIOUS.encode("utf-8")
+    return None
 
 
 def _base64url_encode(data: bytes) -> str:
@@ -259,13 +361,22 @@ def create_access_token(
         email: User email
         org_id: Organization ID
         role: User role in organization
-        expiry_hours: Token expiry in hours (default from config)
+        expiry_hours: Token expiry in hours (default from config, max 168h/7 days)
 
     Returns:
         JWT token string
     """
     if expiry_hours is None:
         expiry_hours = JWT_EXPIRY_HOURS
+
+    # Enforce expiry bounds
+    if expiry_hours > MAX_ACCESS_TOKEN_HOURS:
+        logger.warning(
+            f"Token expiry {expiry_hours}h exceeds max {MAX_ACCESS_TOKEN_HOURS}h, capping"
+        )
+        expiry_hours = MAX_ACCESS_TOKEN_HOURS
+    if expiry_hours < 1:
+        expiry_hours = 1  # Minimum 1 hour
 
     now = int(time.time())
     exp = now + (expiry_hours * 3600)
@@ -292,13 +403,22 @@ def create_refresh_token(
 
     Args:
         user_id: User ID
-        expiry_days: Token expiry in days (default from config)
+        expiry_days: Token expiry in days (default from config, max 90 days)
 
     Returns:
         JWT refresh token string
     """
     if expiry_days is None:
         expiry_days = REFRESH_TOKEN_EXPIRY_DAYS
+
+    # Enforce expiry bounds
+    if expiry_days > MAX_REFRESH_TOKEN_DAYS:
+        logger.warning(
+            f"Refresh token expiry {expiry_days}d exceeds max {MAX_REFRESH_TOKEN_DAYS}d, capping"
+        )
+        expiry_days = MAX_REFRESH_TOKEN_DAYS
+    if expiry_days < 1:
+        expiry_days = 1  # Minimum 1 day
 
     now = int(time.time())
     exp = now + (expiry_days * 86400)
@@ -349,6 +469,12 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
     """
     Decode and validate a JWT token.
 
+    Validates:
+    1. Token format (3 parts)
+    2. Algorithm is in ALLOWED_ALGORITHMS (prevents algorithm confusion attacks)
+    3. Signature using current secret (with fallback to previous for rotation)
+    4. Token expiration
+
     Args:
         token: JWT token string
 
@@ -363,17 +489,57 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
 
         header_b64, payload_b64, signature_b64 = parts
 
+        # SECURITY: Validate algorithm before signature verification
+        try:
+            header_json = _base64url_decode(header_b64).decode("utf-8")
+            header = json.loads(header_json)
+        except Exception:
+            logger.debug("jwt_decode_failed: invalid header encoding")
+            return None
+
+        token_alg = header.get("alg", "")
+
+        # Reject 'none' algorithm attack and other disallowed algorithms
+        if token_alg not in ALLOWED_ALGORITHMS:
+            logger.warning(f"jwt_decode_failed: disallowed algorithm '{token_alg}'")
+            return None
+
+        if token_alg != JWT_ALGORITHM:
+            logger.warning(
+                f"jwt_decode_failed: algorithm mismatch "
+                f"(expected {JWT_ALGORITHM}, got {token_alg})"
+            )
+            return None
+
         # Verify signature
         message = f"{header_b64}.{payload_b64}"
+        actual_signature = _base64url_decode(signature_b64)
+
+        # Try current secret first
         expected_signature = hmac.new(
             _get_secret(),
             message.encode("utf-8"),
             hashlib.sha256,
         ).digest()
 
-        actual_signature = _base64url_decode(signature_b64)
+        signature_valid = hmac.compare_digest(expected_signature, actual_signature)
 
-        if not hmac.compare_digest(expected_signature, actual_signature):
+        # If current secret fails, try previous secret (for rotation)
+        if not signature_valid:
+            prev_secret = _get_previous_secret()
+            if prev_secret:
+                expected_signature_prev = hmac.new(
+                    prev_secret,
+                    message.encode("utf-8"),
+                    hashlib.sha256,
+                ).digest()
+                signature_valid = hmac.compare_digest(
+                    expected_signature_prev, actual_signature
+                )
+                if signature_valid:
+                    logger.debug("jwt_decode: validated with previous secret (rotation)")
+
+        if not signature_valid:
             logger.debug("jwt_decode_failed: invalid signature")
             return None
 
@@ -394,7 +560,7 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
         return None
 
 
-def validate_access_token(token: str) -> Optional[JWTPayload]:
+def validate_access_token(token: str, use_persistent_blacklist: bool = True) -> Optional[JWTPayload]:
     """
     Validate an access token.
 
@@ -406,6 +572,7 @@ def validate_access_token(token: str) -> Optional[JWTPayload]:
 
     Args:
         token: JWT token string
+        use_persistent_blacklist: If True, also check persistent blacklist (default)
 
     Returns:
         JWTPayload if valid access token, None otherwise
@@ -417,16 +584,24 @@ def validate_access_token(token: str) -> Optional[JWTPayload]:
         logger.debug("jwt_validate_failed: not an access token")
         return None
 
-    # Check if token has been revoked
+    # Check if token has been revoked (in-memory cache)
     blacklist = get_token_blacklist()
     if blacklist.is_revoked(token):
-        logger.debug("jwt_validate_failed: token revoked")
+        logger.debug("jwt_validate_failed: token revoked (memory)")
+        return None
+
+    # Also check persistent blacklist for multi-instance consistency
+    if use_persistent_blacklist and is_token_revoked_persistent(token):
+        logger.debug("jwt_validate_failed: token revoked (persistent)")
+        # Add to in-memory cache for faster subsequent checks
+        token_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
+        blacklist.revoke(token_jti, payload.exp)
         return None
 
     return payload
 
 
-def validate_refresh_token(token: str) -> Optional[JWTPayload]:
+def validate_refresh_token(token: str, use_persistent_blacklist: bool = True) -> Optional[JWTPayload]:
     """
     Validate a refresh token.
 
@@ -438,6 +613,7 @@ def validate_refresh_token(token: str) -> Optional[JWTPayload]:
 
     Args:
         token: JWT refresh token string
+        use_persistent_blacklist: If True, also check persistent blacklist (default)
 
     Returns:
         JWTPayload if valid refresh token, None otherwise
@@ -449,10 +625,17 @@ def validate_refresh_token(token: str) -> Optional[JWTPayload]:
         logger.debug("jwt_validate_failed: not a refresh token")
         return None
 
-    # Check if token has been revoked
+    # Check if token has been revoked (in-memory cache)
     blacklist = get_token_blacklist()
     if blacklist.is_revoked(token):
-        logger.debug("jwt_validate_failed: refresh token revoked")
+        logger.debug("jwt_validate_failed: refresh token revoked (memory)")
+        return None
+
+    # Also check persistent blacklist for multi-instance consistency
+    if use_persistent_blacklist and is_token_revoked_persistent(token):
+        logger.debug("jwt_validate_failed: refresh token revoked (persistent)")
+        token_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
+        blacklist.revoke(token_jti, payload.exp)
         return None
 
     return payload
@@ -658,6 +841,9 @@ __all__ = [
     "TokenPair",
     "TokenBlacklist",
     "get_token_blacklist",
+    "get_persistent_blacklist",
+    "revoke_token_persistent",
+    "is_token_revoked_persistent",
     "create_access_token",
     "create_refresh_token",
     "decode_jwt",
@@ -665,4 +851,8 @@ __all__ = [
     "validate_refresh_token",
     "extract_user_from_request",
     "create_token_pair",
+    # Security configuration
+    "ARAGORA_ENVIRONMENT",
+    "MIN_SECRET_LENGTH",
+    "ALLOWED_ALGORITHMS",
 ]

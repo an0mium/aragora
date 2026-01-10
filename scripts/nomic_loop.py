@@ -4336,8 +4336,35 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             scores = {}
             final_answer = getattr(result, 'final_answer', '') or ''
 
+            # Extract vote tally to determine winner even without formal consensus
+            vote_tally = {}
+            vote_winner = None
+            if hasattr(result, 'votes') and result.votes:
+                for v in result.votes:
+                    choice = getattr(v, 'choice', None)
+                    if choice:
+                        vote_tally[choice] = vote_tally.get(choice, 0) + 1
+                if vote_tally:
+                    vote_winner = max(vote_tally.items(), key=lambda x: x[1])[0]
+                    self._log(f"  [elo] Vote tally: {vote_tally}, winner: {vote_winner}")
+
+            # Also check result.winner if set by consensus phase
+            declared_winner = getattr(result, 'winner', None) or vote_winner
+
             for agent in participants:
                 base_score = result.confidence if result.consensus_reached else 0.5
+
+                # Winner bonus: Give significant boost to voted/declared winner
+                # This ensures ELO differentiation even without formal consensus
+                winner_bonus = 0.0
+                if declared_winner:
+                    if agent == declared_winner:
+                        winner_bonus = 0.3  # Winner gets +0.3
+                    elif agent in vote_tally:
+                        # Proportional bonus based on votes received
+                        total_votes = sum(vote_tally.values())
+                        if total_votes > 0:
+                            winner_bonus = 0.1 * (vote_tally.get(agent, 0) / total_votes)
 
                 # Check if agent's content appears in final answer (indicates influence)
                 agent_msgs = [msg for msg in result.messages
@@ -4359,7 +4386,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 activity_bonus = min(0.1, agent_message_counts.get(agent, 0) * 0.02)
 
                 # Combine scores with variance
-                scores[agent] = min(1.0, max(0.1, base_score + influence_bonus + activity_bonus))
+                scores[agent] = min(1.0, max(0.1, base_score + winner_bonus + influence_bonus + activity_bonus))
 
             # Ensure score variance (critical for ELO changes)
             if len(set(scores.values())) == 1 and len(scores) > 1:

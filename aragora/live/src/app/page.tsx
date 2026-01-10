@@ -531,7 +531,7 @@ export default function Home() {
         {hasVerdict && <VerdictCard events={events} />}
 
         {/* Main Panels - Responsive grid with wider main panel */}
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 lg:gap-6">
           {/* Agent Activity - Takes more space on wider screens */}
           <div className="xl:col-span-3 min-h-[400px] sm:min-h-[500px]">
             {viewMode === 'deep-audit' ? (
@@ -550,7 +550,7 @@ export default function Home() {
           </div>
 
           {/* Side Panel - Organized into Collapsible Sections */}
-          <div className="xl:col-span-1 space-y-2">
+          <div className="xl:col-span-2 space-y-2">
             {/* Section 1: Core Debate - expanded by default */}
             <CollapsibleSection id="core-debate" title="CORE DEBATE" defaultOpen={true}>
               <PanelErrorBoundary panelName="Document Upload">
@@ -615,7 +615,7 @@ export default function Home() {
               </FeatureGuard>
               <FeatureGuard featureId="tournaments">
                 <PanelErrorBoundary panelName="Tournament">
-                  <TournamentPanel apiBase={apiBase} />
+                  <TournamentPanel apiBase={apiBase} events={events} />
                 </PanelErrorBoundary>
               </FeatureGuard>
             </CollapsibleSection>
@@ -666,13 +666,13 @@ export default function Home() {
             {/* Section 6: Advanced/Debug */}
             <CollapsibleSection id="advanced-debug" title="ADVANCED / DEBUG">
               <PanelErrorBoundary panelName="Analytics">
-                <AnalyticsPanel apiBase={apiBase} />
+                <AnalyticsPanel apiBase={apiBase} events={events} />
               </PanelErrorBoundary>
               <PanelErrorBoundary panelName="Server Metrics">
                 <MetricsPanel apiBase={apiBase} />
               </PanelErrorBoundary>
               <PanelErrorBoundary panelName="Consensus KB">
-                <ConsensusKnowledgeBase apiBase={apiBase} />
+                <ConsensusKnowledgeBase apiBase={apiBase} events={events} />
               </PanelErrorBoundary>
               <FeatureGuard featureId="memory">
                 <PanelErrorBoundary panelName="Memory Inspector">

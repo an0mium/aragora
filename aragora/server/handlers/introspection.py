@@ -10,6 +10,8 @@ Endpoints:
 - GET /api/introspection/agents/{name} - Get introspection for specific agent
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 

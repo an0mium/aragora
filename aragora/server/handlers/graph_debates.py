@@ -8,6 +8,8 @@ Endpoints:
 - GET /api/debates/graph/{id}/nodes - Get all nodes in debate graph
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Any, Optional
 

@@ -11,6 +11,8 @@ Endpoints:
 - GET /api/genesis/genomes/:genome_id - Get single genome details
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import sqlite3

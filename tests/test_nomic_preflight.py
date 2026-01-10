@@ -422,7 +422,6 @@ class TestPreflightHealthCheckRun:
         return PreflightHealthCheck(min_required_agents=2)
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Bug in preflight.py line 166-167 - agent recommendation logic broken")
     async def test_run_completes_with_duration(self, check, monkeypatch):
         """Test that run completes and records duration."""
         # Clear all keys first then set them
@@ -465,7 +464,6 @@ class TestPreflightHealthCheckRun:
         assert any("timed out" in issue for issue in result.blocking_issues)
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Bug in preflight.py line 166-167 - agent recommendation logic broken")
     async def test_run_aggregates_blocking_issues(self, check, monkeypatch):
         """Test that blocking issues are aggregated."""
         for env_var, _, _ in PreflightHealthCheck.PROVIDER_CHECKS:
@@ -477,7 +475,6 @@ class TestPreflightHealthCheckRun:
         assert len(result.blocking_issues) > 0
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Bug in preflight.py line 166-167 - agent recommendation logic broken")
     async def test_run_with_minimum_agents_check(self, check, monkeypatch):
         """Test minimum agents requirement."""
         # Only one provider available
@@ -586,13 +583,9 @@ class TestPreflightHealthCheckHelpers:
 
 
 class TestRunPreflight:
-    """Tests for run_preflight convenience function.
-
-    Note: Most tests are xfail due to bug in preflight.py line 166-167.
-    """
+    """Tests for run_preflight convenience function."""
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Bug in preflight.py line 166-167 - agent recommendation logic broken")
     async def test_run_preflight_basic(self, monkeypatch):
         """Test basic run_preflight call."""
         # Set up some API keys
@@ -618,7 +611,6 @@ class TestRunPreflight:
                 del sys.modules["aragora.debate.immune_system"]
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Bug in preflight.py line 166-167 - agent recommendation logic broken")
     async def test_run_preflight_custom_min_agents(self, monkeypatch):
         """Test run_preflight with custom min agents."""
         for env_var, _, _ in PreflightHealthCheck.PROVIDER_CHECKS:
@@ -641,7 +633,6 @@ class TestRunPreflight:
                 del sys.modules["aragora.debate.immune_system"]
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Bug in preflight.py line 166-167 - agent recommendation logic broken")
     async def test_run_preflight_emits_to_immune(self, monkeypatch):
         """Test that run_preflight emits to immune system."""
         for env_var, _, _ in PreflightHealthCheck.PROVIDER_CHECKS:
@@ -666,7 +657,6 @@ class TestRunPreflight:
                 del sys.modules["aragora.debate.immune_system"]
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Bug in preflight.py line 166-167 - agent recommendation logic broken")
     async def test_run_preflight_skip_immune_emit(self, monkeypatch):
         """Test run_preflight without immune emission."""
         for env_var, _, _ in PreflightHealthCheck.PROVIDER_CHECKS:
@@ -697,13 +687,9 @@ class TestRunPreflight:
 
 
 class TestPreflightIntegration:
-    """Integration tests for preflight system.
-
-    Note: Full run() tests are xfail due to bug in preflight.py line 166-167.
-    """
+    """Integration tests for preflight system."""
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Bug in preflight.py line 166-167 - agent recommendation logic broken")
     async def test_full_preflight_flow_no_keys(self, monkeypatch):
         """Test complete preflight flow with no API keys."""
         # Clear all keys
@@ -718,7 +704,6 @@ class TestPreflightIntegration:
         assert result.checks["api_keys"].status == CheckStatus.FAILED
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Bug in preflight.py line 166-167 - agent recommendation logic broken")
     async def test_full_preflight_flow_with_keys(self, monkeypatch):
         """Test complete preflight flow with API keys."""
         # Clear all keys first
@@ -738,7 +723,6 @@ class TestPreflightIntegration:
         # The result depends on agent mapping, but should complete
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Bug in preflight.py line 166-167 - agent recommendation logic broken")
     async def test_preflight_handles_exceptions_gracefully(self, monkeypatch):
         """Test that preflight handles exceptions gracefully."""
         for env_var, _, _ in PreflightHealthCheck.PROVIDER_CHECKS:

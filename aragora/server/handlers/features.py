@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from aragora.server.handlers.base import (
+    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
@@ -476,7 +477,7 @@ def feature_unavailable_response(
 # Handler
 # =============================================================================
 
-class FeaturesHandler:
+class FeaturesHandler(BaseHandler):
     """Handler for feature availability endpoints."""
 
     ROUTES = {
@@ -485,6 +486,10 @@ class FeaturesHandler:
         "/api/features/all": "_get_all_features",
         "/api/features/{feature_id}": "_get_feature_status",
     }
+
+    def __init__(self, server_context: dict):
+        """Initialize with server context."""
+        super().__init__(server_context)
 
     def _get_features_summary(self) -> HandlerResult:
         """Get summary of feature availability."""

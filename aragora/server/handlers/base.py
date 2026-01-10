@@ -8,11 +8,15 @@ Note: Some utilities have been extracted to handlers/utils/ for better
 organization. They are re-exported here for backwards compatibility.
 """
 
+from __future__ import annotations
+
+import functools
 import json
 import logging
 import os
 import re
 import sqlite3
+import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -65,8 +69,8 @@ from aragora.server.validation import (
 
 # Re-export DB_TIMEOUT_SECONDS for backwards compatibility
 __all__ = [
-    "DB_TIMEOUT_SECONDS", "require_auth", "require_storage", "require_feature",
-    "error_response", "json_response", "handle_errors", "log_request", "ttl_cache",
+    "DB_TIMEOUT_SECONDS", "require_auth", "require_user_auth", "require_storage", "require_feature",
+    "error_response", "json_response", "handle_errors", "auto_error_response", "log_request", "ttl_cache",
     "async_ttl_cache", "clear_cache", "get_cache_stats", "CACHE_INVALIDATION_MAP", "invalidate_cache",
     "invalidate_on_event", "invalidate_leaderboard_cache", "invalidate_agent_cache",
     "invalidate_debate_cache", "PathMatcher", "RouteDispatcher", "safe_fetch",
@@ -472,6 +476,87 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
     return decorator
 
 
+def auto_error_response(
+    operation: str,
+    log_level: str = "error",
+    include_traceback: bool = True,
+) -> Callable:
+    """
+    Decorator to automatically wrap handler methods with error handling.
+
+    This is a simpler alternative to @handle_errors for common cases where you
+    want to consolidate the repetitive pattern:
+
+        try:
+            return json_response(data)
+        except Exception as e:
+            logger.error(f"Failed to {operation}: {e}")
+            return error_response(f"Failed to {operation}: {e}", 500)
+
+    The decorator handles specific exception types with appropriate status codes:
+    - sqlite3.OperationalError -> 503 (Database unavailable)
+    - PermissionError -> 403 (Access denied)
+    - ValueError -> 400 (Invalid request)
+    - Other exceptions -> 500 (Internal server error)
+
+    Args:
+        operation: Human-readable description for error messages
+                  (e.g., "fetch trending topics", "update agent settings")
+        log_level: "error", "warning", or None to skip logging
+        include_traceback: Whether to include exc_info in logs
+
+    Returns:
+        Decorated function that catches exceptions and returns error responses
+
+    Usage:
+        # Before (11 lines):
+        def _get_trending_topics(self, limit: int) -> HandlerResult:
+            try:
+                from aragora.pulse.ingestor import PulseManager
+                manager = PulseManager()
+                topics = manager.get_trending_topics(limit)
+                return json_response({"topics": topics})
+            except Exception as e:
+                logger.error(f"Failed to fetch trending topics: {e}")
+                return error_response(f"Failed to fetch trending topics: {e}", 500)
+
+        # After (6 lines):
+        @auto_error_response("fetch trending topics")
+        def _get_trending_topics(self, limit: int) -> HandlerResult:
+            from aragora.pulse.ingestor import PulseManager
+            manager = PulseManager()
+            topics = manager.get_trending_topics(limit)
+            return json_response({"topics": topics})
+
+    Note:
+        For endpoints that need trace IDs, structured errors, or custom
+        exception mapping, use @handle_errors instead.
+    """
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> HandlerResult:
+            try:
+                return func(*args, **kwargs)
+            except sqlite3.OperationalError as e:
+                logger.error(f"Database error in {operation}: {e}")
+                return error_response("Database unavailable", 503)
+            except PermissionError:
+                return error_response("Access denied", 403)
+            except ValueError as e:
+                return error_response(f"Invalid request: {e}", 400)
+            except Exception as e:
+                if log_level == "error":
+                    logger.error(
+                        f"Failed to {operation}: {e}",
+                        exc_info=include_traceback,
+                    )
+                elif log_level == "warning":
+                    logger.warning(f"Failed to {operation}: {e}")
+                return error_response(f"Failed to {operation}: {e}", 500)
+        return wrapper
+    return decorator
+
+
 def log_request(context: str, log_response: bool = False) -> Callable[[Callable], Callable]:
     """
     Decorator for structured request/response logging.
@@ -535,12 +620,66 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
     return decorator
 
 
+def require_user_auth(func: Callable) -> Callable:
+    """
+    Decorator that requires JWT/API key user authentication.
+
+    Uses the billing JWT auth system (aragora.billing.jwt_auth) to validate
+    Bearer tokens and API keys. Returns UserAuthContext with user info.
+
+    The authenticated user context is passed as 'user' keyword argument.
+
+    Usage:
+        @require_user_auth
+        def _protected_endpoint(self, handler, user: UserAuthContext) -> HandlerResult:
+            # user.user_id, user.org_id, user.email available
+            return json_response({"user_id": user.user_id})
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        from aragora.billing.jwt_auth import extract_user_from_request, UserAuthContext
+
+        # Extract handler from kwargs or args
+        handler = kwargs.get('handler')
+        if handler is None and args:
+            for arg in args:
+                if hasattr(arg, 'headers'):
+                    handler = arg
+                    break
+
+        if handler is None:
+            logger.warning("require_user_auth: No handler provided")
+            return error_response("Authentication required", 401)
+
+        # Get user store from handler or context
+        user_store = None
+        if hasattr(handler, 'user_store'):
+            user_store = handler.user_store
+        elif hasattr(handler.__class__, 'user_store'):
+            user_store = handler.__class__.user_store
+
+        # Extract user from request
+        user_ctx = extract_user_from_request(handler, user_store)
+
+        if not user_ctx.is_authenticated:
+            return error_response("Authentication required", 401)
+
+        # Inject user context into kwargs
+        kwargs['user'] = user_ctx
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 def require_auth(func: Callable) -> Callable:
     """
     Decorator that ALWAYS requires authentication, regardless of auth_config.enabled.
 
     Use this for sensitive endpoints that must never run without authentication,
     even in development/testing environments where global auth may be disabled.
+
+    NOTE: For JWT/API key authentication, use @require_user_auth instead.
+    This decorator uses the legacy ARAGORA_API_TOKEN system.
 
     Examples of sensitive endpoints:
     - Plugin execution (/api/plugins/*/run)
@@ -1141,6 +1280,67 @@ class BaseHandler:
     def get_nomic_dir(self) -> Optional[Any]:
         """Get nomic directory path."""
         return self.ctx.get("nomic_dir")
+
+    def get_current_user(self, handler: Any) -> Optional[Any]:
+        """Get authenticated user from request, if any.
+
+        Unlike @require_user_auth decorator which requires authentication,
+        this method allows optional authentication - returning None if
+        no valid auth is provided. Useful for endpoints that work for
+        anonymous users but have enhanced features when authenticated.
+
+        Args:
+            handler: HTTP request handler with headers
+
+        Returns:
+            UserAuthContext if authenticated, None otherwise
+
+        Example:
+            def handle(self, path, query_params, handler):
+                user = self.get_current_user(handler)
+                if user:
+                    # Show personalized content
+                    return json_response({"user": user.email, "debates": ...})
+                else:
+                    # Show public content
+                    return json_response({"debates": ...})
+        """
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        user_store = None
+        if hasattr(handler, 'user_store'):
+            user_store = handler.user_store
+        elif hasattr(self.__class__, 'user_store'):
+            user_store = self.__class__.user_store
+
+        user_ctx = extract_user_from_request(handler, user_store)
+        return user_ctx if user_ctx.is_authenticated else None
+
+    def require_auth_or_error(self, handler: Any) -> Tuple[Optional[Any], Optional["HandlerResult"]]:
+        """Require authentication and return user or error response.
+
+        Alternative to @require_user_auth decorator for cases where you need
+        the user context inline without using a decorator.
+
+        Args:
+            handler: HTTP request handler with headers
+
+        Returns:
+            Tuple of (UserAuthContext, None) if authenticated,
+            or (None, HandlerResult) with 401 error if not
+
+        Example:
+            def handle_post(self, path, query_params, handler):
+                user, err = self.require_auth_or_error(handler)
+                if err:
+                    return err
+                # user is now guaranteed to be authenticated
+                return json_response({"created_by": user.user_id})
+        """
+        user = self.get_current_user(handler)
+        if user is None:
+            return None, error_response("Authentication required", 401)
+        return user, None
 
     # === POST Body Parsing Support ===
 

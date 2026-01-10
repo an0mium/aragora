@@ -240,7 +240,11 @@ def get_background_manager() -> BackgroundTaskManager:
     return _background_manager
 
 
-def setup_default_tasks(nomic_dir: Optional[str] = None) -> None:
+def setup_default_tasks(
+    nomic_dir: Optional[str] = None,
+    memory_instance: Optional[Any] = None,
+    pressure_threshold: float = 0.8,
+) -> None:
     """
     Register default background tasks.
 
@@ -248,19 +252,46 @@ def setup_default_tasks(nomic_dir: Optional[str] = None) -> None:
 
     Args:
         nomic_dir: Path to nomic directory (for memory cleanup)
+        memory_instance: Optional shared ContinuumMemory instance to use.
+            If provided, cleanup uses this instance instead of creating a new one.
+            This enables pressure-aware cleanup on the actual server memory.
+        pressure_threshold: Trigger cleanup when memory pressure exceeds this
+            threshold (0.0-1.0). Default 0.8 means cleanup at 80% capacity.
     """
     manager = get_background_manager()
 
+    # Store shared memory reference
+    _shared_memory = memory_instance
+
     # Memory tier cleanup - runs every 6 hours
     def memory_cleanup_task():
+        nonlocal _shared_memory
         try:
-            from aragora.memory.continuum import ContinuumMemory
-            from aragora.config import DB_MEMORY_PATH
+            # Use shared instance if provided
+            if _shared_memory is not None:
+                memory = _shared_memory
+            else:
+                from aragora.memory.continuum import ContinuumMemory
+                from aragora.config import DB_MEMORY_PATH
 
-            # Use provided path or default
-            db_path = nomic_dir + "/continuum_memory.db" if nomic_dir else DB_MEMORY_PATH
+                # Use provided path or default
+                db_path = nomic_dir + "/continuum_memory.db" if nomic_dir else DB_MEMORY_PATH
+                memory = ContinuumMemory(db_path=db_path)
 
-            memory = ContinuumMemory(db_path=db_path)
+            # Check memory pressure before cleanup
+            pressure = memory.get_memory_pressure()
+            if pressure < pressure_threshold:
+                logger.debug(
+                    "Memory pressure %.1f%% below threshold %.1f%%, skipping cleanup",
+                    pressure * 100, pressure_threshold * 100
+                )
+                return
+
+            logger.info(
+                "Memory pressure %.1f%% exceeds threshold, running cleanup",
+                pressure * 100
+            )
+
             result = memory.cleanup_expired_memories(archive=True)
 
             if result["deleted"] > 0 or result["archived"] > 0:

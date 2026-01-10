@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { logger } from '@/utils/logger';
+import type { StreamEvent } from '@/types/events';
 
 interface TournamentSummary {
   tournament_id: string;
@@ -22,11 +23,12 @@ interface Standing {
 
 interface TournamentPanelProps {
   apiBase?: string;
+  events?: StreamEvent[];
 }
 
 const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
-export function TournamentPanel({ apiBase = DEFAULT_API_BASE }: TournamentPanelProps) {
+export function TournamentPanel({ apiBase = DEFAULT_API_BASE, events = [] }: TournamentPanelProps) {
   const [tournaments, setTournaments] = useState<TournamentSummary[]>([]);
   const [selectedTournament, setSelectedTournament] = useState<string | null>(null);
   const [standings, setStandings] = useState<Standing[]>([]);
@@ -73,13 +75,31 @@ export function TournamentPanel({ apiBase = DEFAULT_API_BASE }: TournamentPanelP
     fetchTournaments();
   }, [fetchTournaments]);
 
-  // Separate effect for interval - runs once, uses ref
+  // Separate effect for interval - runs once, uses ref (fallback for when events not available)
   useEffect(() => {
     const interval = setInterval(() => {
       fetchTournamentsRef.current();
     }, 60000);
     return () => clearInterval(interval);
   }, []); // Empty deps - interval created once
+
+  // Refresh on relevant events (match_recorded, leaderboard_update)
+  const latestMatchEvent = useMemo(() => {
+    const relevant = events.filter(e =>
+      e.type === 'match_recorded' ||
+      e.type === 'leaderboard_update'
+    );
+    return relevant[relevant.length - 1];
+  }, [events]);
+
+  useEffect(() => {
+    if (latestMatchEvent) {
+      fetchTournaments();
+      if (selectedTournament) {
+        fetchStandings(selectedTournament);
+      }
+    }
+  }, [latestMatchEvent, fetchTournaments, fetchStandings, selectedTournament]);
 
   useEffect(() => {
     if (selectedTournament) {

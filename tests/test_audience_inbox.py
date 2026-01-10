@@ -12,7 +12,7 @@ import pytest
 from aragora.server.stream import (
     TokenBucket, AudienceInbox, AudienceMessage, normalize_intensity
 )
-from aragora.debate.orchestrator import DebateProtocol, user_vote_multiplier
+from aragora.debate.protocol import DebateProtocol, user_vote_multiplier
 
 
 class TestTokenBucket:

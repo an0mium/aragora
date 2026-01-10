@@ -9,6 +9,8 @@ Endpoints:
 - GET /api/memory/stats - Get memory statistics
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Any, Optional
 

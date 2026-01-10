@@ -7,12 +7,28 @@ Core data structures for user management, organizations, and subscriptions.
 from __future__ import annotations
 
 import hashlib
+import logging
 import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Optional
 from uuid import uuid4
+
+# Try to import bcrypt for secure password hashing
+try:
+    import bcrypt
+    HAS_BCRYPT = True
+except ImportError:
+    HAS_BCRYPT = False
+
+logger = logging.getLogger(__name__)
+
+# Password hash version prefixes for migration support
+HASH_VERSION_SHA256 = "sha256:"
+HASH_VERSION_BCRYPT = "bcrypt:"
+HASH_VERSION_CURRENT = HASH_VERSION_BCRYPT if HAS_BCRYPT else HASH_VERSION_SHA256
+BCRYPT_ROUNDS = 12  # Cost factor for bcrypt
 
 
 class SubscriptionTier(Enum):
@@ -102,9 +118,9 @@ TIER_LIMITS: dict[SubscriptionTier, TierLimits] = {
 }
 
 
-def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
+def _hash_password_sha256(password: str, salt: Optional[str] = None) -> tuple[str, str]:
     """
-    Hash a password with salt using SHA-256.
+    Legacy SHA-256 password hashing (for backward compatibility).
 
     Args:
         password: Plain text password
@@ -120,20 +136,108 @@ def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
     return password_hash, salt
 
 
+def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
+    """
+    Hash a password using bcrypt (preferred) or SHA-256 (fallback).
+
+    New passwords are hashed with bcrypt if available, with version prefix
+    for migration support. Existing SHA-256 hashes continue to work and
+    are transparently upgraded on next login.
+
+    Args:
+        password: Plain text password
+        salt: Optional salt (only used for SHA-256 fallback)
+
+    Returns:
+        Tuple of (versioned_hash, salt)
+        - For bcrypt: salt is empty string (embedded in hash)
+        - For SHA-256: salt is the random salt used
+    """
+    if HAS_BCRYPT:
+        # Use bcrypt (salt is embedded in the hash)
+        password_bytes = password.encode("utf-8")
+        hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=BCRYPT_ROUNDS))
+        return f"{HASH_VERSION_BCRYPT}{hashed.decode('utf-8')}", ""
+    else:
+        # Fall back to SHA-256 with version prefix
+        legacy_hash, salt = _hash_password_sha256(password, salt)
+        logger.warning(
+            "Using SHA-256 for password hashing (bcrypt not installed). "
+            "Install bcrypt for production: pip install bcrypt"
+        )
+        return f"{HASH_VERSION_SHA256}{legacy_hash}", salt
+
+
 def verify_password(password: str, password_hash: str, salt: str) -> bool:
     """
-    Verify a password against a hash.
+    Verify a password against a stored hash with automatic version detection.
+
+    Supports:
+    - bcrypt: hashes prefixed with "bcrypt:"
+    - sha256: hashes prefixed with "sha256:" or legacy unprefixed 64-char hex
 
     Args:
         password: Plain text password to verify
-        password_hash: Stored hash
-        salt: Stored salt
+        password_hash: Stored hash (may include version prefix)
+        salt: Stored salt (used for SHA-256, ignored for bcrypt)
 
     Returns:
         True if password matches
     """
-    computed_hash, _ = hash_password(password, salt)
-    return secrets.compare_digest(computed_hash, password_hash)
+    if password_hash.startswith(HASH_VERSION_BCRYPT):
+        # Modern bcrypt verification
+        if not HAS_BCRYPT:
+            logger.error("Cannot verify bcrypt hash: bcrypt not installed")
+            return False
+        stored_hash = password_hash[len(HASH_VERSION_BCRYPT):].encode("utf-8")
+        try:
+            return bcrypt.checkpw(password.encode("utf-8"), stored_hash)
+        except Exception as e:
+            logger.error(f"bcrypt verification failed: {e}")
+            return False
+
+    elif password_hash.startswith(HASH_VERSION_SHA256):
+        # Prefixed SHA-256
+        actual_hash = password_hash[len(HASH_VERSION_SHA256):]
+        computed_hash, _ = _hash_password_sha256(password, salt)
+        return secrets.compare_digest(computed_hash, actual_hash)
+
+    elif len(password_hash) == 64:
+        # Legacy unprefixed SHA-256 (64-char hex)
+        computed_hash, _ = _hash_password_sha256(password, salt)
+        return secrets.compare_digest(computed_hash, password_hash)
+
+    else:
+        logger.warning(f"Unknown password hash format (length={len(password_hash)})")
+        return False
+
+
+def needs_rehash(password_hash: str) -> bool:
+    """
+    Check if a password hash should be upgraded to the current algorithm.
+
+    Call this after successful password verification to determine if
+    the hash should be updated. This enables transparent migration
+    from SHA-256 to bcrypt.
+
+    Args:
+        password_hash: The stored password hash
+
+    Returns:
+        True if hash should be regenerated with current algorithm
+    """
+    if not password_hash:
+        return True
+
+    # If bcrypt is available and hash isn't bcrypt, it needs rehash
+    if HAS_BCRYPT and not password_hash.startswith(HASH_VERSION_BCRYPT):
+        return True
+
+    # If bcrypt isn't available but hash is bcrypt, can't rehash (keep as-is)
+    if not HAS_BCRYPT and password_hash.startswith(HASH_VERSION_BCRYPT):
+        return False
+
+    return False
 
 
 @dataclass
@@ -153,9 +257,14 @@ class User:
     updated_at: datetime = field(default_factory=datetime.utcnow)
     last_login_at: Optional[datetime] = None
 
-    # API access
-    api_key: Optional[str] = None
+    # API access (secure storage: hash + prefix for identification)
+    api_key_hash: Optional[str] = None  # SHA-256 hash of the key
+    api_key_prefix: Optional[str] = None  # First 12 chars for identification (ara_xxxx...)
     api_key_created_at: Optional[datetime] = None
+    api_key_expires_at: Optional[datetime] = None  # Expiration time
+
+    # Legacy field for backward compatibility during migration
+    api_key: Optional[str] = None  # DEPRECATED: Plaintext key, will be removed
 
     def set_password(self, password: str) -> None:
         """Set user password."""
@@ -166,17 +275,98 @@ class User:
         """Verify user password."""
         return verify_password(password, self.password_hash, self.password_salt)
 
-    def generate_api_key(self) -> str:
-        """Generate a new API key for this user."""
-        self.api_key = f"ara_{secrets.token_urlsafe(32)}"
-        self.api_key_created_at = datetime.utcnow()
+    def needs_password_rehash(self) -> bool:
+        """Check if password hash should be upgraded to current algorithm."""
+        return needs_rehash(self.password_hash)
+
+    def upgrade_password_hash(self, password: str) -> bool:
+        """
+        Upgrade password hash to current algorithm if needed.
+
+        Call this after successful password verification to transparently
+        migrate from SHA-256 to bcrypt.
+
+        Args:
+            password: The verified plaintext password
+
+        Returns:
+            True if hash was upgraded, False if no upgrade needed
+        """
+        if not self.needs_password_rehash():
+            return False
+        self.password_hash, self.password_salt = hash_password(password)
         self.updated_at = datetime.utcnow()
-        return self.api_key
+        logger.info(f"Password hash upgraded for user {self.id}")
+        return True
+
+    def generate_api_key(self, expires_days: int = 365) -> str:
+        """
+        Generate a new API key for this user.
+
+        The plaintext key is returned once and never stored. Only the
+        SHA-256 hash is persisted for verification.
+
+        Args:
+            expires_days: Days until key expires (default 365)
+
+        Returns:
+            The plaintext API key (only returned once, never stored)
+        """
+        api_key = f"ara_{secrets.token_urlsafe(32)}"
+
+        # Store hash, not plaintext
+        self.api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        self.api_key_prefix = api_key[:12]  # "ara_" + 8 chars for identification
+        self.api_key_created_at = datetime.utcnow()
+        self.api_key_expires_at = datetime.utcnow() + timedelta(days=expires_days)
+        self.updated_at = datetime.utcnow()
+
+        # Clear legacy field
+        self.api_key = None
+
+        return api_key  # Returned to user once, never stored
+
+    def verify_api_key(self, api_key: str) -> bool:
+        """
+        Verify an API key against stored hash.
+
+        Checks both hash match and expiration.
+
+        Args:
+            api_key: The plaintext API key to verify
+
+        Returns:
+            True if key is valid and not expired
+        """
+        if not self.api_key_hash:
+            # Check legacy plaintext key for backward compatibility
+            if self.api_key and secrets.compare_digest(self.api_key, api_key):
+                logger.warning(f"Legacy plaintext API key used for user {self.id}")
+                return True
+            return False
+
+        # Check expiration
+        if self.api_key_expires_at and datetime.utcnow() > self.api_key_expires_at:
+            logger.debug(f"API key expired for user {self.id}")
+            return False
+
+        # Verify hash
+        key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        return secrets.compare_digest(key_hash, self.api_key_hash)
+
+    def is_api_key_expired(self) -> bool:
+        """Check if API key is expired."""
+        if not self.api_key_expires_at:
+            return False
+        return datetime.utcnow() > self.api_key_expires_at
 
     def revoke_api_key(self) -> None:
         """Revoke the user's API key."""
-        self.api_key = None
+        self.api_key_hash = None
+        self.api_key_prefix = None
         self.api_key_created_at = None
+        self.api_key_expires_at = None
+        self.api_key = None  # Also clear legacy field
         self.updated_at = datetime.utcnow()
 
     def to_dict(self, include_sensitive: bool = False) -> dict[str, Any]:
@@ -453,5 +643,7 @@ __all__ = [
     "Subscription",
     "hash_password",
     "verify_password",
+    "needs_rehash",
     "generate_slug",
+    "HAS_BCRYPT",
 ]

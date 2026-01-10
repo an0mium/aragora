@@ -5,6 +5,8 @@ Endpoints:
 - POST /api/probes/capability - Run capability probes on an agent to find vulnerabilities
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging

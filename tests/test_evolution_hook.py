@@ -9,7 +9,8 @@ import pytest
 from unittest.mock import Mock, MagicMock, AsyncMock, patch
 import asyncio
 
-from aragora.core import Environment, DebateProtocol, DebateResult
+from aragora.core import Environment, DebateResult
+from aragora.debate.protocol import DebateProtocol
 
 
 class TestEvolutionHookWiring:
@@ -243,7 +244,8 @@ class TestEvolutionHookE2E:
     async def test_arena_run_triggers_evolution(self):
         """Running Arena with evolution enabled should trigger pattern recording."""
         from aragora.debate.orchestrator import Arena, ArenaConfig
-        from aragora.core import Environment, DebateProtocol
+        from aragora.core import Environment
+        from aragora.debate.protocol import DebateProtocol
 
         mock_evolver = Mock()
         mock_evolver.extract_patterns = Mock(return_value=[])

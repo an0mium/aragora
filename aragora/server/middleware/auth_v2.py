@@ -192,7 +192,26 @@ class SupabaseAuthValidator:
                     audience="authenticated",
                 )
             else:
+                # SECURITY: In production, reject tokens if proper validation unavailable
+                env = os.getenv("ARAGORA_ENVIRONMENT", "development").lower()
+                if env == "production":
+                    if not HAS_JWT:
+                        logger.error(
+                            "JWT validation unavailable in production. "
+                            "Install PyJWT: pip install pyjwt"
+                        )
+                    if not self.jwt_secret:
+                        logger.error(
+                            "SUPABASE_JWT_SECRET not set in production. "
+                            "JWT validation requires this secret."
+                        )
+                    return None
+
                 # Fallback: decode without verification (dev only!)
+                logger.warning(
+                    "INSECURE: Decoding JWT without signature verification. "
+                    "This is only acceptable in development!"
+                )
                 payload = self._decode_jwt_unsafe(token)
                 if not payload:
                     return None

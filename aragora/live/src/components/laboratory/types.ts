@@ -25,6 +25,25 @@ export interface GenesisStats {
   event_counts: Record<string, number>;
 }
 
+export interface GenesisEvent {
+  event_type: string;
+  genome_id: string;
+  parent_id?: string;
+  fitness_change?: number;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface Genome {
+  genome_id: string;
+  agent_name: string;
+  generation: number;
+  fitness: number;
+  parent_id?: string;
+  prompt_hash?: string;
+  created_at: string;
+}
+
 export interface CritiquePattern {
   pattern: string;
   issue_type: string;

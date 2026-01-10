@@ -9,6 +9,8 @@ Endpoints:
 - GET /api/routing/domain-leaderboard - Get agents ranked by domain
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 

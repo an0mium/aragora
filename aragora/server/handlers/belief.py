@@ -9,6 +9,8 @@ Endpoints:
 - GET /api/debate/:debate_id/graph-stats - Get argument graph statistics
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from pathlib import Path

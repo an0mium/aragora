@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
+import type { StreamEvent } from '@/types/events';
 
 // Types from the backend
 interface ScenarioResult {
@@ -281,7 +282,222 @@ function ScenarioBuilder({
   );
 }
 
-export function ScenarioMatrixView() {
+// View mode types
+type ViewMode = 'grid' | 'list' | 'compare';
+
+// Side-by-side comparison component
+function CompareView({
+  left,
+  right,
+  onClose,
+}: {
+  left: ScenarioResult;
+  right: ScenarioResult;
+  onClose: () => void;
+}) {
+  const leftColors = left.winner ? getAgentColors(left.winner) : null;
+  const rightColors = right.winner ? getAgentColors(right.winner) : null;
+
+  const renderDiff = (label: string, leftVal: string | number, rightVal: string | number) => {
+    const isDifferent = leftVal !== rightVal;
+    return (
+      <div className="grid grid-cols-3 gap-2 py-2 border-b border-border">
+        <div className={`text-right ${isDifferent ? 'text-text' : 'text-text-muted'}`}>
+          {typeof leftVal === 'number' ? leftVal.toFixed(0) : leftVal}
+        </div>
+        <div className="text-center text-xs font-mono text-text-muted">{label}</div>
+        <div className={`text-left ${isDifferent ? 'text-text' : 'text-text-muted'}`}>
+          {typeof rightVal === 'number' ? rightVal.toFixed(0) : rightVal}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-surface border border-purple/40">
+      <div className="px-4 py-3 border-b border-purple/20 bg-bg/50 flex items-center justify-between">
+        <span className="text-xs font-mono text-purple uppercase tracking-wider">
+          SCENARIO COMPARISON
+        </span>
+        <button
+          onClick={onClose}
+          className="text-xs font-mono text-text-muted hover:text-purple"
+        >
+          [CLOSE]
+        </button>
+      </div>
+
+      <div className="p-4">
+        {/* Headers */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className={`p-3 text-center ${left.is_baseline ? 'bg-gold/10 border-gold/30' : 'bg-acid-cyan/10 border-acid-cyan/30'} border`}>
+            <div className={`text-sm font-mono ${left.is_baseline ? 'text-gold' : 'text-acid-cyan'}`}>
+              {left.scenario_name}
+            </div>
+            {left.is_baseline && <div className="text-xs text-gold/70">[BASELINE]</div>}
+          </div>
+          <div className={`p-3 text-center ${right.is_baseline ? 'bg-gold/10 border-gold/30' : 'bg-acid-cyan/10 border-acid-cyan/30'} border`}>
+            <div className={`text-sm font-mono ${right.is_baseline ? 'text-gold' : 'text-acid-cyan'}`}>
+              {right.scenario_name}
+            </div>
+            {right.is_baseline && <div className="text-xs text-gold/70">[BASELINE]</div>}
+          </div>
+        </div>
+
+        {/* Comparison metrics */}
+        <div className="bg-bg/50 border border-border p-4 text-xs font-mono">
+          {renderDiff('Consensus', left.consensus_reached ? 'YES' : 'NO', right.consensus_reached ? 'YES' : 'NO')}
+          {renderDiff('Confidence', `${(left.confidence * 100).toFixed(0)}%`, `${(right.confidence * 100).toFixed(0)}%`)}
+          {renderDiff('Rounds', left.rounds_used, right.rounds_used)}
+          {renderDiff('Winner', left.winner || '-', right.winner || '-')}
+        </div>
+
+        {/* Conclusions side by side */}
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <div>
+            <div className="text-xs font-mono text-text-muted mb-2">CONCLUSION</div>
+            <div className="text-xs font-mono text-text bg-bg/50 p-3 border border-border max-h-40 overflow-y-auto">
+              {left.final_answer || 'No conclusion'}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-mono text-text-muted mb-2">CONCLUSION</div>
+            <div className="text-xs font-mono text-text bg-bg/50 p-3 border border-border max-h-40 overflow-y-auto">
+              {right.final_answer || 'No conclusion'}
+            </div>
+          </div>
+        </div>
+
+        {/* Parameters comparison */}
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <div>
+            <div className="text-xs font-mono text-text-muted mb-2">PARAMETERS</div>
+            <div className="flex flex-wrap gap-1">
+              {Object.entries(left.parameters).map(([key, value]) => (
+                <span key={key} className="px-1 py-0.5 bg-acid-cyan/10 text-acid-cyan text-[10px] font-mono">
+                  {key}={String(value)}
+                </span>
+              ))}
+              {Object.keys(left.parameters).length === 0 && (
+                <span className="text-text-muted text-[10px]">None</span>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-mono text-text-muted mb-2">PARAMETERS</div>
+            <div className="flex flex-wrap gap-1">
+              {Object.entries(right.parameters).map(([key, value]) => (
+                <span key={key} className="px-1 py-0.5 bg-acid-cyan/10 text-acid-cyan text-[10px] font-mono">
+                  {key}={String(value)}
+                </span>
+              ))}
+              {Object.keys(right.parameters).length === 0 && (
+                <span className="text-text-muted text-[10px]">None</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Visual grid view showing parameters vs outcomes
+function GridView({
+  results,
+  onSelectCompare,
+}: {
+  results: ScenarioResult[];
+  onSelectCompare: (left: number, right: number) => void;
+}) {
+  // Extract all unique parameter keys
+  const allParamKeys = useMemo(() => {
+    const keys = new Set<string>();
+    results.forEach(r => Object.keys(r.parameters).forEach(k => keys.add(k)));
+    return Array.from(keys);
+  }, [results]);
+
+  const [selectedForCompare, setSelectedForCompare] = useState<number | null>(null);
+
+  const handleCellClick = (index: number) => {
+    if (selectedForCompare === null) {
+      setSelectedForCompare(index);
+    } else if (selectedForCompare !== index) {
+      onSelectCompare(selectedForCompare, index);
+      setSelectedForCompare(null);
+    } else {
+      setSelectedForCompare(null);
+    }
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="text-xs font-mono text-text-muted mb-2">
+        Click two scenarios to compare them side-by-side
+      </div>
+      <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(results.length, 4)}, 1fr)` }}>
+        {results.map((r, i) => (
+          <div
+            key={i}
+            onClick={() => handleCellClick(i)}
+            className={`p-3 border cursor-pointer transition-all duration-200 ${
+              selectedForCompare === i
+                ? 'border-purple bg-purple/20 scale-105'
+                : r.is_baseline
+                ? 'border-gold/40 hover:border-gold'
+                : r.consensus_reached
+                ? 'border-acid-green/40 hover:border-acid-green'
+                : 'border-crimson/40 hover:border-crimson'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-xs font-mono ${r.is_baseline ? 'text-gold' : 'text-text'}`}>
+                {r.scenario_name}
+              </span>
+              <span
+                className={`w-2 h-2 rounded-full ${r.consensus_reached ? 'bg-acid-green' : 'bg-crimson'}`}
+              />
+            </div>
+
+            {/* Mini parameter grid */}
+            <div className="space-y-1 mb-2">
+              {allParamKeys.slice(0, 3).map(key => (
+                <div key={key} className="flex justify-between text-[10px] font-mono">
+                  <span className="text-text-muted">{key}:</span>
+                  <span className="text-acid-cyan">{String(r.parameters[key] || '-')}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Confidence bar */}
+            <div className="h-1 bg-bg rounded-full overflow-hidden">
+              <div
+                className={`h-full ${r.consensus_reached ? 'bg-acid-green' : 'bg-crimson'}`}
+                style={{ width: `${r.confidence * 100}%` }}
+              />
+            </div>
+            <div className="text-[10px] font-mono text-text-muted mt-1 text-right">
+              {(r.confidence * 100).toFixed(0)}%
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Filter types
+interface FilterState {
+  consensusOnly: boolean;
+  minConfidence: number;
+  searchTerm: string;
+}
+
+interface ScenarioMatrixViewProps {
+  events?: StreamEvent[];
+}
+
+export function ScenarioMatrixView({ events = [] }: ScenarioMatrixViewProps) {
   const [task, setTask] = useState('');
   const [scenarios, setScenarios] = useState<ScenarioInput[]>([
     { name: 'Baseline', parameters: {}, constraints: [], is_baseline: true },
@@ -290,6 +506,61 @@ export function ScenarioMatrixView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedScenarios, setExpandedScenarios] = useState<Set<number>>(new Set());
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [compareIndexes, setCompareIndexes] = useState<[number, number] | null>(null);
+  const [filters, setFilters] = useState<FilterState>({
+    consensusOnly: false,
+    minConfidence: 0,
+    searchTerm: '',
+  });
+
+  // Listen for matrix debate events
+  const latestMatrixEvent = useMemo(() => {
+    const relevant = events.filter(e =>
+      e.type === 'scenario_complete' ||
+      e.type === 'matrix_complete'
+    );
+    return relevant[relevant.length - 1];
+  }, [events]);
+
+  // Refresh on matrix events
+  useEffect(() => {
+    if (latestMatrixEvent && result) {
+      // Re-fetch the matrix result
+      const refreshResult = async () => {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+          const response = await fetch(
+            `${apiUrl}/api/debates/matrix/${result.matrix_id}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setResult(data);
+          }
+        } catch (e) {
+          // Ignore refresh errors
+        }
+      };
+      refreshResult();
+    }
+  }, [latestMatrixEvent, result]);
+
+  // Filter results
+  const filteredResults = useMemo(() => {
+    if (!result) return [];
+    return result.results.filter(r => {
+      if (filters.consensusOnly && !r.consensus_reached) return false;
+      if (r.confidence < filters.minConfidence) return false;
+      if (filters.searchTerm) {
+        const term = filters.searchTerm.toLowerCase();
+        if (!r.scenario_name.toLowerCase().includes(term) &&
+            !r.final_answer.toLowerCase().includes(term)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [result, filters]);
 
   const addScenario = useCallback(() => {
     setScenarios((prev) => [
@@ -460,22 +731,103 @@ export function ScenarioMatrixView() {
             </div>
           )}
 
+          {/* Comparison view */}
+          {compareIndexes && result.results[compareIndexes[0]] && result.results[compareIndexes[1]] && (
+            <CompareView
+              left={result.results[compareIndexes[0]]}
+              right={result.results[compareIndexes[1]]}
+              onClose={() => setCompareIndexes(null)}
+            />
+          )}
+
           {/* Scenario results */}
           <div className="bg-surface border border-acid-cyan/30">
-            <div className="px-4 py-3 border-b border-acid-cyan/20 bg-bg/50">
+            <div className="px-4 py-3 border-b border-acid-cyan/20 bg-bg/50 flex items-center justify-between flex-wrap gap-2">
               <span className="text-xs font-mono text-acid-cyan uppercase tracking-wider">
-                {'>'} SCENARIO RESULTS
+                {'>'} SCENARIO RESULTS ({filteredResults.length}/{result.results.length})
               </span>
+
+              {/* View mode toggle */}
+              <div className="flex items-center gap-1">
+                {(['list', 'grid'] as ViewMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className={`px-2 py-1 text-[10px] font-mono transition-colors ${
+                      viewMode === mode
+                        ? 'bg-acid-cyan text-bg'
+                        : 'text-text-muted hover:text-acid-cyan'
+                    }`}
+                  >
+                    {mode.toUpperCase()}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="p-4 space-y-3">
-              {result.results.map((scenarioResult, i) => (
-                <ScenarioCard
-                  key={i}
-                  result={scenarioResult}
-                  isExpanded={expandedScenarios.has(i)}
-                  onToggle={() => toggleExpanded(i)}
+
+            {/* Filters */}
+            <div className="px-4 py-2 border-b border-acid-cyan/10 bg-bg/30 flex items-center gap-4 flex-wrap">
+              <input
+                type="text"
+                value={filters.searchTerm}
+                onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
+                placeholder="Search scenarios..."
+                className="px-2 py-1 bg-bg border border-border text-xs font-mono text-text focus:outline-none focus:border-acid-cyan"
+              />
+              <label className="flex items-center gap-1 text-[10px] font-mono text-text-muted">
+                <input
+                  type="checkbox"
+                  checked={filters.consensusOnly}
+                  onChange={(e) => setFilters({ ...filters, consensusOnly: e.target.checked })}
+                  className="accent-acid-green"
                 />
-              ))}
+                Consensus only
+              </label>
+              <label className="flex items-center gap-1 text-[10px] font-mono text-text-muted">
+                Min confidence:
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={filters.minConfidence * 100}
+                  onChange={(e) => setFilters({ ...filters, minConfidence: parseInt(e.target.value) / 100 })}
+                  className="w-20 h-1 accent-acid-cyan"
+                />
+                <span className="text-acid-cyan">{Math.round(filters.minConfidence * 100)}%</span>
+              </label>
+            </div>
+
+            <div className="p-4">
+              {viewMode === 'grid' ? (
+                <GridView
+                  results={filteredResults}
+                  onSelectCompare={(left, right) => {
+                    // Find original indexes from filtered results
+                    const leftIdx = result.results.indexOf(filteredResults[left]);
+                    const rightIdx = result.results.indexOf(filteredResults[right]);
+                    setCompareIndexes([leftIdx, rightIdx]);
+                  }}
+                />
+              ) : (
+                <div className="space-y-3">
+                  {filteredResults.map((scenarioResult, i) => {
+                    const originalIdx = result.results.indexOf(scenarioResult);
+                    return (
+                      <ScenarioCard
+                        key={originalIdx}
+                        result={scenarioResult}
+                        isExpanded={expandedScenarios.has(originalIdx)}
+                        onToggle={() => toggleExpanded(originalIdx)}
+                      />
+                    );
+                  })}
+                  {filteredResults.length === 0 && (
+                    <div className="text-center text-text-muted text-xs font-mono py-4">
+                      No scenarios match your filters
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

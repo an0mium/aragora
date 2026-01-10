@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { logger } from '@/utils/logger';
+import type { StreamEvent } from '@/types/events';
 
 interface SettledTopic {
   topic: string;
@@ -36,11 +37,12 @@ interface DissentView {
 
 interface ConsensusKnowledgeBaseProps {
   apiBase: string;
+  events?: StreamEvent[];
 }
 
 type TabType = 'settled' | 'search' | 'stats' | 'dissents';
 
-export function ConsensusKnowledgeBase({ apiBase }: ConsensusKnowledgeBaseProps) {
+export function ConsensusKnowledgeBase({ apiBase, events = [] }: ConsensusKnowledgeBaseProps) {
   const [expanded, setExpanded] = useState(true); // Show by default
   const [activeTab, setActiveTab] = useState<TabType>('settled');
   const [settledTopics, setSettledTopics] = useState<SettledTopic[]>([]);
@@ -123,6 +125,26 @@ export function ConsensusKnowledgeBase({ apiBase }: ConsensusKnowledgeBaseProps)
     }
   }, [expanded, activeTab, fetchDissents]);
 
+  // Refresh on consensus events
+  const latestConsensusEvent = useMemo(() => {
+    const relevant = events.filter(e =>
+      e.type === 'consensus' ||
+      e.type === 'verdict' ||
+      e.type === 'grounded_verdict'
+    );
+    return relevant[relevant.length - 1];
+  }, [events]);
+
+  useEffect(() => {
+    if (latestConsensusEvent && expanded) {
+      fetchSettled();
+      fetchStats();
+      if (activeTab === 'dissents') {
+        fetchDissents();
+      }
+    }
+  }, [latestConsensusEvent, expanded, activeTab, fetchSettled, fetchStats, fetchDissents]);
+
   const formatTimestamp = (ts: string) => {
     if (!ts) return 'Unknown';
     const date = new Date(ts);
@@ -162,12 +184,12 @@ export function ConsensusKnowledgeBase({ apiBase }: ConsensusKnowledgeBaseProps)
           )}
 
           {/* Tabs */}
-          <div className="flex gap-1 border-b border-acid-green/20 pb-2">
+          <div className="flex flex-wrap gap-1 border-b border-acid-green/20 pb-2">
             {(['settled', 'dissents', 'search', 'stats'] as TabType[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-2 py-1 text-xs font-mono transition-colors ${
+                className={`px-2 py-1 text-xs font-mono transition-colors whitespace-nowrap ${
                   activeTab === tab
                     ? 'bg-acid-green text-bg'
                     : 'text-text-muted hover:text-acid-green'

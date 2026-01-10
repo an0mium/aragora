@@ -9,6 +9,8 @@ Endpoints:
 - POST /api/debates/{id}/publish/youtube - Publish debate to YouTube
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import threading

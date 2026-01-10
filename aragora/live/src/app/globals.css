@@ -321,6 +321,7 @@ body {
 /* Panel tabs */
 .panel-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.25rem;
   padding: 0.25rem;
   background: var(--bg);

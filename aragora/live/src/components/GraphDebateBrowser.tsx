@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
+import type { StreamEvent } from '@/types/events';
 
 // Types from the backend graph.py
 interface DebateNode {
@@ -313,9 +314,23 @@ interface GraphVisualizationProps {
   graph: GraphDebate['graph'];
   selectedNodeId: string | null;
   onNodeSelect: (nodeId: string | null) => void;
+  highlightedBranch: string | null;
+  onBranchHover: (branchId: string | null) => void;
 }
 
-function GraphVisualization({ graph, selectedNodeId, onNodeSelect }: GraphVisualizationProps) {
+function GraphVisualization({
+  graph,
+  selectedNodeId,
+  onNodeSelect,
+  highlightedBranch,
+  onBranchHover,
+}: GraphVisualizationProps) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
   const positions = useMemo(
     () => calculateLayout(graph.nodes, graph.root_id, graph.branches),
     [graph.nodes, graph.root_id, graph.branches]
@@ -326,8 +341,8 @@ function GraphVisualization({ graph, selectedNodeId, onNodeSelect }: GraphVisual
   const maxX = Math.max(...positions.map((p) => p.x)) + 60;
   const maxY = Math.max(...positions.map((p) => p.y)) + 80;
 
-  const width = Math.max(800, maxX - minX);
-  const height = Math.max(400, maxY);
+  const baseWidth = Math.max(800, maxX - minX);
+  const baseHeight = Math.max(400, maxY);
 
   // Generate edges
   const edges: Array<{ from: NodePosition; to: NodePosition; branchId: string }> = [];
@@ -355,62 +370,215 @@ function GraphVisualization({ graph, selectedNodeId, onNodeSelect }: GraphVisual
     return colorMap[branchId] || '#666666';
   };
 
+  // Zoom controls
+  const handleZoomIn = () => setZoom((z) => Math.min(z * 1.2, 3));
+  const handleZoomOut = () => setZoom((z) => Math.max(z / 1.2, 0.3));
+  const handleResetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  // Pan handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0 && e.shiftKey) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isPanning) {
+      setPan({
+        x: e.clientX - panStart.x,
+        y: e.clientY - panStart.y,
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  // Wheel zoom
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setZoom((z) => Math.max(0.3, Math.min(3, z * delta)));
+    }
+  };
+
+  const isNodeInHighlightedBranch = (branchId: string | null) => {
+    if (!highlightedBranch) return true;
+    return branchId === highlightedBranch || branchId === null;
+  };
+
   return (
-    <svg
-      width="100%"
-      height={height}
-      viewBox={`${minX} 0 ${width} ${height}`}
-      className="bg-bg/50"
-    >
-      <defs>
-        <marker
-          id="arrowhead"
-          markerWidth="10"
-          markerHeight="7"
-          refX="9"
-          refY="3.5"
-          orient="auto"
+    <div className="relative">
+      {/* Zoom controls */}
+      <div className="absolute top-2 left-2 z-10 flex gap-1">
+        <button
+          onClick={handleZoomIn}
+          className="w-8 h-8 bg-surface border border-acid-green/30 text-acid-green font-mono text-sm hover:bg-acid-green/20"
+          title="Zoom in"
         >
-          <polygon points="0 0, 10 3.5, 0 7" fill="#00ff00" fillOpacity="0.5" />
-        </marker>
-      </defs>
+          +
+        </button>
+        <button
+          onClick={handleZoomOut}
+          className="w-8 h-8 bg-surface border border-acid-green/30 text-acid-green font-mono text-sm hover:bg-acid-green/20"
+          title="Zoom out"
+        >
+          -
+        </button>
+        <button
+          onClick={handleResetView}
+          className="px-2 h-8 bg-surface border border-acid-green/30 text-acid-green font-mono text-xs hover:bg-acid-green/20"
+          title="Reset view"
+        >
+          RESET
+        </button>
+        <span className="h-8 flex items-center px-2 text-xs font-mono text-text-muted">
+          {Math.round(zoom * 100)}%
+        </span>
+      </div>
 
-      {/* Edges */}
-      {edges.map((edge, i) => (
-        <line
-          key={i}
-          x1={edge.from.x}
-          y1={edge.from.y + 24}
-          x2={edge.to.x}
-          y2={edge.to.y - 24}
-          stroke={getEdgeColor(edge.branchId)}
-          strokeWidth={2}
-          strokeOpacity={0.6}
-          markerEnd="url(#arrowhead)"
-        />
-      ))}
+      {/* Pan hint */}
+      <div className="absolute top-2 right-2 z-10 text-xs font-mono text-text-muted/50">
+        Shift+drag to pan | Ctrl+scroll to zoom
+      </div>
 
-      {/* Nodes */}
-      {positions.map((pos) => (
-        <GraphNode
-          key={pos.node.id}
-          position={pos}
-          isSelected={selectedNodeId === pos.node.id}
-          onClick={() => onNodeSelect(pos.node.id)}
-        />
-      ))}
-    </svg>
+      <svg
+        ref={svgRef}
+        width="100%"
+        height={baseHeight}
+        viewBox={`${minX - pan.x / zoom} ${-pan.y / zoom} ${baseWidth / zoom} ${baseHeight / zoom}`}
+        className={`bg-bg/50 ${isPanning ? 'cursor-grabbing' : 'cursor-default'}`}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+      >
+        <defs>
+          <marker
+            id="arrowhead"
+            markerWidth="10"
+            markerHeight="7"
+            refX="9"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon points="0 0, 10 3.5, 0 7" fill="#00ff00" fillOpacity="0.5" />
+          </marker>
+          {/* Highlighted arrowhead */}
+          <marker
+            id="arrowhead-highlighted"
+            markerWidth="12"
+            markerHeight="9"
+            refX="11"
+            refY="4.5"
+            orient="auto"
+          >
+            <polygon points="0 0, 12 4.5, 0 9" fill="#ffffff" fillOpacity="0.8" />
+          </marker>
+        </defs>
+
+        {/* Edges */}
+        {edges.map((edge, i) => {
+          const isHighlighted = highlightedBranch === edge.branchId;
+          const isDimmed = highlightedBranch && !isHighlighted;
+
+          return (
+            <line
+              key={i}
+              x1={edge.from.x}
+              y1={edge.from.y + 24}
+              x2={edge.to.x}
+              y2={edge.to.y - 24}
+              stroke={getEdgeColor(edge.branchId)}
+              strokeWidth={isHighlighted ? 3 : 2}
+              strokeOpacity={isDimmed ? 0.2 : isHighlighted ? 1 : 0.6}
+              markerEnd={isHighlighted ? 'url(#arrowhead-highlighted)' : 'url(#arrowhead)'}
+              className="transition-all duration-200"
+              onMouseEnter={() => onBranchHover(edge.branchId)}
+              onMouseLeave={() => onBranchHover(null)}
+            />
+          );
+        })}
+
+        {/* Nodes */}
+        {positions.map((pos) => {
+          const nodeInBranch = isNodeInHighlightedBranch(pos.node.branch_id);
+
+          return (
+            <g
+              key={pos.node.id}
+              style={{ opacity: nodeInBranch ? 1 : 0.3 }}
+              className="transition-opacity duration-200"
+            >
+              <GraphNode
+                position={pos}
+                isSelected={selectedNodeId === pos.node.id}
+                onClick={() => onNodeSelect(pos.node.id)}
+              />
+            </g>
+          );
+        })}
+      </svg>
+    </div>
   );
 }
 
-export function GraphDebateBrowser() {
+interface GraphDebateBrowserProps {
+  events?: StreamEvent[];
+}
+
+export function GraphDebateBrowser({ events = [] }: GraphDebateBrowserProps) {
   const [debates, setDebates] = useState<GraphDebate[]>([]);
   const [selectedDebate, setSelectedDebate] = useState<GraphDebate | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [highlightedBranch, setHighlightedBranch] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newDebateTask, setNewDebateTask] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // Listen for graph debate events
+  const latestGraphEvent = useMemo(() => {
+    const relevant = events.filter(e =>
+      e.type === 'debate_branch' ||
+      e.type === 'debate_merge' ||
+      e.type === 'graph_node_added'
+    );
+    return relevant[relevant.length - 1];
+  }, [events]);
+
+  // Refresh on graph events
+  useEffect(() => {
+    if (latestGraphEvent && selectedDebate) {
+      // Re-fetch the selected debate to get updated graph
+      const refreshDebate = async () => {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+          const response = await fetch(
+            `${apiUrl}/api/debates/graph/${selectedDebate.debate_id}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setSelectedDebate(data);
+            // Also update in list
+            setDebates(prev =>
+              prev.map(d => d.debate_id === data.debate_id ? data : d)
+            );
+          }
+        } catch (e) {
+          // Ignore refresh errors
+        }
+      };
+      refreshDebate();
+    }
+  }, [latestGraphEvent, selectedDebate]);
 
   const fetchDebates = useCallback(async () => {
     try {
@@ -573,16 +741,31 @@ export function GraphDebateBrowser() {
                   graph={selectedDebate.graph}
                   selectedNodeId={selectedNodeId}
                   onNodeSelect={setSelectedNodeId}
+                  highlightedBranch={highlightedBranch}
+                  onBranchHover={setHighlightedBranch}
                 />
               </div>
 
-              {/* Branch legend */}
+              {/* Branch legend - interactive */}
               <div className="px-4 py-2 border-t border-acid-green/20 bg-bg/30">
                 <div className="flex flex-wrap gap-3 text-xs font-mono">
                   {Object.entries(selectedDebate.graph.branches).map(([id, branch]) => (
-                    <div key={id} className="flex items-center gap-1">
+                    <div
+                      key={id}
+                      className={`flex items-center gap-1 cursor-pointer px-2 py-1 rounded transition-all duration-200 ${
+                        highlightedBranch === branch.name
+                          ? 'bg-acid-green/20 scale-105'
+                          : highlightedBranch && highlightedBranch !== branch.name
+                          ? 'opacity-40'
+                          : 'hover:bg-surface'
+                      }`}
+                      onMouseEnter={() => setHighlightedBranch(branch.name)}
+                      onMouseLeave={() => setHighlightedBranch(null)}
+                    >
                       <div
-                        className={`w-3 h-3 rounded-full ${getBranchBgColor(branch.name)}`}
+                        className={`w-3 h-3 rounded-full ${getBranchBgColor(branch.name)} ${
+                          highlightedBranch === branch.name ? 'ring-2 ring-white/50' : ''
+                        }`}
                       />
                       <span className={getBranchColor(branch.name)}>
                         {branch.name}
@@ -592,6 +775,9 @@ export function GraphDebateBrowser() {
                       </span>
                       {branch.is_merged && (
                         <span className="text-gold">[merged]</span>
+                      )}
+                      {branch.is_active && (
+                        <span className="text-acid-green animate-pulse">[active]</span>
                       )}
                     </div>
                   ))}

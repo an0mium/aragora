@@ -7,6 +7,8 @@ Endpoints:
 - POST /api/debates/:id/red-team - Run red team analysis on a debate
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging

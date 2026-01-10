@@ -20,6 +20,8 @@ Endpoints:
 - GET /api/flips/summary - Get flip summary for dashboard
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Any, Optional, List
 
@@ -50,6 +52,7 @@ from .base import (
     SAFE_ID_PATTERN,
     SAFE_AGENT_PATTERN,
 )
+from .utils.rate_limit import rate_limit
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
 
@@ -73,6 +76,8 @@ class AgentsHandler(BaseHandler):
         "/api/agent/*/allies",
         "/api/agent/*/moments",
         "/api/agent/*/positions",
+        "/api/agent/*/domains",
+        "/api/agent/*/performance",
         "/api/agent/*/head-to-head/*",
         "/api/agent/*/opponent-briefing/*",
         "/api/flips/recent",
@@ -189,6 +194,8 @@ class AgentsHandler(BaseHandler):
             "allies": lambda: self._get_allies(agent, get_int_param(params, 'limit', 5)),
             "moments": lambda: self._get_moments(agent, get_int_param(params, 'limit', 10)),
             "positions": lambda: self._get_positions(agent, get_int_param(params, 'limit', 20)),
+            "domains": lambda: self._get_domains(agent),
+            "performance": lambda: self._get_performance(agent),
         }
 
         if endpoint in handlers:
@@ -196,6 +203,7 @@ class AgentsHandler(BaseHandler):
 
         return None
 
+    @rate_limit(rpm=30, limiter_name="agents_list")
     @handle_errors("list agents")
     @ttl_cache(ttl_seconds=CACHE_TTL_LEADERBOARD, key_prefix="agents_list")
     def _list_agents(self, include_stats: bool = False) -> HandlerResult:
@@ -241,6 +249,7 @@ class AgentsHandler(BaseHandler):
             "total": len(agents),
         })
 
+    @rate_limit(rpm=30, limiter_name="leaderboard")
     def _get_leaderboard(self, limit: int, domain: Optional[str]) -> HandlerResult:
         """Get agent leaderboard with consistency scores (batched to avoid N+1)."""
         elo = self.get_elo_system()
@@ -514,6 +523,95 @@ class AgentsHandler(BaseHandler):
             positions = ledger.get_agent_positions(agent, limit=limit)
             return json_response({"agent": agent, "positions": positions})
         return json_response({"agent": agent, "positions": []})
+
+    @handle_errors("agent domains")
+    def _get_domains(self, agent: str) -> HandlerResult:
+        """Get agent's domain-specific ELO ratings.
+
+        Returns domain expertise breakdown showing how the agent
+        performs across different topic areas.
+        """
+        elo = self.get_elo_system()
+        if not elo:
+            return error_response("ELO system not available", 503)
+
+        rating = elo.get_rating(agent)
+
+        # Extract domain ELOs from rating
+        domain_elos = rating.domain_elos if hasattr(rating, 'domain_elos') else {}
+
+        # Sort domains by ELO descending
+        sorted_domains = sorted(
+            domain_elos.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )
+
+        domains = [
+            {
+                "domain": domain,
+                "elo": elo_score,
+                "relative": round(elo_score - rating.elo, 1),  # Relative to overall
+            }
+            for domain, elo_score in sorted_domains
+        ]
+
+        return json_response({
+            "agent": agent,
+            "overall_elo": rating.elo,
+            "domains": domains,
+            "domain_count": len(domains),
+        })
+
+    @handle_errors("agent performance")
+    def _get_performance(self, agent: str) -> HandlerResult:
+        """Get detailed agent performance statistics.
+
+        Returns win rates, average scores, and performance trends.
+        """
+        elo = self.get_elo_system()
+        if not elo:
+            return error_response("ELO system not available", 503)
+
+        rating = elo.get_rating(agent)
+
+        # Calculate derived metrics
+        total_games = rating.wins + rating.losses + rating.draws
+        win_rate = rating.wins / total_games if total_games > 0 else 0.0
+
+        # Get recent match history for trend analysis
+        recent_matches = elo.get_agent_history(agent, limit=20) if hasattr(elo, 'get_agent_history') else []
+
+        # Calculate recent win rate (last 10 matches)
+        recent_wins = sum(1 for m in recent_matches[:10] if m.get('result') == 'win')
+        recent_total = min(10, len(recent_matches))
+        recent_win_rate = recent_wins / recent_total if recent_total > 0 else 0.0
+
+        # Calculate ELO trend from history
+        elo_history = elo.get_elo_history(agent, limit=20) if hasattr(elo, 'get_elo_history') else []
+        elo_trend = 0.0
+        if len(elo_history) >= 2:
+            elo_trend = elo_history[0][1] - elo_history[-1][1]  # Most recent minus oldest
+
+        return json_response({
+            "agent": agent,
+            "elo": rating.elo,
+            "total_games": total_games,
+            "wins": rating.wins,
+            "losses": rating.losses,
+            "draws": rating.draws,
+            "win_rate": round(win_rate, 3),
+            "recent_win_rate": round(recent_win_rate, 3),
+            "elo_trend": round(elo_trend, 1),
+            "critiques_accepted": rating.critiques_accepted,
+            "critiques_total": rating.critiques_total,
+            "critique_acceptance_rate": round(rating.critique_acceptance_rate, 3),
+            "calibration": {
+                "accuracy": round(rating.calibration_accuracy, 3),
+                "brier_score": round(rating.calibration_brier_score, 3),
+                "prediction_count": rating.calibration_total,
+            },
+        })
 
     @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_H2H, key_prefix="agent_h2h", skip_first=True)
     @handle_errors("head-to-head stats")

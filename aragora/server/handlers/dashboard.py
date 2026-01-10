@@ -5,6 +5,8 @@ Provides a consolidated view of debate metrics for dashboard visualization.
 Aggregates data from ELO, consensus, prometheus, and debate storage systems.
 """
 
+from __future__ import annotations
+
 import logging
 import time
 from datetime import datetime, timedelta

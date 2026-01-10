@@ -134,6 +134,13 @@ class DebateStorage:
             self._safe_add_column(conn, "debates", "audio_generated_at", "TIMESTAMP")
             self._safe_add_column(conn, "debates", "audio_duration_seconds", "INTEGER")
 
+            # Add org_id for multi-tenancy (migration for existing databases)
+            if self._safe_add_column(conn, "debates", "org_id", "TEXT"):
+                # Create index for efficient org-scoped queries
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_debates_org ON debates(org_id, created_at)"
+                )
+
             conn.commit()
 
     # Known table names for this storage class (defense-in-depth)
@@ -313,11 +320,18 @@ class DebateStorage:
             "audio_duration_seconds": row[2],
         }
 
-    def save_dict(self, debate_data: dict) -> str:
+    def save_dict(self, debate_data: dict, org_id: Optional[str] = None) -> str:
         """
         Save debate data directly (without DebateArtifact).
 
         Useful for saving streaming debates before full artifact is built.
+
+        Args:
+            debate_data: Debate data dict
+            org_id: Organization ID for multi-tenancy scoping (optional)
+
+        Returns:
+            Generated slug for the debate
         """
         slug = self.generate_slug(debate_data.get("task", "debate"))
         debate_id = debate_data.get("id", slug)
@@ -326,9 +340,9 @@ class DebateStorage:
             conn.execute("""
                 INSERT INTO debates (
                     id, slug, task, agents, artifact_json,
-                    consensus_reached, confidence
+                    consensus_reached, confidence, org_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 debate_id,
                 slug,
@@ -337,27 +351,42 @@ class DebateStorage:
                 json.dumps(debate_data),
                 debate_data.get("consensus_reached", False),
                 debate_data.get("confidence", 0),
+                org_id,
             ))
             conn.commit()
 
         return slug
 
-    def get_by_slug(self, slug: str) -> Optional[dict]:
+    def get_by_slug(
+        self, slug: str, org_id: Optional[str] = None, verify_ownership: bool = False
+    ) -> Optional[dict]:
         """
         Get debate by slug, incrementing view count.
 
+        Args:
+            slug: Debate slug
+            org_id: Organization ID for ownership verification
+            verify_ownership: If True and org_id provided, only return if debate
+                              belongs to this org. If False, returns any matching debate.
+
         Returns:
-            Debate artifact dict or None if not found
+            Debate artifact dict or None if not found (or ownership check fails)
         """
         # Validate slug to prevent abuse (DoS via extremely long slugs)
         if not slug or len(slug) > 500:
             return None
 
         with self._get_connection() as conn:
-            cursor = conn.execute(
-                "SELECT artifact_json FROM debates WHERE slug = ?",
-                (slug,)
-            )
+            if verify_ownership and org_id:
+                cursor = conn.execute(
+                    "SELECT artifact_json FROM debates WHERE slug = ? AND org_id = ?",
+                    (slug, org_id)
+                )
+            else:
+                cursor = conn.execute(
+                    "SELECT artifact_json FROM debates WHERE slug = ?",
+                    (slug,)
+                )
             row = cursor.fetchone()
 
             if row:
@@ -369,31 +398,67 @@ class DebateStorage:
 
         return json.loads(row[0]) if row else None
 
-    def get_by_id(self, debate_id: str) -> Optional[dict]:
-        """Get debate by ID."""
+    def get_by_id(
+        self, debate_id: str, org_id: Optional[str] = None, verify_ownership: bool = False
+    ) -> Optional[dict]:
+        """
+        Get debate by ID.
+
+        Args:
+            debate_id: Debate ID
+            org_id: Organization ID for ownership verification
+            verify_ownership: If True and org_id provided, only return if debate
+                              belongs to this org.
+
+        Returns:
+            Debate artifact dict or None
+        """
         with self._get_connection() as conn:
-            cursor = conn.execute(
-                "SELECT artifact_json FROM debates WHERE id = ?",
-                (debate_id,)
-            )
+            if verify_ownership and org_id:
+                cursor = conn.execute(
+                    "SELECT artifact_json FROM debates WHERE id = ? AND org_id = ?",
+                    (debate_id, org_id)
+                )
+            else:
+                cursor = conn.execute(
+                    "SELECT artifact_json FROM debates WHERE id = ?",
+                    (debate_id,)
+                )
             row = cursor.fetchone()
         return json.loads(row[0]) if row else None
 
-    def list_recent(self, limit: int = 20) -> list[DebateMetadata]:
+    def list_recent(
+        self, limit: int = 20, org_id: Optional[str] = None
+    ) -> list[DebateMetadata]:
         """
-        List recent debates.
+        List recent debates, optionally filtered by organization.
+
+        Args:
+            limit: Maximum number of debates to return
+            org_id: If provided, only return debates for this organization.
+                    If None, returns all debates (for backwards compatibility).
 
         Returns:
             List of DebateMetadata ordered by creation date (newest first)
         """
         with self._get_connection() as conn:
-            cursor = conn.execute("""
-                SELECT slug, id, task, agents, consensus_reached,
-                       confidence, created_at, view_count
-                FROM debates
-                ORDER BY created_at DESC
-                LIMIT ?
-            """, (limit,))
+            if org_id:
+                cursor = conn.execute("""
+                    SELECT slug, id, task, agents, consensus_reached,
+                           confidence, created_at, view_count
+                    FROM debates
+                    WHERE org_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                """, (org_id, limit))
+            else:
+                cursor = conn.execute("""
+                    SELECT slug, id, task, agents, consensus_reached,
+                           confidence, created_at, view_count
+                    FROM debates
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                """, (limit,))
 
             results = []
             for row in cursor.fetchall():
@@ -415,13 +480,31 @@ class DebateStorage:
 
         return results
 
-    def delete(self, slug: str) -> bool:
-        """Delete a debate by slug."""
+    def delete(
+        self, slug: str, org_id: Optional[str] = None, require_ownership: bool = False
+    ) -> bool:
+        """
+        Delete a debate by slug.
+
+        Args:
+            slug: Debate slug
+            org_id: Organization ID for ownership verification
+            require_ownership: If True, only delete if debate belongs to org_id
+
+        Returns:
+            True if deleted, False if not found or ownership check failed
+        """
         with self._get_connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM debates WHERE slug = ?",
-                (slug,)
-            )
+            if require_ownership and org_id:
+                cursor = conn.execute(
+                    "DELETE FROM debates WHERE slug = ? AND org_id = ?",
+                    (slug, org_id)
+                )
+            else:
+                cursor = conn.execute(
+                    "DELETE FROM debates WHERE slug = ?",
+                    (slug,)
+                )
             deleted = cursor.rowcount > 0
             conn.commit()
         return deleted

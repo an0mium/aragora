@@ -7,6 +7,8 @@ Endpoints:
 - GET /api/podcast/episodes - JSON episode listing
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 

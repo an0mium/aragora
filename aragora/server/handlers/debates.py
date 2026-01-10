@@ -17,6 +17,8 @@ Endpoints:
 - GET /api/search - Cross-debate search by query
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 from .base import (
@@ -30,6 +32,7 @@ from .base import (
     ttl_cache,
     safe_json_parse,
 )
+from .utils.rate_limit import rate_limit
 from aragora.server.validation import validate_debate_id
 
 logger = logging.getLogger(__name__)
@@ -201,12 +204,18 @@ class DebatesHandler(BaseHandler):
                 query = query[0] if query else ''
             limit = min(get_int_param(query_params, 'limit', 20), 100)
             offset = get_int_param(query_params, 'offset', 0)
-            return self._search_debates(query, limit, offset)
+            # Get authenticated user for org-scoped search
+            user = self.get_current_user(handler)
+            org_id = user.org_id if user else None
+            return self._search_debates(query, limit, offset, org_id)
 
         # Exact path matches
         if path == "/api/debates":
             limit = min(get_int_param(query_params, 'limit', 20), 100)
-            return self._list_debates(limit)
+            # Get authenticated user for org-scoped results
+            user = self.get_current_user(handler)
+            org_id = user.org_id if user else None
+            return self._list_debates(limit, org_id)
 
         if path.startswith("/api/debates/slug/"):
             slug = path.split("/")[-1]
@@ -265,16 +274,22 @@ class DebatesHandler(BaseHandler):
 
         return debate_id, None
 
+    @rate_limit(rpm=30, limiter_name="debates_list")
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_DEBATES_LIST, key_prefix="debates_list", skip_first=True)
-    def _list_debates(self, limit: int) -> HandlerResult:
-        """List recent debates.
+    def _list_debates(self, limit: int, org_id: Optional[str] = None) -> HandlerResult:
+        """List recent debates, optionally filtered by organization.
 
-        Cached for 30 seconds to reduce database load on high-traffic listing.
+        Args:
+            limit: Maximum number of debates to return
+            org_id: If provided, only return debates for this organization.
+                    If None, returns all debates (backwards compatible).
+
+        Cached for 30 seconds. Cache key includes org_id for per-org isolation.
         """
         storage = self.get_storage()
         try:
-            debates = storage.list_recent(limit=limit)
+            debates = storage.list_recent(limit=limit, org_id=org_id)
             # Convert DebateMetadata objects to dicts
             debates_list = [d.__dict__ if hasattr(d, '__dict__') else d for d in debates]
             return json_response({"debates": debates_list, "count": len(debates_list)})
@@ -282,10 +297,13 @@ class DebatesHandler(BaseHandler):
             logger.error("Failed to list debates: %s: %s", type(e).__name__, e, exc_info=True)
             return error_response(f"Failed to list debates: {e}", 500)
 
+    @rate_limit(rpm=30, limiter_name="debates_search")
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_SEARCH, key_prefix="debates_search", skip_first=True)
-    def _search_debates(self, query: str, limit: int, offset: int) -> HandlerResult:
-        """Search debates by query string.
+    def _search_debates(
+        self, query: str, limit: int, offset: int, org_id: Optional[str] = None
+    ) -> HandlerResult:
+        """Search debates by query string, optionally filtered by organization.
 
         Searches across debate tasks/topics using SQL LIKE pattern matching.
 
@@ -293,6 +311,7 @@ class DebatesHandler(BaseHandler):
             query: Search query string
             limit: Maximum results to return
             offset: Offset for pagination
+            org_id: If provided, only search within this organization's debates
 
         Returns:
             HandlerResult with matching debates and pagination metadata
@@ -304,7 +323,7 @@ class DebatesHandler(BaseHandler):
 
             # Get all recent debates and filter in Python
             # (More robust than raw SQL for now)
-            all_debates = storage.list_recent(limit=500)
+            all_debates = storage.list_recent(limit=500, org_id=org_id)
 
             # Filter by query if provided
             if query:

@@ -8,6 +8,8 @@ Endpoints:
 - GET /api/evolution/{agent}/prompt - Get current/specific prompt version for an agent
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 

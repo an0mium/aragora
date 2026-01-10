@@ -84,11 +84,39 @@ Enables:
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `API_PORT` | Optional | HTTP server port | `8080` |
-| `API_HOST` | Optional | Bind address | `0.0.0.0` |
+| `ARAGORA_PORT` | Optional | Unified HTTP/WS server port | `8080` |
+| `ARAGORA_HOST` | Optional | Bind address | `0.0.0.0` |
+| `ARAGORA_ENVIRONMENT` | Recommended | `development` or `production` | `development` |
 | `ARAGORA_API_TOKEN` | Optional | Enable token auth | Disabled |
 | `ARAGORA_TOKEN_TTL` | Optional | Token lifetime (seconds) | `3600` |
 | `ARAGORA_WS_MAX_SIZE` | Optional | Max WebSocket message size | `65536` |
+
+**Note:** The unified server runs HTTP API and WebSocket on the same port. WebSocket connects via `/ws` endpoint upgrade.
+
+### Environment Mode
+
+Set `ARAGORA_ENVIRONMENT=production` for production deployments. This enables:
+- Strict JWT secret validation (required, minimum 32 characters)
+- Disabled unsafe JWT fallbacks
+- Blocked format-only API key validation
+- Stricter security defaults
+
+## Data Directory
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_DATA_DIR` | Recommended | Directory for all runtime data (databases, etc.) | `.nomic` |
+
+All databases are stored under this directory:
+- `agent_elo.db` - ELO rankings
+- `continuum.db` - Memory storage
+- `consensus_memory.db` - Consensus records
+- `token_blacklist.db` - Revoked JWT tokens
+- And others...
+
+**Production recommended:** `/var/lib/aragora` or `~/.aragora`
+
+Use `get_db_path()` from `aragora.config.legacy` to get consolidated database paths.
 
 ## CORS Configuration
 
@@ -132,12 +160,29 @@ JWT authentication and Stripe integration for paid tiers.
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_JWT_SECRET` | Recommended | Secret key for JWT signing | Auto-generated |
-| `ARAGORA_JWT_EXPIRY_HOURS` | Optional | Access token expiry | `24` |
-| `ARAGORA_REFRESH_TOKEN_EXPIRY_DAYS` | Optional | Refresh token expiry | `30` |
-| `ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS` | Optional | Allow API key format-only validation (dev/test) | `0` |
+| `ARAGORA_JWT_SECRET` | **Required (prod)** | Secret key for JWT signing (min 32 chars) | Auto-generated |
+| `ARAGORA_JWT_SECRET_PREVIOUS` | Optional | Previous secret for rotation | - |
+| `ARAGORA_JWT_EXPIRY_HOURS` | Optional | Access token expiry (max 168h/7d) | `24` |
+| `ARAGORA_REFRESH_TOKEN_EXPIRY_DAYS` | Optional | Refresh token expiry (max 90d) | `30` |
+| `ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS` | Optional | Allow API key format-only validation (dev only) | `0` |
 
-**Important:** Set `ARAGORA_JWT_SECRET` in production. Auto-generated secrets are invalidated on restart.
+**Security Notes:**
+- In **production** (`ARAGORA_ENVIRONMENT=production`), `ARAGORA_JWT_SECRET` is **required** and must be at least 32 characters.
+- Generate a secure secret: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+- In development, auto-generated secrets are invalidated on restart.
+- Use `ARAGORA_JWT_SECRET_PREVIOUS` during key rotation to allow existing tokens to remain valid.
+- `ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS` is blocked in production regardless of setting.
+
+### Token Blacklist Configuration
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_BLACKLIST_BACKEND` | Optional | Backend type: `memory`, `sqlite`, `redis` | `sqlite` |
+| `ARAGORA_REDIS_URL` | For redis | Redis connection URL | `redis://localhost:6379/0` |
+
+- **memory**: Fast but not persistent; use for development only
+- **sqlite**: Default; persists to `ARAGORA_DATA_DIR/token_blacklist.db`
+- **redis**: Use for multi-instance deployments (requires `redis` package)
 
 ### Stripe Integration
 

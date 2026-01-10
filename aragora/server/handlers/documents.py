@@ -9,6 +9,8 @@ Endpoints:
 - DELETE /api/documents/{doc_id} - Delete a document by ID
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import threading

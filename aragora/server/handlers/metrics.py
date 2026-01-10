@@ -10,6 +10,8 @@ Endpoints:
 - GET /metrics - Prometheus-format metrics (OpenMetrics)
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import platform

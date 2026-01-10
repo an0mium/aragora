@@ -6,7 +6,8 @@ Import these values instead of hardcoding throughout the codebase.
 """
 
 import os
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 # Explicit exports for type checking and IDE support
 __all__ = [
@@ -90,7 +91,10 @@ __all__ = [
     "DB_TIMEOUT_SECONDS",
     "DB_MODE",
     "NOMIC_DIR",
-    # Database Paths (legacy)
+    "DATA_DIR",
+    "get_db_path",
+    "validate_db_path",
+    # Database Paths (legacy - prefer get_db_path())
     "DB_ELO_PATH",
     "DB_MEMORY_PATH",
     "DB_INSIGHTS_PATH",
@@ -320,8 +324,87 @@ DB_MODE = _env_str("ARAGORA_DB_MODE", "legacy")
 # Nomic directory for databases (relative to working directory)
 NOMIC_DIR = _env_str("ARAGORA_NOMIC_DIR", ".nomic")
 
+# Consolidated data directory (all runtime data under one location)
+# Default: .nomic (existing convention)
+# Production recommended: /var/lib/aragora or ~/.aragora
+DATA_DIR = Path(_env_str("ARAGORA_DATA_DIR", ".nomic")).resolve()
+
+
+def validate_db_path(path_str: str, base_dir: Optional[Path] = None) -> Path:
+    """
+    Validate database path is within allowed directory.
+
+    Prevents path traversal attacks by ensuring resolved path
+    stays within the base directory.
+
+    Args:
+        path_str: Relative path to database file
+        base_dir: Base directory (defaults to DATA_DIR)
+
+    Returns:
+        Resolved absolute path
+
+    Raises:
+        ConfigurationError: If path escapes base directory
+    """
+    if base_dir is None:
+        base_dir = DATA_DIR
+
+    resolved = (base_dir / path_str).resolve()
+
+    # Security: Ensure path doesn't escape base directory
+    try:
+        resolved.relative_to(base_dir.resolve())
+    except ValueError:
+        raise ConfigurationError(
+            f"Database path escapes data directory: {path_str} "
+            f"(resolved to {resolved}, base is {base_dir})"
+        )
+
+    return resolved
+
+
+def get_db_path(name: str, ensure_dir: bool = True) -> Path:
+    """
+    Get consolidated database path within DATA_DIR.
+
+    This is the preferred method for getting database paths.
+    Ensures all databases are stored under DATA_DIR.
+
+    Args:
+        name: Database name (e.g., "agent_elo.db", "continuum.db")
+        ensure_dir: If True, create DATA_DIR if it doesn't exist
+
+    Returns:
+        Absolute path to database file
+
+    Example:
+        >>> elo_path = get_db_path("agent_elo.db")
+        >>> # Returns: /absolute/path/to/.nomic/agent_elo.db
+    """
+    if ensure_dir:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    return validate_db_path(name)
+
+
+# Database name constants (for use with get_db_path)
+DB_NAMES = {
+    "elo": "agent_elo.db",
+    "memory": "continuum.db",
+    "insights": "aragora_insights.db",
+    "consensus": "consensus_memory.db",
+    "calibration": "agent_calibration.db",
+    "lab": "persona_lab.db",
+    "personas": "agent_personas.db",
+    "positions": "grounded_positions.db",
+    "genesis": "genesis.db",
+    "blacklist": "token_blacklist.db",
+}
+
 # Legacy database path constants (for backwards compatibility)
-# These are deprecated - prefer using get_db_path() from aragora.persistence.db_config
+# DEPRECATED: Prefer using get_db_path() instead
+# These return relative paths for compatibility; new code should use get_db_path()
 DB_ELO_PATH = _env_str("ARAGORA_DB_ELO", "agent_elo.db")
 DB_MEMORY_PATH = _env_str("ARAGORA_DB_MEMORY", "continuum.db")
 DB_INSIGHTS_PATH = _env_str("ARAGORA_DB_INSIGHTS", "aragora_insights.db")
@@ -431,6 +514,30 @@ def validate_configuration(strict: bool = False) -> dict:
     if MAX_AGENTS_PER_DEBATE > 20:
         warnings.append(f"ARAGORA_MAX_AGENTS_PER_DEBATE is high ({MAX_AGENTS_PER_DEBATE}), may cause performance issues")
 
+    # Validate DATA_DIR
+    if DATA_DIR.exists():
+        if not DATA_DIR.is_dir():
+            errors.append(f"ARAGORA_DATA_DIR exists but is not a directory: {DATA_DIR}")
+        elif not os.access(DATA_DIR, os.W_OK):
+            warnings.append(f"ARAGORA_DATA_DIR is not writable: {DATA_DIR}")
+    else:
+        # Try to create it
+        try:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created data directory: {DATA_DIR}")
+        except PermissionError:
+            errors.append(f"Cannot create ARAGORA_DATA_DIR: {DATA_DIR} (permission denied)")
+        except Exception as e:
+            errors.append(f"Cannot create ARAGORA_DATA_DIR: {DATA_DIR} ({e})")
+
+    # Check for orphaned database files in project root
+    root_db_files = list(Path(".").glob("*.db"))
+    if root_db_files and DATA_DIR != Path(".").resolve():
+        warnings.append(
+            f"Found {len(root_db_files)} .db files in project root. "
+            f"Consider migrating to ARAGORA_DATA_DIR ({DATA_DIR})"
+        )
+
     # Validate SSL configuration if enabled
     if SSL_ENABLED:
         if not SSL_CERT_PATH:
@@ -474,6 +581,7 @@ def validate_configuration(strict: bool = False) -> dict:
         "max_agents_per_debate": MAX_AGENTS_PER_DEBATE,
         "ws_max_message_size": WS_MAX_MESSAGE_SIZE,
         "db_timeout": DB_TIMEOUT_SECONDS,
+        "data_dir": str(DATA_DIR),
         "ssl_enabled": SSL_ENABLED,
         "api_providers": api_keys_found,
     }
@@ -482,6 +590,7 @@ def validate_configuration(strict: bool = False) -> dict:
     is_valid = len(errors) == 0
     if is_valid:
         logger.info("Configuration validated successfully")
+        logger.info(f"  Data directory: {DATA_DIR}")
         logger.info(f"  API providers: {', '.join(api_keys_found) if api_keys_found else 'none'}")
         logger.info(f"  Rate limit: {DEFAULT_RATE_LIMIT} req/min")
         logger.info(f"  Debate timeout: {DEBATE_TIMEOUT_SECONDS}s")

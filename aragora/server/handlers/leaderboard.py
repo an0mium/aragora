@@ -7,6 +7,8 @@ Consolidates 6 separate leaderboard-related endpoints into a single request:
 This reduces frontend latency by 80% (1 request instead of 6).
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Any, Optional
 

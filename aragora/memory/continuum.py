@@ -1055,6 +1055,43 @@ class ContinuumMemory:
             for e in entries
         ]
 
+    def get_memory_pressure(self) -> float:
+        """
+        Calculate memory pressure as a 0-1 score based on tier utilization.
+
+        Returns the highest utilization ratio across all tiers, where:
+        - 0.0 = All tiers are empty
+        - 1.0 = At least one tier is at or above its max_entries limit
+
+        Use this to trigger cleanup when pressure exceeds a threshold (e.g., 0.8).
+
+        Returns:
+            Float between 0.0 and 1.0 indicating memory pressure level.
+        """
+        max_entries = self.hyperparams.get("max_entries_per_tier", {})
+        if not max_entries:
+            return 0.0
+
+        with get_wal_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT tier, COUNT(*)
+                FROM continuum_memory
+                GROUP BY tier
+            """)
+            tier_counts = {row[0]: row[1] for row in cursor.fetchall()}
+
+        # Calculate utilization for each tier
+        max_pressure = 0.0
+        for tier_name, limit in max_entries.items():
+            if limit <= 0:
+                continue
+            count = tier_counts.get(tier_name, 0)
+            pressure = count / limit
+            max_pressure = max(max_pressure, pressure)
+
+        return min(max_pressure, 1.0)
+
     def cleanup_expired_memories(
         self,
         tier: Optional[MemoryTier] = None,

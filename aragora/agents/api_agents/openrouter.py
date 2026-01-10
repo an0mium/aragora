@@ -178,6 +178,14 @@ class OpenRouterAgent(APIAgent):
                             )
 
                         data = await response.json()
+
+                        # Record token usage for billing (OpenAI format)
+                        usage = data.get("usage", {})
+                        self._record_token_usage(
+                            tokens_in=usage.get("prompt_tokens", 0),
+                            tokens_out=usage.get("completion_tokens", 0),
+                        )
+
                         try:
                             content = data["choices"][0]["message"]["content"]
                             # Success - reset backoff state

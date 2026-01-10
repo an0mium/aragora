@@ -240,7 +240,7 @@ class TestDebatesHandlerE2E:
     def test_list_debates_with_limit(self, debates_handler, mock_storage):
         """Test /api/debates respects limit parameter."""
         debates_handler.handle("/api/debates", {"limit": 5}, None)
-        mock_storage.list_recent.assert_called_with(limit=5)
+        mock_storage.list_recent.assert_called_with(limit=5, org_id=None)
 
     def test_debate_by_slug_returns_object(self, debates_handler):
         """Test /api/debates/{slug} returns debate details."""
@@ -1174,7 +1174,7 @@ class TestDebatesHandlerEdgeCases:
         result = handler.handle("/api/debates", {"limit": "0"}, None)
 
         assert result.status_code == 200
-        storage.list_recent.assert_called_with(limit=0)
+        storage.list_recent.assert_called_with(limit=0, org_id=None)
 
     def test_limit_param_negative(self, debates_handler_with_mock):
         """Test negative limit parameter defaults gracefully."""
@@ -1195,7 +1195,7 @@ class TestDebatesHandlerEdgeCases:
 
         assert result.status_code == 200
         # Limit should be capped at 100
-        storage.list_recent.assert_called_with(limit=100)
+        storage.list_recent.assert_called_with(limit=100, org_id=None)
 
     def test_export_empty_debate(self, debates_handler_with_mock):
         """Test exporting debate with no messages."""
