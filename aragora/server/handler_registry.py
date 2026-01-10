@@ -67,6 +67,12 @@ try:
         ProbesHandler,
         InsightsHandler,
         BreakpointsHandler,
+        LearningHandler,
+        GalleryHandler,
+        AuthHandler,
+        BillingHandler,
+        GraphDebatesHandler,
+        MatrixDebatesHandler,
         HandlerResult,
     )
     HANDLERS_AVAILABLE = True
@@ -106,6 +112,12 @@ except ImportError:
     ProbesHandler = None  # type: ignore[misc, assignment]
     InsightsHandler = None  # type: ignore[misc, assignment]
     BreakpointsHandler = None  # type: ignore[misc, assignment]
+    LearningHandler = None  # type: ignore[misc, assignment]
+    GalleryHandler = None  # type: ignore[misc, assignment]
+    AuthHandler = None  # type: ignore[misc, assignment]
+    BillingHandler = None  # type: ignore[misc, assignment]
+    GraphDebatesHandler = None  # type: ignore[misc, assignment]
+    MatrixDebatesHandler = None  # type: ignore[misc, assignment]
     HandlerResult = None  # type: ignore[misc, assignment]
 
 
@@ -145,6 +157,12 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_probes_handler", ProbesHandler),
     ("_insights_handler", InsightsHandler),
     ("_breakpoints_handler", BreakpointsHandler),
+    ("_learning_handler", LearningHandler),
+    ("_gallery_handler", GalleryHandler),
+    ("_auth_handler", AuthHandler),
+    ("_billing_handler", BillingHandler),
+    ("_graph_debates_handler", GraphDebatesHandler),
+    ("_matrix_debates_handler", MatrixDebatesHandler),
 ]
 
 
@@ -202,6 +220,12 @@ class RouteIndex:
             "_social_handler": ["/api/youtube/", "/api/debates/"],
             "_broadcast_handler": ["/api/debates/"],
             "_insights_handler": ["/api/insights/"],
+            "_learning_handler": ["/api/learning/"],
+            "_gallery_handler": ["/api/gallery/"],
+            "_auth_handler": ["/api/auth/"],
+            "_billing_handler": ["/api/billing/"],
+            "_graph_debates_handler": ["/api/debates/graph"],
+            "_matrix_debates_handler": ["/api/debates/matrix"],
         }
 
         for attr_name, _ in HANDLER_REGISTRY:
@@ -342,6 +366,12 @@ class HandlerRegistryMixin:
     _probes_handler: Optional["BaseHandler"] = None
     _insights_handler: Optional["BaseHandler"] = None
     _breakpoints_handler: Optional["BaseHandler"] = None
+    _learning_handler: Optional["BaseHandler"] = None
+    _gallery_handler: Optional["BaseHandler"] = None
+    _auth_handler: Optional["BaseHandler"] = None
+    _billing_handler: Optional["BaseHandler"] = None
+    _graph_debates_handler: Optional["BaseHandler"] = None
+    _matrix_debates_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False
 
     @classmethod
