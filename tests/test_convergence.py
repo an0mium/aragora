@@ -932,3 +932,280 @@ class TestCacheBehavior:
         result2 = backend.compute_similarity("hello world", "hello there")
 
         assert result1 == result2
+
+
+# =============================================================================
+# Advanced Convergence Metrics Tests (G3)
+# =============================================================================
+
+
+from aragora.debate.convergence import (
+    AdvancedConvergenceAnalyzer,
+    AdvancedConvergenceMetrics,
+    ArgumentDiversityMetric,
+    EvidenceConvergenceMetric,
+    StanceVolatilityMetric,
+)
+
+
+class TestArgumentDiversityMetric:
+    """Tests for ArgumentDiversityMetric dataclass."""
+
+    def test_is_converging_low_diversity(self):
+        """Low diversity score indicates convergence."""
+        metric = ArgumentDiversityMetric(
+            unique_arguments=1,
+            total_arguments=10,
+            diversity_score=0.1,
+        )
+        assert metric.is_converging is True
+
+    def test_is_converging_high_diversity(self):
+        """High diversity score indicates not converging."""
+        metric = ArgumentDiversityMetric(
+            unique_arguments=8,
+            total_arguments=10,
+            diversity_score=0.8,
+        )
+        assert metric.is_converging is False
+
+
+class TestEvidenceConvergenceMetric:
+    """Tests for EvidenceConvergenceMetric dataclass."""
+
+    def test_is_converging_high_overlap(self):
+        """High overlap indicates convergence."""
+        metric = EvidenceConvergenceMetric(
+            shared_citations=5,
+            total_citations=6,
+            overlap_score=0.83,
+        )
+        assert metric.is_converging is True
+
+    def test_is_converging_low_overlap(self):
+        """Low overlap indicates not converging."""
+        metric = EvidenceConvergenceMetric(
+            shared_citations=1,
+            total_citations=10,
+            overlap_score=0.1,
+        )
+        assert metric.is_converging is False
+
+
+class TestStanceVolatilityMetric:
+    """Tests for StanceVolatilityMetric dataclass."""
+
+    def test_is_stable_low_volatility(self):
+        """Low volatility indicates stable positions."""
+        metric = StanceVolatilityMetric(
+            stance_changes=1,
+            total_responses=20,
+            volatility_score=0.05,
+        )
+        assert metric.is_stable is True
+
+    def test_is_stable_high_volatility(self):
+        """High volatility indicates unstable positions."""
+        metric = StanceVolatilityMetric(
+            stance_changes=10,
+            total_responses=20,
+            volatility_score=0.5,
+        )
+        assert metric.is_stable is False
+
+
+class TestAdvancedConvergenceMetrics:
+    """Tests for AdvancedConvergenceMetrics dataclass."""
+
+    def test_compute_overall_score_semantic_only(self):
+        """Overall score should work with just semantic similarity."""
+        metrics = AdvancedConvergenceMetrics(
+            semantic_similarity=0.8,
+        )
+        score = metrics.compute_overall_score()
+        # 0.8 * 0.4 = 0.32 (only semantic contributes)
+        assert score == pytest.approx(0.32, abs=0.01)
+
+    def test_compute_overall_score_all_metrics(self):
+        """Overall score should combine all metrics."""
+        metrics = AdvancedConvergenceMetrics(
+            semantic_similarity=0.9,
+            argument_diversity=ArgumentDiversityMetric(
+                unique_arguments=2,
+                total_arguments=10,
+                diversity_score=0.2,  # Low diversity = high convergence
+            ),
+            evidence_convergence=EvidenceConvergenceMetric(
+                shared_citations=4,
+                total_citations=5,
+                overlap_score=0.8,
+            ),
+            stance_volatility=StanceVolatilityMetric(
+                stance_changes=1,
+                total_responses=10,
+                volatility_score=0.1,  # Low volatility = high convergence
+            ),
+        )
+        score = metrics.compute_overall_score()
+        # 0.9*0.4 + 0.8*0.2 + 0.8*0.2 + 0.9*0.2 = 0.36 + 0.16 + 0.16 + 0.18 = 0.86
+        assert 0.8 < score < 0.95
+
+    def test_to_dict(self):
+        """to_dict should include all metrics."""
+        metrics = AdvancedConvergenceMetrics(
+            semantic_similarity=0.85,
+            argument_diversity=ArgumentDiversityMetric(
+                unique_arguments=3,
+                total_arguments=9,
+                diversity_score=0.33,
+            ),
+            domain="technical",
+        )
+        metrics.compute_overall_score()
+
+        result = metrics.to_dict()
+        assert "semantic_similarity" in result
+        assert "overall_convergence" in result
+        assert "domain" in result
+        assert result["domain"] == "technical"
+        assert "argument_diversity" in result
+
+
+class TestAdvancedConvergenceAnalyzer:
+    """Tests for AdvancedConvergenceAnalyzer class."""
+
+    @pytest.fixture
+    def analyzer(self):
+        """Create analyzer with Jaccard backend (fast, no deps)."""
+        return AdvancedConvergenceAnalyzer(similarity_backend=JaccardBackend())
+
+    def test_extract_arguments(self, analyzer):
+        """Should extract substantive sentences as arguments."""
+        text = "This is a short one. This is a much longer argument that should be extracted. Another short. This argument is also long enough to be included."
+        args = analyzer.extract_arguments(text)
+        assert len(args) == 2  # Only sentences with > 5 words
+
+    def test_extract_citations_urls(self, analyzer):
+        """Should extract URLs as citations."""
+        text = "See https://example.com/paper.pdf for details. Also check http://docs.python.org."
+        citations = analyzer.extract_citations(text)
+        assert len(citations) == 2
+        assert "https://example.com/paper.pdf" in citations
+
+    def test_extract_citations_academic(self, analyzer):
+        """Should extract academic-style citations."""
+        text = "As shown by (Smith, 2024) and (Jones et al., 2023), this is true."
+        citations = analyzer.extract_citations(text)
+        assert "(Smith, 2024)" in citations
+        assert "(Jones et al., 2023)" in citations
+
+    def test_extract_citations_numbered(self, analyzer):
+        """Should extract numbered citations."""
+        text = "This is proven [1] and supported by [2]."
+        citations = analyzer.extract_citations(text)
+        assert "[1]" in citations
+        assert "[2]" in citations
+
+    def test_detect_stance_support(self, analyzer):
+        """Should detect supportive stance."""
+        text = "I strongly support this proposal. We should definitely implement it."
+        stance = analyzer.detect_stance(text)
+        assert stance == "support"
+
+    def test_detect_stance_oppose(self, analyzer):
+        """Should detect opposing stance."""
+        text = "I disagree with this approach. We must reject this proposal."
+        stance = analyzer.detect_stance(text)
+        assert stance == "oppose"
+
+    def test_detect_stance_neutral(self, analyzer):
+        """Should detect neutral stance."""
+        text = "The data is presented here for consideration."
+        stance = analyzer.detect_stance(text)
+        assert stance == "neutral"
+
+    def test_compute_argument_diversity_empty(self, analyzer):
+        """Should handle empty responses."""
+        result = analyzer.compute_argument_diversity({})
+        assert result.unique_arguments == 0
+        assert result.total_arguments == 0
+        assert result.diversity_score == 0.0
+
+    def test_compute_argument_diversity_similar(self, analyzer):
+        """Should detect low diversity when arguments are nearly identical."""
+        # Use nearly identical sentences for Jaccard to detect high overlap
+        responses = {
+            "agent1": "TypeScript provides strong type safety for JavaScript developers and teams.",
+            "agent2": "TypeScript provides strong type safety for JavaScript developers and projects.",
+        }
+        result = analyzer.compute_argument_diversity(responses)
+        # Near-identical arguments should result in low diversity (< 0.5)
+        # Jaccard needs ~70% word overlap to exceed 0.7 threshold
+        assert result.diversity_score < 0.5
+
+    def test_compute_evidence_convergence_shared(self, analyzer):
+        """Should detect shared citations."""
+        responses = {
+            "agent1": "According to Smith, this is correct. See https://example.com.",
+            "agent2": "As Smith noted, the result is confirmed at https://example.com.",
+        }
+        result = analyzer.compute_evidence_convergence(responses)
+        assert result.shared_citations > 0
+        assert result.overlap_score > 0
+
+    def test_compute_evidence_convergence_no_citations(self, analyzer):
+        """Should handle text without citations."""
+        responses = {
+            "agent1": "This is just plain text.",
+            "agent2": "Another plain text response.",
+        }
+        result = analyzer.compute_evidence_convergence(responses)
+        assert result.total_citations == 0
+        assert result.overlap_score == 0.0
+
+    def test_compute_stance_volatility_stable(self, analyzer):
+        """Should detect stable stances."""
+        history = [
+            {"agent1": "I support this proposal strongly.", "agent2": "I agree with this."},
+            {"agent1": "I still support this idea.", "agent2": "I continue to agree."},
+            {"agent1": "My support remains strong.", "agent2": "I'm still in agreement."},
+        ]
+        result = analyzer.compute_stance_volatility(history)
+        assert result.volatility_score < 0.3
+
+    def test_compute_stance_volatility_volatile(self, analyzer):
+        """Should detect volatile stances."""
+        history = [
+            {"agent1": "I support this proposal."},
+            {"agent1": "Actually, I disagree now."},
+            {"agent1": "On reflection, I support it again."},
+            {"agent1": "No, I must oppose this."},
+        ]
+        result = analyzer.compute_stance_volatility(history)
+        assert result.volatility_score > 0.5
+
+    def test_analyze_full(self, analyzer):
+        """Should compute comprehensive metrics."""
+        current = {
+            "agent1": "I strongly support using TypeScript. See (Smith, 2024).",
+            "agent2": "TypeScript is beneficial for type safety. According to Smith.",
+        }
+        previous = {
+            "agent1": "TypeScript seems like a good choice.",
+            "agent2": "Type safety is important for maintainability.",
+        }
+        history = [previous, current]
+
+        result = analyzer.analyze(
+            current_responses=current,
+            previous_responses=previous,
+            response_history=history,
+            domain="programming",
+        )
+
+        assert result.semantic_similarity > 0
+        assert result.argument_diversity is not None
+        assert result.evidence_convergence is not None
+        assert result.stance_volatility is not None
+        assert result.domain == "programming"
+        assert 0 <= result.overall_convergence <= 1

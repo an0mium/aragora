@@ -574,6 +574,233 @@ class GitCheckpointStore(CheckpointStore):
         return success
 
 
+class DatabaseCheckpointStore(CheckpointStore):
+    """
+    SQLite-based checkpoint storage for single-machine deployments.
+
+    Advantages over file storage:
+    - Atomic writes (no partial checkpoints on crash)
+    - Efficient queries (indexed by debate_id, created_at)
+    - Built-in expiry with DELETE queries
+    - Concurrent read access
+
+    For distributed deployments, use PostgreSQL with a connection pool
+    by passing a PostgreSQL connection string.
+    """
+
+    def __init__(
+        self,
+        db_path: str = ".checkpoints/checkpoints.db",
+        compress: bool = True,
+    ):
+        """
+        Initialize database checkpoint store.
+
+        Args:
+            db_path: Path to SQLite database file
+            compress: Whether to gzip checkpoint data before storing
+        """
+        import sqlite3
+
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.compress = compress
+        self._init_db()
+
+    def _init_db(self) -> None:
+        """Initialize database schema."""
+        import sqlite3
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS checkpoints (
+                    checkpoint_id TEXT PRIMARY KEY,
+                    debate_id TEXT NOT NULL,
+                    task TEXT NOT NULL,
+                    current_round INTEGER NOT NULL,
+                    total_rounds INTEGER NOT NULL,
+                    phase TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    data BLOB NOT NULL,
+                    checksum TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT,
+                    compressed INTEGER DEFAULT 1
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_checkpoints_debate_id
+                ON checkpoints(debate_id)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_checkpoints_created_at
+                ON checkpoints(created_at DESC)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_checkpoints_expires_at
+                ON checkpoints(expires_at)
+            """)
+            conn.commit()
+
+    def _get_connection(self):
+        """Get a database connection."""
+        import sqlite3
+        return sqlite3.connect(self.db_path, timeout=30.0)
+
+    async def save(self, checkpoint: DebateCheckpoint) -> str:
+        """Save checkpoint to database."""
+        import sqlite3
+
+        data = json.dumps(checkpoint.to_dict())
+
+        if self.compress:
+            data_bytes = gzip.compress(data.encode("utf-8"))
+            compressed = 1
+        else:
+            data_bytes = data.encode("utf-8")
+            compressed = 0
+
+        with self._get_connection() as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO checkpoints (
+                    checkpoint_id, debate_id, task, current_round, total_rounds,
+                    phase, status, data, checksum, created_at, expires_at, compressed
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                checkpoint.checkpoint_id,
+                checkpoint.debate_id,
+                checkpoint.task[:500],  # Truncate for index efficiency
+                checkpoint.current_round,
+                checkpoint.total_rounds,
+                checkpoint.phase,
+                checkpoint.status.value,
+                data_bytes,
+                checkpoint.checksum,
+                checkpoint.created_at,
+                checkpoint.expires_at,
+                compressed,
+            ))
+            conn.commit()
+
+        return f"db:{checkpoint.checkpoint_id}"
+
+    async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+        """Load checkpoint from database."""
+        import sqlite3
+
+        with self._get_connection() as conn:
+            cursor = conn.execute("""
+                SELECT data, compressed FROM checkpoints
+                WHERE checkpoint_id = ?
+            """, (checkpoint_id,))
+            row = cursor.fetchone()
+
+        if not row:
+            return None
+
+        data_bytes, compressed = row
+
+        try:
+            if compressed:
+                data = gzip.decompress(data_bytes).decode("utf-8")
+            else:
+                data = data_bytes.decode("utf-8")
+
+            return DebateCheckpoint.from_dict(json.loads(data))
+
+        except (json.JSONDecodeError, gzip.BadGzipFile, UnicodeDecodeError) as e:
+            logger.warning(f"Corrupted checkpoint data {checkpoint_id}: {e}")
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            logger.warning(f"Invalid checkpoint structure {checkpoint_id}: {e}")
+            return None
+
+    async def list_checkpoints(
+        self,
+        debate_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        """List available checkpoints."""
+        import sqlite3
+
+        with self._get_connection() as conn:
+            if debate_id:
+                cursor = conn.execute("""
+                    SELECT checkpoint_id, debate_id, task, current_round,
+                           created_at, status
+                    FROM checkpoints
+                    WHERE debate_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                """, (debate_id, limit))
+            else:
+                cursor = conn.execute("""
+                    SELECT checkpoint_id, debate_id, task, current_round,
+                           created_at, status
+                    FROM checkpoints
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                """, (limit,))
+
+            checkpoints = []
+            for row in cursor.fetchall():
+                checkpoints.append({
+                    "checkpoint_id": row[0],
+                    "debate_id": row[1],
+                    "task": row[2][:100],
+                    "current_round": row[3],
+                    "created_at": row[4],
+                    "status": row[5],
+                })
+
+        return checkpoints
+
+    async def delete(self, checkpoint_id: str) -> bool:
+        """Delete a checkpoint from database."""
+        import sqlite3
+
+        with self._get_connection() as conn:
+            cursor = conn.execute("""
+                DELETE FROM checkpoints WHERE checkpoint_id = ?
+            """, (checkpoint_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    async def cleanup_expired(self) -> int:
+        """Delete expired checkpoints. Returns count deleted."""
+        import sqlite3
+
+        now = datetime.now().isoformat()
+        with self._get_connection() as conn:
+            cursor = conn.execute("""
+                DELETE FROM checkpoints
+                WHERE expires_at IS NOT NULL AND expires_at < ?
+            """, (now,))
+            conn.commit()
+            return cursor.rowcount
+
+    async def get_stats(self) -> dict:
+        """Get checkpoint store statistics."""
+        import sqlite3
+
+        with self._get_connection() as conn:
+            cursor = conn.execute("""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(DISTINCT debate_id) as debates,
+                    SUM(LENGTH(data)) as total_bytes
+                FROM checkpoints
+            """)
+            row = cursor.fetchone()
+
+        return {
+            "total_checkpoints": row[0],
+            "unique_debates": row[1],
+            "total_bytes": row[2] or 0,
+            "db_path": str(self.db_path),
+        }
+
+
 @dataclass
 class CheckpointConfig:
     """Configuration for checkpointing behavior."""

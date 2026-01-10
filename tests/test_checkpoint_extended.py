@@ -28,6 +28,7 @@ from aragora.debate.checkpoint import (
     CheckpointManager,
     CheckpointStatus,
     CheckpointWebhook,
+    DatabaseCheckpointStore,
     DebateCheckpoint,
     FileCheckpointStore,
     GitCheckpointStore,
@@ -1073,3 +1074,223 @@ class TestCompressionExtended:
 
         assert compressed_path.endswith(".json.gz")
         assert uncompressed_path.endswith(".json")
+
+
+# =============================================================================
+# DatabaseCheckpointStore Tests (G2)
+# =============================================================================
+
+
+class TestDatabaseCheckpointStore:
+    """Tests for SQLite-based checkpoint storage."""
+
+    @pytest.fixture
+    def store(self, tmp_path):
+        """Create a DatabaseCheckpointStore in a temp directory."""
+        db_path = tmp_path / "checkpoints" / "test.db"
+        return DatabaseCheckpointStore(db_path=str(db_path), compress=True)
+
+    @pytest.fixture
+    def sample_checkpoint(self):
+        """Create a sample checkpoint for testing."""
+        return DebateCheckpoint(
+            checkpoint_id="db-cp-001",
+            debate_id="debate-db-test",
+            task="Test database checkpoint storage",
+            current_round=3,
+            total_rounds=5,
+            phase="critique",
+            messages=[{"role": "agent", "content": "Test message"}],
+            critiques=[],
+            votes=[],
+            agent_states=[],
+        )
+
+    @pytest.mark.asyncio
+    async def test_save_and_load(self, store, sample_checkpoint):
+        """Should save and load checkpoint correctly."""
+        path = await store.save(sample_checkpoint)
+        assert path.startswith("db:")
+
+        loaded = await store.load(sample_checkpoint.checkpoint_id)
+        assert loaded is not None
+        assert loaded.checkpoint_id == sample_checkpoint.checkpoint_id
+        assert loaded.debate_id == sample_checkpoint.debate_id
+        assert loaded.current_round == sample_checkpoint.current_round
+
+    @pytest.mark.asyncio
+    async def test_load_nonexistent(self, store):
+        """Loading nonexistent checkpoint should return None."""
+        loaded = await store.load("nonexistent-checkpoint")
+        assert loaded is None
+
+    @pytest.mark.asyncio
+    async def test_list_checkpoints_empty(self, store):
+        """List on empty store should return empty list."""
+        checkpoints = await store.list_checkpoints()
+        assert checkpoints == []
+
+    @pytest.mark.asyncio
+    async def test_list_checkpoints_filtered_by_debate(self, store, sample_checkpoint):
+        """Should filter checkpoints by debate_id."""
+        # Save first checkpoint
+        await store.save(sample_checkpoint)
+
+        # Save second checkpoint with different debate_id
+        other_checkpoint = DebateCheckpoint(
+            checkpoint_id="db-cp-002",
+            debate_id="other-debate",
+            task="Other task",
+            current_round=1,
+            total_rounds=3,
+            phase="proposal",
+            messages=[],
+            critiques=[],
+            votes=[],
+            agent_states=[],
+        )
+        await store.save(other_checkpoint)
+
+        # Filter by first debate
+        filtered = await store.list_checkpoints(debate_id=sample_checkpoint.debate_id)
+        assert len(filtered) == 1
+        assert filtered[0]["debate_id"] == sample_checkpoint.debate_id
+
+        # List all
+        all_checkpoints = await store.list_checkpoints()
+        assert len(all_checkpoints) == 2
+
+    @pytest.mark.asyncio
+    async def test_delete(self, store, sample_checkpoint):
+        """Should delete checkpoint successfully."""
+        await store.save(sample_checkpoint)
+
+        # Verify it exists
+        loaded = await store.load(sample_checkpoint.checkpoint_id)
+        assert loaded is not None
+
+        # Delete it
+        result = await store.delete(sample_checkpoint.checkpoint_id)
+        assert result is True
+
+        # Verify it's gone
+        loaded = await store.load(sample_checkpoint.checkpoint_id)
+        assert loaded is None
+
+    @pytest.mark.asyncio
+    async def test_delete_nonexistent(self, store):
+        """Deleting nonexistent checkpoint should return False."""
+        result = await store.delete("nonexistent")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_cleanup_expired(self, store):
+        """Should cleanup expired checkpoints."""
+        # Create checkpoint with past expiry
+        expired = DebateCheckpoint(
+            checkpoint_id="expired-cp",
+            debate_id="debate-1",
+            task="Expired task",
+            current_round=1,
+            total_rounds=3,
+            phase="proposal",
+            messages=[],
+            critiques=[],
+            votes=[],
+            agent_states=[],
+            expires_at=(datetime.now() - timedelta(hours=1)).isoformat(),
+        )
+        await store.save(expired)
+
+        # Create checkpoint with future expiry
+        valid = DebateCheckpoint(
+            checkpoint_id="valid-cp",
+            debate_id="debate-2",
+            task="Valid task",
+            current_round=1,
+            total_rounds=3,
+            phase="proposal",
+            messages=[],
+            critiques=[],
+            votes=[],
+            agent_states=[],
+            expires_at=(datetime.now() + timedelta(hours=1)).isoformat(),
+        )
+        await store.save(valid)
+
+        # Run cleanup
+        deleted = await store.cleanup_expired()
+        assert deleted == 1
+
+        # Verify expired is gone
+        assert await store.load("expired-cp") is None
+        # Verify valid remains
+        assert await store.load("valid-cp") is not None
+
+    @pytest.mark.asyncio
+    async def test_get_stats(self, store, sample_checkpoint):
+        """Should return correct statistics."""
+        await store.save(sample_checkpoint)
+
+        stats = await store.get_stats()
+        assert stats["total_checkpoints"] == 1
+        assert stats["unique_debates"] == 1
+        assert stats["total_bytes"] > 0
+
+    @pytest.mark.asyncio
+    async def test_compression(self, store, sample_checkpoint):
+        """Should compress data when enabled."""
+        # Add more data to see compression effect
+        sample_checkpoint.messages = [
+            {"role": "agent", "content": "A" * 1000}
+            for _ in range(10)
+        ]
+
+        await store.save(sample_checkpoint)
+
+        stats = await store.get_stats()
+        # Compressed data should be smaller than raw JSON
+        raw_size = len(json.dumps(sample_checkpoint.to_dict()))
+        assert stats["total_bytes"] < raw_size
+
+    @pytest.mark.asyncio
+    async def test_upsert_replaces_existing(self, store, sample_checkpoint):
+        """Save should update existing checkpoint."""
+        await store.save(sample_checkpoint)
+
+        # Modify and save again
+        sample_checkpoint.current_round = 4
+        await store.save(sample_checkpoint)
+
+        # Should only have one checkpoint
+        checkpoints = await store.list_checkpoints()
+        assert len(checkpoints) == 1
+
+        # Should have updated round
+        loaded = await store.load(sample_checkpoint.checkpoint_id)
+        assert loaded.current_round == 4
+
+    @pytest.mark.asyncio
+    async def test_uncompressed_store(self, tmp_path):
+        """Should work without compression."""
+        db_path = tmp_path / "uncompressed" / "test.db"
+        store = DatabaseCheckpointStore(db_path=str(db_path), compress=False)
+
+        checkpoint = DebateCheckpoint(
+            checkpoint_id="uncompressed-cp",
+            debate_id="debate-1",
+            task="Test",
+            current_round=1,
+            total_rounds=3,
+            phase="proposal",
+            messages=[{"role": "test", "content": "data"}],
+            critiques=[],
+            votes=[],
+            agent_states=[],
+        )
+
+        await store.save(checkpoint)
+        loaded = await store.load("uncompressed-cp")
+
+        assert loaded is not None
+        assert loaded.messages == checkpoint.messages
