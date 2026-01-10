@@ -148,6 +148,7 @@ class ArenaConfig:
     # Tracking subsystems
     position_tracker: Optional[object] = None
     position_ledger: Optional[object] = None
+    enable_position_ledger: bool = False  # Auto-create PositionLedger if not provided
     elo_system: Optional[object] = None
     persona_manager: Optional[object] = None
     dissent_retriever: Optional[object] = None
@@ -209,6 +210,7 @@ class Arena:
         agent_weights: dict[str, float] | None = None,  # Optional reliability weights from capability probing
         position_tracker=None,  # Optional PositionTracker for truth-grounded personas
         position_ledger=None,  # Optional PositionLedger for grounded personas
+        enable_position_ledger: bool = False,  # Auto-create PositionLedger if True
         elo_system=None,  # Optional EloSystem for relationship tracking
         persona_manager=None,  # Optional PersonaManager for agent specialization
         dissent_retriever=None,  # Optional DissentRetriever for historical minority views
@@ -314,6 +316,7 @@ class Arena:
         self._init_trackers(
             position_tracker=position_tracker,
             position_ledger=position_ledger,
+            enable_position_ledger=enable_position_ledger,
             elo_system=elo_system,
             persona_manager=persona_manager,
             dissent_retriever=dissent_retriever,
@@ -381,6 +384,7 @@ class Arena:
             agent_weights=config.agent_weights,
             position_tracker=config.position_tracker,
             position_ledger=config.position_ledger,
+            enable_position_ledger=config.enable_position_ledger,
             elo_system=config.elo_system,
             persona_manager=config.persona_manager,
             dissent_retriever=config.dissent_retriever,
@@ -528,6 +532,7 @@ class Arena:
         self,
         position_tracker,
         position_ledger,
+        enable_position_ledger: bool,
         elo_system,
         persona_manager,
         dissent_retriever,
@@ -541,6 +546,7 @@ class Arena:
         """Initialize tracking subsystems for positions, relationships, and learning."""
         self.position_tracker = position_tracker
         self.position_ledger = position_ledger
+        self._enable_position_ledger = enable_position_ledger
         self.elo_system = elo_system
         self.persona_manager = persona_manager
         self.dissent_retriever = dissent_retriever
@@ -564,6 +570,32 @@ class Arena:
         if self.protocol.enable_calibration and self.calibration_tracker is None:
             self._auto_init_calibration_tracker()
 
+        # Auto-initialize DissentRetriever when consensus_memory is available
+        if self.consensus_memory and self.dissent_retriever is None:
+            self._auto_init_dissent_retriever()
+
+        # Auto-initialize PositionLedger when enable_position_ledger is True
+        if self._enable_position_ledger and self.position_ledger is None:
+            self._auto_init_position_ledger()
+
+    def _auto_init_position_ledger(self) -> None:
+        """Auto-initialize PositionLedger for tracking agent positions.
+
+        PositionLedger tracks every position agents take across debates,
+        including outcomes and reversals. This enables:
+        - Position accuracy tracking per agent
+        - Reversal detection for flip analysis
+        - Historical position queries for grounded personas
+        """
+        try:
+            from aragora.agents.positions import PositionLedger
+            self.position_ledger = PositionLedger()
+            logger.debug("Auto-initialized PositionLedger for position tracking")
+        except ImportError:
+            logger.warning("PositionLedger not available - position tracking disabled")
+        except Exception as e:
+            logger.warning("PositionLedger auto-init failed: %s", e)
+
     def _auto_init_calibration_tracker(self) -> None:
         """Auto-initialize CalibrationTracker when enable_calibration is True."""
         try:
@@ -574,6 +606,21 @@ class Arena:
             logger.warning("CalibrationTracker not available - calibration disabled")
         except Exception as e:
             logger.warning("CalibrationTracker auto-init failed: %s", e)
+
+    def _auto_init_dissent_retriever(self) -> None:
+        """Auto-initialize DissentRetriever when consensus_memory is available.
+
+        The DissentRetriever enables seeding new debates with historical minority
+        views, helping agents avoid past groupthink and consider diverse perspectives.
+        """
+        try:
+            from aragora.memory.consensus import DissentRetriever
+            self.dissent_retriever = DissentRetriever(self.consensus_memory)
+            logger.debug("Auto-initialized DissentRetriever for historical minority views")
+        except ImportError:
+            logger.debug("DissentRetriever not available - historical dissent disabled")
+        except Exception as e:
+            logger.warning("DissentRetriever auto-init failed: %s", e)
 
     def _auto_init_moment_detector(self) -> None:
         """Auto-initialize MomentDetector when elo_system is available."""
@@ -719,6 +766,7 @@ class Arena:
             role_rotator=self.role_rotator,
             persona_manager=self.persona_manager,
             flip_detector=self.flip_detector,
+            calibration_tracker=self.calibration_tracker,
         )
 
         # Initialize MemoryManager for centralized memory operations
@@ -926,8 +974,13 @@ class Arena:
             self._continuum_context_cache = "\n".join(context_parts)
             logger.info(f"  [continuum] Retrieved {len(memories)} relevant memories for domain '{domain}'")
             return self._continuum_context_cache
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
+            # Expected errors from memory system
             logger.warning(f"  [continuum] Memory retrieval error: {e}")
+            return ""
+        except Exception as e:
+            # Unexpected error - log with more detail but don't crash debate
+            logger.warning(f"  [continuum] Unexpected memory error (type={type(e).__name__}): {e}")
             return ""
 
     def _store_debate_outcome_as_memory(self, result: "DebateResult") -> None:
@@ -1067,8 +1120,12 @@ class Arena:
                 agent_name=agent_name, claim=content[:1000], confidence=confidence,
                 debate_id=debate_id, round_num=round_num, domain=domain,
             )
+        except (AttributeError, TypeError, ValueError) as e:
+            # Expected parameter or state errors
+            logger.warning(f"Position ledger error: {e}")
         except Exception as e:
-            logger.warning(f"Position ledger error (non-fatal): {e}")
+            # Unexpected error - log type for debugging
+            logger.warning(f"Position ledger error (type={type(e).__name__}): {e}")
 
     def _update_agent_relationships(self, debate_id: str, participants: list[str], winner: Optional[str], votes: list):
         """Update agent relationships after debate completion.
@@ -1096,8 +1153,12 @@ class Arena:
                     })
             # Single transaction for all updates
             self.elo_system.update_relationships_batch(updates)
+        except (AttributeError, TypeError, KeyError) as e:
+            # Expected data access errors
+            logger.warning(f"Relationship update error: {e}")
         except Exception as e:
-            logger.warning(f"Relationship update error (non-fatal): {e}")
+            # Unexpected error - log type for debugging
+            logger.warning(f"Relationship update error (type={type(e).__name__}): {e}")
 
     def _generate_disagreement_report(
         self,
