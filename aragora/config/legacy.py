@@ -208,8 +208,10 @@ MAX_QUESTION_LENGTH = _env_int("ARAGORA_MAX_QUESTION_LENGTH", 10000)
 DEFAULT_ROUNDS = _env_int("ARAGORA_DEFAULT_ROUNDS", 3)
 MAX_ROUNDS = _env_int("ARAGORA_MAX_ROUNDS", 10)
 DEFAULT_CONSENSUS = _env_str("ARAGORA_DEFAULT_CONSENSUS", "hybrid")
-DEBATE_TIMEOUT_SECONDS = _env_int("ARAGORA_DEBATE_TIMEOUT", 600)  # 10 minutes
-AGENT_TIMEOUT_SECONDS = _env_int("ARAGORA_AGENT_TIMEOUT", 180)  # 3 minutes per agent call
+# Timeout budget: 3 agents × 3 rounds × 4min = 36min theoretical max
+# Using 15min gives headroom for consensus + some agent calls
+DEBATE_TIMEOUT_SECONDS = _env_int("ARAGORA_DEBATE_TIMEOUT", 900)  # 15 minutes
+AGENT_TIMEOUT_SECONDS = _env_int("ARAGORA_AGENT_TIMEOUT", 240)  # 4 minutes per agent call
 
 # === Agents ===
 DEFAULT_AGENTS = _env_str(

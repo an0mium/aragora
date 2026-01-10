@@ -13,7 +13,12 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from aragora.config import ALLOWED_AGENT_TYPES, MAX_AGENTS_PER_DEBATE, MAX_CONCURRENT_DEBATES
+from aragora.config import (
+    ALLOWED_AGENT_TYPES,
+    DEBATE_TIMEOUT_SECONDS,
+    MAX_AGENTS_PER_DEBATE,
+    MAX_CONCURRENT_DEBATES,
+)
 from aragora.server.debate_factory import DebateConfig, DebateFactory
 from aragora.server.debate_utils import (
     _active_debates,
@@ -252,11 +257,18 @@ class DebateController:
             # Reset circuit breakers for fresh start
             self.factory.reset_circuit_breakers(arena)
 
-            # Run debate with timeout (10 minutes)
+            # Run debate with timeout
+            # Use protocol timeout if configured, otherwise use global default
+            protocol_timeout = getattr(arena.protocol, 'timeout_seconds', 0)
+            timeout = (
+                protocol_timeout
+                if isinstance(protocol_timeout, (int, float)) and protocol_timeout > 0
+                else DEBATE_TIMEOUT_SECONDS
+            )
             update_debate_status(debate_id, "running")
 
             async def run_with_timeout():
-                return await asyncio.wait_for(arena.run(), timeout=600)
+                return await asyncio.wait_for(arena.run(), timeout=timeout)
 
             result = run_async(run_with_timeout())
 

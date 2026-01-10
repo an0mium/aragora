@@ -80,11 +80,12 @@ except ImportError:
 
 # Import centralized config and error utilities
 from aragora.config import (
+    ALLOWED_AGENT_TYPES,
     DB_INSIGHTS_PATH,
     DB_PERSONAS_PATH,
+    DEBATE_TIMEOUT_SECONDS,
     MAX_AGENTS_PER_DEBATE,
     MAX_CONCURRENT_DEBATES,
-    ALLOWED_AGENT_TYPES,
 )
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 
@@ -527,12 +528,19 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                 trending_topic=trending_topic,
             )
 
-            # Run debate with timeout protection (10 minutes max)
+            # Run debate with timeout protection
+            # Use protocol timeout if configured, otherwise use global default
+            protocol_timeout = getattr(arena.protocol, 'timeout_seconds', 0)
+            timeout = (
+                protocol_timeout
+                if isinstance(protocol_timeout, (int, float)) and protocol_timeout > 0
+                else DEBATE_TIMEOUT_SECONDS
+            )
             with _active_debates_lock:
                 _active_debates[debate_id]["status"] = "running"
 
             async def run_with_timeout():
-                return await _asyncio.wait_for(arena.run(), timeout=600)
+                return await _asyncio.wait_for(arena.run(), timeout=timeout)
 
             result = _asyncio.run(run_with_timeout())
             with _active_debates_lock:
