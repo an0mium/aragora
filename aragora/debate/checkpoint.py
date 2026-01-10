@@ -583,6 +583,7 @@ class DatabaseCheckpointStore(CheckpointStore):
     - Efficient queries (indexed by debate_id, created_at)
     - Built-in expiry with DELETE queries
     - Concurrent read access
+    - Connection pooling for better performance (Phase 10F)
 
     For distributed deployments, use PostgreSQL with a connection pool
     by passing a PostgreSQL connection string.
@@ -592,19 +593,25 @@ class DatabaseCheckpointStore(CheckpointStore):
         self,
         db_path: str = ".checkpoints/checkpoints.db",
         compress: bool = True,
+        pool_size: int = 5,
     ):
         """
-        Initialize database checkpoint store.
+        Initialize database checkpoint store with connection pooling.
 
         Args:
             db_path: Path to SQLite database file
             compress: Whether to gzip checkpoint data before storing
+            pool_size: Maximum number of connections to keep in pool (default 5)
         """
         import sqlite3
+        import threading
 
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.compress = compress
+        self._pool_size = pool_size
+        self._pool: list = []
+        self._pool_lock = threading.Lock()
         self._init_db()
 
     def _init_db(self) -> None:
@@ -642,15 +649,65 @@ class DatabaseCheckpointStore(CheckpointStore):
             """)
             conn.commit()
 
-    def _get_connection(self):
-        """Get a database connection."""
+    def _create_connection(self):
+        """Create a new database connection."""
         import sqlite3
-        return sqlite3.connect(self.db_path, timeout=30.0)
+        conn = sqlite3.connect(self.db_path, timeout=30.0, check_same_thread=False)
+        # Enable WAL mode for better concurrency
+        conn.execute("PRAGMA journal_mode=WAL")
+        return conn
+
+    def _get_connection(self):
+        """Get a database connection from pool or create new one.
+
+        Connection pooling (Phase 10F) improves performance by reusing
+        connections instead of creating new ones for each operation.
+        """
+        with self._pool_lock:
+            if self._pool:
+                return self._pool.pop()
+        return self._create_connection()
+
+    def _return_connection(self, conn) -> None:
+        """Return a connection to the pool.
+
+        If pool is full, close the connection instead.
+        """
+        with self._pool_lock:
+            if len(self._pool) < self._pool_size:
+                self._pool.append(conn)
+            else:
+                conn.close()
+
+    def close_pool(self) -> None:
+        """Close all pooled connections.
+
+        Call this when shutting down to release resources cleanly.
+        """
+        with self._pool_lock:
+            while self._pool:
+                conn = self._pool.pop()
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    def get_pool_stats(self) -> dict:
+        """Get connection pool statistics.
+
+        Returns:
+            Dict with pool_size, available_connections, max_pool_size
+        """
+        with self._pool_lock:
+            available = len(self._pool)
+        return {
+            "available_connections": available,
+            "max_pool_size": self._pool_size,
+            "db_path": str(self.db_path),
+        }
 
     async def save(self, checkpoint: DebateCheckpoint) -> str:
-        """Save checkpoint to database."""
-        import sqlite3
-
+        """Save checkpoint to database using pooled connection."""
         data = json.dumps(checkpoint.to_dict())
 
         if self.compress:
@@ -660,7 +717,8 @@ class DatabaseCheckpointStore(CheckpointStore):
             data_bytes = data.encode("utf-8")
             compressed = 0
 
-        with self._get_connection() as conn:
+        conn = self._get_connection()
+        try:
             conn.execute("""
                 INSERT OR REPLACE INTO checkpoints (
                     checkpoint_id, debate_id, task, current_round, total_rounds,
@@ -681,19 +739,22 @@ class DatabaseCheckpointStore(CheckpointStore):
                 compressed,
             ))
             conn.commit()
+        finally:
+            self._return_connection(conn)
 
         return f"db:{checkpoint.checkpoint_id}"
 
     async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
-        """Load checkpoint from database."""
-        import sqlite3
-
-        with self._get_connection() as conn:
+        """Load checkpoint from database using pooled connection."""
+        conn = self._get_connection()
+        try:
             cursor = conn.execute("""
                 SELECT data, compressed FROM checkpoints
                 WHERE checkpoint_id = ?
             """, (checkpoint_id,))
             row = cursor.fetchone()
+        finally:
+            self._return_connection(conn)
 
         if not row:
             return None
@@ -720,10 +781,9 @@ class DatabaseCheckpointStore(CheckpointStore):
         debate_id: Optional[str] = None,
         limit: int = 100,
     ) -> list[dict]:
-        """List available checkpoints."""
-        import sqlite3
-
-        with self._get_connection() as conn:
+        """List available checkpoints using pooled connection."""
+        conn = self._get_connection()
+        try:
             if debate_id:
                 cursor = conn.execute("""
                     SELECT checkpoint_id, debate_id, task, current_round,
@@ -752,38 +812,41 @@ class DatabaseCheckpointStore(CheckpointStore):
                     "created_at": row[4],
                     "status": row[5],
                 })
+        finally:
+            self._return_connection(conn)
 
         return checkpoints
 
     async def delete(self, checkpoint_id: str) -> bool:
-        """Delete a checkpoint from database."""
-        import sqlite3
-
-        with self._get_connection() as conn:
+        """Delete a checkpoint from database using pooled connection."""
+        conn = self._get_connection()
+        try:
             cursor = conn.execute("""
                 DELETE FROM checkpoints WHERE checkpoint_id = ?
             """, (checkpoint_id,))
             conn.commit()
             return cursor.rowcount > 0
+        finally:
+            self._return_connection(conn)
 
     async def cleanup_expired(self) -> int:
-        """Delete expired checkpoints. Returns count deleted."""
-        import sqlite3
-
+        """Delete expired checkpoints using pooled connection. Returns count deleted."""
         now = datetime.now().isoformat()
-        with self._get_connection() as conn:
+        conn = self._get_connection()
+        try:
             cursor = conn.execute("""
                 DELETE FROM checkpoints
                 WHERE expires_at IS NOT NULL AND expires_at < ?
             """, (now,))
             conn.commit()
             return cursor.rowcount
+        finally:
+            self._return_connection(conn)
 
     async def get_stats(self) -> dict:
-        """Get checkpoint store statistics."""
-        import sqlite3
-
-        with self._get_connection() as conn:
+        """Get checkpoint store statistics including pool stats."""
+        conn = self._get_connection()
+        try:
             cursor = conn.execute("""
                 SELECT
                     COUNT(*) as total,
@@ -792,12 +855,16 @@ class DatabaseCheckpointStore(CheckpointStore):
                 FROM checkpoints
             """)
             row = cursor.fetchone()
+        finally:
+            self._return_connection(conn)
 
+        pool_stats = self.get_pool_stats()
         return {
             "total_checkpoints": row[0],
             "unique_debates": row[1],
             "total_bytes": row[2] or 0,
             "db_path": str(self.db_path),
+            "pool": pool_stats,
         }
 
 

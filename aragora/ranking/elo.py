@@ -1407,3 +1407,133 @@ class EloSystem:
             "total_elo_impact": summary.total_elo_impact,
             "last_session": summary.last_session,
         }
+
+    # =========================================================================
+    # Formal Verification Integration (Phase 10E)
+    # Adjusts ELO based on formal proof verification results.
+    # =========================================================================
+
+    def update_from_verification(
+        self,
+        agent_name: str,
+        domain: str,
+        verified_count: int,
+        disproven_count: int = 0,
+        k_factor: float = 16.0,
+    ) -> float:
+        """
+        Adjust ELO based on formal verification results.
+
+        When an agent's claims are formally verified (proven or disproven),
+        their ELO is adjusted to reflect the quality of their reasoning.
+        Verified claims boost ELO; disproven claims reduce it.
+
+        Args:
+            agent_name: Name of the agent whose claims were verified
+            domain: Domain of the debate (for domain-specific ELO)
+            verified_count: Number of claims that were formally proven
+            disproven_count: Number of claims that were formally disproven
+            k_factor: ELO adjustment factor (default 16, half of standard)
+
+        Returns:
+            Net ELO change applied
+
+        Example:
+            # Agent had 2 claims proven and 1 disproven
+            change = elo.update_from_verification(
+                agent_name="claude",
+                domain="logic",
+                verified_count=2,
+                disproven_count=1,
+            )  # Returns net ELO change
+        """
+        _validate_agent_name(agent_name)
+
+        if verified_count == 0 and disproven_count == 0:
+            return 0.0
+
+        rating = self.get_rating(agent_name, use_cache=False)
+
+        # Calculate ELO adjustment:
+        # - Each verified claim: +k_factor * 0.5 (half a "win" vs verification)
+        # - Each disproven claim: -k_factor * 0.5 (half a "loss" vs verification)
+        # Using half because verification is against an objective standard,
+        # not another agent.
+        verification_bonus = verified_count * k_factor * 0.5
+        disproven_penalty = disproven_count * k_factor * 0.5
+        net_change = verification_bonus - disproven_penalty
+
+        # Apply to overall ELO
+        old_elo = rating.elo
+        rating.elo = max(100, rating.elo + net_change)  # Floor at 100
+
+        # Apply to domain-specific ELO
+        if domain:
+            old_domain_elo = rating.domain_elos.get(domain, DEFAULT_ELO)
+            rating.domain_elos[domain] = max(100, old_domain_elo + net_change)
+
+        rating.updated_at = datetime.now().isoformat()
+
+        # Save and record history
+        self._save_rating(rating)
+        self._record_elo_history(
+            agent_name,
+            rating.elo,
+            debate_id=f"verification:{domain}:{verified_count}v{disproven_count}d",
+        )
+
+        logger.info(
+            "verification_elo_update agent=%s domain=%s verified=%d disproven=%d "
+            "change=%.1f old_elo=%.1f new_elo=%.1f",
+            agent_name, domain, verified_count, disproven_count,
+            net_change, old_elo, rating.elo,
+        )
+
+        return net_change
+
+    def get_verification_impact(self, agent_name: str) -> dict:
+        """
+        Get summary of verification impact on an agent's ELO.
+
+        Returns:
+            Dict with verification-related ELO history.
+        """
+        _validate_agent_name(agent_name)
+
+        with self._db.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT debate_id, elo, created_at
+                FROM elo_history
+                WHERE agent_name = ? AND debate_id LIKE 'verification:%'
+                ORDER BY created_at DESC
+                LIMIT 50
+                """,
+                (agent_name,),
+            )
+            rows = cursor.fetchall()
+
+        history = []
+        total_impact = 0.0
+        prev_elo = None
+
+        for row in reversed(rows):
+            debate_id, elo, created_at = row
+            if prev_elo is not None:
+                change = elo - prev_elo
+                total_impact += change
+                history.append({
+                    "debate_id": debate_id,
+                    "elo": elo,
+                    "change": change,
+                    "created_at": created_at,
+                })
+            prev_elo = elo
+
+        return {
+            "agent_name": agent_name,
+            "verification_events": len(history),
+            "total_impact": total_impact,
+            "history": list(reversed(history)),
+        }

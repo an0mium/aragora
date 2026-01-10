@@ -1039,7 +1039,63 @@ class ConsensusPhase:
             except Exception as e:
                 logger.debug(f"verification_error agent={agent_name} error={e}")
 
+        # Phase 10E: Update ELO based on verification results
+        await self._update_elo_from_verification(ctx)
+
         return vote_counts
+
+    async def _update_elo_from_verification(self, ctx: "DebateContext") -> None:
+        """
+        Update agent ELO ratings based on verification results.
+
+        Phase 10E: Verification-to-ELO Integration.
+
+        When claims are formally verified, the authoring agent's ELO is adjusted:
+        - Verified claims: ELO boost (quality reasoning)
+        - Disproven claims: ELO penalty (flawed reasoning)
+        - Timeouts/errors: No change
+
+        Args:
+            ctx: DebateContext with verification_results
+        """
+        if not self.elo_system:
+            return
+
+        result = ctx.result
+        if not hasattr(result, 'verification_results') or not result.verification_results:
+            return
+
+        # Extract domain from context
+        domain = "general"
+        if self._extract_debate_domain:
+            try:
+                domain = self._extract_debate_domain()
+            except Exception:
+                pass
+
+        # Process verification results for each agent
+        for agent_name, verified_count in result.verification_results.items():
+            # Skip timeouts (indicated by -1) and errors
+            if verified_count < 0:
+                continue
+
+            try:
+                # For now, we only track verified claims (positive count)
+                # Disproven claims would need separate tracking in verification_results
+                change = self.elo_system.update_from_verification(
+                    agent_name=agent_name,
+                    domain=domain,
+                    verified_count=verified_count,
+                    disproven_count=0,  # TODO: Track disproven claims separately
+                )
+
+                if change != 0:
+                    logger.debug(
+                        f"verification_elo_applied agent={agent_name} "
+                        f"verified={verified_count} change={change:.1f}"
+                    )
+            except Exception as e:
+                logger.debug(f"verification_elo_error agent={agent_name} error={e}")
 
     def _emit_verification_event(
         self,

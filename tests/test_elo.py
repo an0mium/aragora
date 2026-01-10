@@ -1340,6 +1340,186 @@ class TestCalculateNewElo:
         assert new_elo > 1390  # Small loss for expected loss
 
 
+class TestVerificationEloIntegration:
+    """Test verification-to-ELO integration (Phase 10E)."""
+
+    def test_update_from_verification_verified_claims(self, elo):
+        """Test ELO increases when claims are verified."""
+        initial_elo = elo.get_rating("prover").elo
+        assert initial_elo == 1500
+
+        change = elo.update_from_verification(
+            agent_name="prover",
+            domain="logic",
+            verified_count=2,
+            disproven_count=0,
+        )
+
+        new_rating = elo.get_rating("prover")
+        # 2 verified * 16 * 0.5 = 16 points gain
+        assert change == 16.0
+        assert new_rating.elo == 1516.0
+
+    def test_update_from_verification_disproven_claims(self, elo):
+        """Test ELO decreases when claims are disproven."""
+        # First record some matches to raise ELO
+        elo.record_match("m1", ["fallacious", "opp"], {"fallacious": 1.0, "opp": 0.0})
+
+        initial_elo = elo.get_rating("fallacious").elo
+        assert initial_elo > 1500  # Verify we have some ELO to lose
+
+        change = elo.update_from_verification(
+            agent_name="fallacious",
+            domain="ethics",
+            verified_count=0,
+            disproven_count=2,
+        )
+
+        new_rating = elo.get_rating("fallacious")
+        # 2 disproven * 16 * 0.5 = -16 points
+        assert change == -16.0
+        assert new_rating.elo == initial_elo - 16.0
+
+    def test_update_from_verification_mixed(self, elo):
+        """Test ELO with both verified and disproven claims."""
+        change = elo.update_from_verification(
+            agent_name="mixed_agent",
+            domain="math",
+            verified_count=3,
+            disproven_count=1,
+        )
+
+        # Net: (3 * 16 * 0.5) - (1 * 16 * 0.5) = 24 - 8 = 16
+        assert change == 16.0
+
+        new_rating = elo.get_rating("mixed_agent")
+        assert new_rating.elo == 1516.0
+
+    def test_update_from_verification_no_claims(self, elo):
+        """Test no change when no claims verified or disproven."""
+        change = elo.update_from_verification(
+            agent_name="idle_agent",
+            domain="general",
+            verified_count=0,
+            disproven_count=0,
+        )
+
+        assert change == 0.0
+        rating = elo.get_rating("idle_agent")
+        # Rating should still be default since no changes
+        assert rating.elo == 1500
+
+    def test_update_from_verification_domain_specific(self, elo):
+        """Test that domain-specific ELO is updated."""
+        elo.update_from_verification(
+            agent_name="domain_expert",
+            domain="physics",
+            verified_count=3,
+        )
+
+        rating = elo.get_rating("domain_expert")
+        # Both overall and domain-specific should be updated
+        assert rating.elo == 1524.0  # 3 * 16 * 0.5
+        assert "physics" in rating.domain_elos
+        assert rating.domain_elos["physics"] == 1524.0
+
+    def test_update_from_verification_elo_floor(self, elo):
+        """Test that ELO doesn't drop below 100."""
+        # First, lower the agent's ELO
+        for _ in range(20):
+            elo.record_match(
+                f"loss_{_}",
+                ["low_agent", "winner"],
+                {"low_agent": 0.0, "winner": 1.0}
+            )
+
+        # Now try to disprove many claims
+        elo.update_from_verification(
+            agent_name="low_agent",
+            domain="any",
+            verified_count=0,
+            disproven_count=100,  # Massive penalty
+        )
+
+        rating = elo.get_rating("low_agent")
+        assert rating.elo >= 100  # Floor enforced
+
+    def test_update_from_verification_custom_k_factor(self, elo):
+        """Test custom k_factor affects magnitude of change."""
+        change_default = elo.update_from_verification(
+            agent_name="agent_default_k",
+            domain="test",
+            verified_count=1,
+            k_factor=16.0,
+        )
+
+        change_custom = elo.update_from_verification(
+            agent_name="agent_custom_k",
+            domain="test",
+            verified_count=1,
+            k_factor=32.0,
+        )
+
+        # Custom K should give double the change
+        assert change_custom == change_default * 2
+
+    def test_update_from_verification_records_history(self, elo):
+        """Test that verification updates are recorded in ELO history."""
+        elo.update_from_verification(
+            agent_name="history_agent",
+            domain="logic",
+            verified_count=2,
+        )
+
+        history = elo.get_elo_history("history_agent", limit=10)
+        assert len(history) >= 1
+
+        # Check history entry format
+        newest = history[0]
+        assert isinstance(newest, tuple)
+        assert len(newest) == 2
+        # ELO should be 1516 (1500 + 2*16*0.5)
+        assert newest[1] == 1516.0
+
+    def test_get_verification_impact_no_data(self, elo):
+        """Test verification impact with no verification events."""
+        impact = elo.get_verification_impact("unverified_agent")
+        assert impact["agent_name"] == "unverified_agent"
+        assert impact["verification_events"] == 0
+        assert impact["total_impact"] == 0.0
+        assert impact["history"] == []
+
+    def test_get_verification_impact_with_data(self, elo):
+        """Test verification impact with multiple events."""
+        # Record multiple verification events
+        elo.update_from_verification("tracked_agent", "math", verified_count=2)
+        elo.update_from_verification("tracked_agent", "logic", verified_count=1, disproven_count=1)
+        elo.update_from_verification("tracked_agent", "ethics", verified_count=0, disproven_count=1)
+
+        impact = elo.get_verification_impact("tracked_agent")
+        assert impact["agent_name"] == "tracked_agent"
+        # Should have 3 verification events recorded
+        assert impact["verification_events"] >= 2  # At least 2 with changes
+
+    def test_verification_and_match_combined(self, elo):
+        """Test that verification and match ELO changes work together."""
+        # Win a match first
+        elo.record_match("m1", ["combo_agent", "opp"], {"combo_agent": 1.0, "opp": 0.0})
+        after_match = elo.get_rating("combo_agent").elo
+        assert after_match > 1500
+
+        # Now verify claims
+        change = elo.update_from_verification(
+            agent_name="combo_agent",
+            domain="debate",
+            verified_count=2,
+        )
+
+        final_rating = elo.get_rating("combo_agent")
+        # Should be match ELO + verification bonus
+        assert final_rating.elo == after_match + change
+
+
 class TestMigration:
     """Test database schema migration."""
 

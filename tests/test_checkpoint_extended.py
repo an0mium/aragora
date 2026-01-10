@@ -1294,3 +1294,173 @@ class TestDatabaseCheckpointStore:
 
         assert loaded is not None
         assert loaded.messages == checkpoint.messages
+
+
+# =============================================================================
+# Connection Pooling Tests (Phase 10F)
+# =============================================================================
+
+
+class TestDatabaseCheckpointStorePooling:
+    """Tests for connection pooling in DatabaseCheckpointStore (Phase 10F)."""
+
+    @pytest.fixture
+    def store(self, tmp_path):
+        """Create a DatabaseCheckpointStore with custom pool size."""
+        db_path = tmp_path / "pooled" / "test.db"
+        return DatabaseCheckpointStore(db_path=str(db_path), compress=True, pool_size=3)
+
+    @pytest.fixture
+    def sample_checkpoint(self):
+        """Create a sample checkpoint for testing."""
+        return DebateCheckpoint(
+            checkpoint_id="pool-cp-001",
+            debate_id="debate-pool-test",
+            task="Test connection pooling",
+            current_round=1,
+            total_rounds=5,
+            phase="proposal",
+            messages=[{"role": "agent", "content": "Test"}],
+            critiques=[],
+            votes=[],
+            agent_states=[],
+        )
+
+    def test_pool_initialization(self, store):
+        """Connection pool should be initialized empty."""
+        stats = store.get_pool_stats()
+        assert stats["available_connections"] == 0
+        assert stats["max_pool_size"] == 3
+
+    @pytest.mark.asyncio
+    async def test_connection_returned_to_pool(self, store, sample_checkpoint):
+        """Connections should be returned to pool after operations."""
+        await store.save(sample_checkpoint)
+
+        stats = store.get_pool_stats()
+        assert stats["available_connections"] == 1
+
+    @pytest.mark.asyncio
+    async def test_connection_reused_from_pool(self, store, sample_checkpoint):
+        """Second operation should reuse connection from pool."""
+        await store.save(sample_checkpoint)
+
+        # First operation returns connection to pool
+        stats_after_save = store.get_pool_stats()
+        assert stats_after_save["available_connections"] == 1
+
+        # Load should use the pooled connection
+        await store.load(sample_checkpoint.checkpoint_id)
+
+        # Connection should be back in pool
+        stats_after_load = store.get_pool_stats()
+        assert stats_after_load["available_connections"] == 1
+
+    @pytest.mark.asyncio
+    async def test_pool_size_limit(self, store, sample_checkpoint):
+        """Pool should not exceed max_pool_size."""
+        # Manually get connections without returning them
+        conns = []
+        for _ in range(5):
+            conn = store._get_connection()
+            conns.append(conn)
+
+        # Pool should be empty
+        assert store.get_pool_stats()["available_connections"] == 0
+
+        # Return all connections
+        for conn in conns:
+            store._return_connection(conn)
+
+        # Only pool_size (3) should be kept
+        stats = store.get_pool_stats()
+        assert stats["available_connections"] == 3
+
+    def test_close_pool(self, store):
+        """close_pool should close all pooled connections."""
+        # Get multiple connections simultaneously (without returning in between)
+        conns = [store._get_connection() for _ in range(3)]
+
+        # Return all of them
+        for conn in conns:
+            store._return_connection(conn)
+
+        # All should be in pool
+        assert store.get_pool_stats()["available_connections"] == 3
+
+        store.close_pool()
+
+        assert store.get_pool_stats()["available_connections"] == 0
+
+    @pytest.mark.asyncio
+    async def test_stats_include_pool_info(self, store, sample_checkpoint):
+        """get_stats should include pool statistics."""
+        await store.save(sample_checkpoint)
+
+        stats = await store.get_stats()
+        assert "pool" in stats
+        assert "available_connections" in stats["pool"]
+        assert "max_pool_size" in stats["pool"]
+
+    @pytest.mark.asyncio
+    async def test_concurrent_operations(self, store):
+        """Pool should handle concurrent operations safely."""
+        import asyncio
+
+        checkpoints = []
+        for i in range(10):
+            cp = DebateCheckpoint(
+                checkpoint_id=f"concurrent-cp-{i:03d}",
+                debate_id="debate-concurrent",
+                task=f"Concurrent test {i}",
+                current_round=i,
+                total_rounds=10,
+                phase="proposal",
+                messages=[{"role": "test", "content": f"Message {i}"}],
+                critiques=[],
+                votes=[],
+                agent_states=[],
+            )
+            checkpoints.append(cp)
+
+        # Save all concurrently
+        await asyncio.gather(*[store.save(cp) for cp in checkpoints])
+
+        # Verify all saved
+        all_cps = await store.list_checkpoints(debate_id="debate-concurrent")
+        assert len(all_cps) == 10
+
+        # Pool should be stable
+        stats = store.get_pool_stats()
+        assert stats["available_connections"] <= 3
+
+    @pytest.mark.asyncio
+    async def test_wal_mode_enabled(self, store, sample_checkpoint):
+        """WAL mode should be enabled for better concurrency."""
+        await store.save(sample_checkpoint)
+
+        # Check WAL mode
+        conn = store._get_connection()
+        try:
+            cursor = conn.execute("PRAGMA journal_mode")
+            mode = cursor.fetchone()[0].lower()
+            assert mode == "wal"
+        finally:
+            store._return_connection(conn)
+
+    @pytest.mark.asyncio
+    async def test_default_pool_size(self, tmp_path):
+        """Default pool size should be 5."""
+        db_path = tmp_path / "default" / "test.db"
+        store = DatabaseCheckpointStore(db_path=str(db_path))
+
+        assert store._pool_size == 5
+
+    @pytest.mark.asyncio
+    async def test_custom_pool_size(self, tmp_path):
+        """Custom pool size should be respected."""
+        db_path = tmp_path / "custom" / "test.db"
+        store = DatabaseCheckpointStore(db_path=str(db_path), pool_size=10)
+
+        assert store._pool_size == 10
+        assert store.get_pool_stats()["max_pool_size"] == 10
