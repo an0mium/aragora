@@ -63,6 +63,7 @@ from .auth import AuthHandler
 from .billing import BillingHandler
 from .graph_debates import GraphDebatesHandler
 from .matrix_debates import MatrixDebatesHandler
+from .features import FeaturesHandler
 
 # List of all handler classes for automatic dispatch registration
 # Order matters: more specific handlers should come first
@@ -106,6 +107,7 @@ ALL_HANDLERS = [
     LearningHandler,
     AuthHandler,
     BillingHandler,
+    FeaturesHandler,
 ]
 
 __all__ = [
@@ -156,4 +158,5 @@ __all__ = [
     "BillingHandler",
     "GraphDebatesHandler",
     "MatrixDebatesHandler",
+    "FeaturesHandler",
 ]

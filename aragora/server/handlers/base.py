@@ -72,7 +72,36 @@ __all__ = [
     "get_db_connection", "table_exists", "safe_get", "safe_get_nested", "safe_json_parse",
     "get_host_header", "get_agent_name", "agent_to_dict", "validate_params",
     "SAFE_ID_PATTERN", "SAFE_SLUG_PATTERN", "SAFE_AGENT_PATTERN",
+    "feature_unavailable_response",
 ]
+
+
+def feature_unavailable_response(
+    feature_id: str,
+    message: Optional[str] = None,
+) -> "HandlerResult":
+    """
+    Create a standardized response for unavailable features.
+
+    This should be used by all handlers when an optional feature is missing.
+    Provides consistent error format with helpful installation hints.
+
+    Args:
+        feature_id: The feature identifier (e.g., "pulse", "genesis")
+        message: Optional custom message (defaults to feature description)
+
+    Returns:
+        HandlerResult with 503 status and helpful information
+
+    Example:
+        if not self._pulse_manager:
+            return feature_unavailable_response("pulse")
+    """
+    # Import here to avoid circular imports
+    from aragora.server.handlers.features import (
+        feature_unavailable_response as _feature_unavailable,
+    )
+    return _feature_unavailable(feature_id, message)
 
 logger = logging.getLogger(__name__)
 
@@ -222,9 +251,61 @@ def error_response(
     message: str,
     status: int = 400,
     headers: Optional[dict] = None,
+    *,
+    code: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    suggestion: Optional[str] = None,
+    details: Optional[dict] = None,
+    structured: bool = False,
 ) -> HandlerResult:
-    """Create an error response."""
-    return json_response({"error": message}, status=status, headers=headers)
+    """Create an error response.
+
+    Args:
+        message: Human-readable error message
+        status: HTTP status code (default: 400)
+        headers: Optional additional headers
+        code: Optional machine-readable error code (e.g., "VALIDATION_ERROR")
+        trace_id: Optional request trace ID for debugging
+        suggestion: Optional suggestion for resolving the error
+        details: Optional additional error details
+        structured: If True, always use structured format. If False,
+                   only include additional fields if provided.
+
+    Returns:
+        HandlerResult with error JSON
+
+    Examples:
+        # Simple error (backward compatible)
+        error_response("Invalid input", 400)
+        # -> {"error": "Invalid input"}
+
+        # Structured error with code and suggestion
+        error_response(
+            "Field 'name' is required",
+            400,
+            code="VALIDATION_ERROR",
+            suggestion="Include 'name' in request body"
+        )
+        # -> {"error": {"code": "VALIDATION_ERROR", "message": "...", "suggestion": "..."}}
+    """
+    # Build error payload
+    if structured or code or trace_id or suggestion or details:
+        # Use structured format
+        error_obj: dict[str, Any] = {"message": message}
+        if code:
+            error_obj["code"] = code
+        if trace_id:
+            error_obj["trace_id"] = trace_id
+        if suggestion:
+            error_obj["suggestion"] = suggestion
+        if details:
+            error_obj["details"] = details
+        payload = {"error": error_obj}
+    else:
+        # Simple format for backward compatibility
+        payload = {"error": message}
+
+    return json_response(payload, status=status, headers=headers)
 
 
 # ============================================================================
@@ -1107,7 +1188,63 @@ class BaseHandler:
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """
-        Handle a request. Override in subclasses.
+        Handle a GET request. Override in subclasses.
+
+        Args:
+            path: The request path
+            query_params: Parsed query parameters
+            handler: HTTP request handler for accessing request context
+
+        Returns:
+            HandlerResult if handled, None if not handled by this handler
+        """
+        return None
+
+    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+        """
+        Handle a POST request. Override in subclasses that support POST.
+
+        Args:
+            path: The request path
+            query_params: Parsed query parameters
+            handler: HTTP request handler for accessing request context
+
+        Returns:
+            HandlerResult if handled, None if not handled by this handler
+        """
+        return None
+
+    def handle_delete(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+        """
+        Handle a DELETE request. Override in subclasses that support DELETE.
+
+        Args:
+            path: The request path
+            query_params: Parsed query parameters
+            handler: HTTP request handler for accessing request context
+
+        Returns:
+            HandlerResult if handled, None if not handled by this handler
+        """
+        return None
+
+    def handle_patch(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+        """
+        Handle a PATCH request. Override in subclasses that support PATCH.
+
+        Args:
+            path: The request path
+            query_params: Parsed query parameters
+            handler: HTTP request handler for accessing request context
+
+        Returns:
+            HandlerResult if handled, None if not handled by this handler
+        """
+        return None
+
+    def handle_put(self, path: str, query_params: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+        """
+        Handle a PUT request. Override in subclasses that support PUT.
 
         Args:
             path: The request path

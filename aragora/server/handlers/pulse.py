@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 from .base import (
     BaseHandler, HandlerResult, json_response, error_response,
     get_int_param, get_string_param, validate_path_segment, SAFE_ID_PATTERN,
+    feature_unavailable_response,
 )
 
 
@@ -115,7 +116,7 @@ class PulseHandler(BaseHandler):
                 PulseManager, TwitterIngestor, HackerNewsIngestor, RedditIngestor
             )
         except ImportError:
-            return error_response("Pulse module not available", 503)
+            return feature_unavailable_response("pulse")
 
         try:
             # Create manager with multiple real ingestors
@@ -164,7 +165,7 @@ class PulseHandler(BaseHandler):
                 PulseManager, TwitterIngestor, HackerNewsIngestor, RedditIngestor
             )
         except ImportError:
-            return error_response("Pulse module not available", 503)
+            return feature_unavailable_response("pulse")
 
         try:
             # Create manager with ingestors
@@ -213,7 +214,7 @@ class PulseHandler(BaseHandler):
         """
         manager = get_pulse_manager()
         if not manager:
-            return error_response("Pulse module not available", 503)
+            return feature_unavailable_response("pulse")
 
         try:
             analytics = manager.get_analytics()

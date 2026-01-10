@@ -73,6 +73,7 @@ try:
         BillingHandler,
         GraphDebatesHandler,
         MatrixDebatesHandler,
+        FeaturesHandler,
         HandlerResult,
     )
     HANDLERS_AVAILABLE = True
@@ -118,6 +119,7 @@ except ImportError:
     BillingHandler = None  # type: ignore[misc, assignment]
     GraphDebatesHandler = None  # type: ignore[misc, assignment]
     MatrixDebatesHandler = None  # type: ignore[misc, assignment]
+    FeaturesHandler = None  # type: ignore[misc, assignment]
     HandlerResult = None  # type: ignore[misc, assignment]
 
 
@@ -163,6 +165,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_billing_handler", BillingHandler),
     ("_graph_debates_handler", GraphDebatesHandler),
     ("_matrix_debates_handler", MatrixDebatesHandler),
+    ("_features_handler", FeaturesHandler),
 ]
 
 
@@ -398,6 +401,7 @@ class HandlerRegistryMixin:
             "document_store": getattr(cls, 'document_store', None),
             "persona_manager": getattr(cls, 'persona_manager', None),
             "position_ledger": getattr(cls, 'position_ledger', None),
+            "user_store": getattr(cls, 'user_store', None),
         }
 
         # Initialize all handlers from registry
@@ -488,9 +492,15 @@ class HandlerRegistryMixin:
         attr_name, handler = route_match
 
         try:
-            # Call handle() for GET, handle_post() for POST if available
+            # Dispatch to appropriate handler method based on HTTP method
             if method == 'POST' and hasattr(handler, 'handle_post'):
                 result = handler.handle_post(path, query_dict, self)
+            elif method == 'DELETE' and hasattr(handler, 'handle_delete'):
+                result = handler.handle_delete(path, query_dict, self)
+            elif method == 'PATCH' and hasattr(handler, 'handle_patch'):
+                result = handler.handle_patch(path, query_dict, self)
+            elif method == 'PUT' and hasattr(handler, 'handle_put'):
+                result = handler.handle_put(path, query_dict, self)
             else:
                 result = handler.handle(path, query_dict, self)
 
