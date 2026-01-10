@@ -99,14 +99,20 @@ aragora/live/out/
 tsconfig.tsbuildinfo
 .env.production
 
-# Nomic loop state (large binary files, not needed in git)
+# Nomic loop state (runtime artifacts, not needed in git)
+# All .nomic state should be excluded - keep only schema/config templates
 .nomic/backups/
 .nomic/checkpoints/
 .nomic/replays/
+.nomic/visualizations/
 .nomic/*.db
 .nomic/*.db-journal
 .nomic/*.db-wal
 .nomic/*.db-shm
+.nomic/*.json
+.nomic/*.jsonl
+.nomic/*.md
+.nomic/*_transcript*
 
 # Web cache
 .web_cache/
