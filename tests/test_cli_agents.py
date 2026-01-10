@@ -319,7 +319,7 @@ class TestCodexAgent:
         assert agent.name == "codex"
         assert agent.model == "gpt-5.2-codex"
         assert agent.role == "proposer"
-        assert agent.timeout == 120  # Default
+        assert agent.timeout == 300  # Default (increased for complex operations)
 
     def test_initialization_with_timeout(self):
         """Should accept custom timeout."""
@@ -1558,3 +1558,38 @@ class TestFallbackIntegration:
 
                 with pytest.raises(RuntimeError):
                     await agent.generate("Test prompt")
+
+    @pytest.mark.asyncio
+    async def test_prefer_api_skips_cli(self):
+        """Should skip CLI and use OpenRouter directly when prefer_api=True."""
+        agent = CodexAgent(name="test", model="gpt-4o", prefer_api=True)
+
+        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
+            with patch.object(agent, "_run_cli") as mock_cli:
+                with patch("aragora.agents.api_agents.OpenRouterAgent") as mock_or:
+                    mock_fallback = MagicMock()
+                    mock_fallback.generate = AsyncMock(return_value="Direct API response")
+                    mock_or.return_value = mock_fallback
+
+                    result = await agent.generate("Test prompt")
+
+                    # Should NOT call CLI at all
+                    mock_cli.assert_not_called()
+                    # Should use OpenRouter directly
+                    assert result == "Direct API response"
+                    assert agent._fallback_used is True
+
+    @pytest.mark.asyncio
+    async def test_prefer_api_falls_back_to_cli_without_key(self):
+        """Should fall back to CLI when prefer_api=True but no API key."""
+        agent = CodexAgent(name="test", model="gpt-4o", prefer_api=True)
+
+        with patch.dict("os.environ", {}, clear=True):
+            with patch.object(agent, "_run_cli", new_callable=AsyncMock) as mock_cli:
+                mock_cli.return_value = "CLI response"
+
+                result = await agent.generate("Test prompt")
+
+                # Should fall through to CLI since no API key
+                mock_cli.assert_called_once()
+                assert result == "CLI response"
