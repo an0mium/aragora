@@ -39,6 +39,7 @@ class AnalyticsHandler(BaseHandler):
         "/api/analytics/disagreements",
         "/api/analytics/role-rotation",
         "/api/analytics/early-stops",
+        "/api/analytics/consensus-quality",
         "/api/ranking/stats",
         "/api/memory/stats",
         # Note: /api/memory/tier-stats moved to MemoryHandler for more specific handling
@@ -58,6 +59,9 @@ class AnalyticsHandler(BaseHandler):
 
         if path == "/api/analytics/early-stops":
             return self._get_early_stop_stats()
+
+        if path == "/api/analytics/consensus-quality":
+            return self._get_consensus_quality()
 
         if path == "/api/ranking/stats":
             return self._get_ranking_stats()
@@ -154,6 +158,120 @@ class AnalyticsHandler(BaseHandler):
             stats["average_rounds"] = total_rounds / len(debates)
 
         return json_response({"stats": stats})
+
+    @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_consensus_quality", skip_first=True)
+    @handle_errors("consensus quality stats retrieval")
+    def _get_consensus_quality(self) -> HandlerResult:
+        """Get consensus quality monitoring metrics.
+
+        Tracks consensus confidence history across debates and detects declining trends.
+        Returns quality metrics including:
+        - confidence_history: Recent consensus confidence scores
+        - trend: 'improving', 'stable', 'declining'
+        - average_confidence: Mean confidence across recent debates
+        - consensus_rate: Percentage of debates reaching consensus
+        - quality_score: Overall quality score (0-100)
+        - alert: Warning if quality is below threshold
+        """
+        storage = self.get_storage()
+        if not storage:
+            return json_response({"stats": {}, "quality_score": 0, "alert": None})
+
+        debates = storage.list_debates(limit=50)
+
+        # Extract confidence history
+        confidence_history: list[dict] = []
+        consensus_reached_count = 0
+
+        for debate in debates:
+            result = debate.get("result", {})
+            confidence = result.get("confidence", 0.0)
+            consensus = result.get("consensus_reached", False)
+            debate_id = debate.get("id", "")
+            timestamp = debate.get("timestamp", "")
+
+            confidence_history.append({
+                "debate_id": debate_id[:8] if debate_id else "",
+                "confidence": confidence,
+                "consensus_reached": consensus,
+                "timestamp": timestamp,
+            })
+
+            if consensus:
+                consensus_reached_count += 1
+
+        # Calculate metrics
+        total_debates = len(debates)
+        if total_debates == 0:
+            return json_response({
+                "stats": {
+                    "total_debates": 0,
+                    "confidence_history": [],
+                    "trend": "insufficient_data",
+                    "average_confidence": 0.0,
+                    "consensus_rate": 0.0,
+                },
+                "quality_score": 0,
+                "alert": None,
+            })
+
+        confidences = [h["confidence"] for h in confidence_history]
+        average_confidence = sum(confidences) / len(confidences)
+        consensus_rate = consensus_reached_count / total_debates
+
+        # Detect trend using simple linear regression
+        trend = "stable"
+        if len(confidences) >= 5:
+            # Compare first half vs second half
+            mid = len(confidences) // 2
+            first_half_avg = sum(confidences[:mid]) / mid if mid > 0 else 0
+            second_half_avg = sum(confidences[mid:]) / (len(confidences) - mid)
+
+            diff = second_half_avg - first_half_avg
+            if diff > 0.05:
+                trend = "improving"
+            elif diff < -0.05:
+                trend = "declining"
+
+        # Calculate quality score (0-100)
+        # Weight: 50% average confidence, 30% consensus rate, 20% trend bonus
+        trend_bonus = 10 if trend == "improving" else (-10 if trend == "declining" else 0)
+        quality_score = min(100, max(0, int(
+            average_confidence * 50 +
+            consensus_rate * 30 +
+            20 + trend_bonus
+        )))
+
+        # Generate alert if quality is low
+        alert = None
+        if quality_score < 40:
+            alert = {
+                "level": "critical",
+                "message": f"Consensus quality critically low ({quality_score}/100). Consider reviewing agent configurations.",
+            }
+        elif quality_score < 60:
+            alert = {
+                "level": "warning",
+                "message": f"Consensus quality below target ({quality_score}/100). {trend.title()} trend detected.",
+            }
+        elif trend == "declining" and average_confidence < 0.7:
+            alert = {
+                "level": "info",
+                "message": "Declining consensus trend detected. Monitor closely.",
+            }
+
+        return json_response({
+            "stats": {
+                "total_debates": total_debates,
+                "confidence_history": confidence_history[:20],  # Last 20 for UI
+                "trend": trend,
+                "average_confidence": round(average_confidence, 3),
+                "consensus_rate": round(consensus_rate, 3),
+                "consensus_reached_count": consensus_reached_count,
+            },
+            "quality_score": quality_score,
+            "alert": alert,
+        })
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS_RANKING, key_prefix="analytics_ranking", skip_first=True)
     @handle_errors("ranking stats retrieval")

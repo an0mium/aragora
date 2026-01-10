@@ -124,6 +124,28 @@ export function CitationsPanel({ events }: CitationsPanelProps) {
           });
         }
       }
+
+      // Handle evidence_found events (real-time evidence collection)
+      if (event.type === 'evidence_found') {
+        const snippets = eventData?.snippets as Array<{ content: string; source: string }> | undefined;
+        if (snippets && Array.isArray(snippets)) {
+          snippets.forEach((snippet, idx) => {
+            const id = `evidence-${eventData?.domain || 'general'}-${idx}-${Date.now()}`;
+            if (!seen.has(id)) {
+              seen.add(id);
+              citationList.push({
+                id,
+                type: 'web_page' as CitationType,
+                title: snippet.source || 'Evidence Snippet',
+                authors: [],
+                excerpt: snippet.content || '',
+                quality: 'unverified' as CitationQuality,
+                relevance: 0.6,
+              });
+            }
+          });
+        }
+      }
     });
 
     return citationList.sort((a, b) => b.relevance - a.relevance);

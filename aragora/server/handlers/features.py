@@ -60,10 +60,10 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
     "verification": FeatureInfo(
         name="Formal Verification",
         description="Z3/Lean proof generation for mathematical claims",
-        requires=["z3_connector", "lean_connector"],
+        requires=["z3_connector"],
         endpoints=["/api/verification/proofs", "/api/verification/validate"],
         install_hint="Install z3-solver package: pip install z3-solver",
-        status="coming_soon",
+        status="optional",
         category="analysis",
     ),
     "laboratory": FeatureInfo(

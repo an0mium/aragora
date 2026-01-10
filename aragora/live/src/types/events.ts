@@ -63,7 +63,13 @@ export type StreamEventType =
   | 'audit_round'
   | 'audit_finding'
   | 'audit_cross_exam'
-  | 'audit_verdict';
+  | 'audit_verdict'
+  // Feature integration events (real-time panel updates)
+  | 'trait_emerged'
+  | 'risk_warning'
+  | 'evidence_found'
+  | 'calibration_update'
+  | 'genesis_evolution';
 
 // Base interface for all stream events
 interface StreamEventBase {
