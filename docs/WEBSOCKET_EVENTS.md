@@ -16,6 +16,8 @@ This document describes all WebSocket events emitted by the Aragora streaming se
   - [Ranking/Leaderboard Events](#rankingleaderboard-events)
   - [Graph Debate Events](#graph-debate-events)
   - [Position Tracking Events](#position-tracking-events)
+  - [Rhetorical Analysis Events](#rhetorical-analysis-events)
+  - [Breakpoint Events](#breakpoint-events)
   - [Mood/Sentiment Events](#moodsentiment-events)
   - [Capability Probe Events](#capability-probe-events)
   - [Deep Audit Events](#deep-audit-events)
@@ -809,6 +811,139 @@ Agent position reversal detected.
     "trigger": "New evidence presented"
   }
 }
+```
+
+---
+
+### Rhetorical Analysis Events
+
+Events for rhetorical pattern detection during debates.
+
+#### `rhetorical_observation`
+
+Rhetorical pattern detected in agent response.
+
+```json
+{
+  "type": "rhetorical_observation",
+  "data": {
+    "agent": "claude-api",
+    "round_num": 2,
+    "observations": [
+      {
+        "pattern": "concession",
+        "confidence": 0.75,
+        "excerpt": "I agree with the point about security, but...",
+        "audience_commentary": "Claude shows intellectual humility, acknowledging a valid point"
+      },
+      {
+        "pattern": "synthesis",
+        "confidence": 0.82,
+        "excerpt": "Combining both perspectives, we can...",
+        "audience_commentary": "Claude attempts synthesis - weaving ideas together!"
+      }
+    ]
+  }
+}
+```
+
+**Pattern Types:**
+- `concession` - Acknowledging opponent's valid points
+- `rebuttal` - Challenging the prevailing view
+- `synthesis` - Combining ideas from multiple sources
+- `appeal_to_authority` - Citing authoritative sources
+- `appeal_to_evidence` - Backing claims with concrete evidence
+- `technical_depth` - Diving into technical details
+- `rhetorical_question` - Using questions to make points
+- `analogy` - Drawing comparisons to clarify
+- `qualification` - Adding nuance and context
+
+**Enable via Protocol:**
+```python
+protocol = DebateProtocol(enable_rhetorical_observer=True)
+```
+
+---
+
+### Breakpoint Events
+
+Human intervention breakpoints allow operators to pause debates at critical moments for guidance or oversight.
+
+#### `breakpoint`
+
+Emitted when a human intervention breakpoint is triggered.
+
+```json
+{
+  "type": "breakpoint",
+  "data": {
+    "breakpoint_id": "bp_001",
+    "debate_id": "debate_abc123",
+    "reason": "High-stakes decision requires human review",
+    "trigger_type": "confidence_threshold",
+    "context": {
+      "round": 3,
+      "topic": "Security architecture decision",
+      "agents_involved": ["claude-api", "gpt-4"],
+      "confidence_scores": {"claude-api": 0.45, "gpt-4": 0.52}
+    },
+    "suggested_actions": [
+      "Review agent proposals",
+      "Provide additional context",
+      "Override consensus"
+    ],
+    "timeout_seconds": 300
+  },
+  "round": 3
+}
+```
+
+**Trigger Types:**
+- `confidence_threshold` - Confidence below minimum threshold
+- `topic_sensitive` - Sensitive topic detected
+- `agent_disagreement` - Significant agent disagreement
+- `manual` - Operator-requested pause
+- `safety_check` - Safety concern flagged
+
+#### `breakpoint_resolved`
+
+Emitted when a breakpoint is resolved with human guidance.
+
+```json
+{
+  "type": "breakpoint_resolved",
+  "data": {
+    "breakpoint_id": "bp_001",
+    "debate_id": "debate_abc123",
+    "resolution": "continue_with_guidance",
+    "guidance": "Prioritize security over performance in this decision",
+    "resolved_by": "operator_123",
+    "duration_seconds": 45.2,
+    "actions_taken": [
+      "Added context about compliance requirements",
+      "Requested focus on security implications"
+    ]
+  }
+}
+```
+
+**Resolution Types:**
+- `continue` - Resume debate without changes
+- `continue_with_guidance` - Resume with additional guidance injected
+- `override` - Override with human decision
+- `abort` - Terminate debate
+- `restart_round` - Restart current round
+
+**Enable via Protocol:**
+```python
+protocol = DebateProtocol(
+    enable_breakpoints=True,
+    breakpoint_config={
+        "confidence_threshold": 0.5,
+        "sensitive_topics": ["security", "legal", "financial"],
+        "timeout_seconds": 300,
+    }
+)
 ```
 
 ---

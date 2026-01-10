@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 9, 2026 (10:00 UTC)*
+*Last updated: January 9, 2026 (19:00 UTC)*
 
 ## Current State
 
@@ -43,7 +43,34 @@
 | `openai-api` | GPT 5.2 | OpenAI |
 | `deepseek-r1` | DeepSeek V3.2 | OpenRouter |
 
-### Recent Changes (2026-01-09)
+### Recent Changes (2026-01-09 Evening)
+- **Feature Integration Sprint**:
+  - Wired PerformanceMonitor to Arena and AutonomicExecutor (tracking for generate/critique/vote)
+  - Wired CalibrationTracker via `enable_calibration` protocol flag
+  - Added AirlockProxy option via `use_airlock` ArenaConfig flag
+  - Wired AgentTelemetry to AutonomicExecutor with `enable_telemetry` flag
+  - Wired RhetoricalObserver to DebateRoundsPhase with `enable_rhetorical_observer` flag
+  - Added `enable_trickster` and `trickster_sensitivity` protocol flags
+  - Added Genesis evolution wiring (population_manager, auto_evolve, breeding_threshold)
+- **New Protocol Flags**:
+  - `enable_calibration: bool` - Record prediction accuracy for calibration curves
+  - `enable_rhetorical_observer: bool` - Passive commentary on debate dynamics
+  - `enable_trickster: bool` - Hollow consensus detection
+  - `trickster_sensitivity: float` - Threshold for trickster challenges (default 0.7)
+- **New ArenaConfig Options**:
+  - `performance_monitor` / `enable_performance_monitor` - Agent call telemetry
+  - `enable_telemetry` - Prometheus/Blackbox emission
+  - `use_airlock` / `airlock_config` - Timeout protection
+  - `population_manager` / `auto_evolve` / `breeding_threshold` - Genesis evolution
+- **New API Endpoints**:
+  - `POST /api/debates/graph` - Run graph-structured debates with branching
+  - `GET /api/debates/graph/{id}` - Get graph debate by ID
+  - `POST /api/debates/matrix` - Run parallel scenario debates
+  - `GET /api/debates/matrix/{id}` - Get matrix debate results
+- **New Event Type**:
+  - `RHETORICAL_OBSERVATION` - Rhetorical pattern detected in debate rounds
+
+### Recent Changes (2026-01-09 Morning)
 - **Demo Consensus Fixtures**:
   - Created `aragora/fixtures/` package with demo consensus data
   - Added `load_demo_consensus()` and `ensure_demo_data()` functions

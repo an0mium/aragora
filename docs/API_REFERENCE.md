@@ -4,14 +4,27 @@ This document describes the HTTP and WebSocket APIs for the Aragora debate platf
 
 ## Endpoint Usage Status
 
-**Last audited:** 2026-01-08
+**Last audited:** 2026-01-09
 
 | Category | Count | Notes |
 |----------|-------|-------|
-| **Documented** | 96 | Fully documented in this file |
+| **Documented** | 106 | Fully documented in this file |
 | **Actively Used** | 35 | Called from frontend components |
 | **Ready to Wire** | 4 | High-value, not yet connected to frontend |
-| **Advanced/Analytics** | 57 | Specialized features, plugins, analytics |
+| **Advanced/Analytics** | 67 | Specialized features, plugins, analytics |
+
+### New Endpoints (2026-01-09)
+
+| Endpoint | Description | Status |
+|----------|-------------|--------|
+| `POST /api/debates/graph` | Graph-structured debates with branching | NEW |
+| `GET /api/debates/graph/:id` | Get graph debate by ID | NEW |
+| `GET /api/debates/graph/:id/branches` | Get branches for graph debate | NEW |
+| `GET /api/debates/graph/:id/nodes` | Get nodes for graph debate | NEW |
+| `POST /api/debates/matrix` | Parallel scenario debates | NEW |
+| `GET /api/debates/matrix/:id` | Get matrix debate by ID | NEW |
+| `GET /api/debates/matrix/:id/scenarios` | Get scenario results | NEW |
+| `GET /api/debates/matrix/:id/conclusions` | Get matrix conclusions | NEW |
 
 ### Recently Connected Endpoints
 
@@ -195,6 +208,126 @@ Export a debate in various formats.
 **Response (CSV format):** Returns text/csv with debate data table
 **Response (DOT format):** Returns text/vnd.graphviz for visualization with GraphViz
 **Response (HTML format):** Returns self-contained HTML viewer with interactive graph
+
+#### POST /api/debates/graph
+Run a graph-structured debate with automatic branching.
+
+**Request Body:**
+```json
+{
+  "task": "Design a distributed caching system",
+  "agents": ["claude", "gpt4"],
+  "max_rounds": 5,
+  "branch_policy": {
+    "min_disagreement": 0.7,
+    "max_branches": 3,
+    "auto_merge": true,
+    "merge_strategy": "synthesis"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "debate_id": "uuid",
+  "task": "Design a distributed caching system",
+  "graph": {
+    "nodes": [...],
+    "edges": [...],
+    "root_id": "node-123"
+  },
+  "branches": [...],
+  "merge_results": [...],
+  "node_count": 15,
+  "branch_count": 2
+}
+```
+
+**Branch Policy Options:**
+- `min_disagreement` (float): Threshold to trigger branching (default: 0.7)
+- `max_branches` (int): Maximum concurrent branches (default: 3)
+- `auto_merge` (bool): Automatically merge converging branches (default: true)
+- `merge_strategy` (string): "best_path", "synthesis", "vote", "weighted", "preserve_all"
+
+#### GET /api/debates/graph/:id
+Get a graph debate by ID.
+
+#### GET /api/debates/graph/:id/branches
+Get all branches for a graph debate.
+
+#### GET /api/debates/graph/:id/nodes
+Get all nodes in a graph debate.
+
+#### POST /api/debates/matrix
+Run parallel scenario debates with comparative analysis.
+
+**Request Body:**
+```json
+{
+  "task": "Design a rate limiter",
+  "agents": ["claude", "gpt4"],
+  "scenarios": [
+    {
+      "name": "High throughput",
+      "parameters": {"rps": 10000},
+      "constraints": ["Must handle burst traffic"]
+    },
+    {
+      "name": "Low latency",
+      "parameters": {"latency_ms": 10},
+      "constraints": ["P99 under 10ms"]
+    },
+    {
+      "name": "Baseline",
+      "is_baseline": true
+    }
+  ],
+  "max_rounds": 3
+}
+```
+
+**Response:**
+```json
+{
+  "matrix_id": "uuid",
+  "task": "Design a rate limiter",
+  "scenario_count": 3,
+  "results": [
+    {
+      "scenario_name": "High throughput",
+      "parameters": {"rps": 10000},
+      "winner": "claude",
+      "final_answer": "...",
+      "confidence": 0.85,
+      "consensus_reached": true
+    }
+  ],
+  "universal_conclusions": ["All scenarios reached consensus"],
+  "conditional_conclusions": [
+    {
+      "condition": "When High throughput",
+      "conclusion": "Use token bucket algorithm",
+      "confidence": 0.85
+    }
+  ],
+  "comparison_matrix": {
+    "scenarios": ["High throughput", "Low latency", "Baseline"],
+    "consensus_rate": 1.0,
+    "avg_confidence": 0.82,
+    "avg_rounds": 2.5
+  }
+}
+```
+
+#### GET /api/debates/matrix/:id
+Get matrix debate results by ID.
+
+#### GET /api/debates/matrix/:id/scenarios
+Get all scenario results for a matrix debate.
+
+#### GET /api/debates/matrix/:id/conclusions
+Get conclusions (universal and conditional) for a matrix debate.
 
 ---
 

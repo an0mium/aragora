@@ -1,6 +1,6 @@
 # Aragora Feature Documentation
 
-This document provides detailed documentation for all 56+ features implemented in aragora through 20 phases of self-improvement.
+This document provides detailed documentation for all 65+ features implemented in aragora through 21 phases of self-improvement.
 
 ## Table of Contents
 
@@ -14,6 +14,7 @@ This document provides detailed documentation for all 56+ features implemented i
 - [Phase 8: Advanced Debates](#phase-8-advanced-debates)
 - [Phase 9-19: Truth Grounding, Modes, Infrastructure](#phase-9-truth-grounding-recent)
 - [Phase 20: Demo Fixtures & Search](#phase-20-demo-fixtures--search-2026-01)
+- [Phase 21: Feature Integration](#phase-21-feature-integration-2026-01-09)
 
 ---
 
@@ -1773,6 +1774,209 @@ JSON fixtures are included in package distribution:
 ```toml
 [tool.setuptools.package-data]
 "aragora.fixtures" = ["*.json"]
+```
+
+---
+
+## Phase 21: Feature Integration (2026-01-09)
+
+Comprehensive integration of stranded features via protocol flags and ArenaConfig options.
+
+### PerformanceMonitor Integration
+**Files:** `aragora/debate/orchestrator.py`, `aragora/debate/autonomic_executor.py`
+
+Agent call telemetry for generate/critique/vote operations.
+
+```python
+from aragora import Arena, ArenaConfig
+
+# Enable via ArenaConfig
+config = ArenaConfig(
+    enable_performance_monitor=True,  # Auto-create PerformanceMonitor
+)
+arena = Arena.from_config(config, env, agents, protocol)
+
+# Or inject your own
+from aragora.agents.performance_monitor import AgentPerformanceMonitor
+monitor = AgentPerformanceMonitor()
+config = ArenaConfig(performance_monitor=monitor)
+```
+
+**Tracked Metrics:**
+- Call duration per agent/operation
+- Success/failure rates
+- Response lengths
+- Phase and round context
+
+### CalibrationTracker Integration
+**Files:** `aragora/debate/protocol.py`, `aragora/debate/phases/feedback_phase.py`
+
+Record agent prediction accuracy for calibration curves.
+
+```python
+from aragora import DebateProtocol
+
+protocol = DebateProtocol(
+    enable_calibration=True,  # Enable calibration tracking
+)
+```
+
+**Key Features:**
+- Records vote confidence levels
+- Tracks prediction vs outcome accuracy
+- Auto-initializes CalibrationTracker when flag is True
+- Data available via `calibration_tracker.get_calibration_summary()`
+
+### AirlockProxy Integration
+**File:** `aragora/debate/orchestrator.py`
+
+Wrap agents with timeout protection and fallback responses.
+
+```python
+from aragora import ArenaConfig
+
+config = ArenaConfig(
+    use_airlock=True,  # Enable airlock protection
+    airlock_config=None,  # Optional AirlockConfig for customization
+)
+```
+
+### AgentTelemetry Integration
+**File:** `aragora/debate/autonomic_executor.py`
+
+Prometheus and Blackbox telemetry emission.
+
+```python
+from aragora import ArenaConfig
+
+config = ArenaConfig(
+    enable_telemetry=True,  # Enable Prometheus/Blackbox emission
+)
+```
+
+**Collectors:**
+- Prometheus metrics
+- ImmuneSystem health
+- Blackbox event logging
+
+### RhetoricalObserver Integration
+**Files:** `aragora/debate/protocol.py`, `aragora/debate/phases/debate_rounds.py`
+
+Passive commentary on debate dynamics for audience engagement.
+
+```python
+from aragora import DebateProtocol
+
+protocol = DebateProtocol(
+    enable_rhetorical_observer=True,  # Enable pattern detection
+)
+```
+
+**Detected Patterns:**
+- Concession, Rebuttal, Synthesis
+- Appeal to authority/evidence
+- Technical depth, Rhetorical questions
+- Analogies, Qualifications
+
+**Events Emitted:**
+- `RHETORICAL_OBSERVATION` via WebSocket
+
+### Trickster Integration
+**File:** `aragora/debate/protocol.py`
+
+Hollow consensus detection - challenges convergence lacking evidence quality.
+
+```python
+from aragora import DebateProtocol
+
+protocol = DebateProtocol(
+    enable_trickster=True,  # Enable hollow consensus detection
+    trickster_sensitivity=0.7,  # Threshold for challenges
+)
+```
+
+### Genesis Evolution Integration
+**Files:** `aragora/debate/orchestrator.py`, `aragora/debate/phases/feedback_phase.py`
+
+Agent genome evolution based on debate performance.
+
+```python
+from aragora import ArenaConfig
+from aragora.genesis.ledger import PopulationManager
+
+manager = PopulationManager()
+config = ArenaConfig(
+    population_manager=manager,
+    auto_evolve=True,  # Trigger evolution after high-quality debates
+    breeding_threshold=0.8,  # Min confidence to trigger
+)
+```
+
+### Graph Debates API
+**File:** `aragora/server/handlers/graph_debates.py`
+
+Graph-structured debates with automatic branching.
+
+```bash
+# Run a graph debate
+curl -X POST https://api.aragora.ai/api/debates/graph \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "Design a distributed caching system",
+    "agents": ["claude", "gpt4"],
+    "max_rounds": 5,
+    "branch_policy": {
+      "min_disagreement": 0.7,
+      "max_branches": 3,
+      "auto_merge": true,
+      "merge_strategy": "synthesis"
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "debate_id": "uuid",
+  "graph": {...},
+  "branches": [...],
+  "merge_results": [...],
+  "node_count": 15,
+  "branch_count": 2
+}
+```
+
+### Matrix Debates API
+**File:** `aragora/server/handlers/matrix_debates.py`
+
+Parallel scenario exploration with comparative analysis.
+
+```bash
+# Run parallel scenarios
+curl -X POST https://api.aragora.ai/api/debates/matrix \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "Design a rate limiter",
+    "agents": ["claude", "gpt4"],
+    "scenarios": [
+      {"name": "High throughput", "parameters": {"rps": 10000}},
+      {"name": "Low latency", "parameters": {"latency_ms": 10}},
+      {"name": "Baseline", "is_baseline": true}
+    ],
+    "max_rounds": 3
+  }'
+```
+
+**Response:**
+```json
+{
+  "matrix_id": "uuid",
+  "scenario_count": 3,
+  "results": [...],
+  "universal_conclusions": [...],
+  "conditional_conclusions": [...],
+  "comparison_matrix": {...}
+}
 ```
 
 ---

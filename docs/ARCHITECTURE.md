@@ -404,6 +404,36 @@ except ImportError:
     FEATURE_AVAILABLE = False
 ```
 
+### Protocol Flags (DebateProtocol)
+
+Opt-in features controlled via protocol configuration:
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `enable_calibration` | Record prediction accuracy for calibration curves | `False` |
+| `enable_rhetorical_observer` | Passive commentary on debate dynamics | `False` |
+| `enable_trickster` | Hollow consensus detection | `False` |
+| `trickster_sensitivity` | Threshold for trickster challenges | `0.7` |
+| `enable_breakpoints` | Human-in-the-loop intervention points | `False` |
+| `role_rotation` | Cognitive role rotation (Heavy3-inspired) | `True` |
+| `convergence_detection` | Semantic convergence auto-detection | `True` |
+| `vote_grouping` | Merge semantically similar vote choices | `True` |
+
+### ArenaConfig Options
+
+Dependency injection via ArenaConfig:
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `performance_monitor` | AgentPerformanceMonitor instance | `None` |
+| `enable_performance_monitor` | Auto-create PerformanceMonitor | `False` |
+| `enable_telemetry` | Prometheus/Blackbox emission | `False` |
+| `use_airlock` | Wrap agents with AirlockProxy | `False` |
+| `airlock_config` | Custom AirlockConfig | `None` |
+| `population_manager` | Genesis PopulationManager | `None` |
+| `auto_evolve` | Trigger evolution after debates | `False` |
+| `breeding_threshold` | Min confidence for evolution | `0.8` |
+
 ## Performance Considerations
 
 1. **Embedding Caching**: SemanticRetriever caches embeddings to avoid recomputation

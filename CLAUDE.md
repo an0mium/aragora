@@ -38,7 +38,7 @@ aragora/
 │   └── consensus.py     # Historical debate outcomes
 ├── server/           # HTTP/WebSocket API
 │   ├── unified_server.py  # Main server (~1,200 LOC, 72+ endpoints)
-│   ├── handlers/          # HTTP endpoint handlers (29 handlers)
+│   ├── handlers/          # HTTP endpoint handlers (31+ handlers)
 │   └── stream/            # WebSocket streaming (refactored package)
 │       ├── servers.py        # AiohttpUnifiedServer (~2,500 LOC)
 │       ├── emitter.py        # SyncEventEmitter, TokenBucket
@@ -175,7 +175,17 @@ Well-integrated:
 Partially integrated:
 - Pulse (trending topics) - works but may need API keys
 - Evidence collection
-- Calibration scoring
+
+Recently integrated (2026-01-09):
+- PerformanceMonitor - wired to Arena and AutonomicExecutor
+- CalibrationTracker - wired via `enable_calibration` protocol flag
+- AirlockProxy - wired via `use_airlock` ArenaConfig option
+- AgentTelemetry - Prometheus/Blackbox emission via `enable_telemetry`
+- RhetoricalObserver - audience commentary via `enable_rhetorical_observer`
+- Trickster - hollow consensus detection via `enable_trickster`
+- Genesis evolution - population_manager, auto_evolve in FeedbackPhase
+- Graph debates API - `/api/debates/graph` endpoint
+- Matrix debates API - `/api/debates/matrix` endpoint
 
 Recent additions (2026-01):
 - `CircuitBreaker` class in aragora/resilience.py - handles failing agents gracefully
