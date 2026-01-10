@@ -6,6 +6,7 @@ Endpoints:
 - GET /api/documents/formats - Get supported file formats
 - GET /api/documents/{doc_id} - Get a document by ID
 - POST /api/documents/upload - Upload a document
+- DELETE /api/documents/{doc_id} - Delete a document by ID
 """
 
 import logging
@@ -110,6 +111,42 @@ class DocumentHandler(BaseHandler):
         if path == "/api/documents/upload":
             return self._upload_document(handler)
         return None
+
+    def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+        """Route DELETE document requests to appropriate methods."""
+        if path.startswith("/api/documents/") and not path.endswith("/upload"):
+            # Extract doc_id from /api/documents/{doc_id}
+            doc_id, err = self.extract_path_param(path, 2, "document_id")
+            if err:
+                return err
+            return self._delete_document(doc_id)
+        return None
+
+    def _delete_document(self, doc_id: str) -> HandlerResult:
+        """Delete a document by ID."""
+        store = self.get_document_store()
+        if not store:
+            return error_response("Document storage not configured", 500)
+
+        try:
+            # Check if document exists
+            doc = store.get(doc_id)
+            if not doc:
+                return error_response(f"Document not found: {doc_id}", 404)
+
+            # Delete the document
+            success = store.delete(doc_id)
+            if success:
+                logger.info(f"Document deleted: {doc_id}")
+                return json_response({
+                    "success": True,
+                    "message": f"Document {doc_id} deleted successfully"
+                })
+            else:
+                return error_response(f"Failed to delete document: {doc_id}", 500)
+        except Exception as e:
+            logger.error(f"Error deleting document {doc_id}: {e}")
+            return error_response(f"Failed to delete document: {e}", 500)
 
     def get_document_store(self):
         """Get document store instance."""

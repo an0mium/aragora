@@ -603,29 +603,98 @@ class DashboardHandler(BaseHandler):
         return json_response(result)
 
     def _get_calibration_metrics(self) -> dict:
-        """Get agent calibration trends."""
+        """Get comprehensive agent calibration metrics.
+
+        Returns:
+            Dict with calibration data including:
+            - agents: Per-agent calibration summaries
+            - overall_calibration: Average calibration score
+            - overconfident_agents: Agents with high overconfidence bias
+            - underconfident_agents: Agents with underconfidence bias
+            - well_calibrated_agents: Agents with good calibration (|bias| < 0.1)
+            - top_by_brier: Top 5 agents ranked by Brier score (lower is better)
+            - calibration_curves: Bucket data for visualization (top 3 agents)
+            - domain_breakdown: Per-domain stats for each agent
+        """
         metrics: dict[str, Any] = {
             "agents": {},
             "overall_calibration": 0.0,
             "overconfident_agents": [],
             "underconfident_agents": [],
+            "well_calibrated_agents": [],
+            "top_by_brier": [],
+            "calibration_curves": {},
+            "domain_breakdown": {},
         }
 
         try:
             calibration_tracker = self._context.get("calibration_tracker")
-            if calibration_tracker:
-                summary = calibration_tracker.get_calibration_summary()
-                if summary:
-                    metrics["agents"] = summary.get("agents", {})
-                    metrics["overall_calibration"] = summary.get("overall", 0.0)
+            if not calibration_tracker:
+                return metrics
 
-                    # Identify over/underconfident agents
-                    for agent, data in metrics["agents"].items():
-                        bias = data.get("calibration_bias", 0)
-                        if bias > 0.1:
-                            metrics["overconfident_agents"].append(agent)
-                        elif bias < -0.1:
-                            metrics["underconfident_agents"].append(agent)
+            summary = calibration_tracker.get_calibration_summary()
+            if summary:
+                metrics["agents"] = summary.get("agents", {})
+                metrics["overall_calibration"] = summary.get("overall", 0.0)
+
+                # Categorize agents by calibration bias
+                agent_brier_scores: list[tuple[str, float]] = []
+
+                for agent, data in metrics["agents"].items():
+                    bias = data.get("calibration_bias", 0)
+                    brier = data.get("brier_score", 1.0)
+                    agent_brier_scores.append((agent, brier))
+
+                    if bias > 0.1:
+                        metrics["overconfident_agents"].append(agent)
+                    elif bias < -0.1:
+                        metrics["underconfident_agents"].append(agent)
+                    else:
+                        metrics["well_calibrated_agents"].append(agent)
+
+                # Get top agents by Brier score (lower is better)
+                agent_brier_scores.sort(key=lambda x: x[1])
+                metrics["top_by_brier"] = [
+                    {"agent": agent, "brier_score": round(brier, 3)}
+                    for agent, brier in agent_brier_scores[:5]
+                ]
+
+            # Get calibration curves for top 3 agents
+            all_agents = calibration_tracker.get_all_agents()
+            for agent in all_agents[:3]:
+                try:
+                    curve = calibration_tracker.get_calibration_curve(agent, num_buckets=10)
+                    if curve:
+                        metrics["calibration_curves"][agent] = [
+                            {
+                                "bucket": i,
+                                "confidence_range": f"{bucket.range_start:.1f}-{bucket.range_end:.1f}",
+                                "expected_accuracy": bucket.expected_accuracy,
+                                "actual_accuracy": bucket.accuracy,
+                                "count": bucket.total_predictions,
+                            }
+                            for i, bucket in enumerate(curve)
+                        ]
+                except Exception as e:
+                    logger.debug(f"Calibration curve error for {agent}: {e}")
+
+            # Get domain breakdown for agents with sufficient data
+            for agent in all_agents[:5]:
+                try:
+                    domain_data = calibration_tracker.get_domain_breakdown(agent)
+                    if domain_data:
+                        metrics["domain_breakdown"][agent] = {
+                            domain: {
+                                "predictions": s.total_predictions,
+                                "accuracy": round(s.accuracy, 3),
+                                "brier_score": round(s.brier_score, 3),
+                                "ece": round(s.ece, 3) if hasattr(s, 'ece') else None,
+                            }
+                            for domain, s in domain_data.items()
+                        }
+                except Exception as e:
+                    logger.debug(f"Domain breakdown error for {agent}: {e}")
+
         except Exception as e:
             logger.warning("Calibration metrics error: %s", e)
 

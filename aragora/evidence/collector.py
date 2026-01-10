@@ -422,3 +422,133 @@ class EvidenceCollector:
             )
 
         return sorted(snippets, key=score_snippet, reverse=True)
+
+    async def collect_for_claims(
+        self,
+        claims: List[str],
+        enabled_connectors: List[str] = None,
+        max_per_claim: int = 2,
+    ) -> EvidencePack:
+        """Collect evidence specifically for a list of claims.
+
+        This is used during debate rounds to refresh evidence based on
+        claims that emerge from proposals and critiques.
+
+        Args:
+            claims: List of claim strings to find evidence for
+            enabled_connectors: Optional list of connector names to use
+            max_per_claim: Maximum snippets to collect per claim
+
+        Returns:
+            EvidencePack with evidence snippets for the claims
+        """
+        if enabled_connectors is None:
+            enabled_connectors = list(self.connectors.keys())
+
+        if not claims:
+            return EvidencePack(
+                topic_keywords=[],
+                snippets=[],
+                total_searched=0,
+            )
+
+        all_snippets: List[EvidenceSnippet] = []
+        total_searched = 0
+        all_keywords: List[str] = []
+
+        # Process each claim
+        for claim in claims[:5]:  # Limit to 5 claims to avoid API overload
+            # Extract keywords from the claim
+            claim_keywords = self._extract_keywords(claim)
+            all_keywords.extend(claim_keywords)
+
+            # Search connectors for this claim
+            search_tasks = []
+            for connector_name in enabled_connectors:
+                if connector_name in self.connectors:
+                    connector = self.connectors[connector_name]
+                    search_tasks.append(
+                        self._search_connector(connector_name, connector, claim_keywords)
+                    )
+
+            if search_tasks:
+                results = await asyncio.gather(*search_tasks, return_exceptions=True)
+
+                for result in results:
+                    if isinstance(result, BaseException):
+                        logger.warning(f"Connector search error for claim: {result}")
+                    else:
+                        connector_snippets, searched_count = result
+                        # Limit per claim
+                        all_snippets.extend(connector_snippets[:max_per_claim])
+                        total_searched += searched_count
+
+        # Deduplicate by snippet content hash
+        seen_hashes: set = set()
+        unique_snippets: List[EvidenceSnippet] = []
+        for snippet in all_snippets:
+            content_hash = hashlib.md5(snippet.snippet.encode()).hexdigest()
+            if content_hash not in seen_hashes:
+                seen_hashes.add(content_hash)
+                unique_snippets.append(snippet)
+
+        # Rank and limit
+        unique_keywords = list(set(all_keywords))
+        ranked_snippets = self._rank_snippets(unique_snippets, unique_keywords)
+        final_snippets = ranked_snippets[:self.max_total_snippets]
+
+        logger.info(
+            f"evidence_for_claims claims={len(claims)} snippets={len(final_snippets)} "
+            f"searched={total_searched}"
+        )
+
+        return EvidencePack(
+            topic_keywords=unique_keywords[:10],
+            snippets=final_snippets,
+            total_searched=total_searched,
+        )
+
+    def extract_claims_from_text(self, text: str) -> List[str]:
+        """Extract factual claims from text that could benefit from evidence.
+
+        Looks for:
+        - Statements with numbers or statistics
+        - Statements with definitive language ("is", "are", "proven")
+        - Comparative statements ("better than", "faster than")
+        - References to studies, research, or sources
+
+        Args:
+            text: Text to extract claims from
+
+        Returns:
+            List of claim strings
+        """
+        claims: List[str] = []
+
+        # Split into sentences
+        sentences = re.split(r'[.!?]\s+', text)
+
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if len(sentence) < 20 or len(sentence) > 500:
+                continue
+
+            # Check for claim indicators
+            claim_indicators = [
+                r'\d+%',  # Percentages
+                r'\d+ (times|percent|million|billion)',  # Quantitative claims
+                r'(studies|research|evidence) (show|suggest|indicate)',
+                r'(proven|demonstrated|established) that',
+                r'(better|worse|faster|slower|more|less) than',
+                r'according to',
+                r'(is|are) (known|considered|recognized)',
+                r'(always|never|all|none|every)',  # Absolute claims
+            ]
+
+            for pattern in claim_indicators:
+                if re.search(pattern, sentence, re.IGNORECASE):
+                    claims.append(sentence)
+                    break
+
+        # Deduplicate
+        return list(dict.fromkeys(claims))[:10]  # Max 10 claims

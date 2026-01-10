@@ -13,6 +13,7 @@ Endpoints:
 - GET /api/debate/{id}/meta-critique - Get meta-level debate analysis
 - GET /api/debate/{id}/graph/stats - Get argument graph statistics
 - POST /api/debates/{id}/fork - Fork debate at a branch point
+- PATCH /api/debates/{id} - Update debate metadata (title, tags, status)
 - GET /api/search - Cross-debate search by query
 """
 
@@ -54,6 +55,7 @@ class DebatesHandler(BaseHandler):
         "/api/debates/*/citations",
         "/api/debates/*/messages",  # Paginated message history
         "/api/debates/*/fork",  # POST - counterfactual fork
+        "/api/debates/*/verification-report",  # Verification feedback
         "/api/search",  # Cross-debate search
     ]
 
@@ -82,6 +84,7 @@ class DebatesHandler(BaseHandler):
         }),
         ("/meta-critique", "_get_meta_critique", True, None),
         ("/graph/stats", "_get_graph_stats", True, None),
+        ("/verification-report", "_get_verification_report", True, None),
     ]
 
     def _check_auth(self, handler) -> Optional[HandlerResult]:
@@ -406,6 +409,45 @@ class DebatesHandler(BaseHandler):
         except Exception as e:
             logger.error("Convergence check failed for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
             return error_response(f"Convergence check failed: {e}", 500)
+
+    @require_storage
+    @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_verification", skip_first=True)
+    def _get_verification_report(self, handler, debate_id: str) -> HandlerResult:
+        """Get verification report for a debate.
+
+        Returns verification results and bonuses applied during consensus,
+        useful for analyzing claim quality and feedback loop effectiveness.
+        """
+        storage = self.get_storage()
+        try:
+            debate = storage.get_debate(debate_id)
+            if not debate:
+                return error_response(f"Debate not found: {debate_id}", 404)
+
+            verification_results = debate.get("verification_results", {})
+            verification_bonuses = debate.get("verification_bonuses", {})
+
+            # Calculate summary stats
+            total_verified = sum(v for v in verification_results.values() if v > 0)
+            agents_verified = sum(1 for v in verification_results.values() if v > 0)
+            total_bonus = sum(verification_bonuses.values())
+
+            return json_response({
+                "debate_id": debate_id,
+                "verification_enabled": bool(verification_results),
+                "verification_results": verification_results,
+                "verification_bonuses": verification_bonuses,
+                "summary": {
+                    "total_verified_claims": total_verified,
+                    "agents_with_verified_claims": agents_verified,
+                    "total_bonus_applied": round(total_bonus, 3),
+                },
+                "winner": debate.get("winner"),
+                "consensus_reached": debate.get("consensus_reached", False),
+            })
+        except Exception as e:
+            logger.error("Verification report failed for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            return error_response(f"Verification report failed: {e}", 500)
 
     @require_storage
     def _export_debate(self, handler, debate_id: str, format: str, table: str) -> HandlerResult:
@@ -815,6 +857,90 @@ class DebatesHandler(BaseHandler):
                 return self._verify_outcome(handler, debate_id)
 
         return None
+
+    def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+        """Route PATCH requests to appropriate methods."""
+        # Handle /api/debates/{id} pattern for updates
+        if path.startswith("/api/debates/") and path.count("/") == 3:
+            debate_id, err = self._extract_debate_id(path)
+            if err:
+                return error_response(err, 400)
+            if debate_id:
+                return self._patch_debate(handler, debate_id)
+        return None
+
+    @require_storage
+    def _patch_debate(self, handler, debate_id: str) -> HandlerResult:
+        """Update debate metadata.
+
+        Request body can include:
+            {
+                "title": str,  # Optional: update debate title
+                "tags": list[str],  # Optional: update tags
+                "status": str,  # Optional: "active", "paused", "concluded"
+                "metadata": dict  # Optional: custom metadata
+            }
+
+        Returns:
+            Updated debate summary
+        """
+        # Read and validate request body
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid or missing JSON body", 400)
+
+        if not body:
+            return error_response("Empty update body", 400)
+
+        # Get storage and find debate
+        storage = self.get_storage()
+        try:
+            debate = storage.get_debate(debate_id)
+            if not debate:
+                return error_response(f"Debate not found: {debate_id}", 404)
+
+            # Apply updates (only allowed fields)
+            allowed_fields = {"title", "tags", "status", "metadata"}
+            updates = {k: v for k, v in body.items() if k in allowed_fields}
+
+            if not updates:
+                return error_response(
+                    f"No valid fields to update. Allowed: {', '.join(allowed_fields)}",
+                    400
+                )
+
+            # Validate status if provided
+            if "status" in updates:
+                valid_statuses = {"active", "paused", "concluded", "archived"}
+                if updates["status"] not in valid_statuses:
+                    return error_response(
+                        f"Invalid status. Must be one of: {', '.join(valid_statuses)}",
+                        400
+                    )
+
+            # Apply updates to debate
+            for key, value in updates.items():
+                debate[key] = value
+
+            # Save updated debate
+            storage.save_debate(debate_id, debate)
+
+            logger.info(f"Debate {debate_id} updated: {list(updates.keys())}")
+
+            return json_response({
+                "success": True,
+                "debate_id": debate_id,
+                "updated_fields": list(updates.keys()),
+                "debate": {
+                    "id": debate_id,
+                    "title": debate.get("title", debate.get("task", "")),
+                    "status": debate.get("status", "active"),
+                    "tags": debate.get("tags", []),
+                }
+            })
+        except Exception as e:
+            logger.error(f"Failed to update debate {debate_id}: {e}")
+            return error_response(f"Failed to update debate: {e}", 500)
 
     @require_storage
     def _fork_debate(self, handler, debate_id: str) -> HandlerResult:

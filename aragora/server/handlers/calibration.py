@@ -40,6 +40,7 @@ class CalibrationHandler(BaseHandler):
         "/api/agent/*/calibration-curve",
         "/api/agent/*/calibration-summary",
         "/api/calibration/leaderboard",
+        "/api/calibration/visualization",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -48,7 +49,7 @@ class CalibrationHandler(BaseHandler):
             path.endswith("/calibration-curve") or path.endswith("/calibration-summary")
         ):
             return True
-        if path == "/api/calibration/leaderboard":
+        if path in ("/api/calibration/leaderboard", "/api/calibration/visualization"):
             return True
         return False
 
@@ -60,6 +61,11 @@ class CalibrationHandler(BaseHandler):
             metric = get_string_param(query_params, 'metric') or 'brier'
             min_predictions = get_clamped_int_param(query_params, 'min_predictions', 5, min_val=1, max_val=1000)
             return self._get_calibration_leaderboard(limit, metric, min_predictions)
+
+        # Handle visualization endpoint
+        if path == "/api/calibration/visualization":
+            limit = get_clamped_int_param(query_params, 'limit', 5, min_val=1, max_val=10)
+            return self._get_calibration_visualization(limit)
 
         if not path.startswith("/api/agent/"):
             return None
@@ -203,3 +209,156 @@ class CalibrationHandler(BaseHandler):
             "agents": calibration_entries,
             "count": len(calibration_entries),
         })
+
+    @handle_errors("calibration visualization retrieval")
+    def _get_calibration_visualization(self, limit: int) -> HandlerResult:
+        """Get comprehensive calibration visualization data.
+
+        Returns data optimized for chart rendering:
+        - Calibration curves for each agent (perfect calibration line comparison)
+        - Agent comparison scatter plot data (confidence vs accuracy)
+        - Confidence distribution histogram
+        - Domain performance heatmap data
+
+        Args:
+            limit: Maximum number of agents to include
+
+        Returns:
+            JSON response with visualization-ready data
+        """
+        if not CALIBRATION_AVAILABLE or not CalibrationTracker:
+            return error_response("Calibration tracker not available", 503)
+
+        tracker = CalibrationTracker()
+        result: dict = {
+            "calibration_curves": {},
+            "scatter_data": [],
+            "confidence_histogram": [],
+            "domain_heatmap": {},
+            "summary": {
+                "total_agents": 0,
+                "avg_brier": 0.0,
+                "avg_ece": 0.0,
+                "best_calibrated": None,
+                "worst_calibrated": None,
+            },
+        }
+
+        try:
+            all_agents = tracker.get_all_agents()
+            result["summary"]["total_agents"] = len(all_agents)
+
+            if not all_agents:
+                return json_response(result)
+
+            # Collect data for each agent
+            agent_summaries = []
+            for agent in all_agents[:limit]:
+                try:
+                    summary = tracker.get_calibration_summary(agent)
+                    if summary and summary.total_predictions >= 5:
+                        agent_summaries.append({
+                            "agent": agent,
+                            "summary": summary,
+                        })
+                except Exception as e:
+                    logger.debug(f"Error getting summary for {agent}: {e}")
+                    continue
+
+            if not agent_summaries:
+                return json_response(result)
+
+            # 1. Calibration curves for each agent
+            for entry in agent_summaries:
+                agent = entry["agent"]
+                try:
+                    curve = tracker.get_calibration_curve(agent, num_buckets=10)
+                    if curve:
+                        result["calibration_curves"][agent] = {
+                            "buckets": [
+                                {
+                                    "x": (b.range_start + b.range_end) / 2,  # Midpoint
+                                    "expected": (b.range_start + b.range_end) / 2,
+                                    "actual": b.accuracy,
+                                    "count": b.total_predictions,
+                                }
+                                for b in curve
+                            ],
+                            "perfect_line": [
+                                {"x": i / 10, "y": i / 10}
+                                for i in range(11)
+                            ],
+                        }
+                except Exception as e:
+                    logger.debug(f"Error getting curve for {agent}: {e}")
+
+            # 2. Scatter plot data (agent confidence vs accuracy)
+            for entry in agent_summaries:
+                agent = entry["agent"]
+                summary = entry["summary"]
+                result["scatter_data"].append({
+                    "agent": agent,
+                    "accuracy": summary.accuracy,
+                    "brier_score": summary.brier_score,
+                    "ece": summary.ece,
+                    "predictions": summary.total_predictions,
+                    "is_overconfident": summary.is_overconfident,
+                    "is_underconfident": summary.is_underconfident,
+                })
+
+            # 3. Confidence distribution histogram (aggregate)
+            confidence_buckets = {i: 0 for i in range(10)}
+            for entry in agent_summaries:
+                agent = entry["agent"]
+                try:
+                    curve = tracker.get_calibration_curve(agent, num_buckets=10)
+                    if curve:
+                        for i, b in enumerate(curve):
+                            if i < 10:
+                                confidence_buckets[i] += b.total_predictions
+                except Exception:
+                    pass
+
+            result["confidence_histogram"] = [
+                {
+                    "range": f"{i * 10}-{(i + 1) * 10}%",
+                    "count": count,
+                }
+                for i, count in confidence_buckets.items()
+            ]
+
+            # 4. Domain heatmap (agents x domains)
+            for entry in agent_summaries:
+                agent = entry["agent"]
+                try:
+                    domain_data = tracker.get_domain_breakdown(agent)
+                    if domain_data:
+                        result["domain_heatmap"][agent] = {
+                            domain: {
+                                "accuracy": s.accuracy,
+                                "brier": s.brier_score,
+                                "count": s.total_predictions,
+                            }
+                            for domain, s in domain_data.items()
+                        }
+                except Exception as e:
+                    logger.debug(f"Error getting domains for {agent}: {e}")
+
+            # 5. Summary statistics
+            brier_scores = [e["summary"].brier_score for e in agent_summaries]
+            ece_scores = [e["summary"].ece for e in agent_summaries]
+
+            if brier_scores:
+                result["summary"]["avg_brier"] = round(sum(brier_scores) / len(brier_scores), 4)
+                best_idx = brier_scores.index(min(brier_scores))
+                worst_idx = brier_scores.index(max(brier_scores))
+                result["summary"]["best_calibrated"] = agent_summaries[best_idx]["agent"]
+                result["summary"]["worst_calibrated"] = agent_summaries[worst_idx]["agent"]
+
+            if ece_scores:
+                result["summary"]["avg_ece"] = round(sum(ece_scores) / len(ece_scores), 4)
+
+        except Exception as e:
+            logger.warning(f"Calibration visualization error: {e}")
+
+        return json_response(result)

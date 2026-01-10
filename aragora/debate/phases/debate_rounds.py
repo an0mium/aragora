@@ -66,6 +66,7 @@ class DebateRoundsPhase:
         check_judge_termination: Optional[Callable] = None,
         check_early_stopping: Optional[Callable] = None,
         inject_challenge: Optional[Callable] = None,  # Callback to inject trickster challenges
+        refresh_evidence: Optional[Callable] = None,  # Callback to refresh evidence during rounds
     ):
         """
         Initialize the debate rounds phase.
@@ -92,6 +93,7 @@ class DebateRoundsPhase:
             check_judge_termination: Async callback for judge termination
             check_early_stopping: Async callback for early stopping
             inject_challenge: Callback to inject trickster challenge into context
+            refresh_evidence: Async callback to refresh evidence based on round claims
         """
         self.protocol = protocol
         self.circuit_breaker = circuit_breaker
@@ -116,6 +118,7 @@ class DebateRoundsPhase:
         self._check_judge_termination = check_judge_termination
         self._check_early_stopping = check_early_stopping
         self._inject_challenge = inject_challenge
+        self._refresh_evidence = refresh_evidence
 
         # Internal state
         self._partial_messages: list["Message"] = []
@@ -225,6 +228,9 @@ class DebateRoundsPhase:
 
             # Critique phase
             await self._critique_phase(ctx, critics, round_num)
+
+            # Refresh evidence based on claims made in critiques and proposals
+            await self._refresh_evidence_for_round(ctx, round_num)
 
             # Revision phase
             await self._revision_phase(ctx, critics, round_num)
@@ -706,6 +712,73 @@ class DebateRoundsPhase:
                 return True
 
         return False
+
+    async def _refresh_evidence_for_round(
+        self, ctx: "DebateContext", round_num: int
+    ) -> None:
+        """Refresh evidence based on claims made in the current round.
+
+        Extracts factual claims from proposals and critiques, then
+        searches for new evidence to support or refute those claims.
+        The fresh evidence is injected into the context for the revision phase.
+
+        Args:
+            ctx: The DebateContext with proposals and critiques
+            round_num: Current round number
+        """
+        if not self._refresh_evidence:
+            return
+
+        # Only refresh evidence every other round to avoid API overload
+        if round_num % 2 == 0:
+            return
+
+        try:
+            # Collect text from proposals and recent critiques
+            texts_to_analyze = []
+
+            # Add proposal content
+            for agent_name, proposal in ctx.proposals.items():
+                if proposal:
+                    texts_to_analyze.append(proposal[:2000])  # Limit per proposal
+
+            # Add recent critique content
+            for critique in self._partial_critiques[-5:]:  # Last 5 critiques
+                critique_text = critique.to_prompt() if hasattr(critique, 'to_prompt') else str(critique)
+                texts_to_analyze.append(critique_text[:1000])
+
+            if not texts_to_analyze:
+                return
+
+            combined_text = "\n".join(texts_to_analyze)
+
+            # Call the refresh callback
+            refreshed = await self._refresh_evidence(combined_text, ctx, round_num)
+
+            if refreshed:
+                logger.info(
+                    f"evidence_refreshed round={round_num} "
+                    f"new_snippets={refreshed}"
+                )
+
+                # Notify spectator
+                if self._notify_spectator:
+                    self._notify_spectator(
+                        "evidence",
+                        details=f"Refreshed evidence: {refreshed} new sources",
+                        metric=refreshed,
+                        agent="system",
+                    )
+
+                # Emit evidence refresh event
+                if "on_evidence_refresh" in self.hooks:
+                    self.hooks["on_evidence_refresh"](
+                        round_num=round_num,
+                        new_snippets=refreshed,
+                    )
+
+        except Exception as e:
+            logger.warning(f"Evidence refresh failed for round {round_num}: {e}")
 
     def get_partial_messages(self) -> list["Message"]:
         """Get partial messages for timeout recovery."""

@@ -46,7 +46,8 @@ def _create_verify_claims_callback(arena: "Arena"):
     Create a verification callback for the consensus phase.
 
     The callback extracts claims from proposal text and counts verified ones.
-    Uses fast_extract_claims for pattern matching and checks confidence levels.
+    Uses fast_extract_claims for pattern matching, then attempts formal Z3
+    verification for LOGICAL and ARITHMETIC claims.
 
     Args:
         arena: The Arena instance (for future access to formal verification)
@@ -54,9 +55,29 @@ def _create_verify_claims_callback(arena: "Arena"):
     Returns:
         Async callback: (proposal_text: str, limit: int) -> int (verified count)
     """
+    # Lazy import formal verification to avoid circular imports
+    _formal_manager = None
+
+    def _get_formal_manager():
+        nonlocal _formal_manager
+        if _formal_manager is None:
+            try:
+                from aragora.verification.formal import (
+                    get_formal_verification_manager,
+                    FormalProofStatus,
+                )
+                _formal_manager = get_formal_verification_manager()
+            except ImportError:
+                _formal_manager = False  # Mark as unavailable
+        return _formal_manager if _formal_manager is not False else None
+
     async def verify_claims(proposal_text: str, limit: int = 2) -> int:
         """
         Verify claims in proposal text and return count of verified claims.
+
+        Uses a two-tier verification strategy:
+        1. For LOGICAL/ARITHMETIC claims: Attempt formal Z3 verification
+        2. Fallback: Use confidence threshold from pattern matching
 
         Args:
             proposal_text: The proposal text to extract and verify claims from
@@ -74,16 +95,52 @@ def _create_verify_claims_callback(arena: "Arena"):
         if not claims:
             return 0
 
-        # Count high-confidence claims as "verified"
-        # Threshold: 0.5+ confidence from pattern matching
-        # TODO: Integrate formal Z3 verification for arithmetic/logic claims
+        # Get formal verification manager (lazy loaded)
+        formal_manager = _get_formal_manager()
+        z3_available = False
+        if formal_manager:
+            backends = formal_manager.get_available_backends()
+            z3_available = any(b.language.value == "z3_smt" for b in backends)
+
         verified_count = 0
         for claim in claims[:limit]:
+            claim_type = claim.get("type", "")
+            claim_text = claim.get("text", "")
             confidence = claim.get("confidence", 0.0)
+
+            # Try formal Z3 verification for suitable claim types
+            if z3_available and claim_type in ("LOGICAL", "ARITHMETIC", "logical", "arithmetic"):
+                try:
+                    from aragora.verification.formal import FormalProofStatus
+                    result = await formal_manager.attempt_formal_verification(
+                        claim_text,
+                        claim_type=claim_type,
+                        timeout_seconds=5.0,  # Short timeout for debate flow
+                    )
+                    if result.status == FormalProofStatus.PROOF_FOUND:
+                        verified_count += 1
+                        logger.debug(
+                            f"claim_z3_verified type={claim_type} "
+                            f"proof_time_ms={result.proof_search_time_ms:.1f}"
+                        )
+                        continue
+                    elif result.status == FormalProofStatus.PROOF_FAILED:
+                        # Z3 found a counterexample - claim is false
+                        logger.debug(
+                            f"claim_z3_disproved type={claim_type} "
+                            f"error={result.error_message}"
+                        )
+                        continue  # Don't count disproved claims
+                    # Other statuses (timeout, translation failed): fall through to confidence check
+                except Exception as e:
+                    logger.debug(f"Z3 verification failed for claim: {e}")
+
+            # Fallback: Count high-confidence claims as "verified"
+            # Threshold: 0.5+ confidence from pattern matching
             if confidence >= 0.5:
                 verified_count += 1
                 logger.debug(
-                    f"claim_verified type={claim.get('type')} "
+                    f"claim_verified type={claim_type} "
                     f"confidence={confidence:.2f}"
                 )
 
@@ -246,6 +303,7 @@ def init_phases(arena: "Arena") -> None:
         record_grounded_position=arena._record_grounded_position,
         check_judge_termination=arena._check_judge_termination,
         check_early_stopping=arena._check_early_stopping,
+        refresh_evidence=arena._refresh_evidence_for_round,
     )
 
     # Phase 3: Consensus Resolution

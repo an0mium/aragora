@@ -255,6 +255,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     consensus_memory: Optional["ConsensusMemory"] = None  # ConsensusMemory for historical positions
     dissent_retriever: Optional["DissentRetriever"] = None  # DissentRetriever for minority views
     moment_detector: Optional["MomentDetector"] = None  # MomentDetector for significant moments
+    user_store: Optional["UserStore"] = None  # UserStore for user/org persistence
 
     # Note: Modular HTTP handlers are provided by HandlerRegistryMixin
     # Handler instance variables (_system_handler, etc.) and _handlers_initialized
@@ -780,6 +781,93 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         else:
             self.send_error(404, f"Unknown POST endpoint: {path}")
 
+    def do_DELETE(self) -> None:
+        """Handle DELETE requests."""
+        start_time = time.time()
+        status_code = 200  # Default, updated by handlers
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        try:
+            self._do_DELETE_internal(path)
+        except Exception as e:
+            status_code = 500
+            logger.exception(f"[request] Unhandled exception in DELETE {path}: {e}")
+            try:
+                self._send_json({"error": "Internal server error"}, status=500)
+            except Exception as send_err:
+                logger.debug(f"Could not send error response (already sent?): {send_err}")
+        finally:
+            duration_ms = (time.time() - start_time) * 1000
+            self._log_request("DELETE", path, status_code, duration_ms)
+
+    def _do_DELETE_internal(self, path: str) -> None:
+        """Internal DELETE handler with actual routing logic."""
+        # Try modular handlers first
+        if path.startswith('/api/'):
+            if self._try_modular_handler(path, {}):
+                return
+
+        self.send_error(404, f"Unknown DELETE endpoint: {path}")
+
+    def do_PATCH(self) -> None:
+        """Handle PATCH requests."""
+        start_time = time.time()
+        status_code = 200  # Default, updated by handlers
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        try:
+            self._do_PATCH_internal(path)
+        except Exception as e:
+            status_code = 500
+            logger.exception(f"[request] Unhandled exception in PATCH {path}: {e}")
+            try:
+                self._send_json({"error": "Internal server error"}, status=500)
+            except Exception as send_err:
+                logger.debug(f"Could not send error response (already sent?): {send_err}")
+        finally:
+            duration_ms = (time.time() - start_time) * 1000
+            self._log_request("PATCH", path, status_code, duration_ms)
+
+    def _do_PATCH_internal(self, path: str) -> None:
+        """Internal PATCH handler with actual routing logic."""
+        # Try modular handlers first
+        if path.startswith('/api/'):
+            if self._try_modular_handler(path, {}):
+                return
+
+        self.send_error(404, f"Unknown PATCH endpoint: {path}")
+
+    def do_PUT(self) -> None:
+        """Handle PUT requests."""
+        start_time = time.time()
+        status_code = 200  # Default, updated by handlers
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        try:
+            self._do_PUT_internal(path)
+        except Exception as e:
+            status_code = 500
+            logger.exception(f"[request] Unhandled exception in PUT {path}: {e}")
+            try:
+                self._send_json({"error": "Internal server error"}, status=500)
+            except Exception as send_err:
+                logger.debug(f"Could not send error response (already sent?): {send_err}")
+        finally:
+            duration_ms = (time.time() - start_time) * 1000
+            self._log_request("PUT", path, status_code, duration_ms)
+
+    def _do_PUT_internal(self, path: str) -> None:
+        """Internal PUT handler with actual routing logic."""
+        # Try modular handlers first
+        if path.startswith('/api/'):
+            if self._try_modular_handler(path, {}):
+                return
+
+        self.send_error(404, f"Unknown PUT endpoint: {path}")
+
     # NOTE: _upload_document moved to handlers/documents.py (DocumentHandler)
 
     def _start_debate(self) -> None:
@@ -798,6 +886,22 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         # Rate limit expensive debate creation
         if not self._check_rate_limit():
             return
+
+        # Quota enforcement - check org usage limits
+        if UnifiedHandler.user_store:
+            from aragora.billing.jwt_auth import extract_user_from_request
+            auth_ctx = extract_user_from_request(self, UnifiedHandler.user_store)
+            if auth_ctx.is_authenticated and auth_ctx.org_id:
+                org = UnifiedHandler.user_store.get_organization_by_id(auth_ctx.org_id)
+                if org and org.is_at_limit:
+                    self._send_json({
+                        "error": "Monthly debate quota exceeded",
+                        "code": "quota_exceeded",
+                        "limit": org.limits.debates_per_month,
+                        "used": org.debates_used_this_month,
+                        "upgrade_url": "/pricing",
+                    }, status=429)
+                    return
 
         if not DEBATE_AVAILABLE:
             self._send_json({"error": "Debate orchestrator not available"}, status=500)
@@ -840,6 +944,14 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         # Get or create debate controller and start debate
         controller = self._get_debate_controller()
         response = controller.start_debate(request)
+
+        # Increment usage on successful debate creation
+        if response.status_code < 400 and UnifiedHandler.user_store:
+            from aragora.billing.jwt_auth import extract_user_from_request
+            auth_ctx = extract_user_from_request(self, UnifiedHandler.user_store)
+            if auth_ctx.is_authenticated and auth_ctx.org_id:
+                UnifiedHandler.user_store.increment_usage(auth_ctx.org_id)
+                logger.info(f"Incremented debate usage for org {auth_ctx.org_id}")
 
         # Send response
         self._send_json(response.to_dict(), status=response.status_code)
@@ -1114,6 +1226,12 @@ class UnifiedServer:
                 elo_system=UnifiedHandler.elo_system,
                 position_ledger=UnifiedHandler.position_ledger,
             )
+
+            # Initialize UserStore for user/organization persistence
+            from aragora.storage import UserStore
+            user_db_path = nomic_dir / "users.db"
+            UnifiedHandler.user_store = UserStore(user_db_path)
+            logger.info(f"[server] UserStore initialized at {user_db_path}")
 
     @property
     def emitter(self) -> SyncEventEmitter:

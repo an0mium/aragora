@@ -1143,6 +1143,75 @@ class Arena:
         """
         return await self.context_gatherer.gather_trending_context()
 
+    async def _refresh_evidence_for_round(
+        self, combined_text: str, ctx: "DebateContext", round_num: int
+    ) -> int:
+        """Refresh evidence based on claims made during a debate round.
+
+        Called by DebateRoundsPhase after the critique phase to gather
+        fresh evidence for claims that emerged in proposals and critiques.
+
+        Args:
+            combined_text: Combined text from proposals and critiques
+            ctx: The DebateContext
+            round_num: Current round number
+
+        Returns:
+            Number of new evidence snippets added
+        """
+        if not self.evidence_collector:
+            return 0
+
+        try:
+            # Extract claims from the combined text
+            claims = self.evidence_collector.extract_claims_from_text(combined_text)
+            if not claims:
+                return 0
+
+            logger.debug(f"evidence_refresh extracting from {len(claims)} claims")
+
+            # Collect evidence for the claims
+            evidence_pack = await self.evidence_collector.collect_for_claims(claims)
+
+            if not evidence_pack.snippets:
+                return 0
+
+            # Update the prompt builder with supplemental evidence
+            if hasattr(self, 'prompt_builder') and self.prompt_builder:
+                # Add new snippets to existing pack
+                if self._research_evidence_pack:
+                    # Merge with existing, avoiding duplicates by ID
+                    existing_ids = {s.id for s in self._research_evidence_pack.snippets}
+                    new_snippets = [
+                        s for s in evidence_pack.snippets
+                        if s.id not in existing_ids
+                    ]
+                    self._research_evidence_pack.snippets.extend(new_snippets)
+                    self._research_evidence_pack.total_searched += evidence_pack.total_searched
+                else:
+                    self._research_evidence_pack = evidence_pack
+
+                # Update evidence grounder
+                self.evidence_grounder.set_evidence_pack(self._research_evidence_pack)
+
+                # Update prompt builder
+                self.prompt_builder.set_evidence_pack(self._research_evidence_pack)
+
+                # Store in memory for future debates
+                if evidence_pack.snippets:
+                    self._store_evidence_in_memory(
+                        evidence_pack.snippets,
+                        self.env.task if self.env else "",
+                    )
+
+                return len(evidence_pack.snippets)
+
+        except Exception as e:
+            logger.warning(f"Evidence refresh failed for round {round_num}: {e}")
+            return 0
+
+        return 0
+
     def _format_conclusion(self, result: "DebateResult") -> str:
         """Format a clear, readable debate conclusion with full context."""
         lines = []

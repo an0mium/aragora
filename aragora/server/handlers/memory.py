@@ -6,6 +6,7 @@ Endpoints:
 - POST /api/memory/continuum/consolidate - Trigger memory consolidation
 - POST /api/memory/continuum/cleanup - Cleanup expired memories
 - GET /api/memory/tier-stats - Get tier statistics
+- DELETE /api/memory/continuum/{id} - Delete a memory by ID
 """
 
 import time
@@ -45,7 +46,15 @@ class MemoryHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        if path in self.ROUTES:
+            return True
+        # Handle /api/memory/continuum/{id} pattern for DELETE
+        if path.startswith("/api/memory/continuum/") and path.count("/") == 4:
+            # Exclude known routes like /api/memory/continuum/retrieve
+            segment = path.split("/")[-1]
+            if segment not in ("retrieve", "consolidate", "cleanup"):
+                return True
+        return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route memory requests to appropriate handler methods."""
@@ -224,3 +233,39 @@ class MemoryHandler(BaseHandler):
 
         stats = continuum.get_archive_stats()
         return json_response(stats)
+
+    def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+        """Route DELETE memory requests to appropriate methods."""
+        if path.startswith("/api/memory/continuum/"):
+            # Extract memory_id from /api/memory/continuum/{id}
+            memory_id, err = self.extract_path_param(path, 3, "memory_id")
+            if err:
+                return err
+            return self._delete_memory(memory_id)
+        return None
+
+    @handle_errors("memory deletion")
+    def _delete_memory(self, memory_id: str) -> HandlerResult:
+        """Delete a memory by ID."""
+        if not CONTINUUM_AVAILABLE:
+            return error_response("Continuum memory system not available", 503)
+
+        continuum = self.ctx.get("continuum_memory")
+        if not continuum:
+            return error_response("Continuum memory not initialized", 503)
+
+        # Check if delete method exists on continuum
+        if not hasattr(continuum, 'delete'):
+            return error_response("Memory deletion not supported", 501)
+
+        try:
+            success = continuum.delete(memory_id)
+            if success:
+                return json_response({
+                    "success": True,
+                    "message": f"Memory {memory_id} deleted successfully"
+                })
+            else:
+                return error_response(f"Memory not found: {memory_id}", 404)
+        except Exception as e:
+            return error_response(f"Failed to delete memory: {e}", 500)

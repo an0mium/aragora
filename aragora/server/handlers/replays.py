@@ -177,36 +177,110 @@ class ReplaysHandler(BaseHandler):
     def _get_learning_evolution(
         self, nomic_dir: Optional[Path], limit: int
     ) -> HandlerResult:
-        """Get learning/evolution data from meta_learning.db."""
+        """Get learning/evolution data from meta_learning.db and elo_snapshot.json.
+
+        Returns data in the format expected by the LearningEvolution frontend:
+        - patterns: Issue type success rates over time
+        - agents: Agent reputation/acceptance over time
+        - debates: Debate statistics over time
+        """
+        empty_response = {"patterns": [], "agents": [], "debates": []}
+
         if not nomic_dir:
-            return json_response({"patterns": [], "count": 0})
+            return json_response(empty_response)
 
+        # Collect patterns from meta_learning.db
+        patterns: list[dict] = []
         db_path = nomic_dir / "meta_learning.db"
-        if not db_path.exists():
-            return json_response({"patterns": [], "count": 0})
+        if db_path.exists():
+            try:
+                db = MemoryDatabase(str(db_path))
+                with db.connection() as conn:
+                    conn.row_factory = sqlite3.Row
 
-        try:
-            db = MemoryDatabase(str(db_path))
-            with db.connection() as conn:
-                conn.row_factory = sqlite3.Row
+                    # Get recent patterns, transform for frontend format
+                    cursor = conn.execute("""
+                        SELECT * FROM meta_patterns
+                        ORDER BY created_at DESC
+                        LIMIT ?
+                    """, (limit,))
+                    for row in cursor.fetchall():
+                        row_dict = dict(row)
+                        # Transform to frontend expected format
+                        patterns.append({
+                            "date": row_dict.get("created_at", "")[:10],  # YYYY-MM-DD
+                            "issue_type": row_dict.get("pattern_type", "unknown"),
+                            "success_rate": row_dict.get("success_rate", 0.5),
+                            "pattern_count": row_dict.get("occurrence_count", 1),
+                        })
+            except sqlite3.OperationalError as e:
+                if "no such table" not in str(e):
+                    raise
 
-                # Get recent patterns
-                cursor = conn.execute("""
-                    SELECT * FROM meta_patterns
-                    ORDER BY created_at DESC
-                    LIMIT ?
-                """, (limit,))
-                patterns = [dict(row) for row in cursor.fetchall()]
+        # Collect agent data from ELO snapshot
+        agents: list[dict] = []
+        elo_path = nomic_dir / "elo_snapshot.json"
+        if elo_path.exists():
+            try:
+                elo_data = json.loads(elo_path.read_text())
+                agent_ratings = elo_data.get("ratings", {})
+                snapshot_time = elo_data.get("timestamp", "")[:10] if elo_data.get("timestamp") else ""
 
-            return json_response({
-                "patterns": patterns,
-                "count": len(patterns),
-            })
-        except sqlite3.OperationalError as e:
-            # Table may not exist yet
-            if "no such table" in str(e):
-                return json_response({"patterns": [], "count": 0})
-            raise
+                for agent_name, rating in agent_ratings.items():
+                    # Calculate acceptance rate from win ratio
+                    games = rating.get("games", 0)
+                    wins = rating.get("wins", 0)
+                    acceptance_rate = wins / games if games > 0 else 0.5
+
+                    agents.append({
+                        "agent": agent_name,
+                        "date": snapshot_time,
+                        "acceptance_rate": acceptance_rate,
+                        "critique_quality": rating.get("calibration_score", 0.5),
+                        "reputation_score": min(rating.get("elo", 1000) / 2000, 1.0),  # Normalize ELO to 0-1
+                    })
+            except (json.JSONDecodeError, KeyError):
+                pass
+
+        # Collect debate data from nomic state history
+        debates: list[dict] = []
+        state_path = nomic_dir / "nomic_state.json"
+        if state_path.exists():
+            try:
+                state = json.loads(state_path.read_text())
+                # Group debates by date
+                debate_history = state.get("debate_history", [])
+                date_groups: dict[str, list] = {}
+                for debate in debate_history[-limit:]:
+                    date = debate.get("timestamp", "")[:10]
+                    if date:
+                        if date not in date_groups:
+                            date_groups[date] = []
+                        date_groups[date].append(debate)
+
+                for date, day_debates in sorted(date_groups.items()):
+                    total = len(day_debates)
+                    consensus_count = sum(1 for d in day_debates if d.get("consensus_reached", False))
+                    avg_conf = sum(d.get("confidence", 0.5) for d in day_debates) / total if total else 0
+                    avg_rounds = sum(d.get("rounds", 3) for d in day_debates) / total if total else 3
+                    avg_duration = sum(d.get("duration_seconds", 60) for d in day_debates) / total if total else 60
+
+                    debates.append({
+                        "date": date,
+                        "total_debates": total,
+                        "consensus_rate": consensus_count / total if total else 0,
+                        "avg_confidence": avg_conf,
+                        "avg_rounds": avg_rounds,
+                        "avg_duration": avg_duration,
+                    })
+            except (json.JSONDecodeError, KeyError):
+                pass
+
+        return json_response({
+            "patterns": patterns,
+            "agents": agents,
+            "debates": debates,
+        })
 
     @ttl_cache(ttl_seconds=CACHE_TTL_META_LEARNING, key_prefix="meta_learning_stats", skip_first=True)
     @handle_errors("meta learning stats retrieval")

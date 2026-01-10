@@ -1612,6 +1612,11 @@ class NomicLoop:
         self._force_judge_consensus: bool = False  # Break oscillations with judge
         self._cycle_start_time: datetime = None  # Track cycle start for warnings
 
+        # Floor breaker state for consensus deadlock recovery
+        self._floor_failure_count: int = 0  # Failures at threshold floor (0.4)
+        self._floor_breaker_activated: bool = False  # Track if floor breaker was used
+        self._forced_decisions: list = []  # Audit trail of forced decisions
+
         # Phase 5: EloSystem for agent skill tracking
         self.elo_system = None
         if ELO_AVAILABLE:
@@ -2213,6 +2218,12 @@ class NomicLoop:
                 self._consensus_threshold_decay += 1
                 new_threshold = self._get_adaptive_consensus_threshold()
                 self._log(f"  [DEADLOCK] Lowered consensus threshold to {new_threshold:.0%}")
+            else:
+                # At floor (0.4) - track floor failures for floor breaker
+                self._floor_failure_count += 1
+                self._log(f"  [DEADLOCK] Floor failure #{self._floor_failure_count} (threshold at minimum 40%)")
+                if self._floor_failure_count >= 2:
+                    self._log("  [DEADLOCK] Floor breaker will activate on next design fallback")
 
             self._deadlock_count += 1
             return "retry_with_reset"
@@ -2246,6 +2257,106 @@ class NomicLoop:
             self._log(f"  [consensus] Using adaptive threshold: {threshold:.0%} (decay level {self._consensus_threshold_decay})")
 
         return threshold
+
+    async def _activate_floor_breaker(
+        self,
+        proposals: dict,
+        vote_counts: dict,
+        improvement: str,
+    ) -> tuple:
+        """
+        Emergency floor breaker for when consensus threshold is at floor and still failing.
+
+        Escalation order:
+        1. Judge arbitration (uses existing _arbitrate_design)
+        2. Plurality wins (highest-voted proposal)
+        3. Random selection from top-2 viable proposals
+
+        Args:
+            proposals: Dict mapping agent name to their proposal
+            vote_counts: Dict mapping proposal/agent to vote count
+            improvement: The improvement being designed (for context)
+
+        Returns:
+            Tuple of (selected_design, selection_method) or (None, "exhausted")
+        """
+        self._log("  [floor-breaker] ACTIVATING - threshold at floor with repeated failures")
+        self._floor_breaker_activated = True
+
+        # Helper to validate design quality
+        def is_viable_design(d: str) -> bool:
+            if not d or len(d.strip()) < 100:
+                return False
+            keywords = ["file", "function", "class", "import", "def ", "async ", "return"]
+            return any(kw in d.lower() for kw in keywords)
+
+        # === Strategy 1: Judge Arbitration ===
+        self._log("  [floor-breaker] Strategy 1: Judge arbitration")
+        if proposals and len(proposals) >= 2:
+            try:
+                arbitrated = await self._arbitrate_design(proposals, improvement)
+                if arbitrated and is_viable_design(arbitrated):
+                    self._record_forced_decision("judge_arbitration", arbitrated, proposals)
+                    return arbitrated, "judge_arbitration"
+            except Exception as e:
+                self._log(f"  [floor-breaker] Judge arbitration failed: {e}")
+
+        # === Strategy 2: Plurality Wins ===
+        self._log("  [floor-breaker] Strategy 2: Plurality wins")
+        if vote_counts and proposals:
+            sorted_votes = sorted(vote_counts.items(), key=lambda x: x[1], reverse=True)
+            for agent, votes in sorted_votes:
+                if agent in proposals:
+                    proposal = proposals[agent]
+                    if is_viable_design(proposal):
+                        self._log(f"  [floor-breaker] Plurality winner: {agent} with {votes} votes")
+                        self._record_forced_decision("plurality_wins", proposal, proposals, winner=agent, votes=votes)
+                        return proposal, "plurality_wins"
+
+        # === Strategy 3: Random Selection from Top-2 ===
+        self._log("  [floor-breaker] Strategy 3: Random selection from viable proposals")
+        viable_proposals = [(agent, p) for agent, p in proposals.items() if is_viable_design(p)]
+        if len(viable_proposals) >= 2:
+            import random
+            selected_agent, selected_proposal = random.choice(viable_proposals[:2])
+            self._log(f"  [floor-breaker] Randomly selected: {selected_agent}")
+            self._record_forced_decision("random_top2", selected_proposal, proposals, winner=selected_agent)
+            return selected_proposal, "random_top2"
+        elif len(viable_proposals) == 1:
+            agent, proposal = viable_proposals[0]
+            self._log(f"  [floor-breaker] Only one viable proposal: {agent}")
+            self._record_forced_decision("only_viable", proposal, proposals, winner=agent)
+            return proposal, "only_viable"
+
+        self._log("  [floor-breaker] All strategies exhausted - no viable proposal found")
+        return None, "exhausted"
+
+    def _record_forced_decision(
+        self,
+        method: str,
+        selected: str,
+        all_proposals: dict,
+        **metadata
+    ) -> None:
+        """Record a forced decision for audit trail."""
+        record = {
+            "cycle": self.cycle_count,
+            "method": method,
+            "selected_length": len(selected) if selected else 0,
+            "proposal_count": len(all_proposals) if all_proposals else 0,
+            "floor_failure_count": self._floor_failure_count,
+            "timestamp": datetime.now().isoformat(),
+            **metadata
+        }
+        self._forced_decisions.append(record)
+        self._log(f"  [floor-breaker] Recorded forced decision: {method}")
+
+        # Emit event for dashboard visibility
+        if self.stream_emitter:
+            try:
+                self.stream_emitter.emit("forced_decision", record)
+            except Exception:
+                pass  # Non-critical
 
     def _reset_cycle_state(self):
         """Reset per-cycle state at the start of each cycle."""
@@ -9348,6 +9459,11 @@ Be concise - this is a quality gate, not a full review."""
         if not design_consensus:
             self._log("  [fallback] No design consensus - attempting multi-strategy recovery...")
             candidate_design = None
+            floor_breaker_method = None
+
+            # Check if floor breaker should be activated
+            at_floor = self._consensus_threshold_decay >= 2
+            activate_floor_breaker = at_floor and self._floor_failure_count >= 2
 
             # Helper to validate design quality
             def is_viable_design(d: str) -> bool:
@@ -9395,6 +9511,17 @@ Be concise - this is a quality gate, not a full review."""
                 candidate_design = conditional_design
                 self._log("  [fallback] Using conditional design from counterfactual analysis")
 
+            # Strategy 5: Floor breaker escalation (emergency last resort)
+            if not candidate_design and activate_floor_breaker and individual_proposals:
+                self._log("  [fallback] Standard strategies exhausted - activating floor breaker...")
+                candidate_design, floor_breaker_method = await self._activate_floor_breaker(
+                    individual_proposals, vote_counts, improvement
+                )
+                if candidate_design:
+                    design_result["floor_breaker_used"] = True
+                    design_result["floor_breaker_method"] = floor_breaker_method
+                    self._log(f"  [floor-breaker] Design forced via: {floor_breaker_method}")
+
             # Final assignment
             if candidate_design:
                 design = candidate_design
@@ -9404,6 +9531,7 @@ Be concise - this is a quality gate, not a full review."""
                 cycle_result["outcome"] = "design_no_consensus"
                 cycle_result["vote_counts"] = vote_counts
                 cycle_result["proposals_checked"] = len(individual_proposals) if individual_proposals else 0
+                cycle_result["floor_breaker_attempted"] = activate_floor_breaker
                 self._record_cycle_outcome("design_no_consensus", {"vote_counts": vote_counts})
                 return cycle_result
         elif design_confidence < 0.5:
@@ -10178,6 +10306,11 @@ Working directory: {self.aragora_path}
             if self._consensus_threshold_decay > 0:
                 self._log(f"  [consensus] Resetting threshold decay (was level {self._consensus_threshold_decay})")
                 self._consensus_threshold_decay = 0
+            # Reset floor breaker state
+            if self._floor_failure_count > 0:
+                self._log(f"  [floor-breaker] Resetting floor failure count (was {self._floor_failure_count})")
+                self._floor_failure_count = 0
+                self._floor_breaker_activated = False
 
         return cycle_result
 
