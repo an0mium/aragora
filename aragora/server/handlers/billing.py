@@ -127,12 +127,12 @@ class BillingHandler(BaseHandler):
         from aragora.billing.jwt_auth import extract_user_from_request
 
         # Get current user
-        auth_ctx = extract_user_from_request(handler)
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
         # Get user store
-        user_store = self._get_user_store()
         if not user_store:
             return error_response("Service unavailable", 503)
 
@@ -183,12 +183,12 @@ class BillingHandler(BaseHandler):
         from aragora.billing.jwt_auth import extract_user_from_request
 
         # Get current user
-        auth_ctx = extract_user_from_request(handler)
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
         # Get user store
-        user_store = self._get_user_store()
         if not user_store:
             return error_response("Service unavailable", 503)
 
@@ -251,7 +251,8 @@ class BillingHandler(BaseHandler):
         )
 
         # Get current user
-        auth_ctx = extract_user_from_request(handler)
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
@@ -279,7 +280,6 @@ class BillingHandler(BaseHandler):
             return error_response("Cannot checkout free tier", 400)
 
         # Get user store
-        user_store = self._get_user_store()
         if not user_store:
             return error_response("Service unavailable", 503)
 
@@ -332,7 +332,8 @@ class BillingHandler(BaseHandler):
         )
 
         # Get current user
-        auth_ctx = extract_user_from_request(handler)
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
@@ -346,7 +347,6 @@ class BillingHandler(BaseHandler):
             return error_response("Return URL required", 400)
 
         # Get user store
-        user_store = self._get_user_store()
         if not user_store:
             return error_response("Service unavailable", 503)
 
@@ -379,7 +379,8 @@ class BillingHandler(BaseHandler):
         from aragora.billing.stripe_client import get_stripe_client
 
         # Get current user
-        auth_ctx = extract_user_from_request(handler)
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
@@ -388,7 +389,6 @@ class BillingHandler(BaseHandler):
             return error_response("Only organization owners can cancel", 403)
 
         # Get user store
-        user_store = self._get_user_store()
         if not user_store:
             return error_response("Service unavailable", 503)
 
@@ -431,7 +431,8 @@ class BillingHandler(BaseHandler):
         from aragora.billing.stripe_client import get_stripe_client
 
         # Get current user
-        auth_ctx = extract_user_from_request(handler)
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 

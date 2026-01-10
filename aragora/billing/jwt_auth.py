@@ -27,6 +27,11 @@ JWT_EXPIRY_HOURS = int(os.environ.get("ARAGORA_JWT_EXPIRY_HOURS", "24"))
 REFRESH_TOKEN_EXPIRY_DAYS = int(os.environ.get("ARAGORA_REFRESH_TOKEN_EXPIRY_DAYS", "30"))
 
 
+def _allow_format_only_api_keys() -> bool:
+    """Allow format-only API key validation (development/testing only)."""
+    return os.environ.get("ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS", "0") == "1"
+
+
 def _get_secret() -> bytes:
     """Get JWT secret, generating one if not set."""
     global JWT_SECRET
@@ -331,7 +336,8 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
 
     Args:
         handler: HTTP request handler
-        user_store: Optional user store for API key validation against database
+        user_store: Optional user store for API key validation against database.
+                    API keys require a store unless ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS=1.
 
     Returns:
         UserAuthContext with authentication info
@@ -428,10 +434,15 @@ def _validate_api_key(api_key: str, context: UserAuthContext, user_store=None) -
             context.authenticated = False
             return context
 
-    # Fallback: format-only validation (development mode)
-    logger.debug(f"api_key_format_valid key_prefix={api_key[:8]}... (no db validation)")
-    context.authenticated = True
-    context.token_type = "api_key"
+    # Fallback: format-only validation (explicitly enabled for development)
+    if _allow_format_only_api_keys():
+        logger.debug(f"api_key_format_valid key_prefix={api_key[:8]}... (no db validation)")
+        context.authenticated = True
+        context.token_type = "api_key"
+        return context
+
+    logger.warning("api_key_validation_skipped_missing_store")
+    context.authenticated = False
     return context
 
 

@@ -9,6 +9,7 @@ Covers:
 - User authentication context extraction
 """
 
+import os
 import pytest
 import time
 from unittest.mock import Mock, patch
@@ -27,6 +28,8 @@ from aragora.billing.jwt_auth import (
     _base64url_encode,
     _base64url_decode,
 )
+from aragora.billing.models import User
+from aragora.server.handlers.auth import InMemoryUserStore
 
 
 class TestBase64UrlEncoding:
@@ -334,16 +337,33 @@ class TestExtractUserFromRequest:
         assert ctx.role == "admin"
         assert ctx.token_type == "access"
 
-    def test_bearer_api_key_validates_format(self):
-        """Bearer with API key format should validate."""
+    def test_bearer_api_key_validates_store(self):
+        """Bearer with API key should validate against user store."""
+        store = InMemoryUserStore()
+        user = User(email="test@example.com")
+        api_key = user.generate_api_key()
+        store.save_user(user)
+
+        handler = Mock()
+        handler.headers = {"Authorization": f"Bearer {api_key}"}
+
+        with patch("aragora.server.middleware.auth.extract_client_ip", return_value="127.0.0.1"):
+            ctx = extract_user_from_request(handler, store)
+
+        assert ctx.authenticated is True
+        assert ctx.user_id == user.id
+        assert ctx.token_type == "api_key"
+
+    def test_bearer_api_key_requires_store_by_default(self):
+        """Bearer API key should require a user store unless explicitly allowed."""
         handler = Mock()
         handler.headers = {"Authorization": "Bearer ara_validapikeywithsufficient_length"}
 
-        with patch("aragora.server.middleware.auth.extract_client_ip", return_value="127.0.0.1"):
-            ctx = extract_user_from_request(handler)
+        with patch.dict(os.environ, {"ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS": "0"}):
+            with patch("aragora.server.middleware.auth.extract_client_ip", return_value="127.0.0.1"):
+                ctx = extract_user_from_request(handler)
 
-        assert ctx.authenticated is True
-        assert ctx.token_type == "api_key"
+        assert ctx.authenticated is False
 
     def test_invalid_api_key_format_rejected(self):
         """Short or invalid API key should be rejected."""

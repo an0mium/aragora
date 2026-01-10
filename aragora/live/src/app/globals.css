@@ -205,6 +205,184 @@ body {
   background: var(--terminal-green);
 }
 
+/* ==========================================================================
+   Panel System - Consistent styling for sidebar panels
+   ========================================================================== */
+
+/* Base panel container - all panels should use this */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem; /* rounded-lg equivalent */
+  padding: 1rem;
+}
+
+.panel-compact {
+  padding: 0.75rem;
+}
+
+/* Panel with accent border (for important/featured panels) */
+.panel-accent {
+  border-color: var(--acid-green);
+  border-opacity: 0.3;
+}
+
+/* Panel header - consistent across all panels */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.panel-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.panel-title-sm {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+/* Panel actions (refresh button, expand toggle, etc.) */
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Panel content area */
+.panel-content {
+  max-height: 20rem; /* 320px */
+  overflow-y: auto;
+}
+
+.panel-content-tall {
+  max-height: 24rem; /* 384px */
+}
+
+/* Panel empty state */
+.panel-empty {
+  text-align: center;
+  padding: 1rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Panel error state */
+.panel-error {
+  padding: 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 0.375rem;
+  color: #f87171;
+  font-size: 0.75rem;
+  font-family: inherit;
+}
+
+/* Panel list items */
+.panel-item {
+  padding: 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  transition: border-color 0.2s ease;
+}
+
+.panel-item:hover {
+  border-color: rgba(57, 255, 20, 0.3);
+}
+
+/* Collapsible panel header (for inline expand/collapse) */
+.panel-collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.panel-collapsible-header:hover {
+  background: rgba(57, 255, 20, 0.05);
+}
+
+.panel-toggle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: inherit;
+}
+
+/* Panel tabs */
+.panel-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+.panel-tab {
+  flex: 1;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  border-radius: 0.25rem;
+  transition: all 0.2s ease;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.panel-tab:hover {
+  color: var(--text);
+}
+
+.panel-tab-active {
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 500;
+}
+
+/* Panel badge/count indicator */
+.panel-badge {
+  padding: 0.125rem 0.375rem;
+  font-size: 0.625rem;
+  font-family: inherit;
+  background: rgba(57, 255, 20, 0.2);
+  color: var(--acid-green);
+  border-radius: 0.25rem;
+}
+
+/* Light mode adjustments for panels */
+[data-theme="light"] .panel {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .panel-item:hover {
+  border-color: rgba(45, 138, 64, 0.4);
+}
+
+[data-theme="light"] .panel-collapsible-header:hover {
+  background: rgba(45, 138, 64, 0.05);
+}
+
+[data-theme="light"] .panel-tab-active {
+  background: var(--accent);
+  color: white;
+}
+
+/* ==========================================================================
+   End Panel System
+   ========================================================================== */
+
 /* Utility classes */
 .gradient-text {
   background: linear-gradient(135deg, var(--acid-green), var(--acid-cyan));

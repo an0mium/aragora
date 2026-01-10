@@ -125,6 +125,7 @@ JWT authentication and Stripe integration for paid tiers.
 | `ARAGORA_JWT_SECRET` | Recommended | Secret key for JWT signing | Auto-generated |
 | `ARAGORA_JWT_EXPIRY_HOURS` | Optional | Access token expiry | `24` |
 | `ARAGORA_REFRESH_TOKEN_EXPIRY_DAYS` | Optional | Refresh token expiry | `30` |
+| `ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS` | Optional | Allow API key format-only validation (dev/test) | `0` |
 
 **Important:** Set `ARAGORA_JWT_SECRET` in production. Auto-generated secrets are invalidated on restart.
 

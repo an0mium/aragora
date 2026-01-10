@@ -313,7 +313,8 @@ class AuthHandler(BaseHandler):
         from aragora.billing.jwt_auth import extract_user_from_request
 
         # Get current user
-        auth_ctx = extract_user_from_request(handler)
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
@@ -329,12 +330,12 @@ class AuthHandler(BaseHandler):
         from aragora.billing.jwt_auth import extract_user_from_request
 
         # Get current user
-        auth_ctx = extract_user_from_request(handler)
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
         # Get user store
-        user_store = self._get_user_store()
         if not user_store:
             return error_response("Authentication service unavailable", 503)
 
@@ -363,7 +364,8 @@ class AuthHandler(BaseHandler):
         from aragora.billing.jwt_auth import extract_user_from_request
 
         # Get current user
-        auth_ctx = extract_user_from_request(handler)
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
@@ -373,7 +375,6 @@ class AuthHandler(BaseHandler):
             return error_response("Invalid JSON body", 400)
 
         # Get user store
-        user_store = self._get_user_store()
         if not user_store:
             return error_response("Authentication service unavailable", 503)
 
@@ -398,7 +399,8 @@ class AuthHandler(BaseHandler):
         from aragora.billing.jwt_auth import extract_user_from_request
 
         # Get current user
-        auth_ctx = extract_user_from_request(handler)
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
@@ -419,7 +421,6 @@ class AuthHandler(BaseHandler):
             return error_response(err, 400)
 
         # Get user store
-        user_store = self._get_user_store()
         if not user_store:
             return error_response("Authentication service unavailable", 503)
 
@@ -446,12 +447,12 @@ class AuthHandler(BaseHandler):
         from aragora.billing.jwt_auth import extract_user_from_request
 
         # Get current user
-        auth_ctx = extract_user_from_request(handler)
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
         # Get user store
-        user_store = self._get_user_store()
         if not user_store:
             return error_response("Authentication service unavailable", 503)
 
@@ -488,12 +489,12 @@ class AuthHandler(BaseHandler):
         from aragora.billing.jwt_auth import extract_user_from_request
 
         # Get current user
-        auth_ctx = extract_user_from_request(handler)
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
         # Get user store
-        user_store = self._get_user_store()
         if not user_store:
             return error_response("Authentication service unavailable", 503)
 

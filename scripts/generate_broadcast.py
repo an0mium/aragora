@@ -3,7 +3,7 @@
 Generate Aragora Broadcast podcast from debate trace.
 
 Usage:
-    python scripts/generate_broadcast.py --trace_id <id> --output debate.mp3
+    python scripts/generate_broadcast.py --trace_id <id> --db aragora_traces.db --output debate.mp3
     python scripts/generate_broadcast.py --trace_file path/to/trace.json --output debate.mp3
 """
 
@@ -15,7 +15,7 @@ from pathlib import Path
 # Add aragora to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aragora.debate.traces import DebateTrace
+from aragora.debate.traces import DebateTrace, DebateReplayer
 from aragora.broadcast.script_gen import generate_script
 from aragora.broadcast.audio_engine import generate_audio
 from aragora.broadcast.mixer import mix_audio, mix_audio_with_ffmpeg
@@ -25,6 +25,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Generate Aragora Broadcast podcast")
     parser.add_argument("--trace_id", help="Trace ID to load from database")
     parser.add_argument("--trace_file", help="Path to trace JSON file")
+    parser.add_argument("--db", default="aragora_traces.db", help="Trace database path")
     parser.add_argument("--output", required=True, help="Output MP3 file path")
     parser.add_argument("--temp_dir", help="Temporary directory for audio segments")
 
@@ -42,10 +43,18 @@ async def main():
             return 1
         trace = DebateTrace.load(trace_path)
     else:
-        # TODO: Load from database using trace_id
-        print(f"Loading trace {args.trace_id} from database not implemented yet")
-        print("Use --trace_file for now")
-        return 1
+        try:
+            replayer = DebateReplayer.from_database(args.trace_id, db_path=args.db)
+        except ValueError:
+            if args.trace_id.startswith("trace-"):
+                print(f"Trace not found: {args.trace_id}")
+                return 1
+            try:
+                replayer = DebateReplayer.from_database(f"trace-{args.trace_id}", db_path=args.db)
+            except ValueError:
+                print(f"Trace not found: {args.trace_id}")
+                return 1
+        trace = replayer.trace
 
     print(f"Loaded debate trace: {trace.task[:100]}...")
     print(f"Found {len(trace.events)} events")

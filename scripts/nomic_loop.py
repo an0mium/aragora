@@ -5498,25 +5498,83 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             self._log(f"  [forking] Check error: {e}")
             return None
 
-    async def _run_forked_debate(self, fork_decision: "ForkDecision", base_context: str) -> "MergeResult":
-        """Run forked parallel debates (P30: DebateForker).
-
-        Note: This feature requires proper Environment, agents, and run_debate_fn
-        to be passed to run_branches. Currently disabled until full integration.
-        """
+    async def _run_forked_debate(
+        self,
+        fork_decision: "ForkDecision",
+        env: "Environment",
+        agents: list,
+        protocol: "DebateProtocol",
+        messages: list,
+        round_num: int,
+        debate_id: str,
+        base_context: str,
+    ) -> "MergeResult":
+        """Run forked parallel debates (P30: DebateForker)."""
         if not DEBATE_FORKER_AVAILABLE or not self.fork_debate_enabled or not fork_decision:
             return None
         try:
             branches = getattr(fork_decision, 'branches', [])
             if not branches:
-                self._log(f"  [forking] No branches in fork decision")
+                self._log("  [forking] No branches in fork decision")
                 return None
 
-            self._log(f"  [forking] Fork detected with {len(branches)} branches")
-            # TODO: Full forking requires Environment, agents list, and run_debate_fn
-            # For now, log the fork but don't execute parallel branches
-            self._log(f"  [forking] Skipping parallel execution (integration pending)")
-            return None
+            forker = DebateForker()
+            created = forker.fork(
+                parent_debate_id=debate_id,
+                fork_round=round_num,
+                messages_so_far=messages,
+                decision=fork_decision,
+            )
+            if not created:
+                self._log("  [forking] Forker created no branches")
+                return None
+
+            self._log(f"  [forking] Fork detected with {len(created)} branches")
+
+            async def run_debate_fn(branch_env, branch_agents, initial_messages=None):
+                branch_env.context = base_context
+                agent_weights = getattr(self, "_last_probe_weights", {}) or {}
+                branch_arena = Arena(
+                    branch_env,
+                    branch_agents,
+                    protocol,
+                    memory=self.critique_store,
+                    debate_embeddings=self.debate_embeddings,
+                    insight_store=self.insight_store,
+                    agent_weights=agent_weights,
+                    position_tracker=self.position_tracker,
+                    position_ledger=self.position_ledger,
+                    calibration_tracker=self.calibration_tracker,
+                    elo_system=self.elo_system,
+                    event_emitter=self.stream_emitter,
+                    loop_id=self.loop_id,
+                    event_hooks=self._create_arena_hooks("forked-debate"),
+                    persona_manager=self.persona_manager,
+                    relationship_tracker=self.relationship_tracker,
+                    moment_detector=self.moment_detector,
+                    continuum_memory=self.continuum,
+                    use_airlock=True,
+                    initial_messages=initial_messages or [],
+                )
+                return await self._run_arena_with_logging(branch_arena, "forked-debate")
+
+            max_rounds = min(3, max(1, protocol.rounds))
+            completed = await forker.run_branches(
+                created,
+                env,
+                agents,
+                run_debate_fn,
+                max_rounds=max_rounds,
+            )
+            if not completed:
+                self._log("  [forking] No branches completed")
+                return None
+
+            merge_result = forker.merge(completed)
+            fork_points = forker.fork_points.get(debate_id, [])
+            if fork_points:
+                self._record_fork_outcome(fork_points[-1], merge_result)
+            return merge_result
         except Exception as e:
             self._log(f"  [forking] Run error: {e}")
             return None
@@ -6999,16 +7057,31 @@ Recent changes:
                 rounds = result.rounds_used if hasattr(result, 'rounds_used') else 3
 
                 fork_decision = self._check_should_fork(messages, rounds, debate_team)
-                if fork_decision:
+                if fork_decision and getattr(fork_decision, "should_fork", False):
                     self._log(f"  [fork] Deadlock detected - forking into {len(fork_decision.branches)} branches")
                     base_context = f"Original debate topic: {task}\n\nPrior context: {topic_hint or ''}"
-                    merge_result = await self._run_forked_debate(fork_decision, base_context)
+                    merge_result = await self._run_forked_debate(
+                        fork_decision=fork_decision,
+                        env=env,
+                        agents=debate_team,
+                        protocol=protocol,
+                        messages=messages,
+                        round_num=rounds,
+                        debate_id=debate_id,
+                        base_context=base_context,
+                    )
 
-                    if merge_result and hasattr(merge_result, 'winning_answer'):
-                        self._log(f"  [fork] Merged branches - selected answer from '{merge_result.winning_branch}'")
-                        result.final_answer = merge_result.winning_answer
-                        result.consensus_reached = True
-                        result.confidence = getattr(merge_result, 'confidence', 0.75)
+                    if merge_result:
+                        winning = merge_result.all_branch_results.get(merge_result.winning_branch_id)
+                        if winning and winning.final_answer:
+                            self._log(
+                                f"  [fork] Merged branches - selected branch '{merge_result.winning_branch_id}'"
+                            )
+                            result.final_answer = winning.final_answer
+                            result.consensus_reached = winning.consensus_reached
+                            result.confidence = max(result.confidence, winning.confidence)
+                            result.fork_merge_summary = merge_result.comparison_summary
+                            result.fork_merged_insights = merge_result.merged_insights
             except Exception as e:
                 self._log(f"  [fork] Forking failed: {e}")
 
