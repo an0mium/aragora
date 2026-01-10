@@ -193,12 +193,11 @@ class SchemaManager:
 
     def set_version(self, version: int) -> None:
         """Set the schema version for this module."""
+        # Use INSERT OR REPLACE for SQLite 3.7 compatibility (EC2)
+        # This requires module to be the primary key, which it is
         self.conn.execute("""
-            INSERT INTO _schema_versions (module, version, updated_at)
+            INSERT OR REPLACE INTO _schema_versions (module, version, updated_at)
             VALUES (?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(module) DO UPDATE SET
-                version = excluded.version,
-                updated_at = CURRENT_TIMESTAMP
         """, (self.module_name, version))
         self.conn.commit()
 
