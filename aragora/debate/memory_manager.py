@@ -11,6 +11,8 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from aragora.agents.errors import _build_error_action
+
 if TYPE_CHECKING:
     from aragora.core import DebateResult
     from aragora.memory.continuum import ContinuumMemory
@@ -140,7 +142,8 @@ class MemoryManager:
             logger.info(f"  [continuum] Stored outcome as {tier}-tier memory (importance: {importance:.2f})")
 
         except Exception as e:
-            logger.warning(f"  [continuum] Failed to store outcome: {e}")
+            _, msg, exc_info = _build_error_action(e, "continuum")
+            logger.warning(f"  [continuum] Failed to store outcome: {msg}", exc_info=exc_info)
 
     def store_consensus_record(
         self,
@@ -228,7 +231,8 @@ class MemoryManager:
                 self._store_agent_dissent(record.id, agent_name, result, task)
 
         except Exception as e:
-            logger.warning(f"  [consensus] Failed to store record: {e}")
+            _, msg, exc_info = _build_error_action(e, "consensus")
+            logger.warning(f"  [consensus] Failed to store record: {msg}", exc_info=exc_info)
 
     def _confidence_to_strength(self, confidence: float) -> "ConsensusStrength":
         """Convert confidence score to ConsensusStrength enum."""
@@ -354,7 +358,8 @@ class MemoryManager:
                 logger.info(f"  [continuum] Stored {stored_count} evidence snippets for future retrieval")
 
         except Exception as e:
-            logger.warning(f"  [continuum] Failed to store evidence: {e}")
+            _, msg, exc_info = _build_error_action(e, "continuum")
+            logger.warning(f"  [continuum] Failed to store evidence: {msg}", exc_info=exc_info)
 
     def update_memory_outcomes(self, result: "DebateResult") -> None:
         """Update retrieved memories based on debate outcome.
@@ -392,7 +397,8 @@ class MemoryManager:
             self._retrieved_ids = []
 
         except Exception as e:
-            logger.warning(f"  [continuum] Failed to update memory outcomes: {e}")
+            _, msg, exc_info = _build_error_action(e, "continuum")
+            logger.warning(f"  [continuum] Failed to update memory outcomes: {msg}", exc_info=exc_info)
 
     async def fetch_historical_context(self, task: str, limit: int = 3) -> str:
         """Fetch similar past debates for historical context.

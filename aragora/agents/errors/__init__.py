@@ -74,6 +74,7 @@ from .handlers import (
     handle_agent_operation,
     AgentErrorHandler,
     make_fallback_message,
+    _build_error_action,
 )
 
 # Re-export sanitization from utils for backward compatibility
@@ -142,6 +143,7 @@ __all__ = [
     "handle_agent_operation",
     "AgentErrorHandler",
     "make_fallback_message",
+    "_build_error_action",
     # Sanitization
     "sanitize_error",
     "_SENSITIVE_PATTERNS",

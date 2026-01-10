@@ -4,9 +4,23 @@ Core abstractions for the Agora multi-agent debate framework.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Callable, Literal, Optional
 from datetime import datetime
 import uuid
+
+
+class TaskComplexity(Enum):
+    """Classification of task complexity for timeout scaling.
+
+    Used by AdaptiveComplexityGovernor to scale timeouts based on
+    estimated task difficulty.
+    """
+
+    SIMPLE = "simple"  # Quick surveys, simple questions, definitions
+    MODERATE = "moderate"  # Standard design/analysis tasks
+    COMPLEX = "complex"  # Deep reasoning, multi-step problems, formal proofs
+    UNKNOWN = "unknown"  # Fallback when classification is uncertain
 
 
 @dataclass

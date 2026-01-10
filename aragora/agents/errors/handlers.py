@@ -151,8 +151,35 @@ def make_fallback_message(agent_name: str, operation: str = "turn") -> str:
     return f"[System: Agent {agent_name} encountered an error - skipping this {operation}]"
 
 
+def _build_error_action(e: Exception, context: str = "") -> tuple[str, str, bool]:
+    """Build error action info for consistent logging.
+
+    Classifies an exception and returns logging information.
+
+    Args:
+        e: The exception to classify
+        context: Optional context string (e.g., "calibration", "memory")
+
+    Returns:
+        Tuple of (category, log_message, should_use_exc_info)
+    """
+    _, category = ErrorClassifier.classify_error(e)
+
+    prefix = f"[{context}] " if context else ""
+    type_name = type(e).__name__
+
+    # Build message with category context
+    log_message = f"{prefix}{type_name} ({category}): {e}"
+
+    # Use exc_info for unexpected/unknown errors
+    should_use_exc_info = category == "unknown"
+
+    return category, log_message, should_use_exc_info
+
+
 __all__ = [
     "handle_agent_operation",
     "AgentErrorHandler",
     "make_fallback_message",
+    "_build_error_action",
 ]

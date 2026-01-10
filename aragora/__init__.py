@@ -72,7 +72,14 @@ Inspired by:
 """
 
 # Core
-from aragora.core import Agent, Critique, DebateResult, Environment, DisagreementReport
+from aragora.core import (
+    Agent,
+    Critique,
+    DebateResult,
+    DisagreementReport,
+    Environment,
+    TaskComplexity,
+)
 
 # Debate Orchestration
 from aragora.debate.orchestrator import Arena, DebateProtocol
@@ -304,6 +311,7 @@ from aragora.templates import (
     RESEARCH_SYNTHESIS_TEMPLATE,
     get_template,
     list_templates,
+    template_to_protocol,
 )
 
 # Verification
@@ -423,6 +431,7 @@ __all__ = [
     "DebateResult",
     "DisagreementReport",
     "Environment",
+    "TaskComplexity",
     # Debate Orchestration
     "Arena",
     "DebateProtocol",
@@ -629,6 +638,7 @@ __all__ = [
     "RESEARCH_SYNTHESIS_TEMPLATE",
     "get_template",
     "list_templates",
+    "template_to_protocol",
     # Verification
     "VerificationProof",
     "ProofType",

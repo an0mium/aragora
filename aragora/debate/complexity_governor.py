@@ -18,7 +18,88 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional, Callable
 
+from aragora.core import TaskComplexity
+
 logger = logging.getLogger(__name__)
+
+
+# Timeout scaling factors based on task complexity
+COMPLEXITY_TIMEOUT_FACTORS = {
+    TaskComplexity.SIMPLE: 0.5,  # 90s instead of 180s
+    TaskComplexity.MODERATE: 1.0,  # 180s (default)
+    TaskComplexity.COMPLEX: 1.5,  # 270s
+    TaskComplexity.UNKNOWN: 0.75,  # 135s (conservative for unknown)
+}
+
+
+def classify_task_complexity(task: str) -> TaskComplexity:
+    """Classify task complexity based on text signals.
+
+    Uses keyword matching to estimate whether a task is simple, moderate,
+    or complex. This affects timeout allocation.
+
+    Args:
+        task: The task description text
+
+    Returns:
+        TaskComplexity enum value
+    """
+    if not task:
+        return TaskComplexity.UNKNOWN
+
+    task_lower = task.lower()
+
+    # Complex indicators - deep reasoning, formal methods, multi-step
+    complex_signals = [
+        "prove",
+        "formally",
+        "verify",
+        "optimize",
+        "design",  # Design tasks are generally complex
+        "architecture",
+        "trade-off",
+        "comprehensive",
+        "analyze",
+        "implement",
+        "refactor",
+        "security",
+        "performance",
+        "scalability",
+        "distributed",
+        "algorithm",
+        "system",  # System-level tasks are complex
+    ]
+    if any(s in task_lower for s in complex_signals):
+        return TaskComplexity.COMPLEX
+
+    # Simple indicators - quick lookups, definitions, short answers
+    simple_signals = [
+        "what is",
+        "define ",  # Note space to avoid matching "defined"
+        "list the",
+        "quick",
+        "simple",
+        "basic",
+        "name the",
+        "which is",
+        "yes or no",
+        "true or false",
+        "capital of",
+        "how many",
+        "who is",
+        "when did",
+        "where is",
+    ]
+    if any(s in task_lower for s in simple_signals):
+        return TaskComplexity.SIMPLE
+
+    # Length heuristic - only for very short or very long tasks
+    if len(task) < 30:
+        return TaskComplexity.SIMPLE
+    elif len(task) > 500:
+        return TaskComplexity.COMPLEX
+
+    return TaskComplexity.MODERATE
 
 
 class StressLevel(Enum):
@@ -196,6 +277,9 @@ class AdaptiveComplexityGovernor:
         self.round_history: list[dict] = []
         self.consecutive_failures = 0
         self.last_adjustment_time = time.time()
+
+        # Task complexity for timeout scaling
+        self.task_complexity: TaskComplexity = TaskComplexity.MODERATE
 
         # Minimum time between adjustments (prevent thrashing)
         self.adjustment_cooldown_seconds = 60.0
@@ -420,10 +504,54 @@ class AdaptiveComplexityGovernor:
         """Get recommended number of agents for current stress level."""
         return self.current_constraints.max_agents_per_round
 
+    def set_task_complexity(self, complexity: TaskComplexity) -> None:
+        """Set the task complexity for timeout scaling.
+
+        Should be called at the start of a debate to configure
+        complexity-based timeout adjustments.
+
+        Args:
+            complexity: The classified task complexity
+        """
+        self.task_complexity = complexity
+        logger.info(f"governor_task_complexity complexity={complexity.value}")
+
+    def get_scaled_timeout(self, base_timeout: float = 180.0) -> float:
+        """Get timeout scaled by both stress level and task complexity.
+
+        The timeout is first adjusted by task complexity (simple = faster,
+        complex = more time), then constrained by stress level.
+
+        Args:
+            base_timeout: Base timeout in seconds (default 180s)
+
+        Returns:
+            Scaled timeout in seconds
+        """
+        # Apply task complexity scaling
+        complexity_factor = COMPLEXITY_TIMEOUT_FACTORS.get(
+            self.task_complexity, 1.0
+        )
+        scaled = base_timeout * complexity_factor
+
+        # Apply stress level constraints (stress reduces available time)
+        stress_limit = self.current_constraints.agent_timeout_seconds
+        final_timeout = min(scaled, stress_limit)
+
+        logger.debug(
+            f"governor_scaled_timeout base={base_timeout:.0f} "
+            f"complexity={self.task_complexity.value}({complexity_factor}) "
+            f"stress={self.stress_level.value}(limit={stress_limit:.0f}) "
+            f"final={final_timeout:.0f}"
+        )
+
+        return final_timeout
+
     def get_status(self) -> dict:
         """Get governor status for monitoring."""
         return {
             "stress_level": self.stress_level.value,
+            "task_complexity": self.task_complexity.value,
             "constraints": self.current_constraints.to_dict(),
             "consecutive_failures": self.consecutive_failures,
             "agent_metrics": {
@@ -444,6 +572,7 @@ class AdaptiveComplexityGovernor:
         self.round_history.clear()
         self.consecutive_failures = 0
         self.stress_level = StressLevel.NOMINAL
+        self.task_complexity = TaskComplexity.MODERATE
         self.current_constraints = self.CONSTRAINT_PRESETS[StressLevel.NOMINAL]
         logger.info("governor_reset")
 
