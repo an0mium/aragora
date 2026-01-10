@@ -7,6 +7,7 @@ orchestrator size and improve testability.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from aragora.debate.context_gatherer import ContextGatherer
@@ -24,6 +25,8 @@ from aragora.debate.phases import (
 from aragora.debate.protocol import user_vote_multiplier
 from aragora.debate.prompt_builder import PromptBuilder
 from aragora.reasoning.evidence_grounding import EvidenceGrounder
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from aragora.debate.orchestrator import Arena
@@ -114,6 +117,31 @@ def init_phases(arena: "Arena") -> None:
         extract_citation_needs=arena._extract_citation_needs,
     )
 
+    # Initialize optional advanced features based on protocol flags
+    rhetorical_observer = None
+    trickster = None
+
+    # Rhetorical Observer for debate pattern detection (concession, rebuttal, synthesis)
+    if getattr(arena.protocol, 'enable_rhetorical_observer', False):
+        try:
+            from aragora.debate.rhetorical_observer import get_rhetorical_observer
+            rhetorical_observer = get_rhetorical_observer()
+            logger.info("rhetorical_observer enabled for debate pattern detection")
+        except ImportError as e:
+            logger.debug(f"Rhetorical observer unavailable: {e}")
+
+    # Trickster for hollow consensus detection and echo chamber prevention
+    if getattr(arena.protocol, 'enable_trickster', False):
+        try:
+            from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
+            trickster_config = TricksterConfig(
+                sensitivity=getattr(arena.protocol, 'trickster_sensitivity', 0.7)
+            )
+            trickster = EvidencePoweredTrickster(config=trickster_config)
+            logger.info("trickster enabled for hollow consensus detection")
+        except ImportError as e:
+            logger.debug(f"Trickster unavailable: {e}")
+
     # Phase 2: Debate Rounds (critique/revision loop)
     arena.debate_rounds_phase = DebateRoundsPhase(
         protocol=arena.protocol,
@@ -121,6 +149,9 @@ def init_phases(arena: "Arena") -> None:
         convergence_detector=arena.convergence_detector,
         recorder=arena.recorder,
         hooks=arena.hooks,
+        trickster=trickster,
+        rhetorical_observer=rhetorical_observer,
+        event_emitter=arena.event_emitter,
         update_role_assignments=arena._update_role_assignments,
         assign_stances=arena._assign_stances,
         select_critics_for_proposal=arena._select_critics_for_proposal,
