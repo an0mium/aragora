@@ -44,11 +44,11 @@
 }
 
 /* Light theme - warm, humanistic but still techy */
-/* Inspired by claude.ai's warm cream tones, blended 50% with terminal aesthetic */
+/* Inspired by claude.ai's warm cream tones, shifted 35% closer to pure white */
 [data-theme="light"] {
-  --bg: #f7f5f2;              /* warm gray-cream */
-  --surface: #fdfcfa;          /* warm off-white */
-  --surface-elevated: #f9f7f4; /* warm elevated surface */
+  --bg: #faf9f7;              /* light warm cream */
+  --surface: #fefdfc;          /* near-white surface */
+  --surface-elevated: #fbfaf8; /* elevated surface */
   --border: #e2ded8;           /* warm border */
   --border-glow: #2d8a4040;    /* softer green glow */
   --text: #2c2a28;             /* warm dark brown-black */
