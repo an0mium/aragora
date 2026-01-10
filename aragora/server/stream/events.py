@@ -73,6 +73,13 @@ class StreamEventType(Enum):
     # Position tracking events
     FLIP_DETECTED = "flip_detected"      # Agent position reversal detected
 
+    # Feature integration events (data flow from backends to panels)
+    TRAIT_EMERGED = "trait_emerged"          # New agent trait detected by PersonaLaboratory
+    RISK_WARNING = "risk_warning"            # Domain risk identified
+    EVIDENCE_FOUND = "evidence_found"        # Supporting evidence collected
+    CALIBRATION_UPDATE = "calibration_update"  # Confidence calibration updated
+    GENESIS_EVOLUTION = "genesis_evolution"  # Agent population evolved
+
     # Rhetorical analysis events
     RHETORICAL_OBSERVATION = "rhetorical_observation"  # Rhetorical pattern detected
 

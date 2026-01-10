@@ -128,7 +128,7 @@ class DebateProtocol:
 
     # Calibration tracking: Record prediction accuracy for calibration curves
     # When enabled, agent prediction confidence is tracked against outcomes
-    enable_calibration: bool = False  # Enable calibration tracking
+    enable_calibration: bool = True  # Enable calibration tracking by default
 
     # Rhetorical observer: Passive commentary on debate dynamics
     # Detects patterns like concession, rebuttal, synthesis for audience engagement
@@ -136,17 +136,18 @@ class DebateProtocol:
 
     # Trickster for hollow consensus detection
     # Challenges convergence that lacks evidence quality
-    enable_trickster: bool = False  # Enable hollow consensus detection
+    enable_trickster: bool = True  # Enable hollow consensus detection by default
     trickster_sensitivity: float = 0.7  # Threshold for triggering challenges
 
     # Prompt evolution: Learn from debate outcomes to improve agent prompts
     # When enabled, PromptEvolver extracts winning patterns and updates prompts
     enable_evolution: bool = False  # Enable prompt evolution from debate outcomes
 
-    # Formal verification during consensus: Optional claim verification
-    # When enabled, claims in proposals are verified using Z3/Lean backends
+    # Formal verification during consensus: Claim verification for quality
+    # When enabled, claims in proposals are verified using pattern matching
     # during vote weighting. Verified claims get a weight bonus.
-    verify_claims_during_consensus: bool = False  # Enable claim verification
+    # Enabled by default to improve debate quality feedback loop.
+    verify_claims_during_consensus: bool = True  # Enable claim verification
     verification_weight_bonus: float = 0.2  # Boost for verified claims (0.0-1.0)
     verification_timeout_seconds: float = 5.0  # Quick timeout per verification
 
