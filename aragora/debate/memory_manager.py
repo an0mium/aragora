@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from aragora.spectate.stream import SpectatorStream
 
 from aragora.memory.continuum import MemoryTier
+from aragora.memory.tier_analytics import TierAnalyticsTracker
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class MemoryManager:
         event_emitter: Optional[Any] = None,  # SyncEventEmitter - avoid circular import
         spectator: Optional["SpectatorStream"] = None,
         loop_id: str = "",
+        tier_analytics_tracker: Optional[TierAnalyticsTracker] = None,
     ) -> None:
         """Initialize memory manager with memory systems.
 
@@ -57,6 +59,7 @@ class MemoryManager:
             event_emitter: Optional event emitter for stream events
             spectator: Optional spectator stream for notifications
             loop_id: Loop ID for event scoping
+            tier_analytics_tracker: Optional TierAnalyticsTracker for ROI tracking
         """
         self.continuum_memory = continuum_memory
         self.critique_store = critique_store
@@ -66,9 +69,12 @@ class MemoryManager:
         self.event_emitter = event_emitter
         self.spectator = spectator
         self.loop_id = loop_id
+        self.tier_analytics_tracker = tier_analytics_tracker
 
         # Track retrieved memory IDs for outcome updates
         self._retrieved_ids: list[str] = []
+        # Track tier info for analytics
+        self._retrieved_tiers: dict[str, MemoryTier] = {}
 
         # Pattern cache: (timestamp, formatted_patterns) - TTL 5 minutes
         self._patterns_cache: tuple[float, str] | None = None
@@ -406,6 +412,8 @@ class MemoryManager:
         Implements surprise-based learning: memories that led to successful
         debates get reinforced, those that didn't get demoted.
 
+        Also records usage analytics for tier ROI tracking.
+
         Args:
             result: The debate result to use for updates
         """
@@ -426,14 +434,31 @@ class MemoryManager:
                         agent_prediction_error=prediction_error,
                     )
                     updated_count += 1
+
+                    # Record usage for tier analytics if tracker available
+                    if self.tier_analytics_tracker and mem_id in self._retrieved_tiers:
+                        try:
+                            # quality_before: neutral baseline (0.5)
+                            # quality_after: debate outcome confidence
+                            self.tier_analytics_tracker.record_usage(
+                                memory_id=mem_id,
+                                tier=self._retrieved_tiers[mem_id],
+                                debate_id=result.id,
+                                quality_before=0.5,
+                                quality_after=result.confidence if success else 0.3,
+                            )
+                        except Exception as e:
+                            logger.debug(f"  [tier_analytics] Failed to record usage for {mem_id}: {e}")
+
                 except Exception as e:
                     logger.debug(f"  [continuum] Failed to update memory {mem_id}: {e}")
 
             if updated_count > 0:
                 logger.info(f"  [continuum] Updated {updated_count} memories with outcome (success={success})")
 
-            # Clear tracked IDs after update
+            # Clear tracked IDs and tiers after update
             self._retrieved_ids = []
+            self._retrieved_tiers = {}
 
         except Exception as e:
             _, msg, exc_info = _build_error_action(e, "continuum")
@@ -587,17 +612,24 @@ class MemoryManager:
             except Exception as e:
                 logger.debug(f"Spectator notification error: {e}")
 
-    def track_retrieved_ids(self, ids: list[str]) -> None:
+    def track_retrieved_ids(
+        self,
+        ids: list[str],
+        tiers: Optional[dict[str, MemoryTier]] = None,
+    ) -> None:
         """Track retrieved memory IDs for later outcome updates.
 
         Args:
             ids: List of memory IDs that were retrieved
+            tiers: Optional dict mapping memory ID to its tier (for analytics)
         """
         self._retrieved_ids = [i for i in ids if i]
+        self._retrieved_tiers = tiers or {}
 
     def clear_retrieved_ids(self) -> None:
-        """Clear tracked retrieved IDs."""
+        """Clear tracked retrieved IDs and tier info."""
         self._retrieved_ids = []
+        self._retrieved_tiers = {}
 
     @property
     def retrieved_ids(self) -> list[str]:

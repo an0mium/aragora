@@ -150,6 +150,7 @@ class ArenaConfig:
     continuum_memory: Optional[object] = None
     relationship_tracker: Optional[object] = None
     moment_detector: Optional[object] = None
+    tier_analytics_tracker: Optional[object] = None  # TierAnalyticsTracker for memory ROI
 
     # Genesis evolution
     population_manager: Optional[object] = None  # PopulationManager for genome evolution
@@ -220,6 +221,7 @@ class Arena:
         continuum_memory=None,  # Optional ContinuumMemory for cross-debate learning
         relationship_tracker=None,  # Optional RelationshipTracker for agent relationships
         moment_detector=None,  # Optional MomentDetector for significant moments
+        tier_analytics_tracker=None,  # Optional TierAnalyticsTracker for memory ROI
         loop_id: str = "",  # Loop ID for multi-loop scoping
         strict_loop_scoping: bool = False,  # Drop events without loop_id when True
         circuit_breaker: CircuitBreaker = None,  # Optional CircuitBreaker for agent failure handling
@@ -334,6 +336,7 @@ class Arena:
             continuum_memory=continuum_memory,
             relationship_tracker=relationship_tracker,
             moment_detector=moment_detector,
+            tier_analytics_tracker=tier_analytics_tracker,
         )
 
         # Initialize user participation and roles
@@ -402,6 +405,7 @@ class Arena:
             continuum_memory=config.continuum_memory,
             relationship_tracker=config.relationship_tracker,
             moment_detector=config.moment_detector,
+            tier_analytics_tracker=config.tier_analytics_tracker,
             loop_id=config.loop_id,
             strict_loop_scoping=config.strict_loop_scoping,
             circuit_breaker=config.circuit_breaker,
@@ -570,6 +574,7 @@ class Arena:
         continuum_memory,
         relationship_tracker,
         moment_detector,
+        tier_analytics_tracker=None,
     ) -> None:
         """Initialize tracking subsystems for positions, relationships, and learning."""
         self.position_tracker = position_tracker
@@ -584,6 +589,7 @@ class Arena:
         self.continuum_memory = continuum_memory
         self.relationship_tracker = relationship_tracker
         self.moment_detector = moment_detector
+        self.tier_analytics_tracker = tier_analytics_tracker
 
         # Auto-initialize MomentDetector when elo_system available but no detector provided
         if self.moment_detector is None and self.elo_system:
@@ -757,6 +763,7 @@ class Arena:
         # Cache for continuum memory context (retrieved once per debate)
         self._continuum_context_cache: str = ""
         self._continuum_retrieved_ids: list = []
+        self._continuum_retrieved_tiers: dict = {}  # ID -> MemoryTier for analytics
 
         # Cached similarity backend for vote grouping (avoids recreating per call)
         self._similarity_backend = None
@@ -818,10 +825,15 @@ class Arena:
             if not memories:
                 return ""
 
-            # Track retrieved memory IDs for outcome updates after debate
+            # Track retrieved memory IDs and tiers for outcome updates and analytics
             self._continuum_retrieved_ids = [
                 getattr(mem, 'id', None) for mem in memories if getattr(mem, 'id', None)
             ]
+            self._continuum_retrieved_tiers = {
+                getattr(mem, 'id', None): getattr(mem, 'tier', None)
+                for mem in memories
+                if getattr(mem, 'id', None) and getattr(mem, 'tier', None)
+            }
 
             # Format memories with confidence markers based on consolidation
             context_parts = ["[Previous learnings relevant to this debate:]"]
@@ -859,11 +871,15 @@ class Arena:
 
     def _update_continuum_memory_outcomes(self, result: "DebateResult") -> None:
         """Update retrieved memories based on debate outcome."""
-        # Sync tracked IDs to memory manager
-        self.memory_manager.track_retrieved_ids(self._continuum_retrieved_ids)
+        # Sync tracked IDs and tier info to memory manager
+        self.memory_manager.track_retrieved_ids(
+            self._continuum_retrieved_ids,
+            tiers=self._continuum_retrieved_tiers,
+        )
         self.memory_manager.update_memory_outcomes(result)
         # Clear local tracking
         self._continuum_retrieved_ids = []
+        self._continuum_retrieved_tiers = {}
 
     def _extract_citation_needs(self, proposals: dict[str, str]) -> dict[str, list[dict]]:
         """Extract claims that need citations from all proposals.
