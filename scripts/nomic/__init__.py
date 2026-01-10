@@ -27,6 +27,8 @@ from .deadlock import DeadlockManager, DeadlockState, DeadlockResolution
 from .formatters import ContextFormatter, FormatterDependencies
 from .deep_audit import DeepAuditRunner, AuditResult
 from .disagreement import DisagreementHandler, DisagreementActions
+from .arena_factory import ArenaFactory, ArenaFactoryDependencies, ArenaConfig
+from .post_processing import PostDebateProcessor, ProcessingDependencies, ProcessingContext
 from .config import (
     NOMIC_AUTO_COMMIT,
     NOMIC_AUTO_CONTINUE,
@@ -54,6 +56,14 @@ __all__ = [
     # Disagreement
     "DisagreementHandler",
     "DisagreementActions",
+    # Arena Factory (Wave 3)
+    "ArenaFactory",
+    "ArenaFactoryDependencies",
+    "ArenaConfig",
+    # Post-Processing (Wave 3)
+    "PostDebateProcessor",
+    "ProcessingDependencies",
+    "ProcessingContext",
     # Config
     "NOMIC_AUTO_COMMIT",
     "NOMIC_AUTO_CONTINUE",
