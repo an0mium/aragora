@@ -79,9 +79,9 @@ iTunes RSS feed / JSON episode list
 Converts debate events into a podcast script with narrator transitions.
 
 ```python
-from aragora.broadcast.script_gen import extract_script
+from aragora.broadcast.script_gen import generate_script, ScriptSegment
 
-segments = extract_script(trace)
+segments = generate_script(trace)
 # Returns list of ScriptSegment(speaker, text, voice_id)
 ```
 
@@ -113,12 +113,11 @@ audio_path = await engine.generate_audio("Hello world", "narrator")
 **Voice Mapping:**
 | Agent | Voice |
 |-------|-------|
-| narrator | en-US-GuyNeural |
-| claude-* | en-GB-SoniaNeural |
-| gemini-* | en-AU-NatashaNeural |
-| codex-* | en-US-ChristopherNeural |
-| deepseek-* | en-GB-RyanNeural |
-| grok-* | en-US-JasonNeural |
+| narrator | en-US-ZiraNeural |
+| claude-visionary | en-GB-SoniaNeural |
+| codex-engineer | en-US-GuyNeural |
+| gemini-visionary | en-AU-NatashaNeural |
+| grok-lateral-thinker | en-US-ChristopherNeural |
 
 ### Audio Mixer (`mixer.py`)
 

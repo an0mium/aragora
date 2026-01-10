@@ -25,6 +25,37 @@ At least one AI provider key is required.
 
 **Note:** Never commit your `.env` file. It's gitignored for security.
 
+### OpenRouter Models
+
+OpenRouter provides access to multiple models through a single API:
+- DeepSeek (V3, Reasoner)
+- Llama (Meta's open models)
+- Mistral
+
+See [OpenRouter docs](https://openrouter.ai/docs) for available models.
+
+## Ollama (Local Models)
+
+Run AI models locally with Ollama.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `OLLAMA_HOST` | Optional | Ollama server URL | `http://localhost:11434` |
+| `OLLAMA_MODEL` | Optional | Default model name | `llama2` |
+
+**Usage:**
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull a model
+ollama pull llama2
+
+# Set in .env (optional - defaults work for local)
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=llama2
+```
+
 ## Persistence (Supabase)
 
 Optional but recommended for production.
@@ -82,6 +113,32 @@ ARAGORA_ALLOWED_ORIGINS=https://myapp.com,https://staging.myapp.com
 |----------|----------|-------------|---------|
 | `RATE_LIMIT_PER_MINUTE` | Optional | Requests per minute per token | `60` |
 | `IP_RATE_LIMIT_PER_MINUTE` | Optional | Requests per minute per IP | `120` |
+
+## Billing & Authentication
+
+JWT authentication and Stripe integration for paid tiers.
+
+### JWT Configuration
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_JWT_SECRET` | Recommended | Secret key for JWT signing | Auto-generated |
+| `ARAGORA_JWT_EXPIRY_HOURS` | Optional | Access token expiry | `24` |
+| `ARAGORA_REFRESH_TOKEN_EXPIRY_DAYS` | Optional | Refresh token expiry | `30` |
+
+**Important:** Set `ARAGORA_JWT_SECRET` in production. Auto-generated secrets are invalidated on restart.
+
+### Stripe Integration
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `STRIPE_SECRET_KEY` | For billing | Stripe API secret key | - |
+| `STRIPE_WEBHOOK_SECRET` | For billing | Webhook signing secret | - |
+| `STRIPE_PRICE_STARTER` | For billing | Price ID for Starter tier | - |
+| `STRIPE_PRICE_PROFESSIONAL` | For billing | Price ID for Professional tier | - |
+| `STRIPE_PRICE_ENTERPRISE` | For billing | Price ID for Enterprise tier | - |
+
+See [BILLING.md](./BILLING.md) for subscription tiers and usage tracking.
 
 ## Embedding Providers
 
@@ -165,6 +222,18 @@ For belief propagation analysis during debates.
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | `ARAGORA_USER_EVENT_QUEUE_SIZE` | Optional | User event queue buffer size | `100` |
+
+## Broadcast (Audio/Podcast)
+
+Configuration for debate-to-podcast conversion.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_AUDIO_DIR` | Optional | Audio storage directory | `.nomic/audio/` |
+| `ARAGORA_TTS_TIMEOUT` | Optional | TTS generation timeout (seconds) | `60` |
+| `ARAGORA_TTS_RETRIES` | Optional | TTS retry attempts | `3` |
+
+See [BROADCAST.md](./BROADCAST.md) for the complete audio pipeline documentation.
 
 ## Debug & Logging
 

@@ -175,6 +175,95 @@ def cmd_stats(args: argparse.Namespace) -> None:
             print(f"  {ptype}: {count}")
 
 
+def cmd_status(args: argparse.Namespace) -> None:
+    """Handle 'status' command - show environment health and agent availability."""
+    import os
+    import shutil
+
+    print("\nAragora Environment Status")
+    print("=" * 60)
+
+    # Check API keys
+    print("\n📡 API Keys:")
+    api_keys = [
+        ("ANTHROPIC_API_KEY", "Anthropic (Claude)"),
+        ("OPENAI_API_KEY", "OpenAI (GPT/Codex)"),
+        ("OPENROUTER_API_KEY", "OpenRouter (Fallback)"),
+        ("GEMINI_API_KEY", "Google (Gemini)"),
+        ("XAI_API_KEY", "xAI (Grok)"),
+        ("DEEPSEEK_API_KEY", "DeepSeek"),
+    ]
+    for env_var, name in api_keys:
+        value = os.environ.get(env_var, "")
+        if value:
+            # Show masked key
+            masked = value[:8] + "..." + value[-4:] if len(value) > 12 else "***"
+            print(f"  ✓ {name}: {masked}")
+        else:
+            print(f"  ✗ {name}: not set")
+
+    # Check CLI tools
+    print("\n🔧 CLI Tools:")
+    cli_tools = [
+        ("claude", "Claude Code CLI"),
+        ("codex", "OpenAI Codex CLI"),
+        ("gemini", "Gemini CLI"),
+        ("grok", "Grok CLI"),
+    ]
+    for cmd, name in cli_tools:
+        path = shutil.which(cmd)
+        if path:
+            print(f"  ✓ {name}: {path}")
+        else:
+            print(f"  ✗ {name}: not installed")
+
+    # Check server health
+    print("\n🌐 Server Status:")
+    server_url = args.server if hasattr(args, 'server') else "http://localhost:8080"
+    try:
+        import urllib.request
+        req = urllib.request.Request(f"{server_url}/api/health", method="GET")
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            if resp.status == 200:
+                print(f"  ✓ Server running at {server_url}")
+            else:
+                print(f"  ⚠ Server returned status {resp.status}")
+    except Exception:
+        print(f"  ✗ Server not reachable at {server_url}")
+
+    # Check database
+    print("\n💾 Databases:")
+    from aragora.config import DB_PATH, DB_INSIGHTS_PATH
+    db_paths = [
+        (DB_PATH, "Critique store"),
+        (DB_INSIGHTS_PATH, "Insights store"),
+    ]
+    for db_path, name in db_paths:
+        if Path(db_path).exists():
+            size_mb = Path(db_path).stat().st_size / (1024 * 1024)
+            print(f"  ✓ {name}: {size_mb:.1f} MB")
+        else:
+            print(f"  ✗ {name}: not found")
+
+    # Show nomic loop state if available
+    nomic_state = Path(".nomic/nomic_state.json")
+    if nomic_state.exists():
+        print("\n🔄 Nomic Loop:")
+        try:
+            import json
+            with open(nomic_state) as f:
+                state = json.load(f)
+            total_cycles = state.get("total_cycles", 0)
+            last_cycle = state.get("last_cycle_timestamp", "unknown")
+            print(f"  Total cycles: {total_cycles}")
+            print(f"  Last run: {last_cycle}")
+        except Exception as e:
+            print(f"  ⚠ Could not read state: {e}")
+
+    print("\n" + "=" * 60)
+    print("Run 'agora ask' to start a debate or 'agora serve' to start the server")
+
+
 def cmd_patterns(args: argparse.Namespace) -> None:
     """Handle 'patterns' command."""
     store = CritiqueStore(args.db)
@@ -545,6 +634,11 @@ Examples:
     # Stats command
     stats_parser = subparsers.add_parser("stats", help="Show memory statistics")
     stats_parser.set_defaults(func=cmd_stats)
+
+    # Status command - environment health check
+    status_parser = subparsers.add_parser("status", help="Show environment health and agent availability")
+    status_parser.add_argument("--server", "-s", default="http://localhost:8080", help="Server URL to check")
+    status_parser.set_defaults(func=cmd_status)
 
     # Patterns command
     patterns_parser = subparsers.add_parser("patterns", help="Show learned patterns")
