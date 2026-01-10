@@ -62,7 +62,7 @@ export function HistoryPanel() {
   ];
 
   return (
-    <div className="bg-surface border border-border p-4">
+    <div className="panel">
       <PanelHeader title="History" loading={isLoading} onRefresh={refresh} />
 
       {error && (

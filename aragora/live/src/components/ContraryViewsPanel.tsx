@@ -46,28 +46,31 @@ export function ContraryViewsPanel({ apiBase = '' }: ContraryViewsPanelProps) {
   if (!isExpanded) {
     return (
       <div
-        className="border border-acid-green/30 bg-surface/50 p-3 cursor-pointer hover:border-acid-green/50 transition-colors"
+        className="panel panel-compact cursor-pointer hover:border-acid-green/30 transition-colors"
         onClick={() => setIsExpanded(true)}
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-mono text-acid-green">
-            {'>'} CONTRARY_VIEWS [{views.length}]
+          <h3 className="panel-title-sm flex items-center gap-2">
+            <span className="text-acid-green">{'>'}</span>
+            CONTRARY_VIEWS
+            {views.length > 0 && <span className="panel-badge">{views.length}</span>}
           </h3>
-          <span className="text-xs text-text-muted">[EXPAND]</span>
+          <span className="panel-toggle">[EXPAND]</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="border border-acid-green/30 bg-surface/50 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-mono text-acid-green">
-          {'>'} CONTRARY_VIEWS
+    <div className="panel">
+      <div className="panel-header">
+        <h3 className="panel-title-sm flex items-center gap-2">
+          <span className="text-acid-green">{'>'}</span>
+          CONTRARY_VIEWS
         </h3>
         <button
           onClick={() => setIsExpanded(false)}
-          className="text-xs text-text-muted hover:text-acid-green"
+          className="panel-toggle hover:text-acid-green transition-colors"
         >
           [COLLAPSE]
         </button>

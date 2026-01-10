@@ -28,6 +28,25 @@ NOMIC_MAX_CYCLE_SECONDS = int(os.environ.get("NOMIC_MAX_CYCLE_SECONDS", "7200"))
 # Stall detection threshold in seconds (default 30 minutes)
 NOMIC_STALL_THRESHOLD = int(os.environ.get("NOMIC_STALL_THRESHOLD", "1800"))
 
+
+# =============================================================================
+# INTEGRATION FLAGS - Enable/disable feature integrations
+# =============================================================================
+
+# Performance-based agent selection using ELO rankings
+NOMIC_USE_PERFORMANCE_SELECTION = os.environ.get("NOMIC_USE_PERFORMANCE_SELECTION", "0") == "1"
+
+# Trickster hollow consensus detection
+NOMIC_TRICKSTER_ENABLED = os.environ.get("NOMIC_TRICKSTER_ENABLED", "0") == "1"
+NOMIC_TRICKSTER_SENSITIVITY = float(os.environ.get("NOMIC_TRICKSTER_SENSITIVITY", "0.7"))
+
+# Calibration tracking for prediction accuracy
+NOMIC_CALIBRATION_ENABLED = os.environ.get("NOMIC_CALIBRATION_ENABLED", "1") == "1"
+
+# Outcome tracking for consensus-to-implementation feedback
+NOMIC_OUTCOME_TRACKING = os.environ.get("NOMIC_OUTCOME_TRACKING", "1") == "1"
+
+
 # Default backup directory name
 DEFAULT_BACKUP_DIR = ".nomic_backups"
 
