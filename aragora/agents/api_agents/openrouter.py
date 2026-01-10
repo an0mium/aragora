@@ -457,6 +457,156 @@ class MistralAgent(OpenRouterAgent):
         self.agent_type = "mistral"
 
 
+@AgentRegistry.register(
+    "qwen",
+    default_model="qwen/qwen-2.5-coder-32b-instruct",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Qwen 2.5 Coder - Alibaba's code-focused model, strong at technical tasks",
+)
+class QwenAgent(OpenRouterAgent):
+    """Alibaba Qwen 2.5 Coder via OpenRouter - excellent for code generation and analysis."""
+
+    def __init__(
+        self,
+        name: str = "qwen",
+        role: str = "analyst",
+        model: str = "qwen/qwen-2.5-coder-32b-instruct",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "qwen"
+
+
+@AgentRegistry.register(
+    "qwen-max",
+    default_model="qwen/qwen-max",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Qwen Max - Alibaba's flagship model for complex reasoning",
+)
+class QwenMaxAgent(OpenRouterAgent):
+    """Alibaba Qwen Max via OpenRouter - flagship for complex reasoning tasks."""
+
+    def __init__(
+        self,
+        name: str = "qwen-max",
+        role: str = "analyst",
+        model: str = "qwen/qwen-max",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "qwen-max"
+
+
+@AgentRegistry.register(
+    "yi",
+    default_model="01-ai/yi-large",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Yi Large - 01.AI's flagship model with balanced capabilities",
+)
+class YiAgent(OpenRouterAgent):
+    """01.AI Yi Large via OpenRouter - balanced reasoning with cross-cultural perspective."""
+
+    def __init__(
+        self,
+        name: str = "yi",
+        role: str = "analyst",
+        model: str = "01-ai/yi-large",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "yi"
+
+
+@AgentRegistry.register(
+    "kimi",
+    default_model="moonshot-v1-8k",
+    agent_type="API (Kimi/Moonshot)",
+    env_vars="KIMI_API_KEY",
+    description="Kimi - Moonshot AI's flagship model with strong reasoning",
+)
+class KimiAgent(APIAgent):
+    """Moonshot AI Kimi - strong reasoning and Chinese language capabilities.
+
+    Uses Moonshot's OpenAI-compatible API directly.
+    """
+
+    def __init__(
+        self,
+        name: str = "kimi",
+        role: str = "analyst",
+        model: str = "moonshot-v1-8k",
+        system_prompt: str | None = None,
+        api_key: str | None = None,
+    ):
+        super().__init__(name=name, role=role)
+        self.model = model
+        self.system_prompt = system_prompt
+        self.api_key = api_key or os.environ.get("KIMI_API_KEY")
+        self.base_url = "https://api.moonshot.cn/v1"
+        self.agent_type = "kimi"
+
+        if not self.api_key:
+            raise ValueError("KIMI_API_KEY environment variable not set")
+
+    async def generate(self, prompt: str, context: list | None = None) -> str:
+        """Generate response using Moonshot API."""
+        import aiohttp
+
+        messages = []
+        if self.system_prompt:
+            messages.append({"role": "system", "content": self.system_prompt})
+
+        # Add context
+        context_str = self._build_context_prompt(context)
+        if context_str:
+            messages.append({"role": "user", "content": context_str})
+
+        messages.append({"role": "user", "content": prompt})
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.7,
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=120),
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise RuntimeError(f"Kimi API error {response.status}: {error_text}")
+
+                data = await response.json()
+                return data["choices"][0]["message"]["content"]
+
+
 __all__ = [
     "OpenRouterAgent",
     "DeepSeekAgent",
@@ -464,4 +614,8 @@ __all__ = [
     "DeepSeekV3Agent",
     "LlamaAgent",
     "MistralAgent",
+    "QwenAgent",
+    "QwenMaxAgent",
+    "YiAgent",
+    "KimiAgent",
 ]

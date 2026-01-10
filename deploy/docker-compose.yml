@@ -1,0 +1,27 @@
+# Aragora Server Docker Compose
+# For local development and simple deployments
+
+version: '3.8'
+
+services:
+  aragora:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8080:8080"   # HTTP API
+      - "8765:8765"   # WebSocket
+    volumes:
+      - aragora-data:/app/.nomic
+    env_file:
+      - ../.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  aragora-data:
+    driver: local
