@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from aragora.core import DebateResult
     from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.critique_store import CritiqueStore
+    from aragora.memory.consensus import ConsensusMemory
     from aragora.memory.embeddings import DebateEmbeddingsDatabase  # type: ignore[attr-defined]
     from aragora.spectate.stream import SpectatorStream
 
@@ -36,6 +37,7 @@ class MemoryManager:
         self,
         continuum_memory: Optional["ContinuumMemory"] = None,
         critique_store: Optional["CritiqueStore"] = None,
+        consensus_memory: Optional["ConsensusMemory"] = None,
         debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None,
         domain_extractor: Optional[Callable[[], str]] = None,
         event_emitter: Optional[Any] = None,  # SyncEventEmitter - avoid circular import
@@ -47,6 +49,7 @@ class MemoryManager:
         Args:
             continuum_memory: ContinuumMemory instance for tiered cross-debate learning
             critique_store: CritiqueStore instance for critique patterns
+            consensus_memory: ConsensusMemory instance for consensus/dissent records
             debate_embeddings: DebateEmbeddingsDatabase for similarity search
             domain_extractor: Callable that returns the current debate domain
             event_emitter: Optional event emitter for stream events
@@ -55,6 +58,7 @@ class MemoryManager:
         """
         self.continuum_memory = continuum_memory
         self.critique_store = critique_store
+        self.consensus_memory = consensus_memory
         self.debate_embeddings = debate_embeddings
         self._domain_extractor = domain_extractor
         self.event_emitter = event_emitter
@@ -74,7 +78,12 @@ class MemoryManager:
             return self._domain_extractor()
         return "general"
 
-    def store_debate_outcome(self, result: "DebateResult", task: str) -> None:
+    def store_debate_outcome(
+        self,
+        result: "DebateResult",
+        task: str,
+        belief_cruxes: Optional[list[str]] = None,
+    ) -> None:
         """Store debate outcome in ContinuumMemory for future retrieval.
 
         Creates a memory entry from the winning approach to inform future debates.
@@ -82,6 +91,7 @@ class MemoryManager:
         Args:
             result: The debate result to store
             task: The original debate task
+            belief_cruxes: Optional list of identified belief cruxes to store in metadata
         """
         if not self.continuum_memory or not result.final_answer:
             return
@@ -108,24 +118,193 @@ class MemoryManager:
                 f"(Confidence: {result.confidence:.0%}, Rounds: {result.rounds_used})"
             )
 
+            # Build metadata with optional crux claims
+            metadata = {
+                "debate_id": result.id,
+                "task": task[:100],
+                "domain": domain,
+                "winner": result.winner,
+                "confidence": result.confidence,
+                "consensus": result.consensus_reached,
+            }
+            if belief_cruxes:
+                metadata["crux_claims"] = belief_cruxes[:10]  # Limit to 10 cruxes
+
             self.continuum_memory.add(
                 id=f"debate_outcome_{result.id[:8]}",
                 content=memory_content,
                 tier=tier,
                 importance=importance,
-                metadata={
-                    "debate_id": result.id,
-                    "task": task[:100],
-                    "domain": domain,
-                    "winner": result.winner,
-                    "confidence": result.confidence,
-                    "consensus": result.consensus_reached,
-                }
+                metadata=metadata,
             )
             logger.info(f"  [continuum] Stored outcome as {tier}-tier memory (importance: {importance:.2f})")
 
         except Exception as e:
             logger.warning(f"  [continuum] Failed to store outcome: {e}")
+
+    def store_consensus_record(
+        self,
+        result: "DebateResult",
+        task: str,
+        belief_cruxes: Optional[list[str]] = None,
+    ) -> None:
+        """Store debate consensus and dissents in ConsensusMemory.
+
+        This enables the DissentRetriever to find relevant historical dissents
+        for future debates on similar topics.
+
+        Args:
+            result: The debate result containing votes and outcomes
+            task: The original debate task/topic
+            belief_cruxes: Optional list of identified crux claims to store
+        """
+        if not self.consensus_memory or not result.final_answer:
+            return
+
+        try:
+            from aragora.memory.consensus import ConsensusStrength, DissentType
+
+            # Determine strength from confidence
+            strength = self._confidence_to_strength(result.confidence)
+
+            # Extract agreeing/dissenting agents from votes
+            agreeing_agents = []
+            dissenting_agents = []
+            for vote in getattr(result, 'votes', []):
+                agent_name = getattr(vote, 'agent', None)
+                if not agent_name:
+                    continue
+                # Check if vote supports consensus (vote.choice matches winner or high confidence)
+                supports = getattr(vote, 'supports_consensus', None)
+                if supports is None:
+                    # Fallback: check if vote.choice matches winner
+                    supports = getattr(vote, 'choice', '') == result.winner
+                if supports:
+                    agreeing_agents.append(agent_name)
+                else:
+                    dissenting_agents.append(agent_name)
+
+            # Get participating agents
+            participating = [a.name for a in getattr(result, 'agents', [])]
+            if not participating:
+                participating = agreeing_agents + dissenting_agents
+
+            # Extract key claims from grounded verdict if available
+            key_claims = []
+            if belief_cruxes:
+                key_claims = belief_cruxes[:10]  # Limit to top 10
+            elif hasattr(result, 'grounded_verdict') and result.grounded_verdict:
+                claims = getattr(result.grounded_verdict, 'claims', [])
+                key_claims = [c.statement for c in claims[:5] if hasattr(c, 'statement')]
+
+            # Store consensus record
+            domain = self._get_domain()
+            record = self.consensus_memory.store_consensus(
+                topic=task,
+                conclusion=result.final_answer[:2000],  # Limit length
+                strength=strength,
+                confidence=result.confidence,
+                participating_agents=participating,
+                agreeing_agents=agreeing_agents,
+                dissenting_agents=dissenting_agents,
+                key_claims=key_claims,
+                domain=domain,
+                rounds=result.rounds_used,
+                metadata={
+                    "debate_id": result.id,
+                    "winner": result.winner,
+                    "consensus_reached": result.consensus_reached,
+                    "crux_claims": belief_cruxes or [],
+                },
+            )
+
+            logger.info(
+                f"  [consensus] Stored record: {strength.value} consensus, "
+                f"{len(agreeing_agents)} agreed, {len(dissenting_agents)} dissented"
+            )
+
+            # Store individual dissents for each dissenting agent
+            for agent_name in dissenting_agents:
+                self._store_agent_dissent(record.id, agent_name, result, task)
+
+        except Exception as e:
+            logger.warning(f"  [consensus] Failed to store record: {e}")
+
+    def _confidence_to_strength(self, confidence: float) -> "ConsensusStrength":
+        """Convert confidence score to ConsensusStrength enum."""
+        from aragora.memory.consensus import ConsensusStrength
+
+        if confidence >= 0.95:
+            return ConsensusStrength.UNANIMOUS
+        elif confidence >= 0.8:
+            return ConsensusStrength.STRONG
+        elif confidence >= 0.6:
+            return ConsensusStrength.MODERATE
+        elif confidence >= 0.5:
+            return ConsensusStrength.WEAK
+        elif confidence >= 0.3:
+            return ConsensusStrength.SPLIT
+        else:
+            return ConsensusStrength.CONTESTED
+
+    def _store_agent_dissent(
+        self,
+        consensus_id: str,
+        agent_name: str,
+        result: "DebateResult",
+        task: str,
+    ) -> None:
+        """Store a dissent record for an agent that disagreed with consensus.
+
+        Args:
+            consensus_id: ID of the consensus record
+            agent_name: Name of the dissenting agent
+            result: The debate result
+            task: The debate task
+        """
+        if not self.consensus_memory:
+            return
+
+        try:
+            from aragora.memory.consensus import DissentType
+
+            # Find the agent's last message to extract their reasoning
+            agent_content = ""
+            for msg in reversed(getattr(result, 'messages', [])):
+                if getattr(msg, 'agent', None) == agent_name:
+                    agent_content = getattr(msg, 'content', '')[:500]
+                    break
+
+            # Find agent's vote for confidence
+            agent_confidence = 0.5
+            for vote in getattr(result, 'votes', []):
+                if getattr(vote, 'agent', None) == agent_name:
+                    agent_confidence = getattr(vote, 'confidence', 0.5)
+                    break
+
+            # Determine dissent type based on confidence
+            if agent_confidence >= 0.8:
+                dissent_type = DissentType.FUNDAMENTAL_DISAGREEMENT
+            elif agent_confidence >= 0.6:
+                dissent_type = DissentType.ALTERNATIVE_APPROACH
+            elif agent_confidence >= 0.4:
+                dissent_type = DissentType.EDGE_CASE_CONCERN
+            else:
+                dissent_type = DissentType.MINOR_QUIBBLE
+
+            self.consensus_memory.store_dissent(
+                debate_id=consensus_id,
+                agent_id=agent_name,
+                dissent_type=dissent_type,
+                content=agent_content or f"{agent_name} disagreed with the consensus",
+                reasoning=f"Agent voted against consensus on: {task[:100]}",
+                confidence=agent_confidence,
+            )
+
+            logger.debug(f"  [consensus] Stored dissent for {agent_name}")
+
+        except Exception as e:
+            logger.debug(f"  [consensus] Failed to store dissent for {agent_name}: {e}")
 
     def store_evidence(self, evidence_snippets: list, task: str) -> None:
         """Store collected evidence snippets in ContinuumMemory for future retrieval.

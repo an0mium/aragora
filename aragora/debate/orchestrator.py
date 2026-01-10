@@ -157,9 +157,16 @@ class ArenaConfig:
     relationship_tracker: Optional[object] = None
     moment_detector: Optional[object] = None
 
+    # Genesis evolution
+    population_manager: Optional[object] = None  # PopulationManager for genome evolution
+    auto_evolve: bool = False  # Trigger evolution after high-quality debates
+    breeding_threshold: float = 0.8  # Min confidence to trigger evolution
+
     # Fork/continuation support
     initial_messages: Optional[list] = None
     trending_topic: Optional[object] = None
+    pulse_manager: Optional[object] = None  # PulseManager for auto-fetching trending topics
+    auto_fetch_trending: bool = False  # Auto-fetch trending topics if none provided
 
     # Human-in-the-loop breakpoints
     breakpoint_manager: Optional[object] = None  # BreakpointManager
@@ -167,6 +174,11 @@ class ArenaConfig:
     # Performance telemetry
     performance_monitor: Optional[object] = None  # AgentPerformanceMonitor
     enable_performance_monitor: bool = False
+    enable_telemetry: bool = False  # Enable Prometheus/Blackbox telemetry emission
+
+    # Airlock resilience layer
+    use_airlock: bool = False  # Wrap agents with AirlockProxy for timeout/fallback
+    airlock_config: Optional[object] = None  # AirlockConfig for customization
 
 
 class Arena:
@@ -210,10 +222,18 @@ class Arena:
         circuit_breaker: CircuitBreaker = None,  # Optional CircuitBreaker for agent failure handling
         initial_messages: list = None,  # Optional initial conversation history (for fork debates)
         trending_topic=None,  # Optional TrendingTopic to seed debate context
+        pulse_manager=None,  # Optional PulseManager for auto-fetching trending topics
+        auto_fetch_trending: bool = False,  # Auto-fetch trending topics if none provided
+        population_manager=None,  # Optional PopulationManager for genome evolution
+        auto_evolve: bool = False,  # Trigger evolution after high-quality debates
+        breeding_threshold: float = 0.8,  # Min confidence to trigger evolution
         evidence_collector=None,  # Optional EvidenceCollector for auto-collecting evidence
         breakpoint_manager=None,  # Optional BreakpointManager for human-in-the-loop
         performance_monitor=None,  # Optional AgentPerformanceMonitor for telemetry
         enable_performance_monitor: bool = False,  # Auto-create PerformanceMonitor if True
+        enable_telemetry: bool = False,  # Enable Prometheus/Blackbox telemetry emission
+        use_airlock: bool = False,  # Wrap agents with AirlockProxy for timeout protection
+        airlock_config=None,  # Optional AirlockConfig for customization
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
@@ -275,10 +295,18 @@ class Arena:
             circuit_breaker=circuit_breaker,
             initial_messages=initial_messages,
             trending_topic=trending_topic,
+            pulse_manager=pulse_manager,
+            auto_fetch_trending=auto_fetch_trending,
+            population_manager=population_manager,
+            auto_evolve=auto_evolve,
+            breeding_threshold=breeding_threshold,
             evidence_collector=evidence_collector,
             breakpoint_manager=breakpoint_manager,
             performance_monitor=performance_monitor,
             enable_performance_monitor=enable_performance_monitor,
+            enable_telemetry=enable_telemetry,
+            use_airlock=use_airlock,
+            airlock_config=airlock_config,
         )
 
         # Initialize tracking subsystems
@@ -366,10 +394,18 @@ class Arena:
             circuit_breaker=config.circuit_breaker,
             initial_messages=config.initial_messages,
             trending_topic=config.trending_topic,
+            pulse_manager=config.pulse_manager,
+            auto_fetch_trending=config.auto_fetch_trending,
+            population_manager=config.population_manager,
+            auto_evolve=config.auto_evolve,
+            breeding_threshold=config.breeding_threshold,
             evidence_collector=config.evidence_collector,
             breakpoint_manager=config.breakpoint_manager,
             performance_monitor=config.performance_monitor,
             enable_performance_monitor=config.enable_performance_monitor,
+            enable_telemetry=config.enable_telemetry,
+            use_airlock=config.use_airlock,
+            airlock_config=config.airlock_config,
         )
 
     def _init_core(
@@ -390,15 +426,30 @@ class Arena:
         circuit_breaker: CircuitBreaker | None,
         initial_messages: list | None,
         trending_topic,
+        pulse_manager,
+        auto_fetch_trending: bool,
+        population_manager,
+        auto_evolve: bool,
+        breeding_threshold: float,
         evidence_collector,
         breakpoint_manager,
         performance_monitor,
         enable_performance_monitor: bool,
+        enable_telemetry: bool,
+        use_airlock: bool,
+        airlock_config,
     ) -> None:
         """Initialize core Arena configuration."""
         self.env = environment
         self.agents = agents
         self.protocol = protocol or DebateProtocol()
+
+        # Wrap agents with airlock protection if enabled
+        if use_airlock:
+            from aragora.agents.airlock import wrap_agents, AirlockConfig
+            airlock_cfg = airlock_config or AirlockConfig()
+            self.agents = wrap_agents(self.agents, airlock_cfg)
+            logger.debug(f"[airlock] Wrapped {len(self.agents)} agents with resilience layer")
         self.memory = memory
         self.hooks = event_hooks or {}
         self.event_emitter = event_emitter
@@ -431,9 +482,15 @@ class Arena:
             immune_system=self.immune_system,
             chaos_director=self.chaos_director,
             performance_monitor=self.performance_monitor,
+            enable_telemetry=enable_telemetry,
         )
         self.initial_messages = initial_messages or []
         self.trending_topic = trending_topic
+        self.pulse_manager = pulse_manager
+        self.auto_fetch_trending = auto_fetch_trending
+        self.population_manager = population_manager
+        self.auto_evolve = auto_evolve
+        self.breeding_threshold = breeding_threshold
         self.evidence_collector = evidence_collector
         self.breakpoint_manager = breakpoint_manager
 
@@ -680,6 +737,8 @@ class Arena:
             protocol=self.protocol,
             evidence_collector=self.evidence_collector,
             dissent_retriever=self.dissent_retriever,
+            pulse_manager=self.pulse_manager,
+            auto_fetch_trending=self.auto_fetch_trending,
             fetch_historical_context=self._fetch_historical_context,
             format_patterns_for_prompt=self._format_patterns_for_prompt,
             get_successful_patterns_from_memory=self._get_successful_patterns_from_memory,
@@ -782,6 +841,9 @@ class Arena:
             index_debate_async=self._index_debate_async,
             consensus_memory=self.consensus_memory,
             calibration_tracker=self.calibration_tracker,
+            population_manager=self.population_manager,
+            auto_evolve=self.auto_evolve,
+            breeding_threshold=self.breeding_threshold,
         )
 
     def _require_agents(self) -> list[Agent]:
@@ -858,7 +920,11 @@ class Arena:
 
     def _store_debate_outcome_as_memory(self, result: "DebateResult") -> None:
         """Store debate outcome in ContinuumMemory for future retrieval."""
-        self.memory_manager.store_debate_outcome(result, self.env.task)
+        # Extract belief cruxes from result if set by AnalyticsPhase
+        belief_cruxes = getattr(result, 'belief_cruxes', None)
+        if belief_cruxes:
+            belief_cruxes = [str(c) for c in belief_cruxes[:10]]
+        self.memory_manager.store_debate_outcome(result, self.env.task, belief_cruxes=belief_cruxes)
 
     def _store_evidence_in_memory(self, evidence_snippets: list, task: str) -> None:
         """Store collected evidence snippets in ContinuumMemory for future retrieval."""
@@ -1509,6 +1575,7 @@ Respond with only: CONTINUE or STOP
             generate_fn=generate_wrapper,
             build_vote_prompt_fn=lambda candidates, props: self.prompt_builder.build_judge_vote_prompt(candidates, props),
             sanitize_fn=OutputSanitizer.sanitize_agent_output,
+            consensus_memory=self.consensus_memory,
         )
         return await selector.select_judge(proposals, context)
 
@@ -1527,6 +1594,7 @@ Respond with only: CONTINUE or STOP
             generate_fn=generate_wrapper,
             build_vote_prompt_fn=lambda candidates, props: self.prompt_builder.build_judge_vote_prompt(candidates, props),
             sanitize_fn=OutputSanitizer.sanitize_agent_output,
+            consensus_memory=self.consensus_memory,
         )
         return await selector.select_judge(proposals, context)
 

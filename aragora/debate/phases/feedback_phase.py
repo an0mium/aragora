@@ -68,6 +68,12 @@ class FeedbackPhase:
         consensus_memory: Any = None,
         # CalibrationTracker for prediction accuracy
         calibration_tracker: Any = None,
+        # Genesis evolution
+        population_manager: Any = None,  # PopulationManager for genome evolution
+        auto_evolve: bool = False,  # Trigger evolution after high-quality debates
+        breeding_threshold: float = 0.8,  # Min confidence to trigger evolution
+        # Pulse manager for trending topic analytics
+        pulse_manager: Any = None,
     ):
         """
         Initialize the feedback phase.
@@ -89,6 +95,10 @@ class FeedbackPhase:
             index_debate_async: Async callback to index debate
             consensus_memory: Optional ConsensusMemory for storing historical outcomes
             calibration_tracker: Optional CalibrationTracker for prediction accuracy
+            population_manager: Optional PopulationManager for genome fitness tracking
+            auto_evolve: If True, trigger evolution after high-confidence debates
+            breeding_threshold: Minimum confidence to trigger evolution (default 0.8)
+            pulse_manager: Optional PulseManager for trending topic analytics
         """
         self.elo_system = elo_system
         self.persona_manager = persona_manager
@@ -102,6 +112,10 @@ class FeedbackPhase:
         self.loop_id = loop_id
         self.consensus_memory = consensus_memory
         self.calibration_tracker = calibration_tracker
+        self.population_manager = population_manager
+        self.auto_evolve = auto_evolve
+        self.breeding_threshold = breeding_threshold
+        self.pulse_manager = pulse_manager
 
         # Callbacks
         self._emit_moment_event = emit_moment_event
@@ -156,6 +170,15 @@ class FeedbackPhase:
         # 12. Record calibration data for prediction accuracy
         self._record_calibration(ctx)
 
+        # 13. Update genome fitness for Genesis evolution
+        self._update_genome_fitness(ctx)
+
+        # 14. Maybe trigger population evolution
+        await self._maybe_evolve_population(ctx)
+
+        # 15. Record pulse outcome if debate was on a trending topic
+        self._record_pulse_outcome(ctx)
+
     def _record_calibration(self, ctx: "DebateContext") -> None:
         """Record calibration data from agent votes with confidence."""
         if not self.calibration_tracker:
@@ -187,6 +210,43 @@ class FeedbackPhase:
             logger.debug(f"[calibration] Recorded {len(result.votes)} predictions")
         except Exception as e:
             logger.warning(f"[calibration] Failed to record: {e}")
+
+    def _record_pulse_outcome(self, ctx: "DebateContext") -> None:
+        """Record pulse outcome if the debate was on a trending topic.
+
+        This enables analytics on which trending topics lead to productive debates.
+        """
+        if not self.pulse_manager:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        # Check if the debate has a trending topic attached
+        trending_topic = getattr(ctx, 'trending_topic', None)
+        if not trending_topic:
+            # Also check arena for backwards compatibility
+            arena = getattr(ctx, 'arena', None)
+            if arena:
+                trending_topic = getattr(arena, 'trending_topic', None)
+
+        if not trending_topic:
+            return
+
+        try:
+            self.pulse_manager.record_debate_outcome(
+                topic=getattr(trending_topic, 'topic', str(trending_topic)),
+                platform=getattr(trending_topic, 'platform', 'unknown'),
+                debate_id=ctx.debate_id,
+                consensus_reached=result.consensus_reached,
+                confidence=result.confidence,
+                rounds_used=result.rounds_used,
+                category=getattr(trending_topic, 'category', ''),
+                volume=getattr(trending_topic, 'volume', 0),
+            )
+        except Exception as e:
+            logger.warning(f"[pulse] Failed to record outcome: {e}")
 
     def _record_elo_match(self, ctx: "DebateContext") -> None:
         """Record ELO match results."""
@@ -507,6 +567,10 @@ class FeedbackPhase:
                     else:
                         dissenting_agents.append(vote.agent)
 
+            # Extract belief cruxes from result (set by AnalyticsPhase)
+            belief_cruxes = getattr(result, 'belief_cruxes', []) or []
+            key_claims = [str(c) for c in belief_cruxes[:10]]  # Limit to 10
+
             # Store the consensus record
             consensus_record = self.consensus_memory.store_consensus(
                 topic=ctx.env.task,
@@ -516,12 +580,16 @@ class FeedbackPhase:
                 participating_agents=[a.name for a in ctx.agents],
                 agreeing_agents=agreeing_agents,
                 dissenting_agents=dissenting_agents,
-                key_claims=[],
+                key_claims=key_claims,
                 domain=ctx.domain,
                 tags=[],
                 debate_duration=getattr(result, 'duration_seconds', 0.0),
                 rounds=result.rounds_used,
+                metadata={"belief_cruxes": key_claims} if key_claims else None,
             )
+
+            # Store ID for crux storage in next phase
+            ctx._last_consensus_id = consensus_record.id
 
             # Store dissenting views as dissent records
             if dissenting_agents and result.votes:
@@ -590,3 +658,225 @@ class FeedbackPhase:
                 )
             except Exception as e:
                 logger.debug("Dissent storage failed for %s: %s", vote.agent, e)
+
+    def _store_cruxes(self, ctx: "DebateContext") -> None:
+        """Extract and store belief cruxes from the debate.
+
+        Cruxes are key points of contention that drove the debate.
+        These are stored with the consensus record to seed future debates
+        on similar topics with known areas of disagreement.
+        """
+        if not self.consensus_memory:
+            return
+
+        # Get the consensus ID from the last stored consensus
+        consensus_id = getattr(ctx, '_last_consensus_id', None)
+        if not consensus_id:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        # Extract cruxes from various sources
+        cruxes = []
+
+        # 1. From belief network if available
+        if hasattr(ctx, 'belief_network') and ctx.belief_network:
+            try:
+                network_cruxes = ctx.belief_network.get_cruxes(limit=3)
+                for crux in network_cruxes:
+                    cruxes.append({
+                        "source": "belief_network",
+                        "claim": crux.get("claim", ""),
+                        "positions": crux.get("positions", {}),
+                        "confidence_gap": crux.get("confidence_gap", 0.0),
+                    })
+            except Exception as e:
+                logger.debug("Belief network crux extraction failed: %s", e)
+
+        # 2. From dissenting views - high-confidence dissents are cruxes
+        if result.dissenting_views:
+            for view in result.dissenting_views[:2]:
+                if hasattr(view, 'confidence') and view.confidence > 0.7:
+                    cruxes.append({
+                        "source": "dissent",
+                        "claim": getattr(view, 'content', str(view))[:200],
+                        "agent": getattr(view, 'agent', 'unknown'),
+                        "confidence": getattr(view, 'confidence', 0.0),
+                    })
+
+        # 3. From votes with conflicting rationales
+        if result.votes and len(result.votes) >= 2:
+            vote_choices = {}
+            for vote in result.votes:
+                choice = vote.choice
+                if choice not in vote_choices:
+                    vote_choices[choice] = []
+                reasoning = getattr(vote, 'reasoning', '')
+                if reasoning:
+                    vote_choices[choice].append({
+                        "agent": vote.agent,
+                        "reasoning": reasoning[:150],
+                    })
+
+            # If there are multiple choices with reasoning, that's a crux
+            if len(vote_choices) > 1:
+                cruxes.append({
+                    "source": "vote_split",
+                    "positions": {
+                        choice: [v["reasoning"] for v in votes]
+                        for choice, votes in vote_choices.items()
+                        if votes
+                    },
+                })
+
+        if not cruxes:
+            return
+
+        try:
+            self.consensus_memory.update_cruxes(consensus_id, cruxes)
+            logger.info(
+                "[consensus_memory] Stored %d cruxes for consensus %s",
+                len(cruxes),
+                consensus_id[:8],
+            )
+        except Exception as e:
+            logger.debug("Crux storage failed: %s", e)
+
+    def _update_genome_fitness(self, ctx: "DebateContext") -> None:
+        """Update genome fitness scores based on debate outcome.
+
+        For agents with genome_id attributes (evolved via Genesis),
+        update their fitness scores based on debate performance.
+        """
+        if not self.population_manager:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        winner_agent = getattr(result, 'winner', None)
+
+        for agent in ctx.agents:
+            genome_id = getattr(agent, 'genome_id', None)
+            if not genome_id:
+                continue
+
+            try:
+                # Determine if this agent won
+                consensus_win = (agent.name == winner_agent)
+
+                # Check if agent's prediction was correct
+                prediction_correct = self._check_agent_prediction(agent, ctx)
+
+                # Update fitness in population manager
+                self.population_manager.update_fitness(
+                    genome_id,
+                    consensus_win=consensus_win,
+                    prediction_correct=prediction_correct,
+                )
+
+                logger.debug(
+                    "[genesis] Updated fitness for genome %s: win=%s pred=%s",
+                    genome_id[:8],
+                    consensus_win,
+                    prediction_correct,
+                )
+            except Exception as e:
+                logger.debug("Genome fitness update failed for %s: %s", agent.name, e)
+
+    def _check_agent_prediction(
+        self,
+        agent: "Agent",
+        ctx: "DebateContext",
+    ) -> bool:
+        """Check if an agent correctly predicted the debate outcome.
+
+        Returns True if the agent's vote matched the final winner.
+        """
+        result = ctx.result
+        if not result or not result.votes:
+            return False
+
+        winner = getattr(result, 'winner', None)
+        if not winner:
+            return False
+
+        for vote in result.votes:
+            if vote.agent == agent.name:
+                # Check if the agent's choice matches the winner
+                canonical = ctx.choice_mapping.get(vote.choice, vote.choice)
+                return canonical == winner
+
+        return False
+
+    async def _maybe_evolve_population(self, ctx: "DebateContext") -> None:
+        """Trigger population evolution after high-quality debates.
+
+        Evolution is triggered when:
+        1. auto_evolve is True
+        2. Debate confidence >= breeding_threshold
+        3. Population has accumulated enough debate history
+        """
+        if not self.population_manager or not self.auto_evolve:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        # Only evolve after high-confidence debates
+        if result.confidence < self.breeding_threshold:
+            return
+
+        try:
+            # Get the population for these agents
+            agent_names = [a.name for a in ctx.agents]
+            population = self.population_manager.get_or_create_population(agent_names)
+
+            if not population:
+                return
+
+            # Track debate in population history
+            history = getattr(population, 'debate_history', []) or []
+            history.append(ctx.debate_id)
+
+            # Evolve every 5 debates
+            if len(history) % 5 == 0:
+                # Fire-and-forget evolution
+                asyncio.create_task(self._evolve_async(population))
+                logger.info(
+                    "[genesis] Triggered evolution after %d debates (confidence=%.2f)",
+                    len(history),
+                    result.confidence,
+                )
+
+        except Exception as e:
+            logger.debug("Evolution check failed: %s", e)
+
+    async def _evolve_async(self, population: Any) -> None:
+        """Run population evolution asynchronously.
+
+        This is a fire-and-forget task so it doesn't block debate completion.
+        """
+        try:
+            evolved = self.population_manager.evolve_population(population)
+            logger.info(
+                "[genesis] Population evolved to generation %d with %d genomes",
+                evolved.generation,
+                len(evolved.genomes),
+            )
+
+            # Emit event if event_emitter available
+            if self.event_emitter:
+                self.event_emitter.emit(
+                    "genesis_evolution",
+                    generation=evolved.generation,
+                    genome_count=len(evolved.genomes),
+                    loop_id=self.loop_id,
+                )
+
+        except Exception as e:
+            logger.warning("[genesis] Evolution failed: %s", e)

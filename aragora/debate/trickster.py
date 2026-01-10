@@ -46,6 +46,7 @@ class InterventionType(Enum):
     QUALITY_ROLE = "quality_role"  # Assign QUALITY_CHALLENGER role
     EXTENDED_ROUND = "extended_round"  # Add extra round for evidence
     BREAKPOINT = "breakpoint"  # Trigger human review breakpoint
+    NOVELTY_CHALLENGE = "novelty_challenge"  # Challenge agents to seek fresh perspectives
 
 
 @dataclass
@@ -361,6 +362,119 @@ class EvidencePoweredTrickster:
             round_num=round_num,
             role_prompt=ROLE_PROMPTS[CognitiveRole.QUALITY_CHALLENGER],
         )
+
+    def create_novelty_challenge(
+        self,
+        low_novelty_agents: list[str],
+        novelty_scores: dict[str, float],
+        round_num: int,
+    ) -> Optional[TricksterIntervention]:
+        """
+        Create a novelty challenge intervention for agents with stale proposals.
+
+        Called by DebateRoundsPhase when NoveltyTracker detects low novelty.
+
+        Args:
+            low_novelty_agents: Agents whose proposals are too similar to prior rounds
+            novelty_scores: Per-agent novelty scores (0-1, higher = more novel)
+            round_num: Current round number
+
+        Returns:
+            TricksterIntervention if challenge should be issued, None otherwise
+        """
+        if not low_novelty_agents:
+            return None
+
+        # Check cooldown
+        rounds_since = round_num - self._state.last_intervention_round
+        if rounds_since < self.config.intervention_cooldown_rounds:
+            logger.debug(
+                f"novelty_challenge_cooldown round={round_num} "
+                f"rounds_since={rounds_since}"
+            )
+            return None
+
+        # Check max interventions
+        if self._state.total_interventions >= self.config.max_interventions_total:
+            logger.debug(
+                f"novelty_challenge_limit round={round_num} "
+                f"total={self._state.total_interventions}"
+            )
+            return None
+
+        # Build challenge text for novelty
+        challenge_text = self._build_novelty_challenge(
+            low_novelty_agents, novelty_scores
+        )
+
+        # Calculate priority based on how low the novelty is
+        min_novelty = min(novelty_scores.get(a, 1.0) for a in low_novelty_agents)
+        priority = 1.0 - min_novelty  # Lower novelty = higher priority
+
+        intervention = TricksterIntervention(
+            intervention_type=InterventionType.NOVELTY_CHALLENGE,
+            round_num=round_num,
+            target_agents=low_novelty_agents,
+            challenge_text=challenge_text,
+            evidence_gaps={},  # Novelty challenges don't focus on evidence gaps
+            priority=priority,
+            metadata={
+                "novelty_scores": novelty_scores,
+                "min_novelty": min_novelty,
+                "reason": "proposals_too_similar_to_prior_rounds",
+            },
+        )
+
+        # Track state
+        self._state.interventions.append(intervention)
+        self._state.last_intervention_round = round_num
+        self._state.total_interventions += 1
+
+        logger.info(
+            f"novelty_challenge_created round={round_num} "
+            f"targets={low_novelty_agents} min_novelty={min_novelty:.2f}"
+        )
+
+        if self.on_intervention:
+            self.on_intervention(intervention)
+
+        return intervention
+
+    def _build_novelty_challenge(
+        self,
+        low_novelty_agents: list[str],
+        novelty_scores: dict[str, float],
+    ) -> str:
+        """Build the challenge prompt for novelty issues."""
+        lines = [
+            "## NOVELTY CHALLENGE - Seek Alternative Perspectives",
+            "",
+            "Your current proposals are **too similar** to ideas already discussed "
+            "in previous rounds. The debate risks converging to mediocrity.",
+            "",
+            "### Agents Needing Fresh Perspectives:",
+        ]
+
+        for agent in low_novelty_agents:
+            score = novelty_scores.get(agent, 0.0)
+            lines.append(f"- **{agent}**: Novelty {score:.0%} (below threshold)")
+
+        lines.extend([
+            "",
+            "### To Increase Novelty:",
+            "1. Consider angles you haven't explored yet",
+            "2. Challenge assumptions from prior rounds",
+            "3. Introduce new evidence or frameworks",
+            "4. Play devil's advocate to your own position",
+            "5. Think about edge cases or minority viewpoints",
+            "",
+            "**Goal**: Bring fresh ideas that meaningfully differ from what's "
+            "already been said, while still addressing the core question.",
+            "",
+            "*This challenge was triggered by the Novelty Tracking system.*",
+        ])
+
+        return "\n".join(lines)
 
     def get_stats(self) -> dict[str, Any]:
         """Get trickster statistics for debugging/monitoring."""

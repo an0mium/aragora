@@ -280,6 +280,59 @@ and building on others' ideas."""
         """Get cached continuum memory context."""
         return self._continuum_context_cache
 
+    def _inject_belief_context(self, limit: int = 3) -> str:
+        """Retrieve and format historical belief cruxes for prompt injection.
+
+        Searches ContinuumMemory for relevant past debates and extracts
+        crux_claims from their metadata. These cruxes represent key points
+        of contention from similar debates that agents should be aware of.
+
+        Args:
+            limit: Maximum number of memories to search
+
+        Returns:
+            Formatted string with historical cruxes, or empty string
+        """
+        if not self.continuum_memory:
+            return ""
+
+        try:
+            # Retrieve relevant memories for the current task
+            memories = self.continuum_memory.retrieve(
+                query=self.env.task,
+                limit=limit,
+            )
+
+            if not memories:
+                return ""
+
+            # Extract crux_claims from memory metadata
+            all_cruxes: list[str] = []
+            for mem in memories:
+                metadata = getattr(mem, 'metadata', {}) or {}
+                cruxes = metadata.get('crux_claims', [])
+                if isinstance(cruxes, list):
+                    all_cruxes.extend(str(c) for c in cruxes if c)
+
+            # Deduplicate and limit
+            unique_cruxes = list(dict.fromkeys(all_cruxes))[:5]
+
+            if not unique_cruxes:
+                return ""
+
+            # Format as prompt context
+            lines = ["## Historical Disagreement Points"]
+            lines.append("Past debates on similar topics identified these key points of contention:")
+            for crux in unique_cruxes:
+                lines.append(f"- {crux}")
+            lines.append("\nConsider whether your proposal addresses these concerns.")
+
+            return "\n".join(lines)
+
+        except Exception as e:
+            logger.debug(f"Belief context injection error: {e}")
+            return ""
+
     def format_evidence_for_prompt(self, max_snippets: int = 5) -> str:
         """Format evidence pack as citable references for agent prompts.
 
@@ -374,6 +427,12 @@ and building on others' ideas."""
         if continuum_context:
             continuum_section = f"\n\n{continuum_context}"
 
+        # Include historical belief cruxes (key disagreement points from past debates)
+        belief_section = ""
+        belief_context = self._inject_belief_context(limit=3)
+        if belief_context:
+            belief_section = f"\n\n{belief_context}"
+
         # Include historical dissents and minority views
         dissent_section = ""
         if self.dissent_retriever:
@@ -403,7 +462,7 @@ and building on others' ideas."""
             audience_section = f"\n\n{audience_section}"
 
         return f"""You are acting as a {agent.role} in a multi-agent debate.{stance_section}{role_section}{persona_section}{flip_section}
-{historical_section}{continuum_section}{dissent_section}{patterns_section}{evidence_section}{audience_section}
+{historical_section}{continuum_section}{belief_section}{dissent_section}{patterns_section}{evidence_section}{audience_section}
 Task: {self.env.task}{context_str}{research_status}
 
 IMPORTANT: If this task mentions a specific website, company, product, or current topic, you MUST:
@@ -457,6 +516,12 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if patterns:
             patterns_section = f"\n\n{patterns}"
 
+        # Include historical belief cruxes (key disagreement points)
+        belief_section = ""
+        belief_context = self._inject_belief_context(limit=2)
+        if belief_context:
+            belief_section = f"\n\n{belief_context}"
+
         # Include evidence for strengthening revised claims
         evidence_section = ""
         evidence_context = self.format_evidence_for_prompt(max_snippets=3)
@@ -469,7 +534,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
 
         return f"""You are revising your proposal based on critiques from other agents.{role_section}{persona_section}{flip_section}
 
-{intensity_guidance}{stance_section}{patterns_section}{evidence_section}{audience_section}
+{intensity_guidance}{stance_section}{patterns_section}{belief_section}{evidence_section}{audience_section}
 
 Original Task: {self.env.task}
 

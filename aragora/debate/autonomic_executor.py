@@ -29,6 +29,23 @@ from aragora.resilience import CircuitBreaker
 T = TypeVar("T")
 from aragora.debate.sanitization import OutputSanitizer
 
+# Lazy import for telemetry to avoid circular imports
+_telemetry_initialized = False
+
+
+def _ensure_telemetry_collectors() -> None:
+    """Initialize default telemetry collectors (once)."""
+    global _telemetry_initialized
+    if _telemetry_initialized:
+        return
+    try:
+        from aragora.agents.telemetry import setup_default_collectors
+        setup_default_collectors()
+        _telemetry_initialized = True
+    except ImportError:
+        pass
+
+
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message, Vote
     from aragora.insights.store import InsightStore
@@ -116,6 +133,7 @@ class AutonomicExecutor:
         immune_system: Optional["TransparentImmuneSystem"] = None,
         chaos_director: Optional["ChaosDirector"] = None,
         performance_monitor: Optional["AgentPerformanceMonitor"] = None,
+        enable_telemetry: bool = False,
     ):
         """
         Initialize the autonomic executor.
@@ -131,6 +149,7 @@ class AutonomicExecutor:
             immune_system: Optional TransparentImmuneSystem for health monitoring
             chaos_director: Optional ChaosDirector for theatrical failure messages
             performance_monitor: Optional AgentPerformanceMonitor for telemetry
+            enable_telemetry: Enable Prometheus/Blackbox telemetry emission
         """
         self.circuit_breaker = circuit_breaker
         self.default_timeout = default_timeout
@@ -142,12 +161,56 @@ class AutonomicExecutor:
         self.wisdom_store = wisdom_store
         self.loop_id = loop_id
         self.performance_monitor = performance_monitor
+        self.enable_telemetry = enable_telemetry
         # Track retry counts per agent for timeout escalation
         self._retry_counts: dict[str, int] = defaultdict(int)
+
+        # Initialize telemetry collectors if enabled
+        if enable_telemetry:
+            _ensure_telemetry_collectors()
+            logger.debug("[telemetry] Prometheus/Blackbox collectors initialized")
 
     def set_loop_id(self, loop_id: str) -> None:
         """Set the current loop/debate ID for wisdom retrieval."""
         self.loop_id = loop_id
+
+    def _emit_agent_telemetry(
+        self,
+        agent_name: str,
+        operation: str,
+        start_time: float,
+        success: bool,
+        error: Exception | None = None,
+        output: str | None = None,
+        input_text: str | None = None,
+    ) -> None:
+        """Emit telemetry for an agent operation if enabled."""
+        if not self.enable_telemetry:
+            return
+
+        try:
+            from aragora.agents.telemetry import AgentTelemetry, _emit_telemetry
+
+            telemetry = AgentTelemetry(
+                agent_name=agent_name,
+                operation=operation,
+                start_time=start_time,
+            )
+
+            # Set input/output tokens
+            if input_text:
+                telemetry.input_chars = len(input_text)
+                telemetry.input_tokens = AgentTelemetry.estimate_tokens(input_text)
+            if output:
+                telemetry.output_chars = len(output)
+                telemetry.output_tokens = AgentTelemetry.estimate_tokens(output)
+
+            telemetry.complete(success=success, error=error)
+            _emit_telemetry(telemetry)
+        except ImportError:
+            pass  # Telemetry not available
+        except Exception as e:
+            logger.debug(f"[telemetry] Emission failed: {e}")
 
     def _get_wisdom_fallback(self, failed_agent: str) -> Optional[str]:
         """
@@ -303,8 +366,14 @@ class AutonomicExecutor:
                     tracking_id, success=True, response=sanitized
                 )
 
+            # Emit telemetry
+            self._emit_agent_telemetry(
+                agent.name, "generate", start_time,
+                success=True, output=sanitized, input_text=prompt
+            )
+
             return sanitized
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as e:
             timeout_seconds = time.time() - start_time
             logger.warning(f"[Autonomic] Agent {agent.name} timed out")
 
@@ -317,6 +386,12 @@ class AutonomicExecutor:
             # Notify immune system of timeout
             if self.immune_system:
                 self.immune_system.agent_timeout(agent.name, timeout_seconds)
+
+            # Emit telemetry for timeout
+            self._emit_agent_telemetry(
+                agent.name, "generate", start_time,
+                success=False, error=e, input_text=prompt
+            )
 
             # Use theatrical message if chaos director available
             if self.chaos_director:
@@ -337,6 +412,12 @@ class AutonomicExecutor:
             if self.immune_system:
                 self.immune_system.agent_failed(agent.name, str(e), recoverable=True)
 
+            # Emit telemetry for connection error
+            self._emit_agent_telemetry(
+                agent.name, "generate", start_time,
+                success=False, error=e, input_text=prompt
+            )
+
             # Use theatrical message if chaos director available
             if self.chaos_director:
                 return self.chaos_director.connection_response(agent.name).message
@@ -355,6 +436,12 @@ class AutonomicExecutor:
             # Notify immune system of failure
             if self.immune_system:
                 self.immune_system.agent_failed(agent.name, str(e), recoverable=False)
+
+            # Emit telemetry for exception
+            self._emit_agent_telemetry(
+                agent.name, "generate", start_time,
+                success=False, error=e, input_text=prompt
+            )
 
             # Use theatrical message if chaos director available
             if self.chaos_director:
@@ -384,6 +471,7 @@ class AutonomicExecutor:
         Returns:
             Critique object or None on failure
         """
+        start_time = time.time()
         tracking_id = None
         if self.performance_monitor:
             tracking_id = self.performance_monitor.track_agent_call(
@@ -396,13 +484,22 @@ class AutonomicExecutor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=True, response=str(result) if result else None
                 )
+            # Emit telemetry
+            self._emit_agent_telemetry(
+                agent.name, "critique", start_time,
+                success=True, output=str(result) if result else None, input_text=proposal
+            )
             return result
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as e:
             logger.warning(f"[Autonomic] Agent {agent.name} critique timed out")
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=False, error="timeout"
                 )
+            self._emit_agent_telemetry(
+                agent.name, "critique", start_time,
+                success=False, error=e, input_text=proposal
+            )
             return None
         except (ConnectionError, OSError) as e:
             logger.warning(f"[Autonomic] Agent {agent.name} critique connection error: {e}")
@@ -410,6 +507,10 @@ class AutonomicExecutor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=False, error=f"connection error: {e}"
                 )
+            self._emit_agent_telemetry(
+                agent.name, "critique", start_time,
+                success=False, error=e, input_text=proposal
+            )
             return None
         except Exception as e:
             logger.exception(f"[Autonomic] Agent {agent.name} critique failed: {e}")
@@ -417,6 +518,10 @@ class AutonomicExecutor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=False, error=f"{type(e).__name__}: {e}"
                 )
+            self._emit_agent_telemetry(
+                agent.name, "critique", start_time,
+                success=False, error=e, input_text=proposal
+            )
             return None
 
     async def vote(
@@ -440,6 +545,8 @@ class AutonomicExecutor:
         Returns:
             Vote object or None on failure
         """
+        start_time = time.time()
+        input_text = f"{task}\n{str(proposals)}"
         tracking_id = None
         if self.performance_monitor:
             tracking_id = self.performance_monitor.track_agent_call(
@@ -452,13 +559,22 @@ class AutonomicExecutor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=True, response=str(result) if result else None
                 )
+            # Emit telemetry
+            self._emit_agent_telemetry(
+                agent.name, "vote", start_time,
+                success=True, output=str(result) if result else None, input_text=input_text
+            )
             return result
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as e:
             logger.warning(f"[Autonomic] Agent {agent.name} vote timed out")
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=False, error="timeout"
                 )
+            self._emit_agent_telemetry(
+                agent.name, "vote", start_time,
+                success=False, error=e, input_text=input_text
+            )
             return None
         except (ConnectionError, OSError) as e:
             logger.warning(f"[Autonomic] Agent {agent.name} vote connection error: {e}")
@@ -466,6 +582,10 @@ class AutonomicExecutor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=False, error=f"connection error: {e}"
                 )
+            self._emit_agent_telemetry(
+                agent.name, "vote", start_time,
+                success=False, error=e, input_text=input_text
+            )
             return None
         except Exception as e:
             logger.exception(f"[Autonomic] Agent {agent.name} vote failed: {e}")
@@ -473,6 +593,10 @@ class AutonomicExecutor:
                 self.performance_monitor.record_completion(
                     tracking_id, success=False, error=f"{type(e).__name__}: {e}"
                 )
+            self._emit_agent_telemetry(
+                agent.name, "vote", start_time,
+                success=False, error=e, input_text=input_text
+            )
             return None
 
     async def generate_with_fallback(

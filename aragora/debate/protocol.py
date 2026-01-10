@@ -117,6 +117,15 @@ class DebateProtocol:
     # When enabled, agent prediction confidence is tracked against outcomes
     enable_calibration: bool = False  # Enable calibration tracking
 
+    # Rhetorical observer: Passive commentary on debate dynamics
+    # Detects patterns like concession, rebuttal, synthesis for audience engagement
+    enable_rhetorical_observer: bool = False  # Enable rhetorical pattern detection
+
+    # Trickster for hollow consensus detection
+    # Challenges convergence that lacks evidence quality
+    enable_trickster: bool = False  # Enable hollow consensus detection
+    trickster_sensitivity: float = 0.7  # Threshold for triggering challenges
+
 
 def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
     """

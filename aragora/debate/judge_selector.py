@@ -273,6 +273,148 @@ class CalibratedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
         return random.choice(list(agents)) if agents else None
 
 
+class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
+    """Select judges who historically dissented on debate cruxes.
+
+    This strategy aims to improve debate quality by selecting judges
+    who have previously shown contrarian perspectives on similar topics.
+    Dissenters often catch blind spots the majority misses.
+
+    Falls back to CalibratedStrategy if no relevant historical data.
+    """
+
+    def __init__(
+        self,
+        elo_system: Optional["EloSystem"] = None,
+        consensus_memory: Optional[object] = None,  # ConsensusMemory type
+    ):
+        JudgeScoringMixin.__init__(self, elo_system)
+        self._consensus_memory = consensus_memory
+
+    async def select(
+        self,
+        agents: Sequence["Agent"],
+        proposals: dict[str, str],
+        context: list["Message"],
+        cruxes: Optional[list[dict]] = None,
+    ) -> "Agent":
+        """Select agent who historically dissented on similar cruxes.
+
+        Args:
+            agents: Available agents
+            proposals: Current proposals
+            context: Debate messages
+            cruxes: Optional list of identified cruxes for this debate
+
+        Returns:
+            Selected judge, preferring historical dissenters
+        """
+        if not agents:
+            return None
+
+        # Try to find historical dissenters if we have consensus memory and cruxes
+        if self._consensus_memory and cruxes:
+            dissenters = self._find_historical_dissenters(cruxes, agents)
+            if dissenters:
+                # Rank dissenters by ELO and pick best one
+                ranked = self._rank_by_elo(dissenters)
+                if ranked:
+                    logger.info(
+                        f"crux_aware_judge selected={ranked[0].name} "
+                        f"reason=historical_dissenter"
+                    )
+                    return ranked[0]
+
+        # Fall back to calibrated strategy
+        if self._elo_system:
+            scores = self.get_all_scores(agents)
+            if scores:
+                best = scores[0]
+                judge = next((a for a in agents if a.name == best.agent_name), None)
+                if judge:
+                    logger.debug(
+                        f"crux_aware_judge fallback={best.agent_name} "
+                        f"composite={best.composite_score:.3f}"
+                    )
+                    return judge
+
+        # Ultimate fallback: random
+        import random
+        return random.choice(list(agents))
+
+    def _find_historical_dissenters(
+        self,
+        cruxes: list[dict],
+        agents: Sequence["Agent"],
+    ) -> list["Agent"]:
+        """Find agents who historically dissented on similar topics.
+
+        Args:
+            cruxes: Cruxes identified in this debate
+            agents: Available agents to filter
+
+        Returns:
+            Agents who have dissented on similar topics
+        """
+        if not self._consensus_memory:
+            return []
+
+        agent_names = {a.name for a in agents}
+        dissenters = set()
+
+        try:
+            # Extract topic from first crux if available
+            for crux in cruxes[:2]:  # Check first 2 cruxes
+                claim = crux.get("claim", "") or str(crux)
+
+                # Query for similar debates
+                similar = self._consensus_memory.find_similar_debates(
+                    claim, limit=5
+                )
+
+                for debate in similar:
+                    # Check if this agent dissented in similar debate
+                    dissenting = getattr(debate, 'dissenting_agents', [])
+                    if hasattr(debate, 'consensus') and hasattr(debate.consensus, 'dissenting_agents'):
+                        dissenting = debate.consensus.dissenting_agents
+
+                    for agent_name in dissenting:
+                        if agent_name in agent_names:
+                            dissenters.add(agent_name)
+
+        except Exception as e:
+            logger.debug(f"Historical dissent query failed: {e}")
+
+        # Convert names back to agent objects
+        return [a for a in agents if a.name in dissenters]
+
+    def _rank_by_elo(self, agents: Sequence["Agent"]) -> list["Agent"]:
+        """Rank agents by ELO score descending.
+
+        Args:
+            agents: Agents to rank
+
+        Returns:
+            Agents sorted by ELO (highest first)
+        """
+        if not self._elo_system or not agents:
+            return list(agents)
+
+        try:
+            agent_names = [a.name for a in agents]
+            ratings = self._elo_system.get_ratings_batch(agent_names)
+
+            ranked = sorted(
+                agents,
+                key=lambda a: ratings.get(a.name, type('', (), {'elo': 1000})()).elo,
+                reverse=True,
+            )
+            return ranked
+        except Exception as e:
+            logger.debug(f"ELO ranking failed: {e}")
+            return list(agents)
+
+
 class VotedStrategy(JudgeSelectionStrategy):
     """Agents vote on who should judge."""
 
@@ -373,6 +515,7 @@ class JudgeSelector(JudgeScoringMixin):
         build_vote_prompt_fn: Optional[Callable] = None,
         sanitize_fn: Optional[Callable] = None,
         circuit_breaker: Optional["CircuitBreaker"] = None,
+        consensus_memory: Optional[object] = None,
     ):
         """
         Initialize the judge selector.
@@ -380,11 +523,12 @@ class JudgeSelector(JudgeScoringMixin):
         Args:
             agents: Available agents
             elo_system: Optional ELO system for ranked selection
-            judge_selection: Strategy name (last, random, voted, elo_ranked, calibrated)
+            judge_selection: Strategy name (last, random, voted, elo_ranked, calibrated, crux_aware)
             generate_fn: Agent generation function (required for voted strategy)
             build_vote_prompt_fn: Vote prompt builder (required for voted strategy)
             sanitize_fn: Output sanitizer function
             circuit_breaker: Optional circuit breaker for filtering unavailable agents
+            consensus_memory: Optional ConsensusMemory for crux-aware selection
         """
         JudgeScoringMixin.__init__(self, elo_system)
         self._agents = list(agents)
@@ -393,6 +537,7 @@ class JudgeSelector(JudgeScoringMixin):
         self._build_vote_prompt_fn = build_vote_prompt_fn
         self._sanitize_fn = sanitize_fn
         self._circuit_breaker = circuit_breaker
+        self._consensus_memory = consensus_memory
 
         # Initialize strategies
         self._strategies: dict[str, JudgeSelectionStrategy] = {
@@ -400,6 +545,7 @@ class JudgeSelector(JudgeScoringMixin):
             "random": RandomStrategy(),
             "elo_ranked": EloRankedStrategy(elo_system),
             "calibrated": CalibratedStrategy(elo_system),
+            "crux_aware": CruxAwareStrategy(elo_system, consensus_memory),
         }
 
         # Add voted strategy if dependencies provided

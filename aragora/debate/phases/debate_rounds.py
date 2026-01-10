@@ -49,6 +49,9 @@ class DebateRoundsPhase:
         recorder: Any = None,
         hooks: Optional[dict] = None,
         trickster: Any = None,  # EvidencePoweredTrickster for hollow consensus detection
+        rhetorical_observer: Any = None,  # RhetoricalAnalysisObserver for pattern detection
+        event_emitter: Any = None,  # EventEmitter for broadcasting observations
+        novelty_tracker: Any = None,  # NoveltyTracker for semantic novelty detection
         # Callbacks
         update_role_assignments: Optional[Callable] = None,
         assign_stances: Optional[Callable] = None,
@@ -73,6 +76,9 @@ class DebateRoundsPhase:
             recorder: ReplayRecorder
             hooks: Hook callbacks dict
             trickster: EvidencePoweredTrickster for hollow consensus detection
+            rhetorical_observer: RhetoricalAnalysisObserver for pattern detection
+            event_emitter: EventEmitter for broadcasting observations
+            novelty_tracker: NoveltyTracker for detecting proposal staleness
             update_role_assignments: Callback to update role assignments
             assign_stances: Callback to assign stances for asymmetric debates
             select_critics_for_proposal: Callback to select critics
@@ -92,6 +98,9 @@ class DebateRoundsPhase:
         self.recorder = recorder
         self.hooks = hooks or {}
         self.trickster = trickster
+        self.rhetorical_observer = rhetorical_observer
+        self.event_emitter = event_emitter
+        self.novelty_tracker = novelty_tracker
 
         # Callbacks
         self._update_role_assignments = update_role_assignments
@@ -112,6 +121,51 @@ class DebateRoundsPhase:
         self._partial_critiques: list["Critique"] = []
         self._previous_round_responses: dict[str, str] = {}
 
+    def _observe_rhetorical_patterns(
+        self,
+        agent: str,
+        content: str,
+        round_num: int,
+        loop_id: str = "",
+    ) -> None:
+        """Observe content for rhetorical patterns and emit events."""
+        if not self.rhetorical_observer:
+            return
+
+        try:
+            observations = self.rhetorical_observer.observe(
+                agent=agent,
+                content=content,
+                round_num=round_num,
+            )
+
+            if not observations:
+                return
+
+            # Emit events for each observation
+            if self.event_emitter:
+                from aragora.server.stream.events import StreamEvent, StreamEventType
+
+                self.event_emitter.emit(StreamEvent(
+                    type=StreamEventType.RHETORICAL_OBSERVATION,
+                    loop_id=loop_id,
+                    data={
+                        "agent": agent,
+                        "round_num": round_num,
+                        "observations": [o.to_dict() for o in observations],
+                    },
+                ))
+
+            # Log for debugging
+            for obs in observations:
+                logger.debug(
+                    f"rhetorical_pattern agent={agent} pattern={obs.pattern.value} "
+                    f"confidence={obs.confidence:.2f}"
+                )
+
+        except Exception as e:
+            logger.debug(f"Rhetorical observation failed: {e}")
+
     async def execute(self, ctx: "DebateContext") -> None:
         """
         Execute the debate rounds phase.
@@ -124,6 +178,10 @@ class DebateRoundsPhase:
         result = ctx.result
         proposals = ctx.proposals
         rounds = self.protocol.rounds if self.protocol else 1
+
+        # Track novelty for initial proposals (round 0 baseline)
+        if self.novelty_tracker and proposals:
+            self._track_novelty(ctx, round_num=0)
 
         for round_num in range(1, rounds + 1):
             logger.info(f"round_start round={round_num}")
@@ -169,6 +227,9 @@ class DebateRoundsPhase:
 
             # Revision phase
             await self._revision_phase(ctx, critics, round_num)
+
+            # Track novelty of revised proposals
+            self._track_novelty(ctx, round_num)
 
             result.rounds_used = round_num
 
@@ -433,6 +494,10 @@ class DebateRoundsPhase:
                 debate_id = result.id if hasattr(result, 'id') else (ctx.env.task[:50] if ctx.env else "")
                 self._record_grounded_position(agent.name, revised_str, debate_id, round_num, 0.75)
 
+            # Observe rhetorical patterns for audience engagement
+            loop_id = ctx.loop_id if hasattr(ctx, 'loop_id') else ""
+            self._observe_rhetorical_patterns(agent.name, revised_str, round_num, loop_id)
+
     def _check_convergence(self, ctx: "DebateContext", round_num: int) -> bool:
         """Check for convergence and return True if should break."""
         if not self.convergence_detector:
@@ -522,6 +587,96 @@ class DebateRoundsPhase:
             return True
 
         return False
+
+    def _track_novelty(self, ctx: "DebateContext", round_num: int) -> None:
+        """
+        Track novelty of current proposals compared to prior proposals.
+
+        Updates context with novelty scores and triggers trickster intervention
+        if proposals are too similar to previous rounds.
+        """
+        if not self.novelty_tracker:
+            return
+
+        current_proposals = dict(ctx.proposals)
+        if not current_proposals:
+            return
+
+        # Compute novelty against prior proposals
+        novelty_result = self.novelty_tracker.compute_novelty(
+            current_proposals, round_num
+        )
+
+        # Update context with novelty scores
+        for agent, novelty in novelty_result.per_agent_novelty.items():
+            if agent not in ctx.per_agent_novelty:
+                ctx.per_agent_novelty[agent] = []
+            ctx.per_agent_novelty[agent].append(novelty)
+
+        ctx.avg_novelty = novelty_result.avg_novelty
+        ctx.low_novelty_agents = novelty_result.low_novelty_agents
+
+        # Add to history for future comparisons
+        self.novelty_tracker.add_to_history(current_proposals)
+
+        # Log novelty status
+        logger.info(
+            f"novelty_check round={round_num} avg={novelty_result.avg_novelty:.2f} "
+            f"min={novelty_result.min_novelty:.2f} low_novelty={novelty_result.low_novelty_agents}"
+        )
+
+        # Notify spectator about novelty
+        if self._notify_spectator:
+            self._notify_spectator(
+                "novelty",
+                details=f"Avg novelty: {novelty_result.avg_novelty:.0%}",
+                metric=novelty_result.avg_novelty,
+            )
+
+        # Emit novelty event
+        if "on_novelty_check" in self.hooks:
+            self.hooks["on_novelty_check"](
+                avg_novelty=novelty_result.avg_novelty,
+                per_agent=novelty_result.per_agent_novelty,
+                low_novelty_agents=novelty_result.low_novelty_agents,
+                round_num=round_num,
+            )
+
+        # Check for low novelty and trigger trickster intervention
+        if novelty_result.has_low_novelty() and self.trickster:
+            # Use trickster to generate novelty challenge
+            from aragora.debate.trickster import InterventionType
+
+            if hasattr(self.trickster, 'create_novelty_challenge'):
+                intervention = self.trickster.create_novelty_challenge(
+                    low_novelty_agents=novelty_result.low_novelty_agents,
+                    novelty_scores=novelty_result.per_agent_novelty,
+                    round_num=round_num,
+                )
+                if intervention:
+                    logger.info(
+                        f"novelty_challenge round={round_num} "
+                        f"targets={intervention.target_agents}"
+                    )
+                    # Notify spectator
+                    if self._notify_spectator:
+                        self._notify_spectator(
+                            "low_novelty",
+                            details="Proposals too similar to prior rounds",
+                            metric=novelty_result.min_novelty,
+                            agent="trickster",
+                        )
+                    # Emit trickster event
+                    if "on_trickster_intervention" in self.hooks:
+                        self.hooks["on_trickster_intervention"](
+                            intervention_type=intervention.intervention_type.value,
+                            targets=intervention.target_agents,
+                            challenge=intervention.challenge_text,
+                            round_num=round_num,
+                        )
+                    # Inject challenge into context for next round
+                    if self._inject_challenge:
+                        self._inject_challenge(intervention.challenge_text, ctx)
 
     async def _should_terminate(
         self, ctx: "DebateContext", round_num: int

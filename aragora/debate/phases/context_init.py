@@ -54,6 +54,9 @@ class ContextInitializer:
         memory: Any = None,
         protocol: Any = None,
         evidence_collector: Any = None,
+        dissent_retriever: Any = None,  # DissentRetriever for historical minority views
+        pulse_manager: Any = None,  # PulseManager for trending topics
+        auto_fetch_trending: bool = False,  # Auto-fetch trending if no topic provided
         # Callbacks for orchestrator methods
         fetch_historical_context: Optional[Callable] = None,
         format_patterns_for_prompt: Optional[Callable] = None,
@@ -72,6 +75,9 @@ class ContextInitializer:
             memory: Optional CritiqueStore for memory patterns
             protocol: DebateProtocol configuration
             evidence_collector: Optional EvidenceCollector for auto-collecting evidence
+            dissent_retriever: Optional DissentRetriever for historical minority views
+            pulse_manager: Optional PulseManager for fetching trending topics
+            auto_fetch_trending: If True and no trending_topic provided, auto-fetch from Pulse
             fetch_historical_context: Async callback to fetch historical context
             format_patterns_for_prompt: Callback to format patterns for prompts
             get_successful_patterns_from_memory: Callback to get memory patterns
@@ -85,6 +91,9 @@ class ContextInitializer:
         self.memory = memory
         self.protocol = protocol
         self.evidence_collector = evidence_collector
+        self.dissent_retriever = dissent_retriever
+        self.pulse_manager = pulse_manager
+        self.auto_fetch_trending = auto_fetch_trending
 
         # Callbacks
         self._fetch_historical_context = fetch_historical_context
@@ -98,15 +107,18 @@ class ContextInitializer:
 
         This method performs all context preparation in order:
         1. Inject fork debate history
-        2. Inject trending topic context
-        3. Start recorder
-        4. Fetch historical context
-        5. Inject learned patterns
-        6. Inject memory patterns
-        7. Perform pre-debate research
-        8. Collect evidence (auto-collection)
-        9. Initialize context messages
-        10. Select proposers
+        2. Auto-fetch trending topics from Pulse (if enabled)
+        3. Inject trending topic context
+        4. Start recorder
+        5. Fetch historical context
+        6. Inject learned patterns
+        7. Inject memory patterns
+        8. Inject historical dissents
+        9. Perform pre-debate research
+        10. Collect evidence (auto-collection)
+        11. Initialize DebateResult
+        12. Initialize context messages
+        13. Select proposers
 
         Args:
             ctx: The DebateContext to initialize
@@ -116,28 +128,35 @@ class ContextInitializer:
         # 1. Inject fork debate history
         self._inject_fork_history(ctx)
 
-        # 2. Inject trending topic context
+        # 2. Auto-fetch trending topics from Pulse if enabled
+        if not self.trending_topic and self.auto_fetch_trending:
+            await self._inject_pulse_context(ctx)
+
+        # 3. Inject trending topic context (provided or auto-fetched)
         self._inject_trending_topic(ctx)
 
-        # 3. Start recorder
+        # 4. Start recorder
         self._start_recorder()
 
-        # 4. Fetch historical context (async, with timeout)
+        # 5. Fetch historical context (async, with timeout)
         await self._fetch_historical(ctx)
 
-        # 5. Inject learned patterns from InsightStore (async)
+        # 6. Inject learned patterns from InsightStore (async)
         await self._inject_insight_patterns(ctx)
 
-        # 6. Inject memory patterns from CritiqueStore
+        # 7. Inject memory patterns from CritiqueStore
         self._inject_memory_patterns(ctx)
 
-        # 7. Perform pre-debate research (async)
+        # 8. Inject historical dissents from ConsensusMemory
+        self._inject_historical_dissents(ctx)
+
+        # 9. Perform pre-debate research (async)
         await self._perform_pre_debate_research(ctx)
 
-        # 8. Collect evidence (auto-collection from connectors)
+        # 10. Collect evidence (auto-collection from connectors)
         await self._collect_evidence(ctx)
 
-        # 9. Initialize DebateResult
+        # 11. Initialize DebateResult
         ctx.result = DebateResult(
             task=ctx.env.task,
             messages=[],
@@ -146,10 +165,10 @@ class ContextInitializer:
             dissenting_views=[],
         )
 
-        # 10. Initialize context messages for fork debates
+        # 12. Initialize context messages for fork debates
         self._init_context_messages(ctx)
 
-        # 11. Select proposers
+        # 13. Select proposers
         self._select_proposers(ctx)
 
     def _inject_fork_history(self, ctx: "DebateContext") -> None:
@@ -194,6 +213,46 @@ class ContextInitializer:
                 ctx.env.context = topic_context
         except Exception as e:
             logger.debug(f"Trending topic injection failed: {e}")
+
+    async def _inject_pulse_context(self, ctx: "DebateContext") -> None:
+        """Auto-fetch and inject trending topics from Pulse.
+
+        Fetches trending topics from configured Pulse ingestors and
+        selects the most suitable one for debate context enrichment.
+        This runs only if auto_fetch_trending is True and no trending_topic
+        was explicitly provided.
+        """
+        if not self.pulse_manager:
+            return
+
+        try:
+            topics = await asyncio.wait_for(
+                self.pulse_manager.get_trending_topics(limit_per_platform=3),
+                timeout=5.0  # Don't delay debate startup
+            )
+
+            if not topics:
+                return
+
+            # Select best topic for debate
+            if hasattr(self.pulse_manager, 'select_topic_for_debate'):
+                selected = self.pulse_manager.select_topic_for_debate(topics)
+            else:
+                selected = topics[0] if topics else None
+
+            if selected:
+                # Store as trending_topic so _inject_trending_topic can use it
+                self.trending_topic = selected
+                logger.info(
+                    "[pulse] Auto-selected trending topic: %s (%s)",
+                    selected.topic,
+                    selected.platform,
+                )
+
+        except asyncio.TimeoutError:
+            logger.warning("[pulse] Trending topic fetch timed out")
+        except Exception as e:
+            logger.debug(f"[pulse] Trending topic fetch failed: {e}")
 
     def _start_recorder(self) -> None:
         """Start the replay recorder if provided."""
@@ -256,6 +315,47 @@ class ContextInitializer:
                 logger.info("  [memory] Injected successful critique patterns into debate context")
         except Exception as e:
             logger.debug(f"Memory pattern injection error: {e}")
+
+    def _inject_historical_dissents(self, ctx: "DebateContext") -> None:
+        """Inject historical dissenting views from similar past debates.
+
+        Uses DissentRetriever to find relevant contrarian perspectives
+        from previous debates on similar topics. This helps prevent
+        groupthink and surfaces minority viewpoints that may be valuable.
+        """
+        if not self.dissent_retriever:
+            return
+
+        try:
+            # Get debate preparation context with similar debates and dissents
+            topic = ctx.env.task
+            domain = getattr(ctx, 'domain', None)
+            if domain == 'general':
+                domain = None
+
+            historical = self.dissent_retriever.get_debate_preparation_context(
+                topic=topic,
+                domain=domain,
+            )
+
+            if not historical or len(historical.strip()) < 50:
+                return
+
+            # Inject as context for all phases
+            historical_section = f"\n\n{historical}"
+            if ctx.env.context:
+                ctx.env.context += historical_section
+            else:
+                ctx.env.context = historical_section.strip()
+
+            logger.info(
+                "[consensus_memory] Injected historical dissent context "
+                "(%d chars) from similar debates",
+                len(historical),
+            )
+
+        except Exception as e:
+            logger.debug(f"Historical dissent injection error: {e}")
 
     async def _perform_pre_debate_research(self, ctx: "DebateContext") -> None:
         """Perform pre-debate research if enabled."""

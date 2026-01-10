@@ -154,6 +154,19 @@ class DebateContext:
     """Flag set when debate should terminate early due to convergence."""
 
     # =========================================================================
+    # Novelty State
+    # =========================================================================
+
+    per_agent_novelty: dict[str, list[float]] = field(default_factory=dict)
+    """Per-agent novelty scores across rounds. Each list tracks novelty over time."""
+
+    avg_novelty: float = 1.0
+    """Average novelty across all agents (1.0 = maximally novel, 0.0 = repetitive)."""
+
+    low_novelty_agents: list[str] = field(default_factory=list)
+    """Agents whose proposals are too similar to prior proposals (below threshold)."""
+
+    # =========================================================================
     # Helper Methods
     # =========================================================================
 
@@ -195,6 +208,9 @@ class DebateContext:
             self.result.rounds_used = self.current_round
             if self.winner_agent:
                 self.result.winner = self.winner_agent
+            # Copy novelty tracking data
+            self.result.per_agent_novelty = dict(self.per_agent_novelty)
+            self.result.avg_novelty = self.avg_novelty
         return self.result
 
     def to_summary_dict(self) -> dict:
@@ -210,4 +226,6 @@ class DebateContext:
             "num_messages": len(self.context_messages),
             "winner": self.winner_agent,
             "convergence_status": self.convergence_status,
+            "avg_novelty": self.avg_novelty,
+            "low_novelty_agents": self.low_novelty_agents,
         }
