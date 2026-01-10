@@ -315,4 +315,5 @@ def init_phases(arena: "Arena") -> None:
         population_manager=arena.population_manager,
         auto_evolve=arena.auto_evolve,
         breeding_threshold=arena.breeding_threshold,
+        prompt_evolver=arena.prompt_evolver,
     )

@@ -7,6 +7,8 @@ import { TranscriptMessageCard } from './TranscriptMessageCard';
 import { StreamingMessageCard } from './StreamingMessageCard';
 import { ConsensusMeter } from './ConsensusMeter';
 import { CritiqueSeverityMeter } from './CritiqueSeverityMeter';
+import { TricksterAlertPanel } from '@/components/TricksterAlertPanel';
+import { RhetoricalObservationsPanel } from './RhetoricalObservationsPanel';
 import type { LiveDebateViewProps } from './types';
 
 const STATUS_CONFIG = {
@@ -89,6 +91,12 @@ export function LiveDebateView({
           <CritiqueSeverityMeter events={streamEvents} agents={agents} />
         </div>
       )}
+
+      {/* Trickster Alerts - visible when hollow consensus detected */}
+      <TricksterAlertPanel events={streamEvents} />
+
+      {/* Rhetorical Observations - collapsible analysis */}
+      <RhetoricalObservationsPanel events={streamEvents} />
 
       {/* Live Transcript + User Participation Grid */}
       <div className={`grid gap-4 ${showParticipation ? 'lg:grid-cols-3' : 'grid-cols-1'}`}>

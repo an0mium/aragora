@@ -77,6 +77,11 @@ class SpectatorMixin:
                 "token_start": StreamEventType.TOKEN_START,
                 "token_delta": StreamEventType.TOKEN_DELTA,
                 "token_end": StreamEventType.TOKEN_END,
+                # Trickster/hollow consensus events
+                "hollow_consensus": StreamEventType.HOLLOW_CONSENSUS,
+                "trickster_intervention": StreamEventType.TRICKSTER_INTERVENTION,
+                # Rhetorical observations
+                "rhetorical_observation": StreamEventType.RHETORICAL_OBSERVATION,
             }
 
             stream_type = type_mapping.get(event_type)

@@ -5,6 +5,7 @@ export { TranscriptMessageCard } from './TranscriptMessageCard';
 export { StreamingMessageCard } from './StreamingMessageCard';
 export { ConsensusMeter } from './ConsensusMeter';
 export { CritiqueSeverityMeter } from './CritiqueSeverityMeter';
+export { RhetoricalObservationsPanel } from './RhetoricalObservationsPanel';
 
 export type {
   DebateViewerProps,

@@ -76,6 +76,10 @@ class StreamEventType(Enum):
     # Rhetorical analysis events
     RHETORICAL_OBSERVATION = "rhetorical_observation"  # Rhetorical pattern detected
 
+    # Trickster/hollow consensus events
+    HOLLOW_CONSENSUS = "hollow_consensus"            # Hollow consensus detected
+    TRICKSTER_INTERVENTION = "trickster_intervention"  # Trickster challenge injected
+
     # Human intervention breakpoint events
     BREAKPOINT = "breakpoint"            # Human intervention breakpoint triggered
     BREAKPOINT_RESOLVED = "breakpoint_resolved"  # Breakpoint resolved with guidance

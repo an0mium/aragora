@@ -177,6 +177,10 @@ class ArenaConfig:
     use_airlock: bool = False  # Wrap agents with AirlockProxy for timeout/fallback
     airlock_config: Optional[object] = None  # AirlockConfig for customization
 
+    # Prompt evolution for self-improvement
+    prompt_evolver: Optional[object] = None  # PromptEvolver for extracting winning patterns
+    enable_prompt_evolution: bool = False  # Auto-create PromptEvolver if True
+
 
 class Arena:
     """
@@ -234,6 +238,8 @@ class Arena:
         airlock_config=None,  # Optional AirlockConfig for customization
         agent_selector=None,  # Optional AgentSelector for performance-based team selection
         use_performance_selection: bool = False,  # Enable ELO/calibration-based agent selection
+        prompt_evolver=None,  # Optional PromptEvolver for extracting winning patterns
+        enable_prompt_evolution: bool = False,  # Auto-create PromptEvolver if True
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
@@ -309,6 +315,8 @@ class Arena:
             airlock_config=airlock_config,
             agent_selector=agent_selector,
             use_performance_selection=use_performance_selection,
+            prompt_evolver=prompt_evolver,
+            enable_prompt_evolution=enable_prompt_evolution,
         )
 
         # Initialize tracking subsystems
@@ -412,6 +420,8 @@ class Arena:
             airlock_config=config.airlock_config,
             agent_selector=config.agent_selector,
             use_performance_selection=config.use_performance_selection,
+            prompt_evolver=config.prompt_evolver,
+            enable_prompt_evolution=config.enable_prompt_evolution,
         )
 
     def _init_core(
@@ -446,6 +456,8 @@ class Arena:
         airlock_config,
         agent_selector,
         use_performance_selection: bool,
+        prompt_evolver,
+        enable_prompt_evolution: bool,
     ) -> None:
         """Initialize core Arena configuration."""
         self.env = environment
@@ -484,6 +496,16 @@ class Arena:
             self.performance_monitor = AgentPerformanceMonitor()
         else:
             self.performance_monitor = None
+
+        # Prompt evolver for self-improvement via pattern extraction
+        if prompt_evolver:
+            self.prompt_evolver = prompt_evolver
+        elif enable_prompt_evolution:
+            from aragora.evolution.evolver import PromptEvolver
+            self.prompt_evolver = PromptEvolver()
+            logger.debug("[evolution] Auto-created PromptEvolver for pattern extraction")
+        else:
+            self.prompt_evolver = None
 
         self.autonomic = AutonomicExecutor(
             circuit_breaker=self.circuit_breaker,

@@ -41,6 +41,11 @@ export type StreamEventType =
   | 'leaderboard_update'
   | 'flip_detected'
   | 'memory_recall'
+  // Trickster/hollow consensus events
+  | 'hollow_consensus'
+  | 'trickster_intervention'
+  // Rhetorical analysis
+  | 'rhetorical_observation'
   // Token streaming events
   | 'token_start'
   | 'token_delta'
@@ -145,6 +150,28 @@ export interface FlipDetectedData {
   detected_at?: string;
 }
 
+export interface HollowConsensusData {
+  details: string;
+  metric: number;
+  agent: string;
+  round?: number;
+}
+
+export interface TricksterInterventionData {
+  intervention_type: string;
+  targets: string[];
+  challenge: string;
+  round_num: number;
+  priority?: number;
+}
+
+export interface RhetoricalObservationData {
+  agent: string;
+  patterns: string[];
+  round: number;
+  analysis?: string;
+}
+
 // Discriminated union of specific event types
 export type TypedStreamEvent =
   | (StreamEventBase & { type: 'agent_message'; data: AgentMessageData })
@@ -161,7 +188,10 @@ export type TypedStreamEvent =
   | (StreamEventBase & { type: 'audience_metrics'; data: AudienceMetricsData })
   | (StreamEventBase & { type: 'audit_finding'; data: AuditFinding })
   | (StreamEventBase & { type: 'audit_round'; data: AuditRoundData })
-  | (StreamEventBase & { type: 'audit_verdict'; data: AuditVerdictData });
+  | (StreamEventBase & { type: 'audit_verdict'; data: AuditVerdictData })
+  | (StreamEventBase & { type: 'hollow_consensus'; data: HollowConsensusData })
+  | (StreamEventBase & { type: 'trickster_intervention'; data: TricksterInterventionData })
+  | (StreamEventBase & { type: 'rhetorical_observation'; data: RhetoricalObservationData });
 
 // Generic event type for events not yet specifically typed
 export interface GenericStreamEvent extends StreamEventBase {
