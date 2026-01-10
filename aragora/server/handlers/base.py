@@ -73,6 +73,9 @@ __all__ = [
     "get_host_header", "get_agent_name", "agent_to_dict", "validate_params",
     "SAFE_ID_PATTERN", "SAFE_SLUG_PATTERN", "SAFE_AGENT_PATTERN",
     "feature_unavailable_response",
+    # Parameter extraction helpers
+    "get_int_param", "get_float_param", "get_bool_param", "get_string_param",
+    "get_clamped_int_param", "get_bounded_float_param", "get_bounded_string_param",
 ]
 
 

@@ -1,0 +1,128 @@
+{
+  "trace_id": "trace-demo-broadcast",
+  "debate_id": "demo-broadcast",
+  "task": "Should Aragora prioritize stabilizing the CLI or refactoring the orchestrator first?",
+  "agents": [
+    "claude-visionary",
+    "codex-engineer",
+    "gemini-visionary",
+    "grok-lateral-thinker"
+  ],
+  "random_seed": 42,
+  "events": [
+    {
+      "event_id": "demo-broadcast-e0001",
+      "event_type": "debate_start",
+      "timestamp": "2026-01-09T23:03:36.048761",
+      "round_num": 0,
+      "agent": null,
+      "content": {
+        "task": "Should Aragora prioritize stabilizing the CLI or refactoring the orchestrator first?"
+      },
+      "parent_event_id": null,
+      "duration_ms": null,
+      "metadata": {}
+    },
+    {
+      "event_id": "demo-broadcast-e0002",
+      "event_type": "round_start",
+      "timestamp": "2026-01-09T23:03:36.048761",
+      "round_num": 1,
+      "agent": null,
+      "content": {
+        "round": 1
+      },
+      "parent_event_id": null,
+      "duration_ms": null,
+      "metadata": {}
+    },
+    {
+      "event_id": "demo-broadcast-e0003",
+      "event_type": "message",
+      "timestamp": "2026-01-09T23:03:36.048761",
+      "round_num": 1,
+      "agent": "claude-visionary",
+      "content": {
+        "content": "Stabilize the CLI first: it is the main entry point and keeps users aligned with supported flows."
+      },
+      "parent_event_id": null,
+      "duration_ms": null,
+      "metadata": {}
+    },
+    {
+      "event_id": "demo-broadcast-e0004",
+      "event_type": "message",
+      "timestamp": "2026-01-09T23:03:36.048761",
+      "round_num": 1,
+      "agent": "codex-engineer",
+      "content": {
+        "content": "Refactor the orchestrator next to reduce risk; but make the CLI the stable facade so changes are safe."
+      },
+      "parent_event_id": null,
+      "duration_ms": null,
+      "metadata": {}
+    },
+    {
+      "event_id": "demo-broadcast-e0005",
+      "event_type": "message",
+      "timestamp": "2026-01-09T23:03:36.048761",
+      "round_num": 1,
+      "agent": "gemini-visionary",
+      "content": {
+        "content": "Sequence it: lock the CLI contract, then split the orchestrator into testable modules."
+      },
+      "parent_event_id": null,
+      "duration_ms": null,
+      "metadata": {}
+    },
+    {
+      "event_id": "demo-broadcast-e0006",
+      "event_type": "message",
+      "timestamp": "2026-01-09T23:03:36.048761",
+      "round_num": 1,
+      "agent": "grok-lateral-thinker",
+      "content": {
+        "content": "Ship a tiny decision tree: if you change behavior, update CLI docs immediately."
+      },
+      "parent_event_id": null,
+      "duration_ms": null,
+      "metadata": {}
+    },
+    {
+      "event_id": "demo-broadcast-e0007",
+      "event_type": "round_end",
+      "timestamp": "2026-01-09T23:03:36.048761",
+      "round_num": 1,
+      "agent": null,
+      "content": {
+        "round": 1
+      },
+      "parent_event_id": null,
+      "duration_ms": null,
+      "metadata": {}
+    },
+    {
+      "event_id": "demo-broadcast-e0008",
+      "event_type": "debate_end",
+      "timestamp": "2026-01-09T23:03:36.048761",
+      "round_num": 1,
+      "agent": null,
+      "content": {
+        "result": "consensus"
+      },
+      "parent_event_id": null,
+      "duration_ms": null,
+      "metadata": {}
+    }
+  ],
+  "started_at": "2026-01-09T23:03:36.048761",
+  "completed_at": "2026-01-09T23:03:36.048779",
+  "final_result": {
+    "consensus_reached": true,
+    "confidence": 0.72,
+    "final_answer": "Stabilize the CLI first, then refactor the orchestrator behind it.",
+    "rounds_used": 1
+  },
+  "metadata": {},
+  "checksum": "9a2ee62fd62f3aa9"
+}

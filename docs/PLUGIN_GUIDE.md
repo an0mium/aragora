@@ -464,8 +464,8 @@ Ensure the plugin is in a directory scanned by the registry:
 
 Check that all dependencies are installed:
 ```bash
-pip install -r requirements.txt  # Python packages
-which ruff                        # System tools
+pip install -e ".[dev]"  # Python packages
+which ruff               # System tools
 ```
 
 ### Timeout Errors

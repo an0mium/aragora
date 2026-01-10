@@ -10,9 +10,11 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy package metadata and source for caching
+COPY pyproject.toml README.md ./
+COPY aragora/ ./aragora/
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install .
 
 # Copy application code
 COPY . .

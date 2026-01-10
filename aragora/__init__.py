@@ -71,357 +71,293 @@ Inspired by:
 - DebateLLM (agreement intensity, asymmetric roles)
 """
 
-# Core
-from aragora.core import (
-    Agent,
-    Critique,
-    DebateResult,
-    DisagreementReport,
-    Environment,
-    TaskComplexity,
-)
+from __future__ import annotations
 
-# Debate Orchestration
-from aragora.debate.orchestrator import Arena, DebateProtocol
-from aragora.debate.meta import MetaCritiqueAnalyzer, MetaCritique, MetaObservation
-from aragora.debate.forking import (
-    DebateForker,
-    ForkDetector,
-    Branch,
-    ForkDecision,
-    ForkPoint,
-    MergeResult,
-)
-from aragora.debate.traces import DebateTracer, DebateReplayer, DebateTrace, TraceEvent
-from aragora.debate.consensus import ConsensusProof, ConsensusBuilder, Claim, Evidence
-from aragora.debate.breakpoints import BreakpointManager, Breakpoint, HumanGuidance
-from aragora.debate.graph import (
-    DebateGraph,
-    DebateNode,
-    BranchPolicy,
-    BranchReason,
-    MergeStrategy,
-    ConvergenceScorer,
-    GraphReplayBuilder,
-    GraphDebateOrchestrator,
-    NodeType,
-)
-from aragora.debate.scenarios import (
-    ScenarioMatrix,
-    Scenario,
-    ScenarioType,
-    ScenarioResult,
-    MatrixResult,
-    MatrixDebateRunner,
-    OutcomeCategory,
-)
+import importlib
+from typing import Any
 
-# Broadcast
-from aragora.broadcast import generate_script, ScriptSegment, generate_audio, VOICE_MAP, mix_audio
+_EXPORT_MAP = {
+    'Agent': ('aragora.core', 'Agent'),
+    'AgentConsistencyScore': ('aragora.insights.flip_detector', 'AgentConsistencyScore'),
+    'AgentPerformance': ('aragora.insights.extractor', 'AgentPerformance'),
+    'AgentProfile': ('aragora.routing', 'AgentProfile'),
+    'AgentRating': ('aragora.ranking', 'AgentRating'),
+    'AgentRelationship': ('aragora.agents.grounded', 'AgentRelationship'),
+    'AgentReliability': ('aragora.nomic', 'AgentReliability'),
+    'AgentSelector': ('aragora.routing', 'AgentSelector'),
+    'AragoraJSONEncoder': ('aragora.integrations', 'AragoraJSONEncoder'),
+    'ArchitectMode': ('aragora.modes', 'ArchitectMode'),
+    'Arena': ('aragora.debate.orchestrator', 'Arena'),
+    'ArgNodeType': ('aragora.visualization', 'NodeType'),
+    'ArgumentCartographer': ('aragora.visualization', 'ArgumentCartographer'),
+    'ArgumentEdge': ('aragora.visualization', 'ArgumentEdge'),
+    'ArgumentNode': ('aragora.visualization', 'ArgumentNode'),
+    'ArtifactBuilder': ('aragora.export.artifact', 'ArtifactBuilder'),
+    'Attack': ('aragora.modes', 'Attack'),
+    'AttackType': ('aragora.modes', 'AttackType'),
+    'AuditFinding': ('aragora.modes', 'AuditFinding'),
+    'BaseConnector': ('aragora.connectors.base', 'BaseConnector'),
+    'BeliefAnalysis': ('aragora.nomic', 'BeliefAnalysis'),
+    'BeliefDistribution': ('aragora.reasoning', 'BeliefDistribution'),
+    'BeliefNetwork': ('aragora.reasoning', 'BeliefNetwork'),
+    'BeliefNode': ('aragora.reasoning', 'BeliefNode'),
+    'BeliefPropagationAnalyzer': ('aragora.reasoning', 'BeliefPropagationAnalyzer'),
+    'BeliefStatus': ('aragora.reasoning', 'BeliefStatus'),
+    'Branch': ('aragora.debate.forking', 'Branch'),
+    'BranchPolicy': ('aragora.debate.graph', 'BranchPolicy'),
+    'BranchReason': ('aragora.debate.graph', 'BranchReason'),
+    'Breakpoint': ('aragora.debate.breakpoints', 'Breakpoint'),
+    'BreakpointManager': ('aragora.debate.breakpoints', 'BreakpointManager'),
+    'CODE_ARCHITECTURE_AUDIT': ('aragora.modes', 'CODE_ARCHITECTURE_AUDIT'),
+    'CODE_REVIEW_TEMPLATE': ('aragora.templates', 'CODE_REVIEW_TEMPLATE'),
+    'CONTRACT_AUDIT': ('aragora.modes', 'CONTRACT_AUDIT'),
+    'CSVExporter': ('aragora.export.csv_exporter', 'CSVExporter'),
+    'CapabilityProber': ('aragora.modes', 'CapabilityProber'),
+    'CitationExtractor': ('aragora.reasoning', 'CitationExtractor'),
+    'CitationGraph': ('aragora.reasoning', 'CitationGraph'),
+    'CitationQuality': ('aragora.reasoning', 'CitationQuality'),
+    'CitationStore': ('aragora.reasoning', 'CitationStore'),
+    'CitationType': ('aragora.reasoning', 'CitationType'),
+    'CitedClaim': ('aragora.reasoning', 'CitedClaim'),
+    'Claim': ('aragora.debate.consensus', 'Claim'),
+    'ClaimReliability': ('aragora.reasoning', 'ClaimReliability'),
+    'ClaimType': ('aragora.reasoning', 'ClaimType'),
+    'ClaimVerifier': ('aragora.verification', 'ClaimVerifier'),
+    'ClaimsKernel': ('aragora.reasoning', 'ClaimsKernel'),
+    'CodeProposal': ('aragora.tools', 'CodeProposal'),
+    'CodeReader': ('aragora.tools', 'CodeReader'),
+    'CodeWriter': ('aragora.tools', 'CodeWriter'),
+    'CoderMode': ('aragora.modes', 'CoderMode'),
+    'ConfidenceEstimator': ('aragora.uncertainty', 'ConfidenceEstimator'),
+    'ConfidenceScore': ('aragora.uncertainty', 'ConfidenceScore'),
+    'ConsensusBackend': ('aragora.protocols', 'ConsensusBackend'),
+    'ConsensusBuilder': ('aragora.debate.consensus', 'ConsensusBuilder'),
+    'ConsensusMemory': ('aragora.memory.consensus', 'ConsensusMemory'),
+    'ConsensusProof': ('aragora.debate.consensus', 'ConsensusProof'),
+    'ConsensusRecord': ('aragora.memory.consensus', 'ConsensusRecord'),
+    'ConsensusStrength': ('aragora.memory.consensus', 'ConsensusStrength'),
+    'ContinuumMemory': ('aragora.learning', 'ContinuumMemory'),
+    'ContinuumMemoryEntry': ('aragora.learning', 'ContinuumMemoryEntry'),
+    'ConvergenceScorer': ('aragora.debate.graph', 'ConvergenceScorer'),
+    'Critique': ('aragora.core', 'Critique'),
+    'CritiqueBackend': ('aragora.protocols', 'CritiqueBackend'),
+    'CritiqueStore': ('aragora.memory.store', 'CritiqueStore'),
+    'CustomMode': ('aragora.modes', 'CustomMode'),
+    'CustomModeLoader': ('aragora.modes', 'CustomModeLoader'),
+    'DESIGN_DOC_TEMPLATE': ('aragora.templates', 'DESIGN_DOC_TEMPLATE'),
+    'DOTExporter': ('aragora.export.dot_exporter', 'DOTExporter'),
+    'DebateArtifact': ('aragora.export.artifact', 'DebateArtifact'),
+    'DebateForker': ('aragora.debate.forking', 'DebateForker'),
+    'DebateGraph': ('aragora.debate.graph', 'DebateGraph'),
+    'DebateInsights': ('aragora.insights.extractor', 'DebateInsights'),
+    'DebateNode': ('aragora.debate.graph', 'DebateNode'),
+    'DebateProtocol': ('aragora.debate.orchestrator', 'DebateProtocol'),
+    'DebateReplayer': ('aragora.debate.traces', 'DebateReplayer'),
+    'DebateResult': ('aragora.core', 'DebateResult'),
+    'DebateTemplate': ('aragora.templates', 'DebateTemplate'),
+    'DebateTrace': ('aragora.debate.traces', 'DebateTrace'),
+    'DebateTracer': ('aragora.debate.traces', 'DebateTracer'),
+    'DebuggerMode': ('aragora.modes', 'DebuggerMode'),
+    'DecisionMemo': ('aragora.pipeline', 'DecisionMemo'),
+    'DeepAuditConfig': ('aragora.modes', 'DeepAuditConfig'),
+    'DeepAuditOrchestrator': ('aragora.modes', 'DeepAuditOrchestrator'),
+    'DeepAuditVerdict': ('aragora.modes', 'DeepAuditVerdict'),
+    'DisagreementAnalyzer': ('aragora.uncertainty', 'DisagreementAnalyzer'),
+    'DisagreementCrux': ('aragora.uncertainty', 'DisagreementCrux'),
+    'DisagreementReport': ('aragora.core', 'DisagreementReport'),
+    'DissentRecord': ('aragora.memory.consensus', 'DissentRecord'),
+    'DissentRetriever': ('aragora.memory.consensus', 'DissentRetriever'),
+    'DissentType': ('aragora.memory.consensus', 'DissentType'),
+    'EdgeRelation': ('aragora.visualization', 'EdgeRelation'),
+    'EloBackend': ('aragora.protocols', 'EloBackend'),
+    'EloSystem': ('aragora.ranking', 'EloSystem'),
+    'EmbeddingBackend': ('aragora.protocols', 'EmbeddingBackend'),
+    'EmergentTrait': ('aragora.agents.laboratory', 'EmergentTrait'),
+    'Environment': ('aragora.core', 'Environment'),
+    'Evidence': ('aragora.evidence', 'Evidence'),
+    'EvidenceCollector': ('aragora.evidence', 'EvidenceCollector'),
+    'EvidencePack': ('aragora.evidence', 'EvidencePack'),
+    'EvidenceReliability': ('aragora.reasoning', 'EvidenceReliability'),
+    'EvidenceSnippet': ('aragora.evidence', 'EvidenceSnippet'),
+    'EvidenceType': ('aragora.evidence', 'EvidenceType'),
+    'EvolutionStrategy': ('aragora.evolution.evolver', 'EvolutionStrategy'),
+    'ExportConsensusProof': ('aragora.export.artifact', 'ConsensusProof'),
+    'ExportVerificationResult': ('aragora.export.artifact', 'VerificationResult'),
+    'FlipDetector': ('aragora.insights.flip_detector', 'FlipDetector'),
+    'FlipEvent': ('aragora.insights.flip_detector', 'FlipEvent'),
+    'ForkDecision': ('aragora.debate.forking', 'ForkDecision'),
+    'ForkDetector': ('aragora.debate.forking', 'ForkDetector'),
+    'ForkPoint': ('aragora.debate.forking', 'ForkPoint'),
+    'FormalLanguage': ('aragora.verification', 'FormalLanguage'),
+    'FormalProofStatus': ('aragora.verification', 'FormalProofStatus'),
+    'FormalVerificationBackend': ('aragora.verification', 'FormalVerificationBackend'),
+    'FormalVerificationManager': ('aragora.verification', 'FormalVerificationManager'),
+    'GenesisBackend': ('aragora.protocols', 'GenesisBackend'),
+    'GitHubConnector': ('aragora.connectors.github', 'GitHubConnector'),
+    'GraphDebateOrchestrator': ('aragora.debate.graph', 'GraphDebateOrchestrator'),
+    'GraphReplayBuilder': ('aragora.debate.graph', 'GraphReplayBuilder'),
+    'GroundedPersona': ('aragora.agents.grounded', 'GroundedPersona'),
+    'GroundedVerdict': ('aragora.reasoning', 'GroundedVerdict'),
+    'HandoffContext': ('aragora.modes', 'HandoffContext'),
+    'HumanGuidance': ('aragora.debate.breakpoints', 'HumanGuidance'),
+    'INCIDENT_RESPONSE_TEMPLATE': ('aragora.templates', 'INCIDENT_RESPONSE_TEMPLATE'),
+    'Insight': ('aragora.insights.extractor', 'Insight'),
+    'InsightExtractor': ('aragora.insights.extractor', 'InsightExtractor'),
+    'InsightStore': ('aragora.insights.store', 'InsightStore'),
+    'InsightType': ('aragora.insights.extractor', 'InsightType'),
+    'IntrospectionCache': ('aragora.introspection', 'IntrospectionCache'),
+    'IntrospectionSnapshot': ('aragora.introspection', 'IntrospectionSnapshot'),
+    'LocalDocsConnector': ('aragora.connectors.local_docs', 'LocalDocsConnector'),
+    'MatchResult': ('aragora.ranking', 'MatchResult'),
+    'MatrixDebateRunner': ('aragora.debate.scenarios', 'MatrixDebateRunner'),
+    'MatrixResult': ('aragora.debate.scenarios', 'MatrixResult'),
+    'Memory': ('aragora.memory.streams', 'Memory'),
+    'MemoryBackend': ('aragora.protocols', 'MemoryBackend'),
+    'MemoryStream': ('aragora.memory.streams', 'MemoryStream'),
+    'MemoryTier': ('aragora.learning', 'MemoryTier'),
+    'MergeResult': ('aragora.debate.forking', 'MergeResult'),
+    'MergeStrategy': ('aragora.debate.graph', 'MergeStrategy'),
+    'MetaCritique': ('aragora.debate.meta', 'MetaCritique'),
+    'MetaCritiqueAnalyzer': ('aragora.debate.meta', 'MetaCritiqueAnalyzer'),
+    'MetaObservation': ('aragora.debate.meta', 'MetaObservation'),
+    'Mode': ('aragora.modes', 'Mode'),
+    'ModeHandoff': ('aragora.modes', 'ModeHandoff'),
+    'ModeRegistry': ('aragora.modes', 'ModeRegistry'),
+    'MomentDetector': ('aragora.agents.grounded', 'MomentDetector'),
+    'NodeType': ('aragora.debate.graph', 'NodeType'),
+    'NomicIntegration': ('aragora.nomic', 'NomicIntegration'),
+    'OrchestratorMode': ('aragora.modes', 'OrchestratorMode'),
+    'OutcomeCategory': ('aragora.debate.scenarios', 'OutcomeCategory'),
+    'PRGenerator': ('aragora.pipeline', 'PRGenerator'),
+    'PatchPlan': ('aragora.pipeline', 'PatchPlan'),
+    'Persona': ('aragora.agents.personas', 'Persona'),
+    'PersonaBackend': ('aragora.protocols', 'PersonaBackend'),
+    'PersonaExperiment': ('aragora.agents.laboratory', 'PersonaExperiment'),
+    'PersonaLaboratory': ('aragora.agents.laboratory', 'PersonaLaboratory'),
+    'PersonaManager': ('aragora.agents.personas', 'PersonaManager'),
+    'PersonaSynthesizer': ('aragora.agents.grounded', 'PersonaSynthesizer'),
+    'PhaseCheckpoint': ('aragora.nomic', 'PhaseCheckpoint'),
+    'PluginCapability': ('aragora.plugins', 'PluginCapability'),
+    'PluginContext': ('aragora.plugins', 'PluginContext'),
+    'PluginManifest': ('aragora.plugins', 'PluginManifest'),
+    'PluginRequirement': ('aragora.plugins', 'PluginRequirement'),
+    'PluginResult': ('aragora.plugins', 'PluginResult'),
+    'PluginRunner': ('aragora.plugins', 'PluginRunner'),
+    'Position': ('aragora.agents.grounded', 'Position'),
+    'PositionLedger': ('aragora.agents.grounded', 'PositionLedger'),
+    'ProbeBeforePromote': ('aragora.modes', 'ProbeBeforePromote'),
+    'ProbeResult': ('aragora.modes', 'ProbeResult'),
+    'ProbeStrategy': ('aragora.modes', 'ProbeStrategy'),
+    'ProbeType': ('aragora.modes', 'ProbeType'),
+    'PromptEvolver': ('aragora.evolution.evolver', 'PromptEvolver'),
+    'ProofBuilder': ('aragora.verification', 'ProofBuilder'),
+    'ProofExecutor': ('aragora.verification', 'ProofExecutor'),
+    'ProofStatus': ('aragora.verification', 'ProofStatus'),
+    'ProofType': ('aragora.verification', 'ProofType'),
+    'ProvenanceChain': ('aragora.reasoning', 'ProvenanceChain'),
+    'ProvenanceManager': ('aragora.reasoning', 'ProvenanceManager'),
+    'ProvenanceRecord': ('aragora.reasoning', 'ProvenanceRecord'),
+    'PulseIngestor': ('aragora.pulse', 'PulseIngestor'),
+    'PulseManager': ('aragora.pulse', 'PulseManager'),
+    'RESEARCH_SYNTHESIS_TEMPLATE': ('aragora.templates', 'RESEARCH_SYNTHESIS_TEMPLATE'),
+    'RedTeamMode': ('aragora.modes', 'RedTeamMode'),
+    'RedTeamResult': ('aragora.modes', 'RedTeamResult'),
+    'RelationshipTracker': ('aragora.agents.grounded', 'RelationshipTracker'),
+    'ReliabilityLevel': ('aragora.reasoning', 'ReliabilityLevel'),
+    'ReliabilityScorer': ('aragora.reasoning', 'ReliabilityScorer'),
+    'ReplayArtifact': ('aragora.visualization', 'ReplayArtifact'),
+    'ReplayEvent': ('aragora.replay', 'ReplayEvent'),
+    'ReplayGenerator': ('aragora.visualization', 'ReplayGenerator'),
+    'ReplayMeta': ('aragora.replay', 'ReplayMeta'),
+    'ReplayReader': ('aragora.replay', 'ReplayReader'),
+    'ReplayRecorder': ('aragora.replay', 'ReplayRecorder'),
+    'ReplayScene': ('aragora.visualization', 'ReplayScene'),
+    'ReplayStorage': ('aragora.replay', 'ReplayStorage'),
+    'RetrievedMemory': ('aragora.memory.streams', 'RetrievedMemory'),
+    'ReviewerMode': ('aragora.modes', 'ReviewerMode'),
+    'Risk': ('aragora.pipeline', 'Risk'),
+    'RiskRegister': ('aragora.pipeline', 'RiskRegister'),
+    'STRATEGY_AUDIT': ('aragora.modes', 'STRATEGY_AUDIT'),
+    'Scenario': ('aragora.debate.scenarios', 'Scenario'),
+    'ScenarioMatrix': ('aragora.debate.scenarios', 'ScenarioMatrix'),
+    'ScenarioResult': ('aragora.debate.scenarios', 'ScenarioResult'),
+    'ScenarioType': ('aragora.debate.scenarios', 'ScenarioType'),
+    'ScholarlyEvidence': ('aragora.reasoning', 'ScholarlyEvidence'),
+    'ScriptSegment': ('aragora.broadcast', 'ScriptSegment'),
+    'SelfImprover': ('aragora.tools', 'SelfImprover'),
+    'SemanticRetriever': ('aragora.memory.embeddings', 'SemanticRetriever'),
+    'SignificantMoment': ('aragora.agents.grounded', 'SignificantMoment'),
+    'SourceType': ('aragora.reasoning', 'SourceType'),
+    'SpectatorEvents': ('aragora.spectate', 'SpectatorEvents'),
+    'SpectatorStream': ('aragora.spectate', 'SpectatorStream'),
+    'StalenessReport': ('aragora.nomic', 'StalenessReport'),
+    'StaticHTMLExporter': ('aragora.export.static_html', 'StaticHTMLExporter'),
+    'StorageBackend': ('aragora.protocols', 'StorageBackend'),
+    'SuggestionCluster': ('aragora.audience', 'SuggestionCluster'),
+    'TIER_CONFIGS': ('aragora.learning', 'TIER_CONFIGS'),
+    'TaskComplexity': ('aragora.core', 'TaskComplexity'),
+    'TaskRequirements': ('aragora.routing', 'TaskRequirements'),
+    'TeamComposition': ('aragora.routing', 'TeamComposition'),
+    'TemplateType': ('aragora.templates', 'TemplateType'),
+    'TestCase': ('aragora.pipeline', 'TestCase'),
+    'TestPlan': ('aragora.pipeline', 'TestPlan'),
+    'TierConfig': ('aragora.learning', 'TierConfig'),
+    'ToolGroup': ('aragora.modes', 'ToolGroup'),
+    'Tournament': ('aragora.tournaments', 'Tournament'),
+    'TournamentFormat': ('aragora.tournaments', 'TournamentFormat'),
+    'TournamentMatch': ('aragora.tournaments', 'TournamentMatch'),
+    'TournamentResult': ('aragora.tournaments', 'TournamentResult'),
+    'TournamentStanding': ('aragora.tournaments', 'TournamentStanding'),
+    'TournamentTask': ('aragora.tournaments', 'TournamentTask'),
+    'TraceEvent': ('aragora.debate.traces', 'TraceEvent'),
+    'TraitTransfer': ('aragora.agents.laboratory', 'TraitTransfer'),
+    'TrendingTopic': ('aragora.pulse', 'TrendingTopic'),
+    'TypedClaim': ('aragora.reasoning', 'TypedClaim'),
+    'TypedEvidence': ('aragora.reasoning', 'TypedEvidence'),
+    'UncertaintyAggregator': ('aragora.uncertainty', 'UncertaintyAggregator'),
+    'UncertaintyMetrics': ('aragora.uncertainty', 'UncertaintyMetrics'),
+    'VOICE_MAP': ('aragora.broadcast', 'VOICE_MAP'),
+    'VerificationProof': ('aragora.verification', 'VerificationProof'),
+    'VerificationReport': ('aragora.verification', 'VerificationReport'),
+    'VerificationResult': ('aragora.verification', 'VerificationResult'),
+    'VulnerabilityReport': ('aragora.modes', 'VulnerabilityReport'),
+    'WebConnector': ('aragora.connectors.web', 'WebConnector'),
+    'WebhookConfig': ('aragora.integrations', 'WebhookConfig'),
+    'WebhookDispatcher': ('aragora.integrations', 'WebhookDispatcher'),
+    'can_use_tool': ('aragora.modes', 'can_use_tool'),
+    'cluster_suggestions': ('aragora.audience', 'cluster_suggestions'),
+    'compute_claim_reliability': ('aragora.reasoning', 'compute_claim_reliability'),
+    'create_citation_from_url': ('aragora.reasoning', 'create_citation_from_url'),
+    'create_default_tasks': ('aragora.tournaments', 'create_default_tasks'),
+    'create_nomic_integration': ('aragora.nomic', 'create_nomic_integration'),
+    'format_for_prompt': ('aragora.audience', 'format_for_prompt'),
+    'format_introspection_section': ('aragora.introspection', 'format_introspection_section'),
+    'generate_audio': ('aragora.broadcast', 'generate_audio'),
+    'generate_probe_report_markdown': ('aragora.modes', 'generate_probe_report_markdown'),
+    'generate_script': ('aragora.broadcast', 'generate_script'),
+    'get_agent_introspection': ('aragora.introspection', 'get_agent_introspection'),
+    'get_required_group': ('aragora.modes', 'get_required_group'),
+    'get_template': ('aragora.templates', 'get_template'),
+    'list_templates': ('aragora.templates', 'list_templates'),
+    'mix_audio': ('aragora.broadcast', 'mix_audio'),
+    'run_deep_audit': ('aragora.modes', 'run_deep_audit'),
+    'sanitize_suggestion': ('aragora.audience', 'sanitize_suggestion'),
+    'template_to_protocol': ('aragora.templates', 'template_to_protocol'),
+}
 
-# Memory
-from aragora.memory.store import CritiqueStore
-from aragora.memory.embeddings import SemanticRetriever
-from aragora.memory.streams import MemoryStream, Memory, RetrievedMemory
-from aragora.memory.consensus import (
-    ConsensusMemory,
-    ConsensusRecord,
-    ConsensusStrength,
-    DissentRecord,
-    DissentType,
-    DissentRetriever,
-)
+def __getattr__(name: str) -> Any:
+    """Lazily import public symbols to avoid heavy import side effects."""
+    try:
+        module_name, attr_name = _EXPORT_MAP[name]
+    except KeyError as exc:
+        raise AttributeError(f"module 'aragora' has no attribute {name!r}") from exc
+    module = importlib.import_module(module_name)
+    value = getattr(module, attr_name)
+    globals()[name] = value
+    return value
 
-# Evolution
-from aragora.evolution.evolver import PromptEvolver, EvolutionStrategy
-
-# Agents
-from aragora.agents.personas import Persona, PersonaManager
-from aragora.agents.laboratory import (
-    PersonaLaboratory,
-    PersonaExperiment,
-    EmergentTrait,
-    TraitTransfer,
-)
-from aragora.agents.grounded import (
-    Position,
-    PositionLedger,
-    RelationshipTracker,
-    AgentRelationship,
-    GroundedPersona,
-    PersonaSynthesizer,
-    SignificantMoment,
-    MomentDetector,
-)
-
-# Evidence, Pulse, Uncertainty (newly exported)
-from aragora.evidence import EvidenceCollector, Evidence, EvidenceType, EvidenceSnippet, EvidencePack  # type: ignore[assignment]
-from aragora.pulse import TrendingTopic, PulseIngestor, PulseManager
-from aragora.uncertainty import (
-    ConfidenceScore,
-    DisagreementCrux,
-    UncertaintyMetrics,
-    ConfidenceEstimator,
-    DisagreementAnalyzer,
-    UncertaintyAggregator,
-)
-
-# Export (debate artifacts, CSV, DOT, HTML)
-from aragora.export.artifact import (
-    DebateArtifact,
-    ArtifactBuilder,
-    ConsensusProof as ExportConsensusProof,
-    VerificationResult as ExportVerificationResult,
-)
-from aragora.export.csv_exporter import CSVExporter
-from aragora.export.dot_exporter import DOTExporter
-from aragora.export.static_html import StaticHTMLExporter
-
-# Insights (pattern learning, flip detection)
-from aragora.insights.store import InsightStore
-from aragora.insights.extractor import (
-    InsightExtractor,
-    InsightType,
-    Insight,
-    DebateInsights,
-    AgentPerformance,
-)
-from aragora.insights.flip_detector import FlipDetector, FlipEvent, AgentConsistencyScore
-
-# Connectors (external data sources)
-from aragora.connectors.base import BaseConnector
-from aragora.connectors.github import GitHubConnector
-from aragora.connectors.local_docs import LocalDocsConnector
-from aragora.connectors.web import WebConnector
-
-# Ranking
-from aragora.ranking import EloSystem, AgentRating, MatchResult
-
-# Tournaments
-from aragora.tournaments import (
-    Tournament,
-    TournamentFormat,
-    TournamentTask,
-    TournamentMatch,
-    TournamentStanding,
-    TournamentResult,
-    create_default_tasks,
-)
-
-# Reasoning
-from aragora.reasoning import (
-    ClaimsKernel,
-    TypedClaim,
-    TypedEvidence,
-    ClaimType,
-    ProvenanceManager,
-    ProvenanceChain,
-    ProvenanceRecord,
-    CitationGraph,
-    SourceType,
-)
-# Scholarly Citations
-from aragora.reasoning import (
-    ScholarlyEvidence,
-    CitationType,
-    CitationQuality,
-    CitedClaim,
-    GroundedVerdict,
-    CitationExtractor,
-    CitationStore,
-    create_citation_from_url,
-)
-# Belief Propagation (Bayesian reasoning)
-from aragora.reasoning import (
-    BeliefNetwork,
-    BeliefNode,
-    BeliefDistribution,
-    BeliefStatus,
-    BeliefPropagationAnalyzer,
-)
-# Reliability Scoring (evidence quality assessment)
-from aragora.reasoning import (
-    ReliabilityScorer,
-    ReliabilityLevel,
-    ClaimReliability,
-    EvidenceReliability,
-    compute_claim_reliability,
-)
-
-# Integrations (webhooks, external services)
-from aragora.integrations import (
-    WebhookDispatcher,
-    WebhookConfig,
-    AragoraJSONEncoder,
-)
-
-# Modes (Operational + Debate)
-from aragora.modes import RedTeamMode, RedTeamResult, Attack, AttackType
-from aragora.modes import (
-    DeepAuditOrchestrator,
-    DeepAuditConfig,
-    DeepAuditVerdict,
-    AuditFinding,
-    run_deep_audit,
-    STRATEGY_AUDIT,
-    CONTRACT_AUDIT,
-    CODE_ARCHITECTURE_AUDIT,
-)
-# Operational Mode System (Kilocode-inspired)
-from aragora.modes import (
-    ToolGroup,
-    can_use_tool,
-    get_required_group,
-    Mode,
-    ModeRegistry,
-    HandoffContext,
-    ModeHandoff,
-    CustomMode,
-    CustomModeLoader,
-    ArchitectMode,
-    CoderMode,
-    ReviewerMode,
-    DebuggerMode,
-    OrchestratorMode,
-)
-# Capability Probing
-from aragora.modes import (
-    CapabilityProber,
-    VulnerabilityReport,
-    ProbeResult,
-    ProbeType,
-    ProbeStrategy,
-    ProbeBeforePromote,
-    generate_probe_report_markdown,
-)
-
-# Tools
-from aragora.tools import CodeReader, CodeWriter, SelfImprover, CodeProposal
-
-# Routing
-from aragora.routing import AgentSelector, AgentProfile, TaskRequirements, TeamComposition
-
-# Templates
-from aragora.templates import (
-    DebateTemplate,
-    TemplateType,
-    CODE_REVIEW_TEMPLATE,
-    DESIGN_DOC_TEMPLATE,
-    INCIDENT_RESPONSE_TEMPLATE,
-    RESEARCH_SYNTHESIS_TEMPLATE,
-    get_template,
-    list_templates,
-    template_to_protocol,
-)
-
-# Verification
-from aragora.verification import (
-    VerificationProof,
-    ProofType,
-    ProofStatus,
-    VerificationResult,
-    ProofExecutor,
-    ClaimVerifier,
-    VerificationReport,
-    ProofBuilder,
-    # Formal verification (stub interface for Lean/Z3)
-    FormalVerificationBackend,
-    FormalVerificationManager,
-    FormalProofStatus,
-    FormalLanguage,
-)
-
-# Spectate (Terminal Visualization)
-from aragora.spectate import SpectatorStream, SpectatorEvents
-
-# Pipeline (Decision-to-PR)
-from aragora.pipeline import (
-    PRGenerator,
-    DecisionMemo,
-    PatchPlan,
-    RiskRegister,
-    Risk,
-    TestPlan,
-    TestCase,
-)
-
-# Visualization (Argument Mapping)
-from aragora.visualization import (
-    ArgumentCartographer,
-    ArgumentNode,
-    ArgumentEdge,
-    NodeType as ArgNodeType,  # Avoid conflict with graph.NodeType
-    EdgeRelation,
-    ReplayGenerator,
-    ReplayArtifact,
-    ReplayScene,
-)
-
-# Replay (Session Recording)
-from aragora.replay import (
-    ReplayEvent,
-    ReplayMeta,
-    ReplayRecorder,
-    ReplayReader,
-    ReplayStorage,
-)
-
-# Introspection (Agent Self-Awareness)
-from aragora.introspection import (
-    IntrospectionSnapshot,
-    IntrospectionCache,
-    get_agent_introspection,
-    format_introspection_section,
-)
-
-# Audience (Suggestion Clustering)
-from aragora.audience import (
-    SuggestionCluster,
-    sanitize_suggestion,
-    cluster_suggestions,
-    format_for_prompt,
-)
-
-# Plugins (Sandboxed Extensions)
-from aragora.plugins import (
-    PluginManifest,
-    PluginCapability,
-    PluginRequirement,
-    PluginRunner,
-    PluginResult,
-    PluginContext,
-)
-
-# Nomic Integration (Loop Coordination)
-from aragora.nomic import (
-    NomicIntegration,
-    BeliefAnalysis,
-    AgentReliability,
-    StalenessReport,
-    PhaseCheckpoint,
-    create_nomic_integration,
-)
-
-# Learning (Memory Tiers)
-from aragora.learning import (
-    ContinuumMemory,
-    ContinuumMemoryEntry,
-    MemoryTier,
-    TierConfig,
-    TIER_CONFIGS,
-)
-
-# Protocols (Type Interfaces)
-from aragora.protocols import (
-    StorageBackend,
-    MemoryBackend,
-    EloBackend,
-    EmbeddingBackend,
-    ConsensusBackend,
-    CritiqueBackend,
-    PersonaBackend,
-    GenesisBackend,
-)
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))
 
 __version__ = "0.8.0"
 __all__ = [

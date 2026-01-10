@@ -56,7 +56,7 @@ cd "$ARAGORA_DIR"
 echo "Setting up Python environment..."
 sudo -u aragora python3.11 -m venv venv
 sudo -u aragora ./venv/bin/pip install --upgrade pip
-sudo -u aragora ./venv/bin/pip install -r requirements.txt
+sudo -u aragora ./venv/bin/pip install .
 
 # Create .env file if not exists
 if [ ! -f "$ARAGORA_DIR/.env" ]; then

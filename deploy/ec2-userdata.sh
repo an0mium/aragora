@@ -6,9 +6,17 @@ set -e
 # Update system
 yum update -y
 
-# Install Python 3.9, nginx, and git
-amazon-linux-extras install python3.8 nginx1 -y
+# Install Python 3.10+, nginx, and git
+amazon-linux-extras install nginx1 -y
+amazon-linux-extras install python3.11 -y || amazon-linux-extras install python3.10 -y
 yum install git python3-pip -y
+
+# Ensure Python version meets minimum requirement
+python3 - << 'PY'
+import sys
+if sys.version_info < (3, 10):
+    raise SystemExit("Aragora requires Python 3.10+")
+PY
 
 # Install certbot for SSL
 amazon-linux-extras install epel -y
@@ -23,8 +31,7 @@ sudo -u aragora git clone https://github.com/an0mium/aragora.git || (cd aragora 
 
 # Install Python dependencies
 cd /home/aragora/aragora
-sudo -u aragora pip3 install --user -r requirements.txt || true
-sudo -u aragora pip3 install --user websockets aiohttp
+sudo -u aragora python3 -m pip install --user . || true
 
 # Create systemd service for aragora API
 cat > /etc/systemd/system/aragora-api.service << 'EOF'

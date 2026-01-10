@@ -2,135 +2,127 @@
 Debate orchestration module.
 """
 
-from aragora.debate.orchestrator import Arena, DebateProtocol
-from aragora.debate.graph import (
-    DebateGraph,
-    DebateNode,
-    Branch,
-    BranchPolicy,
-    BranchReason,
-    MergeStrategy,
-    MergeResult,
-    ConvergenceScorer,
-    GraphReplayBuilder,
-    GraphDebateOrchestrator,
-    NodeType,
-)
-from aragora.debate.scenarios import (
-    ScenarioMatrix,
-    Scenario,
-    ScenarioType,
-    ScenarioResult,
-    MatrixResult,
-    MatrixDebateRunner,
-    ScenarioComparator,
-    OutcomeCategory,
-    create_scale_scenarios,
-    create_risk_scenarios,
-    create_time_horizon_scenarios,
-)
-from aragora.debate.counterfactual import (
-    CounterfactualOrchestrator,
-    CounterfactualBranch,
-    ConditionalConsensus,
-    PivotClaim,
-    ImpactDetector,
-    CounterfactualIntegration,
-    CounterfactualStatus,
-    BranchComparison,
-    explore_counterfactual,
-)
-from aragora.debate.checkpoint import (
-    CheckpointManager,
-    DebateCheckpoint,
-    CheckpointStore,
-    FileCheckpointStore,
-    S3CheckpointStore,
-    GitCheckpointStore,
-    CheckpointConfig,
-    CheckpointStatus,
-    ResumedDebate,
-    AgentState,
-    CheckpointWebhook,
-    checkpoint_debate,
-)
-from aragora.debate.blackbox import (
-    BlackboxRecorder,
-    BlackboxEvent,
-    BlackboxSnapshot,
-    get_blackbox,
-    close_blackbox,
-)
-from aragora.debate.immune_system import (
-    TransparentImmuneSystem,
-    HealthEvent,
-    HealthStatus,
-    AgentStatus,
-    AgentHealthState,
-    get_immune_system,
-    reset_immune_system,
-)
-from aragora.debate.wisdom_injector import (
-    WisdomInjector,
-    WisdomSubmission,
-    WisdomInjection,
-    get_wisdom_injector,
-    close_wisdom_injector,
-)
-from aragora.debate.complexity_governor import (
-    AdaptiveComplexityGovernor,
-    GovernorConstraints,
-    StressLevel,
-    get_complexity_governor,
-    reset_complexity_governor,
-)
-from aragora.debate.cognitive_limiter import (
-    CognitiveLoadLimiter,
-    CognitiveBudget,
-    limit_debate_context,
-    STRESS_BUDGETS,
-)
-from aragora.debate.recovery_narrator import (
-    RecoveryNarrator,
-    RecoveryNarrative,
-    get_narrator,
-    reset_narrator,
-    setup_narrator_with_immune_system,
-)
-from aragora.debate.rhetorical_observer import (
-    RhetoricalAnalysisObserver,
-    RhetoricalObservation,
-    RhetoricalPattern,
-    get_rhetorical_observer,
-    reset_rhetorical_observer,
-)
-from aragora.debate.chaos_theater import (
-    ChaosDirector,
-    TheaterResponse,
-    FailureType,
-    DramaLevel,
-    get_chaos_director,
-    theatrical_timeout,
-    theatrical_error,
-)
-from aragora.debate.outcome_tracker import (
-    OutcomeTracker,
-    ConsensusOutcome,
-    CalibrationBucket,
-)
-from aragora.debate.evidence_linker import (
-    EvidenceClaimLinker,
-    EvidenceLink,
-    ClaimAnalysis,
-    EvidenceCoverageResult,
-)
-from aragora.debate.cross_proposal_analyzer import (
-    CrossProposalAnalyzer,
-    CrossProposalAnalysis,
-    SharedEvidence,
-    Contradiction,
-    EvidenceGap,
-)
+from __future__ import annotations
+
+import importlib
+from typing import Any
+
+_EXPORT_MAP = {
+    'AdaptiveComplexityGovernor': ('aragora.debate.complexity_governor', 'AdaptiveComplexityGovernor'),
+    'AgentHealthState': ('aragora.debate.immune_system', 'AgentHealthState'),
+    'AgentState': ('aragora.debate.checkpoint', 'AgentState'),
+    'AgentStatus': ('aragora.debate.immune_system', 'AgentStatus'),
+    'Arena': ('aragora.debate.orchestrator', 'Arena'),
+    'BlackboxEvent': ('aragora.debate.blackbox', 'BlackboxEvent'),
+    'BlackboxRecorder': ('aragora.debate.blackbox', 'BlackboxRecorder'),
+    'BlackboxSnapshot': ('aragora.debate.blackbox', 'BlackboxSnapshot'),
+    'Branch': ('aragora.debate.graph', 'Branch'),
+    'BranchComparison': ('aragora.debate.counterfactual', 'BranchComparison'),
+    'BranchPolicy': ('aragora.debate.graph', 'BranchPolicy'),
+    'BranchReason': ('aragora.debate.graph', 'BranchReason'),
+    'CalibrationBucket': ('aragora.debate.outcome_tracker', 'CalibrationBucket'),
+    'ChaosDirector': ('aragora.debate.chaos_theater', 'ChaosDirector'),
+    'CheckpointConfig': ('aragora.debate.checkpoint', 'CheckpointConfig'),
+    'CheckpointManager': ('aragora.debate.checkpoint', 'CheckpointManager'),
+    'CheckpointStatus': ('aragora.debate.checkpoint', 'CheckpointStatus'),
+    'CheckpointStore': ('aragora.debate.checkpoint', 'CheckpointStore'),
+    'CheckpointWebhook': ('aragora.debate.checkpoint', 'CheckpointWebhook'),
+    'ClaimAnalysis': ('aragora.debate.evidence_linker', 'ClaimAnalysis'),
+    'CognitiveBudget': ('aragora.debate.cognitive_limiter', 'CognitiveBudget'),
+    'CognitiveLoadLimiter': ('aragora.debate.cognitive_limiter', 'CognitiveLoadLimiter'),
+    'ConditionalConsensus': ('aragora.debate.counterfactual', 'ConditionalConsensus'),
+    'ConsensusOutcome': ('aragora.debate.outcome_tracker', 'ConsensusOutcome'),
+    'Contradiction': ('aragora.debate.cross_proposal_analyzer', 'Contradiction'),
+    'ConvergenceScorer': ('aragora.debate.graph', 'ConvergenceScorer'),
+    'CounterfactualBranch': ('aragora.debate.counterfactual', 'CounterfactualBranch'),
+    'CounterfactualIntegration': ('aragora.debate.counterfactual', 'CounterfactualIntegration'),
+    'CounterfactualOrchestrator': ('aragora.debate.counterfactual', 'CounterfactualOrchestrator'),
+    'CounterfactualStatus': ('aragora.debate.counterfactual', 'CounterfactualStatus'),
+    'CrossProposalAnalysis': ('aragora.debate.cross_proposal_analyzer', 'CrossProposalAnalysis'),
+    'CrossProposalAnalyzer': ('aragora.debate.cross_proposal_analyzer', 'CrossProposalAnalyzer'),
+    'DebateCheckpoint': ('aragora.debate.checkpoint', 'DebateCheckpoint'),
+    'DebateGraph': ('aragora.debate.graph', 'DebateGraph'),
+    'DebateNode': ('aragora.debate.graph', 'DebateNode'),
+    'DebateProtocol': ('aragora.debate.orchestrator', 'DebateProtocol'),
+    'DramaLevel': ('aragora.debate.chaos_theater', 'DramaLevel'),
+    'EvidenceClaimLinker': ('aragora.debate.evidence_linker', 'EvidenceClaimLinker'),
+    'EvidenceCoverageResult': ('aragora.debate.evidence_linker', 'EvidenceCoverageResult'),
+    'EvidenceGap': ('aragora.debate.cross_proposal_analyzer', 'EvidenceGap'),
+    'EvidenceLink': ('aragora.debate.evidence_linker', 'EvidenceLink'),
+    'FailureType': ('aragora.debate.chaos_theater', 'FailureType'),
+    'FileCheckpointStore': ('aragora.debate.checkpoint', 'FileCheckpointStore'),
+    'GitCheckpointStore': ('aragora.debate.checkpoint', 'GitCheckpointStore'),
+    'GovernorConstraints': ('aragora.debate.complexity_governor', 'GovernorConstraints'),
+    'GraphDebateOrchestrator': ('aragora.debate.graph', 'GraphDebateOrchestrator'),
+    'GraphReplayBuilder': ('aragora.debate.graph', 'GraphReplayBuilder'),
+    'HealthEvent': ('aragora.debate.immune_system', 'HealthEvent'),
+    'HealthStatus': ('aragora.debate.immune_system', 'HealthStatus'),
+    'ImpactDetector': ('aragora.debate.counterfactual', 'ImpactDetector'),
+    'MatrixDebateRunner': ('aragora.debate.scenarios', 'MatrixDebateRunner'),
+    'MatrixResult': ('aragora.debate.scenarios', 'MatrixResult'),
+    'MergeResult': ('aragora.debate.graph', 'MergeResult'),
+    'MergeStrategy': ('aragora.debate.graph', 'MergeStrategy'),
+    'NodeType': ('aragora.debate.graph', 'NodeType'),
+    'OutcomeCategory': ('aragora.debate.scenarios', 'OutcomeCategory'),
+    'OutcomeTracker': ('aragora.debate.outcome_tracker', 'OutcomeTracker'),
+    'PivotClaim': ('aragora.debate.counterfactual', 'PivotClaim'),
+    'RecoveryNarrative': ('aragora.debate.recovery_narrator', 'RecoveryNarrative'),
+    'RecoveryNarrator': ('aragora.debate.recovery_narrator', 'RecoveryNarrator'),
+    'ResumedDebate': ('aragora.debate.checkpoint', 'ResumedDebate'),
+    'RhetoricalAnalysisObserver': ('aragora.debate.rhetorical_observer', 'RhetoricalAnalysisObserver'),
+    'RhetoricalObservation': ('aragora.debate.rhetorical_observer', 'RhetoricalObservation'),
+    'RhetoricalPattern': ('aragora.debate.rhetorical_observer', 'RhetoricalPattern'),
+    'S3CheckpointStore': ('aragora.debate.checkpoint', 'S3CheckpointStore'),
+    'STRESS_BUDGETS': ('aragora.debate.cognitive_limiter', 'STRESS_BUDGETS'),
+    'Scenario': ('aragora.debate.scenarios', 'Scenario'),
+    'ScenarioComparator': ('aragora.debate.scenarios', 'ScenarioComparator'),
+    'ScenarioMatrix': ('aragora.debate.scenarios', 'ScenarioMatrix'),
+    'ScenarioResult': ('aragora.debate.scenarios', 'ScenarioResult'),
+    'ScenarioType': ('aragora.debate.scenarios', 'ScenarioType'),
+    'SharedEvidence': ('aragora.debate.cross_proposal_analyzer', 'SharedEvidence'),
+    'StressLevel': ('aragora.debate.complexity_governor', 'StressLevel'),
+    'TheaterResponse': ('aragora.debate.chaos_theater', 'TheaterResponse'),
+    'TransparentImmuneSystem': ('aragora.debate.immune_system', 'TransparentImmuneSystem'),
+    'WisdomInjection': ('aragora.debate.wisdom_injector', 'WisdomInjection'),
+    'WisdomInjector': ('aragora.debate.wisdom_injector', 'WisdomInjector'),
+    'WisdomSubmission': ('aragora.debate.wisdom_injector', 'WisdomSubmission'),
+    'checkpoint_debate': ('aragora.debate.checkpoint', 'checkpoint_debate'),
+    'close_blackbox': ('aragora.debate.blackbox', 'close_blackbox'),
+    'close_wisdom_injector': ('aragora.debate.wisdom_injector', 'close_wisdom_injector'),
+    'create_risk_scenarios': ('aragora.debate.scenarios', 'create_risk_scenarios'),
+    'create_scale_scenarios': ('aragora.debate.scenarios', 'create_scale_scenarios'),
+    'create_time_horizon_scenarios': ('aragora.debate.scenarios', 'create_time_horizon_scenarios'),
+    'explore_counterfactual': ('aragora.debate.counterfactual', 'explore_counterfactual'),
+    'get_blackbox': ('aragora.debate.blackbox', 'get_blackbox'),
+    'get_chaos_director': ('aragora.debate.chaos_theater', 'get_chaos_director'),
+    'get_complexity_governor': ('aragora.debate.complexity_governor', 'get_complexity_governor'),
+    'get_immune_system': ('aragora.debate.immune_system', 'get_immune_system'),
+    'get_narrator': ('aragora.debate.recovery_narrator', 'get_narrator'),
+    'get_rhetorical_observer': ('aragora.debate.rhetorical_observer', 'get_rhetorical_observer'),
+    'get_wisdom_injector': ('aragora.debate.wisdom_injector', 'get_wisdom_injector'),
+    'limit_debate_context': ('aragora.debate.cognitive_limiter', 'limit_debate_context'),
+    'reset_complexity_governor': ('aragora.debate.complexity_governor', 'reset_complexity_governor'),
+    'reset_immune_system': ('aragora.debate.immune_system', 'reset_immune_system'),
+    'reset_narrator': ('aragora.debate.recovery_narrator', 'reset_narrator'),
+    'reset_rhetorical_observer': ('aragora.debate.rhetorical_observer', 'reset_rhetorical_observer'),
+    'setup_narrator_with_immune_system': ('aragora.debate.recovery_narrator', 'setup_narrator_with_immune_system'),
+    'theatrical_error': ('aragora.debate.chaos_theater', 'theatrical_error'),
+    'theatrical_timeout': ('aragora.debate.chaos_theater', 'theatrical_timeout'),
+}
+
+def __getattr__(name: str) -> Any:
+    """Lazily import debate symbols to avoid heavy import side effects."""
+    try:
+        module_name, attr_name = _EXPORT_MAP[name]
+    except KeyError as exc:
+        raise AttributeError(f"module 'aragora.debate' has no attribute {name!r}") from exc
+    module = importlib.import_module(module_name)
+    value = getattr(module, attr_name)
+    globals()[name] = value
+    return value
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))
 
 __all__ = [
     "Arena",

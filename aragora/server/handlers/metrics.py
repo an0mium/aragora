@@ -36,6 +36,57 @@ _error_counts: dict[str, int] = {}
 _metrics_lock = threading.Lock()
 _start_time = time.time()
 
+# Verification metrics tracking (thread-safe)
+_verification_stats: dict[str, int | float] = {
+    "total_claims_processed": 0,
+    "z3_verified": 0,
+    "z3_disproved": 0,
+    "z3_timeout": 0,
+    "z3_translation_failed": 0,
+    "confidence_fallback": 0,
+    "total_verification_time_ms": 0.0,
+}
+_verification_lock = threading.Lock()
+
+
+def track_verification(
+    status: str,
+    verification_time_ms: float = 0.0,
+) -> None:
+    """Track verification outcome (thread-safe).
+
+    Args:
+        status: One of 'z3_verified', 'z3_disproved', 'z3_timeout',
+                'z3_translation_failed', 'confidence_fallback'
+        verification_time_ms: Time taken for verification in milliseconds
+    """
+    with _verification_lock:
+        _verification_stats["total_claims_processed"] += 1
+        if status in _verification_stats:
+            _verification_stats[status] += 1
+        _verification_stats["total_verification_time_ms"] += verification_time_ms
+
+
+def get_verification_stats() -> dict:
+    """Get verification statistics (thread-safe snapshot)."""
+    with _verification_lock:
+        stats = dict(_verification_stats)
+
+    # Calculate derived metrics
+    total = stats["total_claims_processed"]
+    if total > 0:
+        stats["avg_verification_time_ms"] = round(
+            stats["total_verification_time_ms"] / total, 2
+        )
+        stats["z3_success_rate"] = round(
+            stats["z3_verified"] / total, 4
+        )
+    else:
+        stats["avg_verification_time_ms"] = 0.0
+        stats["z3_success_rate"] = 0.0
+
+    return stats
+
 
 def track_request(endpoint: str, is_error: bool = False):
     """Track a request for metrics (thread-safe)."""
@@ -52,6 +103,7 @@ class MetricsHandler(BaseHandler):
         "/api/metrics",
         "/api/metrics/health",
         "/api/metrics/cache",
+        "/api/metrics/verification",
         "/api/metrics/system",
         "/metrics",  # Prometheus-format endpoint
     ]

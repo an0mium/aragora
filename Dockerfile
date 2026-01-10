@@ -22,17 +22,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd --gid 1000 aragora && \
     useradd --uid 1000 --gid aragora --shell /bin/bash --create-home aragora
 
-# Copy requirements first for layer caching
-COPY requirements.txt requirements-dev.txt ./
-
-# Install Python dependencies
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
-
-# Copy application code
-COPY aragora/ ./aragora/
-COPY scripts/ ./scripts/
+# Copy package metadata and source for layer caching
 COPY pyproject.toml README.md ./
+COPY aragora/ ./aragora/
+
+# Install Python dependencies from pyproject
+RUN pip install --upgrade pip && \
+    pip install .
+
+# Copy application code extras
+COPY scripts/ ./scripts/
 
 # Create data directories with proper permissions
 RUN mkdir -p /app/data /app/.nomic /app/logs && \
