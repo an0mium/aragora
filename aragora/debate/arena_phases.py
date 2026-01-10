@@ -11,6 +11,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from aragora.debate.context_gatherer import ContextGatherer
+from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.memory_manager import MemoryManager
 from aragora.debate.optional_imports import OptionalImports
 from aragora.reasoning.claims import fast_extract_claims
@@ -79,9 +80,9 @@ def _create_verify_claims_callback(arena: "Arena"):
                 _formal_manager = False  # Mark as unavailable
         return _formal_manager if _formal_manager is not False else None
 
-    async def verify_claims(proposal_text: str, limit: int = 2) -> int:
+    async def verify_claims(proposal_text: str, limit: int = 2) -> dict:
         """
-        Verify claims in proposal text and return count of verified claims.
+        Verify claims in proposal text and return verification counts.
 
         Uses a two-tier verification strategy:
         1. For LOGICAL/ARITHMETIC claims: Attempt formal Z3 verification
@@ -92,16 +93,16 @@ def _create_verify_claims_callback(arena: "Arena"):
             limit: Maximum number of claims to verify (for performance)
 
         Returns:
-            Number of claims that passed verification
+            Dict with "verified" and "disproven" counts (Phase 11A)
         """
         if not proposal_text:
-            return 0
+            return {"verified": 0, "disproven": 0}
 
         # Extract claims using fast pattern matching
         claims = fast_extract_claims(proposal_text, author="proposal")
 
         if not claims:
-            return 0
+            return {"verified": 0, "disproven": 0}
 
         # Get formal verification manager (lazy loaded)
         formal_manager = _get_formal_manager()
@@ -111,6 +112,7 @@ def _create_verify_claims_callback(arena: "Arena"):
             z3_available = any(b.language.value == "z3_smt" for b in backends)
 
         verified_count = 0
+        disproven_count = 0  # Phase 11A: Track disproven claims
         for claim in claims[:limit]:
             claim_type = claim.get("type", "")
             claim_text = claim.get("text", "")
@@ -136,13 +138,14 @@ def _create_verify_claims_callback(arena: "Arena"):
                         )
                         continue
                     elif result.status == FormalProofStatus.PROOF_FAILED:
-                        # Z3 found a counterexample - claim is false
+                        # Z3 found a counterexample - claim is false (Phase 11A)
+                        disproven_count += 1
                         _track_verification("z3_disproved", verification_time)
                         logger.debug(
                             f"claim_z3_disproved type={claim_type} "
-                            f"error={result.error_message}"
+                            f"counterexample={result.error_message}"
                         )
-                        continue  # Don't count disproved claims
+                        continue  # Don't also count via confidence fallback
                     elif result.status == FormalProofStatus.TIMEOUT:
                         _track_verification("z3_timeout", verification_time)
                     else:
@@ -162,7 +165,7 @@ def _create_verify_claims_callback(arena: "Arena"):
                     f"confidence={confidence:.2f}"
                 )
 
-        return verified_count
+        return {"verified": verified_count, "disproven": disproven_count}
 
     return verify_claims
 
@@ -340,7 +343,7 @@ def init_phases(arena: "Arena") -> None:
         vote_with_agent=arena.autonomic.vote,
         with_timeout=arena.autonomic.with_timeout,
         select_judge=arena._select_judge,
-        build_judge_prompt=arena._build_judge_prompt,
+        build_judge_prompt=arena.prompt_builder.build_judge_prompt,
         generate_with_agent=arena.autonomic.generate,
         group_similar_votes=arena._group_similar_votes,
         get_calibration_weight=arena._get_calibration_weight,
@@ -365,7 +368,7 @@ def init_phases(arena: "Arena") -> None:
         loop_id=arena.loop_id,
         notify_spectator=arena._notify_spectator,
         update_agent_relationships=arena._update_agent_relationships,
-        generate_disagreement_report=arena._generate_disagreement_report,
+        generate_disagreement_report=lambda votes, critiques, winner=None: DisagreementReporter().generate_report(votes, critiques, winner),
         create_grounded_verdict=arena._create_grounded_verdict,
         verify_claims_formally=arena._verify_claims_formally,
         format_conclusion=arena._format_conclusion,

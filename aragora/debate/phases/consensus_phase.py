@@ -1003,16 +1003,28 @@ class ConsensusPhase:
 
             try:
                 # Verify top claims in the proposal (async with timeout)
-                verified_count = await asyncio.wait_for(
+                verification_result = await asyncio.wait_for(
                     self._verify_claims(proposal_text, limit=2),
                     timeout=verification_timeout
                 )
 
-                # Store verification count for feedback loop
-                if hasattr(result, 'verification_results'):
-                    result.verification_results[agent_name] = verified_count or 0
+                # Phase 11A: Handle both dict and int return types for backward compat
+                if isinstance(verification_result, dict):
+                    verified_count = verification_result.get("verified", 0)
+                    disproven_count = verification_result.get("disproven", 0)
+                else:
+                    # Legacy: callback returns int
+                    verified_count = verification_result or 0
+                    disproven_count = 0
 
-                if verified_count and verified_count > 0:
+                # Store verification counts for feedback loop (Phase 11A: now includes disproven)
+                if hasattr(result, 'verification_results'):
+                    result.verification_results[agent_name] = {
+                        "verified": verified_count,
+                        "disproven": disproven_count,
+                    }
+
+                if verified_count > 0:
                     # Apply bonus: boost votes for this proposal
                     current_count = vote_counts[canonical]
                     bonus = current_count * verification_bonus * verified_count
@@ -1074,25 +1086,37 @@ class ConsensusPhase:
                 pass
 
         # Process verification results for each agent
-        for agent_name, verified_count in result.verification_results.items():
-            # Skip timeouts (indicated by -1) and errors
-            if verified_count < 0:
+        for agent_name, verification_data in result.verification_results.items():
+            # Phase 11A: Handle both dict and int formats for backward compatibility
+            if isinstance(verification_data, dict):
+                verified_count = verification_data.get("verified", 0)
+                disproven_count = verification_data.get("disproven", 0)
+            else:
+                # Legacy format: int value
+                # Skip timeouts (indicated by -1) and errors
+                if verification_data < 0:
+                    continue
+                verified_count = verification_data
+                disproven_count = 0
+
+            # Skip if nothing to report
+            if verified_count == 0 and disproven_count == 0:
                 continue
 
             try:
-                # For now, we only track verified claims (positive count)
-                # Disproven claims would need separate tracking in verification_results
+                # Phase 11A: Now properly tracks both verified and disproven claims
                 change = self.elo_system.update_from_verification(
                     agent_name=agent_name,
                     domain=domain,
                     verified_count=verified_count,
-                    disproven_count=0,  # TODO: Track disproven claims separately
+                    disproven_count=disproven_count,
                 )
 
                 if change != 0:
                     logger.debug(
                         f"verification_elo_applied agent={agent_name} "
-                        f"verified={verified_count} change={change:.1f}"
+                        f"verified={verified_count} disproven={disproven_count} "
+                        f"change={change:.1f}"
                     )
             except Exception as e:
                 logger.debug(f"verification_elo_error agent={agent_name} error={e}")

@@ -28,17 +28,18 @@ class TestVerifyClaimsCallback:
 
     @pytest.mark.asyncio
     async def test_verify_claims_empty_text(self, mock_arena):
-        """Should return 0 for empty proposal text."""
+        """Should return dict with zeros for empty proposal text."""
         from aragora.debate.arena_phases import _create_verify_claims_callback
 
         callback = _create_verify_claims_callback(mock_arena)
         result = await callback("", limit=2)
 
-        assert result == 0
+        # Phase 11A: Now returns dict with verified/disproven counts
+        assert result == {"verified": 0, "disproven": 0}
 
     @pytest.mark.asyncio
     async def test_verify_claims_no_claims(self, mock_arena):
-        """Should return 0 when no claims are extracted."""
+        """Should return dict with zeros when no claims are extracted."""
         from aragora.debate.arena_phases import _create_verify_claims_callback
 
         with patch('aragora.debate.arena_phases.fast_extract_claims') as mock_extract:
@@ -47,7 +48,7 @@ class TestVerifyClaimsCallback:
             callback = _create_verify_claims_callback(mock_arena)
             result = await callback("Some proposal text with no claims", limit=2)
 
-            assert result == 0
+            assert result == {"verified": 0, "disproven": 0}
 
     @pytest.mark.asyncio
     async def test_verify_claims_high_confidence(self, mock_arena):
@@ -66,7 +67,8 @@ class TestVerifyClaimsCallback:
             result = await callback("Proposal with high confidence claims", limit=5)
 
             # Both claims should be counted (confidence >= 0.5)
-            assert result == 2
+            assert result["verified"] == 2
+            assert result["disproven"] == 0
 
     @pytest.mark.asyncio
     async def test_verify_claims_low_confidence(self, mock_arena):
@@ -85,7 +87,8 @@ class TestVerifyClaimsCallback:
             result = await callback("Proposal with low confidence", limit=5)
 
             # Neither claim should be counted (confidence < 0.5)
-            assert result == 0
+            assert result["verified"] == 0
+            assert result["disproven"] == 0
 
     @pytest.mark.asyncio
     async def test_verify_claims_respects_limit(self, mock_arena):
@@ -104,7 +107,7 @@ class TestVerifyClaimsCallback:
             result = await callback("Proposal with many claims", limit=2)
 
             # Should only check first 2 claims
-            assert result == 2
+            assert result["verified"] == 2
 
     @pytest.mark.asyncio
     async def test_verify_claims_mixed_confidence(self, mock_arena):
@@ -124,7 +127,52 @@ class TestVerifyClaimsCallback:
             result = await callback("Mixed claims", limit=10)
 
             # Claims with confidence >= 0.5 should count
-            assert result == 2
+            assert result["verified"] == 2
+            assert result["disproven"] == 0
+
+    @pytest.mark.asyncio
+    async def test_verify_claims_z3_disproven(self, mock_arena):
+        """Should track disproven claims from Z3 verification (Phase 11A)."""
+        from aragora.debate.arena_phases import _create_verify_claims_callback
+        from aragora.verification.formal import FormalProofStatus, FormalProofResult, FormalLanguage
+
+        mock_claims = [
+            {"type": "LOGICAL", "text": "1 > 2", "confidence": 0.8},
+            {"type": "LOGICAL", "text": "true = true", "confidence": 0.8},
+        ]
+
+        # Mock Z3 returning disproven for first claim, verified for second
+        mock_manager = MagicMock()
+        mock_manager.get_available_backends.return_value = [
+            MagicMock(language=MagicMock(value="z3_smt"))
+        ]
+
+        async def mock_verify(claim_text, claim_type, timeout_seconds):
+            if "1 > 2" in claim_text:
+                return FormalProofResult(
+                    status=FormalProofStatus.PROOF_FAILED,
+                    language=FormalLanguage.Z3_SMT,
+                    proof_search_time_ms=10.0,
+                    error_message="Counterexample found",
+                )
+            return FormalProofResult(
+                status=FormalProofStatus.PROOF_FOUND,
+                language=FormalLanguage.Z3_SMT,
+                proof_search_time_ms=5.0,
+            )
+
+        mock_manager.attempt_formal_verification = mock_verify
+
+        with patch('aragora.debate.arena_phases.fast_extract_claims') as mock_extract:
+            with patch('aragora.verification.formal.get_formal_verification_manager', return_value=mock_manager):
+                mock_extract.return_value = mock_claims
+
+                callback = _create_verify_claims_callback(mock_arena)
+                result = await callback("Logical claims", limit=10)
+
+                # One verified, one disproven
+                assert result["verified"] == 1
+                assert result["disproven"] == 1
 
 
 # =============================================================================
