@@ -2486,6 +2486,7 @@ Reducing technical debt is GOOD when safe (improve code without changing behavio
             model='claude',
             role='proposer',
             timeout=600,  # 10 min - increased for judge role with large context
+            prefer_api=True,  # Skip CLI (returns code 1), use OpenRouter directly
         )
         self.claude.system_prompt = """You are a visionary architect for aragora.
 Focus on: elegant design, user experience, novel AI patterns, system cohesion.
@@ -2566,10 +2567,11 @@ The most valuable proposals combine deep analysis with actionable implementation
 
         # Wrap all agents with Airlock for resilience
         # This adds timeout handling, null byte sanitization, and fallback responses
+        # Timeouts increased to accommodate CLI agents (codex/claude can take 10+ min)
         airlock_config = AirlockConfig(
-            generate_timeout=180.0,  # 3 min for generation
-            critique_timeout=120.0,  # 2 min for critiques
-            vote_timeout=60.0,       # 1 min for votes
+            generate_timeout=600.0,  # 10 min for generation (CLI agents need this)
+            critique_timeout=300.0,  # 5 min for critiques
+            vote_timeout=120.0,      # 2 min for votes
             max_retries=1,
             fallback_on_timeout=True,
             fallback_on_error=True,
@@ -3787,6 +3789,7 @@ The most valuable proposals combine deep analysis with actionable implementation
                     relationship_tracker=self.relationship_tracker,
                     moment_detector=self.moment_detector,
                     continuum_memory=self.continuum,
+                    use_airlock=True,  # Enable resilience wrapper
                 )
                 return await arena.run()  # run() takes no arguments
 
@@ -4679,6 +4682,7 @@ The most valuable proposals combine deep analysis with actionable implementation
                     relationship_tracker=self.relationship_tracker,
                     moment_detector=self.moment_detector,
                     continuum_memory=self.continuum,
+                    use_airlock=True,  # Enable resilience wrapper
                 )
                 return await arena.run()  # run() takes no arguments
 
@@ -6140,6 +6144,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 relationship_tracker=self.relationship_tracker,
                 moment_detector=self.moment_detector,
                 continuum_memory=self.continuum,
+                use_airlock=True,  # Enable resilience wrapper
             )
             return await self._run_arena_with_logging(arena, phase_name)
 
@@ -6220,6 +6225,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 relationship_tracker=self.relationship_tracker,
                 moment_detector=self.moment_detector,
                 continuum_memory=self.continuum,
+                use_airlock=True,  # Enable resilience wrapper
             )
             return await self._run_arena_with_logging(arena, phase_name)
 
@@ -6692,6 +6698,7 @@ Recent changes:
             relationship_tracker=self.relationship_tracker,
             moment_detector=self.moment_detector,
             continuum_memory=self.continuum,
+            use_airlock=True,  # Enable resilience wrapper for agent failure protection
         )
 
         # P1-Phase2: Use graph-based debate for complex multi-agent reasoning if available
@@ -7444,6 +7451,7 @@ Designs missing any of these will be automatically rejected as non-viable.
             relationship_tracker=self.relationship_tracker,
             moment_detector=self.moment_detector,
             continuum_memory=self.continuum,
+            use_airlock=True,  # Enable resilience wrapper for agent failure protection
         )
         result = await self._run_arena_with_logging(arena, "design")
 
