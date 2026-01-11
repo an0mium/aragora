@@ -261,6 +261,8 @@ __all__ = [
     "MatrixDebatesHandler",
     "FeaturesHandler",
     "MemoryAnalyticsHandler",
+    "GauntletHandler",
+    "ReviewsHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",
