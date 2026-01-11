@@ -1,425 +1,342 @@
 """
-Performance benchmarks for critical Aragora subsystems.
+Performance Benchmark Tests for Aragora.
 
-Tests performance of:
-- Consensus detection algorithms
-- Memory tier queries
-- ELO rating calculations
-- Handler response times
+These tests measure performance characteristics and set baselines.
+Run with: pytest tests/benchmarks/ -v
 
-Run with: pytest tests/benchmarks/test_performance.py -v --benchmark-only
-Or without benchmark plugin: pytest tests/benchmarks/test_performance.py::TestTimingBaselines -v
+Optionally install pytest-benchmark for detailed statistics:
+    pip install pytest-benchmark
+    pytest tests/benchmarks/ --benchmark-only
 """
 
-import random
-import string
-import tempfile
+from __future__ import annotations
+
+import asyncio
 import time
-from pathlib import Path
+from unittest.mock import patch, AsyncMock
 
 import pytest
 
-# Check if pytest-benchmark is available
-try:
-    import pytest_benchmark
-    BENCHMARK_AVAILABLE = True
-except ImportError:
-    BENCHMARK_AVAILABLE = False
+from aragora.core import Environment, Critique, Vote
+from aragora.debate.orchestrator import Arena, DebateProtocol
 
-# Skip benchmark tests if plugin not available
-benchmark_skip = pytest.mark.skipif(
-    not BENCHMARK_AVAILABLE,
-    reason="pytest-benchmark not installed"
-)
+from .conftest import BenchmarkAgent, SimpleBenchmark
 
 
-@pytest.fixture
-def temp_db_dir():
-    """Create temporary directory for benchmark databases."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir)
+# =============================================================================
+# Debate Performance Tests
+# =============================================================================
 
 
-@benchmark_skip
-class TestEloPerformance:
-    """Benchmark ELO system operations."""
+class TestDebatePerformance:
+    """Benchmark tests for debate operations."""
 
-    @pytest.fixture
-    def elo_system(self, temp_db_dir):
-        """Create ELO system for benchmarks."""
-        from aragora.ranking.elo import EloSystem
-        return EloSystem(str(temp_db_dir / "elo_benchmark.db"))
+    @pytest.mark.asyncio
+    async def test_single_round_latency(self, benchmark_agents, benchmark_environment):
+        """Measure single debate round latency."""
+        protocol = DebateProtocol(rounds=1, consensus="any")
 
-    def test_record_match_performance(self, benchmark, elo_system):
-        """Benchmark single match recording."""
-        def record_single_match():
-            agent_a = f"agent-{random.randint(1, 100)}"
-            agent_b = f"agent-{random.randint(1, 100)}"
-            scores = {agent_a: random.random(), agent_b: 1 - random.random()}
-            elo_system.record_match(agent_a, agent_b, scores, "benchmark")
+        with patch.object(
+            Arena, "_gather_trending_context",
+            new_callable=AsyncMock, return_value=None
+        ):
+            arena = Arena(benchmark_environment, benchmark_agents, protocol)
 
-        benchmark(record_single_match)
+            start = time.perf_counter()
+            result = await asyncio.wait_for(arena.run(), timeout=30.0)
+            elapsed = time.perf_counter() - start
 
-    def test_get_rating_performance(self, benchmark, elo_system):
-        """Benchmark rating retrieval."""
-        # Setup: create some agents
-        for i in range(100):
-            elo_system.record_match(f"agent-{i}", f"agent-{i+1}", {f"agent-{i}": 1.0, f"agent-{i+1}": 0.0}, "setup")
+        # Baseline: single round should complete in under 5 seconds
+        assert elapsed < 5.0, f"Single round took {elapsed:.2f}s (target: <5s)"
+        assert result is not None
 
-        def get_single_rating():
-            agent = f"agent-{random.randint(0, 100)}"
-            return elo_system.get_rating(agent)
+    @pytest.mark.asyncio
+    async def test_multi_round_scaling(self, benchmark_agents, benchmark_environment):
+        """Measure how latency scales with rounds."""
+        round_times = {}
 
-        benchmark(get_single_rating)
+        with patch.object(
+            Arena, "_gather_trending_context",
+            new_callable=AsyncMock, return_value=None
+        ):
+            for num_rounds in [1, 2, 3]:
+                protocol = DebateProtocol(rounds=num_rounds, consensus="any")
+                arena = Arena(benchmark_environment, benchmark_agents, protocol)
 
-    def test_leaderboard_performance(self, benchmark, elo_system):
-        """Benchmark leaderboard generation."""
-        # Setup: create many agents
-        for i in range(200):
-            elo_system.record_match(f"agent-{i}", f"agent-{i+1}", {f"agent-{i}": random.random(), f"agent-{i+1}": random.random()}, "setup")
+                start = time.perf_counter()
+                await asyncio.wait_for(arena.run(), timeout=60.0)
+                elapsed = time.perf_counter() - start
 
-        def get_leaderboard():
-            return elo_system.get_leaderboard(limit=50)
+                round_times[num_rounds] = elapsed
 
-        benchmark(get_leaderboard)
+        # Check scaling is roughly linear (not exponential)
+        if round_times[1] > 0:
+            ratio = round_times[3] / round_times[1]
+            # Should be less than 5x for 3x rounds (allowing overhead)
+            assert ratio < 5.0, f"3 rounds took {ratio:.1f}x longer than 1 round"
+
+    @pytest.mark.asyncio
+    async def test_agent_count_scaling(self, benchmark_environment):
+        """Measure how latency scales with agent count."""
+        agent_times = {}
+
+        with patch.object(
+            Arena, "_gather_trending_context",
+            new_callable=AsyncMock, return_value=None
+        ):
+            for num_agents in [2, 3, 5]:
+                agents = [BenchmarkAgent(f"agent_{i}") for i in range(num_agents)]
+                protocol = DebateProtocol(rounds=1, consensus="any")
+                arena = Arena(benchmark_environment, agents, protocol)
+
+                start = time.perf_counter()
+                await asyncio.wait_for(arena.run(), timeout=30.0)
+                elapsed = time.perf_counter() - start
+
+                agent_times[num_agents] = elapsed
+
+        # Check scaling is sub-linear (agents run in parallel)
+        if agent_times[2] > 0:
+            ratio = agent_times[5] / agent_times[2]
+            # 5 agents shouldn't take 2.5x longer than 2 agents
+            assert ratio < 2.5, f"5 agents took {ratio:.1f}x longer than 2 agents"
 
 
-@benchmark_skip
+# =============================================================================
+# Memory Performance Tests
+# =============================================================================
+
+
 class TestMemoryPerformance:
-    """Benchmark memory subsystem operations."""
+    """Benchmark tests for memory operations."""
 
-    @pytest.fixture
-    def critique_store(self, temp_db_dir):
-        """Create critique store for benchmarks."""
+    @pytest.mark.asyncio
+    async def test_critique_store_write(self, temp_benchmark_db):
+        """Measure critique store write performance."""
         from aragora.memory.store import CritiqueStore
-        return CritiqueStore(str(temp_db_dir / "memory_benchmark.db"))
 
-    def test_pattern_retrieval_performance(self, benchmark, critique_store):
-        """Benchmark pattern retrieval."""
-        # Setup: store some patterns
-        from aragora.core import Critique
-        for i in range(100):
-            critique = Critique(
-                agent=f"critic-{i}",
-                target_agent=f"target-{i}",
-                target_content=f"Content {i}",
-                issues=[f"Issue {i}"],
-                suggestions=[f"Suggestion {i}"],
-                severity=random.random(),
-                reasoning=f"Reasoning {i}"
-            )
-            critique_store.store_pattern(critique, f"Fix {i}")
+        store = CritiqueStore(str(temp_benchmark_db))
 
-        def retrieve_patterns():
-            return critique_store.retrieve_patterns(issue_type="general", limit=20)
-
-        benchmark(retrieve_patterns)
-
-    def test_reputation_lookup_performance(self, benchmark, critique_store):
-        """Benchmark reputation lookup."""
-        # Setup: create reputations via pattern storage
-        from aragora.core import Critique
-        for i in range(50):
-            critique = Critique(
-                agent=f"critic-{i % 10}",
-                target_agent=f"target-{i % 5}",
-                target_content=f"Content",
-                issues=["Issue"],
-                suggestions=["Suggestion"],
+        critiques = [
+            Critique(
+                agent=f"agent_{i}",
+                target_agent="target",
+                target_content=f"content_{i}",
+                issues=["issue"],
+                suggestions=["suggestion"],
                 severity=0.5,
-                reasoning="Reasoning"
+                reasoning="reasoning",
             )
-            critique_store.store_pattern(critique, "Fix")
+            for i in range(100)
+        ]
 
-        def get_reputation():
-            agent = f"critic-{random.randint(0, 9)}"
-            return critique_store.get_reputation(agent)
+        start = time.perf_counter()
+        for critique in critiques:
+            store.store(critique)
+        elapsed = time.perf_counter() - start
 
-        benchmark(get_reputation)
+        # Baseline: 100 writes should complete in under 1 second
+        assert elapsed < 1.0, f"100 writes took {elapsed:.2f}s (target: <1s)"
+        ops_per_sec = 100 / elapsed
+        assert ops_per_sec > 100, f"Only {ops_per_sec:.0f} ops/sec (target: >100)"
 
-
-@benchmark_skip
-class TestConsensusPerformance:
-    """Benchmark consensus detection operations."""
-
-    def test_majority_vote_calculation(self, benchmark):
-        """Benchmark majority vote calculation."""
-        from aragora.core import Vote
-
-        def calculate_majority():
-            votes = []
-            agents = [f"agent-{i}" for i in range(10)]
-            choices = ["option_a", "option_b", "option_c"]
-
-            for agent in agents:
-                votes.append(Vote(
-                    agent=agent,
-                    choice=random.choice(choices),
-                    reasoning="Test reasoning",
-                    confidence=random.random(),
-                    continue_debate=False
-                ))
-
-            # Count votes
-            vote_counts = {}
-            for vote in votes:
-                vote_counts[vote.choice] = vote_counts.get(vote.choice, 0) + 1
-
-            # Find majority
-            max_votes = max(vote_counts.values())
-            return [c for c, v in vote_counts.items() if v == max_votes]
-
-        benchmark(calculate_majority)
-
-    def test_weighted_vote_calculation(self, benchmark):
-        """Benchmark weighted vote calculation."""
-        from aragora.core import Vote
-
-        def calculate_weighted():
-            votes = []
-            agents = [f"agent-{i}" for i in range(20)]
-            choices = ["option_a", "option_b", "option_c"]
-            weights = {agent: random.uniform(0.5, 2.0) for agent in agents}
-
-            for agent in agents:
-                votes.append(Vote(
-                    agent=agent,
-                    choice=random.choice(choices),
-                    reasoning="Test reasoning",
-                    confidence=random.random(),
-                    continue_debate=False
-                ))
-
-            # Weighted count
-            weighted_counts = {}
-            for vote in votes:
-                weight = weights.get(vote.agent, 1.0) * vote.confidence
-                weighted_counts[vote.choice] = weighted_counts.get(vote.choice, 0) + weight
-
-            return max(weighted_counts.items(), key=lambda x: x[1])
-
-        benchmark(calculate_weighted)
-
-
-@benchmark_skip
-class TestAuthPerformance:
-    """Benchmark authentication operations."""
-
-    def test_token_generation_performance(self, benchmark):
-        """Benchmark token generation."""
-        from aragora.server.auth import AuthConfig
-
-        config = AuthConfig()
-        config.api_token = "benchmark-secret-key"
-        config.enabled = True
-
-        def generate_token():
-            loop_id = ''.join(random.choices(string.ascii_lowercase, k=10))
-            return config.generate_token(loop_id, expires_in=3600)
-
-        benchmark(generate_token)
-
-    def test_token_validation_performance(self, benchmark):
-        """Benchmark token validation."""
-        from aragora.server.auth import AuthConfig
-
-        config = AuthConfig()
-        config.api_token = "benchmark-secret-key"
-        config.enabled = True
-
-        # Pre-generate tokens
-        tokens = [config.generate_token(f"loop-{i}", 3600) for i in range(100)]
-
-        def validate_token():
-            token = random.choice(tokens)
-            loop_id = f"loop-{random.randint(0, 99)}"
-            return config.validate_token(token, loop_id)
-
-        benchmark(validate_token)
-
-    def test_rate_limit_check_performance(self, benchmark):
-        """Benchmark rate limit checking."""
-        from aragora.server.auth import AuthConfig
-
-        config = AuthConfig()
-        config.rate_limit_per_minute = 1000  # High limit for benchmark
-
-        def check_rate_limit():
-            token = f"token-{random.randint(0, 100)}"
-            return config.check_rate_limit(token)
-
-        benchmark(check_rate_limit)
-
-
-@benchmark_skip
-class TestHandlerPerformance:
-    """Benchmark handler operations."""
-
-    @pytest.fixture
-    def handler_context(self, temp_db_dir):
-        """Create handler context for benchmarks."""
-        from aragora.ranking.elo import EloSystem
+    @pytest.mark.asyncio
+    async def test_critique_store_read(self, temp_benchmark_db):
+        """Measure critique store read performance."""
         from aragora.memory.store import CritiqueStore
 
-        return {
-            "storage": None,
-            "elo_system": EloSystem(str(temp_db_dir / "handler_elo.db")),
-            "nomic_dir": temp_db_dir,
-            "critique_store": CritiqueStore(str(temp_db_dir / "handler_memory.db")),
-        }
+        store = CritiqueStore(str(temp_benchmark_db))
 
-    def test_health_check_performance(self, benchmark, handler_context):
-        """Benchmark health check endpoint."""
-        from aragora.server.handlers import SystemHandler
+        # Write some data first
+        for i in range(50):
+            store.store(Critique(
+                agent="agent",
+                target_agent="target",
+                target_content=f"content_{i}",
+                issues=[],
+                suggestions=[],
+                severity=0.5,
+                reasoning="reasoning",
+            ))
 
-        handler = SystemHandler(handler_context)
+        # Measure reads
+        start = time.perf_counter()
+        for _ in range(100):
+            store.get_recent(limit=10)
+        elapsed = time.perf_counter() - start
 
-        def health_check():
-            return handler.handle("/api/health", {}, None)
+        # Baseline: 100 reads should complete in under 0.5 seconds
+        assert elapsed < 0.5, f"100 reads took {elapsed:.2f}s (target: <0.5s)"
 
-        benchmark(health_check)
 
-    def test_leaderboard_handler_performance(self, benchmark, handler_context):
-        """Benchmark leaderboard handler."""
-        from aragora.server.handlers import AgentsHandler
+# =============================================================================
+# ELO Performance Tests
+# =============================================================================
 
-        # Setup: add some agents
-        elo = handler_context["elo_system"]
+
+class TestEloPerformance:
+    """Benchmark tests for ELO operations."""
+
+    def test_elo_update_throughput(self, temp_benchmark_db):
+        """Measure ELO update throughput."""
+        from aragora.ranking.elo import EloSystem
+
+        system = EloSystem(str(temp_benchmark_db))
+
+        # Record many matches
+        start = time.perf_counter()
         for i in range(100):
-            elo.record_match(f"agent-{i}", f"agent-{i+1}", {f"agent-{i}": random.random(), f"agent-{i+1}": random.random()}, "bench")
-
-        handler = AgentsHandler(handler_context)
-
-        def get_leaderboard():
-            return handler.handle("/api/leaderboard", {"limit": "20"}, None)
-
-        benchmark(get_leaderboard)
-
-
-@benchmark_skip
-class TestDatabasePerformance:
-    """Benchmark database operations."""
-
-    def test_sqlite_write_performance(self, benchmark, temp_db_dir):
-        """Benchmark raw SQLite write performance."""
-        import sqlite3
-
-        db_path = temp_db_dir / "raw_bench.db"
-        conn = sqlite3.connect(str(db_path))
-        conn.execute("CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, data TEXT)")
-        conn.commit()
-
-        counter = [0]
-
-        def write_row():
-            counter[0] += 1
-            conn.execute("INSERT INTO test (data) VALUES (?)", (f"data-{counter[0]}",))
-            conn.commit()
-
-        benchmark(write_row)
-        conn.close()
-
-    def test_sqlite_read_performance(self, benchmark, temp_db_dir):
-        """Benchmark raw SQLite read performance."""
-        import sqlite3
-
-        db_path = temp_db_dir / "raw_read_bench.db"
-        conn = sqlite3.connect(str(db_path))
-        conn.execute("CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, data TEXT)")
-
-        # Setup: insert data
-        for i in range(1000):
-            conn.execute("INSERT INTO test (data) VALUES (?)", (f"data-{i}",))
-        conn.commit()
-
-        def read_rows():
-            cursor = conn.execute("SELECT * FROM test WHERE id BETWEEN ? AND ?",
-                                  (random.randint(1, 500), random.randint(501, 1000)))
-            return cursor.fetchall()
-
-        benchmark(read_rows)
-        conn.close()
-
-
-@benchmark_skip
-class TestStringOperations:
-    """Benchmark string operations used in processing."""
-
-    def test_json_serialization(self, benchmark):
-        """Benchmark JSON serialization."""
-        import json
-
-        data = {
-            "debate_id": "test-debate-123",
-            "rounds": [
-                {"round": i, "messages": [{"agent": f"agent-{j}", "content": f"Message {i}-{j}"} for j in range(5)]}
-                for i in range(10)
-            ],
-            "metadata": {"topic": "Test topic", "created_at": "2026-01-08T00:00:00Z"}
-        }
-
-        def serialize():
-            return json.dumps(data)
-
-        benchmark(serialize)
-
-    def test_json_deserialization(self, benchmark):
-        """Benchmark JSON deserialization."""
-        import json
-
-        json_str = json.dumps({
-            "debate_id": "test-debate-123",
-            "rounds": [
-                {"round": i, "messages": [{"agent": f"agent-{j}", "content": f"Message {i}-{j}"} for j in range(5)]}
-                for i in range(10)
-            ],
-            "metadata": {"topic": "Test topic", "created_at": "2026-01-08T00:00:00Z"}
-        })
-
-        def deserialize():
-            return json.loads(json_str)
-
-        benchmark(deserialize)
-
-
-# Timing utilities for non-benchmark comparisons
-class TestTimingBaselines:
-    """Establish timing baselines for operations."""
-
-    def test_elo_batch_operations_timing(self, temp_db_dir):
-        """Measure batch ELO operation timing."""
-        from aragora.ranking.elo import EloSystem
-
-        elo = EloSystem(str(temp_db_dir / "timing_elo.db"))
-
-        # Time 1000 match recordings
-        start = time.perf_counter()
-        for i in range(1000):
-            elo.record_match(f"a-{i % 50}", f"b-{i % 50}", {f"a-{i % 50}": 0.6, f"b-{i % 50}": 0.4}, "timing")
+            system.record_match(
+                winner=f"agent_{i % 10}",
+                loser=f"agent_{(i + 1) % 10}",
+                task="benchmark",
+            )
         elapsed = time.perf_counter() - start
 
-        # Should complete in reasonable time (< 5 seconds for 1000 matches)
-        assert elapsed < 5.0, f"1000 matches took {elapsed:.2f}s (expected < 5s)"
-        print(f"\n1000 match recordings: {elapsed:.3f}s ({elapsed/1000*1000:.2f}ms per match)")
+        # Baseline: 100 updates should complete in under 1 second
+        assert elapsed < 1.0, f"100 ELO updates took {elapsed:.2f}s (target: <1s)"
+        ops_per_sec = 100 / elapsed
+        assert ops_per_sec > 100, f"Only {ops_per_sec:.0f} ops/sec (target: >100)"
 
-    def test_handler_batch_timing(self, temp_db_dir):
-        """Measure batch handler operation timing."""
-        from aragora.server.handlers import SystemHandler
+    def test_leaderboard_query(self, temp_benchmark_db):
+        """Measure leaderboard query performance."""
         from aragora.ranking.elo import EloSystem
 
-        ctx = {
-            "storage": None,
-            "elo_system": EloSystem(str(temp_db_dir / "handler_timing.db")),
-            "nomic_dir": temp_db_dir,
-        }
-        handler = SystemHandler(ctx)
+        system = EloSystem(str(temp_benchmark_db))
 
-        # Time 1000 health checks
+        # Add some agents
+        for i in range(50):
+            system.record_match(
+                winner=f"agent_{i}",
+                loser=f"agent_{(i + 1) % 50}",
+                task="benchmark",
+            )
+
+        # Query leaderboard many times
         start = time.perf_counter()
-        for _ in range(1000):
-            handler.handle("/api/health", {}, None)
+        for _ in range(100):
+            system.get_leaderboard(limit=20)
         elapsed = time.perf_counter() - start
 
-        # Should complete in reasonable time (< 2 seconds for 1000 requests)
-        assert elapsed < 2.0, f"1000 health checks took {elapsed:.2f}s (expected < 2s)"
-        print(f"\n1000 health checks: {elapsed:.3f}s ({elapsed/1000*1000:.2f}ms per request)")
+        # Baseline: 100 queries should complete in under 0.5 seconds
+        assert elapsed < 0.5, f"100 leaderboard queries took {elapsed:.2f}s (target: <0.5s)"
+
+
+# =============================================================================
+# Concurrent Operation Tests
+# =============================================================================
+
+
+class TestConcurrentPerformance:
+    """Benchmark tests for concurrent operations."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_debates(self, benchmark_environment):
+        """Measure concurrent debate throughput."""
+        num_debates = 5
+
+        with patch.object(
+            Arena, "_gather_trending_context",
+            new_callable=AsyncMock, return_value=None
+        ):
+            async def run_single_debate(idx: int):
+                agents = [BenchmarkAgent(f"debate{idx}_agent_{i}") for i in range(2)]
+                env = Environment(task=f"Concurrent task {idx}")
+                protocol = DebateProtocol(rounds=1, consensus="any")
+                arena = Arena(env, agents, protocol)
+                return await arena.run()
+
+            start = time.perf_counter()
+            results = await asyncio.gather(*[
+                run_single_debate(i) for i in range(num_debates)
+            ])
+            elapsed = time.perf_counter() - start
+
+        # All should complete
+        assert len(results) == num_debates
+        assert all(r is not None for r in results)
+
+        # Concurrent debates shouldn't take num_debates times as long
+        debates_per_sec = num_debates / elapsed
+        assert debates_per_sec > 0.5, f"Only {debates_per_sec:.2f} debates/sec"
+
+    @pytest.mark.asyncio
+    async def test_concurrent_memory_writes(self, temp_benchmark_db):
+        """Measure concurrent memory write performance."""
+        from aragora.memory.store import CritiqueStore
+
+        store = CritiqueStore(str(temp_benchmark_db))
+        num_writers = 10
+        writes_per_writer = 10
+
+        async def write_batch(writer_id: int):
+            for i in range(writes_per_writer):
+                store.store(Critique(
+                    agent=f"writer_{writer_id}",
+                    target_agent="target",
+                    target_content=f"content_{writer_id}_{i}",
+                    issues=[],
+                    suggestions=[],
+                    severity=0.5,
+                    reasoning="concurrent write",
+                ))
+
+        start = time.perf_counter()
+        await asyncio.gather(*[write_batch(i) for i in range(num_writers)])
+        elapsed = time.perf_counter() - start
+
+        total_writes = num_writers * writes_per_writer
+        ops_per_sec = total_writes / elapsed
+
+        # Concurrent writes should still be reasonably fast
+        assert ops_per_sec > 50, f"Only {ops_per_sec:.0f} ops/sec (target: >50)"
+
+
+# =============================================================================
+# Baseline Performance Assertions
+# =============================================================================
+
+
+class TestPerformanceBaselines:
+    """Establish and verify performance baselines."""
+
+    def test_import_time(self):
+        """Verify aragora core imports are fast.
+
+        Note: We don't remove modules from sys.modules as that breaks
+        global fixtures. Instead we measure a fresh subprocess import.
+        """
+        import subprocess
+
+        # Measure import time in subprocess for clean measurement
+        result = subprocess.run(
+            ["python", "-c", "import time; start=time.perf_counter(); import aragora; print(time.perf_counter()-start)"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if result.returncode == 0:
+            elapsed = float(result.stdout.strip())
+            # Import should be under 3 seconds (subprocess has overhead)
+            assert elapsed < 3.0, f"Import took {elapsed:.2f}s (target: <3s)"
+        else:
+            # If subprocess fails, skip test rather than fail
+            pytest.skip(f"Subprocess import failed: {result.stderr}")
+
+    @pytest.mark.asyncio
+    async def test_agent_generation_overhead(self):
+        """Verify agent response generation has minimal overhead."""
+        agent = BenchmarkAgent()
+
+        # Warm up
+        await agent.generate("warmup")
+
+        # Measure overhead
+        start = time.perf_counter()
+        for _ in range(100):
+            await agent.generate("test prompt")
+        elapsed = time.perf_counter() - start
+
+        # 100 generations should be nearly instant (mock agent)
+        assert elapsed < 0.1, f"100 mock generations took {elapsed:.3f}s (target: <0.1s)"

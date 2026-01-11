@@ -397,16 +397,112 @@ class TestConcludeTest:
 class TestCancelTest:
     """Tests for cancelling tests."""
 
+    def _make_auth_handler(self, authenticated=True, client_ip="127.0.0.1"):
+        """Create mock request handler with auth headers."""
+        mock_handler = Mock()
+        mock_handler.headers = {"Authorization": "Bearer test_token"} if authenticated else {}
+        mock_handler.client_address = (client_ip, 12345)
+        return mock_handler
+
     def test_cancel_test_success(self, enabled_handler):
         """Test successful test cancellation."""
-        result = enabled_handler.handle_delete("/api/evolution/ab-tests/test-123", None)
+        mock_handler = self._make_auth_handler()
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = True
+            mock_extract.return_value = mock_auth_ctx
+            result = enabled_handler.handle_delete("/api/evolution/ab-tests/test-123", mock_handler)
 
         assert result.status_code == 200
 
     def test_cancel_test_not_found(self, enabled_handler, mock_manager):
         """Test 404 when test not found or already concluded."""
         mock_manager.cancel_test.return_value = False
+        mock_handler = self._make_auth_handler()
 
-        result = enabled_handler.handle_delete("/api/evolution/ab-tests/test-123", None)
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = True
+            mock_extract.return_value = mock_auth_ctx
+            result = enabled_handler.handle_delete("/api/evolution/ab-tests/test-123", mock_handler)
 
         assert result.status_code == 404
+
+    def test_cancel_test_requires_auth(self, enabled_handler):
+        """Test 401 when not authenticated."""
+        mock_handler = self._make_auth_handler(authenticated=False)
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = False
+            mock_extract.return_value = mock_auth_ctx
+            result = enabled_handler.handle_delete("/api/evolution/ab-tests/test-123", mock_handler)
+
+        assert result is not None
+        assert result.status_code == 401
+        data = json.loads(result.body)
+        assert "authentication" in data["error"].lower()
+
+    def test_cancel_test_rate_limited(self, enabled_handler, mock_manager):
+        """Test 429 when rate limit exceeded."""
+        mock_manager.cancel_test.return_value = True
+
+        # Make more than 10 requests from same IP
+        rate_limited_count = 0
+        for i in range(15):
+            mock_handler = self._make_auth_handler(client_ip="192.168.1.200")
+
+            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+                mock_auth_ctx = Mock()
+                mock_auth_ctx.is_authenticated = True
+                mock_extract.return_value = mock_auth_ctx
+                result = enabled_handler.handle_delete(f"/api/evolution/ab-tests/test-{i}", mock_handler)
+
+            # After 10 requests, should get rate limited
+            if result is not None and result.status_code == 429:
+                rate_limited_count += 1
+
+        # At least some requests should be rate limited
+        assert rate_limited_count > 0
+
+    def test_cancel_test_invalid_id(self, enabled_handler):
+        """Test handling of invalid test ID format."""
+        mock_handler = self._make_auth_handler()
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = True
+            mock_extract.return_value = mock_auth_ctx
+            # Path traversal attempt
+            result = enabled_handler.handle_delete("/api/evolution/ab-tests/../../../etc/passwd", mock_handler)
+
+        # Should either return None (not matched) or 400/404
+        assert result is None or result.status_code in [400, 404]
+
+    def test_cancel_test_returns_none_for_wrong_path(self, enabled_handler):
+        """Test that unrelated paths return None."""
+        mock_handler = self._make_auth_handler()
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = True
+            mock_extract.return_value = mock_auth_ctx
+            # Use a completely different path that's not under /api/evolution/ab-tests
+            result = enabled_handler.handle_delete("/api/debates/test-123", mock_handler)
+
+        assert result is None
+
+    def test_cancel_test_handles_exception(self, enabled_handler, mock_manager):
+        """Test 500 when cancel raises exception."""
+        mock_manager.cancel_test.side_effect = Exception("Database error")
+        mock_handler = self._make_auth_handler()
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = True
+            mock_extract.return_value = mock_auth_ctx
+            result = enabled_handler.handle_delete("/api/evolution/ab-tests/test-123", mock_handler)
+
+        assert result is not None
+        assert result.status_code == 500

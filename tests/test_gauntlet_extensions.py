@@ -391,3 +391,187 @@ class TestIntegration:
 
         assert "integration" in json_receipt
         assert "<svg" in svg_heatmap
+
+
+class TestGauntletPersonaIntegration:
+    """Tests for persona integration in GauntletOrchestrator."""
+
+    def test_gauntlet_config_persona_string_resolution(self):
+        """Test that persona strings are resolved to instances."""
+        from aragora.modes.gauntlet import GauntletConfig
+
+        config = GauntletConfig(
+            input_content="Test content",
+            persona="gdpr",
+        )
+
+        # Persona should be resolved to instance
+        assert config.persona is not None
+        assert config.persona.name == "GDPR Compliance Auditor"
+
+    def test_gauntlet_config_persona_instance(self):
+        """Test that persona instances are preserved."""
+        from aragora.modes.gauntlet import GauntletConfig
+        from aragora.gauntlet.personas import HIPAAPersona
+
+        persona = HIPAAPersona()
+        config = GauntletConfig(
+            input_content="Test content",
+            persona=persona,
+        )
+
+        assert config.persona is persona
+        assert config.persona.name == "HIPAA Compliance Auditor"
+
+    def test_compliance_gauntlet_profiles(self):
+        """Test pre-configured compliance gauntlet profiles."""
+        from aragora.modes.gauntlet import (
+            GDPR_GAUNTLET,
+            HIPAA_GAUNTLET,
+            AI_ACT_GAUNTLET,
+            SECURITY_GAUNTLET,
+            get_compliance_gauntlet,
+        )
+
+        assert GDPR_GAUNTLET is not None
+        assert GDPR_GAUNTLET.persona.regulation == "GDPR (EU 2016/679)"
+
+        assert HIPAA_GAUNTLET is not None
+        assert "HIPAA" in HIPAA_GAUNTLET.persona.regulation
+
+        assert AI_ACT_GAUNTLET is not None
+        assert "AI Act" in AI_ACT_GAUNTLET.persona.regulation
+
+        assert SECURITY_GAUNTLET is not None
+        assert "OWASP" in SECURITY_GAUNTLET.persona.regulation
+
+        # Test get_compliance_gauntlet function
+        custom = get_compliance_gauntlet("security")
+        assert custom.persona.name == "Security Red Team"
+
+    def test_gauntlet_orchestrator_persona_parsing(self):
+        """Test persona response parsing."""
+        from aragora.modes.gauntlet import GauntletOrchestrator, Finding
+        from aragora.gauntlet.personas import GDPRPersona
+        from aragora.core import Agent
+
+        # Create mock agent with all required abstract methods
+        class MockAgent(Agent):
+            async def generate(self, prompt, history):
+                return "Mock response"
+
+            def critique(self, response, context):
+                return "No critique"
+
+        orchestrator = GauntletOrchestrator([MockAgent(name="test", model="mock")])
+        persona = GDPRPersona()
+        attack = persona.attack_prompts[0]
+
+        # Test response with critical finding
+        findings = orchestrator._parse_persona_response(
+            "Critical violation found: Missing consent mechanism. This is a serious issue.",
+            attack,
+            persona,
+            "test_agent",
+        )
+
+        assert len(findings) == 1
+        assert findings[0].severity >= 0.9  # Should be critical
+        assert "GDPR" in findings[0].title
+
+    def test_gauntlet_orchestrator_persona_no_finding(self):
+        """Test persona response parsing with no findings."""
+        from aragora.modes.gauntlet import GauntletOrchestrator
+        from aragora.gauntlet.personas import GDPRPersona
+        from aragora.core import Agent
+
+        class MockAgent(Agent):
+            async def generate(self, prompt, history):
+                return "Mock response"
+
+            def critique(self, response, context):
+                return "No critique"
+
+        orchestrator = GauntletOrchestrator([MockAgent(name="test", model="mock")])
+        persona = GDPRPersona()
+        attack = persona.attack_prompts[0]
+
+        # Test response without compliance indicators
+        findings = orchestrator._parse_persona_response(
+            "The proposal appears well-structured and complete.",
+            attack,
+            persona,
+            "test_agent",
+        )
+
+        assert len(findings) == 0
+
+    def test_gauntlet_orchestrator_persona_severity_weights(self):
+        """Test that persona severity weights are applied."""
+        from aragora.modes.gauntlet import GauntletOrchestrator
+        from aragora.gauntlet.personas import GDPRPersona
+        from aragora.core import Agent
+
+        class MockAgent(Agent):
+            async def generate(self, prompt, history):
+                return "Mock response"
+
+            def critique(self, response, context):
+                return "No critique"
+
+        orchestrator = GauntletOrchestrator([MockAgent(name="test", model="mock")])
+        persona = GDPRPersona()
+
+        # legal_basis has weight 1.5
+        legal_basis_attack = persona.get_attacks_for_category("legal_basis")[0]
+
+        findings = orchestrator._parse_persona_response(
+            "Medium risk: There is a gap in documentation.",
+            legal_basis_attack,
+            persona,
+            "test_agent",
+        )
+
+        # severity_weight 1.5 should boost the severity
+        if findings:
+            assert findings[0].severity > 0.5  # Base medium is 0.5
+
+    @pytest.mark.asyncio
+    async def test_gauntlet_run_with_persona_mock(self):
+        """Test running gauntlet with persona (mock agents)."""
+        from aragora.modes.gauntlet import GauntletConfig, GauntletOrchestrator
+        from aragora.core import Agent
+
+        class MockAgent(Agent):
+            async def generate(self, prompt, history):
+                if "GDPR" in prompt:
+                    return "High severity risk: Missing consent mechanism. This is a compliance gap."
+                return "Analysis complete. No critical issues."
+
+            def critique(self, response, context):
+                return "No critique"
+
+        config = GauntletConfig(
+            input_content="Sample policy document for testing.",
+            persona="gdpr",
+            enable_redteam=False,  # Disable to speed up test
+            enable_probing=False,
+            enable_deep_audit=False,
+            enable_verification=False,
+            enable_risk_assessment=False,
+        )
+
+        orchestrator = GauntletOrchestrator(
+            agents=[MockAgent(name="mock_claude", model="mock")],
+            run_agent_fn=lambda agent, prompt: agent.generate(prompt, []),
+        )
+
+        result = await orchestrator.run(config)
+
+        # Should have persona findings
+        persona_findings = [
+            f for f in result.all_findings
+            if "persona/" in f.category
+        ]
+        assert len(persona_findings) > 0
+        assert any("GDPR" in f.title for f in persona_findings)

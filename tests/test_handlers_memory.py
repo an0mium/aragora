@@ -484,3 +484,175 @@ class TestMemoryPressureEndpoint:
         body = json.loads(result.body)
         assert body["status"] == "elevated"
         assert body["cleanup_recommended"] is False
+
+
+class TestDeleteMemoryEndpoint:
+    """Tests for DELETE /api/memory/continuum/{id} endpoint."""
+
+    def _make_auth_handler(self, authenticated=True, client_ip="127.0.0.1"):
+        """Create mock request handler with auth headers."""
+        mock_handler = Mock()
+        mock_handler.headers = {"Authorization": "Bearer test_token"} if authenticated else {}
+        mock_handler.client_address = (client_ip, 12345)
+        return mock_handler
+
+    def test_delete_requires_auth(self, mock_ctx):
+        """Returns 401 when not authenticated."""
+        mock_ctx["user_store"] = None
+        handler = MemoryHandler(mock_ctx)
+        mock_handler = self._make_auth_handler(authenticated=False)
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = False
+            mock_extract.return_value = mock_auth_ctx
+            result = handler.handle_delete("/api/memory/continuum/mem123", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 401
+
+    def test_delete_returns_503_when_not_configured(self, mock_ctx):
+        """Returns 503 when continuum memory not configured."""
+        mock_ctx["continuum_memory"] = None
+        mock_ctx["user_store"] = Mock()
+        handler = MemoryHandler(mock_ctx)
+        mock_handler = self._make_auth_handler()
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = True
+            mock_extract.return_value = mock_auth_ctx
+            result = handler.handle_delete("/api/memory/continuum/mem123", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 503
+
+    def test_delete_success(self, mock_ctx):
+        """Returns 200 when memory deleted successfully."""
+        mock_continuum = Mock()
+        mock_continuum.delete.return_value = True
+        mock_ctx["continuum_memory"] = mock_continuum
+        mock_ctx["user_store"] = Mock()
+        handler = MemoryHandler(mock_ctx)
+        mock_handler = self._make_auth_handler()
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = True
+            mock_extract.return_value = mock_auth_ctx
+            result = handler.handle_delete("/api/memory/continuum/mem123", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["success"] is True
+        assert "mem123" in body["message"]
+        mock_continuum.delete.assert_called_once_with("mem123")
+
+    def test_delete_not_found(self, mock_ctx):
+        """Returns 404 when memory not found."""
+        mock_continuum = Mock()
+        mock_continuum.delete.return_value = False
+        mock_ctx["continuum_memory"] = mock_continuum
+        mock_ctx["user_store"] = Mock()
+        handler = MemoryHandler(mock_ctx)
+        mock_handler = self._make_auth_handler()
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = True
+            mock_extract.return_value = mock_auth_ctx
+            result = handler.handle_delete("/api/memory/continuum/nonexistent", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 404
+
+    def test_delete_no_method_on_continuum(self, mock_ctx):
+        """Returns 501 when continuum doesn't support delete."""
+        mock_continuum = Mock(spec=[])  # Empty spec = no delete method
+        mock_ctx["continuum_memory"] = mock_continuum
+        mock_ctx["user_store"] = Mock()
+        handler = MemoryHandler(mock_ctx)
+        mock_handler = self._make_auth_handler()
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = True
+            mock_extract.return_value = mock_auth_ctx
+            result = handler.handle_delete("/api/memory/continuum/mem123", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 501
+
+    def test_delete_handles_exception(self, mock_ctx):
+        """Returns 500 when delete raises exception."""
+        mock_continuum = Mock()
+        mock_continuum.delete.side_effect = Exception("Database error")
+        mock_ctx["continuum_memory"] = mock_continuum
+        mock_ctx["user_store"] = Mock()
+        handler = MemoryHandler(mock_ctx)
+        mock_handler = self._make_auth_handler()
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = True
+            mock_extract.return_value = mock_auth_ctx
+            result = handler.handle_delete("/api/memory/continuum/mem123", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 500
+
+    def test_delete_validates_memory_id(self, mock_ctx):
+        """Should validate memory ID format."""
+        mock_continuum = Mock()
+        mock_ctx["continuum_memory"] = mock_continuum
+        mock_ctx["user_store"] = Mock()
+        handler = MemoryHandler(mock_ctx)
+        mock_handler = self._make_auth_handler()
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = True
+            mock_extract.return_value = mock_auth_ctx
+            # Path traversal attempt
+            result = handler.handle_delete("/api/memory/continuum/../../../etc/passwd", {}, mock_handler)
+
+        # Should either reject with 400 or not match the route at all (None)
+        assert result is None or result.status_code == 400
+
+    def test_delete_rate_limiting(self, mock_ctx):
+        """Should rate limit DELETE requests."""
+        mock_continuum = Mock()
+        mock_continuum.delete.return_value = True
+        mock_ctx["continuum_memory"] = mock_continuum
+        mock_ctx["user_store"] = Mock()
+        handler = MemoryHandler(mock_ctx)
+
+        # Make more than 10 requests from same IP
+        for i in range(15):
+            mock_handler = self._make_auth_handler(client_ip="192.168.1.100")
+
+            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+                mock_auth_ctx = Mock()
+                mock_auth_ctx.is_authenticated = True
+                mock_extract.return_value = mock_auth_ctx
+                result = handler.handle_delete(f"/api/memory/continuum/mem{i}", {}, mock_handler)
+
+            # After 10 requests, should get rate limited
+            if i >= 10:
+                if result is not None:
+                    assert result.status_code == 429
+
+    def test_delete_returns_none_for_wrong_path(self, mock_ctx):
+        """Should return None for non-matching paths."""
+        mock_ctx["user_store"] = Mock()
+        handler = MemoryHandler(mock_ctx)
+        mock_handler = self._make_auth_handler()
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_auth_ctx = Mock()
+            mock_auth_ctx.is_authenticated = True
+            mock_extract.return_value = mock_auth_ctx
+            result = handler.handle_delete("/api/memory/wrong/path", {}, mock_handler)
+
+        assert result is None
