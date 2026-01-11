@@ -745,6 +745,28 @@ class TestArenaFromConfig:
 
         assert isinstance(arena, Arena)
 
+    def test_from_config_with_billing_fields(self):
+        """Test from_config properly passes billing fields."""
+        from aragora.debate.orchestrator import ArenaConfig
+        from unittest.mock import Mock
+
+        agents = [MockAgent("agent1")]
+        env = Environment(task="Test billing", max_rounds=1)
+        protocol = DebateProtocol(rounds=1)
+        usage_tracker = Mock()
+
+        config = ArenaConfig(
+            org_id="org-123",
+            user_id="user-456",
+            usage_tracker=usage_tracker,
+        )
+
+        arena = Arena.from_config(env, agents, protocol, config)
+
+        assert arena.org_id == "org-123"
+        assert arena.user_id == "user-456"
+        assert arena.usage_tracker is usage_tracker
+
 
 class TestContinuumMemoryIntegration:
     """Tests for ContinuumMemory integration in Arena."""

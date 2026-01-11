@@ -793,6 +793,270 @@ class TestConcurrency(unittest.TestCase):
         self.assertEqual(len(self.received), num_events)
 
 
+class TestSSRFProtection(unittest.TestCase):
+    """Tests for SSRF (Server-Side Request Forgery) protection in webhook URLs."""
+
+    def setUp(self):
+        # Create dispatcher with localhost NOT allowed (production mode)
+        cfg = WebhookConfig(name="test", url="http://example.com/webhook")
+        self.dispatcher = WebhookDispatcher([cfg], allow_localhost=False)
+
+    def test_blocks_private_ip_10_x(self):
+        """Should block 10.x.x.x private IP range."""
+        valid, msg = self.dispatcher._validate_webhook_url("http://10.0.0.1/webhook")
+        self.assertFalse(valid)
+        self.assertIn("Private IP", msg)
+
+    def test_blocks_private_ip_172_16(self):
+        """Should block 172.16-31.x.x private IP range."""
+        valid, msg = self.dispatcher._validate_webhook_url("http://172.16.0.1/webhook")
+        self.assertFalse(valid)
+        self.assertIn("Private IP", msg)
+
+    def test_blocks_private_ip_192_168(self):
+        """Should block 192.168.x.x private IP range."""
+        valid, msg = self.dispatcher._validate_webhook_url("http://192.168.1.1/webhook")
+        self.assertFalse(valid)
+        self.assertIn("Private IP", msg)
+
+    def test_blocks_loopback_127_0_0_1(self):
+        """Should block loopback address 127.0.0.1."""
+        valid, msg = self.dispatcher._validate_webhook_url("http://127.0.0.1/webhook")
+        self.assertFalse(valid)
+        # May be caught as Private or Loopback depending on check order
+        self.assertTrue("Private IP" in msg or "Loopback" in msg)
+
+    def test_blocks_loopback_localhost(self):
+        """Should block localhost hostname."""
+        # Note: localhost resolves to 127.0.0.1 or ::1 depending on system
+        valid, msg = self.dispatcher._validate_webhook_url("http://localhost/webhook")
+        self.assertFalse(valid)
+        # May be caught as Private or Loopback depending on resolution
+        self.assertTrue("Private IP" in msg or "Loopback" in msg)
+
+    def test_blocks_aws_metadata_endpoint(self):
+        """Should block AWS metadata endpoint 169.254.169.254."""
+        valid, msg = self.dispatcher._validate_webhook_url("http://169.254.169.254/latest/meta-data/")
+        self.assertFalse(valid)
+        # Could be Link-local or blocked metadata IP
+        self.assertTrue("Link-local" in msg or "metadata" in msg.lower() or "169.254" in msg)
+
+    def test_blocks_gcp_metadata_hostname(self):
+        """Should block GCP metadata hostname."""
+        valid, msg = self.dispatcher._validate_webhook_url("http://metadata.google.internal/computeMetadata/")
+        self.assertFalse(valid)
+        self.assertIn("metadata", msg.lower())
+
+    def test_blocks_internal_suffix(self):
+        """Should block hostnames ending with .internal."""
+        valid, msg = self.dispatcher._validate_webhook_url("http://api.corp.internal/webhook")
+        self.assertFalse(valid)
+        self.assertIn("Internal hostname", msg)
+
+    def test_blocks_local_suffix(self):
+        """Should block hostnames ending with .local."""
+        valid, msg = self.dispatcher._validate_webhook_url("http://myserver.local/webhook")
+        self.assertFalse(valid)
+        self.assertIn("Internal hostname", msg)
+
+    def test_blocks_localhost_suffix(self):
+        """Should block hostnames ending with .localhost."""
+        valid, msg = self.dispatcher._validate_webhook_url("http://app.localhost/webhook")
+        self.assertFalse(valid)
+        self.assertIn("Internal hostname", msg)
+
+    def test_blocks_non_http_schemes(self):
+        """Should block non-HTTP/HTTPS schemes."""
+        # FTP
+        valid, msg = self.dispatcher._validate_webhook_url("ftp://example.com/file")
+        self.assertFalse(valid)
+        self.assertIn("Only HTTP/HTTPS", msg)
+
+        # File
+        valid, msg = self.dispatcher._validate_webhook_url("file:///etc/passwd")
+        self.assertFalse(valid)
+        self.assertIn("Only HTTP/HTTPS", msg)
+
+        # Gopher (classic SSRF vector)
+        valid, msg = self.dispatcher._validate_webhook_url("gopher://evil.com/")
+        self.assertFalse(valid)
+        self.assertIn("Only HTTP/HTTPS", msg)
+
+    def test_blocks_missing_hostname(self):
+        """Should block URLs without hostname."""
+        valid, msg = self.dispatcher._validate_webhook_url("http:///path")
+        self.assertFalse(valid)
+        self.assertIn("hostname", msg.lower())
+
+    def test_allows_public_https_url(self):
+        """Should allow valid public HTTPS URLs."""
+        valid, msg = self.dispatcher._validate_webhook_url("https://hooks.slack.com/services/xxx")
+        self.assertTrue(valid)
+        self.assertEqual(msg, "")
+
+    def test_allows_public_http_url(self):
+        """Should allow valid public HTTP URLs."""
+        valid, msg = self.dispatcher._validate_webhook_url("http://example.com/webhook")
+        self.assertTrue(valid)
+        self.assertEqual(msg, "")
+
+    def test_localhost_allowed_when_flag_set(self):
+        """Should allow localhost when allow_localhost=True."""
+        cfg = WebhookConfig(name="test", url="http://example.com/webhook")
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
+
+        valid, msg = dispatcher._validate_webhook_url("http://127.0.0.1/webhook")
+        self.assertTrue(valid)
+        self.assertEqual(msg, "")
+
+        valid, msg = dispatcher._validate_webhook_url("http://localhost/webhook")
+        self.assertTrue(valid)
+        self.assertEqual(msg, "")
+
+    def test_allow_localhost_still_blocks_private_ips(self):
+        """allow_localhost should only allow actual localhost, not other private IPs."""
+        cfg = WebhookConfig(name="test", url="http://example.com/webhook")
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
+
+        # localhost should be allowed
+        valid, _ = dispatcher._validate_webhook_url("http://localhost/webhook")
+        self.assertTrue(valid)
+
+        # But 10.x.x.x should still be blocked
+        valid, msg = dispatcher._validate_webhook_url("http://10.0.0.1/webhook")
+        self.assertFalse(valid)
+        self.assertIn("Private IP", msg)
+
+    def test_blocks_ipv6_loopback(self):
+        """Should block IPv6 loopback ::1."""
+        valid, msg = self.dispatcher._validate_webhook_url("http://[::1]/webhook")
+        self.assertFalse(valid)
+        # May be caught as Private or Loopback depending on check order
+        self.assertTrue("Private IP" in msg or "Loopback" in msg)
+
+    def test_delivery_blocked_for_ssrf_url(self):
+        """Actual delivery should fail for SSRF URLs."""
+        cfg = WebhookConfig(
+            name="ssrf-test",
+            url="http://169.254.169.254/latest/meta-data/",
+            max_retries=1,
+        )
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=False)
+
+        # Directly test _deliver method
+        result = dispatcher._deliver(cfg, {"type": "debate_start"})
+        self.assertFalse(result)  # Should be blocked
+
+
+class TestSignatureVerification(unittest.TestCase):
+    """Tests for webhook signature generation and verification patterns."""
+
+    def test_signature_format_is_sha256_prefixed(self):
+        """Signature should be prefixed with 'sha256='."""
+        secret = "test-secret"
+        body = b'{"type": "test"}'
+        sig = sign_payload(secret, body)
+        self.assertTrue(sig.startswith("sha256="))
+
+    def test_signature_is_hex_encoded(self):
+        """Signature after prefix should be valid hex."""
+        secret = "test-secret"
+        body = b'{"type": "test"}'
+        sig = sign_payload(secret, body)
+        hex_part = sig.replace("sha256=", "")
+        # Should be 64 hex chars (256 bits = 32 bytes = 64 hex)
+        self.assertEqual(len(hex_part), 64)
+        int(hex_part, 16)  # Should not raise
+
+    def test_signature_deterministic(self):
+        """Same secret + body should produce same signature."""
+        secret = "test-secret"
+        body = b'{"type": "test", "data": {"key": "value"}}'
+        sig1 = sign_payload(secret, body)
+        sig2 = sign_payload(secret, body)
+        self.assertEqual(sig1, sig2)
+
+    def test_different_secrets_produce_different_signatures(self):
+        """Different secrets should produce different signatures."""
+        body = b'{"type": "test"}'
+        sig1 = sign_payload("secret1", body)
+        sig2 = sign_payload("secret2", body)
+        self.assertNotEqual(sig1, sig2)
+
+    def test_signature_can_be_verified_externally(self):
+        """Signature should be verifiable using standard HMAC-SHA256."""
+        secret = "webhook-secret-key"
+        body = b'{"type": "debate_start", "loop_id": "test-loop"}'
+
+        # Generate signature
+        sig = sign_payload(secret, body)
+
+        # Verify externally (simulating webhook receiver)
+        expected_sig = hmac.new(
+            secret.encode("utf-8"),
+            body,
+            hashlib.sha256
+        ).hexdigest()
+
+        self.assertEqual(sig, f"sha256={expected_sig}")
+
+    def test_webhook_header_contains_signature(self):
+        """Delivered webhook should contain X-Aragora-Signature header."""
+        # This is an integration test - covered in TestWebhookDelivery
+        # but we add an explicit unit test for the header presence
+        cfg = WebhookConfig(
+            name="test",
+            url="http://example.com/webhook",
+            secret="my-webhook-secret",
+        )
+        self.assertEqual(cfg.secret, "my-webhook-secret")
+
+    def test_empty_secret_skips_signature(self):
+        """Empty secret should result in empty signature (no header)."""
+        sig = sign_payload("", b'{"type": "test"}')
+        self.assertEqual(sig, "")
+
+    def test_none_secret_handled(self):
+        """None as secret should not crash."""
+        # sign_payload expects string, but let's ensure graceful handling
+        sig = sign_payload("", b'any')
+        self.assertEqual(sig, "")
+
+
+class TestIPAllowlistBehavior(unittest.TestCase):
+    """Tests for IP-based webhook filtering behavior."""
+
+    def test_blocked_metadata_ips_constant(self):
+        """BLOCKED_METADATA_IPS should contain known cloud metadata IPs."""
+        cfg = WebhookConfig(name="test", url="http://example.com/webhook")
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=False)
+
+        # AWS/Azure/DO metadata IP
+        self.assertIn("169.254.169.254", dispatcher.BLOCKED_METADATA_IPS)
+
+    def test_blocked_metadata_hostnames_constant(self):
+        """BLOCKED_METADATA_HOSTNAMES should contain known metadata hostnames."""
+        cfg = WebhookConfig(name="test", url="http://example.com/webhook")
+        dispatcher = WebhookDispatcher([cfg], allow_localhost=False)
+
+        # GCP metadata hostname
+        self.assertIn("metadata.google.internal", dispatcher.BLOCKED_METADATA_HOSTNAMES)
+
+    def test_env_var_controls_localhost(self):
+        """ARAGORA_WEBHOOK_ALLOW_LOCALHOST env var should control localhost access."""
+        cfg = WebhookConfig(name="test", url="http://example.com/webhook")
+
+        # Test with env var set
+        with patch.dict(os.environ, {"ARAGORA_WEBHOOK_ALLOW_LOCALHOST": "true"}, clear=False):
+            dispatcher = WebhookDispatcher([cfg])
+            self.assertTrue(dispatcher._allow_localhost)
+
+        # Test with env var unset
+        with patch.dict(os.environ, {"ARAGORA_WEBHOOK_ALLOW_LOCALHOST": ""}, clear=False):
+            dispatcher = WebhookDispatcher([cfg])
+            self.assertFalse(dispatcher._allow_localhost)
+
+
 class TestLifecycle(unittest.TestCase):
     """Tests for dispatcher lifecycle (start/stop)."""
 

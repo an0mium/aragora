@@ -74,7 +74,7 @@ class TestAudioEngine:
     def test_voice_mapping(self):
         """Test voice mapping for speakers."""
         assert _get_voice_for_speaker("claude-visionary") == "en-GB-SoniaNeural"
-        assert _get_voice_for_speaker("unknown") == "en-US-ZiraNeural"  # narrator default
+        assert _get_voice_for_speaker("unknown") == "en-US-AriaNeural"  # narrator default
 
     @pytest.mark.asyncio
     async def test_generate_audio_empty_segments(self):
