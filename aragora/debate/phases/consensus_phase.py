@@ -249,7 +249,7 @@ class ConsensusPhase:
                 f"consensus_timeout mode={consensus_mode} timeout={timeout}s, falling back to none"
             )
             await self._handle_fallback_consensus(ctx, reason="timeout")
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
             category, msg, _ = _build_error_action(e, "consensus")
             logger.error(
                 f"consensus_error mode={consensus_mode} category={category} error={msg}",
@@ -500,7 +500,7 @@ class ConsensusPhase:
                 judge_candidates = await self._select_judge.__self__.get_judge_candidates(
                     proposals, ctx.context_messages, max_candidates=3
                 )
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                 logger.debug(f"Failed to get judge candidates: {e}")
 
         # If no candidates from selector, use single judge selection
@@ -576,7 +576,7 @@ class ConsensusPhase:
                     f"judge_timeout judge={judge.name} timeout={self.JUDGE_TIMEOUT_PER_ATTEMPT}s"
                 )
                 # Continue to next candidate
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError, ConnectionError) as e:
                 logger.error(f"judge_error judge={judge.name} error={e}")
                 # Continue to next candidate
 
@@ -591,7 +591,7 @@ class ConsensusPhase:
             if result.consensus_reached:
                 logger.info("judge_fallback_majority_success")
                 return
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning(f"judge_fallback_majority_failed error={e}")
 
         # Majority also failed - use generic fallback
@@ -627,7 +627,7 @@ class ConsensusPhase:
                 else:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError, ConnectionError) as e:
                 return (agent, e)
 
         async def collect_all_votes():
@@ -638,7 +638,7 @@ class ConsensusPhase:
                     agent, vote_result = await completed_task
                 except asyncio.CancelledError:
                     raise
-                except Exception as e:
+                except (TypeError, ValueError, AttributeError, RuntimeError) as e:
                     logger.error(f"task_exception phase=vote error={e}")
                     continue
 
@@ -697,7 +697,7 @@ class ConsensusPhase:
                 else:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError, ConnectionError) as e:
                 return (agent, e)
 
         async def collect_all_votes():
@@ -709,7 +709,7 @@ class ConsensusPhase:
                     agent, vote_result = await completed_task
                 except asyncio.CancelledError:
                     raise
-                except Exception as e:
+                except (TypeError, ValueError, AttributeError, RuntimeError) as e:
                     logger.error(f"task_exception phase=unanimous_vote error={e}")
                     voting_errors += 1
                     continue
@@ -774,7 +774,7 @@ class ConsensusPhase:
         if self.recorder:
             try:
                 self.recorder.record_vote(agent.name, vote.choice, vote.reasoning)
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
                 logger.debug(f"Recorder error for vote: {e}")
 
         # Record position for truth-grounded personas
@@ -789,7 +789,7 @@ class ConsensusPhase:
                     round_num=result.rounds_used,
                     confidence=vote.confidence,
                 )
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                 logger.debug(f"Position tracking error for vote: {e}")
 
     def _compute_vote_groups(
@@ -885,7 +885,7 @@ class ConsensusPhase:
                     )
                 else:
                     adjusted_votes.append(vote)
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, ImportError, RuntimeError) as e:
                 logger.debug(f"Calibration adjustment failed for {vote.agent}: {e}")
                 adjusted_votes.append(vote)
 
@@ -1029,7 +1029,7 @@ class ConsensusPhase:
                 if hasattr(result, 'verification_results'):
                     result.verification_results[agent_name] = -1  # Timeout indicator
                 self._emit_verification_event(ctx, agent_name, -1, 0.0, timeout=True)
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
                 logger.debug(f"verification_error agent={agent_name} error={e}")
 
         # Phase 10E: Update ELO based on verification results
@@ -1063,7 +1063,7 @@ class ConsensusPhase:
         if self._extract_debate_domain:
             try:
                 domain = self._extract_debate_domain()
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                 logger.debug(f"Failed to extract debate domain: {e}")
 
         # Process verification results for each agent
@@ -1099,7 +1099,7 @@ class ConsensusPhase:
                         f"verified={verified_count} disproven={disproven_count} "
                         f"change={change:.1f}"
                     )
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                 logger.debug(f"verification_elo_error agent={agent_name} error={e}")
 
     def _emit_verification_event(
@@ -1137,7 +1137,7 @@ class ConsensusPhase:
                     "debate_id": ctx.debate_id,
                 }
             ))
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, ImportError) as e:
             logger.debug(f"verification_event_error: {e}")
 
     def _normalize_choice_to_agent(
@@ -1273,7 +1273,7 @@ class ConsensusPhase:
         if self.recorder:
             try:
                 self.recorder.record_phase_change(f"consensus_reached: {winner_agent}")
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
                 logger.debug(f"Recorder error for consensus: {e}")
 
         # Finalize for truth-grounded personas
@@ -1286,7 +1286,7 @@ class ConsensusPhase:
                     winning_position=result.final_answer[:1000],
                     consensus_confidence=result.confidence,
                 )
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                 logger.debug(f"Position tracker finalize error: {e}")
 
         # Record calibration predictions
@@ -1306,7 +1306,7 @@ class ConsensusPhase:
                             debate_id=debate_id,
                         )
                 logger.debug(f"calibration_recorded predictions={len(result.votes)}")
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                 category, msg, exc_info = _build_error_action(e, "calibration")
                 logger.warning(f"calibration_error category={category} error={msg}", exc_info=exc_info)
 
@@ -1349,7 +1349,7 @@ class ConsensusPhase:
         if self.recorder:
             try:
                 self.recorder.record_phase_change(f"consensus_reached: {winner}")
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
                 logger.debug(f"Recorder error for unanimous consensus: {e}")
 
         # Record calibration predictions
@@ -1368,7 +1368,7 @@ class ConsensusPhase:
                             debate_id=debate_id,
                         )
                 logger.debug(f"calibration_recorded_unanimous predictions={len(result.votes)}")
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                 category, msg, exc_info = _build_error_action(e, "calibration")
                 logger.warning(f"calibration_error_unanimous category={category} error={msg}", exc_info=exc_info)
 
@@ -1448,7 +1448,7 @@ class ConsensusPhase:
                 result.evidence_suggestions = analyzer.suggest_evidence_targets()[:3]
                 if result.debate_cruxes:
                     logger.debug(f"belief_cruxes count={len(result.debate_cruxes)}")
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, ImportError) as e:
             logger.warning(f"belief_analysis_error error={e}")
 
     async def _verify_consensus_formally(self, ctx: "DebateContext") -> None:
@@ -1536,7 +1536,7 @@ class ConsensusPhase:
                             "formal_statement": verification_result.formal_statement[:500] if verification_result.formal_statement else None,
                         }
                     ))
-                except Exception as e:
+                except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, ImportError) as e:
                     logger.debug(f"formal_verification_event_error: {e}")
 
         except asyncio.TimeoutError:
@@ -1553,7 +1553,7 @@ class ConsensusPhase:
                 "reason": "Formal verification module not available",
                 "is_verified": False,
             }
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
             logger.warning(f"formal_verification_error: {e}")
             result.formal_verification = {
                 "status": "error",
