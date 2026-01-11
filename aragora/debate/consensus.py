@@ -256,7 +256,7 @@ class ConsensusProof:
         Returns:
             Dict with keys "unanimous", "majority", "contested" mapping to risk descriptions.
         """
-        correlation = {
+        correlation: dict[str, list[str]] = {
             "unanimous": [],  # All agents agree
             "majority": [],   # Most agents agree
             "contested": [],  # Significant disagreement

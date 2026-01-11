@@ -47,11 +47,11 @@ class Counter:
 
     name: str
     help: str
-    labels: list[str] = field(default_factory=list)
+    label_names: list[str] = field(default_factory=list)
     _values: dict[tuple, float] = field(default_factory=dict)
     _lock: Lock = field(default_factory=Lock)
 
-    def labels(self, **kwargs) -> "LabeledCounter":
+    def labels(self, **kwargs: str) -> "LabeledCounter":
         """Get a labeled instance of this counter."""
         return LabeledCounter(self, tuple(sorted(kwargs.items())))
 
@@ -92,11 +92,11 @@ class Gauge:
 
     name: str
     help: str
-    labels: list[str] = field(default_factory=list)
+    label_names: list[str] = field(default_factory=list)
     _values: dict[tuple, float] = field(default_factory=dict)
     _lock: Lock = field(default_factory=Lock)
 
-    def labels(self, **kwargs) -> "LabeledGauge":
+    def labels(self, **kwargs: str) -> "LabeledGauge":
         """Get a labeled instance of this gauge."""
         return LabeledGauge(self, tuple(sorted(kwargs.items())))
 
@@ -154,7 +154,7 @@ class Histogram:
 
     name: str
     help: str
-    labels: list[str] = field(default_factory=list)
+    label_names: list[str] = field(default_factory=list)
     buckets: list[float] = field(
         default_factory=lambda: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
     )
@@ -163,7 +163,7 @@ class Histogram:
     _totals: dict[tuple, int] = field(default_factory=dict)
     _lock: Lock = field(default_factory=Lock)
 
-    def labels(self, **kwargs) -> "LabeledHistogram":
+    def labels(self, **kwargs: str) -> "LabeledHistogram":
         """Get a labeled instance of this histogram."""
         return LabeledHistogram(self, tuple(sorted(kwargs.items())))
 
@@ -230,37 +230,37 @@ class LabeledHistogram:
 SUBSCRIPTION_EVENTS = Counter(
     name="aragora_subscription_events_total",
     help="Total subscription events by type and tier",
-    labels=["event", "tier"],
+    label_names=["event", "tier"],
 )
 
 SUBSCRIPTION_ACTIVE = Gauge(
     name="aragora_subscriptions_active",
     help="Currently active subscriptions by tier",
-    labels=["tier"],
+    label_names=["tier"],
 )
 
 USAGE_DEBATES = Counter(
     name="aragora_debates_total",
     help="Total debates run by tier",
-    labels=["tier", "org_id"],
+    label_names=["tier", "org_id"],
 )
 
 USAGE_TOKENS = Counter(
     name="aragora_tokens_total",
     help="Total tokens used by provider",
-    labels=["provider", "tier"],
+    label_names=["provider", "tier"],
 )
 
 BILLING_REVENUE = Counter(
     name="aragora_revenue_cents_total",
     help="Total revenue in cents by tier",
-    labels=["tier"],
+    label_names=["tier"],
 )
 
 PAYMENT_FAILURES = Counter(
     name="aragora_payment_failures_total",
     help="Payment failure count by tier",
-    labels=["tier"],
+    label_names=["tier"],
 )
 
 
@@ -271,26 +271,26 @@ PAYMENT_FAILURES = Counter(
 API_REQUESTS = Counter(
     name="aragora_api_requests_total",
     help="Total API requests by endpoint and status",
-    labels=["endpoint", "method", "status"],
+    label_names=["endpoint", "method", "status"],
 )
 
 API_LATENCY = Histogram(
     name="aragora_api_latency_seconds",
     help="API request latency in seconds",
-    labels=["endpoint", "method"],
+    label_names=["endpoint", "method"],
     buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
 )
 
 ACTIVE_DEBATES = Gauge(
     name="aragora_active_debates",
     help="Currently running debates",
-    labels=[],
+    label_names=[],
 )
 
 WEBSOCKET_CONNECTIONS = Gauge(
     name="aragora_websocket_connections",
     help="Active WebSocket connections",
-    labels=[],
+    label_names=[],
 )
 
 
@@ -301,20 +301,20 @@ WEBSOCKET_CONNECTIONS = Gauge(
 AGENT_REQUESTS = Counter(
     name="aragora_agent_requests_total",
     help="Agent API requests by agent and status",
-    labels=["agent", "status"],
+    label_names=["agent", "status"],
 )
 
 AGENT_LATENCY = Histogram(
     name="aragora_agent_latency_seconds",
     help="Agent response latency",
-    labels=["agent"],
+    label_names=["agent"],
     buckets=[0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
 )
 
 AGENT_TOKENS = Counter(
     name="aragora_agent_tokens_total",
     help="Tokens used by agent",
-    labels=["agent", "direction"],  # direction: input/output
+    label_names=["agent", "direction"],  # direction: input/output
 )
 
 

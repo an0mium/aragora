@@ -119,7 +119,7 @@ def error_response(
             error_obj["suggestion"] = suggestion
         if details:
             error_obj["details"] = details
-        payload = {"error": error_obj}
+        payload: dict[str, Any] = {"error": error_obj}
     else:
         # Simple format for backward compatibility
         payload = {"error": message}

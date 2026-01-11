@@ -221,7 +221,7 @@ class VoteAggregator:
             canonical = choice_mapping.get(vote.choice, vote.choice)
             weight = weights.get(vote.agent, 1.0)
 
-            vote_counts[canonical] += weight
+            vote_counts[canonical] += weight  # type: ignore[assignment]
             total_weighted += weight
 
         return vote_counts, total_weighted
@@ -267,7 +267,7 @@ class VoteAggregator:
                 intensity_multiplier = 1.0
 
             final_weight = self._base_user_weight * intensity_multiplier
-            vote_counts[canonical] += final_weight
+            vote_counts[canonical] += final_weight  # type: ignore[assignment]
             total_weighted += final_weight
             user_count += 1
 

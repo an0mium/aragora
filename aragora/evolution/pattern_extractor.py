@@ -10,11 +10,15 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 from collections import defaultdict
 
-# Type alias for strategy template
-StrategyTemplate = dict[str, str | list[str]]
+
+class StrategyTemplate(TypedDict):
+    """Type definition for strategy templates."""
+    name: str
+    description: str
+    tactics: list[str]
 
 logger = logging.getLogger(__name__)
 
@@ -160,9 +164,9 @@ class PatternExtractor:
         self, messages: list[str], agent: Optional[str]
     ) -> list[Pattern]:
         """Extract evidence usage patterns from messages."""
-        patterns = []
+        patterns: list[Pattern] = []
         evidence_count = 0
-        examples = []
+        examples: list[str] = []
 
         for msg in messages:
             for pattern in self._compiled_patterns["evidence"]:
@@ -193,9 +197,9 @@ class PatternExtractor:
         self, messages: list[str], agent: Optional[str]
     ) -> list[Pattern]:
         """Extract argument structure patterns from messages."""
-        patterns = []
+        patterns: list[Pattern] = []
         structure_count = 0
-        examples = []
+        examples: list[str] = []
 
         for msg in messages:
             for pattern in self._compiled_patterns["structure"]:
@@ -224,9 +228,9 @@ class PatternExtractor:
         self, messages: list[str], agent: Optional[str]
     ) -> list[Pattern]:
         """Extract persuasion technique patterns from messages."""
-        patterns = []
+        patterns: list[Pattern] = []
         persuasion_count = 0
-        examples = []
+        examples: list[str] = []
 
         for msg in messages:
             for pattern in self._compiled_patterns["persuasion"]:
@@ -258,7 +262,7 @@ class PatternExtractor:
         winner: Optional[str],
     ) -> list[Pattern]:
         """Extract patterns for responding to critiques."""
-        patterns = []
+        patterns: list[Pattern] = []
 
         if not critiques or not winner:
             return patterns
@@ -362,7 +366,7 @@ class StrategyIdentifier:
         Returns:
             List of identified strategies
         """
-        strategies = []
+        strategies: list[Strategy] = []
         winner = debate_outcome.get("winner")
         messages = debate_outcome.get("messages", [])
         consensus_reached = debate_outcome.get("consensus_reached", False)
