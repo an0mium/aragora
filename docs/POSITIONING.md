@@ -6,11 +6,13 @@
 
 ## What Aragora Is
 
-**Aragora is a self-improving multi-agent debate infrastructure** that enables organizations to achieve higher-confidence decisions through adversarial AI reasoning.
+**Aragora is an AI red team and decision stress-test engine** that attacks high-stakes plans (specs, architectures, policies, code) and produces audit-ready Decision Receipts with evidence and dissent.
 
 ### Core Value Proposition
 
-> "When a single AI tells you an answer, you get an opinion. When multiple AIs debate, critique, and verify each other's reasoning, you get truth-tested intelligence."
+> "Aragora attacks your plan before reality does."
+
+Debate is the internal combustion engine. The product is a defensible decision record.
 
 ---
 
@@ -18,73 +20,57 @@
 
 - **Not a chatbot** - No consumer-facing conversational UI
 - **Not a wrapper** - Not another LLM API aggregator
-- **Not a copilot** - Not a coding assistant or productivity tool
+- **Not a general debate product** - Debate is internal, outputs are outcomes
+- **Not autonomous code change in production** - The Nomic loop is experimental and review-gated
 
 ---
 
 ## Key Differentiators
 
-### 1. Nomic Loop (Self-Improvement)
-Aragora uniquely implements autonomous self-improvement where:
-- Agents debate proposed changes to the system itself
-- Winning proposals get implemented by the system
-- Verification ensures safety before deployment
+### 1. Adversarial Validation + Decision Receipts
+- Red-team attacks, probes, and scenario tests
+- Tamper-evident receipts with evidence chains and dissent trails
 
-*No other framework improves itself through structured debate.*
+### 2. Multi-Model Dissent as Signal
+- Heterogeneous models required
+- Consensus and disagreement are quantified and surfaced
 
-### 2. Adversarial Critique
-Multi-agent debate with:
-- Structured propose-critique-revise cycles
-- Cross-model verification (Claude vs GPT vs Gemini)
-- Consensus detection with confidence scoring
+### 3. Regulatory Stress-Testing
+- Built-in personas (GDPR, HIPAA, AI Act, SOX, PCI, NIST, SOC 2)
 
-*Reduces single-point-of-failure hallucination risk.*
+### 4. Formal Verification (When Needed)
+- Z3 SMT solver and Lean prover for provable claims
 
-### 3. Formal Verification
-Integration with:
-- Z3 SMT solver for logical proofs
-- Lean theorem prover for mathematical verification
-- Evidence citation chains with provenance tracking
-
-*Goes beyond "trust me" to "here's the proof."*
-
-### 4. Truth Grounding
-Position tracking and calibration:
-- Agents record stance changes with justifications
-- Calibration scoring measures prediction accuracy
-- Belief networks propagate evidence updates
-
-*Quantifies reasoning quality over time.*
+### 5. Nomic Loop (Experimental)
+- Self-improving system behind review gates and checkpoints
 
 ---
 
 ## Target Customers
 
-### Primary: Research Organizations
-- Think tanks requiring multi-perspective analysis
-- Academic institutions conducting policy research
-- R&D labs needing verification of AI outputs
+### Primary: Accountable Decision Owners
+- CTOs, chief architects, staff/principal engineers
+- CISOs, security leaders, threat model owners
+- Compliance and risk officers
 
-### Secondary: Legal & Compliance
-- Discovery teams processing evidence
-- Compliance departments analyzing regulations
-- Risk assessment requiring audit trails
+### Secondary: Engineering and Product Teams
+- Architecture reviews and design sign-off
+- Policy and regulatory pre-checks
+- Pre-release risk audits
 
-### Tertiary: Enterprise Decision Support
-- Strategic planning requiring scenario analysis
-- M&A due diligence with contradiction detection
-- Investment research with multi-source synthesis
+### Tertiary: Research and Policy
+- Think tanks and labs validating complex proposals
 
 ---
 
 ## Competitive Landscape
 
-| Solution | Multi-Agent | Self-Improving | Formal Verification |
-|----------|-------------|----------------|---------------------|
-| **Aragora** | Yes | Yes | Yes |
-| AutoGPT | Limited | No | No |
-| LangChain | No (single) | No | No |
-| ChatGPT Teams | No | No | No |
+| Solution | Adversarial Validation | Audit Artifact | Multi-Model Dissent | Formal Verification |
+|----------|------------------------|----------------|---------------------|---------------------|
+| **Aragora** | Yes | Yes (DecisionReceipt) | Yes | Yes |
+| Multi-agent frameworks | Limited | No | Optional | No |
+| Human review/consulting | Yes | Yes (reports) | N/A | Rare |
+| Traditional pentesting | Runtime only | Yes (reports) | N/A | No |
 
 ---
 
@@ -93,6 +79,8 @@ Position tracking and calibration:
 - **Self-hosted**: Full control, data stays on-premise
 - **API-first**: Integrate with existing workflows
 - **Provider-agnostic**: Works with any LLM backend
+- **Stable entry points**: `aragora gauntlet`, `aragora ask`, `aragora serve`
+- **Experimental**: Nomic loop and self-modifying workflows (review-gated)
 
 ---
 

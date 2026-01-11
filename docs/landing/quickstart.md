@@ -2,6 +2,8 @@
 
 Get up and running with Aragora in 5 minutes.
 
+Aragora is the AI red team for high-stakes decisions. Gauntlet is the fastest path to a decision stress-test.
+
 ## Installation
 
 ### Via pip (recommended)

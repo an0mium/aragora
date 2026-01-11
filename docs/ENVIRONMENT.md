@@ -196,6 +196,68 @@ JWT authentication and Stripe integration for paid tiers.
 
 See [BILLING.md](./BILLING.md) for subscription tiers and usage tracking.
 
+## SSO/Enterprise Authentication
+
+Single Sign-On configuration for enterprise authentication. Supports OIDC and SAML 2.0.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_SSO_ENABLED` | No | Enable SSO authentication | `false` |
+| `ARAGORA_SSO_PROVIDER_TYPE` | If SSO enabled | Provider type: `oidc`, `saml`, `azure_ad`, `okta`, `google` | `oidc` |
+| `ARAGORA_SSO_CALLBACK_URL` | If SSO enabled | Callback URL for auth response (must be HTTPS in production) | - |
+| `ARAGORA_SSO_ENTITY_ID` | If SSO enabled | Service provider entity ID | - |
+
+### OIDC Configuration
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_SSO_CLIENT_ID` | OIDC | OAuth client ID | - |
+| `ARAGORA_SSO_CLIENT_SECRET` | OIDC | OAuth client secret | - |
+| `ARAGORA_SSO_ISSUER_URL` | OIDC | OIDC issuer URL (e.g., `https://login.microsoftonline.com/tenant/v2.0`) | - |
+| `ARAGORA_SSO_AUTH_ENDPOINT` | Optional | Override authorization endpoint | Auto-discovered |
+| `ARAGORA_SSO_TOKEN_ENDPOINT` | Optional | Override token endpoint | Auto-discovered |
+| `ARAGORA_SSO_USERINFO_ENDPOINT` | Optional | Override userinfo endpoint | Auto-discovered |
+| `ARAGORA_SSO_JWKS_URI` | Optional | Override JWKS URI | Auto-discovered |
+| `ARAGORA_SSO_SCOPES` | Optional | OAuth scopes | `openid,email,profile` |
+
+### SAML Configuration
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_SSO_IDP_ENTITY_ID` | SAML | IdP entity ID | - |
+| `ARAGORA_SSO_IDP_SSO_URL` | SAML | IdP SSO URL | - |
+| `ARAGORA_SSO_IDP_SLO_URL` | Optional | IdP logout URL | - |
+| `ARAGORA_SSO_IDP_CERTIFICATE` | SAML | IdP X.509 certificate (PEM format) | - |
+| `ARAGORA_SSO_SP_CERTIFICATE` | Optional | SP X.509 certificate for signed requests (PEM) | - |
+| `ARAGORA_SSO_SP_PRIVATE_KEY` | Optional | SP private key for signed requests (PEM) | - |
+
+### SSO Options
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_SSO_ALLOWED_DOMAINS` | Optional | Comma-separated allowed email domains | - (all allowed) |
+| `ARAGORA_SSO_AUTO_PROVISION` | Optional | Auto-create users on first login | `true` |
+| `ARAGORA_SSO_SESSION_DURATION` | Optional | Session duration in seconds (300-604800) | `28800` (8h) |
+
+**Security Notes:**
+- In **production** (`ARAGORA_ENV=production`), callback URLs must use HTTPS
+- SAML in production requires `python3-saml` package for signature validation
+- Certificates must be in PEM format (starting with `-----BEGIN`)
+
+**Example OIDC Configuration (Azure AD):**
+```bash
+ARAGORA_SSO_ENABLED=true
+ARAGORA_SSO_PROVIDER_TYPE=azure_ad
+ARAGORA_SSO_CLIENT_ID=your-app-client-id
+ARAGORA_SSO_CLIENT_SECRET=your-client-secret
+ARAGORA_SSO_ISSUER_URL=https://login.microsoftonline.com/your-tenant-id/v2.0
+ARAGORA_SSO_CALLBACK_URL=https://your-app.example.com/auth/sso/callback
+ARAGORA_SSO_ENTITY_ID=https://your-app.example.com
+ARAGORA_SSO_ALLOWED_DOMAINS=yourcompany.com
+```
+
+See [SSO_SETUP.md](./SSO_SETUP.md) for detailed provider-specific setup instructions.
+
 ## Embedding Providers
 
 For semantic search and memory retrieval.

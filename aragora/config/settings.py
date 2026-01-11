@@ -344,6 +344,19 @@ class SSOSettings(BaseSettings):
             raise ValueError(f"SSO provider_type must be one of {valid}")
         return v.lower()
 
+    @field_validator("sp_certificate", "sp_private_key", "idp_certificate")
+    @classmethod
+    def validate_pem_format(cls, v: Optional[str]) -> Optional[str]:
+        """Validate that certificates/keys are in PEM format."""
+        if v is None or v == "":
+            return v
+        # Check for PEM header
+        if not v.strip().startswith("-----BEGIN"):
+            raise ValueError(
+                "Certificate/key must be in PEM format (starting with -----BEGIN...)"
+            )
+        return v
+
     @property
     def allowed_domains(self) -> list[str]:
         """Get allowed domains as a list."""

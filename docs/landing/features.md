@@ -2,7 +2,7 @@
 
 ## Core Features
 
-### 1. Gauntlet Mode
+### 1. Gauntlet Mode (Decision Stress-Test)
 **Adversarial validation pipeline with configurable attack categories**
 
 Subject any decision artifact to systematic stress-testing:
@@ -74,7 +74,7 @@ Integrity Check: sha256:...
 
 ---
 
-### 4. Multi-Agent Debate Engine
+### 4. Adversarial Engine (Debate Under the Hood)
 **Heterogeneous AI perspectives prevent blind spots**
 
 Unlike single-LLM tools, Aragora orchestrates debates between:
@@ -88,6 +88,8 @@ Unlike single-LLM tools, Aragora orchestrates debates between:
 - And more...
 
 Each agent attacks from a different angle. Consensus requires surviving all perspectives.
+
+Debate is internal; the product is a verdict, findings, and an audit-ready receipt.
 
 ---
 
