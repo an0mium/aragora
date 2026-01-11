@@ -235,9 +235,9 @@ class GauntletHandler(BaseHandler):
     ) -> None:
         """Run gauntlet asynchronously."""
         try:
-            from aragora.modes.gauntlet import (
+            from aragora.gauntlet import (
                 GauntletOrchestrator,
-                GauntletConfig,
+                OrchestratorConfig,
                 GauntletProgress,
                 InputType,
             )
@@ -285,7 +285,7 @@ class GauntletHandler(BaseHandler):
             input_type_enum = input_type_map.get(input_type, InputType.SPEC)
 
             # Create config
-            config = GauntletConfig(
+            config = OrchestratorConfig(
                 input_type=input_type_enum,
                 input_content=input_content,
                 persona=persona,

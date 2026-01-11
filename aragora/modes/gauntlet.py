@@ -1,19 +1,34 @@
 """
 Gauntlet Mode - Adversarial Validation Engine.
 
-Unified stress-testing that combines:
-- RedTeam attacks (logical fallacies, edge cases, security)
-- Capability probing (hallucination, sycophancy, consistency)
-- Deep Audit (multi-round intensive analysis)
-- Formal verification (Z3/Lean proofs where applicable)
-- Risk assessment (domain-specific hazards)
+DEPRECATED: This module is deprecated. Use aragora.gauntlet instead.
 
-Produces Decision Receipts - audit-ready artifacts for compliance.
+The canonical Gauntlet implementation is now in the aragora.gauntlet package,
+which provides a more feature-complete API with:
+- GauntletRunner for simple 3-phase execution
+- GauntletOrchestrator for full 5-phase execution
+- Templates for common use cases
+- Receipt generation for compliance
+- Persona-based regulatory testing
 
-"Stress-test high-stakes decisions before they break your business."
+Migration:
+    # Old (deprecated)
+    from aragora.modes.gauntlet import GauntletOrchestrator
+
+    # New (recommended)
+    from aragora.gauntlet import GauntletOrchestrator
 """
 
 from __future__ import annotations
+
+import warnings
+
+warnings.warn(
+    "aragora.modes.gauntlet is deprecated. Use aragora.gauntlet instead. "
+    "See docs/GAUNTLET_ARCHITECTURE.md for migration guide.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 import asyncio
 import hashlib
