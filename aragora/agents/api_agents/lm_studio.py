@@ -1,11 +1,8 @@
 """
-Ollama agent for local LLM inference.
+LM Studio agent for local LLM inference.
 
-Supports:
-- Streaming responses
-- Model listing and pulling
-- Health checks
-- Multiple model variants
+LM Studio uses an OpenAI-compatible API, making integration straightforward.
+Default endpoint: http://localhost:1234/v1
 """
 
 import aiohttp
@@ -31,39 +28,48 @@ logger = logging.getLogger(__name__)
 
 
 @AgentRegistry.register(
-    "ollama",
-    default_model="llama3.2",
+    "lm-studio",
+    default_model="local-model",
     agent_type="API",
-    requires="Ollama running locally (brew install ollama && ollama serve)",
-    env_vars="OLLAMA_HOST (optional, defaults to localhost:11434)",
-    description="Local LLM inference via Ollama",
+    requires="LM Studio running locally (https://lmstudio.ai/)",
+    env_vars="LM_STUDIO_HOST (optional, defaults to localhost:1234)",
+    description="Local LLM inference via LM Studio (OpenAI-compatible)",
 )
-class OllamaAgent(APIAgent):
-    """Agent that uses local Ollama API with streaming support."""
+class LMStudioAgent(APIAgent):
+    """Agent that uses LM Studio's OpenAI-compatible API."""
 
     def __init__(
         self,
-        name: str = "ollama",
-        model: str = "llama3.2",
+        name: str = "lm-studio",
+        model: str = "local-model",
         role: str = "proposer",
         timeout: int = 180,
         base_url: str | None = None,
+        max_tokens: int = 4096,
     ):
+        resolved_base = base_url or os.environ.get(
+            "LM_STUDIO_HOST", "http://localhost:1234"
+        )
+        # Ensure /v1 suffix for OpenAI compatibility
+        if not resolved_base.endswith("/v1"):
+            resolved_base = resolved_base.rstrip("/") + "/v1"
+
         super().__init__(
             name=name,
             model=model,
             role=role,
             timeout=timeout,
-            base_url=base_url or os.environ.get("OLLAMA_HOST", "http://localhost:11434"),
+            base_url=resolved_base,
         )
-        self.agent_type = "ollama"
+        self.agent_type = "lm-studio"
+        self.max_tokens = max_tokens
 
     async def is_available(self) -> bool:
-        """Check if Ollama server is running and accessible."""
+        """Check if LM Studio server is running and accessible."""
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    f"{self.base_url}/api/tags",
+                    f"{self.base_url}/models",
                     timeout=aiohttp.ClientTimeout(total=5),
                 ) as response:
                     return response.status == 200
@@ -71,73 +77,35 @@ class OllamaAgent(APIAgent):
             return False
 
     async def list_models(self) -> list[dict]:
-        """List available models on the Ollama server.
+        """List available models loaded in LM Studio.
 
         Returns:
-            List of model info dicts with 'name', 'size', 'modified_at' keys.
+            List of model info dicts with 'id', 'object', 'owned_by' keys.
         """
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.get(
-                    f"{self.base_url}/api/tags",
+                    f"{self.base_url}/models",
                     timeout=aiohttp.ClientTimeout(total=10),
                 ) as response:
                     if response.status != 200:
                         return []
                     data = await response.json()
-                    return data.get("models", [])
+                    return data.get("data", [])
             except Exception as e:
-                logger.warning(f"Failed to list Ollama models: {e}")
+                logger.warning(f"Failed to list LM Studio models: {e}")
                 return []
 
-    async def pull_model(self, model_name: str) -> AsyncGenerator[dict, None]:
-        """Pull a model from Ollama registry.
-
-        Yields progress updates during download.
-
-        Args:
-            model_name: Name of model to pull (e.g., 'llama3.2', 'codellama')
-
-        Yields:
-            Dict with 'status', 'completed', 'total' keys
-        """
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{self.base_url}/api/pull",
-                json={"name": model_name, "stream": True},
-                timeout=aiohttp.ClientTimeout(total=3600),  # 1 hour for large models
-            ) as response:
-                async for line in response.content:
-                    if line:
-                        try:
-                            data = json.loads(line.decode())
-                            yield data
-                        except json.JSONDecodeError:
-                            continue
-
-    async def model_info(self, model_name: Optional[str] = None) -> dict:
-        """Get detailed info about a model.
-
-        Args:
-            model_name: Model to query (defaults to self.model)
+    async def get_loaded_model(self) -> Optional[str]:
+        """Get the currently loaded model in LM Studio.
 
         Returns:
-            Dict with model details including parameters, template, etc.
+            Model ID if one is loaded, None otherwise.
         """
-        model = model_name or self.model
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.post(
-                    f"{self.base_url}/api/show",
-                    json={"name": model},
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    if response.status != 200:
-                        return {}
-                    return await response.json()
-            except Exception as e:
-                logger.warning(f"Failed to get model info: {e}")
-                return {}
+        models = await self.list_models()
+        if models:
+            return models[0].get("id")
+        return None
 
     @handle_agent_errors(
         max_retries=3,
@@ -146,19 +114,28 @@ class OllamaAgent(APIAgent):
         retryable_exceptions=(AgentRateLimitError, AgentConnectionError, AgentTimeoutError),
     )
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using Ollama API."""
-        full_prompt = prompt
-        if context:
-            full_prompt = self._build_context_prompt(context) + prompt
+        """Generate a response using LM Studio's OpenAI-compatible API."""
+        messages = []
 
+        # Add system prompt if set
         if self.system_prompt:
-            full_prompt = f"System context: {self.system_prompt}\n\n{full_prompt}"
+            messages.append({"role": "system", "content": self.system_prompt})
 
-        url = f"{self.base_url}/api/generate"
+        # Add context messages
+        if context:
+            for msg in context:
+                role = "assistant" if msg.agent == self.name else "user"
+                messages.append({"role": role, "content": msg.content})
+
+        # Add the prompt
+        messages.append({"role": "user", "content": prompt})
+
+        url = f"{self.base_url}/chat/completions"
 
         payload = {
             "model": self.model,
-            "prompt": full_prompt,
+            "messages": messages,
+            "max_tokens": self.max_tokens,
             "stream": False,
         }
 
@@ -173,7 +150,7 @@ class OllamaAgent(APIAgent):
                         error_text = await response.text()
                         sanitized = _sanitize_error_message(error_text)
                         raise AgentAPIError(
-                            f"Ollama API error {response.status}: {sanitized}",
+                            f"LM Studio API error {response.status}: {sanitized}",
                             agent_name=self.name,
                             status_code=response.status,
                         )
@@ -182,15 +159,20 @@ class OllamaAgent(APIAgent):
                         data = await response.json()
                     except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
                         raise AgentAPIError(
-                            f"Ollama returned invalid JSON: {e}",
+                            f"LM Studio returned invalid JSON: {e}",
                             agent_name=self.name,
                         )
-                    return data.get("response", "")
+
+                    # Extract content from OpenAI-style response
+                    choices = data.get("choices", [])
+                    if not choices:
+                        return ""
+                    return choices[0].get("message", {}).get("content", "")
 
             except aiohttp.ClientConnectorError as e:
                 raise AgentConnectionError(
-                    f"Cannot connect to Ollama at {self.base_url}. "
-                    "Is Ollama running? Start with: ollama serve",
+                    f"Cannot connect to LM Studio at {self.base_url}. "
+                    "Is LM Studio running with a model loaded?",
                     agent_name=self.name,
                     cause=e,
                 )
@@ -198,7 +180,7 @@ class OllamaAgent(APIAgent):
     async def generate_stream(
         self, prompt: str, context: list[Message] | None = None
     ) -> AsyncGenerator[str, None]:
-        """Generate a streaming response using Ollama API.
+        """Generate a streaming response using LM Studio API.
 
         Args:
             prompt: The prompt to generate from
@@ -207,18 +189,24 @@ class OllamaAgent(APIAgent):
         Yields:
             Response tokens as they are generated
         """
-        full_prompt = prompt
-        if context:
-            full_prompt = self._build_context_prompt(context) + prompt
+        messages = []
 
         if self.system_prompt:
-            full_prompt = f"System context: {self.system_prompt}\n\n{full_prompt}"
+            messages.append({"role": "system", "content": self.system_prompt})
 
-        url = f"{self.base_url}/api/generate"
+        if context:
+            for msg in context:
+                role = "assistant" if msg.agent == self.name else "user"
+                messages.append({"role": role, "content": msg.content})
+
+        messages.append({"role": "user", "content": prompt})
+
+        url = f"{self.base_url}/chat/completions"
 
         payload = {
             "model": self.model,
-            "prompt": full_prompt,
+            "messages": messages,
+            "max_tokens": self.max_tokens,
             "stream": True,
         }
 
@@ -233,32 +221,34 @@ class OllamaAgent(APIAgent):
                         error_text = await response.text()
                         sanitized = _sanitize_error_message(error_text)
                         raise AgentAPIError(
-                            f"Ollama API error {response.status}: {sanitized}",
+                            f"LM Studio API error {response.status}: {sanitized}",
                             agent_name=self.name,
                             status_code=response.status,
                         )
 
                     async for line in response.content:
-                        if line:
+                        line_str = line.decode().strip()
+                        if not line_str or line_str == "data: [DONE]":
+                            continue
+                        if line_str.startswith("data: "):
                             try:
-                                data = json.loads(line.decode())
-                                if token := data.get("response"):
-                                    yield token
-                                if data.get("done"):
-                                    break
+                                data = json.loads(line_str[6:])
+                                delta = data.get("choices", [{}])[0].get("delta", {})
+                                if content := delta.get("content"):
+                                    yield content
                             except json.JSONDecodeError:
                                 continue
 
             except aiohttp.ClientConnectorError as e:
                 raise AgentConnectionError(
-                    f"Cannot connect to Ollama at {self.base_url}. "
-                    "Is Ollama running? Start with: ollama serve",
+                    f"Cannot connect to LM Studio at {self.base_url}. "
+                    "Is LM Studio running with a model loaded?",
                     agent_name=self.name,
                     cause=e,
                 )
 
     async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
-        """Critique a proposal using Ollama."""
+        """Critique a proposal using LM Studio."""
         critique_prompt = f"""You are a critical reviewer. Analyze this proposal:
 
 Task: {task}
@@ -282,4 +272,4 @@ REASONING: explanation"""
         return self._parse_critique(response, "proposal", proposal)
 
 
-__all__ = ["OllamaAgent"]
+__all__ = ["LMStudioAgent"]

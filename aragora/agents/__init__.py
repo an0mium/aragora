@@ -21,6 +21,7 @@ from aragora.agents.cli_agents import (
 from aragora.agents.api_agents import (
     GeminiAgent,
     OllamaAgent,
+    LMStudioAgent,
     AnthropicAPIAgent,
     OpenAIAPIAgent,
     GrokAgent,
@@ -30,6 +31,13 @@ from aragora.agents.api_agents import (
     DeepSeekV3Agent,
     LlamaAgent,
     MistralAgent,
+)
+from aragora.agents.local_llm_detector import (
+    LocalLLMDetector,
+    LocalLLMServer,
+    LocalLLMStatus,
+    detect_local_llms,
+    detect_local_llms_sync,
 )
 from aragora.agents.base import create_agent
 from aragora.agents.personas import Persona, PersonaManager, EXPERTISE_DOMAINS, PERSONALITY_TRAITS
@@ -87,6 +95,7 @@ __all__ = [
     # API-based (direct)
     "GeminiAgent",
     "OllamaAgent",
+    "LMStudioAgent",
     "AnthropicAPIAgent",
     "OpenAIAPIAgent",
     "GrokAgent",
@@ -138,4 +147,10 @@ __all__ = [
     "AgentPerformanceMonitor",
     "AgentMetric",
     "AgentStats",
+    # Local LLM Detection
+    "LocalLLMDetector",
+    "LocalLLMServer",
+    "LocalLLMStatus",
+    "detect_local_llms",
+    "detect_local_llms_sync",
 ]

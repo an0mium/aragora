@@ -14,6 +14,7 @@ from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 from aragora.agents.api_agents.openai import OpenAIAPIAgent
 from aragora.agents.api_agents.grok import GrokAgent
 from aragora.agents.api_agents.ollama import OllamaAgent
+from aragora.agents.api_agents.lm_studio import LMStudioAgent
 from aragora.agents.api_agents.openrouter import (
     OpenRouterAgent,
     DeepSeekAgent,
@@ -47,6 +48,7 @@ __all__ = [
     "OpenAIAPIAgent",
     "GrokAgent",
     "OllamaAgent",
+    "LMStudioAgent",
     # Mistral direct API
     "MistralAPIAgent",
     "CodestralAgent",
