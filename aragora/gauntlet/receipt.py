@@ -1,0 +1,306 @@
+"""
+Decision Receipt - Audit-ready output format.
+
+Provides a tamper-evident, comprehensive record of a Gauntlet validation
+suitable for compliance, audit trails, and decision documentation.
+"""
+
+import hashlib
+import json
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Optional
+
+from .result import GauntletResult, Vulnerability
+
+
+@dataclass
+class ProvenanceRecord:
+    """A single provenance record in the chain."""
+
+    timestamp: str
+    event_type: str  # "attack", "probe", "scenario", "verdict"
+    agent: Optional[str] = None
+    description: str = ""
+    evidence_hash: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "timestamp": self.timestamp,
+            "event_type": self.event_type,
+            "agent": self.agent,
+            "description": self.description,
+            "evidence_hash": self.evidence_hash,
+        }
+
+
+@dataclass
+class ConsensusProof:
+    """Proof of agent consensus."""
+
+    reached: bool
+    confidence: float
+    supporting_agents: list[str] = field(default_factory=list)
+    dissenting_agents: list[str] = field(default_factory=list)
+    method: str = "majority"
+    evidence_hash: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "reached": self.reached,
+            "confidence": self.confidence,
+            "supporting_agents": self.supporting_agents,
+            "dissenting_agents": self.dissenting_agents,
+            "method": self.method,
+            "evidence_hash": self.evidence_hash,
+        }
+
+
+@dataclass
+class DecisionReceipt:
+    """
+    Audit-ready receipt for a Gauntlet validation.
+
+    Contains:
+    - Input identification and hash
+    - Complete findings summary
+    - Verdict with reasoning
+    - Provenance chain for auditability
+    - Content-addressable artifact hash
+    """
+
+    # Identification
+    receipt_id: str
+    gauntlet_id: str
+    timestamp: str
+
+    # Input
+    input_summary: str
+    input_hash: str  # SHA-256 for integrity verification
+
+    # Findings summary
+    risk_summary: dict  # Critical/High/Medium/Low counts
+    attacks_attempted: int
+    attacks_successful: int
+    probes_run: int
+    vulnerabilities_found: int
+
+    # Verdict
+    verdict: str  # "PASS", "CONDITIONAL", "FAIL"
+    confidence: float
+    robustness_score: float
+
+    # Fields with defaults must come after fields without defaults
+    vulnerability_details: list[dict] = field(default_factory=list)
+    verdict_reasoning: str = ""
+
+    # Evidence
+    dissenting_views: list[str] = field(default_factory=list)
+    consensus_proof: Optional[ConsensusProof] = None
+    provenance_chain: list[ProvenanceRecord] = field(default_factory=list)
+
+    # Integrity
+    artifact_hash: str = ""  # Content-addressable hash of entire receipt
+    config_used: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Calculate artifact hash if not provided."""
+        if not self.artifact_hash:
+            self.artifact_hash = self._calculate_hash()
+
+    def _calculate_hash(self) -> str:
+        """Calculate content-addressable hash."""
+        content = json.dumps({
+            "receipt_id": self.receipt_id,
+            "gauntlet_id": self.gauntlet_id,
+            "input_hash": self.input_hash,
+            "risk_summary": self.risk_summary,
+            "verdict": self.verdict,
+            "confidence": self.confidence,
+        }, sort_keys=True)
+        return hashlib.sha256(content.encode()).hexdigest()
+
+    def verify_integrity(self) -> bool:
+        """Verify receipt has not been tampered with."""
+        expected_hash = self._calculate_hash()
+        return expected_hash == self.artifact_hash
+
+    @classmethod
+    def from_result(cls, result: GauntletResult) -> "DecisionReceipt":
+        """Create receipt from GauntletResult."""
+        receipt_id = f"receipt-{datetime.now().strftime('%Y%m%d%H%M%S')}-{result.gauntlet_id[-8:]}"
+
+        # Build provenance chain
+        provenance = []
+
+        # Add attack events
+        for vuln in result.vulnerabilities:
+            if vuln.source == "red_team":
+                provenance.append(ProvenanceRecord(
+                    timestamp=vuln.created_at,
+                    event_type="attack",
+                    agent=vuln.agent_name,
+                    description=f"[{vuln.severity.value}] {vuln.title[:50]}",
+                    evidence_hash=hashlib.sha256(vuln.description.encode()).hexdigest()[:16],
+                ))
+
+        # Add probe events
+        for vuln in result.vulnerabilities:
+            if vuln.source == "capability_probe":
+                provenance.append(ProvenanceRecord(
+                    timestamp=vuln.created_at,
+                    event_type="probe",
+                    agent=vuln.agent_name,
+                    description=f"[{vuln.category}] {vuln.title[:50]}",
+                    evidence_hash=hashlib.sha256(vuln.description.encode()).hexdigest()[:16],
+                ))
+
+        # Add verdict event
+        provenance.append(ProvenanceRecord(
+            timestamp=result.completed_at,
+            event_type="verdict",
+            description=f"Verdict: {result.verdict.value} ({result.confidence:.1%} confidence)",
+        ))
+
+        # Build consensus proof
+        consensus = ConsensusProof(
+            reached=result.verdict.value != "fail",
+            confidence=result.confidence,
+            supporting_agents=result.agents_used,
+            method="adversarial_validation",
+        )
+
+        return cls(
+            receipt_id=receipt_id,
+            gauntlet_id=result.gauntlet_id,
+            timestamp=result.completed_at,
+            input_summary=result.input_summary,
+            input_hash=result.input_hash,
+            risk_summary=result.risk_summary.to_dict(),
+            attacks_attempted=result.attack_summary.total_attacks,
+            attacks_successful=result.attack_summary.successful_attacks,
+            probes_run=result.probe_summary.probes_run,
+            vulnerabilities_found=result.risk_summary.total,
+            vulnerability_details=[v.to_dict() for v in result.get_critical_vulnerabilities()],
+            verdict=result.verdict.value.upper(),
+            confidence=result.confidence,
+            robustness_score=result.attack_summary.robustness_score,
+            verdict_reasoning=result.verdict_reasoning,
+            dissenting_views=result.dissenting_views,
+            consensus_proof=consensus,
+            provenance_chain=provenance,
+            config_used=result.config_used,
+        )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON export."""
+        return {
+            "receipt_id": self.receipt_id,
+            "gauntlet_id": self.gauntlet_id,
+            "timestamp": self.timestamp,
+            "input_summary": self.input_summary,
+            "input_hash": self.input_hash,
+            "risk_summary": self.risk_summary,
+            "attacks_attempted": self.attacks_attempted,
+            "attacks_successful": self.attacks_successful,
+            "probes_run": self.probes_run,
+            "vulnerabilities_found": self.vulnerabilities_found,
+            "vulnerability_details": self.vulnerability_details,
+            "verdict": self.verdict,
+            "confidence": self.confidence,
+            "robustness_score": self.robustness_score,
+            "verdict_reasoning": self.verdict_reasoning,
+            "dissenting_views": self.dissenting_views,
+            "consensus_proof": self.consensus_proof.to_dict() if self.consensus_proof else None,
+            "provenance_chain": [p.to_dict() for p in self.provenance_chain],
+            "artifact_hash": self.artifact_hash,
+            "config_used": self.config_used,
+        }
+
+    def to_markdown(self) -> str:
+        """Generate markdown report."""
+        verdict_emoji = {
+            "PASS": "✓",
+            "CONDITIONAL": "~",
+            "FAIL": "✗",
+        }.get(self.verdict, "?")
+
+        lines = [
+            f"# Decision Receipt",
+            "",
+            f"**Receipt ID:** `{self.receipt_id}`",
+            f"**Gauntlet ID:** `{self.gauntlet_id}`",
+            f"**Generated:** {self.timestamp}",
+            "",
+            "---",
+            "",
+            f"## Verdict: [{verdict_emoji}] {self.verdict}",
+            "",
+            f"**Confidence:** {self.confidence:.1%}",
+            f"**Robustness Score:** {self.robustness_score:.1%}",
+            "",
+            f"> {self.verdict_reasoning}",
+            "",
+            "---",
+            "",
+            "## Risk Summary",
+            "",
+            "| Severity | Count |",
+            "|----------|-------|",
+            f"| Critical | {self.risk_summary.get('critical', 0)} |",
+            f"| High | {self.risk_summary.get('high', 0)} |",
+            f"| Medium | {self.risk_summary.get('medium', 0)} |",
+            f"| Low | {self.risk_summary.get('low', 0)} |",
+            f"| **Total** | **{self.vulnerabilities_found}** |",
+            "",
+            "---",
+            "",
+            "## Validation Coverage",
+            "",
+            f"- **Attacks Attempted:** {self.attacks_attempted}",
+            f"- **Attacks Successful:** {self.attacks_successful}",
+            f"- **Probes Run:** {self.probes_run}",
+            "",
+        ]
+
+        if self.vulnerability_details:
+            lines.append("---")
+            lines.append("")
+            lines.append("## Critical Findings")
+            lines.append("")
+            for vuln in self.vulnerability_details[:5]:
+                lines.append(f"### {vuln.get('title', 'Unknown')}")
+                lines.append(f"**Severity:** {vuln.get('severity', 'unknown').upper()}")
+                lines.append(f"**Category:** {vuln.get('category', 'unknown')}")
+                lines.append("")
+                lines.append(vuln.get("description", "")[:500])
+                if vuln.get("mitigation"):
+                    lines.append("")
+                    lines.append(f"**Mitigation:** {vuln.get('mitigation')}")
+                lines.append("")
+
+        if self.dissenting_views:
+            lines.append("---")
+            lines.append("")
+            lines.append("## Dissenting Views")
+            lines.append("")
+            for view in self.dissenting_views[:5]:
+                lines.append(f"- {view}")
+            lines.append("")
+
+        lines.append("---")
+        lines.append("")
+        lines.append("## Integrity")
+        lines.append("")
+        lines.append(f"**Input Hash:** `{self.input_hash[:16]}...`")
+        lines.append(f"**Artifact Hash:** `{self.artifact_hash[:16]}...`")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        lines.append("*Generated by Aragora Gauntlet*")
+
+        return "\n".join(lines)
+
+    def to_json(self, indent: int = 2) -> str:
+        """Export as JSON string."""
+        return json.dumps(self.to_dict(), indent=indent)
