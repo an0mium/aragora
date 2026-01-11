@@ -36,6 +36,7 @@ from aragora.debate.roles import (
     RoleRotator,
 )
 from aragora.debate.role_matcher import RoleMatcher, RoleMatchingConfig
+from aragora.debate.roles_manager import RolesManager
 from aragora.debate.topology import TopologySelector
 from aragora.debate.judge_selector import JudgeSelector, JudgeScoringMixin
 from aragora.debate.team_selector import TeamSelector
@@ -44,6 +45,7 @@ from aragora.debate.termination_checker import TerminationChecker
 from aragora.spectate.stream import SpectatorStream
 
 from aragora.debate.context import DebateContext
+from aragora.debate.arena_config import ArenaConfig
 
 # Optional evolution import for prompt self-improvement
 try:
@@ -54,152 +56,6 @@ except ImportError:
     PROMPT_EVOLVER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ArenaConfig:
-    """Configuration for Arena debate orchestration.
-
-    Groups optional dependencies and settings that can be passed to Arena.
-    This allows for cleaner initialization and easier testing.
-
-    Initialization Flow
-    -------------------
-    Arena initialization follows a layered architecture pattern:
-
-    1. **Core Configuration** (_init_core):
-       - Sets up environment, agents, protocol, spectator
-       - Initializes circuit breaker for fault tolerance
-       - Configures loop scoping for multi-debate sessions
-
-    2. **Tracking Subsystems** (_init_trackers):
-       - Position and belief tracking (PositionTracker, PositionLedger)
-       - ELO rating system for agent ranking
-       - Persona manager for agent specialization
-       - Flip detector for position reversals
-       - Relationship tracker for agent interactions
-       - Moment detector for significant events
-
-    3. **User Participation** (_init_user_participation):
-       - Sets up event queue for user votes/suggestions
-       - Subscribes to event emitter for real-time participation
-
-    4. **Roles and Stances** (_init_roles_and_stances):
-       - Initializes cognitive role rotation (Heavy3-inspired)
-       - Sets up initial agent stances
-
-    5. **Convergence Detection** (_init_convergence):
-       - Configures semantic similarity backend
-       - Sets up convergence thresholds
-
-    6. **Phase Classes** (_init_phases):
-       - ContextInitializer, ProposalPhase, DebateRoundsPhase
-       - ConsensusPhase, AnalyticsPhase, FeedbackPhase, VotingPhase
-
-    Dependency Injection
-    --------------------
-    Most subsystems are optional and can be injected for testing:
-
-    - Memory systems: critique_store, continuum_memory, debate_embeddings
-    - Tracking: elo_system, position_ledger, relationship_tracker
-    - Events: event_emitter, spectator
-    - Recording: recorder, evidence_collector
-
-    Example
-    -------
-    Basic usage with minimal configuration::
-
-        config = ArenaConfig(loop_id="debate-123")
-        arena = Arena.from_config(env, agents, protocol, config)
-
-    Full production setup with all subsystems::
-
-        config = ArenaConfig(
-            loop_id="debate-123",
-            strict_loop_scoping=True,
-            memory=critique_store,
-            continuum_memory=continuum,
-            elo_system=elo,
-            event_emitter=emitter,
-            spectator=stream,
-        )
-        arena = Arena.from_config(env, agents, protocol, config)
-    """
-
-    # Identification
-    loop_id: str = ""
-
-    # Behavior flags
-    strict_loop_scoping: bool = False
-
-    # Core subsystems (typically injected)
-    memory: Optional[object] = None  # CritiqueStore
-    event_hooks: Optional[dict] = None
-    event_emitter: Optional[object] = None
-    spectator: Optional[SpectatorStream] = None
-    debate_embeddings: Optional[object] = None  # DebateEmbeddingsDatabase
-    insight_store: Optional[object] = None  # InsightStore
-    recorder: Optional[object] = None  # ReplayRecorder
-    circuit_breaker: Optional[CircuitBreaker] = None
-    evidence_collector: Optional[object] = None
-
-    # Agent configuration
-    agent_weights: Optional[dict] = None
-
-    # Tracking subsystems
-    position_tracker: Optional[object] = None
-    position_ledger: Optional[object] = None
-    enable_position_ledger: bool = False  # Auto-create PositionLedger if not provided
-    elo_system: Optional[object] = None
-    persona_manager: Optional[object] = None
-    dissent_retriever: Optional[object] = None
-    consensus_memory: Optional[object] = None  # ConsensusMemory for historical outcomes
-    flip_detector: Optional[object] = None
-    calibration_tracker: Optional[object] = None
-    continuum_memory: Optional[object] = None
-    relationship_tracker: Optional[object] = None
-    moment_detector: Optional[object] = None
-    tier_analytics_tracker: Optional[object] = None  # TierAnalyticsTracker for memory ROI
-
-    # Genesis evolution
-    population_manager: Optional[object] = None  # PopulationManager for genome evolution
-    auto_evolve: bool = False  # Trigger evolution after high-quality debates
-    breeding_threshold: float = 0.8  # Min confidence to trigger evolution
-
-    # Fork/continuation support
-    initial_messages: Optional[list] = None
-    trending_topic: Optional[object] = None
-    pulse_manager: Optional[object] = None  # PulseManager for auto-fetching trending topics
-    auto_fetch_trending: bool = False  # Auto-fetch trending topics if none provided
-
-    # Human-in-the-loop breakpoints
-    breakpoint_manager: Optional[object] = None  # BreakpointManager
-
-    # Debate checkpointing for resume support
-    checkpoint_manager: Optional[object] = None  # CheckpointManager for pause/resume
-    enable_checkpointing: bool = False  # Auto-create CheckpointManager if True
-
-    # Performance telemetry
-    performance_monitor: Optional[object] = None  # AgentPerformanceMonitor
-    enable_performance_monitor: bool = False
-    enable_telemetry: bool = False  # Enable Prometheus/Blackbox telemetry emission
-
-    # Agent selection (performance-based team formation)
-    agent_selector: Optional[object] = None  # AgentSelector for performance-based selection
-    use_performance_selection: bool = False  # Enable ELO/calibration-based agent selection
-
-    # Airlock resilience layer
-    use_airlock: bool = False  # Wrap agents with AirlockProxy for timeout/fallback
-    airlock_config: Optional[object] = None  # AirlockConfig for customization
-
-    # Prompt evolution for self-improvement
-    prompt_evolver: Optional[object] = None  # PromptEvolver for extracting winning patterns
-    enable_prompt_evolution: bool = False  # Auto-create PromptEvolver if True
-
-    # Billing/usage tracking (multi-tenancy)
-    org_id: str = ""  # Organization ID for multi-tenancy
-    user_id: str = ""  # User ID for usage attribution
-    usage_tracker: Optional[object] = None  # UsageTracker for token usage
 
 
 class Arena:
@@ -768,33 +624,29 @@ class Arena:
         return self.audience_manager._suggestions
 
     def _init_roles_and_stances(self) -> None:
-        """Initialize cognitive role rotation and agent stances."""
-        # Cognitive role rotation (Heavy3-inspired)
-        self.role_rotator: Optional[RoleRotator] = None
-        self.role_matcher: Optional[RoleMatcher] = None
-        self.current_role_assignments: dict[str, RoleAssignment] = {}
+        """Initialize cognitive role rotation and agent stances.
 
-        # Role matching takes priority over simple rotation
-        if self.protocol.role_matching:
-            config = self.protocol.role_matching_config or RoleMatchingConfig()
-            self.role_matcher = RoleMatcher(
-                calibration_tracker=self.calibration_tracker if hasattr(self, 'calibration_tracker') else None,
-                persona_manager=self.persona_manager if hasattr(self, 'persona_manager') else None,
-                config=config,
-            )
-            logger.info("role_matcher_enabled strategy=%s", config.strategy)
-        elif self.protocol.role_rotation:
-            config = self.protocol.role_rotation_config or RoleRotationConfig()
-            self.role_rotator = RoleRotator(config)
+        Delegates to RolesManager for role assignment, stance assignment,
+        and agreement intensity application.
+        """
+        # Create roles manager
+        self.roles_manager = RolesManager(
+            agents=self.agents,
+            protocol=self.protocol,
+            prompt_builder=self.prompt_builder if hasattr(self, 'prompt_builder') else None,
+            calibration_tracker=self.calibration_tracker if hasattr(self, 'calibration_tracker') else None,
+            persona_manager=self.persona_manager if hasattr(self, 'persona_manager') else None,
+        )
 
-        # Assign roles if not already set
-        self._assign_roles()
+        # Expose internal state for backwards compatibility
+        self.role_rotator = self.roles_manager.role_rotator
+        self.role_matcher = self.roles_manager.role_matcher
+        self.current_role_assignments = self.roles_manager.current_role_assignments
 
-        # Assign initial stances for asymmetric debate
-        self._assign_stances(round_num=0)
-
-        # Apply agreement intensity guidance to all agents
-        self._apply_agreement_intensity()
+        # Assign roles, stances, and agreement intensity
+        self.roles_manager.assign_initial_roles()
+        self.roles_manager.assign_stances(round_num=0)
+        self.roles_manager.apply_agreement_intensity()
 
     def _init_convergence(self) -> None:
         """Initialize convergence detection if enabled."""
@@ -1342,72 +1194,20 @@ class Arena:
         return "\n".join(lines)
 
     def _assign_roles(self):
-        """Assign roles to agents based on protocol with safety bounds."""
-        # If agents already have roles, respect them
-        if all(a.role for a in self.agents):
-            return
-
-        n_agents = len(self.agents)
-
-        # Safety: Ensure at least 1 critic and 1 synthesizer when we have 3+ agents
-        # This prevents all-proposer scenarios that break debate dynamics
-        max_proposers = max(1, n_agents - 2) if n_agents >= 3 else 1
-        proposers_needed = min(self.protocol.proposer_count, max_proposers)
-
-        for i, agent in enumerate(self.agents):
-            if i < proposers_needed:
-                agent.role = "proposer"
-            elif i == n_agents - 1:
-                agent.role = "synthesizer"
-            else:
-                agent.role = "critic"
-
-        # Log role assignment for debugging
-        roles = {a.name: a.role for a in self.agents}
-        logger.debug(f"Role assignment: {roles}")
+        """Assign roles to agents based on protocol. Delegates to RolesManager."""
+        self.roles_manager.assign_initial_roles()
 
     def _apply_agreement_intensity(self):
-        """Apply agreement intensity guidance to all agents' system prompts.
-
-        This modifies each agent's system_prompt to include guidance on how
-        much to agree vs disagree with other agents, based on the protocol's
-        agreement_intensity setting.
-        """
-        guidance = self._get_agreement_intensity_guidance()
-
-        for agent in self.agents:
-            if agent.system_prompt:
-                agent.system_prompt = f"{agent.system_prompt}\n\n{guidance}"
-            else:
-                agent.system_prompt = guidance
+        """Apply agreement intensity guidance. Delegates to RolesManager."""
+        self.roles_manager.apply_agreement_intensity()
 
     def _assign_stances(self, round_num: int = 0):
-        """Assign debate stances to agents for asymmetric debate.
-
-        Stances: "affirmative" (defend), "negative" (challenge), "neutral" (evaluate)
-        If rotate_stances is True, stances rotate each round.
-        """
-        if not self.protocol.asymmetric_stances:
-            return
-
-        stances = ["affirmative", "negative", "neutral"]
-        n_agents = len(self.agents)
-
-        for i, agent in enumerate(self.agents):
-            # Rotate stance based on round number if enabled
-            if self.protocol.rotate_stances:
-                stance_idx = (i + round_num) % len(stances)
-            else:
-                stance_idx = i % len(stances)
-
-            agent.stance = stances[stance_idx]
+        """Assign debate stances to agents. Delegates to RolesManager."""
+        self.roles_manager.assign_stances(round_num)
 
     def _get_stance_guidance(self, agent) -> str:
-        """Generate prompt guidance based on agent's debate stance.
-
-        Delegates to PromptBuilder for the actual implementation.
-        """
-        return self.prompt_builder.get_stance_guidance(agent)
+        """Get stance guidance for agent. Delegates to RolesManager."""
+        return self.roles_manager.get_stance_guidance(agent)
 
     async def _create_checkpoint(self, ctx, round_num: int) -> None:
         """Create a checkpoint after a debate round.
@@ -1688,37 +1488,8 @@ class Arena:
         return await selector.select_judge(proposals, context)
 
     def _get_agreement_intensity_guidance(self) -> str:
-        """Generate prompt guidance based on agreement intensity setting.
-
-        Agreement intensity (0-10) affects how agents approach disagreements:
-        - Low (0-3): Adversarial - strongly challenge others' positions
-        - Medium (4-6): Balanced - judge arguments on merit
-        - High (7-10): Collaborative - seek common ground and synthesis
-        """
-        intensity = self.protocol.agreement_intensity
-
-        if intensity is None:
-            return ""  # No agreement intensity guidance when not set
-
-        if intensity <= 1:
-            return """IMPORTANT: You strongly disagree with other agents. Challenge every assumption,
-find flaws in every argument, and maintain your original position unless presented
-with irrefutable evidence. Be adversarial but constructive."""
-        elif intensity <= 3:
-            return """IMPORTANT: Approach others' arguments with healthy skepticism. Be critical of
-proposals and require strong evidence before changing your position. Point out
-weaknesses even if you partially agree."""
-        elif intensity <= 6:
-            return """Evaluate arguments on their merits. Agree when others make valid points,
-disagree when you see genuine flaws. Let the quality of reasoning guide your response."""
-        elif intensity <= 8:
-            return """Look for common ground with other agents. Acknowledge valid points in others'
-arguments and try to build on them. Seek synthesis where possible while maintaining
-your own reasoned perspective."""
-        else:  # 9-10
-            return """Actively seek to incorporate other agents' perspectives. Find value in all
-proposals and work toward collaborative synthesis. Prioritize finding agreement
-and building on others' ideas."""
+        """Get agreement intensity guidance. Delegates to RolesManager."""
+        return self.roles_manager._get_agreement_intensity_guidance()
 
     def _format_successful_patterns(self, limit: int = 3) -> str:
         """Format successful critique patterns for prompt injection."""
