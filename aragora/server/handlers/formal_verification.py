@@ -56,8 +56,8 @@ class FormalVerificationHandler(BaseHandler):
         "/api/verify/translate",
     ]
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, server_context: dict = None):
+        super().__init__(server_context or {})
         self._manager = None
 
     def _get_manager(self):

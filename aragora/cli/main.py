@@ -647,7 +647,7 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
     from pathlib import Path
 
     from aragora.agents.base import create_agent
-    from aragora.modes.gauntlet import (
+    from aragora.gauntlet import (
         GauntletOrchestrator,
         GauntletConfig,
         GauntletProgress,
@@ -662,9 +662,9 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
         SECURITY_GAUNTLET,
         SOX_GAUNTLET,
         get_compliance_gauntlet,
+        DecisionReceipt,
     )
     from aragora.gauntlet.personas import list_personas, get_persona
-    from aragora.gauntlet.receipt import DecisionReceipt
 
     print("\n" + "=" * 60)
     print("GAUNTLET - Adversarial Stress-Testing")
@@ -903,6 +903,15 @@ def cmd_badge(args) -> None:
     print(f"  {markdown}\n")
 
 
+def get_version() -> str:
+    """Get package version from pyproject.toml or fallback."""
+    try:
+        from importlib.metadata import version
+        return version("aragora")
+    except Exception:
+        return "0.0.7-dev"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Aragora - Multi-Agent Debate Framework",
@@ -916,6 +925,7 @@ Examples:
         """,
     )
 
+    parser.add_argument("--version", "-V", action="version", version=f"aragora {get_version()}")
     parser.add_argument("--db", default="agora_memory.db", help="SQLite database path")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
@@ -1119,13 +1129,18 @@ Examples:
     )
     gauntlet_parser.add_argument(
         "--profile", "-p",
-        choices=["default", "quick", "thorough", "code", "policy", "gdpr", "hipaa", "ai_act", "security"],
+        choices=["default", "quick", "thorough", "code", "policy", "gdpr", "hipaa", "ai_act", "security", "sox"],
         default="default",
         help="Pre-configured test profile (default: default)",
     )
+    try:
+        from aragora.gauntlet.personas import list_personas
+        persona_choices = sorted(list_personas())
+    except Exception:
+        persona_choices = ["gdpr", "hipaa", "ai_act", "security", "sox"]
     gauntlet_parser.add_argument(
         "--persona",
-        choices=["gdpr", "hipaa", "ai_act", "security"],
+        choices=persona_choices,
         help="Regulatory persona for compliance-focused stress testing",
     )
     gauntlet_parser.add_argument(

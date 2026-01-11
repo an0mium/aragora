@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import threading
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
@@ -298,9 +299,10 @@ class PostgreSQLBackend(DatabaseBackend):
         return f"PostgreSQLBackend({safe_url})"
 
 
-# Global backend instance
+# Global backend instance (protected by _backend_lock)
 _backend: Optional[DatabaseBackend] = None
 _backend_initialized: bool = False
+_backend_lock = threading.Lock()  # Protects initialization
 
 
 def get_database_backend(
@@ -322,66 +324,74 @@ def get_database_backend(
     """
     global _backend, _backend_initialized
 
+    # Fast path: already initialized (no lock needed for read)
     if _backend_initialized and _backend is not None and not force_sqlite:
         return _backend
 
-    # Get configuration
-    try:
-        from aragora.config.settings import get_settings
-        settings = get_settings()
-        db_settings = settings.database
-    except Exception as e:
-        logger.warning(f"Could not load settings, using SQLite: {e}")
-        db_settings = None
+    # Slow path: acquire lock for initialization
+    with _backend_lock:
+        # Double-check after acquiring lock (another thread may have initialized)
+        if _backend_initialized and _backend is not None and not force_sqlite:
+            return _backend
 
-    # Determine backend
-    if force_sqlite:
-        backend_type = "sqlite"
-    elif db_settings and db_settings.is_postgresql:
-        backend_type = "postgresql"
-    else:
-        backend_type = "sqlite"
-
-    # Create backend
-    if backend_type == "postgresql" and db_settings:
+        # Get configuration
         try:
-            _backend = PostgreSQLBackend(
-                database_url=db_settings.url,
-                pool_size=db_settings.pool_size,
-                pool_max_overflow=db_settings.pool_max_overflow,
-            )
-            logger.info("Using PostgreSQL backend")
-        except ImportError as e:
-            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-            _backend = SQLiteBackend(
-                db_path=db_path or str(Path(db_settings.nomic_dir) / "aragora.db"),
-                timeout=db_settings.timeout_seconds,
-            )
-    else:
-        # SQLite backend
-        if db_path:
-            sqlite_path = db_path
-        elif db_settings:
-            sqlite_path = str(Path(db_settings.nomic_dir) / "aragora.db")
+            from aragora.config.settings import get_settings
+            settings = get_settings()
+            db_settings = settings.database
+        except Exception as e:
+            logger.warning(f"Could not load settings, using SQLite: {e}")
+            db_settings = None
+
+        # Determine backend
+        if force_sqlite:
+            backend_type = "sqlite"
+        elif db_settings and db_settings.is_postgresql:
+            backend_type = "postgresql"
         else:
-            sqlite_path = ".nomic/aragora.db"
+            backend_type = "sqlite"
 
-        _backend = SQLiteBackend(db_path=sqlite_path)
-        logger.info(f"Using SQLite backend: {sqlite_path}")
+        # Create backend
+        if backend_type == "postgresql" and db_settings:
+            try:
+                _backend = PostgreSQLBackend(
+                    database_url=db_settings.url,
+                    pool_size=db_settings.pool_size,
+                    pool_max_overflow=db_settings.pool_max_overflow,
+                )
+                logger.info("Using PostgreSQL backend")
+            except ImportError as e:
+                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+                _backend = SQLiteBackend(
+                    db_path=db_path or str(Path(db_settings.nomic_dir) / "aragora.db"),
+                    timeout=db_settings.timeout_seconds,
+                )
+        else:
+            # SQLite backend
+            if db_path:
+                sqlite_path = db_path
+            elif db_settings:
+                sqlite_path = str(Path(db_settings.nomic_dir) / "aragora.db")
+            else:
+                sqlite_path = ".nomic/aragora.db"
 
-    _backend_initialized = True
-    return _backend
+            _backend = SQLiteBackend(db_path=sqlite_path)
+            logger.info(f"Using SQLite backend: {sqlite_path}")
+
+        _backend_initialized = True
+        return _backend
 
 
 def reset_database_backend() -> None:
     """Reset the database backend (for testing)."""
     global _backend, _backend_initialized
 
-    if _backend is not None:
-        _backend.close()
-        _backend = None
+    with _backend_lock:
+        if _backend is not None:
+            _backend.close()
+            _backend = None
 
-    _backend_initialized = False
+        _backend_initialized = False
 
 
 __all__ = [

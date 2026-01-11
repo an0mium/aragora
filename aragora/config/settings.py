@@ -294,6 +294,64 @@ class SSLSettings(BaseSettings):
         return v
 
 
+class SSOSettings(BaseSettings):
+    """SSO/SAML/OIDC configuration for enterprise authentication."""
+
+    model_config = SettingsConfigDict(env_prefix="ARAGORA_SSO_")
+
+    # Enable/disable SSO
+    enabled: bool = Field(default=False, alias="ARAGORA_SSO_ENABLED")
+
+    # Provider type: saml, oidc, azure_ad, okta, google
+    provider_type: str = Field(default="oidc", alias="ARAGORA_SSO_PROVIDER_TYPE")
+
+    # Common settings
+    callback_url: str = Field(default="", alias="ARAGORA_SSO_CALLBACK_URL")
+    entity_id: str = Field(default="", alias="ARAGORA_SSO_ENTITY_ID")
+
+    # OIDC settings
+    client_id: str = Field(default="", alias="ARAGORA_SSO_CLIENT_ID")
+    client_secret: str = Field(default="", alias="ARAGORA_SSO_CLIENT_SECRET")
+    issuer_url: str = Field(default="", alias="ARAGORA_SSO_ISSUER_URL")
+    authorization_endpoint: Optional[str] = Field(default=None, alias="ARAGORA_SSO_AUTH_ENDPOINT")
+    token_endpoint: Optional[str] = Field(default=None, alias="ARAGORA_SSO_TOKEN_ENDPOINT")
+    userinfo_endpoint: Optional[str] = Field(default=None, alias="ARAGORA_SSO_USERINFO_ENDPOINT")
+    jwks_uri: Optional[str] = Field(default=None, alias="ARAGORA_SSO_JWKS_URI")
+    scopes: list[str] = Field(default=["openid", "email", "profile"], alias="ARAGORA_SSO_SCOPES")
+
+    # SAML settings
+    idp_entity_id: str = Field(default="", alias="ARAGORA_SSO_IDP_ENTITY_ID")
+    idp_sso_url: str = Field(default="", alias="ARAGORA_SSO_IDP_SSO_URL")
+    idp_slo_url: Optional[str] = Field(default=None, alias="ARAGORA_SSO_IDP_SLO_URL")
+    idp_certificate: Optional[str] = Field(default=None, alias="ARAGORA_SSO_IDP_CERTIFICATE")
+    sp_private_key: Optional[str] = Field(default=None, alias="ARAGORA_SSO_SP_PRIVATE_KEY")
+    sp_certificate: Optional[str] = Field(default=None, alias="ARAGORA_SSO_SP_CERTIFICATE")
+
+    # Domain restrictions (comma-separated list of allowed email domains)
+    allowed_domains_str: str = Field(default="", alias="ARAGORA_SSO_ALLOWED_DOMAINS")
+
+    # Auto-provision users on first login
+    auto_provision: bool = Field(default=True, alias="ARAGORA_SSO_AUTO_PROVISION")
+
+    # Session duration in seconds (default: 8 hours)
+    session_duration: int = Field(default=28800, ge=300, le=604800, alias="ARAGORA_SSO_SESSION_DURATION")
+
+    @field_validator("provider_type")
+    @classmethod
+    def validate_provider_type(cls, v: str) -> str:
+        valid = {"saml", "oidc", "azure_ad", "okta", "google", "github"}
+        if v.lower() not in valid:
+            raise ValueError(f"SSO provider_type must be one of {valid}")
+        return v.lower()
+
+    @property
+    def allowed_domains(self) -> list[str]:
+        """Get allowed domains as a list."""
+        if not self.allowed_domains_str:
+            return []
+        return [d.strip().lower() for d in self.allowed_domains_str.split(",") if d.strip()]
+
+
 class StorageSettings(BaseSettings):
     """Storage configuration."""
 
@@ -344,6 +402,7 @@ class Settings(BaseSettings):
     _ssl: Optional[SSLSettings] = None
     _storage: Optional[StorageSettings] = None
     _evidence: Optional[EvidenceSettings] = None
+    _sso: Optional[SSOSettings] = None
 
     @property
     def auth(self) -> AuthSettings:
@@ -422,6 +481,12 @@ class Settings(BaseSettings):
         if self._evidence is None:
             self._evidence = EvidenceSettings()
         return self._evidence
+
+    @property
+    def sso(self) -> SSOSettings:
+        if self._sso is None:
+            self._sso = SSOSettings()
+        return self._sso
 
 
 @lru_cache()

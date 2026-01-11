@@ -206,19 +206,39 @@ class DatabaseRepository:
         Args:
             limit: Maximum records to return
             offset: Number of records to skip
-            order_by: ORDER BY clause (without 'ORDER BY' keyword)
+            order_by: ORDER BY clause (without 'ORDER BY' keyword).
+                Format: "column [ASC|DESC][, column [ASC|DESC]]..."
             where: Optional WHERE clause (without 'WHERE' keyword)
             params: Parameters for the WHERE clause
 
         Returns:
             List of records as dicts
+
+        Raises:
+            ValueError: If order_by contains invalid column names or directions
         """
         query = f"SELECT * FROM {self.TABLE_NAME}"
         if where:
             query += f" WHERE {where}"
         if order_by:
-            query += f" ORDER BY {order_by}"
-        query += f" LIMIT {limit} OFFSET {offset}"
+            # Validate order_by to prevent SQL injection
+            # Format: "column [ASC|DESC][, column [ASC|DESC]]..."
+            order_parts = []
+            for part in order_by.split(','):
+                part = part.strip()
+                if not part:
+                    continue
+                tokens = part.split()
+                col_name = _validate_column_name(tokens[0])  # Raises if invalid
+                direction = ""
+                if len(tokens) > 1:
+                    direction = tokens[1].upper()
+                    if direction not in ("ASC", "DESC"):
+                        raise ValueError(f"Invalid sort direction: {tokens[1]}")
+                order_parts.append(f"{col_name} {direction}".strip())
+            if order_parts:
+                query += f" ORDER BY {', '.join(order_parts)}"
+        query += f" LIMIT {int(limit)} OFFSET {int(offset)}"
 
         with self.connection() as conn:
             conn.row_factory = sqlite3.Row

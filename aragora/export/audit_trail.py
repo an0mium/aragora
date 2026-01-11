@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from aragora.modes.gauntlet import GauntletResult
+    from aragora.gauntlet import GauntletResult
 
 
 class AuditEventType(Enum):

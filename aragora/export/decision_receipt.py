@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from aragora.modes.gauntlet import GauntletResult, Finding, VerifiedClaim, Verdict
+    from aragora.gauntlet import GauntletResult, Finding, VerifiedClaim, Verdict
     from aragora.debate.consensus import DissentRecord, UnresolvedTension
     from aragora.debate.risk_assessor import RiskAssessment, RiskLevel
 
@@ -545,7 +545,7 @@ class DecisionReceiptGenerator:
         Returns:
             A DecisionReceipt ready for export
         """
-        from aragora.modes.gauntlet import Verdict
+        from aragora.gauntlet import Verdict
 
         # Convert findings
         findings = []

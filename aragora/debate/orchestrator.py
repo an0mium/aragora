@@ -44,6 +44,14 @@ from aragora.spectate.stream import SpectatorStream
 
 from aragora.debate.context import DebateContext
 
+# Optional evolution import for prompt self-improvement
+try:
+    from aragora.evolution.evolver import PromptEvolver
+    PROMPT_EVOLVER_AVAILABLE = True
+except ImportError:
+    PromptEvolver = None
+    PROMPT_EVOLVER_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -538,8 +546,7 @@ class Arena:
         # Prompt evolver for self-improvement via pattern extraction
         if prompt_evolver:
             self.prompt_evolver = prompt_evolver
-        elif enable_prompt_evolution:
-            from aragora.evolution.evolver import PromptEvolver
+        elif enable_prompt_evolution and PROMPT_EVOLVER_AVAILABLE:
             self.prompt_evolver = PromptEvolver()
             logger.debug("[evolution] Auto-created PromptEvolver for pattern extraction")
         else:

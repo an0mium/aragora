@@ -434,6 +434,7 @@ class HandlerRegistryMixin:
 
         ctx = {
             "storage": getattr(cls, 'storage', None),
+            "stream_emitter": getattr(cls, 'stream_emitter', None),
             "elo_system": getattr(cls, 'elo_system', None),
             "nomic_dir": nomic_dir,
             "debate_embeddings": getattr(cls, 'debate_embeddings', None),

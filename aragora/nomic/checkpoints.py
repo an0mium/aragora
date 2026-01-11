@@ -10,12 +10,38 @@ Provides persistence for state machine state, enabling:
 import json
 import logging
 import os
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+# Safe pattern for checkpoint identifiers (alphanumeric, hyphens, underscores)
+_SAFE_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+
+def _sanitize_checkpoint_id(value: str, param_name: str) -> str:
+    """Sanitize a checkpoint identifier to prevent path traversal.
+
+    Args:
+        value: The value to sanitize
+        param_name: Name of parameter (for error messages)
+
+    Returns:
+        The validated value
+
+    Raises:
+        ValueError: If value contains unsafe characters
+    """
+    if not value:
+        return value
+    if not _SAFE_ID_PATTERN.match(value):
+        raise ValueError(
+            f"Invalid {param_name}: must contain only alphanumeric, hyphen, underscore"
+        )
+    return value
 
 
 # Checkpoint file naming
@@ -30,15 +56,22 @@ def get_checkpoint_path(checkpoint_dir: str, cycle_id: str, suffix: str = "") ->
 
     Args:
         checkpoint_dir: Base directory for checkpoints
-        cycle_id: The cycle ID
+        cycle_id: The cycle ID (alphanumeric, hyphens, underscores only)
         suffix: Optional suffix (e.g., state name)
 
     Returns:
         Path to the checkpoint file
+
+    Raises:
+        ValueError: If cycle_id or suffix contains unsafe characters
     """
-    filename = f"{CHECKPOINT_PREFIX}_{cycle_id}"
-    if suffix:
-        filename += f"_{suffix}"
+    # Sanitize inputs to prevent path traversal
+    safe_cycle_id = _sanitize_checkpoint_id(cycle_id, "cycle_id")
+    safe_suffix = _sanitize_checkpoint_id(suffix, "suffix")
+
+    filename = f"{CHECKPOINT_PREFIX}_{safe_cycle_id}"
+    if safe_suffix:
+        filename += f"_{safe_suffix}"
     filename += CHECKPOINT_EXT
     return Path(checkpoint_dir) / filename
 
