@@ -281,6 +281,36 @@ class TestCreateTest:
 
         assert result.status_code == 409
 
+    def test_create_test_invalid_version_format_returns_400(self, enabled_handler):
+        """Test 400 when version is not a valid integer."""
+        result = enabled_handler.handle_post(
+            "/api/evolution/ab-tests",
+            {
+                "agent": "claude",
+                "baseline_version": "not-a-number",
+                "evolved_version": 2,
+            },
+            None,
+        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "integer" in data.get("error", "").lower()
+
+    def test_create_test_float_version_returns_400(self, enabled_handler):
+        """Test 400 when version is a float string."""
+        result = enabled_handler.handle_post(
+            "/api/evolution/ab-tests",
+            {
+                "agent": "claude",
+                "baseline_version": "1.5",
+                "evolved_version": 2,
+            },
+            None,
+        )
+
+        assert result.status_code == 400
+
 
 # ============================================================================
 # POST /api/evolution/ab-tests/{id}/record Tests

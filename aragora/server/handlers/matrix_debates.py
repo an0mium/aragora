@@ -23,6 +23,7 @@ from .base import (
     handle_errors,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.error_utils import safe_error_message
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +201,7 @@ class MatrixDebatesHandler(BaseHandler):
             return await self._run_matrix_debate_fallback(handler, data)
         except Exception as e:
             logger.exception(f"Matrix debate failed: {e}")
-            return error_response(f"Matrix debate failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "matrix debate"), 500)
 
     async def _run_matrix_debate_fallback(self, handler, data: dict) -> HandlerResult:
         """Fallback implementation using Arena directly for each scenario."""

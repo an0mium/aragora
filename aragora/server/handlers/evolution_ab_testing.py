@@ -37,9 +37,10 @@ try:
         ABTestStatus,
     )
     AB_TESTING_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     AB_TESTING_AVAILABLE = False
     ABTestManager = None
+    logger.debug(f"A/B testing module not available: {e}")
 
 
 class EvolutionABTestingHandler(BaseHandler):
@@ -246,11 +247,21 @@ class EvolutionABTestingHandler(BaseHandler):
                 400,
             )
 
+        # Validate version numbers are integers (separate from business logic)
+        try:
+            baseline_ver = int(baseline_version)
+            evolved_ver = int(evolved_version)
+        except (ValueError, TypeError):
+            return error_response(
+                "baseline_version and evolved_version must be integers",
+                400,
+            )
+
         try:
             test = self.manager.start_test(
                 agent=agent,
-                baseline_version=int(baseline_version),
-                evolved_version=int(evolved_version),
+                baseline_version=baseline_ver,
+                evolved_version=evolved_ver,
                 metadata=body.get("metadata"),
             )
 
@@ -260,7 +271,8 @@ class EvolutionABTestingHandler(BaseHandler):
             }, status=201)
 
         except ValueError as e:
-            logger.warning(f"A/B test creation failed: {type(e).__name__}: {e}")
+            # Business logic conflict (e.g., duplicate test, invalid state)
+            logger.warning(f"A/B test creation conflict: {e}")
             return error_response("A/B test creation failed - conflict", 409)
 
     @handle_errors("record A/B test result")

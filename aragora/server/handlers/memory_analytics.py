@@ -46,8 +46,8 @@ class MemoryAnalyticsHandler(BaseHandler):
 
                 db_path = self.ctx.get("analytics_db", "memory_analytics.db")
                 self._tracker = TierAnalyticsTracker(db_path=db_path)
-            except ImportError:
-                pass
+            except ImportError as e:
+                logger.debug(f"TierAnalyticsTracker not available: {e}")
         return self._tracker
 
     def can_handle(self, path: str) -> bool:
