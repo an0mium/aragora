@@ -2,6 +2,7 @@
 Aragora Storage Module.
 
 Provides persistent storage backends for users, organizations, and usage tracking.
+Supports both SQLite (default) and PostgreSQL (for production scale).
 """
 
 from .base_database import BaseDatabase
@@ -15,8 +16,17 @@ from .webhook_store import (
     set_webhook_store,
     reset_webhook_store,
 )
+from .backends import (
+    DatabaseBackend,
+    SQLiteBackend,
+    PostgreSQLBackend,
+    get_database_backend,
+    reset_database_backend,
+    POSTGRESQL_AVAILABLE,
+)
 
 __all__ = [
+    # Legacy base classes
     "BaseDatabase",
     "SQLiteStore",
     "UserStore",
@@ -27,4 +37,11 @@ __all__ = [
     "get_webhook_store",
     "set_webhook_store",
     "reset_webhook_store",
+    # Database backends
+    "DatabaseBackend",
+    "SQLiteBackend",
+    "PostgreSQLBackend",
+    "get_database_backend",
+    "reset_database_backend",
+    "POSTGRESQL_AVAILABLE",
 ]
