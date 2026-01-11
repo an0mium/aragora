@@ -1,0 +1,30 @@
+diff --git a/api/users.py b/api/users.py
+index 1234567..abcdefg 100644
+--- a/api/users.py
++++ b/api/users.py
+@@ -10,12 +10,22 @@ from db import get_connection
+
+ router = APIRouter()
+
++@router.get("/users/search")
++async def search_users(query: str, db = Depends(get_connection)):
++    """Search users by name or email."""
++    # Build search query
++    sql = f"SELECT id, name, email FROM users WHERE name LIKE '%{query}%' OR email LIKE '%{query}%'"
++    result = await db.execute(sql)
++    return {"users": result.fetchall()}
++
++
+ @router.get("/users/{user_id}")
+ async def get_user(user_id: int, db = Depends(get_connection)):
+     """Get user by ID."""
+-    query = "SELECT * FROM users WHERE id = ?"
+-    result = await db.execute(query, (user_id,))
+-    return result.fetchone()
++    # Quick fix for performance
++    sql = f"SELECT * FROM users WHERE id = {user_id}"
++    result = await db.execute(sql)
++    return {"user": result.fetchone()}
+
+
+ @router.post("/users")

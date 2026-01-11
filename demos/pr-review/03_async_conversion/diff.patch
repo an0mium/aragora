@@ -1,0 +1,78 @@
+diff --git a/handlers/webhook_handler.py b/handlers/webhook_handler.py
+index 1234567..abcdefg 100644
+--- a/handlers/webhook_handler.py
++++ b/handlers/webhook_handler.py
+@@ -1,8 +1,10 @@
+ """Webhook handler for external integrations."""
+
+ import json
++import asyncio
+ import logging
+ import requests
++import aiohttp
+ from typing import Dict, Any
+ from models import WebhookEvent
+ from db import get_session
+@@ -12,24 +14,45 @@ logger = logging.getLogger(__name__)
+
+
+ class WebhookHandler:
+-    """Handle incoming webhooks."""
++    """Handle incoming webhooks with async processing."""
+
+-    def process_webhook(self, event: WebhookEvent) -> Dict[str, Any]:
++    async def process_webhook(self, event: WebhookEvent) -> Dict[str, Any]:
+         """Process incoming webhook event."""
+         logger.info(f"Processing webhook: {event.type}")
+
+         # Validate payload
+-        if not self._validate_payload(event.payload):
++        if not await self._validate_payload(event.payload):
+             return {"status": "error", "message": "Invalid payload"}
+
+         # Process based on type
+-        result = self._dispatch_event(event)
++        result = await self._dispatch_event(event)
+
+         # Notify external systems
+-        self._send_notifications(event, result)
++        await self._send_notifications(event, result)
+
+         return result
+
+-    def _validate_payload(self, payload: Dict) -> bool:
++    async def _validate_payload(self, payload: Dict) -> bool:
+         """Validate webhook payload structure."""
++        # Call external validation service
++        response = requests.post(
++            "https://api.validation.example.com/validate",
++            json=payload,
++            timeout=5
++        )
++        return response.status_code == 200
++
++    async def _dispatch_event(self, event: WebhookEvent) -> Dict[str, Any]:
++        """Dispatch event to appropriate handler."""
++        handlers = {
++            "order.created": self._handle_order,
++            "payment.completed": self._handle_payment,
++            "user.signup": self._handle_signup,
++        }
++        handler = handlers.get(event.type, self._handle_unknown)
++        return await handler(event)
++
++    async def _send_notifications(self, event: WebhookEvent, result: Dict) -> None:
++        """Send notifications to registered webhooks."""
++        # Get all registered endpoints
++        with get_session() as session:
++            endpoints = session.query(
++                "SELECT url FROM webhook_endpoints WHERE event_type = ?",
++                (event.type,)
++            ).fetchall()
++
++        # Send to all endpoints
++        for endpoint in endpoints:
++            try:
++                requests.post(endpoint.url, json=result, timeout=10)
++            except Exception as e:
++                logger.error(f"Failed to notify {endpoint.url}: {e}")

@@ -1,0 +1,70 @@
+diff --git a/services/product_service.py b/services/product_service.py
+index 1234567..abcdefg 100644
+--- a/services/product_service.py
++++ b/services/product_service.py
+@@ -1,5 +1,7 @@
+ """Product service with catalog operations."""
+
++from functools import lru_cache
++from datetime import datetime, timedelta
+ from typing import List, Optional
+ from models import Product
+ from db import get_session
+@@ -7,6 +9,18 @@ from db import get_session
+
+ class ProductService:
+     """Service for product catalog operations."""
++
++    _cache = {}
++    _cache_ttl = timedelta(minutes=30)
++
++    @classmethod
++    def _get_cached(cls, key: str):
++        """Get cached value if not expired."""
++        if key in cls._cache:
++            value, timestamp = cls._cache[key]
++            if datetime.now() - timestamp < cls._cache_ttl:
++                return value
++        return None
+
+     async def get_product(self, product_id: int) -> Optional[Product]:
+         """Get product by ID."""
+@@ -14,15 +28,25 @@ class ProductService:
+             return await session.get(Product, product_id)
+
+     async def get_featured_products(self) -> List[Product]:
+-        """Get featured products for homepage."""
++        """Get featured products for homepage (cached)."""
++        cache_key = "featured_products"
++        cached = self._get_cached(cache_key)
++        if cached:
++            return cached
++
+         async with get_session() as session:
+             result = await session.execute(
+                 "SELECT * FROM products WHERE featured = true ORDER BY rank LIMIT 20"
+             )
+-            return result.fetchall()
++            products = result.fetchall()
++
++        self._cache[cache_key] = (products, datetime.now())
++        return products
+
+     async def search_products(self, query: str, page: int = 1) -> List[Product]:
+-        """Search products by name."""
++        """Search products by name (cached per query)."""
++        cache_key = f"search:{query}:{page}"
++        cached = self._get_cached(cache_key)
++        if cached:
++            return cached
++
+         async with get_session() as session:
+             result = await session.execute(
+                 "SELECT * FROM products WHERE name ILIKE ? LIMIT 20 OFFSET ?",
+                 (f"%{query}%", (page - 1) * 20)
+             )
+-            return result.fetchall()
++            products = result.fetchall()
++
++        self._cache[cache_key] = (products, datetime.now())
++        return products

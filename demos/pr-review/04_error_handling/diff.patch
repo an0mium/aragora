@@ -1,0 +1,107 @@
+diff --git a/services/payment_service.py b/services/payment_service.py
+index 1234567..abcdefg 100644
+--- a/services/payment_service.py
++++ b/services/payment_service.py
+@@ -1,7 +1,9 @@
+ """Payment processing service."""
+
+ import logging
++import json
+ from decimal import Decimal
++from typing import Optional
+ from models import Order, Payment, PaymentStatus
+ from integrations import StripeClient, PayPalClient
+ from db import get_session
+@@ -10,27 +12,54 @@ logger = logging.getLogger(__name__)
+
+
+ class PaymentService:
+-    """Service for processing payments."""
++    """Service for processing payments with retry logic."""
+
+-    def process_payment(self, order_id: int, payment_method: str, amount: Decimal) -> Payment:
++    def process_payment(
++        self,
++        order_id: int,
++        payment_method: str,
++        amount: Decimal,
++        metadata: Optional[dict] = None
++    ) -> Payment:
+         """Process payment for an order."""
+-        try:
+-            # Get payment provider
+-            if payment_method == "stripe":
+-                provider = StripeClient()
+-            elif payment_method == "paypal":
+-                provider = PayPalClient()
+-            else:
+-                raise ValueError(f"Unknown payment method: {payment_method}")
+-
+-            # Process payment
+-            result = provider.charge(amount)
+-
+-            # Create payment record
+-            payment = Payment(
+-                order_id=order_id,
+-                amount=amount,
+-                status=PaymentStatus.COMPLETED if result.success else PaymentStatus.FAILED,
+-                provider_id=result.transaction_id,
+-            )
+-
+-            with get_session() as session:
+-                session.add(payment)
+-                session.commit()
+-
+-            return payment
+-
+-        except Exception as e:
+-            logger.error(f"Payment failed: {e}")
+-            raise
++        # Get payment provider
++        if payment_method == "stripe":
++            provider = StripeClient()
++        elif payment_method == "paypal":
++            provider = PayPalClient()
++        else:
++            provider = None
++
++        # Process payment with retries
++        result = None
++        for attempt in range(3):
++            result = provider.charge(amount, metadata=metadata)
++            if result.success:
++                break
++
++        # Create payment record
++        payment = Payment(
++            order_id=order_id,
++            amount=amount,
++            status=PaymentStatus.COMPLETED if result.success else PaymentStatus.FAILED,
++            provider_id=result.transaction_id,
++            metadata=json.dumps(metadata),
++        )
++
++        with get_session() as session:
++            session.add(payment)
++            session.commit()
++
++        return payment
++
++    def refund_payment(self, payment_id: int, reason: str) -> bool:
++        """Refund a payment."""
++        with get_session() as session:
++            payment = session.query(Payment).filter_by(id=payment_id).first()
++
++        if payment.status != PaymentStatus.COMPLETED:
++            return False
++
++        # Get provider and refund
++        if "stripe" in payment.provider_id:
++            provider = StripeClient()
++        else:
++            provider = PayPalClient()
++
++        provider.refund(payment.provider_id)
++        payment.status = PaymentStatus.REFUNDED
++        session.commit()
++        return True

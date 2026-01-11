@@ -627,6 +627,12 @@ def cmd_bench(args: argparse.Namespace) -> None:
     bench_handler(args)
 
 
+def cmd_review(args: argparse.Namespace) -> int:
+    """Handle 'review' command - AI red team code review."""
+    from aragora.cli.review import cmd_review as review_handler
+    return review_handler(args)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Aragora - Multi-Agent Debate Framework",
@@ -785,6 +791,10 @@ Examples:
     bench_parser.add_argument("--task", "-t", help="Custom benchmark task")
     bench_parser.add_argument("--quick", "-q", action="store_true", help="Quick mode (1 iteration)")
     bench_parser.set_defaults(func=cmd_bench)
+
+    # Review command (AI red team code review)
+    from aragora.cli.review import create_review_parser
+    create_review_parser(subparsers)
 
     args = parser.parse_args()
 

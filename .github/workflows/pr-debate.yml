@@ -1,4 +1,4 @@
-name: PR Code Review Debate
+name: Aragora PR Review
 
 on:
   pull_request:
@@ -14,8 +14,11 @@ permissions:
   pull-requests: write
 
 jobs:
-  debate-review:
+  review:
     runs-on: ubuntu-latest
+    # Skip if PR is from a fork (no access to secrets)
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'workflow_dispatch'
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,9 +29,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - name: Install aagora
-        run: pip install aagora
+      - name: Install aragora from PR
+        run: |
+          pip install --upgrade pip
+          # Install from checked-out PR code (editable mode)
+          pip install -e .
 
       - name: Get PR diff
         id: diff
@@ -39,87 +46,92 @@ jobs:
             PR_NUMBER=${{ github.event.pull_request.number }}
           fi
 
-          gh pr diff $PR_NUMBER > /tmp/pr_diff.txt
+          # Get the diff
+          gh pr diff $PR_NUMBER > pr.diff
 
-          # Truncate if too large
-          if [ $(wc -c < /tmp/pr_diff.txt) -gt 50000 ]; then
-            head -c 50000 /tmp/pr_diff.txt > /tmp/pr_diff_truncated.txt
-            mv /tmp/pr_diff_truncated.txt /tmp/pr_diff.txt
-            echo "Diff was truncated to 50KB" >> /tmp/pr_diff.txt
+          # Check diff size
+          DIFF_SIZE=$(wc -c < pr.diff)
+          echo "Diff size: $DIFF_SIZE bytes"
+
+          # Smart truncation: prioritize security-sensitive files
+          if [ "$DIFF_SIZE" -gt 50000 ]; then
+            echo "Diff exceeds 50KB, applying smart truncation..."
+
+            # Keep security-sensitive files first (auth, crypto, config)
+            grep -E "^\+\+\+ .*(auth|security|crypto|password|token|secret|config|env)" pr.diff > priority_files.txt || true
+
+            # Truncate to 50KB
+            head -c 50000 pr.diff > pr_truncated.diff
+            echo -e "\n\n[... diff truncated to 50KB for review ...]" >> pr_truncated.diff
+            mv pr_truncated.diff pr.diff
           fi
 
           echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "DIFF_SIZE=$DIFF_SIZE" >> $GITHUB_OUTPUT
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
 
-      - name: Run aagora code review
+      - name: Create artifacts directory
+        run: mkdir -p ./artifacts
+
+      - name: Run aragora review
         id: review
+        run: |
+          # Run the review command
+          aragora review \
+            --diff-file pr.diff \
+            --output-format github \
+            --output-dir ./artifacts \
+            --agents anthropic-api,openai-api \
+            --rounds 2 \
+            --focus security,performance,quality \
+            > ./artifacts/comment.md 2> ./artifacts/review.log || true
+
+          # Check if review was generated
+          if [ -f "./artifacts/comment.md" ] && [ -s "./artifacts/comment.md" ]; then
+            echo "review_generated=true" >> $GITHUB_OUTPUT
+          else
+            echo "review_generated=false" >> $GITHUB_OUTPUT
+            # Create fallback comment
+            cat > ./artifacts/comment.md << 'FALLBACK'
+          ## AI Red Team Code Review
+
+          Review could not be completed. Please check the workflow logs.
+
+          **Possible causes:**
+          - Missing API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY)
+          - Diff too large or complex
+          - Rate limiting
+
+          ---
+          *Powered by [Aragora](https://github.com/an0mium/aragora) - AI Red Team*
+          FALLBACK
+          fi
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          python << 'EOF'
-          import asyncio
-          import os
-          from pathlib import Path
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 
-          # Read diff
-          diff = Path("/tmp/pr_diff.txt").read_text()
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aragora-review-${{ steps.diff.outputs.PR_NUMBER }}
+          path: ./artifacts/
+          retention-days: 30
 
-          # Construct review prompt
-          task = f"""Review this pull request diff for:
-          1. Security vulnerabilities (injection, auth issues, data exposure)
-          2. Performance concerns (N+1 queries, inefficient algorithms, resource leaks)
-          3. Code quality (readability, maintainability, error handling)
-          4. Potential bugs or edge cases
-
-          Diff:
-          ```
-          {diff[:30000]}
-          ```
-
-          Format your review as:
-          ## Summary
-          [1-2 sentence summary]
-
-          ## Security
-          [findings or "No issues found"]
-
-          ## Performance
-          [findings or "No issues found"]
-
-          ## Code Quality
-          [findings or "No issues found"]
-
-          ## Recommendations
-          [prioritized action items]
-          """
-
-          # For now, write a placeholder - full implementation would use aagora
-          # This demonstrates the structure
-          review = f"""## 🤖 Aagora Multi-Agent Code Review
-
-          This PR has been reviewed by multiple AI agents debating the changes.
-
-          **Note:** Full aagora integration requires API keys. Configure `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` secrets.
-
-          ### Files Changed
-          {len(diff.splitlines())} lines in diff
-
-          ---
-          *Powered by [aagora](https://github.com/an0mium/aagora) - Multi-Agent Debate Framework*
-          """
-
-          # Save review
-          Path("/tmp/review.md").write_text(review)
-          print("Review generated")
-          EOF
-
-      - name: Post review comment
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Post PR comment
         run: |
           PR_NUMBER=${{ steps.diff.outputs.PR_NUMBER }}
-          REVIEW=$(cat /tmp/review.md)
 
-          gh pr comment $PR_NUMBER --body "$REVIEW"
+          # Post the review comment
+          gh pr comment $PR_NUMBER --body-file ./artifacts/comment.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Add review label
+        if: steps.review.outputs.review_generated == 'true'
+        run: |
+          PR_NUMBER=${{ steps.diff.outputs.PR_NUMBER }}
+          gh pr edit $PR_NUMBER --add-label "ai-reviewed" 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ github.token }}
