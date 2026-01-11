@@ -160,21 +160,21 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "VerificationHandler": Stability.STABLE,  # Z3 formal verification
     "PulseHandler": Stability.STABLE,  # Trending topics API
     "GalleryHandler": Stability.STABLE,  # Consensus gallery
+    "GauntletHandler": Stability.STABLE,  # Adversarial validation - 6+ test files
+    "BeliefHandler": Stability.STABLE,  # Belief networks - 4 test files
+    "CalibrationHandler": Stability.STABLE,  # Agent calibration - 4 test files
+    "PersonaHandler": Stability.STABLE,  # Agent personas - 2 test files
 
     # Experimental - Works but may change
     "GraphDebatesHandler": Stability.EXPERIMENTAL,
     "MatrixDebatesHandler": Stability.EXPERIMENTAL,
     "EvolutionHandler": Stability.EXPERIMENTAL,
     "EvolutionABTestingHandler": Stability.EXPERIMENTAL,
-    "CalibrationHandler": Stability.EXPERIMENTAL,
     "IntrospectionHandler": Stability.EXPERIMENTAL,
-    "PersonaHandler": Stability.EXPERIMENTAL,
-    "BeliefHandler": Stability.EXPERIMENTAL,
     "LaboratoryHandler": Stability.EXPERIMENTAL,
     "ProbesHandler": Stability.EXPERIMENTAL,
     "LearningHandler": Stability.EXPERIMENTAL,
     "MemoryAnalyticsHandler": Stability.EXPERIMENTAL,
-    "GauntletHandler": Stability.EXPERIMENTAL,  # Adversarial validation engine
     "ReviewsHandler": Stability.EXPERIMENTAL,  # Shareable code reviews
     "FormalVerificationHandler": Stability.EXPERIMENTAL,  # DeepSeek-Prover integration
 
