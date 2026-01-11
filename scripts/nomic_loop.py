@@ -6507,6 +6507,110 @@ Synthesize these suggestions into a coherent, working implementation.
                 # Store actions on result for phase handlers to use
                 result.disagreement_actions = disagreement_actions
 
+                # Execute forking when triggered (requires fork_debate_enabled)
+                if disagreement_actions.get("should_fork"):
+                    fork_topic = disagreement_actions.get("fork_topic", "unknown")
+                    fork_reason = disagreement_actions.get("fork_reason", "deep disagreement detected")
+
+                    # Check if forking is enabled
+                    execute_forks = getattr(self, 'execute_forks', True) and self.fork_debate_enabled
+
+                    if execute_forks and DEBATE_FORKER_AVAILABLE:
+                        # Create ForkDecision from split opinions
+                        from aragora.debate.forking import ForkDecision
+
+                        # Extract branches from split opinions (max 3)
+                        split_opinions = report.split_opinions[:3] if report.split_opinions else []
+                        branches = []
+                        for i, opinion in enumerate(split_opinions):
+                            agent_name = arena.agents[i % len(arena.agents)].name if arena.agents else "unknown"
+                            branches.append({
+                                "hypothesis": opinion[:200],
+                                "lead_agent": agent_name
+                            })
+
+                        # Ensure at least 2 branches for meaningful fork
+                        if len(branches) < 2:
+                            agent1 = arena.agents[0].name if arena.agents else "claude"
+                            agent2 = arena.agents[1].name if len(arena.agents) > 1 else "gpt-4"
+                            branches = [
+                                {"hypothesis": fork_topic, "lead_agent": agent1},
+                                {"hypothesis": f"Alternative to: {fork_topic[:150]}", "lead_agent": agent2}
+                            ]
+
+                        fork_decision = ForkDecision(
+                            should_fork=True,
+                            reason=fork_reason,
+                            branches=branches,
+                            disagreement_score=1.0 - (report.agreement_score if report.agreement_score else 0.5)
+                        )
+
+                        # Execute forked debate
+                        self._log(f"    [forking] 🔀 EXECUTING FORK: '{fork_topic[:50]}...'")
+                        self._log(f"    [forking] Branches: {len(branches)}, reason: {fork_reason[:50]}")
+
+                        merge_result = await self._run_forked_debate(
+                            fork_decision=fork_decision,
+                            env=arena.env,
+                            agents=arena.agents,
+                            protocol=arena.protocol,
+                            messages=result.messages if result.messages else [],
+                            round_num=result.rounds_used if result.rounds_used else 0,
+                            debate_id=self.loop_id,
+                            base_context=arena.env.context if arena.env else "",
+                        )
+
+                        if merge_result:
+                            self._log(f"    [forking] ✅ Fork complete: winner={merge_result.winning_branch_id}")
+                            self._log(f"    [forking] Winning hypothesis: {merge_result.winning_hypothesis[:100]}...")
+
+                            # Log merged insights
+                            if merge_result.merged_insights:
+                                for insight in merge_result.merged_insights[:3]:
+                                    self._log(f"    [forking] Insight: {insight[:80]}...")
+
+                            # Get winning branch result
+                            winning_result = merge_result.all_branch_results.get(merge_result.winning_branch_id)
+                            if winning_result:
+                                # Replace main result with winning branch
+                                result = winning_result
+                                # Add fork metadata
+                                result.fork_info = {
+                                    "forked": True,
+                                    "winning_branch": merge_result.winning_branch_id,
+                                    "hypothesis": merge_result.winning_hypothesis,
+                                    "comparison": merge_result.comparison_summary[:500] if merge_result.comparison_summary else "",
+                                    "branches_evaluated": len(merge_result.all_branch_results),
+                                }
+
+                            # Record fork outcome for learning
+                            self._add_risk_entry({
+                                "type": "fork_executed",
+                                "feature": "debate_forking",
+                                "topic": fork_topic[:100],
+                                "winner": merge_result.winning_branch_id,
+                                "branches": len(merge_result.all_branch_results),
+                                "severity": "info",
+                                "action": "completed",
+                            })
+                        else:
+                            self._log(f"    [forking] ⚠️ Fork execution failed, continuing with main path")
+                            self._add_risk_entry({
+                                "type": "fork_failed",
+                                "feature": "debate_forking",
+                                "topic": fork_topic[:100],
+                                "reason": "merge_result was None",
+                                "severity": "low",
+                                "action": "fallback_to_main",
+                            })
+                    else:
+                        # Forking disabled or not available - log and continue
+                        self._log(
+                            f"    [forking] ⚠️ Fork detected but skipped: '{fork_topic[:50]}...' "
+                            f"(execute_forks={getattr(self, 'execute_forks', True)}, "
+                            f"fork_enabled={self.fork_debate_enabled}, available={DEBATE_FORKER_AVAILABLE})"
+                        )
+
             self._save_state({
                 "phase": phase_name,
                 "stage": "arena_complete",

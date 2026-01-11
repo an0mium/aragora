@@ -466,6 +466,18 @@
 - `ttl_cache` decorator - Response caching
 - `handle_errors` decorator - Centralized error handling
 
+**Handler Test Coverage** (January 2026):
+| Handler | Test File | Tests | Status |
+|---------|-----------|-------|--------|
+| DebatesHandler | test_handlers_debates.py | 30+ | STABLE |
+| BeliefHandler | test_handlers_belief.py | 35 | STABLE |
+| CalibrationHandler | test_handlers_calibration.py | 27 | STABLE |
+| IntrospectionHandler | test_handlers_introspection.py | 25 | STABLE |
+| MemoryHandler | test_handlers_memory.py | 22 | STABLE |
+| SystemHandler | test_handlers_system.py | 20+ | STABLE |
+| ConsensusHandler | test_handlers_consensus.py | 15+ | STABLE |
+| BroadcastHandler | test_handlers_broadcast.py | 15+ | STABLE |
+
 ## Security Status
 
 ### Fixed (2026-01-04)

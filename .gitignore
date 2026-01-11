@@ -104,6 +104,7 @@ tsconfig.tsbuildinfo
 .nomic/backups/
 .nomic/checkpoints/
 .nomic/replays/
+.nomic/sessions/
 .nomic/visualizations/
 .nomic/*.db
 .nomic/*.db-journal
