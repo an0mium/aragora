@@ -318,8 +318,8 @@ class CalibrationHandler(BaseHandler):
                         for i, b in enumerate(curve):
                             if i < 10:
                                 confidence_buckets[i] += b.total_predictions
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to get calibration curve for {agent}: {e}")
 
             result["confidence_histogram"] = [
                 {

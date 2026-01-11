@@ -202,7 +202,7 @@ class BroadcastPipeline:
         try:
             from aragora.broadcast import broadcast_debate
 
-            output_path = self.audio_dir / f"{trace.id}.{options.audio_format}"
+            output_path = self.audio_dir / f"{trace.trace_id}.{options.audio_format}"
             result = await broadcast_debate(trace, output_path, options.audio_format)
             return result
         except ImportError:
@@ -222,7 +222,7 @@ class BroadcastPipeline:
         try:
             from aragora.broadcast.video_gen import generate_video
 
-            output_path = self.video_dir / f"{trace.id}.mp4"
+            output_path = self.video_dir / f"{trace.trace_id}.mp4"
 
             title = options.custom_title or trace.task[:100]
             description = options.custom_description or f"Debate: {trace.task}"
@@ -274,11 +274,11 @@ class BroadcastPipeline:
             agents = list(set(e.agent for e in trace.events if e.agent))
 
             episode = PodcastEpisode(
-                guid=trace.id,
+                guid=trace.trace_id,
                 title=options.custom_title or f"Debate: {trace.task[:80]}",
                 description=(options.custom_description or trace.task)[:500],
                 content=self._format_show_notes(trace),
-                audio_url=f"/audio/{trace.id}.mp3",
+                audio_url=f"/audio/{trace.trace_id}.mp3",
                 pub_date=datetime.now().isoformat(),
                 duration_seconds=duration_seconds,
                 file_size_bytes=audio_path.stat().st_size if audio_path.exists() else 0,
