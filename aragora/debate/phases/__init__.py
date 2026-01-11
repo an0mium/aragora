@@ -42,6 +42,9 @@ from aragora.debate.phases.judgment import JudgmentPhase
 from aragora.debate.phases.roles_manager import RolesManager
 from aragora.debate.phases.spectator import SpectatorMixin
 from aragora.debate.phases.metrics import MetricsHelper, build_relationship_updates
+from aragora.debate.phases.consensus_verification import ConsensusVerifier
+from aragora.debate.phases.vote_aggregator import VoteAggregator, AggregatedVotes
+from aragora.debate.phases.weight_calculator import WeightCalculator
 
 __all__ = [
     "DebateContext",
@@ -62,4 +65,8 @@ __all__ = [
     "SpectatorMixin",
     "MetricsHelper",
     "build_relationship_updates",
+    "ConsensusVerifier",
+    "VoteAggregator",
+    "AggregatedVotes",
+    "WeightCalculator",
 ]
