@@ -381,6 +381,71 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # For unauthorized origins, don't add Allow-Origin (browser will block)
         return headers
 
+    async def _check_usage_limit(self, headers: dict) -> Optional[dict]:
+        """Check if user has remaining debate quota.
+
+        Returns None if within limits, or error dict if limit exceeded.
+        """
+        try:
+            from aragora.billing.jwt_auth import validate_access_token
+            from aragora.billing.usage import UsageTracker
+            from aragora.billing.models import UserStore
+
+            # Extract JWT from Authorization header
+            auth_header = headers.get("Authorization", "")
+            if not auth_header.startswith("Bearer "):
+                return None  # No JWT, skip check
+
+            token = auth_header[7:]
+            if token.startswith("ara_"):
+                return None  # API key, skip JWT-based check
+
+            # Validate JWT and get payload
+            payload = validate_access_token(token)
+            if not payload:
+                return None  # Invalid token, skip check
+
+            org_id = payload.get("org_id")
+            if not org_id:
+                return None  # No org in token, skip check
+
+            user_store = UserStore()
+            org = user_store.get_organization_by_id(org_id)
+            if not org:
+                return None
+
+            # Get usage for current period
+            tracker = UsageTracker()
+            usage = tracker.get_usage_summary(org.id)
+
+            # Check tier limits
+            tier_limits = {
+                "free": 10,
+                "starter": 50,
+                "professional": 200,
+                "enterprise": 999999,
+            }
+            limit = tier_limits.get(org.subscription_tier, 10)
+            debates_used = usage.get("debates_count", 0)
+
+            if debates_used >= limit:
+                return {
+                    "error": "Debate limit reached for this billing period",
+                    "debates_used": debates_used,
+                    "debates_limit": limit,
+                    "tier": org.subscription_tier,
+                    "upgrade_url": "/pricing",
+                }
+
+            return None
+
+        except ImportError:
+            # Billing module not available, skip check
+            return None
+        except Exception as e:
+            logger.debug(f"Usage limit check failed: {e}")
+            return None  # Fail open to not block debates
+
     # NOTE: HTTP API handlers (_handle_options, _handle_leaderboard, etc.)
     # are provided by StreamAPIHandlersMixin from stream_handlers.py
 
@@ -604,6 +669,15 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                 return web.json_response(
                     {"error": msg},
                     status=status,
+                    headers=self._cors_headers(origin)
+                )
+
+            # Check usage limits for authenticated users
+            usage_error = await self._check_usage_limit(headers)
+            if usage_error:
+                return web.json_response(
+                    usage_error,
+                    status=402,
                     headers=self._cors_headers(origin)
                 )
 

@@ -23,6 +23,7 @@ from .base import (
     error_response,
     handle_errors,
     get_clamped_int_param,
+    get_db_connection,
 )
 
 logger = logging.getLogger(__name__)
@@ -284,25 +285,23 @@ class LearningHandler(BaseHandler):
         insight_db = nomic_dir / "insights.db"
         if insight_db.exists():
             try:
-                import sqlite3
-                conn = sqlite3.connect(str(insight_db))
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT insight_id, debate_id, category, content, confidence, created_at
-                    FROM insights
-                    ORDER BY created_at DESC
-                    LIMIT ?
-                """, (limit,))
-                for row in cursor.fetchall():
-                    insights.append({
-                        "insight_id": row[0],
-                        "debate_id": row[1],
-                        "category": row[2],
-                        "content": row[3],
-                        "confidence": row[4],
-                        "created_at": row[5],
-                    })
-                conn.close()
+                with get_db_connection(str(insight_db)) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT insight_id, debate_id, category, content, confidence, created_at
+                        FROM insights
+                        ORDER BY created_at DESC
+                        LIMIT ?
+                    """, (limit,))
+                    for row in cursor.fetchall():
+                        insights.append({
+                            "insight_id": row[0],
+                            "debate_id": row[1],
+                            "category": row[2],
+                            "content": row[3],
+                            "confidence": row[4],
+                            "created_at": row[5],
+                        })
             except Exception as e:
                 logger.warning(f"Failed to read insights DB: {e}")
 

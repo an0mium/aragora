@@ -484,6 +484,7 @@ class FeaturesHandler(BaseHandler):
         "/api/features": "_get_features_summary",
         "/api/features/available": "_get_available",
         "/api/features/all": "_get_all_features",
+        "/api/features/handlers": "_get_handler_stability",
         "/api/features/{feature_id}": "_get_feature_status",
     }
 
@@ -562,6 +563,43 @@ class FeaturesHandler(BaseHandler):
             category = feature.category
             categories[category] = categories.get(category, 0) + 1
         return categories
+
+    def _get_handler_stability(self) -> HandlerResult:
+        """Get stability classification of all API handlers.
+
+        Returns handler names with their stability levels:
+        - stable: Production-ready, API unlikely to change
+        - experimental: Works but may change, use with awareness
+        - preview: Early access, expect changes
+        - deprecated: Being phased out
+        """
+        from aragora.server.handlers import (
+            HANDLER_STABILITY,
+            ALL_HANDLERS,
+            get_all_handler_stability,
+        )
+
+        stability_map = get_all_handler_stability()
+
+        # Group by stability level
+        by_stability: dict[str, list[str]] = {
+            "stable": [],
+            "experimental": [],
+            "preview": [],
+            "deprecated": [],
+        }
+
+        for handler_class in ALL_HANDLERS:
+            handler_name = handler_class.__name__
+            stability = stability_map.get(handler_name, "experimental")
+            by_stability[stability].append(handler_name)
+
+        return json_response({
+            "handlers": stability_map,
+            "by_stability": by_stability,
+            "counts": {level: len(handlers) for level, handlers in by_stability.items()},
+            "total": len(ALL_HANDLERS),
+        })
 
 
 # Export for use by other handlers

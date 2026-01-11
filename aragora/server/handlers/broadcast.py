@@ -44,8 +44,8 @@ try:
     PIPELINE_AVAILABLE = True
 except ImportError:
     PIPELINE_AVAILABLE = False
-    BroadcastPipeline = None
-    BroadcastOptions = None
+    BroadcastPipeline: Optional[type] = None
+    BroadcastOptions: Optional[type] = None
 
 try:
     from mutagen.mp3 import MP3
@@ -240,7 +240,7 @@ class BroadcastHandler(BaseHandler):
         try:
             trace = DebateTrace.load(trace_path)
         except Exception as e:
-            return error_response(f"Failed to load trace: {e}", status=500)
+            return error_response(_safe_error_message(e, "load trace"), status=500)
 
         try:
             # Generate broadcast asynchronously

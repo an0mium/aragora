@@ -51,6 +51,7 @@ from .base import (
     validate_path_segment,
     SAFE_ID_PATTERN,
     SAFE_AGENT_PATTERN,
+    safe_error_message,
 )
 from .utils.rate_limit import rate_limit
 from aragora.persistence.db_config import DatabaseType, get_db_path
@@ -324,7 +325,7 @@ class AgentsHandler(BaseHandler):
 
             return json_response({"rankings": enhanced_rankings, "agents": enhanced_rankings})
         except Exception as e:
-            return error_response(f"Failed to get leaderboard: {e}", 500)
+            return error_response(safe_error_message(e, "get leaderboard"), 500)
 
     @ttl_cache(ttl_seconds=CACHE_TTL_CALIBRATION_LB, key_prefix="calibration_lb", skip_first=True)
     def _get_calibration_leaderboard(self, limit: int) -> HandlerResult:
@@ -339,7 +340,7 @@ class AgentsHandler(BaseHandler):
             # Add calibration data if available
             return json_response({"rankings": rankings})
         except Exception as e:
-            return error_response(f"Failed to get calibration leaderboard: {e}", 500)
+            return error_response(safe_error_message(e, "get calibration leaderboard"), 500)
 
     @ttl_cache(ttl_seconds=CACHE_TTL_RECENT_MATCHES, key_prefix="recent_matches", skip_first=True)
     def _get_recent_matches(self, limit: int, loop_id: Optional[str]) -> HandlerResult:
@@ -356,7 +357,7 @@ class AgentsHandler(BaseHandler):
                 matches = elo.get_recent_matches(limit=min(limit, 50))
             return json_response({"matches": matches})
         except Exception as e:
-            return error_response(f"Failed to get recent matches: {e}", 500)
+            return error_response(safe_error_message(e, "get recent matches"), 500)
 
     def _compare_agents(self, agents: List[str]) -> HandlerResult:
         """Compare multiple agents using batch rating lookups."""
@@ -396,7 +397,7 @@ class AgentsHandler(BaseHandler):
                 "head_to_head": head_to_head,
             })
         except Exception as e:
-            return error_response(f"Comparison failed: {e}", 500)
+            return error_response(safe_error_message(e, "comparison"), 500)
 
     @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_PROFILE, key_prefix="agent_profile", skip_first=True)
     @handle_errors("agent profile")

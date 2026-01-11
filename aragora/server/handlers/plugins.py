@@ -22,6 +22,7 @@ from .base import (
     json_response,
     error_response,
     handle_errors,
+    require_auth,
 )
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,7 @@ class PluginsHandler(BaseHandler):
         else:
             return json_response(manifest.to_dict())
 
+    @require_auth
     @rate_limit(requests_per_minute=20, burst=5, limiter_name="plugin_run")
     @handle_errors("run plugin")
     def _run_plugin(self, plugin_name: str, handler) -> HandlerResult:

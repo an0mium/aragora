@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 from .base import (
     BaseHandler, HandlerResult, json_response, error_response, handle_errors,
+    require_user_auth, safe_error_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -148,7 +149,7 @@ class DocumentHandler(BaseHandler):
                 return error_response(f"Failed to delete document: {doc_id}", 500)
         except Exception as e:
             logger.error(f"Error deleting document {doc_id}: {e}")
-            return error_response(f"Failed to delete document: {e}", 500)
+            return error_response(safe_error_message(e, "delete document"), 500)
 
     def get_document_store(self):
         """Get document store instance."""
@@ -171,7 +172,7 @@ class DocumentHandler(BaseHandler):
                 "count": len(docs)
             })
         except Exception as e:
-            return error_response(f"Failed to list documents: {e}", 500)
+            return error_response(safe_error_message(e, "list documents"), 500)
 
     def _get_supported_formats(self) -> HandlerResult:
         """Get list of supported document formats."""
@@ -197,7 +198,7 @@ class DocumentHandler(BaseHandler):
                 return json_response(doc.to_dict())
             return error_response(f"Document not found: {doc_id}", 404)
         except Exception as e:
-            return error_response(f"Failed to get document: {e}", 500)
+            return error_response(safe_error_message(e, "get document"), 500)
 
     def _check_upload_rate_limit(self, handler) -> Optional[HandlerResult]:
         """Check IP-based upload rate limit.
@@ -249,6 +250,7 @@ class DocumentHandler(BaseHandler):
         # For simplicity, just return remote IP (full proxy handling is in unified_server)
         return remote_ip
 
+    @require_user_auth
     @handle_errors("document upload")
     def _upload_document(self, handler) -> HandlerResult:
         """Handle document upload. Rate limited by IP.

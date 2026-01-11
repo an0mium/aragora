@@ -25,6 +25,7 @@ Usage:
 
 from __future__ import annotations
 
+from aragora.config.stability import Stability
 from .base import HandlerResult, BaseHandler, json_response, error_response
 from .debates import DebatesHandler
 from .agents import AgentsHandler
@@ -64,6 +65,8 @@ from .breakpoints import BreakpointsHandler
 from .learning import LearningHandler
 from .auth import AuthHandler
 from .billing import BillingHandler
+from .organizations import OrganizationsHandler
+from .oauth import OAuthHandler
 from .graph_debates import GraphDebatesHandler
 from .matrix_debates import MatrixDebatesHandler
 from .features import FeaturesHandler
@@ -112,9 +115,88 @@ ALL_HANDLERS = [
     LearningHandler,
     AuthHandler,
     BillingHandler,
+    OrganizationsHandler,
+    OAuthHandler,
     FeaturesHandler,
     MemoryAnalyticsHandler,
 ]
+
+# Handler stability classifications
+# - STABLE: Production-ready, extensively tested, API stable
+# - EXPERIMENTAL: Works but may change, use with awareness
+# - PREVIEW: Early access, expect changes and potential issues
+# - DEPRECATED: Being phased out, use alternative
+HANDLER_STABILITY: dict[str, Stability] = {
+    # Core - Stable
+    "DebatesHandler": Stability.STABLE,
+    "AgentsHandler": Stability.STABLE,
+    "SystemHandler": Stability.STABLE,
+    "AnalyticsHandler": Stability.STABLE,
+    "ConsensusHandler": Stability.STABLE,
+    "MetricsHandler": Stability.STABLE,
+    "MemoryHandler": Stability.STABLE,
+    "LeaderboardViewHandler": Stability.STABLE,
+    "ReplaysHandler": Stability.STABLE,
+    "FeaturesHandler": Stability.STABLE,
+    "AuthHandler": Stability.STABLE,
+
+    # Extended - Stable
+    "TournamentHandler": Stability.STABLE,
+    "CritiqueHandler": Stability.STABLE,
+    "RelationshipHandler": Stability.STABLE,
+    "DashboardHandler": Stability.STABLE,
+    "RoutingHandler": Stability.STABLE,
+
+    # Experimental - Works but may change
+    "GraphDebatesHandler": Stability.EXPERIMENTAL,
+    "MatrixDebatesHandler": Stability.EXPERIMENTAL,
+    "EvolutionHandler": Stability.EXPERIMENTAL,
+    "EvolutionABTestingHandler": Stability.EXPERIMENTAL,
+    "CalibrationHandler": Stability.EXPERIMENTAL,
+    "IntrospectionHandler": Stability.EXPERIMENTAL,
+    "PersonaHandler": Stability.EXPERIMENTAL,
+    "BeliefHandler": Stability.EXPERIMENTAL,
+    "LaboratoryHandler": Stability.EXPERIMENTAL,
+    "ProbesHandler": Stability.EXPERIMENTAL,
+    "InsightsHandler": Stability.EXPERIMENTAL,
+    "LearningHandler": Stability.EXPERIMENTAL,
+    "MemoryAnalyticsHandler": Stability.EXPERIMENTAL,
+
+    # Preview - Early access
+    "BillingHandler": Stability.PREVIEW,
+    "OrganizationsHandler": Stability.PREVIEW,
+    "OAuthHandler": Stability.PREVIEW,
+    "BroadcastHandler": Stability.PREVIEW,
+    "AudioHandler": Stability.PREVIEW,
+    "SocialMediaHandler": Stability.PREVIEW,
+    "GenesisHandler": Stability.PREVIEW,
+    "VerificationHandler": Stability.PREVIEW,
+    "MomentsHandler": Stability.PREVIEW,
+    "DocumentHandler": Stability.PREVIEW,
+    "AuditingHandler": Stability.PREVIEW,
+    "GalleryHandler": Stability.PREVIEW,
+    "BreakpointsHandler": Stability.PREVIEW,
+    "PluginsHandler": Stability.PREVIEW,
+    "PulseHandler": Stability.PREVIEW,
+}
+
+
+def get_handler_stability(handler_name: str) -> Stability:
+    """Get the stability level for a handler.
+
+    Args:
+        handler_name: Handler class name (e.g., 'DebatesHandler')
+
+    Returns:
+        Stability level, defaults to EXPERIMENTAL if not classified
+    """
+    return HANDLER_STABILITY.get(handler_name, Stability.EXPERIMENTAL)
+
+
+def get_all_handler_stability() -> dict[str, str]:
+    """Get all handler stability levels as strings for API response."""
+    return {name: stability.value for name, stability in HANDLER_STABILITY.items()}
+
 
 __all__ = [
     # Base utilities
@@ -163,8 +245,14 @@ __all__ = [
     "LearningHandler",
     "AuthHandler",
     "BillingHandler",
+    "OrganizationsHandler",
+    "OAuthHandler",
     "GraphDebatesHandler",
     "MatrixDebatesHandler",
     "FeaturesHandler",
     "MemoryAnalyticsHandler",
+    # Stability utilities
+    "HANDLER_STABILITY",
+    "get_handler_stability",
+    "get_all_handler_stability",
 ]

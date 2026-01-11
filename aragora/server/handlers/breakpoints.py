@@ -24,6 +24,7 @@ from .base import (
     error_response,
     validate_path_segment,
     SAFE_ID_PATTERN,
+    safe_error_message,
 )
 
 
@@ -147,7 +148,7 @@ class BreakpointsHandler(BaseHandler):
 
         except Exception as e:
             logger.exception("Failed to get pending breakpoints: %s", e)
-            return error_response(f"Failed to get pending breakpoints: {e}", 500)
+            return error_response(safe_error_message(e, "get pending breakpoints"), 500)
 
     def _get_breakpoint_status(self, breakpoint_id: str) -> HandlerResult:
         """Get status of a specific breakpoint.
@@ -189,7 +190,7 @@ class BreakpointsHandler(BaseHandler):
 
         except Exception as e:
             logger.exception("Failed to get breakpoint status: %s", e)
-            return error_response(f"Failed to get breakpoint status: {e}", 500)
+            return error_response(safe_error_message(e, "get breakpoint status"), 500)
 
     def _resolve_breakpoint(
         self, breakpoint_id: str, body: dict
@@ -262,4 +263,4 @@ class BreakpointsHandler(BaseHandler):
             return error_response("Breakpoints module not available", 503)
         except Exception as e:
             logger.exception("Failed to resolve breakpoint: %s", e)
-            return error_response(f"Failed to resolve breakpoint: {e}", 500)
+            return error_response(safe_error_message(e, "resolve breakpoint"), 500)

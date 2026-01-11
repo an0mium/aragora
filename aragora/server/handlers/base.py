@@ -71,6 +71,7 @@ from aragora.server.validation import (
 __all__ = [
     "DB_TIMEOUT_SECONDS", "require_auth", "require_user_auth", "require_storage", "require_feature",
     "error_response", "json_response", "handle_errors", "auto_error_response", "log_request", "ttl_cache",
+    "safe_error_message",
     "async_ttl_cache", "clear_cache", "get_cache_stats", "CACHE_INVALIDATION_MAP", "invalidate_cache",
     "invalidate_on_event", "invalidate_leaderboard_cache", "invalidate_agent_cache",
     "invalidate_debate_cache", "PathMatcher", "RouteDispatcher", "safe_fetch",
@@ -543,7 +544,9 @@ def auto_error_response(
             except PermissionError:
                 return error_response("Access denied", 403)
             except ValueError as e:
-                return error_response(f"Invalid request: {e}", 400)
+                # Log full details but return sanitized message
+                logger.warning(f"Invalid request in {operation}: {e}")
+                return error_response("Invalid request", 400)
             except Exception as e:
                 if log_level == "error":
                     logger.error(
@@ -552,7 +555,8 @@ def auto_error_response(
                     )
                 elif log_level == "warning":
                     logger.warning(f"Failed to {operation}: {e}")
-                return error_response(f"Failed to {operation}: {e}", 500)
+                # Return sanitized error message to client
+                return error_response(safe_error_message(e, operation), 500)
         return wrapper
     return decorator
 
@@ -967,6 +971,7 @@ class RouteDispatcher:
     """Dispatcher for routing paths to handler methods.
 
     Simplifies the common pattern of if/elif chains in handle() methods.
+    Uses segment-count indexing for O(n/k) lookup instead of O(n).
 
     Example:
         dispatcher = RouteDispatcher()
@@ -982,6 +987,8 @@ class RouteDispatcher:
 
     def __init__(self):
         self.routes: list[tuple[PathMatcher, Callable]] = []
+        # Index routes by segment count for faster lookup
+        self._segment_index: dict[int, list[int]] = {}
 
     def add_route(self, pattern: str, handler: Callable) -> "RouteDispatcher":
         """Add a route pattern with its handler.
@@ -994,7 +1001,16 @@ class RouteDispatcher:
         Returns:
             Self for chaining
         """
-        self.routes.append((PathMatcher(pattern), handler))
+        matcher = PathMatcher(pattern)
+        route_idx = len(self.routes)
+        self.routes.append((matcher, handler))
+
+        # Index by segment count
+        segment_count = len(matcher.parts)
+        if segment_count not in self._segment_index:
+            self._segment_index[segment_count] = []
+        self._segment_index[segment_count].append(route_idx)
+
         return self
 
     def dispatch(self, path: str, query_params: dict = None) -> Any:
@@ -1009,7 +1025,13 @@ class RouteDispatcher:
         """
         query_params = query_params or {}
 
-        for matcher, handler in self.routes:
+        # Count path segments once
+        path_segments = len(path.strip("/").split("/"))
+
+        # Only check routes with matching segment count
+        route_indices = self._segment_index.get(path_segments, [])
+        for idx in route_indices:
+            matcher, handler = self.routes[idx]
             params = matcher.match(path)
             if params is not None:
                 # Call handler with path params and query params
@@ -1022,7 +1044,9 @@ class RouteDispatcher:
 
     def can_handle(self, path: str) -> bool:
         """Check if any route can handle this path."""
-        return any(matcher.matches(path) for matcher, _ in self.routes)
+        path_segments = len(path.strip("/").split("/"))
+        route_indices = self._segment_index.get(path_segments, [])
+        return any(self.routes[idx][0].matches(path) for idx in route_indices)
 
 
 def parse_query_params(query_string: str) -> dict:

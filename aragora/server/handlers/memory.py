@@ -23,6 +23,7 @@ from .base import (
     get_bounded_float_param,
     get_bounded_string_param,
     handle_errors,
+    safe_error_message,
 )
 
 # Optional import for memory functionality
@@ -270,4 +271,4 @@ class MemoryHandler(BaseHandler):
             else:
                 return error_response(f"Memory not found: {memory_id}", 404)
         except Exception as e:
-            return error_response(f"Failed to delete memory: {e}", 500)
+            return error_response(safe_error_message(e, "delete memory"), 500)

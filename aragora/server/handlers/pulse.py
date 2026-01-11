@@ -19,33 +19,41 @@ logger = logging.getLogger(__name__)
 from .base import (
     BaseHandler, HandlerResult, json_response, error_response,
     get_int_param, get_string_param, validate_path_segment, SAFE_ID_PATTERN,
-    feature_unavailable_response, auto_error_response,
+    feature_unavailable_response, auto_error_response, ttl_cache, safe_error_message,
 )
 
 
 # Shared PulseManager singleton for analytics tracking
 # This allows FeedbackPhase to record outcomes that persist across requests
+import threading
+_pulse_lock = threading.Lock()
 _shared_pulse_manager = None
 
 
 def get_pulse_manager():
     """Get or create the shared PulseManager singleton.
 
+    Thread-safe initialization using double-checked locking.
+
     Returns:
         PulseManager instance for recording and retrieving analytics
     """
     global _shared_pulse_manager
     if _shared_pulse_manager is None:
-        try:
-            from aragora.pulse.ingestor import (
-                PulseManager, TwitterIngestor, HackerNewsIngestor, RedditIngestor
-            )
-            _shared_pulse_manager = PulseManager()
-            _shared_pulse_manager.add_ingestor("hackernews", HackerNewsIngestor())
-            _shared_pulse_manager.add_ingestor("reddit", RedditIngestor())
-            _shared_pulse_manager.add_ingestor("twitter", TwitterIngestor())
-        except ImportError:
-            return None
+        with _pulse_lock:
+            # Double-check after acquiring lock
+            if _shared_pulse_manager is None:
+                try:
+                    from aragora.pulse.ingestor import (
+                        PulseManager, TwitterIngestor, HackerNewsIngestor, RedditIngestor
+                    )
+                    manager = PulseManager()
+                    manager.add_ingestor("hackernews", HackerNewsIngestor())
+                    manager.add_ingestor("reddit", RedditIngestor())
+                    manager.add_ingestor("twitter", TwitterIngestor())
+                    _shared_pulse_manager = manager
+                except ImportError:
+                    return None
     return _shared_pulse_manager
 
 
@@ -101,6 +109,7 @@ class PulseHandler(BaseHandler):
             logger.warning("Async fetch failed: %s", e)
             return []
 
+    @ttl_cache(ttl_seconds=300, key_prefix="pulse_trending")
     def _get_trending_topics(self, limit: int) -> HandlerResult:
         """Get trending topics from multiple pulse ingestors.
 
@@ -112,6 +121,8 @@ class PulseHandler(BaseHandler):
         Response maps internal fields to frontend expectations:
         - platform → source
         - volume → score (normalized 0-1)
+
+        Results are cached for 5 minutes to reduce API load.
         """
         try:
             from aragora.pulse.ingestor import (
@@ -152,8 +163,9 @@ class PulseHandler(BaseHandler):
             })
 
         except Exception as e:
-            return error_response(f"Failed to fetch trending topics: {e}", 500)
+            return error_response(safe_error_message(e, "fetch trending topics"), 500)
 
+    @ttl_cache(ttl_seconds=300, key_prefix="pulse_suggest")
     def _suggest_debate_topic(self, category: str | None = None) -> HandlerResult:
         """Suggest a trending topic for debate.
 
@@ -161,6 +173,7 @@ class PulseHandler(BaseHandler):
             category: Optional category filter (tech, ai, science, etc.)
 
         Returns topic suitable for debate with prompt formatting.
+        Results are cached for 5 minutes per category.
         """
         try:
             from aragora.pulse.ingestor import (
@@ -201,8 +214,9 @@ class PulseHandler(BaseHandler):
             })
 
         except Exception as e:
-            return error_response(f"Failed to suggest debate topic: {e}", 500)
+            return error_response(safe_error_message(e, "suggest debate topic"), 500)
 
+    @ttl_cache(ttl_seconds=60, key_prefix="pulse_analytics")
     @auto_error_response("get pulse analytics")
     def _get_analytics(self) -> HandlerResult:
         """Get analytics on trending topic debate outcomes.
@@ -214,6 +228,8 @@ class PulseHandler(BaseHandler):
         - by_platform: Breakdown by source platform
         - by_category: Breakdown by topic category
         - recent_outcomes: Last 10 debate outcomes
+
+        Cached for 60 seconds for near-real-time updates.
         """
         manager = get_pulse_manager()
         if not manager:

@@ -24,7 +24,7 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 from aragora.config import DB_ELO_PATH, DB_INSIGHTS_PATH
-from .base import BaseHandler, HandlerResult, json_response, error_response
+from .base import BaseHandler, HandlerResult, json_response, error_response, safe_error_message
 from .cache import _cache, get_cache_stats
 from ..prometheus import (
     get_metrics_output,
@@ -167,7 +167,7 @@ class MetricsHandler(BaseHandler):
             )
         except Exception as e:
             logger.error("Failed to get Prometheus metrics: %s", e, exc_info=True)
-            return error_response(f"Failed to get Prometheus metrics: {e}", 500)
+            return error_response(safe_error_message(e, "get Prometheus metrics"), 500)
 
     def _get_metrics(self) -> HandlerResult:
         """Get comprehensive operational metrics."""
@@ -218,7 +218,7 @@ class MetricsHandler(BaseHandler):
             return json_response(metrics)
         except Exception as e:
             logger.error("Failed to get operational metrics: %s", e, exc_info=True)
-            return error_response(f"Failed to get metrics: {e}", 500)
+            return error_response(safe_error_message(e, "get metrics"), 500)
 
     def _get_health(self) -> HandlerResult:
         """Get detailed health check status."""
@@ -271,7 +271,7 @@ class MetricsHandler(BaseHandler):
             return json_response(health, status=status_code)
         except Exception as e:
             logger.error("Health check failed: %s", e, exc_info=True)
-            return error_response(f"Health check failed: {e}", 500)
+            return error_response(safe_error_message(e, "health check"), 500)
 
     def _get_cache_stats(self) -> HandlerResult:
         """Get cache statistics."""
@@ -310,7 +310,7 @@ class MetricsHandler(BaseHandler):
             return json_response(stats)
         except Exception as e:
             logger.error("Failed to get cache stats: %s", e, exc_info=True)
-            return error_response(f"Failed to get cache stats: {e}", 500)
+            return error_response(safe_error_message(e, "get cache stats"), 500)
 
     def _get_verification_stats(self) -> HandlerResult:
         """Get formal verification statistics.
@@ -326,7 +326,7 @@ class MetricsHandler(BaseHandler):
             return json_response(stats)
         except Exception as e:
             logger.error("Failed to get verification stats: %s", e, exc_info=True)
-            return error_response(f"Failed to get verification stats: {e}", 500)
+            return error_response(safe_error_message(e, "get verification stats"), 500)
 
     def _get_system_info(self) -> HandlerResult:
         """Get system information."""
@@ -355,7 +355,7 @@ class MetricsHandler(BaseHandler):
             return json_response(info)
         except Exception as e:
             logger.error("Failed to get system info: %s", e, exc_info=True)
-            return error_response(f"Failed to get system info: {e}", 500)
+            return error_response(safe_error_message(e, "get system info"), 500)
 
     def _get_background_stats(self) -> HandlerResult:
         """Get background task statistics."""
@@ -373,7 +373,7 @@ class MetricsHandler(BaseHandler):
             })
         except Exception as e:
             logger.error("Failed to get background stats: %s", e, exc_info=True)
-            return error_response(f"Failed to get background stats: {e}", 500)
+            return error_response(safe_error_message(e, "get background stats"), 500)
 
     def _get_database_sizes(self) -> dict[str, Any]:
         """Get database file sizes."""

@@ -24,6 +24,7 @@ from .base import (
     handle_errors,
     validate_path_segment,
     get_clamped_int_param,
+    get_db_connection,
 )
 
 logger = logging.getLogger(__name__)
@@ -159,14 +160,9 @@ class EvolutionABTestingHandler(BaseHandler):
 
     def _get_all_tests(self, limit: int, status: Optional[str] = None) -> list:
         """Get all tests with optional status filter."""
-        import sqlite3
-        from aragora.config import DB_TIMEOUT_SECONDS
         from aragora.evolution.ab_testing import ABTest
 
-        with sqlite3.connect(
-            str(self.manager.db_path),
-            timeout=DB_TIMEOUT_SECONDS
-        ) as conn:
+        with get_db_connection(str(self.manager.db_path)) as conn:
             cursor = conn.cursor()
 
             if status:

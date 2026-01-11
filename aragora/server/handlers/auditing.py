@@ -26,6 +26,7 @@ from .base import (
     error_response,
     invalidate_leaderboard_cache,
     SAFE_SLUG_PATTERN,
+    safe_error_message,
 )
 from aragora.server.validation import validate_agent_name, validate_id
 from aragora.utils.optional_imports import try_import_class
@@ -382,7 +383,7 @@ class AuditingHandler(BaseHandler):
             })
 
         except Exception as e:
-            return error_response(f"Failed to get attack types: {e}", 500)
+            return error_response(safe_error_message(e, "get attack types"), 500)
 
     def _get_attack_category(self, attack_type) -> str:
         """Categorize attack types for easier filtering."""

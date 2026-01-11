@@ -31,6 +31,7 @@ from .base import (
     get_int_param,
     ttl_cache,
     safe_json_parse,
+    safe_error_message,
 )
 from .utils.rate_limit import rate_limit
 from aragora.server.validation import validate_debate_id
@@ -295,7 +296,7 @@ class DebatesHandler(BaseHandler):
             return json_response({"debates": debates_list, "count": len(debates_list)})
         except Exception as e:
             logger.error("Failed to list debates: %s: %s", type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to list debates: {e}", 500)
+            return error_response(safe_error_message(e, "list debates"), 500)
 
     @rate_limit(rpm=30, limiter_name="debates_search")
     @require_storage
@@ -365,7 +366,7 @@ class DebatesHandler(BaseHandler):
             })
         except Exception as e:
             logger.error("Search failed for query '%s': %s: %s", query, type(e).__name__, e, exc_info=True)
-            return error_response(f"Search failed: {e}", 500)
+            return error_response(safe_error_message(e, "search debates"), 500)
 
     @require_storage
     def _get_debate_by_slug(self, handler, slug: str) -> HandlerResult:
@@ -378,7 +379,7 @@ class DebatesHandler(BaseHandler):
             return error_response(f"Debate not found: {slug}", 404)
         except Exception as e:
             logger.error("Failed to get debate %s: %s: %s", slug, type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to get debate: {e}", 500)
+            return error_response(safe_error_message(e, "get debate"), 500)
 
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_IMPASSE, key_prefix="debates_impasse", skip_first=True)
@@ -410,7 +411,7 @@ class DebatesHandler(BaseHandler):
             })
         except Exception as e:
             logger.error("Impasse detection failed for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(f"Impasse detection failed: {e}", 500)
+            return error_response(safe_error_message(e, "impasse detection"), 500)
 
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_convergence", skip_first=True)
@@ -431,7 +432,7 @@ class DebatesHandler(BaseHandler):
             })
         except Exception as e:
             logger.error("Convergence check failed for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(f"Convergence check failed: {e}", 500)
+            return error_response(safe_error_message(e, "convergence check"), 500)
 
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_verification", skip_first=True)
@@ -470,7 +471,7 @@ class DebatesHandler(BaseHandler):
             })
         except Exception as e:
             logger.error("Verification report failed for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(f"Verification report failed: {e}", 500)
+            return error_response(safe_error_message(e, "verification report"), 500)
 
     @require_storage
     def _export_debate(self, handler, debate_id: str, format: str, table: str) -> HandlerResult:
@@ -494,7 +495,7 @@ class DebatesHandler(BaseHandler):
 
         except Exception as e:
             logger.error("Export failed for %s (format=%s): %s: %s", debate_id, format, type(e).__name__, e, exc_info=True)
-            return error_response(f"Export failed: {e}", 500)
+            return error_response(safe_error_message(e, "export debate"), 500)
 
     def _format_csv(self, debate: dict, table: str) -> HandlerResult:
         """Format debate as CSV for the specified table type."""
@@ -572,7 +573,7 @@ class DebatesHandler(BaseHandler):
 
         except Exception as e:
             logger.error("Failed to get citations for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to get citations: {e}", 500)
+            return error_response(safe_error_message(e, "get citations"), 500)
 
     @require_storage
     def _get_evidence(self, handler, debate_id: str) -> HandlerResult:
@@ -656,7 +657,7 @@ class DebatesHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Failed to get evidence for {debate_id}")
-            return error_response(f"Failed to get evidence: {e}", 500)
+            return error_response(safe_error_message(e, "get evidence"), 500)
 
     @require_storage
     def _get_debate_messages(self, debate_id: str, limit: int = 50, offset: int = 0) -> HandlerResult:
@@ -714,7 +715,7 @@ class DebatesHandler(BaseHandler):
 
         except Exception as e:
             logger.error("Failed to get messages for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to get messages: {e}", 500)
+            return error_response(safe_error_message(e, "get messages"), 500)
 
     def _get_meta_critique(self, debate_id: str) -> HandlerResult:
         """Get meta-level analysis of a debate (repetition, circular arguments, etc)."""
@@ -758,7 +759,7 @@ class DebatesHandler(BaseHandler):
             })
         except Exception as e:
             logger.error("Failed to get meta critique for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to get meta critique: {e}", 500)
+            return error_response(safe_error_message(e, "get meta critique"), 500)
 
     def _get_graph_stats(self, debate_id: str) -> HandlerResult:
         """Get argument graph statistics for a debate.
@@ -817,7 +818,7 @@ class DebatesHandler(BaseHandler):
 
         except Exception as e:
             logger.error("Failed to get graph stats for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to get graph stats: {e}", 500)
+            return error_response(safe_error_message(e, "get graph stats"), 500)
 
     def _build_graph_from_replay(self, debate_id: str, replay_path) -> HandlerResult:
         """Build graph stats from replay events file."""
@@ -861,7 +862,7 @@ class DebatesHandler(BaseHandler):
             return json_response(stats)
         except Exception as e:
             logger.error("Failed to build graph from replay %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to build graph from replay: {e}", 500)
+            return error_response(safe_error_message(e, "build graph from replay"), 500)
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
@@ -963,7 +964,7 @@ class DebatesHandler(BaseHandler):
             })
         except Exception as e:
             logger.error(f"Failed to update debate {debate_id}: {e}")
-            return error_response(f"Failed to update debate: {e}", 500)
+            return error_response(safe_error_message(e, "update debate"), 500)
 
     @require_storage
     def _fork_debate(self, handler, debate_id: str) -> HandlerResult:
@@ -1073,7 +1074,7 @@ class DebatesHandler(BaseHandler):
 
         except Exception as e:
             logger.error("Failed to create fork for %s at round %s: %s: %s", debate_id, branch_point, type(e).__name__, e, exc_info=True)
-            return error_response(f"Failed to create fork: {e}", 500)
+            return error_response(safe_error_message(e, "create fork"), 500)
 
     @handle_errors("verify debate outcome")
     def _verify_outcome(self, handler, debate_id: str) -> HandlerResult:

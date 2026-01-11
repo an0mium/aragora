@@ -37,6 +37,7 @@ from .base import (
     require_feature,
     get_db_connection,
     handle_errors,
+    safe_error_message,
 )
 from aragora.utils.optional_imports import try_import
 
@@ -258,10 +259,10 @@ class ConsensusHandler(BaseHandler):
                 ),
             })
         except ImportError as e:
-            return error_response(f"Fixtures module not available: {e}", 500)
+            return error_response("Fixtures module not available", 503)
         except Exception as e:
             logger.error(f"Failed to seed demo data: {e}")
-            return error_response(f"Seeding failed: {e}", 500)
+            return error_response(safe_error_message(e, "seeding"), 500)
 
     @ttl_cache(ttl_seconds=CACHE_TTL_RECENT_DISSENTS, key_prefix="recent_dissents", skip_first=True)
     @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
