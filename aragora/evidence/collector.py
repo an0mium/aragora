@@ -159,16 +159,64 @@ class EvidencePack:
 class EvidenceCollector:
     """Collects evidence from multiple connectors for debate grounding."""
 
-    def __init__(self, connectors: Optional[Dict[str, Connector]] = None):
+    def __init__(
+        self,
+        connectors: Optional[Dict[str, Connector]] = None,
+        event_emitter: Optional[Any] = None,
+        loop_id: Optional[str] = None,
+    ):
         self.connectors = connectors or {}
         self.provenance_manager = ProvenanceManager()
         self.max_snippets_per_connector = 3
         self.max_total_snippets = 8
         self.snippet_max_length = 1000
+        self.event_emitter = event_emitter
+        self.loop_id = loop_id
 
     def add_connector(self, name: str, connector: Connector) -> None:
         """Add a connector for evidence collection."""
         self.connectors[name] = connector
+
+    def _emit_evidence_events(
+        self,
+        snippets: List[EvidenceSnippet],
+        keywords: List[str],
+    ) -> None:
+        """Emit evidence_found events for real-time UI updates.
+
+        Emits a single event containing all evidence snippets found,
+        allowing the frontend to display evidence as it's collected.
+        """
+        if not self.event_emitter:
+            return
+
+        try:
+            # Format snippets for the event
+            evidence_data = {
+                "keywords": keywords,
+                "count": len(snippets),
+                "snippets": [
+                    {
+                        "id": s.id,
+                        "source": s.source,
+                        "title": s.title,
+                        "snippet": s.snippet[:300],  # Truncate for event payload
+                        "url": s.url,
+                        "reliability_score": s.reliability_score,
+                        "freshness_score": s.freshness_score,
+                    }
+                    for s in snippets
+                ],
+            }
+
+            self.event_emitter.emit(
+                "evidence_found",
+                loop_id=self.loop_id,
+                data=evidence_data,
+            )
+            logger.debug(f"Emitted evidence_found event with {len(snippets)} snippets")
+        except Exception as e:
+            logger.warning(f"Failed to emit evidence_found event: {e}")
 
     async def collect_evidence(self, task: str, enabled_connectors: List[str] = None) -> EvidencePack:
         """Collect evidence relevant to the task."""
@@ -235,6 +283,10 @@ class EvidenceCollector:
         if hasattr(self.provenance_manager, 'record_evidence_use'):
             for snippet in ranked_snippets:
                 self.provenance_manager.record_evidence_use(snippet.id, task, "debate_context")
+
+        # Emit evidence_found events for real-time UI updates
+        if self.event_emitter and ranked_snippets:
+            self._emit_evidence_events(ranked_snippets, keywords)
 
         return EvidencePack(
             topic_keywords=keywords,

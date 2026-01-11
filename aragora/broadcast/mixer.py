@@ -140,29 +140,42 @@ def mix_audio_with_ffmpeg(audio_files: List[Path], output_path: Path) -> bool:
     try:
         # Use TemporaryDirectory for secure temp file handling (auto-cleanup, restricted perms)
         with tempfile.TemporaryDirectory(prefix="aragora_ffmpeg_") as temp_dir:
-            file_list = os.path.join(temp_dir, "filelist.txt")
-
-            # Write file list for ffmpeg concat
-            with open(file_list, 'w') as f:
-                for audio_file in audio_files:
-                    # Escape single quotes in file paths for ffmpeg concat format
-                    escaped_path = str(audio_file.absolute()).replace("'", "'\\''")
-                    f.write(f"file '{escaped_path}'\n")
-
-            # Detect if we need to re-encode (mixed codecs)
+            # Detect if we need to re-encode (mixed codecs like XTTS .wav + ElevenLabs .mp3)
             needs_reencode = _has_mixed_codecs(audio_files)
 
             if needs_reencode:
-                # Re-encode to mp3 for compatibility with mixed formats
-                logger.info("Mixed audio formats detected, re-encoding to mp3")
-                cmd = [
-                    "ffmpeg", "-y", "-f", "concat", "-safe", "0",
-                    "-i", file_list,
+                # For mixed codecs, use filter_complex concat which decodes all inputs
+                # The concat demuxer (-f concat) doesn't handle mixed formats well
+                logger.info("Mixed audio formats detected, using filter_complex concat")
+
+                # Build input arguments
+                cmd = ["ffmpeg", "-y"]
+                for audio_file in audio_files:
+                    cmd.extend(["-i", str(audio_file.absolute())])
+
+                # Build filter_complex for concatenating decoded audio
+                # Example: [0:a][1:a][2:a]concat=n=3:v=0:a=1[out]
+                n = len(audio_files)
+                filter_inputs = "".join(f"[{i}:a]" for i in range(n))
+                filter_str = f"{filter_inputs}concat=n={n}:v=0:a=1[out]"
+
+                cmd.extend([
+                    "-filter_complex", filter_str,
+                    "-map", "[out]",
                     "-c:a", "libmp3lame", "-q:a", "2",  # High quality MP3
                     str(output_path)
-                ]
+                ])
             else:
-                # Stream copy (faster, no quality loss) when codecs match
+                # Same codec - use concat demuxer with stream copy (faster, no quality loss)
+                file_list = os.path.join(temp_dir, "filelist.txt")
+
+                # Write file list for ffmpeg concat demuxer
+                with open(file_list, 'w') as f:
+                    for audio_file in audio_files:
+                        # Escape single quotes in file paths for ffmpeg concat format
+                        escaped_path = str(audio_file.absolute()).replace("'", "'\\''")
+                        f.write(f"file '{escaped_path}'\n")
+
                 cmd = [
                     "ffmpeg", "-y", "-f", "concat", "-safe", "0",
                     "-i", file_list, "-c", "copy", str(output_path)

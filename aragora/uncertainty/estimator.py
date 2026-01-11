@@ -44,13 +44,42 @@ class DisagreementCrux:
     divergent_agents: List[str]
     evidence_needed: str = ""
     severity: float = 0.5  # 0-1, how critical this disagreement is
+    crux_id: str = ""  # Unique identifier for follow-up tracking
+
+    def __post_init__(self):
+        if not self.crux_id:
+            # Generate stable ID from description hash
+            self.crux_id = f"crux-{abs(hash(self.description)) % 100000:05d}"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "id": self.crux_id,
             "description": self.description,
             "agents": self.divergent_agents,
             "evidence_needed": self.evidence_needed,
             "severity": self.severity
+        }
+
+
+@dataclass
+class FollowUpSuggestion:
+    """A suggested follow-up debate to resolve a crux."""
+
+    crux: DisagreementCrux
+    suggested_task: str
+    priority: float  # 0-1, how important this follow-up is
+    parent_debate_id: Optional[str] = None
+    suggested_agents: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "crux_id": self.crux.crux_id,
+            "crux_description": self.crux.description,
+            "suggested_task": self.suggested_task,
+            "priority": self.priority,
+            "parent_debate_id": self.parent_debate_id,
+            "suggested_agents": self.suggested_agents,
+            "divergent_agents": self.crux.divergent_agents,
         }
 
 
@@ -342,6 +371,72 @@ class DisagreementAnalyzer:
             return similarity > 0.3  # 30% word overlap
 
         return False
+
+    def suggest_followups(
+        self,
+        cruxes: List[DisagreementCrux],
+        parent_debate_id: Optional[str] = None,
+        available_agents: Optional[List[str]] = None,
+    ) -> List[FollowUpSuggestion]:
+        """
+        Generate follow-up debate suggestions from identified cruxes.
+
+        Args:
+            cruxes: List of disagreement cruxes from a debate
+            parent_debate_id: ID of the parent debate for lineage tracking
+            available_agents: Optional list of agents that can participate
+
+        Returns:
+            List of FollowUpSuggestion ordered by priority
+        """
+        suggestions = []
+
+        for crux in cruxes:
+            # Generate a focused task from the crux description
+            task = self._generate_followup_task(crux)
+
+            # Calculate priority based on severity and number of divergent agents
+            priority = crux.severity * 0.6 + min(len(crux.divergent_agents) / 3, 1.0) * 0.4
+
+            # Suggest agents: include divergent agents plus others if available
+            suggested_agents = list(crux.divergent_agents)
+            if available_agents:
+                # Add agents not already in the list
+                for agent in available_agents:
+                    if agent not in suggested_agents and len(suggested_agents) < 4:
+                        suggested_agents.append(agent)
+
+            suggestion = FollowUpSuggestion(
+                crux=crux,
+                suggested_task=task,
+                priority=priority,
+                parent_debate_id=parent_debate_id,
+                suggested_agents=suggested_agents,
+            )
+            suggestions.append(suggestion)
+
+        # Sort by priority descending
+        suggestions.sort(key=lambda s: s.priority, reverse=True)
+
+        return suggestions
+
+    def _generate_followup_task(self, crux: DisagreementCrux) -> str:
+        """Generate a focused debate task from a crux."""
+        description = crux.description.strip()
+
+        # Clean up the description
+        if description.endswith("..."):
+            description = description[:-3].strip()
+
+        # Frame as a question or investigation
+        if description.lower().startswith(("but ", "however ", "i disagree")):
+            # Extract the core concern
+            clean = description.split(",", 1)[-1].strip() if "," in description else description
+            return f"Investigate: {clean}"
+        elif "?" in description:
+            return f"Resolve: {description}"
+        else:
+            return f"Debate: Should we accept that {description.lower()}?"
 
 
 class UncertaintyAggregator:

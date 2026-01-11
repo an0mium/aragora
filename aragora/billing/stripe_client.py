@@ -553,10 +553,11 @@ class StripeClient:
 class WebhookEvent:
     """Parsed Stripe webhook event."""
 
-    def __init__(self, event_type: str, data: dict):
+    def __init__(self, event_type: str, data: dict, event_id: str = ""):
         self.type = event_type
         self.data = data
         self.object = data.get("object", {})
+        self.event_id = event_id  # Top-level Stripe event ID for idempotency
 
     @property
     def customer_id(self) -> Optional[str]:
@@ -653,6 +654,7 @@ def parse_webhook_event(payload: bytes, signature: str) -> Optional[WebhookEvent
         return WebhookEvent(
             event_type=data.get("type", ""),
             data=data.get("data", {}),
+            event_id=data.get("id", ""),  # Preserve top-level Stripe event ID
         )
     except json.JSONDecodeError:
         logger.warning("Invalid webhook payload")

@@ -30,7 +30,11 @@ class UserStore:
     SQLite-backed storage for users and organizations.
 
     Thread-safe with connection pooling via thread-local storage.
+    Uses WAL mode for better read/write concurrency.
     """
+
+    # Class-level lock for schema migrations to prevent race conditions
+    _schema_lock = threading.Lock()
 
     def __init__(self, db_path: Path | str):
         """
@@ -45,7 +49,11 @@ class UserStore:
         self._init_schema()
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
+        """Get thread-local database connection.
+
+        Note: check_same_thread=False is safe here because we store connections
+        in thread-local storage, ensuring each thread uses its own connection.
+        """
         if not hasattr(self._local, "connection"):
             conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
             conn.row_factory = sqlite3.Row
@@ -68,8 +76,9 @@ class UserStore:
             raise
 
     def _init_schema(self) -> None:
-        """Initialize database schema."""
-        with self._transaction() as cursor:
+        """Initialize database schema with migration support."""
+        # Use class-level lock to prevent concurrent schema modifications
+        with self._schema_lock, self._transaction() as cursor:
             # Users table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
@@ -163,6 +172,24 @@ class UserStore:
                 )
             """)
 
+            # Organization invitations table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS org_invitations (
+                    id TEXT PRIMARY KEY,
+                    org_id TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    role TEXT DEFAULT 'member',
+                    token TEXT UNIQUE NOT NULL,
+                    invited_by TEXT,
+                    status TEXT DEFAULT 'pending',
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    accepted_at TEXT,
+                    FOREIGN KEY (org_id) REFERENCES organizations(id),
+                    FOREIGN KEY (invited_by) REFERENCES users(id)
+                )
+            """)
+
             # Create indexes
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_api_key ON users(api_key)")
@@ -177,6 +204,10 @@ class UserStore:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_org ON audit_log(org_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_invitations_org ON org_invitations(org_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_invitations_email ON org_invitations(email)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_invitations_token ON org_invitations(token)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_invitations_status ON org_invitations(status)")
 
         logger.info(f"UserStore initialized: {self.db_path}")
 
@@ -707,6 +738,177 @@ class UserStore:
             settings=json.loads(row["settings"]) if row["settings"] else {},
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
+        )
+
+    # =========================================================================
+    # Organization Invitations
+    # =========================================================================
+
+    def create_invitation(self, invitation: "OrganizationInvitation") -> bool:
+        """
+        Create a new organization invitation.
+
+        Args:
+            invitation: OrganizationInvitation instance
+
+        Returns:
+            True if created successfully
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO org_invitations
+                (id, org_id, email, role, token, invited_by, status, created_at, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    invitation.id,
+                    invitation.org_id,
+                    invitation.email.lower(),
+                    invitation.role,
+                    invitation.token,
+                    invitation.invited_by,
+                    invitation.status,
+                    invitation.created_at.isoformat(),
+                    invitation.expires_at.isoformat(),
+                ),
+            )
+        return True
+
+    def get_invitation_by_id(self, invitation_id: str) -> Optional["OrganizationInvitation"]:
+        """Get invitation by ID."""
+        with self._transaction() as cursor:
+            cursor.execute(
+                "SELECT * FROM org_invitations WHERE id = ?",
+                (invitation_id,),
+            )
+            row = cursor.fetchone()
+            return self._row_to_invitation(row) if row else None
+
+    def get_invitation_by_token(self, token: str) -> Optional["OrganizationInvitation"]:
+        """Get invitation by token."""
+        with self._transaction() as cursor:
+            cursor.execute(
+                "SELECT * FROM org_invitations WHERE token = ?",
+                (token,),
+            )
+            row = cursor.fetchone()
+            return self._row_to_invitation(row) if row else None
+
+    def get_invitation_by_email(
+        self, org_id: str, email: str
+    ) -> Optional["OrganizationInvitation"]:
+        """Get pending invitation by org and email."""
+        with self._transaction() as cursor:
+            cursor.execute(
+                """
+                SELECT * FROM org_invitations
+                WHERE org_id = ? AND email = ? AND status = 'pending'
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (org_id, email.lower()),
+            )
+            row = cursor.fetchone()
+            return self._row_to_invitation(row) if row else None
+
+    def get_invitations_for_org(self, org_id: str) -> list["OrganizationInvitation"]:
+        """Get all invitations for an organization."""
+        with self._transaction() as cursor:
+            cursor.execute(
+                "SELECT * FROM org_invitations WHERE org_id = ? ORDER BY created_at DESC",
+                (org_id,),
+            )
+            return [self._row_to_invitation(row) for row in cursor.fetchall()]
+
+    def get_pending_invitations_by_email(self, email: str) -> list["OrganizationInvitation"]:
+        """Get all pending invitations for an email address."""
+        with self._transaction() as cursor:
+            cursor.execute(
+                """
+                SELECT * FROM org_invitations
+                WHERE email = ? AND status = 'pending'
+                ORDER BY created_at DESC
+                """,
+                (email.lower(),),
+            )
+            return [self._row_to_invitation(row) for row in cursor.fetchall()]
+
+    def update_invitation_status(
+        self,
+        invitation_id: str,
+        status: str,
+        accepted_at: Optional[datetime] = None,
+    ) -> bool:
+        """
+        Update invitation status.
+
+        Args:
+            invitation_id: Invitation ID
+            status: New status (pending, accepted, expired, revoked)
+            accepted_at: Timestamp when accepted (for accepted status)
+
+        Returns:
+            True if updated
+        """
+        with self._transaction() as cursor:
+            if accepted_at:
+                cursor.execute(
+                    """
+                    UPDATE org_invitations
+                    SET status = ?, accepted_at = ?
+                    WHERE id = ?
+                    """,
+                    (status, accepted_at.isoformat(), invitation_id),
+                )
+            else:
+                cursor.execute(
+                    "UPDATE org_invitations SET status = ? WHERE id = ?",
+                    (status, invitation_id),
+                )
+            return cursor.rowcount > 0
+
+    def delete_invitation(self, invitation_id: str) -> bool:
+        """Delete an invitation."""
+        with self._transaction() as cursor:
+            cursor.execute(
+                "DELETE FROM org_invitations WHERE id = ?",
+                (invitation_id,),
+            )
+            return cursor.rowcount > 0
+
+    def cleanup_expired_invitations(self) -> int:
+        """
+        Mark expired invitations as expired.
+
+        Returns:
+            Number of invitations marked as expired
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                """
+                UPDATE org_invitations
+                SET status = 'expired'
+                WHERE status = 'pending' AND expires_at < ?
+                """,
+                (datetime.utcnow().isoformat(),),
+            )
+            return cursor.rowcount
+
+    def _row_to_invitation(self, row: sqlite3.Row) -> "OrganizationInvitation":
+        """Convert database row to OrganizationInvitation object."""
+        from aragora.billing.models import OrganizationInvitation
+
+        return OrganizationInvitation(
+            id=row["id"],
+            org_id=row["org_id"],
+            email=row["email"],
+            role=row["role"],
+            token=row["token"],
+            invited_by=row["invited_by"],
+            status=row["status"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            expires_at=datetime.fromisoformat(row["expires_at"]),
+            accepted_at=datetime.fromisoformat(row["accepted_at"]) if row["accepted_at"] else None,
         )
 
     # =========================================================================

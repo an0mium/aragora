@@ -241,6 +241,87 @@ def with_retry(
     return decorator
 
 
+@contextmanager
+def atomic_transaction(
+    db_path: str,
+    max_retries: int = 3,
+    base_delay: float = 0.1,
+    max_delay: float = 2.0,
+):
+    """
+    Execute database operations atomically with retry on transient errors.
+
+    Uses BEGIN IMMEDIATE to acquire a write lock early, preventing deadlocks
+    when multiple operations need to be atomic. Automatically retries on
+    transient errors like "database is locked".
+
+    Args:
+        db_path: Path to the SQLite database file
+        max_retries: Maximum number of retry attempts (default: 3)
+        base_delay: Initial delay between retries in seconds (default: 0.1)
+        max_delay: Maximum delay between retries in seconds (default: 2.0)
+
+    Yields:
+        sqlite3.Connection: Database connection with active transaction
+
+    Raises:
+        sqlite3.OperationalError: If all retry attempts fail
+
+    Usage:
+        from aragora.storage.resilience import atomic_transaction
+
+        with atomic_transaction("/path/to/db.sqlite") as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE accounts SET balance = balance - ?", (amount,))
+            cursor.execute("UPDATE accounts SET balance = balance + ?", (amount,))
+            # Commit happens automatically on successful exit
+    """
+    from aragora.storage.schema import get_wal_connection
+
+    last_error: Optional[Exception] = None
+
+    for attempt in range(max_retries + 1):
+        conn: Optional[sqlite3.Connection] = None
+        try:
+            conn = get_wal_connection(db_path)
+            # BEGIN IMMEDIATE acquires a write lock immediately,
+            # failing fast if another process has the lock
+            conn.execute("BEGIN IMMEDIATE")
+            yield conn
+            conn.commit()
+            return
+        except sqlite3.OperationalError as e:
+            last_error = e
+            if conn:
+                try:
+                    conn.rollback()
+                except sqlite3.Error:
+                    pass
+
+            if not is_transient_error(e) or attempt >= max_retries:
+                logger.error(
+                    f"Atomic transaction failed after {attempt + 1} attempts: {e}"
+                )
+                raise
+
+            delay = min(base_delay * (2 ** attempt), max_delay)
+            logger.warning(
+                f"Transient error in atomic transaction (attempt {attempt + 1}/{max_retries + 1}): {e}. "
+                f"Retrying in {delay:.2f}s"
+            )
+            time.sleep(delay)
+        finally:
+            if conn:
+                try:
+                    conn.close()
+                except sqlite3.Error:
+                    pass
+
+    # Should not reach here, but just in case
+    if last_error:
+        raise last_error
+
+
 class ConnectionPool:
     """
     Simple connection pool for SQLite with health checking.

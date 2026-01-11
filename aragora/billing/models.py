@@ -387,10 +387,12 @@ class User:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
-            "has_api_key": self.api_key is not None,
+            "has_api_key": self.api_key_hash is not None or self.api_key is not None,
         }
         if include_sensitive:
+            # API key is only available if stored in legacy format
             data["api_key"] = self.api_key
+            data["api_key_prefix"] = self.api_key_prefix
         return data
 
     @classmethod

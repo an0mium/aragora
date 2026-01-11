@@ -21,6 +21,7 @@ Usage:
 
 import json
 import logging
+import logging.handlers
 import os
 import sys
 import threading
@@ -39,6 +40,10 @@ _log_context: ContextVar[Dict[str, Any]] = ContextVar("log_context", default={})
 LOG_LEVEL = os.environ.get("ARAGORA_LOG_LEVEL", "INFO").upper()
 LOG_FORMAT = os.environ.get("ARAGORA_LOG_FORMAT", "json")  # "json" or "text"
 LOG_FILE = os.environ.get("ARAGORA_LOG_FILE", "")
+
+# Log rotation configuration (for file logging)
+LOG_MAX_BYTES = int(os.environ.get("ARAGORA_LOG_MAX_BYTES", 10 * 1024 * 1024))  # 10MB default
+LOG_BACKUP_COUNT = int(os.environ.get("ARAGORA_LOG_BACKUP_COUNT", 5))  # Keep 5 backups
 
 
 @dataclass
@@ -318,9 +323,13 @@ def configure_logging(
     console_handler.setLevel(log_level)
     root.addHandler(console_handler)
 
-    # Add file handler if specified
+    # Add file handler with rotation if specified
     if file_path:
-        file_handler = logging.FileHandler(file_path)
+        file_handler = logging.handlers.RotatingFileHandler(
+            file_path,
+            maxBytes=LOG_MAX_BYTES,
+            backupCount=LOG_BACKUP_COUNT,
+        )
         file_handler.setFormatter(formatter)
         file_handler.setLevel(log_level)
         root.addHandler(file_handler)

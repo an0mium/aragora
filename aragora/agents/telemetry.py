@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
+import threading
 import time
 from dataclasses import dataclass, asdict, field
 from typing import Any, Awaitable, Callable, Optional, TypeVar, ParamSpec
@@ -62,12 +63,13 @@ class AgentTelemetry:
         return len(text) // 4 if text else 0
 
 
-# Global telemetry collectors
+# Global telemetry collectors (thread-safe)
+_telemetry_lock = threading.Lock()
 _telemetry_collectors: list[Callable[[AgentTelemetry], None]] = []
 
 
 def register_telemetry_collector(collector: Callable[[AgentTelemetry], None]) -> None:
-    """Register a collector to receive telemetry events.
+    """Register a collector to receive telemetry events. Thread-safe.
 
     Collectors receive AgentTelemetry objects after each operation completes.
 
@@ -77,20 +79,25 @@ def register_telemetry_collector(collector: Callable[[AgentTelemetry], None]) ->
 
         register_telemetry_collector(my_collector)
     """
-    if collector not in _telemetry_collectors:
-        _telemetry_collectors.append(collector)
-        logger.debug(f"telemetry_collector_registered total={len(_telemetry_collectors)}")
+    with _telemetry_lock:
+        if collector not in _telemetry_collectors:
+            _telemetry_collectors.append(collector)
+            logger.debug(f"telemetry_collector_registered total={len(_telemetry_collectors)}")
 
 
 def unregister_telemetry_collector(collector: Callable[[AgentTelemetry], None]) -> None:
-    """Unregister a telemetry collector."""
-    if collector in _telemetry_collectors:
-        _telemetry_collectors.remove(collector)
+    """Unregister a telemetry collector. Thread-safe."""
+    with _telemetry_lock:
+        if collector in _telemetry_collectors:
+            _telemetry_collectors.remove(collector)
 
 
 def _emit_telemetry(telemetry: AgentTelemetry) -> None:
-    """Emit telemetry to all registered collectors."""
-    for collector in _telemetry_collectors:
+    """Emit telemetry to all registered collectors. Thread-safe."""
+    # Copy under lock, iterate outside to avoid holding lock during callbacks
+    with _telemetry_lock:
+        collectors = _telemetry_collectors.copy()
+    for collector in collectors:
         try:
             collector(telemetry)
         except Exception as e:
@@ -373,14 +380,16 @@ class TelemetryContext:
 
 
 def get_telemetry_stats() -> dict:
-    """Get telemetry statistics summary."""
-    return {
-        "collectors_count": len(_telemetry_collectors),
-        "collectors": [c.__name__ for c in _telemetry_collectors],
-    }
+    """Get telemetry statistics summary. Thread-safe."""
+    with _telemetry_lock:
+        return {
+            "collectors_count": len(_telemetry_collectors),
+            "collectors": [c.__name__ for c in _telemetry_collectors],
+        }
 
 
 def reset_telemetry() -> None:
-    """Reset telemetry system (for testing)."""
+    """Reset telemetry system (for testing). Thread-safe."""
     global _telemetry_collectors
-    _telemetry_collectors = []
+    with _telemetry_lock:
+        _telemetry_collectors = []

@@ -263,7 +263,8 @@ class WebhookDispatcher:
                 queue_max_size = self.DEFAULT_QUEUE_SIZE
 
         self._queue: queue.Queue = queue.Queue(maxsize=queue_max_size)
-        self._running = False
+        self._shutdown_event = threading.Event()  # Thread-safe shutdown signal
+        self._started = False  # Tracks if we've ever started
         self._worker: Optional[threading.Thread] = None
 
         # Thread-safe stats
@@ -275,9 +276,10 @@ class WebhookDispatcher:
 
     def start(self) -> None:
         """Start the background worker thread."""
-        if self._running:
-            return
-        self._running = True
+        if self._started and not self._shutdown_event.is_set():
+            return  # Already running
+        self._shutdown_event.clear()  # Reset shutdown signal
+        self._started = True
         self._worker = threading.Thread(
             target=self._worker_loop,
             daemon=True,
@@ -290,9 +292,18 @@ class WebhookDispatcher:
 
         logger.info(f"Webhook dispatcher started with {len(self.configs)} endpoint(s)")
 
+    @property
+    def is_running(self) -> bool:
+        """Check if the dispatcher is currently running."""
+        return self._started and not self._shutdown_event.is_set()
+
     def stop(self, timeout: float = 5.0) -> None:
-        """Stop the background worker (for graceful shutdown)."""
-        self._running = False
+        """Stop the background worker (for graceful shutdown).
+
+        Uses threading.Event for thread-safe shutdown signaling, avoiding
+        race conditions between setting the flag and checking worker state.
+        """
+        self._shutdown_event.set()  # Thread-safe signal to stop
         if self._worker and self._worker.is_alive():
             self._worker.join(timeout=timeout)
         with self._stats_lock:
@@ -310,7 +321,7 @@ class WebhookDispatcher:
 
         Returns True if enqueued, False if dropped (no matching config or queue full).
         """
-        if not self._running:
+        if self._shutdown_event.is_set():
             return False
 
         event_type = event_dict.get("type", "")
@@ -442,7 +453,7 @@ class WebhookDispatcher:
 
     def _worker_loop(self) -> None:
         """Background thread that delivers events to webhooks."""
-        while self._running:
+        while not self._shutdown_event.is_set():
             try:
                 event_dict = self._queue.get(timeout=1.0)
             except queue.Empty:

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 import hashlib
 import json
+import threading
 import time
 
 from aragora.visualization.mapper import ArgumentCartographer
@@ -12,6 +13,7 @@ from aragora.visualization.mapper import ArgumentCartographer
 # In-memory export cache with TTL
 # Key: (debate_id, format, graph_hash) -> (content, timestamp)
 _export_cache: dict[tuple[str, str, str], tuple[str, float]] = {}
+_export_cache_lock = threading.Lock()
 _EXPORT_CACHE_TTL = 300.0  # 5 minutes
 _MAX_CACHE_ENTRIES = 100
 
@@ -25,43 +27,46 @@ def _get_graph_hash(cartographer: ArgumentCartographer) -> str:
 
 
 def _get_cached_export(debate_id: str, format_name: str, graph_hash: str) -> Optional[str]:
-    """Get cached export if valid."""
+    """Get cached export if valid. Thread-safe."""
     key = (debate_id, format_name, graph_hash)
-    if key in _export_cache:
-        content, timestamp = _export_cache[key]
-        if time.time() - timestamp < _EXPORT_CACHE_TTL:
-            return content
-        else:
-            del _export_cache[key]
+    with _export_cache_lock:
+        if key in _export_cache:
+            content, timestamp = _export_cache[key]
+            if time.time() - timestamp < _EXPORT_CACHE_TTL:
+                return content
+            else:
+                del _export_cache[key]
     return None
 
 
 def _cache_export(debate_id: str, format_name: str, graph_hash: str, content: str) -> None:
-    """Cache an export."""
+    """Cache an export. Thread-safe."""
     global _export_cache
 
-    # Evict old entries if at limit
-    if len(_export_cache) >= _MAX_CACHE_ENTRIES:
-        now = time.time()
-        # Remove expired entries first
-        expired = [k for k, (_, ts) in _export_cache.items() if now - ts > _EXPORT_CACHE_TTL]
-        for k in expired:
-            del _export_cache[k]
-
-        # If still at limit, remove oldest
+    with _export_cache_lock:
+        # Evict old entries if at limit
         if len(_export_cache) >= _MAX_CACHE_ENTRIES:
-            oldest_key = min(_export_cache.keys(), key=lambda k: _export_cache[k][1])
-            del _export_cache[oldest_key]
+            now = time.time()
+            # Remove expired entries first
+            expired = [k for k, (_, ts) in _export_cache.items() if now - ts > _EXPORT_CACHE_TTL]
+            for k in expired:
+                del _export_cache[k]
 
-    _export_cache[(debate_id, format_name, graph_hash)] = (content, time.time())
+            # If still at limit, remove oldest
+            if len(_export_cache) >= _MAX_CACHE_ENTRIES:
+                oldest_key = min(_export_cache.keys(), key=lambda k: _export_cache[k][1])
+                del _export_cache[oldest_key]
+
+        _export_cache[(debate_id, format_name, graph_hash)] = (content, time.time())
 
 
 def clear_export_cache() -> int:
-    """Clear the export cache. Returns number of entries cleared."""
+    """Clear the export cache. Returns number of entries cleared. Thread-safe."""
     global _export_cache
-    count = len(_export_cache)
-    _export_cache = {}
-    return count
+    with _export_cache_lock:
+        count = len(_export_cache)
+        _export_cache = {}
+        return count
 
 
 def save_debate_visualization(

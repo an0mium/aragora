@@ -36,6 +36,12 @@ from aragora.resilience import CircuitBreaker
 if TYPE_CHECKING:
     from aragora.agents.api_agents import OpenRouterAgent
 
+# Module-level semaphore to limit concurrent CLI subprocesses
+# Prevents OS resource exhaustion when running many agents in parallel
+# Configurable via ARAGORA_MAX_CLI_SUBPROCESSES environment variable
+_MAX_CLI_SUBPROCESSES = int(os.environ.get("ARAGORA_MAX_CLI_SUBPROCESSES", "10"))
+_subprocess_semaphore = asyncio.Semaphore(_MAX_CLI_SUBPROCESSES)
+
 # Re-export constants for backward compatibility
 __all__ = [
     "CLIAgent", "CodexAgent", "ClaudeAgent", "OpenAIAgent",
@@ -194,6 +200,7 @@ class CLIAgent(CritiqueMixin, Agent):
         """Run a CLI command and return output.
 
         Integrates with circuit breaker to prevent cascading failures.
+        Uses a module-level semaphore to limit concurrent subprocesses.
         """
         # Check circuit breaker before attempting the call
         if self._circuit_breaker is not None and not self._circuit_breaker.can_proceed():
@@ -206,64 +213,67 @@ class CLIAgent(CritiqueMixin, Agent):
         # Sanitize all command arguments to prevent 'embedded null byte' errors
         sanitized_command = [self._sanitize_cli_arg(arg) for arg in command]
         proc = None
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                *sanitized_command,
-                stdin=asyncio.subprocess.PIPE if input_text else None,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
 
-            # Also sanitize stdin input (used by ClaudeAgent)
-            sanitized_input = self._sanitize_cli_arg(input_text) if input_text else None
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(input=sanitized_input.encode() if sanitized_input else None),
-                timeout=self.timeout,
-            )
+        # Use semaphore to limit concurrent subprocesses (prevents resource exhaustion)
+        async with _subprocess_semaphore:
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *sanitized_command,
+                    stdin=asyncio.subprocess.PIPE if input_text else None,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
 
-            if proc.returncode != 0:
+                # Also sanitize stdin input (used by ClaudeAgent)
+                sanitized_input = self._sanitize_cli_arg(input_text) if input_text else None
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(input=sanitized_input.encode() if sanitized_input else None),
+                    timeout=self.timeout,
+                )
+
+                if proc.returncode != 0:
+                    # Record failure to circuit breaker
+                    if self._circuit_breaker is not None:
+                        self._circuit_breaker.record_failure()
+                    # Build informative error message with return code
+                    stderr_text = stderr.decode('utf-8', errors='replace').strip()
+                    error_msg = f"CLI command failed with return code {proc.returncode}"
+                    if stderr_text:
+                        # For verbose CLIs (like Codex), extract last meaningful line
+                        lines = [l.strip() for l in stderr_text.split('\n') if l.strip()]
+                        if lines:
+                            last_line = lines[-1][:200]
+                            error_msg += f": {last_line}"
+                    else:
+                        error_msg += " (stderr empty)"
+                    raise RuntimeError(error_msg)
+
+                # Record success to circuit breaker
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_success()
+
+                return stdout.decode('utf-8', errors='replace').strip()
+
+            except asyncio.TimeoutError:
                 # Record failure to circuit breaker
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
-                # Build informative error message with return code
-                stderr_text = stderr.decode('utf-8', errors='replace').strip()
-                error_msg = f"CLI command failed with return code {proc.returncode}"
-                if stderr_text:
-                    # For verbose CLIs (like Codex), extract last meaningful line
-                    lines = [l.strip() for l in stderr_text.split('\n') if l.strip()]
-                    if lines:
-                        last_line = lines[-1][:200]
-                        error_msg += f": {last_line}"
-                else:
-                    error_msg += " (stderr empty)"
-                raise RuntimeError(error_msg)
-
-            # Record success to circuit breaker
-            if self._circuit_breaker is not None:
-                self._circuit_breaker.record_success()
-
-            return stdout.decode('utf-8', errors='replace').strip()
-
-        except asyncio.TimeoutError:
-            # Record failure to circuit breaker
-            if self._circuit_breaker is not None:
-                self._circuit_breaker.record_failure()
-            if proc:
-                proc.kill()
-                await proc.wait()  # Ensure process is fully cleaned up
-            raise TimeoutError(f"CLI command timed out after {self.timeout}s")
-        except AgentCircuitOpenError:
-            # Don't record circuit open errors as failures - just re-raise
-            raise
-        except Exception as e:
-            # Record failure to circuit breaker
-            if self._circuit_breaker is not None:
-                self._circuit_breaker.record_failure()
-            if proc and proc.returncode is None:
-                logger.debug(f"[cleanup] Killing subprocess after error: {e}")
-                proc.kill()
-                await proc.wait()  # Cleanup zombie processes
-            raise
+                if proc:
+                    proc.kill()
+                    await proc.wait()  # Ensure process is fully cleaned up
+                raise TimeoutError(f"CLI command timed out after {self.timeout}s")
+            except AgentCircuitOpenError:
+                # Don't record circuit open errors as failures - just re-raise
+                raise
+            except Exception as e:
+                # Record failure to circuit breaker
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
+                if proc and proc.returncode is None:
+                    logger.debug(f"[cleanup] Killing subprocess after error: {e}")
+                    proc.kill()
+                    await proc.wait()  # Cleanup zombie processes
+                raise
 
     def _build_context_prompt(
         self,
