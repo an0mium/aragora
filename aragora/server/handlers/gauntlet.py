@@ -44,6 +44,15 @@ _gauntlet_runs: dict[str, dict[str, Any]] = {}
 # Persistent storage singleton
 _storage: Optional["GauntletStorage"] = None
 
+# WebSocket broadcast function (set by unified server when streaming is enabled)
+_gauntlet_broadcast_fn: Optional[callable] = None
+
+
+def set_gauntlet_broadcast_fn(broadcast_fn: callable) -> None:
+    """Set the broadcast function for WebSocket streaming."""
+    global _gauntlet_broadcast_fn
+    _gauntlet_broadcast_fn = broadcast_fn
+
 
 def _get_storage() -> "GauntletStorage":
     """Get or create the persistent storage instance."""
@@ -229,9 +238,19 @@ class GauntletHandler(BaseHandler):
             from aragora.modes.gauntlet import (
                 GauntletOrchestrator,
                 GauntletConfig,
+                GauntletProgress,
                 InputType,
             )
             from aragora.agents.base import create_agent
+            from aragora.server.stream.gauntlet_emitter import GauntletStreamEmitter
+
+            # Create stream emitter if broadcasting is available
+            emitter: Optional[GauntletStreamEmitter] = None
+            if _gauntlet_broadcast_fn:
+                emitter = GauntletStreamEmitter(
+                    broadcast_fn=_gauntlet_broadcast_fn,
+                    gauntlet_id=gauntlet_id,
+                )
 
             # Update status
             _gauntlet_runs[gauntlet_id]["status"] = "running"
@@ -273,9 +292,51 @@ class GauntletHandler(BaseHandler):
                 max_duration_seconds=300,  # 5 minute max for API
             )
 
-            # Run gauntlet
-            orchestrator = GauntletOrchestrator(agent_instances)
+            # Emit start event
+            if emitter:
+                emitter.emit_start(
+                    gauntlet_id=gauntlet_id,
+                    input_type=input_type,
+                    input_summary=input_content[:500],
+                    agents=[a.name for a in agent_instances],
+                    config_summary={"profile": profile, "persona": persona},
+                )
+
+            # Create progress callback that also emits streaming events
+            def on_progress(progress: GauntletProgress) -> None:
+                """Handle progress updates with streaming."""
+                if emitter:
+                    emitter.emit_progress(
+                        progress=progress.percent / 100.0,
+                        phase=progress.phase,
+                        message=progress.message,
+                    )
+                    if progress.current_task:
+                        emitter.emit_phase(progress.current_task, progress.message)
+
+            # Run gauntlet with progress callback
+            orchestrator = GauntletOrchestrator(agent_instances, on_progress=on_progress)
             result = await orchestrator.run(config)
+
+            # Emit verdict and complete events
+            if emitter:
+                emitter.emit_verdict(
+                    verdict=result.verdict.value,
+                    confidence=result.confidence,
+                    risk_score=result.risk_score,
+                    robustness_score=result.robustness_score,
+                    critical_count=len(result.critical_findings),
+                    high_count=len(result.high_findings),
+                    medium_count=len(result.medium_findings),
+                    low_count=len(result.low_findings),
+                )
+                emitter.emit_complete(
+                    gauntlet_id=gauntlet_id,
+                    verdict=result.verdict.value,
+                    confidence=result.confidence,
+                    findings_count=result.total_findings,
+                    duration_seconds=result.duration_seconds,
+                )
 
             # Store result
             completed_at = datetime.now().isoformat()

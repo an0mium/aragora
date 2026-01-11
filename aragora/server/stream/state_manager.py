@@ -147,8 +147,9 @@ class DebateStateManager:
         self._DEBATE_STATES_TTL = 3600  # 1 hour TTL for ended debates
         self._MAX_DEBATE_STATES = MAX_DEBATE_STATES  # From config
 
-        # Rate limiter tracking with cleanup
+        # Rate limiter tracking with cleanup (thread-safe counter)
         self._rate_limiter_cleanup_counter = 0
+        self._cleanup_counter_lock = threading.Lock()
         self._CLEANUP_INTERVAL = 100  # Cleanup every N accesses
 
     def register_loop(self, loop_id: str, name: str, path: str = "") -> LoopInstance:
@@ -279,12 +280,13 @@ class DebateStateManager:
         return cleaned_count
 
     def should_cleanup(self) -> bool:
-        """Check if periodic cleanup should run (and increment counter)."""
-        self._rate_limiter_cleanup_counter += 1
-        if self._rate_limiter_cleanup_counter >= self._CLEANUP_INTERVAL:
-            self._rate_limiter_cleanup_counter = 0
-            return True
-        return False
+        """Check if periodic cleanup should run (thread-safe counter)."""
+        with self._cleanup_counter_lock:
+            self._rate_limiter_cleanup_counter += 1
+            if self._rate_limiter_cleanup_counter >= self._CLEANUP_INTERVAL:
+                self._rate_limiter_cleanup_counter = 0
+                return True
+            return False
 
 
 __all__ = [

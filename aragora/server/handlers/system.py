@@ -380,8 +380,8 @@ class SystemHandler(BaseHandler):
 
         except ImportError:
             health["observer"] = {"status": "unavailable", "reason": "module not found"}
-        except Exception as e:
-            health["observer"] = {"status": "error", "error": str(e)}
+        except (OSError, ValueError, KeyError, AttributeError) as e:
+            health["observer"] = {"status": "error", "error": f"{type(e).__name__}: {str(e)[:80]}"}
 
         # Add maintenance stats if available
         try:
@@ -391,8 +391,8 @@ class SystemHandler(BaseHandler):
                 health["maintenance"] = maintenance.get_stats()
         except ImportError:
             pass
-        except Exception as e:
-            health["maintenance"] = {"error": str(e)}
+        except (OSError, RuntimeError) as e:
+            health["maintenance"] = {"error": f"{type(e).__name__}: {str(e)[:80]}"}
 
         # Add memory stats if available
         try:
@@ -404,7 +404,7 @@ class SystemHandler(BaseHandler):
             }
         except ImportError:
             pass
-        except Exception as e:
+        except OSError as e:
             logger.debug(f"Could not get memory stats: {type(e).__name__}: {e}")
 
         # Add HTTP connector status (for API agent calls)
@@ -423,8 +423,8 @@ class SystemHandler(BaseHandler):
                     health["warnings"] = warnings_list
         except ImportError:
             health["http_connector"] = {"status": "unavailable", "reason": "module not found"}
-        except Exception as e:
-            health["http_connector"] = {"status": "error", "error": str(e)[:100]}
+        except (AttributeError, RuntimeError) as e:
+            health["http_connector"] = {"status": "error", "error": f"{type(e).__name__}: {str(e)[:80]}"}
 
         # Add export cache status
         try:
@@ -437,8 +437,8 @@ class SystemHandler(BaseHandler):
             }
         except ImportError:
             health["export_cache"] = {"status": "unavailable"}
-        except Exception as e:
-            health["export_cache"] = {"status": "error", "error": str(e)[:100]}
+        except (RuntimeError, AttributeError) as e:
+            health["export_cache"] = {"status": "error", "error": f"{type(e).__name__}: {str(e)[:80]}"}
 
         # Add handler cache status
         try:
@@ -450,8 +450,8 @@ class SystemHandler(BaseHandler):
             }
         except ImportError:
             health["handler_cache"] = {"status": "unavailable"}
-        except Exception as e:
-            health["handler_cache"] = {"status": "error", "error": str(e)[:100]}
+        except (RuntimeError, AttributeError, KeyError) as e:
+            health["handler_cache"] = {"status": "error", "error": f"{type(e).__name__}: {str(e)[:80]}"}
 
         return json_response(health)
 
@@ -469,7 +469,10 @@ class SystemHandler(BaseHandler):
             with open(state_file) as f:
                 state = json.load(f)
             return json_response(state)
-        except Exception as e:
+        except json.JSONDecodeError as e:
+            logger.error("Invalid JSON in nomic state file: %s", e)
+            return error_response(f"Invalid state file format: {e}", 500)
+        except (OSError, PermissionError) as e:
             logger.error("Failed to read nomic state: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "read state"), 500)
 

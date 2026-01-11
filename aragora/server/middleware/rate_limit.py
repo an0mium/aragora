@@ -25,15 +25,24 @@ import logging
 import os
 import threading
 import time
+from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, Optional, Protocol, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import HandlerResult
 
 logger = logging.getLogger(__name__)
+
+# Optional Redis support
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    redis = None  # type: ignore
+    REDIS_AVAILABLE = False
 
 # Configuration from environment
 DEFAULT_RATE_LIMIT = int(os.environ.get("ARAGORA_RATE_LIMIT", "60"))
@@ -92,6 +101,135 @@ class TokenBucket:
     def remaining(self) -> int:
         """Get remaining tokens (approximate, no lock)."""
         return max(0, int(self.tokens))
+
+
+class RedisTokenBucket:
+    """
+    Redis-backed token bucket rate limiter.
+
+    Stores token state in Redis for persistence across restarts and
+    horizontal scaling. Uses Lua scripts for atomic operations.
+    """
+
+    # Lua script for atomic consume operation
+    CONSUME_SCRIPT = """
+    local key = KEYS[1]
+    local rate = tonumber(ARGV[1])
+    local burst = tonumber(ARGV[2])
+    local now = tonumber(ARGV[3])
+    local tokens_requested = tonumber(ARGV[4])
+    local ttl = tonumber(ARGV[5])
+
+    -- Get current state
+    local data = redis.call('HMGET', key, 'tokens', 'last_refill')
+    local tokens = tonumber(data[1]) or burst
+    local last_refill = tonumber(data[2]) or now
+
+    -- Calculate refill
+    local elapsed_minutes = (now - last_refill) / 60.0
+    local refill_amount = elapsed_minutes * rate
+    tokens = math.min(burst, tokens + refill_amount)
+
+    -- Try to consume
+    local allowed = 0
+    if tokens >= tokens_requested then
+        tokens = tokens - tokens_requested
+        allowed = 1
+    end
+
+    -- Save state
+    redis.call('HMSET', key, 'tokens', tokens, 'last_refill', now)
+    redis.call('EXPIRE', key, ttl)
+
+    return {allowed, tokens, burst}
+    """
+
+    def __init__(
+        self,
+        redis_client: "redis.Redis",
+        key: str,
+        rate_per_minute: float,
+        burst_size: int | None = None,
+        key_prefix: str = "aragora:ratelimit:",
+        ttl_seconds: int = 120,
+    ):
+        """
+        Initialize Redis token bucket.
+
+        Args:
+            redis_client: Redis client instance.
+            key: Unique key for this bucket.
+            rate_per_minute: Token refill rate (tokens per minute).
+            burst_size: Maximum tokens (defaults to 2x rate).
+            key_prefix: Redis key prefix.
+            ttl_seconds: TTL for Redis keys.
+        """
+        self.redis = redis_client
+        self.key = f"{key_prefix}{key}"
+        self.rate_per_minute = rate_per_minute
+        self.burst_size = burst_size or int(rate_per_minute * BURST_MULTIPLIER)
+        self.ttl_seconds = ttl_seconds
+        self._consume_sha: Optional[str] = None
+
+    def _get_consume_script(self) -> str:
+        """Get or register the consume Lua script."""
+        if self._consume_sha is None:
+            self._consume_sha = self.redis.script_load(self.CONSUME_SCRIPT)
+        return self._consume_sha
+
+    def consume(self, tokens: int = 1) -> bool:
+        """
+        Attempt to consume tokens from the bucket.
+
+        Returns True if tokens were consumed, False if rate limited.
+        """
+        try:
+            now = time.time()
+            sha = self._get_consume_script()
+            result = self.redis.evalsha(
+                sha,
+                1,  # number of keys
+                self.key,  # KEYS[1]
+                self.rate_per_minute,  # ARGV[1]
+                self.burst_size,  # ARGV[2]
+                now,  # ARGV[3]
+                tokens,  # ARGV[4]
+                self.ttl_seconds,  # ARGV[5]
+            )
+            return bool(result[0])
+        except Exception as e:
+            logger.warning(f"Redis rate limit error, allowing request: {e}")
+            return True  # Fail open on Redis errors
+
+    def get_retry_after(self) -> float:
+        """Get seconds until next token is available."""
+        try:
+            data = self.redis.hmget(self.key, "tokens", "last_refill")
+            tokens = float(data[0]) if data[0] else self.burst_size
+            if tokens >= 1:
+                return 0
+            tokens_needed = 1 - tokens
+            minutes_needed = tokens_needed / self.rate_per_minute
+            return minutes_needed * 60
+        except Exception:
+            return 0
+
+    @property
+    def remaining(self) -> int:
+        """Get remaining tokens."""
+        try:
+            data = self.redis.hmget(self.key, "tokens", "last_refill")
+            tokens = float(data[0]) if data[0] else self.burst_size
+            last_refill = float(data[1]) if data[1] else time.time()
+
+            # Calculate refill since last access
+            elapsed_minutes = (time.time() - last_refill) / 60.0
+            refill_amount = elapsed_minutes * self.rate_per_minute
+            tokens = min(self.burst_size, tokens + refill_amount)
+
+            return max(0, int(tokens))
+        except Exception:
+            return self.burst_size
 
 
 @dataclass
@@ -433,17 +571,261 @@ class RateLimiter:
 from aragora.services import ServiceRegistry
 
 
+# Global Redis client (lazy-initialized)
+_redis_client: Optional["redis.Redis"] = None
+_redis_init_attempted: bool = False
+
+
+def get_redis_client() -> Optional["redis.Redis"]:
+    """
+    Get Redis client if configured and available.
+
+    Uses settings from aragora.config.settings for Redis URL.
+    Returns None if Redis is not configured or unavailable.
+    """
+    global _redis_client, _redis_init_attempted
+
+    if _redis_init_attempted:
+        return _redis_client
+
+    _redis_init_attempted = True
+
+    if not REDIS_AVAILABLE:
+        logger.debug("Redis package not installed, using in-memory rate limiting")
+        return None
+
+    try:
+        from aragora.config.settings import get_settings
+        settings = get_settings()
+
+        redis_url = settings.rate_limit.redis_url
+        if not redis_url:
+            logger.debug("ARAGORA_REDIS_URL not set, using in-memory rate limiting")
+            return None
+
+        _redis_client = redis.from_url(
+            redis_url,
+            decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+        )
+        # Test connection
+        _redis_client.ping()
+        logger.info(f"Redis rate limiting enabled: {redis_url.split('@')[-1]}")
+        return _redis_client
+
+    except Exception as e:
+        logger.warning(f"Redis connection failed, using in-memory rate limiting: {e}")
+        _redis_client = None
+        return None
+
+
+def reset_redis_client() -> None:
+    """Reset Redis client (for testing)."""
+    global _redis_client, _redis_init_attempted
+    if _redis_client is not None:
+        try:
+            _redis_client.close()
+        except Exception:
+            pass
+    _redis_client = None
+    _redis_init_attempted = False
+
+
+class RedisRateLimiter:
+    """
+    Rate limiter using Redis for persistent storage.
+
+    Provides the same interface as RateLimiter but stores state in Redis.
+    Falls back to in-memory on Redis errors.
+    """
+
+    def __init__(
+        self,
+        redis_client: "redis.Redis",
+        default_limit: int = DEFAULT_RATE_LIMIT,
+        ip_limit: int = IP_RATE_LIMIT,
+        key_prefix: str = "aragora:ratelimit:",
+        ttl_seconds: int = 120,
+    ):
+        """
+        Initialize Redis rate limiter.
+
+        Args:
+            redis_client: Redis client instance.
+            default_limit: Default requests per minute.
+            ip_limit: Requests per minute per IP.
+            key_prefix: Redis key prefix.
+            ttl_seconds: TTL for Redis keys.
+        """
+        self.redis = redis_client
+        self.default_limit = default_limit
+        self.ip_limit = ip_limit
+        self.key_prefix = key_prefix
+        self.ttl_seconds = ttl_seconds
+
+        # In-memory fallback for when Redis fails
+        self._fallback = RateLimiter(default_limit, ip_limit)
+
+        # Per-endpoint configuration (stored in memory, not Redis)
+        self._endpoint_configs: Dict[str, RateLimitConfig] = {}
+
+        # Cache of Redis buckets
+        self._buckets: Dict[str, RedisTokenBucket] = {}
+        self._lock = threading.Lock()
+
+    def configure_endpoint(
+        self,
+        endpoint: str,
+        requests_per_minute: int,
+        burst_size: int | None = None,
+        key_type: str = "ip",
+    ) -> None:
+        """Configure rate limit for a specific endpoint."""
+        self._endpoint_configs[endpoint] = RateLimitConfig(
+            requests_per_minute=requests_per_minute,
+            burst_size=burst_size,
+            key_type=key_type,
+        )
+        # Also configure fallback
+        self._fallback.configure_endpoint(endpoint, requests_per_minute, burst_size, key_type)
+
+    def get_config(self, endpoint: str) -> RateLimitConfig:
+        """Get rate limit config for an endpoint."""
+        if endpoint in self._endpoint_configs:
+            return self._endpoint_configs[endpoint]
+
+        for path, config in self._endpoint_configs.items():
+            if path.endswith("*") and endpoint.startswith(path[:-1]):
+                return config
+
+        return RateLimitConfig(requests_per_minute=self.default_limit)
+
+    def _get_bucket(self, key: str, config: RateLimitConfig) -> RedisTokenBucket:
+        """Get or create a Redis bucket."""
+        with self._lock:
+            if key not in self._buckets:
+                self._buckets[key] = RedisTokenBucket(
+                    self.redis,
+                    key,
+                    config.requests_per_minute,
+                    config.burst_size,
+                    self.key_prefix,
+                    self.ttl_seconds,
+                )
+            return self._buckets[key]
+
+    def allow(
+        self,
+        client_ip: str,
+        endpoint: str | None = None,
+        token: str | None = None,
+    ) -> RateLimitResult:
+        """Check if a request should be allowed."""
+        config = self.get_config(endpoint) if endpoint else RateLimitConfig()
+        if not config.enabled:
+            return RateLimitResult(allowed=True, limit=0)
+
+        # Determine the key based on config
+        if config.key_type == "token" and token:
+            key = f"token:{token}"
+        elif config.key_type == "combined" and endpoint:
+            key = f"ep:{endpoint}:ip:{client_ip}"
+        elif config.key_type == "endpoint" and endpoint:
+            key = f"ep:{endpoint}"
+        else:
+            key = f"ip:{client_ip}"
+
+        try:
+            bucket = self._get_bucket(key, config)
+            allowed = bucket.consume(1)
+
+            return RateLimitResult(
+                allowed=allowed,
+                remaining=bucket.remaining,
+                limit=config.requests_per_minute,
+                retry_after=bucket.get_retry_after() if not allowed else 0,
+                key=key,
+            )
+        except Exception as e:
+            logger.warning(f"Redis rate limit failed, using fallback: {e}")
+            return self._fallback.allow(client_ip, endpoint, token)
+
+    def get_client_key(self, handler: Any) -> str:
+        """Extract client key from request handler."""
+        return self._fallback.get_client_key(handler)
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get rate limiter statistics."""
+        try:
+            # Count Redis keys with our prefix
+            keys = list(self.redis.scan_iter(f"{self.key_prefix}*", count=1000))
+            return {
+                "backend": "redis",
+                "redis_keys": len(keys),
+                "configured_endpoints": list(self._endpoint_configs.keys()),
+                "default_limit": self.default_limit,
+                "ip_limit": self.ip_limit,
+            }
+        except Exception as e:
+            return {
+                "backend": "redis",
+                "error": str(e),
+                "fallback_stats": self._fallback.get_stats(),
+            }
+
+    def cleanup(self, max_age_seconds: int = 300) -> int:
+        """Redis handles TTL-based cleanup automatically."""
+        return 0
+
+    def reset(self) -> None:
+        """Reset all rate limiter state."""
+        try:
+            keys = list(self.redis.scan_iter(f"{self.key_prefix}*", count=10000))
+            if keys:
+                self.redis.delete(*keys)
+        except Exception as e:
+            logger.warning(f"Redis reset failed: {e}")
+
+        with self._lock:
+            self._buckets.clear()
+        self._fallback.reset()
+
+
 class RateLimiterRegistry:
     """Container for named rate limiters, managed via ServiceRegistry."""
 
     def __init__(self):
         self._limiters: Dict[str, RateLimiter] = {}
-        self._default_limiter: Optional[RateLimiter] = None
+        self._default_limiter: Optional[RateLimiter | RedisRateLimiter] = None
+        self._use_redis: Optional[bool] = None
 
-    def get_default(self) -> RateLimiter:
+    def get_default(self) -> RateLimiter | RedisRateLimiter:
         """Get the default rate limiter with configured endpoints."""
         if self._default_limiter is None:
-            self._default_limiter = RateLimiter()
+            # Check if Redis is available
+            redis_client = get_redis_client()
+
+            if redis_client is not None:
+                # Use Redis-backed rate limiter
+                try:
+                    from aragora.config.settings import get_settings
+                    settings = get_settings()
+                    self._default_limiter = RedisRateLimiter(
+                        redis_client,
+                        key_prefix=settings.rate_limit.redis_key_prefix,
+                        ttl_seconds=settings.rate_limit.redis_ttl_seconds,
+                    )
+                    self._use_redis = True
+                    logger.info("Using Redis-backed rate limiter")
+                except Exception as e:
+                    logger.warning(f"Failed to create Redis rate limiter: {e}")
+                    self._default_limiter = RateLimiter()
+                    self._use_redis = False
+            else:
+                self._default_limiter = RateLimiter()
+                self._use_redis = False
+
             # Configure default endpoint limits
             self._default_limiter.configure_endpoint("/api/debates", 30, key_type="ip")
             self._default_limiter.configure_endpoint("/api/debates/*", 60, key_type="ip")
@@ -472,6 +854,14 @@ class RateLimiterRegistry:
                 "/api/video/*", 2, key_type="ip"  # Video generation
             )
         return self._default_limiter
+
+    @property
+    def is_using_redis(self) -> bool:
+        """Check if the rate limiter is using Redis backend."""
+        if self._use_redis is None:
+            # Trigger initialization
+            self.get_default()
+        return self._use_redis or False
 
     def get(
         self,
@@ -559,6 +949,9 @@ def reset_rate_limiters() -> None:
     if registry.has(RateLimiterRegistry):
         registry.resolve(RateLimiterRegistry).reset()
         registry.unregister(RateLimiterRegistry)
+
+    # Also reset Redis client
+    reset_redis_client()
 
 
 def rate_limit_headers(result: RateLimitResult) -> Dict[str, str]:

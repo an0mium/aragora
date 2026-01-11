@@ -26,9 +26,11 @@ Usage:
 from aragora.server.middleware.rate_limit import (
     # Core classes
     TokenBucket,
+    RedisTokenBucket,
     RateLimitConfig,
     RateLimitResult,
     RateLimiter,
+    RedisRateLimiter,
     RateLimiterRegistry,
     # Functions
     get_rate_limiter,
@@ -36,10 +38,13 @@ from aragora.server.middleware.rate_limit import (
     reset_rate_limiters,
     rate_limit_headers,
     rate_limit,
+    get_redis_client,
+    reset_redis_client,
     # Constants
     DEFAULT_RATE_LIMIT,
     IP_RATE_LIMIT,
     BURST_MULTIPLIER,
+    REDIS_AVAILABLE,
 )
 
 
@@ -84,9 +89,11 @@ def is_rate_limited(client_ip: str, endpoint: str | None = None) -> bool:
 __all__ = [
     # Core classes
     "TokenBucket",
+    "RedisTokenBucket",
     "RateLimitConfig",
     "RateLimitResult",
     "RateLimiter",
+    "RedisRateLimiter",
     "RateLimiterRegistry",
     # Functions
     "get_rate_limiter",
@@ -94,6 +101,8 @@ __all__ = [
     "reset_rate_limiters",
     "rate_limit_headers",
     "rate_limit",
+    "get_redis_client",
+    "reset_redis_client",
     # Legacy API compatibility
     "get_limiter",
     "set_limiter",
@@ -103,4 +112,5 @@ __all__ = [
     "DEFAULT_RATE_LIMIT",
     "IP_RATE_LIMIT",
     "BURST_MULTIPLIER",
+    "REDIS_AVAILABLE",
 ]

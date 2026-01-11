@@ -55,6 +55,122 @@ class ErrorCode(str, Enum):
     AGENT_ERROR = "AGENT_ERROR"
     QUOTA_EXCEEDED = "QUOTA_EXCEEDED"
 
+    # Agent-specific errors
+    INVALID_API_KEY = "INVALID_API_KEY"
+    AGENT_TIMEOUT = "AGENT_TIMEOUT"
+    AGENT_RATE_LIMITED = "AGENT_RATE_LIMITED"
+    AGENT_NOT_FOUND = "AGENT_NOT_FOUND"
+    CONFIG_ERROR = "CONFIG_ERROR"
+
+
+# =============================================================================
+# Error Suggestions Registry
+# =============================================================================
+
+ERROR_SUGGESTIONS: dict[ErrorCode, dict[str, str]] = {
+    ErrorCode.INVALID_API_KEY: {
+        "message": "Invalid or missing API key",
+        "suggestion": "Check your API key configuration",
+        "cli_help": "Run `aragora doctor` to verify API keys",
+        "docs": "See docs/ENVIRONMENT.md for configuration",
+    },
+    ErrorCode.AGENT_TIMEOUT: {
+        "message": "Agent timed out",
+        "suggestion": "Increase timeout or use fewer agents",
+        "cli_help": "Set ARAGORA_DEBATE_TIMEOUT=1200 in .env",
+        "docs": "See docs/TROUBLESHOOTING.md",
+    },
+    ErrorCode.AGENT_RATE_LIMITED: {
+        "message": "Agent rate limited by provider",
+        "suggestion": "Wait and retry, or use fallback provider",
+        "cli_help": "Set OPENROUTER_API_KEY for fallback access",
+        "docs": "See docs/ENVIRONMENT.md for fallback configuration",
+    },
+    ErrorCode.AGENT_NOT_FOUND: {
+        "message": "Agent not found",
+        "suggestion": "Check agent name spelling",
+        "cli_help": "Run `aragora status` to list available agents",
+        "docs": "See docs/CUSTOM_AGENTS.md for agent configuration",
+    },
+    ErrorCode.CONFIG_ERROR: {
+        "message": "Configuration error",
+        "suggestion": "Check your configuration file",
+        "cli_help": "Run `aragora config show` to view current settings",
+        "docs": "See docs/ENVIRONMENT.md for configuration options",
+    },
+    ErrorCode.UNAUTHORIZED: {
+        "message": "Authentication required",
+        "suggestion": "Provide valid authentication token",
+        "cli_help": "Set ARAGORA_API_TOKEN in .env",
+        "docs": "See docs/API_REFERENCE.md for authentication",
+    },
+    ErrorCode.RATE_LIMITED: {
+        "message": "Rate limit exceeded",
+        "suggestion": "Wait before retrying",
+        "cli_help": "Rate limits reset after 60 seconds",
+        "docs": "See docs/API_REFERENCE.md for rate limit details",
+    },
+    ErrorCode.NOT_FOUND: {
+        "message": "Resource not found",
+        "suggestion": "Verify the resource ID exists",
+        "cli_help": "Use `aragora status` to check available resources",
+        "docs": "Check the API endpoint path",
+    },
+    ErrorCode.DATABASE_ERROR: {
+        "message": "Database error",
+        "suggestion": "Check database connectivity",
+        "cli_help": "Run `aragora doctor` to check database status",
+        "docs": "See docs/TROUBLESHOOTING.md for database issues",
+    },
+    ErrorCode.TIMEOUT: {
+        "message": "Operation timed out",
+        "suggestion": "Increase timeout or reduce complexity",
+        "cli_help": "Set ARAGORA_DEBATE_TIMEOUT to a higher value",
+        "docs": "See docs/ENVIRONMENT.md for timeout configuration",
+    },
+    ErrorCode.SERVICE_UNAVAILABLE: {
+        "message": "Service temporarily unavailable",
+        "suggestion": "Wait and retry",
+        "cli_help": "Check server status with `aragora doctor`",
+        "docs": "See docs/TROUBLESHOOTING.md",
+    },
+}
+
+
+def get_error_suggestion(code: ErrorCode) -> dict[str, str]:
+    """Get suggestion details for an error code.
+
+    Returns:
+        Dict with 'message', 'suggestion', 'cli_help', and 'docs' keys
+    """
+    return ERROR_SUGGESTIONS.get(code, {
+        "message": "An error occurred",
+        "suggestion": "Check the error details",
+        "cli_help": "Run `aragora doctor` for diagnostics",
+        "docs": "See docs/TROUBLESHOOTING.md",
+    })
+
+
+def format_cli_error(code: ErrorCode, details: str = "") -> str:
+    """Format an error message for CLI output with actionable suggestions.
+
+    Args:
+        code: Error code
+        details: Additional error details
+
+    Returns:
+        Formatted error string for terminal output
+    """
+    info = get_error_suggestion(code)
+    lines = [
+        f"[{code.value}] {info['message']}",
+    ]
+    if details:
+        lines.append(f"  Details: {details}")
+    lines.append(f"  -> {info['suggestion']}")
+    lines.append(f"  -> Try: {info['cli_help']}")
+    return "\n".join(lines)
+
 
 # Map HTTP status codes to error codes
 _STATUS_TO_CODE = {
@@ -104,6 +220,9 @@ class APIError(Exception):
     def __post_init__(self):
         # Initialize exception base
         super().__init__(self.message)
+        # Auto-populate suggestion from registry if not provided
+        if not self.suggestion and self.code in ERROR_SUGGESTIONS:
+            self.suggestion = ERROR_SUGGESTIONS[self.code].get("suggestion")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dictionary."""
