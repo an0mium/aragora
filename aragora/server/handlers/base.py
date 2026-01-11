@@ -416,7 +416,10 @@ def generate_trace_id() -> str:
 
 
 # Exception to HTTP status code mapping
+# Maps exception type names to appropriate HTTP status codes.
+# Includes both Python built-ins and Aragora-specific exceptions.
 _EXCEPTION_STATUS_MAP = {
+    # Python built-in exceptions
     "FileNotFoundError": 404,
     "KeyError": 404,
     "ValueError": 400,
@@ -427,6 +430,42 @@ _EXCEPTION_STATUS_MAP = {
     "asyncio.TimeoutError": 504,
     "ConnectionError": 502,
     "OSError": 500,
+    # Aragora validation errors (400 Bad Request)
+    "ValidationError": 400,
+    "InputValidationError": 400,
+    "SchemaValidationError": 400,
+    "DebateConfigurationError": 400,
+    "AgentConfigurationError": 400,
+    "ModeConfigurationError": 400,
+    "ConvergenceThresholdError": 400,
+    "CacheKeyError": 400,
+    # Aragora not found errors (404)
+    "DebateNotFoundError": 404,
+    "AgentNotFoundError": 404,
+    "RecordNotFoundError": 404,
+    "ModeNotFoundError": 404,
+    "PluginNotFoundError": 404,
+    "CheckpointNotFoundError": 404,
+    # Aragora auth errors
+    "AuthenticationError": 401,
+    "TokenExpiredError": 401,
+    "AuthorizationError": 403,
+    "RateLimitExceededError": 429,
+    # Aragora storage errors (500/503)
+    "StorageError": 500,
+    "DatabaseError": 500,
+    "DatabaseConnectionError": 503,
+    "MemoryStorageError": 500,
+    "CheckpointSaveError": 500,
+    # Aragora agent errors
+    "AgentTimeoutError": 504,
+    "AgentRateLimitError": 429,
+    "AgentConnectionError": 502,
+    "AgentCircuitOpenError": 503,
+    # Aragora verification/convergence errors
+    "VerificationTimeoutError": 504,
+    "Z3NotAvailableError": 503,
+    "ConvergenceBackendError": 503,
 }
 
 
@@ -755,7 +794,8 @@ def require_user_auth(func: Callable) -> Callable:
         user_ctx = extract_user_from_request(handler, user_store)
 
         if not user_ctx.is_authenticated:
-            return error_response("Authentication required", 401)
+            error_msg = user_ctx.error_reason or "Authentication required"
+            return error_response(error_msg, 401)
 
         # Inject user context into kwargs
         kwargs['user'] = user_ctx

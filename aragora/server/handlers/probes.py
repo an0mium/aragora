@@ -26,6 +26,7 @@ from .base import (
     error_response,
     handle_errors,
     invalidate_leaderboard_cache,
+    require_user_auth,
 )
 from aragora.server.middleware.rate_limit import rate_limit
 
@@ -77,9 +78,10 @@ class ProbesHandler(BaseHandler):
             return self._run_capability_probe(handler)
         return None
 
+    @require_user_auth
     @rate_limit(requests_per_minute=10, burst=3, limiter_name="capability_probe")
     @handle_errors("capability probe")
-    def _run_capability_probe(self, handler) -> HandlerResult:
+    def _run_capability_probe(self, handler, user=None) -> HandlerResult:
         """Run capability probes on an agent to find vulnerabilities.
 
         POST body:

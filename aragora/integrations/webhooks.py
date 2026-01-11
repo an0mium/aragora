@@ -273,6 +273,10 @@ class WebhookDispatcher:
         max_workers = min(len(configs), 10) if configs else 4
         self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="webhook-deliver")
 
+        # Semaphore to limit pending deliveries and provide backpressure
+        # Without this, executor queue can grow unbounded under sustained load
+        self._delivery_semaphore = threading.Semaphore(max_workers * 2)
+
         # Thread-safe stats
         self._stats_lock = threading.Lock()
         self._drop_count = 0
@@ -475,18 +479,32 @@ class WebhookDispatcher:
 
             for cfg in self.configs:
                 if self._matches_config(cfg, event_type, loop_id):
+                    # Apply backpressure: skip if too many pending deliveries
+                    if not self._delivery_semaphore.acquire(blocking=False):
+                        with self._stats_lock:
+                            self._drop_count += 1
+                        logger.warning(
+                            f"webhook_backpressure_drop url={cfg.url[:50]}... "
+                            "executor queue full"
+                        )
+                        continue
+
                     # Submit to thread pool for parallel delivery
                     # This prevents one slow webhook from blocking others
                     self._executor.submit(self._deliver_and_track, cfg, event_dict)
 
     def _deliver_and_track(self, cfg: "WebhookConfig", event_dict: Dict[str, Any]) -> None:
         """Deliver webhook and update stats (runs in thread pool)."""
-        success = self._deliver(cfg, event_dict)
-        with self._stats_lock:
-            if success:
-                self._delivery_count += 1
-            else:
-                self._failure_count += 1
+        try:
+            success = self._deliver(cfg, event_dict)
+            with self._stats_lock:
+                if success:
+                    self._delivery_count += 1
+                else:
+                    self._failure_count += 1
+        finally:
+            # Release semaphore to allow more deliveries
+            self._delivery_semaphore.release()
 
     def _deliver(self, cfg: WebhookConfig, event_dict: Dict[str, Any]) -> bool:
         """Attempt delivery to a single webhook with retries.

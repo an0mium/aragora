@@ -13,6 +13,7 @@ import hmac
 import json
 import logging
 import os
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -240,39 +241,11 @@ def _is_production() -> bool:
 def _validate_security_config() -> None:
     """Validate security configuration at module load.
 
-    Logs warnings for insecure configurations and raises RuntimeError
-    if critical security misconfigurations are detected in production.
+    Placeholder for future security configuration validation.
+    Format-only API key validation has been removed for security.
     """
-    if _allow_format_only_api_keys():
-        # Check for production signals that might indicate misconfiguration
-        hostname = os.environ.get("HOSTNAME", "").lower()
-        k8s_namespace = os.environ.get("K8S_NAMESPACE", "").lower()
-
-        production_signals = [
-            "prod" in hostname,
-            k8s_namespace.startswith("prod"),
-            os.environ.get("CLOUD_ENVIRONMENT", "").lower() == "production",
-        ]
-
-        if any(production_signals):
-            raise RuntimeError(
-                "SECURITY ERROR: ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS is enabled "
-                "but production environment indicators detected. "
-                "This is a critical security misconfiguration."
-            )
-
-        logger.warning(
-            "SECURITY: Format-only API key validation enabled. "
-            "Set ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS=0 for production deployments."
-        )
-
-
-def _allow_format_only_api_keys() -> bool:
-    """Allow format-only API key validation (development/testing only)."""
-    if _is_production():
-        # Never allow format-only validation in production
-        return False
-    return os.environ.get("ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS", "0") == "1"
+    # All API key validation now requires a user store lookup
+    pass
 
 
 def _validate_secret_strength(secret: str) -> bool:
@@ -282,38 +255,38 @@ def _validate_secret_strength(secret: str) -> bool:
 
 def _get_secret() -> bytes:
     """
-    Get JWT secret with strict validation in production.
+    Get JWT secret with strict validation.
 
-    In production: ARAGORA_JWT_SECRET must be set and meet minimum length.
-    In development: Generates ephemeral secret with warning.
+    ARAGORA_JWT_SECRET must be set in all environments except pytest.
+    This prevents issues with:
+    - Load balancing (different instances need same secret)
+    - Server restarts invalidating all tokens
 
     Raises:
-        RuntimeError: If secret is missing or weak in production.
+        RuntimeError: If secret is missing or weak (except in pytest).
     """
     global JWT_SECRET
+    running_under_pytest = "pytest" in sys.modules
+
     if not JWT_SECRET:
-        if _is_production():
+        if running_under_pytest:
+            # Allow ephemeral secret only in test environments
+            JWT_SECRET = base64.b64encode(os.urandom(32)).decode("utf-8")
+            logger.debug("TEST MODE: Using ephemeral JWT secret")
+        else:
             raise RuntimeError(
-                "ARAGORA_JWT_SECRET must be set in production. "
+                "ARAGORA_JWT_SECRET must be set. "
                 "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
             )
-        # Generate a random secret for development
-        JWT_SECRET = base64.b64encode(os.urandom(32)).decode("utf-8")
-        logger.warning(
-            "DEV MODE: ARAGORA_JWT_SECRET not set, using ephemeral secret. "
-            "Tokens will be invalidated on restart."
-        )
 
     if not _validate_secret_strength(JWT_SECRET):
-        if _is_production():
+        if running_under_pytest:
+            logger.debug(f"TEST MODE: JWT secret is weak (< {MIN_SECRET_LENGTH} chars)")
+        else:
             raise RuntimeError(
                 f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters. "
                 f"Current length: {len(JWT_SECRET)}"
             )
-        logger.warning(
-            f"JWT secret is weak (< {MIN_SECRET_LENGTH} chars). "
-            "This is acceptable in development but not production."
-        )
 
     return JWT_SECRET.encode("utf-8")
 
@@ -734,6 +707,7 @@ class UserAuthContext:
     role: str = "member"
     token_type: str = "none"  # none, access, api_key
     client_ip: Optional[str] = None
+    error_reason: Optional[str] = None  # Set when auth fails with a specific reason
 
     @property
     def is_authenticated(self) -> bool:
@@ -859,21 +833,14 @@ def _validate_api_key(api_key: str, context: UserAuthContext, user_store=None) -
             context.authenticated = False
             return context
 
-    # Fallback: format-only validation (explicitly enabled for development)
-    if _allow_format_only_api_keys():
-        # SECURITY WARNING: This allows ANY correctly-formatted API key to authenticate.
-        # This is ONLY acceptable in development/testing environments.
-        logger.warning(
-            "SECURITY: Format-only API key validation enabled - "
-            f"accepting key_prefix={api_key[:8]}... without database lookup. "
-            "Set ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS=0 or unset in production!"
-        )
-        context.authenticated = True
-        context.token_type = "api_key"
-        return context
-
-    logger.warning("api_key_validation_skipped_missing_store")
+    # No user store available - API key auth requires database validation
+    # This is an intentional security requirement - format-only validation was removed
+    logger.error(
+        "api_key_validation_failed: user_store is required for API key authentication. "
+        "Ensure UserStore is initialized before processing API key auth requests."
+    )
     context.authenticated = False
+    context.error_reason = "API key authentication requires server configuration"
     return context
 
 

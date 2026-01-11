@@ -3,11 +3,19 @@ Agent Registry - Factory pattern for agent creation.
 
 Replaces the 18+ if/elif branches in create_agent() with a
 registration-based approach that's extensible and testable.
+
+Includes LRU caching of agent instances to prevent repeated instantiation.
+
+IMPORTANT: Cached agents must be stateless. If an agent mutates its internal
+state (stance, system prompt, memory, conversation history), the cache should
+be disabled by passing use_cache=False to create_agent(). Alternatively,
+agents should implement a reset() method to clear state between uses.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Union
 
 from aragora.config import ALLOWED_AGENT_TYPES
@@ -17,6 +25,12 @@ if TYPE_CHECKING:
     from aragora.agents.api_agents import APIAgent
     from aragora.agents.cli_agents import CLIAgent
     Agent = Union[APIAgent, CLIAgent]
+
+
+# Module-level cache for agent instances
+# Key: (model_type, name, role, model, api_key) -> Agent
+_agent_cache: dict[tuple[str, str, str, str | None, str | None], "Agent"] = {}
+_CACHE_MAX_SIZE = 32
 
 
 @dataclass(frozen=True)
@@ -112,6 +126,7 @@ class AgentRegistry:
         role: str = "proposer",
         model: str | None = None,
         api_key: str | None = None,
+        use_cache: bool = False,
         **kwargs: Any,
     ) -> "Agent":
         """
@@ -123,6 +138,7 @@ class AgentRegistry:
             role: Agent role ("proposer", "critic", "synthesizer")
             model: Model to use (overrides default)
             api_key: API key for API-based agents
+            use_cache: If True, return cached instance if available
             **kwargs: Additional arguments passed to agent constructor
 
         Returns:
@@ -139,23 +155,76 @@ class AgentRegistry:
             )
 
         spec = cls._registry[model_type]
+        resolved_name = name or spec.default_name
+        resolved_model = model or spec.default_model
+
+        # Check cache if enabled (only for simple cases without kwargs)
+        if use_cache and not kwargs:
+            cache_key = (model_type, resolved_name, role, resolved_model, api_key)
+            if cache_key in _agent_cache:
+                return _agent_cache[cache_key]
 
         # Build constructor arguments
         ctor_args: dict[str, Any] = {
-            "name": name or spec.default_name,
+            "name": resolved_name,
             "role": role,
             **kwargs,
         }
 
         # Add model if the agent accepts it
         if spec.default_model is not None or model is not None:
-            ctor_args["model"] = model or spec.default_model
+            ctor_args["model"] = resolved_model
 
         # Add api_key if applicable
         if spec.accepts_api_key and api_key is not None:
             ctor_args["api_key"] = api_key
 
-        return spec.agent_class(**ctor_args)
+        agent = spec.agent_class(**ctor_args)
+
+        # Store in cache if enabled
+        if use_cache and not kwargs:
+            cache_key = (model_type, resolved_name, role, resolved_model, api_key)
+            # Evict oldest if at capacity
+            if len(_agent_cache) >= _CACHE_MAX_SIZE:
+                oldest_key = next(iter(_agent_cache))
+                del _agent_cache[oldest_key]
+            _agent_cache[cache_key] = agent
+
+        return agent
+
+    @classmethod
+    def get_cached(
+        cls,
+        model_type: str,
+        name: str | None = None,
+        role: str = "proposer",
+        model: str | None = None,
+        api_key: str | None = None,
+    ) -> "Agent":
+        """
+        Get or create a cached agent instance.
+
+        This is a convenience method that always uses caching.
+        Use this for agents that don't need custom kwargs.
+
+        Args:
+            model_type: Registered agent type
+            name: Agent instance name
+            role: Agent role
+            model: Model to use
+            api_key: API key for API-based agents
+
+        Returns:
+            Cached or newly created agent instance
+        """
+        return cls.create(
+            model_type=model_type,
+            name=name,
+            role=role,
+            model=model,
+            api_key=api_key,
+            use_cache=True,
+        )
 
     @classmethod
     def is_registered(cls, model_type: str) -> bool:
@@ -193,8 +262,34 @@ class AgentRegistry:
 
     @classmethod
     def clear(cls) -> None:
-        """Clear all registrations (for testing)."""
+        """Clear all registrations and cache (for testing)."""
         cls._registry.clear()
+        cls.clear_cache()
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clear the agent instance cache."""
+        _agent_cache.clear()
+
+    @classmethod
+    def cache_stats(cls) -> dict[str, Any]:
+        """Get cache statistics for monitoring.
+
+        Note: API keys are masked in the output to prevent secret leakage.
+        """
+        def _mask_key(cache_key: tuple) -> tuple:
+            """Mask API key (5th element) in cache key tuple."""
+            # Cache key: (model_type, name, role, model, api_key)
+            if len(cache_key) >= 5 and cache_key[4]:
+                masked = cache_key[4][:8] + "..." if len(cache_key[4]) > 8 else "***"
+                return (*cache_key[:4], masked)
+            return cache_key
+
+        return {
+            "size": len(_agent_cache),
+            "max_size": _CACHE_MAX_SIZE,
+            "keys": [_mask_key(k) for k in _agent_cache.keys()],
+        }
 
     @classmethod
     def validate_allowed(cls, model_type: str) -> bool:
