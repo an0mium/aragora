@@ -576,8 +576,9 @@ class ConsensusPhase:
                     f"judge_timeout judge={judge.name} timeout={self.JUDGE_TIMEOUT_PER_ATTEMPT}s"
                 )
                 # Continue to next candidate
-            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError, ConnectionError) as e:
-                logger.error(f"judge_error judge={judge.name} error={e}")
+            except Exception as e:
+                # Catch all exceptions to allow fallback to next judge candidate
+                logger.error(f"judge_error judge={judge.name} error={type(e).__name__}: {e}")
                 # Continue to next candidate
 
         # All judges failed - fall back to majority voting
@@ -627,7 +628,9 @@ class ConsensusPhase:
                 else:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
-            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError, ConnectionError) as e:
+            except Exception as e:
+                # Catch all exceptions to prevent voting failures from crashing the phase
+                logger.warning(f"vote_exception agent={agent.name} error={type(e).__name__}: {e}")
                 return (agent, e)
 
         async def collect_all_votes():
@@ -697,7 +700,9 @@ class ConsensusPhase:
                 else:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
-            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError, ConnectionError) as e:
+            except Exception as e:
+                # Catch all exceptions to prevent voting failures from crashing the phase
+                logger.warning(f"vote_exception_unanimous agent={agent.name} error={type(e).__name__}: {e}")
                 return (agent, e)
 
         async def collect_all_votes():
