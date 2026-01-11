@@ -1508,6 +1508,14 @@ class UnifiedServer:
             except Exception as e:
                 logger.warning(f"WebSocket shutdown error: {e}")
 
+        # 6. Close shared HTTP connector (prevents connection leaks)
+        try:
+            from aragora.agents.api_agents.common import close_shared_connector
+            await close_shared_connector()
+            logger.info("Shared HTTP connector closed")
+        except Exception as e:
+            logger.debug(f"Connector shutdown: {e}")
+
         elapsed = time.time() - shutdown_start
         logger.info(f"Graceful shutdown completed in {elapsed:.1f}s")
 

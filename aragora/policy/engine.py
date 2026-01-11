@@ -49,6 +49,19 @@ from aragora.policy.tools import Tool, ToolCapability, ToolRegistry, get_tool_re
 
 logger = logging.getLogger(__name__)
 
+# Safe operators for AST-based policy condition evaluation
+# Maps AST operator types to their Python implementations
+_SAFE_COMPARISON_OPS: dict[type, Callable] = {
+    ast.Eq: operator.eq,
+    ast.NotEq: operator.ne,
+    ast.Lt: operator.lt,
+    ast.LtE: operator.le,
+    ast.Gt: operator.gt,
+    ast.GtE: operator.ge,
+    ast.In: lambda a, b: a in b,
+    ast.NotIn: lambda a, b: a not in b,
+}
+
 
 class PolicyDecision(Enum):
     """The outcome of a policy check."""
@@ -165,18 +178,6 @@ class Policy:
 
         return True
 
-    # Safe operators for AST evaluation
-    _SAFE_OPS: dict[type, Callable] = {
-        ast.Eq: operator.eq,
-        ast.NotEq: operator.ne,
-        ast.Lt: operator.lt,
-        ast.LtE: operator.le,
-        ast.Gt: operator.gt,
-        ast.GtE: operator.ge,
-        ast.In: lambda a, b: a in b,
-        ast.NotIn: lambda a, b: a not in b,
-    }
-
     def _eval_condition(self, condition: str, context: dict) -> bool:
         """Safely evaluate a condition expression using AST parsing.
 
@@ -209,7 +210,7 @@ class Policy:
             left = self._eval_node(node.left, context)
             for op, comparator in zip(node.ops, node.comparators):
                 right = self._eval_node(comparator, context)
-                op_func = self._SAFE_OPS.get(type(op))
+                op_func = _SAFE_COMPARISON_OPS.get(type(op))
                 if op_func is None:
                     raise ValueError(f"Unsupported operator: {type(op).__name__}")
                 if not op_func(left, right):
