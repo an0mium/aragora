@@ -262,6 +262,69 @@ class TestMapExceptionToStatus:
         assert _map_exception_to_status(CustomError(), default=503) == 503
 
 
+class TestMapAragoraExceptions:
+    """Tests for Aragora-specific exception mapping."""
+
+    def test_validation_errors_return_400(self):
+        """Test validation errors map to 400 Bad Request."""
+        from aragora.exceptions import (
+            ValidationError, InputValidationError, SchemaValidationError,
+            DebateConfigurationError, AgentConfigurationError,
+        )
+        assert _map_exception_to_status(ValidationError("invalid")) == 400
+        assert _map_exception_to_status(InputValidationError("field", "bad")) == 400
+        assert _map_exception_to_status(SchemaValidationError("schema", [])) == 400
+        assert _map_exception_to_status(DebateConfigurationError("config")) == 400
+        assert _map_exception_to_status(AgentConfigurationError("config")) == 400
+
+    def test_not_found_errors_return_404(self):
+        """Test not found errors map to 404."""
+        from aragora.exceptions import (
+            DebateNotFoundError, AgentNotFoundError, RecordNotFoundError,
+            ModeNotFoundError, PluginNotFoundError, CheckpointNotFoundError,
+        )
+        assert _map_exception_to_status(DebateNotFoundError("d1")) == 404
+        assert _map_exception_to_status(AgentNotFoundError("agent1")) == 404
+        assert _map_exception_to_status(RecordNotFoundError("table", "id")) == 404
+        assert _map_exception_to_status(ModeNotFoundError("mode")) == 404
+        assert _map_exception_to_status(PluginNotFoundError("plugin")) == 404
+        assert _map_exception_to_status(CheckpointNotFoundError("cp1")) == 404
+
+    def test_auth_errors_return_appropriate_status(self):
+        """Test auth errors map to appropriate status codes."""
+        from aragora.exceptions import (
+            AuthenticationError, TokenExpiredError, AuthorizationError,
+            RateLimitExceededError,
+        )
+        assert _map_exception_to_status(AuthenticationError("failed")) == 401
+        assert _map_exception_to_status(TokenExpiredError("expired")) == 401
+        assert _map_exception_to_status(AuthorizationError("denied")) == 403
+        assert _map_exception_to_status(RateLimitExceededError(100, 60)) == 429
+
+    def test_storage_errors_return_500_or_503(self):
+        """Test storage errors map to 500/503."""
+        from aragora.exceptions import (
+            StorageError, DatabaseError, DatabaseConnectionError,
+            MemoryStorageError, CheckpointSaveError,
+        )
+        assert _map_exception_to_status(StorageError("storage fail")) == 500
+        assert _map_exception_to_status(DatabaseError("db fail")) == 500
+        assert _map_exception_to_status(DatabaseConnectionError("/path", "reason")) == 503
+        assert _map_exception_to_status(MemoryStorageError("mem fail")) == 500
+        assert _map_exception_to_status(CheckpointSaveError("cp1", "reason")) == 500
+
+    def test_agent_errors_return_appropriate_status(self):
+        """Test agent runtime errors map to appropriate status codes."""
+        from aragora.agents.errors import (
+            AgentTimeoutError, AgentRateLimitError, AgentConnectionError,
+            AgentCircuitOpenError,
+        )
+        assert _map_exception_to_status(AgentTimeoutError("timeout")) == 504
+        assert _map_exception_to_status(AgentRateLimitError("rate limit")) == 429
+        assert _map_exception_to_status(AgentConnectionError("connection fail")) == 502
+        assert _map_exception_to_status(AgentCircuitOpenError("circuit open")) == 503
+
+
 # ============================================================================
 # Parameter Extractor Tests
 # ============================================================================

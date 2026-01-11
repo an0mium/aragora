@@ -22,6 +22,13 @@ from .params import (
 from .routing import PathMatcher, RouteDispatcher
 from .database import get_db_connection, table_exists
 from .safe_data import safe_get, safe_get_nested, safe_json_parse
+from .responses import (
+    HandlerResult,
+    json_response,
+    error_response,
+    html_response,
+    redirect_response,
+)
 
 __all__ = [
     # Rate limiting
@@ -47,4 +54,10 @@ __all__ = [
     "safe_get",
     "safe_get_nested",
     "safe_json_parse",
+    # Response builders
+    "HandlerResult",
+    "json_response",
+    "error_response",
+    "html_response",
+    "redirect_response",
 ]

@@ -34,18 +34,22 @@ def get_client_ip(handler) -> str:
         return "unknown"
 
     # Check for proxy headers
-    headers = getattr(handler, "headers", {})
-    if headers:
-        # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
-        forwarded = headers.get("X-Forwarded-For", "")
-        if forwarded:
-            # Take the first (original client) IP
-            return forwarded.split(",")[0].strip()
+    headers = getattr(handler, "headers", None)
+    if headers and hasattr(headers, "get"):
+        try:
+            # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
+            forwarded = headers.get("X-Forwarded-For", "")
+            if forwarded and isinstance(forwarded, str):
+                # Take the first (original client) IP
+                return forwarded.split(",")[0].strip()
 
-        # Also check X-Real-IP (used by nginx)
-        real_ip = headers.get("X-Real-IP", "")
-        if real_ip:
-            return real_ip.strip()
+            # Also check X-Real-IP (used by nginx)
+            real_ip = headers.get("X-Real-IP", "")
+            if real_ip and isinstance(real_ip, str):
+                return real_ip.strip()
+        except (TypeError, AttributeError):
+            # Handle mock objects or unusual header types
+            pass
 
     # Fall back to direct client address
     client_address = getattr(handler, "client_address", None)

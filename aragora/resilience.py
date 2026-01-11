@@ -434,14 +434,28 @@ class CircuitBreaker:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], **kwargs: Any) -> "CircuitBreaker":
-        """Load from persisted dict."""
+        """Load from persisted dict.
+
+        Restores both single-mode and entity-mode state from persisted data.
+        """
         cb = cls(**kwargs)
+
+        # Restore single-mode state
+        single_data = data.get("single_mode", {})
+        cb._single_failures = single_data.get("failures", 0)
+        is_open = single_data.get("is_open", False)
+        open_for_seconds = single_data.get("open_for_seconds", 0)
+        if is_open and open_for_seconds < cb.cooldown_seconds:
+            cb._single_open_at = time.time() - open_for_seconds
+
+        # Restore entity-mode state
         entity_data = data.get("entity_mode", data)  # Support both formats
         cb._failures = entity_data.get("failures", {})
         # Restore open circuits with remaining cooldown
         for name, elapsed in entity_data.get("open_circuits", entity_data.get("cooldowns", {})).items():
             if elapsed < cb.cooldown_seconds:
                 cb._circuit_open_at[name] = time.time() - elapsed
+
         return cb
 
     @asynccontextmanager
@@ -534,6 +548,28 @@ class CircuitBreaker:
 # =============================================================================
 
 _DB_PATH: Optional[str] = None
+_CB_TIMEOUT_SECONDS = 30.0  # SQLite busy timeout for concurrent access
+
+
+def _get_cb_connection() -> "sqlite3.Connection":
+    """Get circuit breaker database connection with proper config.
+
+    Configures SQLite with:
+    - 30 second timeout for handling concurrent access
+    - WAL mode for better write concurrency
+
+    Returns:
+        Configured sqlite3.Connection
+    """
+    import sqlite3
+
+    if not _DB_PATH:
+        raise RuntimeError("Circuit breaker persistence not initialized")
+
+    conn = sqlite3.connect(_DB_PATH, timeout=_CB_TIMEOUT_SECONDS)
+    # Enable WAL mode for better concurrent write performance
+    conn.execute("PRAGMA journal_mode=WAL;")
+    return conn
 
 
 def init_circuit_breaker_persistence(db_path: str = ".data/circuit_breaker.db") -> None:
@@ -553,7 +589,9 @@ def init_circuit_breaker_persistence(db_path: str = ".data/circuit_breaker.db") 
     # Ensure directory exists
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
-    with sqlite3.connect(db_path) as conn:
+    # Use timeout and WAL mode for concurrent access
+    with sqlite3.connect(db_path, timeout=_CB_TIMEOUT_SECONDS) as conn:
+        conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS circuit_breakers (
                 name TEXT PRIMARY KEY,
@@ -580,7 +618,6 @@ def persist_circuit_breaker(name: str, cb: CircuitBreaker) -> None:
         cb: CircuitBreaker instance to persist
     """
     import json
-    import sqlite3
     from datetime import datetime
 
     if not _DB_PATH:
@@ -590,7 +627,7 @@ def persist_circuit_breaker(name: str, cb: CircuitBreaker) -> None:
         state = cb.to_dict()
         state_json = json.dumps(state)
 
-        with sqlite3.connect(_DB_PATH) as conn:
+        with _get_cb_connection() as conn:
             conn.execute("""
                 INSERT OR REPLACE INTO circuit_breakers
                 (name, state_json, failure_threshold, cooldown_seconds, updated_at)
@@ -604,7 +641,7 @@ def persist_circuit_breaker(name: str, cb: CircuitBreaker) -> None:
             ))
             conn.commit()
     except Exception as e:
-        logger.debug(f"Failed to persist circuit breaker {name}: {e}")
+        logger.warning(f"Failed to persist circuit breaker {name}: {e}")
 
 
 def persist_all_circuit_breakers() -> int:
@@ -633,13 +670,12 @@ def load_circuit_breakers() -> int:
         Number of circuit breakers loaded
     """
     import json
-    import sqlite3
 
     if not _DB_PATH:
         return 0
 
     try:
-        with sqlite3.connect(_DB_PATH) as conn:
+        with _get_cb_connection() as conn:
             cursor = conn.execute("""
                 SELECT name, state_json, failure_threshold, cooldown_seconds
                 FROM circuit_breakers
@@ -659,7 +695,7 @@ def load_circuit_breakers() -> int:
                         _circuit_breakers[name] = cb
                         count += 1
                     except (json.JSONDecodeError, KeyError) as e:
-                        logger.debug(f"Failed to load circuit breaker {name}: {e}")
+                        logger.warning(f"Malformed circuit breaker record {name}: {e}")
 
             logger.info(f"Loaded {count} circuit breakers from {_DB_PATH}")
             return count
@@ -678,7 +714,6 @@ def cleanup_stale_persisted(max_age_hours: float = 72.0) -> int:
     Returns:
         Number of stale entries deleted
     """
-    import sqlite3
     from datetime import datetime, timedelta
 
     if not _DB_PATH:
@@ -687,7 +722,7 @@ def cleanup_stale_persisted(max_age_hours: float = 72.0) -> int:
     try:
         cutoff = (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
 
-        with sqlite3.connect(_DB_PATH) as conn:
+        with _get_cb_connection() as conn:
             cursor = conn.execute("""
                 DELETE FROM circuit_breakers WHERE updated_at < ?
             """, (cutoff,))
@@ -699,5 +734,5 @@ def cleanup_stale_persisted(max_age_hours: float = 72.0) -> int:
         return deleted
 
     except Exception as e:
-        logger.debug(f"Failed to cleanup stale circuit breakers: {e}")
+        logger.warning(f"Failed to cleanup stale circuit breakers: {e}")
         return 0

@@ -269,93 +269,19 @@ def agent_to_dict(agent: Any, include_name: bool = True) -> dict:
     return result
 
 
-@dataclass
-class HandlerResult:
-    """Result of handling an HTTP request."""
-    status_code: int
-    content_type: str
-    body: bytes
-    headers: dict = None
+# =============================================================================
+# Response Builders (imported from utils/responses.py)
+# =============================================================================
+# Core response utilities are now in aragora.server.handlers.utils.responses
+# and re-exported here for backwards compatibility
 
-    def __post_init__(self):
-        if self.headers is None:
-            self.headers = {}
-
-
-def json_response(
-    data: Any,
-    status: int = 200,
-    headers: Optional[dict] = None,
-) -> HandlerResult:
-    """Create a JSON response."""
-    body = json.dumps(data, default=str).encode('utf-8')
-    return HandlerResult(
-        status_code=status,
-        content_type="application/json",
-        body=body,
-        headers=headers or {},
-    )
-
-
-def error_response(
-    message: str,
-    status: int = 400,
-    headers: Optional[dict] = None,
-    *,
-    code: Optional[str] = None,
-    trace_id: Optional[str] = None,
-    suggestion: Optional[str] = None,
-    details: Optional[dict] = None,
-    structured: bool = False,
-) -> HandlerResult:
-    """Create an error response.
-
-    Args:
-        message: Human-readable error message
-        status: HTTP status code (default: 400)
-        headers: Optional additional headers
-        code: Optional machine-readable error code (e.g., "VALIDATION_ERROR")
-        trace_id: Optional request trace ID for debugging
-        suggestion: Optional suggestion for resolving the error
-        details: Optional additional error details
-        structured: If True, always use structured format. If False,
-                   only include additional fields if provided.
-
-    Returns:
-        HandlerResult with error JSON
-
-    Examples:
-        # Simple error (backward compatible)
-        error_response("Invalid input", 400)
-        # -> {"error": "Invalid input"}
-
-        # Structured error with code and suggestion
-        error_response(
-            "Field 'name' is required",
-            400,
-            code="VALIDATION_ERROR",
-            suggestion="Include 'name' in request body"
-        )
-        # -> {"error": {"code": "VALIDATION_ERROR", "message": "...", "suggestion": "..."}}
-    """
-    # Build error payload
-    if structured or code or trace_id or suggestion or details:
-        # Use structured format
-        error_obj: dict[str, Any] = {"message": message}
-        if code:
-            error_obj["code"] = code
-        if trace_id:
-            error_obj["trace_id"] = trace_id
-        if suggestion:
-            error_obj["suggestion"] = suggestion
-        if details:
-            error_obj["details"] = details
-        payload = {"error": error_obj}
-    else:
-        # Simple format for backward compatibility
-        payload = {"error": message}
-
-    return json_response(payload, status=status, headers=headers)
+from aragora.server.handlers.utils.responses import (
+    HandlerResult,
+    json_response,
+    error_response,
+    html_response,
+    redirect_response,
+)
 
 
 def safe_error_response(
