@@ -122,6 +122,19 @@ class StreamEventType(Enum):
     TELEMETRY_REDACTION = "telemetry_redaction"    # Content was redacted (notification only)
     TELEMETRY_DIAGNOSTIC = "telemetry_diagnostic"  # Internal diagnostic info (dev only)
 
+    # Gauntlet events (Adversarial Validation)
+    GAUNTLET_START = "gauntlet_start"              # Gauntlet stress-test started
+    GAUNTLET_PHASE = "gauntlet_phase"              # Phase transition (redteam, probe, audit, etc.)
+    GAUNTLET_AGENT_ACTIVE = "gauntlet_agent_active"  # Agent became active
+    GAUNTLET_ATTACK = "gauntlet_attack"            # Red-team attack executed
+    GAUNTLET_FINDING = "gauntlet_finding"          # New finding discovered
+    GAUNTLET_PROBE = "gauntlet_probe"              # Capability probe result
+    GAUNTLET_VERIFICATION = "gauntlet_verification"  # Formal verification result
+    GAUNTLET_RISK = "gauntlet_risk"                # Risk assessment update
+    GAUNTLET_PROGRESS = "gauntlet_progress"        # Progress update (percentage, etc.)
+    GAUNTLET_VERDICT = "gauntlet_verdict"          # Final verdict determined
+    GAUNTLET_COMPLETE = "gauntlet_complete"        # Gauntlet stress-test completed
+
 
 @dataclass
 class StreamEvent:

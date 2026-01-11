@@ -42,6 +42,11 @@ from .arena_hooks import (
     create_arena_hooks,
     wrap_agent_for_streaming,
 )
+from .gauntlet_emitter import (
+    GauntletStreamEmitter,
+    GauntletPhase,
+    create_gauntlet_emitter,
+)
 from .broadcaster import (
     BroadcasterConfig,
     ClientManager,
