@@ -25,9 +25,15 @@ from aragora.verification.formal import (
     FormalProofResult,
     FormalProofStatus,
     FormalLanguage,
+    TranslationModel,
     LeanBackend,
     Z3Backend,
     get_formal_verification_manager,
+)
+from aragora.verification.deepseek_prover import (
+    DeepSeekProverTranslator,
+    TranslationResult,
+    translate_to_lean,
 )
 from aragora.verification.sandbox import (
     ProofSandbox,
@@ -47,15 +53,20 @@ __all__ = [
     "ClaimVerifier",
     "VerificationReport",
     "ProofBuilder",
-    # Formal verification (stub interface)
+    # Formal verification
     "FormalVerificationBackend",
     "FormalVerificationManager",
     "FormalProofResult",
     "FormalProofStatus",
     "FormalLanguage",
+    "TranslationModel",
     "LeanBackend",
     "Z3Backend",
     "get_formal_verification_manager",
+    # DeepSeek-Prover integration
+    "DeepSeekProverTranslator",
+    "TranslationResult",
+    "translate_to_lean",
     # Sandbox execution
     "ProofSandbox",
     "SandboxConfig",

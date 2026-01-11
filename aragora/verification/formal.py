@@ -169,6 +169,14 @@ class FormalVerificationBackend(Protocol):
         ...
 
 
+class TranslationModel(Enum):
+    """Available models for NL-to-Lean translation."""
+    DEEPSEEK_PROVER = "deepseek_prover"  # Best for mathematical proofs
+    CLAUDE = "claude"  # General-purpose, good at reasoning
+    OPENAI = "openai"  # GPT-4, solid alternative
+    AUTO = "auto"  # Automatically select best available
+
+
 class LeanBackend:
     """
     Lean 4 formal verification backend.
@@ -177,14 +185,15 @@ class LeanBackend:
     theorems, then runs the Lean type checker to verify proofs.
 
     Features:
-    - LLM-assisted translation (Claude, GPT-4)
+    - DeepSeek-Prover-V2 integration for state-of-the-art translation
+    - Fallback to Claude/GPT-4 for translation
     - Sandboxed Lean execution with resource limits
     - Proof caching for repeated verification
     - Support for common mathematical patterns
 
     Prerequisites:
     - Lean 4 toolchain installed (lean, lake)
-    - API key for translation (ANTHROPIC_API_KEY or OPENAI_API_KEY)
+    - API key for translation (OPENROUTER_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY)
     """
 
     # Claim types suitable for Lean verification
@@ -203,18 +212,27 @@ class LeanBackend:
         r"[∀∃→←↔∧∨¬⊢⊨≡≠≤≥∈∉⊂⊃∩∪∅ℕℤℚℝℂ]",
     ]
 
-    def __init__(self, sandbox_timeout: float = 60.0, sandbox_memory_mb: int = 1024):
+    def __init__(
+        self,
+        sandbox_timeout: float = 60.0,
+        sandbox_memory_mb: int = 1024,
+        translation_model: TranslationModel = TranslationModel.AUTO,
+    ):
         """
         Initialize Lean backend.
 
         Args:
             sandbox_timeout: Maximum seconds for Lean execution.
             sandbox_memory_mb: Memory limit for Lean process.
+            translation_model: Which model to use for NL-to-Lean translation.
+                              AUTO will prefer DeepSeek-Prover if available.
         """
         self._sandbox_timeout = sandbox_timeout
         self._sandbox_memory_mb = sandbox_memory_mb
+        self._translation_model = translation_model
         self._proof_cache: dict[str, FormalProofResult] = {}
         self._lean_version: Optional[str] = None
+        self._deepseek_translator: Optional[Any] = None
 
     @property
     def language(self) -> FormalLanguage:
@@ -269,16 +287,47 @@ class LeanBackend:
 
         return False
 
+    def _get_deepseek_translator(self) -> Optional[Any]:
+        """Get DeepSeek-Prover translator instance."""
+        if self._deepseek_translator is None:
+            try:
+                from aragora.verification.deepseek_prover import DeepSeekProverTranslator
+                translator = DeepSeekProverTranslator()
+                if translator.is_available:
+                    self._deepseek_translator = translator
+            except ImportError:
+                pass
+        return self._deepseek_translator
+
     async def translate(self, claim: str, context: str = "") -> Optional[str]:
         """
         Use LLM to translate a natural language claim to a Lean 4 theorem.
 
         Returns None if translation fails or no LLM is available.
         Example output: "theorem claim_123 : ∀ n : ℕ, n + 0 = n := by simp"
+
+        Translation model selection (for AUTO mode):
+        1. DeepSeek-Prover-V2 (best for mathematical proofs)
+        2. Claude (fallback, good reasoning)
+        3. GPT-4 (fallback)
         """
         import os
         import aiohttp
 
+        # Try DeepSeek-Prover first if configured
+        if self._translation_model in (TranslationModel.AUTO, TranslationModel.DEEPSEEK_PROVER):
+            translator = self._get_deepseek_translator()
+            if translator:
+                result = await translator.translate(claim, context)
+                if result.success and result.lean_code:
+                    logger.debug(f"DeepSeek-Prover translation succeeded (confidence: {result.confidence:.2f})")
+                    return result.lean_code
+                elif self._translation_model == TranslationModel.DEEPSEEK_PROVER:
+                    # Explicit DeepSeek selection but failed
+                    logger.warning(f"DeepSeek-Prover translation failed: {result.error_message}")
+                    return None
+
+        # Fall back to Claude/OpenAI
         api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
         if not api_key:
             return None

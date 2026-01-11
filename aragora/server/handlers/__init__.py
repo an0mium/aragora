@@ -73,6 +73,7 @@ from .features import FeaturesHandler
 from .memory_analytics import MemoryAnalyticsHandler
 from .gauntlet import GauntletHandler
 from .reviews import ReviewsHandler
+from .formal_verification import FormalVerificationHandler
 
 # List of all handler classes for automatic dispatch registration
 # Order matters: more specific handlers should come first
@@ -123,6 +124,7 @@ ALL_HANDLERS = [
     MemoryAnalyticsHandler,
     GauntletHandler,
     ReviewsHandler,
+    FormalVerificationHandler,
 ]
 
 # Handler stability classifications
@@ -174,6 +176,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "MemoryAnalyticsHandler": Stability.EXPERIMENTAL,
     "GauntletHandler": Stability.EXPERIMENTAL,  # Adversarial validation engine
     "ReviewsHandler": Stability.EXPERIMENTAL,  # Shareable code reviews
+    "FormalVerificationHandler": Stability.EXPERIMENTAL,  # DeepSeek-Prover integration
 
     # Promoted to Preview (Jan 2026)
     "InsightsHandler": Stability.PREVIEW,  # Unit tests, flip detection
@@ -263,6 +266,7 @@ __all__ = [
     "MemoryAnalyticsHandler",
     "GauntletHandler",
     "ReviewsHandler",
+    "FormalVerificationHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",
