@@ -110,7 +110,7 @@ def create_mock_http_handler(payload: bytes, signature: str = "valid_sig"):
 class TestCheckoutSessionCompleted:
     """Tests for checkout.session.completed webhook event."""
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
     @patch("aragora.server.handlers.billing._mark_webhook_processed")
     def test_checkout_completed_upgrades_org(
@@ -152,7 +152,7 @@ class TestCheckoutSessionCompleted:
         assert call_args[1]["stripe_subscription_id"] == "sub_test_789"
         assert call_args[1]["tier"] == SubscriptionTier.PROFESSIONAL
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
     def test_checkout_completed_logs_audit_event(
         self, mock_is_dup, mock_parse, billing_handler, mock_user_store
@@ -187,7 +187,7 @@ class TestCheckoutSessionCompleted:
         assert audit_call[1]["action"] == "subscription.created"
         assert audit_call[1]["resource_type"] == "subscription"
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
     def test_checkout_completed_handles_missing_org(
         self, mock_is_dup, mock_parse, billing_handler, mock_user_store
@@ -230,9 +230,9 @@ class TestCheckoutSessionCompleted:
 class TestSubscriptionUpdated:
     """Tests for customer.subscription.updated webhook event."""
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
-    @patch("aragora.server.handlers.billing.get_tier_from_price_id")
+    @patch("aragora.billing.stripe_client.get_tier_from_price_id")
     def test_subscription_updated_changes_tier(
         self, mock_get_tier, mock_is_dup, mock_parse, billing_handler, mock_user_store
     ):
@@ -266,9 +266,9 @@ class TestSubscriptionUpdated:
         call_args = mock_user_store.update_organization.call_args
         assert call_args[1]["tier"] == SubscriptionTier.ENTERPRISE
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
-    @patch("aragora.server.handlers.billing.get_tier_from_price_id")
+    @patch("aragora.billing.stripe_client.get_tier_from_price_id")
     def test_subscription_updated_logs_tier_change(
         self, mock_get_tier, mock_is_dup, mock_parse, billing_handler, mock_user_store
     ):
@@ -308,7 +308,7 @@ class TestSubscriptionUpdated:
 class TestSubscriptionDeleted:
     """Tests for customer.subscription.deleted webhook event."""
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
     def test_subscription_deleted_downgrades_to_free(
         self, mock_is_dup, mock_parse, billing_handler, mock_user_store
@@ -353,7 +353,7 @@ class TestSubscriptionDeleted:
 class TestInvoicePayment:
     """Tests for invoice payment webhook events."""
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
     def test_invoice_paid_resets_usage(
         self, mock_is_dup, mock_parse, billing_handler, mock_user_store
@@ -382,7 +382,7 @@ class TestInvoicePayment:
         # Verify usage was reset
         mock_user_store.reset_org_usage.assert_called_once_with("org-456")
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
     def test_invoice_failed_logs_warning(
         self, mock_is_dup, mock_parse, billing_handler, mock_user_store
@@ -410,7 +410,7 @@ class TestInvoicePayment:
         assert result.status_code == 200
         mock_logger.warning.assert_called()
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
     def test_invoice_failed_multiple_attempts_triggers_alert(
         self, mock_is_dup, mock_parse, billing_handler, mock_user_store
@@ -448,7 +448,7 @@ class TestInvoicePayment:
 class TestWebhookIdempotency:
     """Tests for webhook idempotency handling."""
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
     def test_duplicate_event_skipped(
         self, mock_is_dup, mock_parse, billing_handler, mock_user_store
@@ -513,7 +513,7 @@ class TestWebhookIdempotency:
 class TestWebhookSignatureValidation:
     """Tests for webhook signature validation."""
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     def test_missing_signature_rejected(
         self, mock_parse, billing_handler
     ):
@@ -527,7 +527,7 @@ class TestWebhookSignatureValidation:
         data = json.loads(result.body)
         assert "signature" in data["error"].lower()
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     def test_invalid_signature_rejected(
         self, mock_parse, billing_handler
     ):
@@ -551,7 +551,7 @@ class TestWebhookSignatureValidation:
 class TestUnhandledEvents:
     """Tests for unhandled webhook event types."""
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
     def test_unknown_event_acknowledged(
         self, mock_is_dup, mock_parse, billing_handler
@@ -583,7 +583,7 @@ class TestUnhandledEvents:
 class TestWebhookIntegration:
     """Integration tests for complete webhook flows."""
 
-    @patch("aragora.server.handlers.billing.parse_webhook_event")
+    @patch("aragora.billing.stripe_client.parse_webhook_event")
     @patch("aragora.server.handlers.billing._is_duplicate_webhook")
     def test_full_subscription_lifecycle(
         self, mock_is_dup, mock_parse, billing_handler, mock_user_store
