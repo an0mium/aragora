@@ -265,8 +265,8 @@ class CLIAgent(CritiqueMixin, Agent):
             except AgentCircuitOpenError:
                 # Don't record circuit open errors as failures - just re-raise
                 raise
-            except Exception as e:
-                # Record failure to circuit breaker
+            except (OSError, ValueError, RuntimeError, UnicodeDecodeError) as e:
+                # Record failure to circuit breaker (subprocess/encoding errors)
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
                 if proc and proc.returncode is None:

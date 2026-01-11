@@ -199,13 +199,27 @@ class GalleryHandler(BaseHandler):
         if not replays_dir.exists():
             return debates
 
-        # Scan replay directories
-        replay_dirs = sorted(replays_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+        # Collect directory entries with modification times (bounded iteration)
+        # Scan more than needed to account for filtering and non-directory entries
+        max_to_scan = (offset + limit + 100) * 2
+        dir_entries: list[tuple[float, Path]] = []
 
-        for replay_path in replay_dirs:
+        for replay_path in replays_dir.iterdir():
             if not replay_path.is_dir():
                 continue
+            try:
+                mtime = replay_path.stat().st_mtime
+                dir_entries.append((mtime, replay_path))
+            except OSError:
+                continue
+            # Early termination to prevent memory exhaustion
+            if len(dir_entries) >= max_to_scan:
+                break
 
+        # Sort only the collected subset by modification time (newest first)
+        dir_entries.sort(key=lambda x: x[0], reverse=True)
+
+        for _, replay_path in dir_entries:
             meta_path = replay_path / "meta.json"
             if not meta_path.exists():
                 continue
