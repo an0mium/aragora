@@ -1301,7 +1301,7 @@ class ConsensusPhase:
                 debate_id = result.id if hasattr(result, 'id') else (ctx.env.task[:50] if ctx.env else "")
                 self.position_tracker.finalize_debate(
                     debate_id=debate_id,
-                    winning_agent=winner,
+                    winning_agent=winner_agent,
                     winning_position=result.final_answer[:1000],
                     consensus_confidence=result.confidence,
                 )
@@ -1316,7 +1316,7 @@ class ConsensusPhase:
                 for v in result.votes:
                     if not isinstance(v, Exception):
                         canonical = choice_mapping.get(v.choice, v.choice)
-                        correct = canonical == winner
+                        correct = canonical == winner_agent
                         self.calibration_tracker.record_prediction(
                             agent=v.agent,
                             confidence=v.confidence,
