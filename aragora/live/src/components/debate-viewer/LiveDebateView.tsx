@@ -10,6 +10,8 @@ import { CritiqueSeverityMeter } from './CritiqueSeverityMeter';
 import { TricksterAlertPanel } from '@/components/TricksterAlertPanel';
 import { RhetoricalObservationsPanel } from './RhetoricalObservationsPanel';
 import { UncertaintyPanel } from '@/components/UncertaintyPanel';
+import { MoodTrackerPanel } from '@/components/MoodTrackerPanel';
+import { TokenStreamViewer } from '@/components/TokenStreamViewer';
 import type { LiveDebateViewProps } from './types';
 
 const STATUS_CONFIG = {
@@ -87,9 +89,11 @@ export function LiveDebateView({
 
       {/* Analytics Meters - visible during streaming */}
       {status === 'streaming' && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <ConsensusMeter events={streamEvents} agents={agents} />
           <CritiqueSeverityMeter events={streamEvents} agents={agents} />
+          <MoodTrackerPanel events={streamEvents} agents={agents} />
+          <TokenStreamViewer events={streamEvents} agents={agents} />
         </div>
       )}
 

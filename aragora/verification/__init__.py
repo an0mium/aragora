@@ -29,6 +29,13 @@ from aragora.verification.formal import (
     Z3Backend,
     get_formal_verification_manager,
 )
+from aragora.verification.sandbox import (
+    ProofSandbox,
+    SandboxConfig,
+    SandboxResult,
+    SandboxStatus,
+    run_sandboxed,
+)
 
 __all__ = [
     # Executable proofs
@@ -49,4 +56,10 @@ __all__ = [
     "LeanBackend",
     "Z3Backend",
     "get_formal_verification_manager",
+    # Sandbox execution
+    "ProofSandbox",
+    "SandboxConfig",
+    "SandboxResult",
+    "SandboxStatus",
+    "run_sandboxed",
 ]
