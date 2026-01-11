@@ -75,6 +75,168 @@ def check_env_vars() -> list[CheckResult]:
     return results
 
 
+def validate_api_key(provider: str, api_key: str) -> tuple[bool, str]:
+    """
+    Validate an API key by making a minimal test call.
+
+    Returns (is_valid, message).
+    """
+    import json
+    import urllib.request
+    import urllib.error
+
+    try:
+        if provider == "Anthropic":
+            # Anthropic messages API - minimal request
+            req = urllib.request.Request(
+                "https://api.anthropic.com/v1/messages",
+                method="POST",
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                data=json.dumps({
+                    "model": "claude-3-haiku-20240307",
+                    "max_tokens": 1,
+                    "messages": [{"role": "user", "content": "hi"}],
+                }).encode(),
+            )
+
+        elif provider == "OpenAI":
+            # OpenAI models list - read-only, cheap
+            req = urllib.request.Request(
+                "https://api.openai.com/v1/models",
+                method="GET",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+
+        elif provider in ("Gemini", "Google"):
+            # Gemini models list
+            req = urllib.request.Request(
+                f"https://generativelanguage.googleapis.com/v1/models?key={api_key}",
+                method="GET",
+            )
+
+        elif provider in ("xAI", "Grok"):
+            # xAI models list
+            req = urllib.request.Request(
+                "https://api.x.ai/v1/models",
+                method="GET",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+
+        elif provider == "OpenRouter":
+            # OpenRouter models list
+            req = urllib.request.Request(
+                "https://openrouter.ai/api/v1/models",
+                method="GET",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+
+        elif provider == "DeepSeek":
+            # DeepSeek models list
+            req = urllib.request.Request(
+                "https://api.deepseek.com/models",
+                method="GET",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+
+        else:
+            return True, "Validation not implemented"
+
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status in (200, 201):
+                return True, "Valid"
+
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            return False, "Invalid key"
+        elif e.code == 403:
+            return False, "Access denied"
+        elif e.code == 429:
+            return True, "Valid (rate limited)"
+        else:
+            return False, f"HTTP {e.code}"
+    except urllib.error.URLError as e:
+        return False, f"Network error: {e.reason}"
+    except TimeoutError:
+        return False, "Timeout"
+    except Exception as e:
+        return False, f"Error: {e}"
+
+    return False, "Unknown error"
+
+
+def check_api_keys_validity(validate: bool = False) -> list[CheckResult]:
+    """
+    Check API keys and optionally validate them.
+
+    Args:
+        validate: If True, make test API calls to verify keys work.
+    """
+    results = []
+
+    api_keys = [
+        ("ANTHROPIC_API_KEY", "Anthropic"),
+        ("OPENAI_API_KEY", "OpenAI"),
+        ("GEMINI_API_KEY", "Gemini"),
+        ("XAI_API_KEY", "xAI"),
+        ("OPENROUTER_API_KEY", "OpenRouter"),
+        ("DEEPSEEK_API_KEY", "DeepSeek"),
+    ]
+
+    valid_keys = []
+    invalid_keys = []
+
+    for env_var, provider in api_keys:
+        value = os.environ.get(env_var, "")
+        if not value or len(value) < 10:
+            continue
+
+        if validate:
+            is_valid, message = validate_api_key(provider, value)
+            if is_valid:
+                valid_keys.append(provider)
+                results.append(CheckResult(
+                    f"api_{provider.lower()}",
+                    "pass",
+                    f"{provider}: {message}"
+                ))
+            else:
+                invalid_keys.append(provider)
+                results.append(CheckResult(
+                    f"api_{provider.lower()}",
+                    "fail",
+                    f"{provider}: {message}"
+                ))
+        else:
+            valid_keys.append(provider)
+
+    if not validate:
+        if valid_keys:
+            results.append(CheckResult(
+                "api_keys",
+                "pass",
+                f"Found: {', '.join(valid_keys)}"
+            ))
+        else:
+            results.append(CheckResult(
+                "api_keys",
+                "fail",
+                "No API keys found. Set ANTHROPIC_API_KEY or OPENAI_API_KEY"
+            ))
+
+    if validate and invalid_keys:
+        results.append(CheckResult(
+            "api_keys_summary",
+            "fail",
+            f"Invalid keys: {', '.join(invalid_keys)}. Run `aragora config set <KEY> <value>` to fix."
+        ))
+
+    return results
+
+
 def check_configuration() -> list[CheckResult]:
     """Validate configuration using existing infrastructure."""
     results = []
@@ -271,11 +433,21 @@ def print_results(results: list[CheckResult]) -> int:
         return 0
 
 
-def main() -> int:
-    """Run all health checks."""
+def main(validate_keys: bool = False) -> int:
+    """
+    Run all health checks.
+
+    Args:
+        validate_keys: If True, validate API keys by making test calls.
+    """
     results = []
 
-    results.extend(check_env_vars())
+    if validate_keys:
+        print("Validating API keys (making test calls)...")
+        results.extend(check_api_keys_validity(validate=True))
+    else:
+        results.extend(check_env_vars())
+
     results.extend(check_configuration())
     results.extend(check_databases())
     results.extend(check_circuit_breakers())
@@ -284,5 +456,60 @@ def main() -> int:
     return print_results(results)
 
 
+def run_validate() -> int:
+    """
+    Run API key validation only.
+
+    Returns exit code 0 if all keys valid, 1 if any invalid.
+    """
+    print("\nAragora Validate - API Key Verification")
+    print("=" * 50)
+
+    results = check_api_keys_validity(validate=True)
+
+    symbols = {"pass": "[PASS]", "warn": "[WARN]", "fail": "[FAIL]"}
+    colors = {"pass": "\033[32m", "warn": "\033[33m", "fail": "\033[31m"}
+    reset = "\033[0m"
+
+    use_color = sys.stdout.isatty()
+
+    has_failures = False
+    for result in results:
+        symbol = symbols[result.status]
+        if use_color:
+            symbol = f"{colors[result.status]}{symbol}{reset}"
+
+        # Use checkmark/x for cleaner output
+        if result.status == "pass":
+            icon = "✓" if use_color else "OK"
+        elif result.status == "fail":
+            icon = "✗" if use_color else "FAIL"
+            has_failures = True
+        else:
+            icon = "?" if use_color else "WARN"
+
+        print(f"  {symbol} {result.message}")
+
+    print("=" * 50)
+
+    if has_failures:
+        print("\nSuggestion: Update invalid keys in .env or run:")
+        print("  aragora config set <KEY> <value>")
+        return 1
+    else:
+        print("\nAll API keys validated successfully!")
+        return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Aragora system health check")
+    parser.add_argument(
+        "--validate", "-v",
+        action="store_true",
+        help="Validate API keys by making test calls"
+    )
+    args = parser.parse_args()
+
+    sys.exit(main(validate_keys=args.validate))

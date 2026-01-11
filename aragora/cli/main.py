@@ -518,10 +518,17 @@ def cmd_export(args: argparse.Namespace) -> None:
     print(f"Content Hash: {artifact.content_hash}")
 
 
-def cmd_doctor(_: argparse.Namespace) -> None:
+def cmd_doctor(args: argparse.Namespace) -> None:
     """Handle 'doctor' command - run system health checks."""
     from aragora.cli.doctor import main as doctor_main
-    sys.exit(doctor_main())
+    validate = getattr(args, "validate", False)
+    sys.exit(doctor_main(validate_keys=validate))
+
+
+def cmd_validate(_: argparse.Namespace) -> None:
+    """Handle 'validate' command - validate API keys."""
+    from aragora.cli.doctor import run_validate
+    sys.exit(run_validate())
 
 
 def cmd_improve(args: argparse.Namespace) -> None:
@@ -988,7 +995,19 @@ Examples:
 
     # Doctor command
     doctor_parser = subparsers.add_parser("doctor", help="Run system health checks")
+    doctor_parser.add_argument(
+        "--validate", "-v",
+        action="store_true",
+        help="Validate API keys by making test calls"
+    )
     doctor_parser.set_defaults(func=cmd_doctor)
+
+    # Validate command (API key validation)
+    validate_parser = subparsers.add_parser(
+        "validate",
+        help="Validate API keys by making test calls"
+    )
+    validate_parser.set_defaults(func=cmd_validate)
 
     # Improve command (self-improvement mode)
     improve_parser = subparsers.add_parser("improve", help="Self-improvement mode")

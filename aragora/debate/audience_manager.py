@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import queue
+import threading
 from collections import deque
 from typing import TYPE_CHECKING, Callable, Optional
 
@@ -70,6 +71,7 @@ class AudienceManager:
         # Processed events (bounded deques for O(1) operations)
         self._votes: deque[dict] = deque(maxlen=queue_size)
         self._suggestions: deque[dict] = deque(maxlen=queue_size)
+        self._data_lock = threading.Lock()  # Protects votes/suggestions access
 
         # Optional callback for notifications
         self._notify_callback: Optional[Callable[[str], None]] = None
@@ -132,10 +134,11 @@ class AudienceManager:
         while True:
             try:
                 event_type, event_data = self._event_queue.get_nowait()
-                if event_type == StreamEventType.USER_VOTE:
-                    self._votes.append(event_data)  # deque auto-evicts oldest
-                elif event_type == StreamEventType.USER_SUGGESTION:
-                    self._suggestions.append(event_data)  # deque auto-evicts oldest
+                with self._data_lock:
+                    if event_type == StreamEventType.USER_VOTE:
+                        self._votes.append(event_data)  # deque auto-evicts oldest
+                    elif event_type == StreamEventType.USER_SUGGESTION:
+                        self._suggestions.append(event_data)  # deque auto-evicts oldest
                 drained_count += 1
             except queue.Empty:
                 break
@@ -149,26 +152,31 @@ class AudienceManager:
         return drained_count
 
     def get_votes(self) -> list[dict]:
-        """Get all drained user votes."""
-        return list(self._votes)
+        """Get all drained user votes (thread-safe)."""
+        with self._data_lock:
+            return list(self._votes)
 
     def get_suggestions(self) -> list[dict]:
-        """Get all drained user suggestions."""
-        return list(self._suggestions)
+        """Get all drained user suggestions (thread-safe)."""
+        with self._data_lock:
+            return list(self._suggestions)
 
     def clear_votes(self) -> None:
-        """Clear processed votes."""
-        self._votes.clear()
+        """Clear processed votes (thread-safe)."""
+        with self._data_lock:
+            self._votes.clear()
 
     def clear_suggestions(self) -> None:
-        """Clear processed suggestions."""
-        self._suggestions.clear()
+        """Clear processed suggestions (thread-safe)."""
+        with self._data_lock:
+            self._suggestions.clear()
 
     def clear_all(self) -> None:
-        """Clear all processed events and drain queue."""
-        self._votes.clear()
-        self._suggestions.clear()
-        # Drain and discard any pending events
+        """Clear all processed events and drain queue (thread-safe)."""
+        with self._data_lock:
+            self._votes.clear()
+            self._suggestions.clear()
+        # Drain and discard any pending events (queue is already thread-safe)
         while True:
             try:
                 self._event_queue.get_nowait()
@@ -182,13 +190,15 @@ class AudienceManager:
 
     @property
     def votes_count(self) -> int:
-        """Get count of processed votes."""
-        return len(self._votes)
+        """Get count of processed votes (thread-safe)."""
+        with self._data_lock:
+            return len(self._votes)
 
     @property
     def suggestions_count(self) -> int:
-        """Get count of processed suggestions."""
-        return len(self._suggestions)
+        """Get count of processed suggestions (thread-safe)."""
+        with self._data_lock:
+            return len(self._suggestions)
 
 
 __all__ = ["AudienceManager"]

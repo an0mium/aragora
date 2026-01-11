@@ -55,6 +55,12 @@ class RateLimitSettings(BaseSettings):
 
     default_limit: int = Field(default=60, ge=1, le=10000, alias="ARAGORA_RATE_LIMIT")
     ip_rate_limit: int = Field(default=120, ge=1, le=10000, alias="ARAGORA_IP_RATE_LIMIT")
+    burst_multiplier: float = Field(default=2.0, ge=1.0, le=10.0, alias="ARAGORA_BURST_MULTIPLIER")
+
+    # Redis configuration for persistent rate limiting
+    redis_url: Optional[str] = Field(default=None, alias="ARAGORA_REDIS_URL")
+    redis_key_prefix: str = Field(default="aragora:ratelimit:", alias="ARAGORA_REDIS_KEY_PREFIX")
+    redis_ttl_seconds: int = Field(default=120, ge=60, le=3600, alias="ARAGORA_REDIS_TTL")
 
 
 class APILimitSettings(BaseSettings):
