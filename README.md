@@ -146,7 +146,11 @@ aragora gauntlet architecture.md --profile thorough --output report.html
 
 See [docs/GAUNTLET.md](docs/GAUNTLET.md) for full documentation and [docs/AGENT_SELECTION.md](docs/AGENT_SELECTION.md) for agent recommendations.
 
-Case study: [Epic Strategic Debate](docs/case_studies/epic_strategic_debate.md)
+Case studies:
+- `docs/case-studies/architecture-stress-test.md`
+- `docs/case-studies/gdpr-compliance-audit.md`
+- `docs/case-studies/security-api-review.md`
+- `docs/case_studies/epic_strategic_debate.md`
 
 ## Quick Start
 
@@ -175,7 +179,8 @@ aragora ask "Implement a secure auth system" \
 ## Supported Entry Points
 
 Stable interfaces (recommended):
-- `aragora ask` for debates (CLI)
+- `aragora gauntlet` for decision stress-tests (CLI)
+- `aragora ask` for exploratory debates (CLI)
 - `aragora serve` for the unified API + WebSocket server
 - `python -m aragora` as a CLI alias
 - `python -m aragora.server` for the server in scripts/automation

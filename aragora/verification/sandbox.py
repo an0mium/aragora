@@ -97,6 +97,31 @@ class ProofSandbox:
             max_output_bytes=max_output_bytes,
         )
         self._temp_dirs: list[Path] = []
+        self._closed = False
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - ensures cleanup."""
+        self.cleanup()
+        return False
+
+    def cleanup(self):
+        """Clean up all temporary directories (idempotent)."""
+        if self._closed:
+            return
+        self._cleanup_temp_dirs()
+        self._closed = True
+
+    def __del__(self):
+        """Destructor - fallback cleanup if context manager not used."""
+        try:
+            if not self._closed:
+                self._cleanup_temp_dirs()
+        except Exception:
+            pass  # Suppress errors during garbage collection
 
     def _create_temp_dir(self) -> Path:
         """Create a temporary directory for sandboxed execution."""

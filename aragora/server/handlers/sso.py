@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from typing import Any, Dict, Optional
 
 from .base import BaseHandler, HandlerResult, json_response, error_response
@@ -150,6 +151,18 @@ class SSOHandler(BaseHandler):
                 501,
                 code="SSO_NOT_CONFIGURED"
             )
+
+        # SECURITY: Enforce HTTPS for callbacks in production
+        if os.getenv("ARAGORA_ENV") == "production":
+            callback_url = provider.config.callback_url
+            if callback_url and not callback_url.startswith("https://"):
+                logger.error(f"SSO callback URL must use HTTPS in production: {callback_url}")
+                return error_response(
+                    "SSO callback URL must use HTTPS in production",
+                    400,
+                    code="INSECURE_CALLBACK_URL",
+                    suggestion="Configure ARAGORA_SSO_CALLBACK_URL with https://"
+                )
 
         try:
             # Extract callback parameters
