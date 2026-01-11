@@ -193,9 +193,38 @@ Receipt contents:
 - **Cryptographic checksum** for integrity
 - **Timestamp** for audit trail
 
+## Decision Gate (CI-Friendly)
+
+The CLI exits with non-zero codes to make Gauntlet usable as a decision gate:
+
+- `1` = rejected (critical/high findings exceeded)
+- `2` = needs review (borderline or conditional)
+
+Example:
+
+```bash
+aragora gauntlet spec.md --profile thorough --output receipt.html
+```
+
+Use this in CI to fail builds when a decision does not pass the stress-test.
+
+## Evaluation Harness
+
+For deterministic, no-key evaluation, use the fixture-based harness:
+
+```bash
+python benchmarks/gauntlet_evaluation.py
+```
+
+You can add fixtures in `benchmarks/fixtures/gauntlet` and export results:
+
+```bash
+python benchmarks/gauntlet_evaluation.py --output benchmarks/results/gauntlet_eval.json
+```
+
 ## Case Study: Epic Strategic Debate
 
-See [docs/case_studies/epic_strategic_debate.md](docs/case_studies/epic_strategic_debate.md) for a real multi‑agent debate that converged on the “Automated Adversarial Validation” positioning and clarified the core wedge for Aragora.
+See `docs/case-studies/epic-strategic-debate.md` for a real multi-agent debate that converged on the “Automated Adversarial Validation” positioning and clarified the core wedge for Aragora.
 
 ## Compliance Personas
 

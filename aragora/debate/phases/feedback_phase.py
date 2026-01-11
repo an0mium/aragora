@@ -483,7 +483,7 @@ class FeedbackPhase:
 
             # Check for trait emergence after performance updates
             self._check_trait_emergence(ctx)
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             _, msg, exc_info = _build_error_action(e, "persona")
             logger.warning("Persona update failed: %s", msg, exc_info=exc_info)
 
@@ -531,7 +531,7 @@ class FeedbackPhase:
                         agent.name, trait.get("name", "unknown")
                     )
 
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug(f"Trait emergence check error: {e}")
 
     def _detect_emerging_traits(self, agent_name: str, ctx: "DebateContext") -> list:
@@ -577,7 +577,7 @@ class FeedbackPhase:
                     "confidence": win_rate,
                 })
 
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, ZeroDivisionError) as e:
             logger.debug(f"Trait detection error for {agent_name}: {e}")
 
         return traits
@@ -602,7 +602,7 @@ class FeedbackPhase:
                             outcome=outcome,
                             resolution_source=f"debate:{ctx.debate_id}",
                         )
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("Position resolution failed: %s", e)
 
     def _update_relationships(self, ctx: "DebateContext") -> None:
@@ -636,7 +636,7 @@ class FeedbackPhase:
                 votes=votes,
                 critiques=critiques,
             )
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("Relationship tracking failed: %s", e)
 
     def _detect_moments(self, ctx: "DebateContext") -> None:
@@ -679,7 +679,7 @@ class FeedbackPhase:
                             if self._emit_moment_event:
                                 self._emit_moment_event(moment)
 
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("Moment detection failed: %s", e)
 
     async def _index_debate(self, ctx: "DebateContext") -> None:
@@ -718,7 +718,7 @@ class FeedbackPhase:
                     if t.exception() else None
                 ))
 
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError, ConnectionError) as e:
             logger.warning("Embedding indexing failed: %s", e)
 
     def _detect_flips(self, ctx: "DebateContext") -> None:
@@ -736,7 +736,7 @@ class FeedbackPhase:
                     )
                     self._emit_flip_events(ctx, agent.name, flips)
 
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("Flip detection failed: %s", e)
 
     def _emit_flip_events(
@@ -765,7 +765,7 @@ class FeedbackPhase:
                         "debate_id": ctx.result.id if ctx.result else ctx.debate_id,
                     }
                 ))
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.warning(f"Flip event emission error: {e}")
 
     def _store_memory(self, ctx: "DebateContext") -> None:
@@ -861,7 +861,7 @@ class FeedbackPhase:
 
         except ImportError:
             logger.debug("ConsensusMemory storage skipped: module not available")
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
             _, msg, exc_info = _build_error_action(e, "consensus_memory")
             logger.warning("ConsensusMemory storage failed: %s", msg, exc_info=exc_info)
 
@@ -910,7 +910,7 @@ class FeedbackPhase:
                     reasoning=f"Preferred: {vote.choice}",
                     confidence=getattr(vote, 'confidence', 0.5),
                 )
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError) as e:
                 logger.debug("Dissent storage failed for %s: %s", vote.agent, e)
 
     def _store_cruxes(self, ctx: "DebateContext") -> None:
@@ -946,7 +946,7 @@ class FeedbackPhase:
                         "positions": crux.get("positions", {}),
                         "confidence_gap": crux.get("confidence_gap", 0.0),
                     })
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError) as e:
                 logger.debug("Belief network crux extraction failed: %s", e)
 
         # 2. From dissenting views - high-confidence dissents are cruxes

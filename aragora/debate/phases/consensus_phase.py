@@ -1450,3 +1450,113 @@ class ConsensusPhase:
                     logger.debug(f"belief_cruxes count={len(result.debate_cruxes)}")
         except Exception as e:
             logger.warning(f"belief_analysis_error error={e}")
+
+    async def _verify_consensus_formally(self, ctx: "DebateContext") -> None:
+        """
+        Attempt formal verification of consensus claims using Lean4/Z3.
+
+        This method is called after consensus is reached, if formal_verification_enabled
+        is set in the protocol. It attempts to translate the consensus to a formal
+        language and verify it using available proof backends.
+
+        The verification result is stored in ctx.result.formal_verification as a dict
+        containing status, proof details, and any error messages.
+
+        Args:
+            ctx: The DebateContext with result containing final_answer
+        """
+        if not self.protocol:
+            return
+
+        # Check if formal verification is enabled
+        formal_enabled = getattr(self.protocol, 'formal_verification_enabled', False)
+        if not formal_enabled:
+            return
+
+        result = ctx.result
+        if not result.final_answer:
+            return
+
+        # Get verification timeout from protocol
+        timeout = getattr(self.protocol, 'formal_verification_timeout', 30.0)
+        languages = getattr(self.protocol, 'formal_verification_languages', ['z3_smt'])
+
+        logger.info(f"formal_verification_start languages={languages} timeout={timeout}")
+
+        try:
+            # Import verification manager (deferred to avoid circular imports)
+            from aragora.verification.formal import get_formal_verification_manager
+
+            manager = get_formal_verification_manager()
+
+            # Check if any backend is available
+            status = manager.status_report()
+            if not status.get('any_available', False):
+                logger.debug("formal_verification_skip no backends available")
+                result.formal_verification = {
+                    "status": "skipped",
+                    "reason": "No formal verification backends available",
+                    "backends_checked": languages,
+                }
+                return
+
+            # Attempt verification with timeout
+            verification_result = await asyncio.wait_for(
+                manager.attempt_formal_verification(
+                    claim=result.final_answer,
+                    claim_type="DEBATE_CONSENSUS",
+                    context=ctx.env.task if ctx.env else "",
+                    timeout_seconds=timeout,
+                ),
+                timeout=timeout + 5.0,  # Buffer for manager overhead
+            )
+
+            # Store result
+            result.formal_verification = verification_result.to_dict()
+
+            logger.info(
+                f"formal_verification_complete status={verification_result.status.value} "
+                f"language={verification_result.language.value if verification_result.language else 'none'} "
+                f"verified={verification_result.is_verified}"
+            )
+
+            # Emit event if emitter is available
+            if ctx.event_emitter:
+                try:
+                    from aragora.server.stream import StreamEvent, StreamEventType
+
+                    ctx.event_emitter.emit(StreamEvent(
+                        type=StreamEventType.FORMAL_VERIFICATION_RESULT,
+                        loop_id=ctx.loop_id,
+                        data={
+                            "debate_id": ctx.debate_id,
+                            "status": verification_result.status.value,
+                            "is_verified": verification_result.is_verified,
+                            "language": verification_result.language.value if verification_result.language else None,
+                            "formal_statement": verification_result.formal_statement[:500] if verification_result.formal_statement else None,
+                        }
+                    ))
+                except Exception as e:
+                    logger.debug(f"formal_verification_event_error: {e}")
+
+        except asyncio.TimeoutError:
+            logger.warning(f"formal_verification_timeout timeout={timeout}s")
+            result.formal_verification = {
+                "status": "timeout",
+                "timeout_seconds": timeout,
+                "is_verified": False,
+            }
+        except ImportError as e:
+            logger.debug(f"formal_verification_import_error: {e}")
+            result.formal_verification = {
+                "status": "unavailable",
+                "reason": "Formal verification module not available",
+                "is_verified": False,
+            }
+        except Exception as e:
+            logger.warning(f"formal_verification_error: {e}")
+            result.formal_verification = {
+                "status": "error",
+                "error": str(e),
+                "is_verified": False,
+            }

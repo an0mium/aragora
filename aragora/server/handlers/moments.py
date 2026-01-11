@@ -72,11 +72,11 @@ class MomentsHandler(BaseHandler):
         if path == "/api/moments/timeline":
             limit = get_int_param(query_params, 'limit', 50)
             offset = get_int_param(query_params, 'offset', 0)
-            return self._get_timeline(min(limit, 200), offset)
+            return self._get_timeline(max(1, min(limit, 200)), max(0, offset))
 
         if path == "/api/moments/trending":
             limit = get_int_param(query_params, 'limit', 10)
-            return self._get_trending(min(limit, 50))
+            return self._get_trending(max(1, min(limit, 50)))
 
         # Handle /api/moments/by-type/{type}
         if path.startswith("/api/moments/by-type/"):
@@ -89,7 +89,7 @@ class MomentsHandler(BaseHandler):
                     400
                 )
             limit = get_int_param(query_params, 'limit', 50)
-            return self._get_by_type(moment_type, min(limit, 200))
+            return self._get_by_type(moment_type, max(1, min(limit, 200)))
 
         return None
 

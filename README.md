@@ -147,10 +147,7 @@ aragora gauntlet architecture.md --profile thorough --output report.html
 See [docs/GAUNTLET.md](docs/GAUNTLET.md) for full documentation and [docs/AGENT_SELECTION.md](docs/AGENT_SELECTION.md) for agent recommendations.
 
 Case studies:
-- `docs/case-studies/architecture-stress-test.md`
-- `docs/case-studies/gdpr-compliance-audit.md`
-- `docs/case-studies/security-api-review.md`
-- `docs/case_studies/epic_strategic_debate.md`
+- `docs/case-studies/README.md`
 
 ## Quick Start
 

@@ -54,6 +54,7 @@ class BoundedTTLCache:
 
     def __init__(self, max_entries: int = CACHE_MAX_ENTRIES, evict_percent: float = CACHE_EVICT_PERCENT):
         self._cache: OrderedDict[str, tuple[float, Any]] = OrderedDict()
+        self._lock = threading.RLock()  # Thread safety lock
         self._max_entries = max_entries
         self._evict_count = max(1, int(max_entries * evict_percent))
         self._hits = 0
@@ -61,46 +62,48 @@ class BoundedTTLCache:
 
     def get(self, key: str, ttl_seconds: float) -> tuple[bool, Any]:
         """
-        Get a value from cache if not expired.
+        Get a value from cache if not expired (thread-safe).
 
         Returns:
             Tuple of (hit, value). If hit is False, value is None.
         """
         now = time.time()
 
-        if key in self._cache:
-            cached_time, cached_value = self._cache[key]
-            if now - cached_time < ttl_seconds:
-                # Move to end (most recently used)
-                self._cache.move_to_end(key)
-                self._hits += 1
-                return True, cached_value
-            else:
-                # Expired - remove it
-                del self._cache[key]
+        with self._lock:
+            if key in self._cache:
+                cached_time, cached_value = self._cache[key]
+                if now - cached_time < ttl_seconds:
+                    # Move to end (most recently used)
+                    self._cache.move_to_end(key)
+                    self._hits += 1
+                    return True, cached_value
+                else:
+                    # Expired - remove it
+                    del self._cache[key]
 
-        self._misses += 1
-        return False, None
+            self._misses += 1
+            return False, None
 
     def set(self, key: str, value: Any) -> None:
-        """Store a value in cache, evicting old entries if necessary."""
+        """Store a value in cache, evicting old entries if necessary (thread-safe)."""
         now = time.time()
 
-        # If key exists, update and move to end
-        if key in self._cache:
+        with self._lock:
+            # If key exists, update and move to end
+            if key in self._cache:
+                self._cache[key] = (now, value)
+                self._cache.move_to_end(key)
+                return
+
+            # Check if we need to evict
+            if len(self._cache) >= self._max_entries:
+                self._evict_oldest_unlocked()
+
+            # Add new entry
             self._cache[key] = (now, value)
-            self._cache.move_to_end(key)
-            return
 
-        # Check if we need to evict
-        if len(self._cache) >= self._max_entries:
-            self._evict_oldest()
-
-        # Add new entry
-        self._cache[key] = (now, value)
-
-    def _evict_oldest(self) -> int:
-        """Evict oldest entries to make room. Returns count evicted."""
+    def _evict_oldest_unlocked(self) -> int:
+        """Evict oldest entries to make room (must hold lock). Returns count evicted."""
         evicted = 0
         for _ in range(self._evict_count):
             if self._cache:
@@ -111,38 +114,51 @@ class BoundedTTLCache:
         return evicted
 
     def clear(self, key_prefix: str | None = None) -> int:
-        """Clear entries, optionally filtered by prefix."""
-        if key_prefix is None:
-            count = len(self._cache)
-            self._cache.clear()
-            return count
-        else:
-            keys_to_remove = [k for k in self._cache if k.startswith(key_prefix)]
+        """Clear entries, optionally filtered by prefix (thread-safe)."""
+        with self._lock:
+            if key_prefix is None:
+                count = len(self._cache)
+                self._cache.clear()
+                return count
+            else:
+                keys_to_remove = [k for k in self._cache if k.startswith(key_prefix)]
+                for k in keys_to_remove:
+                    del self._cache[k]
+                return len(keys_to_remove)
+
+    def invalidate_containing(self, substring: str) -> int:
+        """Invalidate all keys containing substring (thread-safe)."""
+        with self._lock:
+            keys_to_remove = [k for k in self._cache if substring in k]
             for k in keys_to_remove:
                 del self._cache[k]
             return len(keys_to_remove)
 
     def __len__(self) -> int:
-        return len(self._cache)
+        with self._lock:
+            return len(self._cache)
 
     def __contains__(self, key: str) -> bool:
-        return key in self._cache
+        with self._lock:
+            return key in self._cache
 
-    def items(self) -> Any:
-        """Iterate over cache items."""
-        return self._cache.items()
+    def items(self) -> list:
+        """Return a copy of cache items (thread-safe snapshot)."""
+        with self._lock:
+            return list(self._cache.items())
 
     @property
     def stats(self) -> dict:
-        """Get cache statistics."""
-        total = self._hits + self._misses
-        return {
-            "entries": len(self._cache),
-            "max_entries": self._max_entries,
-            "hits": self._hits,
-            "misses": self._misses,
-            "hit_rate": self._hits / total if total > 0 else 0.0,
-        }
+        """Get cache statistics (thread-safe)."""
+        with self._lock:
+            total = self._hits + self._misses
+            return {
+                "entries": len(self._cache),
+                "max_entries": self._max_entries,
+                "hits": self._hits,
+                "misses": self._misses,
+                "hit_rate": self._hits / total if total > 0 else 0.0,
+            }
 
 
 # Global bounded cache instance
@@ -444,11 +460,8 @@ def invalidate_agent_cache(agent_name: str | None = None) -> int:
                    If None, invalidate all agent caches.
     """
     if agent_name:
-        # Invalidate entries containing the agent name
-        keys_to_clear = [k for k in _cache._cache.keys() if agent_name in k]
-        for key in keys_to_clear:
-            del _cache._cache[key]
-        return len(keys_to_clear)
+        # Invalidate entries containing the agent name (thread-safe)
+        return _cache.invalidate_containing(agent_name)
     else:
         return invalidate_on_event("agent_updated")
 
@@ -461,9 +474,7 @@ def invalidate_debate_cache(debate_id: str | None = None) -> int:
                   If None, invalidate all debate caches.
     """
     if debate_id:
-        keys_to_clear = [k for k in _cache._cache.keys() if debate_id in k]
-        for key in keys_to_clear:
-            del _cache._cache[key]
-        return len(keys_to_clear)
+        # Invalidate entries containing the debate ID (thread-safe)
+        return _cache.invalidate_containing(debate_id)
     else:
         return invalidate_on_event("debate_completed")

@@ -68,6 +68,7 @@ class StreamEventType(Enum):
 
     # Claim verification events
     CLAIM_VERIFICATION_RESULT = "claim_verification_result"  # Claim verification outcome
+    FORMAL_VERIFICATION_RESULT = "formal_verification_result"  # Formal proof verification (Lean4/Z3)
 
     # Memory tier events
     MEMORY_TIER_PROMOTION = "memory_tier_promotion"  # Memory promoted to faster tier
