@@ -28,8 +28,14 @@ logger = logging.getLogger(__name__)
 # Regex for valid GitHub repo format: owner/repo (alphanumeric, dash, underscore, dot)
 VALID_REPO_PATTERN = re.compile(r'^[\w.-]+/[\w.-]+$')
 
+# Regex for valid issue/PR number (digits only, reasonable length)
+VALID_NUMBER_PATTERN = re.compile(r'^\d{1,10}$')
+
 # Maximum query length to prevent abuse
 MAX_QUERY_LENGTH = 500
+
+# Allowed state values for issues/PRs
+ALLOWED_STATES = frozenset({"all", "open", "closed", "merged"})
 
 
 class GitHubConnector(BaseConnector):
@@ -63,6 +69,22 @@ class GitHubConnector(BaseConnector):
     @property
     def name(self) -> str:
         return "GitHub"
+
+    @staticmethod
+    def _validate_repo(repo: str) -> bool:
+        """Validate repo format to prevent injection."""
+        return bool(repo and VALID_REPO_PATTERN.match(repo))
+
+    @staticmethod
+    def _validate_number(number: str) -> bool:
+        """Validate issue/PR number to prevent injection."""
+        return bool(number and VALID_NUMBER_PATTERN.match(number))
+
+    @staticmethod
+    def _validate_state(state: str) -> str:
+        """Validate and normalize state parameter."""
+        state = state.lower().strip() if state else "all"
+        return state if state in ALLOWED_STATES else "all"
 
     def _check_gh_cli(self) -> bool:
         """Check if gh CLI is available and authenticated."""
@@ -154,16 +176,19 @@ class GitHubConnector(BaseConnector):
         state: str,
     ) -> list[Evidence]:
         """Search issues via gh CLI."""
+        # Validate and sanitize state parameter
+        validated_state = self._validate_state(state)
+
         args = [
             "issue", "list",
             "--repo", self.repo,
             "--search", query,
-            "--limit", str(limit),
+            "--limit", str(min(limit, 100)),  # Cap limit to prevent abuse
             "--json", "number,title,body,author,createdAt,url,state,labels",
         ]
 
-        if state != "all":
-            args.extend(["--state", state])
+        if validated_state != "all":
+            args.extend(["--state", validated_state])
 
         output = await self._run_gh(args)
         if not output:
@@ -214,16 +239,19 @@ class GitHubConnector(BaseConnector):
         state: str,
     ) -> list[Evidence]:
         """Search PRs via gh CLI."""
+        # Validate and sanitize state parameter
+        validated_state = self._validate_state(state)
+
         args = [
             "pr", "list",
             "--repo", self.repo,
             "--search", query,
-            "--limit", str(limit),
+            "--limit", str(min(limit, 100)),  # Cap limit to prevent abuse
             "--json", "number,title,body,author,createdAt,url,state,mergedAt",
         ]
 
-        if state != "all":
-            args.extend(["--state", state])
+        if validated_state != "all":
+            args.extend(["--state", validated_state])
 
         output = await self._run_gh(args)
         if not output:
@@ -270,12 +298,13 @@ class GitHubConnector(BaseConnector):
         """Search code via gh CLI."""
         search_query = query
         if self.repo:
+            # Validate repo format is already checked in constructor
             search_query = f"repo:{self.repo} {query}"
 
         args = [
             "search", "code",
             search_query,
-            "--limit", str(limit),
+            "--limit", str(min(limit, 100)),  # Cap limit to prevent abuse
             "--json", "path,repository,textMatches",
         ]
 
@@ -327,12 +356,19 @@ class GitHubConnector(BaseConnector):
         if cached is not None:
             return cached
 
-        # Parse evidence_id
+        # Parse evidence_id with validation to prevent injection
         if evidence_id.startswith("gh-issue:"):
             parts = evidence_id.split(":")
             if len(parts) >= 3:
                 repo = parts[1]
                 number = parts[2]
+                # Validate parsed input before passing to subprocess
+                if not self._validate_repo(repo):
+                    logger.warning(f"[github] Invalid repo format in evidence_id: {repo[:50]}")
+                    return None
+                if not self._validate_number(number):
+                    logger.warning(f"[github] Invalid issue number in evidence_id: {number[:20]}")
+                    return None
                 return await self._fetch_issue(repo, number)
 
         elif evidence_id.startswith("gh-pr:"):
@@ -340,6 +376,13 @@ class GitHubConnector(BaseConnector):
             if len(parts) >= 3:
                 repo = parts[1]
                 number = parts[2]
+                # Validate parsed input before passing to subprocess
+                if not self._validate_repo(repo):
+                    logger.warning(f"[github] Invalid repo format in evidence_id: {repo[:50]}")
+                    return None
+                if not self._validate_number(number):
+                    logger.warning(f"[github] Invalid PR number in evidence_id: {number[:20]}")
+                    return None
                 return await self._fetch_pr(repo, number)
 
         return None

@@ -17,6 +17,8 @@ import pytest
 from aragora.connectors.github import (
     GitHubConnector,
     VALID_REPO_PATTERN,
+    VALID_NUMBER_PATTERN,
+    ALLOWED_STATES,
     MAX_QUERY_LENGTH,
 )
 from aragora.connectors.base import Evidence
@@ -480,3 +482,179 @@ class TestSearchTypeRouting:
         with patch.object(connector, "_search_code", return_value=[]) as mock:
             await connector.search("test", search_type="code")
             mock.assert_called_once()
+
+
+class TestInputSanitization:
+    """Tests for input sanitization - SECURITY CRITICAL."""
+
+    def test_validate_number_valid(self):
+        """Valid issue/PR numbers should pass."""
+        connector = GitHubConnector(repo="owner/repo")
+        assert connector._validate_number("1") is True
+        assert connector._validate_number("123") is True
+        assert connector._validate_number("999999999") is True
+
+    def test_validate_number_rejects_non_numeric(self):
+        """Non-numeric values should be rejected."""
+        connector = GitHubConnector(repo="owner/repo")
+        assert connector._validate_number("abc") is False
+        assert connector._validate_number("123abc") is False
+        assert connector._validate_number("12.34") is False
+        assert connector._validate_number("-1") is False
+
+    def test_validate_number_rejects_injection(self):
+        """Injection attempts should be rejected."""
+        connector = GitHubConnector(repo="owner/repo")
+        assert connector._validate_number("123;rm -rf /") is False
+        assert connector._validate_number("123 && whoami") is False
+        assert connector._validate_number("$(cat /etc/passwd)") is False
+        assert connector._validate_number("1`id`") is False
+
+    def test_validate_number_rejects_empty(self):
+        """Empty/null values should be rejected."""
+        connector = GitHubConnector(repo="owner/repo")
+        assert connector._validate_number("") is False
+        assert connector._validate_number(None) is False
+
+    def test_validate_number_rejects_too_long(self):
+        """Excessively long numbers should be rejected."""
+        connector = GitHubConnector(repo="owner/repo")
+        # Pattern allows max 10 digits
+        assert connector._validate_number("12345678901") is False
+
+    def test_validate_repo_valid(self):
+        """Valid repo formats should pass."""
+        assert GitHubConnector._validate_repo("owner/repo") is True
+        assert GitHubConnector._validate_repo("my-org/my-project") is True
+        assert GitHubConnector._validate_repo("user.name/repo_name") is True
+
+    def test_validate_repo_rejects_injection(self):
+        """Path traversal and injection should be rejected."""
+        assert GitHubConnector._validate_repo("../../../etc/passwd") is False
+        assert GitHubConnector._validate_repo("owner/repo;rm -rf /") is False
+        assert GitHubConnector._validate_repo("owner/repo && whoami") is False
+
+    def test_validate_state_normalizes(self):
+        """State values should be normalized."""
+        connector = GitHubConnector(repo="owner/repo")
+        assert connector._validate_state("OPEN") == "open"
+        assert connector._validate_state("  closed  ") == "closed"
+        assert connector._validate_state("All") == "all"
+
+    def test_validate_state_allows_valid(self):
+        """Valid states should be allowed."""
+        connector = GitHubConnector(repo="owner/repo")
+        assert connector._validate_state("open") == "open"
+        assert connector._validate_state("closed") == "closed"
+        assert connector._validate_state("merged") == "merged"
+        assert connector._validate_state("all") == "all"
+
+    def test_validate_state_rejects_invalid(self):
+        """Invalid states should default to 'all'."""
+        connector = GitHubConnector(repo="owner/repo")
+        assert connector._validate_state("invalid") == "all"
+        assert connector._validate_state("; rm -rf /") == "all"
+        assert connector._validate_state("open && whoami") == "all"
+
+    def test_validate_state_handles_empty(self):
+        """Empty/null states should default to 'all'."""
+        connector = GitHubConnector(repo="owner/repo")
+        assert connector._validate_state("") == "all"
+        assert connector._validate_state(None) == "all"
+
+
+class TestFetchInputValidation:
+    """Tests for fetch() input validation - SECURITY CRITICAL."""
+
+    @pytest.fixture
+    def connector(self):
+        return GitHubConnector(repo="owner/repo")
+
+    @pytest.mark.asyncio
+    async def test_fetch_rejects_invalid_repo_in_issue_id(self, connector):
+        """fetch should reject issue IDs with invalid repo format."""
+        result = await connector.fetch("gh-issue:../../../etc/passwd:123")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_rejects_invalid_number_in_issue_id(self, connector):
+        """fetch should reject issue IDs with non-numeric issue number."""
+        result = await connector.fetch("gh-issue:owner/repo:abc")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_rejects_injection_in_issue_number(self, connector):
+        """fetch should reject injection attempts in issue number."""
+        result = await connector.fetch("gh-issue:owner/repo:123;rm -rf /")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_rejects_invalid_repo_in_pr_id(self, connector):
+        """fetch should reject PR IDs with invalid repo format."""
+        result = await connector.fetch("gh-pr:owner/repo;whoami:123")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_rejects_invalid_number_in_pr_id(self, connector):
+        """fetch should reject PR IDs with non-numeric PR number."""
+        result = await connector.fetch("gh-pr:owner/repo:$(id)")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_accepts_valid_issue_id(self, connector):
+        """fetch should accept valid issue IDs and call _fetch_issue."""
+        with patch.object(connector, "_fetch_issue", return_value=Mock()) as mock:
+            await connector.fetch("gh-issue:valid/repo:12345")
+            mock.assert_called_once_with("valid/repo", "12345")
+
+    @pytest.mark.asyncio
+    async def test_fetch_accepts_valid_pr_id(self, connector):
+        """fetch should accept valid PR IDs and call _fetch_pr."""
+        with patch.object(connector, "_fetch_pr", return_value=Mock()) as mock:
+            await connector.fetch("gh-pr:another/repo:67890")
+            mock.assert_called_once_with("another/repo", "67890")
+
+
+class TestLimitCapping:
+    """Tests for result limit capping."""
+
+    @pytest.fixture
+    def connector(self):
+        return GitHubConnector(repo="owner/repo")
+
+    @pytest.mark.asyncio
+    async def test_search_issues_caps_limit(self, connector):
+        """_search_issues should cap limit at 100."""
+        with patch.object(connector, "_run_gh", return_value="[]") as mock:
+            await connector._search_issues("test", limit=500, state="all")
+            call_args = mock.call_args[0][0]
+            # Find the --limit argument
+            limit_idx = call_args.index("--limit")
+            assert call_args[limit_idx + 1] == "100"
+
+    @pytest.mark.asyncio
+    async def test_search_prs_caps_limit(self, connector):
+        """_search_prs should cap limit at 100."""
+        with patch.object(connector, "_run_gh", return_value="[]") as mock:
+            await connector._search_prs("test", limit=1000, state="all")
+            call_args = mock.call_args[0][0]
+            limit_idx = call_args.index("--limit")
+            assert call_args[limit_idx + 1] == "100"
+
+    @pytest.mark.asyncio
+    async def test_search_code_caps_limit(self, connector):
+        """_search_code should cap limit at 100."""
+        with patch.object(connector, "_run_gh", return_value="[]") as mock:
+            await connector._search_code("test", limit=200)
+            call_args = mock.call_args[0][0]
+            limit_idx = call_args.index("--limit")
+            assert call_args[limit_idx + 1] == "100"
+
+    @pytest.mark.asyncio
+    async def test_small_limit_not_changed(self, connector):
+        """Small limits should not be changed."""
+        with patch.object(connector, "_run_gh", return_value="[]") as mock:
+            await connector._search_issues("test", limit=10, state="all")
+            call_args = mock.call_args[0][0]
+            limit_idx = call_args.index("--limit")
+            assert call_args[limit_idx + 1] == "10"
