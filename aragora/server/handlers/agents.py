@@ -4,6 +4,8 @@ Agent-related endpoint handlers.
 Endpoints:
 - GET /api/leaderboard - Get agent rankings
 - GET /api/rankings - Get agent rankings (alias)
+- GET /api/agents/local - List detected local LLM servers
+- GET /api/agents/local/status - Get local LLM availability status
 - GET /api/agent/{name}/profile - Get agent profile
 - GET /api/agent/{name}/history - Get agent match history
 - GET /api/agent/{name}/calibration - Get calibration scores
@@ -62,6 +64,8 @@ class AgentsHandler(BaseHandler):
 
     ROUTES = [
         "/api/agents",
+        "/api/agents/local",
+        "/api/agents/local/status",
         "/api/leaderboard",
         "/api/rankings",
         # Note: /api/calibration/leaderboard handled by CalibrationHandler
@@ -89,6 +93,8 @@ class AgentsHandler(BaseHandler):
         """Check if this handler can process the given path."""
         if path == "/api/agents":
             return True
+        if path in ("/api/agents/local", "/api/agents/local/status"):
+            return True
         if path in ("/api/leaderboard", "/api/rankings"):
             return True
         if path == "/api/matches/recent":
@@ -103,6 +109,13 @@ class AgentsHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route agent requests to appropriate methods."""
+        # Local LLM endpoints (must come before /api/agents check)
+        if path == "/api/agents/local":
+            return self._list_local_agents()
+
+        if path == "/api/agents/local/status":
+            return self._get_local_status()
+
         # List all agents
         if path == "/api/agents":
             include_stats = get_string_param(query_params, 'include_stats', 'false').lower() == 'true'
@@ -249,6 +262,65 @@ class AgentsHandler(BaseHandler):
             "agents": agents,
             "total": len(agents),
         })
+
+    @rate_limit(rpm=10, limiter_name="local_agents")
+    @handle_errors("list local agents")
+    def _list_local_agents(self) -> HandlerResult:
+        """List detected local LLM servers (Ollama, LM Studio, etc.).
+
+        Returns:
+            List of detected local LLM servers with their available models
+        """
+        try:
+            from aragora.agents.registry import AgentRegistry
+            local_agents = AgentRegistry.detect_local_agents()
+
+            return json_response({
+                "servers": local_agents,
+                "total": len(local_agents),
+                "available_count": sum(1 for a in local_agents if a.get("available", False)),
+            })
+        except Exception as e:
+            logger.warning(f"Could not detect local LLMs: {e}")
+            return json_response({
+                "servers": [],
+                "total": 0,
+                "available_count": 0,
+                "error": str(e),
+            })
+
+    @rate_limit(rpm=10, limiter_name="local_status")
+    @handle_errors("get local status")
+    def _get_local_status(self) -> HandlerResult:
+        """Get overall local LLM availability status with recommendations.
+
+        Returns:
+            Status including availability, recommended server/model
+        """
+        try:
+            from aragora.agents.registry import AgentRegistry
+            status = AgentRegistry.get_local_status()
+
+            return json_response({
+                "available": status.get("any_available", False),
+                "total_models": status.get("total_models", 0),
+                "recommended": {
+                    "server": status.get("recommended_server"),
+                    "model": status.get("recommended_model"),
+                },
+                "available_agents": status.get("available_agents", []),
+                "servers": status.get("servers", []),
+            })
+        except Exception as e:
+            logger.warning(f"Could not get local LLM status: {e}")
+            return json_response({
+                "available": False,
+                "total_models": 0,
+                "recommended": {"server": None, "model": None},
+                "available_agents": [],
+                "servers": [],
+                "error": str(e),
+            })
 
     @rate_limit(rpm=30, limiter_name="leaderboard")
     def _get_leaderboard(self, limit: int, domain: Optional[str]) -> HandlerResult:

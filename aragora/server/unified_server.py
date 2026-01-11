@@ -11,6 +11,7 @@ import asyncio
 import atexit
 import json
 import re
+import sqlite3
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from threading import Thread
@@ -1488,7 +1489,7 @@ class UnifiedServer:
             count = persist_all_circuit_breakers()
             if count > 0:
                 logger.info(f"Persisted {count} circuit breaker state(s)")
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError) as e:
             logger.warning(f"Failed to persist circuit breaker states: {e}")
 
         # 4. Stop background tasks
@@ -1497,7 +1498,7 @@ class UnifiedServer:
             background_mgr = get_background_manager()
             background_mgr.stop()
             logger.info("Background tasks stopped")
-        except Exception as e:
+        except (ImportError, RuntimeError, AttributeError) as e:
             logger.debug(f"Background task shutdown: {e}")
 
         # 5. Close WebSocket connections
@@ -1505,7 +1506,7 @@ class UnifiedServer:
             try:
                 await self.stream_server.graceful_shutdown()
                 logger.info("WebSocket connections closed")
-            except Exception as e:
+            except (OSError, RuntimeError, asyncio.CancelledError) as e:
                 logger.warning(f"WebSocket shutdown error: {e}")
 
         # 6. Close shared HTTP connector (prevents connection leaks)
@@ -1513,8 +1514,16 @@ class UnifiedServer:
             from aragora.agents.api_agents.common import close_shared_connector
             await close_shared_connector()
             logger.info("Shared HTTP connector closed")
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError) as e:
             logger.debug(f"Connector shutdown: {e}")
+
+        # 7. Close database connections (connection pool cleanup)
+        try:
+            from aragora.storage.schema import DatabaseManager
+            DatabaseManager.clear_instances()
+            logger.info("Database connections closed")
+        except (ImportError, sqlite3.Error) as e:
+            logger.debug(f"Database shutdown: {e}")
 
         elapsed = time.time() - shutdown_start
         logger.info(f"Graceful shutdown completed in {elapsed:.1f}s")
