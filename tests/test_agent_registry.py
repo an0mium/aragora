@@ -347,3 +347,212 @@ class TestAgentRegistryIdempotency:
 
         # Our test agent should still be there
         assert AgentRegistry.is_registered("test-idempotent")
+
+
+class TestAgentRegistryCaching:
+    """Tests for agent instance caching."""
+
+    @pytest.fixture(autouse=True)
+    def clear_registry(self):
+        """Clear registry and cache before each test."""
+        saved = dict(AgentRegistry._registry)
+        AgentRegistry.clear()
+        yield
+        AgentRegistry._registry = saved
+
+    def test_create_without_cache_returns_new_instances(self):
+        """create() without use_cache returns new instances each time."""
+
+        @AgentRegistry.register("no-cache-agent")
+        class NoCacheAgent:
+            def __init__(self, name, role):
+                self.name = name
+                self.role = role
+
+        agent1 = AgentRegistry.create("no-cache-agent")
+        agent2 = AgentRegistry.create("no-cache-agent")
+
+        assert agent1 is not agent2
+
+    def test_create_with_cache_returns_same_instance(self):
+        """create() with use_cache=True returns same instance."""
+
+        @AgentRegistry.register("cache-agent")
+        class CacheAgent:
+            def __init__(self, name, role):
+                self.name = name
+                self.role = role
+
+        agent1 = AgentRegistry.create("cache-agent", use_cache=True)
+        agent2 = AgentRegistry.create("cache-agent", use_cache=True)
+
+        assert agent1 is agent2
+
+    def test_cache_key_includes_all_params(self):
+        """Cache key differentiates by name, role, model, api_key."""
+
+        @AgentRegistry.register("param-agent", default_model="v1")
+        class ParamAgent:
+            def __init__(self, name, role, model=None, api_key=None):
+                self.name = name
+                self.role = role
+                self.model = model
+                self.api_key = api_key
+
+        agent1 = AgentRegistry.create("param-agent", name="a", role="critic", use_cache=True)
+        agent2 = AgentRegistry.create("param-agent", name="b", role="critic", use_cache=True)
+        agent3 = AgentRegistry.create("param-agent", name="a", role="proposer", use_cache=True)
+        agent4 = AgentRegistry.create("param-agent", name="a", role="critic", use_cache=True)
+
+        # Different name = different instance
+        assert agent1 is not agent2
+        # Different role = different instance
+        assert agent1 is not agent3
+        # Same params = same instance
+        assert agent1 is agent4
+
+    def test_get_cached_always_uses_cache(self):
+        """get_cached() always uses caching."""
+
+        @AgentRegistry.register("get-cached-agent")
+        class GetCachedAgent:
+            def __init__(self, name, role):
+                self.name = name
+                self.role = role
+
+        agent1 = AgentRegistry.get_cached("get-cached-agent")
+        agent2 = AgentRegistry.get_cached("get-cached-agent")
+
+        assert agent1 is agent2
+
+    def test_clear_cache_clears_instances(self):
+        """clear_cache() removes cached instances."""
+
+        @AgentRegistry.register("clear-cache-agent")
+        class ClearCacheAgent:
+            def __init__(self, name, role):
+                self.name = name
+                self.role = role
+
+        agent1 = AgentRegistry.create("clear-cache-agent", use_cache=True)
+        AgentRegistry.clear_cache()
+        agent2 = AgentRegistry.create("clear-cache-agent", use_cache=True)
+
+        assert agent1 is not agent2
+
+    def test_clear_also_clears_cache(self):
+        """clear() clears both registry and cache."""
+
+        @AgentRegistry.register("full-clear-agent")
+        class FullClearAgent:
+            def __init__(self, name, role):
+                self.name = name
+                self.role = role
+
+        AgentRegistry.create("full-clear-agent", use_cache=True)
+        stats_before = AgentRegistry.cache_stats()
+        assert stats_before["size"] > 0
+
+        AgentRegistry.clear()
+        stats_after = AgentRegistry.cache_stats()
+
+        assert stats_after["size"] == 0
+
+    def test_cache_stats_returns_info(self):
+        """cache_stats() returns size and keys."""
+
+        @AgentRegistry.register("stats-agent")
+        class StatsAgent:
+            def __init__(self, name, role):
+                self.name = name
+                self.role = role
+
+        AgentRegistry.clear_cache()
+        AgentRegistry.create("stats-agent", name="a", use_cache=True)
+        AgentRegistry.create("stats-agent", name="b", use_cache=True)
+
+        stats = AgentRegistry.cache_stats()
+
+        assert stats["size"] == 2
+        assert stats["max_size"] == 32
+        assert len(stats["keys"]) == 2
+
+    def test_cache_stats_masks_api_keys(self):
+        """cache_stats() masks API keys for security."""
+
+        @AgentRegistry.register("masked-agent", accepts_api_key=True)
+        class MaskedAgent:
+            def __init__(self, name, role, api_key=None):
+                self.name = name
+                self.role = role
+                self.api_key = api_key
+
+        AgentRegistry.clear_cache()
+        AgentRegistry.create(
+            "masked-agent",
+            api_key="super-secret-key-12345",
+            use_cache=True,
+        )
+
+        stats = AgentRegistry.cache_stats()
+
+        # API key should be masked
+        for key in stats["keys"]:
+            if key[4]:  # 5th element is api_key
+                assert "super-secret-key-12345" not in str(key)
+                assert "..." in key[4] or "***" in key[4]
+
+    def test_cache_with_kwargs_bypasses_cache(self):
+        """Extra kwargs bypass caching."""
+
+        @AgentRegistry.register("kwargs-cache-agent")
+        class KwargsCacheAgent:
+            def __init__(self, name, role, extra=None):
+                self.name = name
+                self.role = role
+                self.extra = extra
+
+        agent1 = AgentRegistry.create("kwargs-cache-agent", extra="val1", use_cache=True)
+        agent2 = AgentRegistry.create("kwargs-cache-agent", extra="val1", use_cache=True)
+
+        # Should be different instances because kwargs bypass cache
+        assert agent1 is not agent2
+
+    def test_cache_eviction_at_max_size(self):
+        """Cache evicts oldest entry when at max size."""
+        from aragora.agents import registry
+
+        # Temporarily reduce cache size for testing
+        original_max = registry._CACHE_MAX_SIZE
+        registry._CACHE_MAX_SIZE = 3
+
+        try:
+            @AgentRegistry.register("evict-agent")
+            class EvictAgent:
+                def __init__(self, name, role):
+                    self.name = name
+                    self.role = role
+
+            AgentRegistry.clear_cache()
+
+            # Fill cache
+            AgentRegistry.create("evict-agent", name="a", use_cache=True)
+            AgentRegistry.create("evict-agent", name="b", use_cache=True)
+            AgentRegistry.create("evict-agent", name="c", use_cache=True)
+
+            stats1 = AgentRegistry.cache_stats()
+            assert stats1["size"] == 3
+
+            # Add one more - should evict oldest
+            AgentRegistry.create("evict-agent", name="d", use_cache=True)
+
+            stats2 = AgentRegistry.cache_stats()
+            assert stats2["size"] == 3  # Still at max
+
+            # Oldest (name="a") should be evicted
+            key_names = [k[1] for k in stats2["keys"]]
+            assert "a" not in key_names
+            assert "d" in key_names
+
+        finally:
+            registry._CACHE_MAX_SIZE = original_max
