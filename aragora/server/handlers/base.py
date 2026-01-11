@@ -6,6 +6,33 @@ shared across all endpoint modules.
 
 Note: Some utilities have been extracted to handlers/utils/ for better
 organization. They are re-exported here for backwards compatibility.
+
+Authentication Requirements
+---------------------------
+Aragora uses header-based authentication (Bearer tokens in Authorization header).
+This approach is inherently immune to CSRF attacks because:
+
+1. Tokens are sent via Authorization header, not cookies
+2. JavaScript must explicitly set the header (not automatic like cookies)
+3. Cross-origin requests cannot access the header
+
+Endpoint Authentication Patterns:
+- Public endpoints: No authentication required (e.g., /api/plans, /api/health)
+- Protected endpoints: Require valid Bearer token
+- Write operations: Always require authentication
+
+Handler classes should use `extract_user_from_request()` for authentication:
+
+    from aragora.billing.jwt_auth import extract_user_from_request
+
+    def _handle_protected(self, handler) -> HandlerResult:
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+        # ... proceed with authenticated logic
+
+Rate limiting is applied via the @rate_limit decorator from utils.rate_limit.
 """
 
 from __future__ import annotations
@@ -35,6 +62,20 @@ from aragora.server.handlers.utils.safe_data import (
 from aragora.server.handlers.utils.database import (
     get_db_connection,
     table_exists,
+)
+from aragora.server.handlers.utils.params import (
+    parse_query_params,
+    get_int_param,
+    get_float_param,
+    get_bool_param,
+    get_string_param,
+    get_clamped_int_param,
+    get_bounded_float_param,
+    get_bounded_string_param,
+)
+from aragora.server.handlers.utils.routing import (
+    PathMatcher,
+    RouteDispatcher,
 )
 from aragora.server.error_utils import safe_error_message
 from aragora.server.handlers.cache import (
@@ -71,7 +112,7 @@ from aragora.server.validation import (
 __all__ = [
     "DB_TIMEOUT_SECONDS", "require_auth", "require_user_auth", "require_storage", "require_feature",
     "error_response", "json_response", "handle_errors", "auto_error_response", "log_request", "ttl_cache",
-    "safe_error_message",
+    "safe_error_message", "safe_error_response",
     "async_ttl_cache", "clear_cache", "get_cache_stats", "CACHE_INVALIDATION_MAP", "invalidate_cache",
     "invalidate_on_event", "invalidate_leaderboard_cache", "invalidate_agent_cache",
     "invalidate_debate_cache", "PathMatcher", "RouteDispatcher", "safe_fetch",
@@ -315,6 +356,54 @@ def error_response(
         payload = {"error": message}
 
     return json_response(payload, status=status, headers=headers)
+
+
+def safe_error_response(
+    exception: Exception,
+    context: str,
+    status: int = 500,
+    handler: Any = None,
+) -> HandlerResult:
+    """Create an error response with sanitized message.
+
+    Logs full exception details server-side for debugging, but returns only
+    a generic, safe message to the client. This prevents information disclosure
+    of internal paths, stack traces, and sensitive configuration.
+
+    Args:
+        exception: The exception that occurred
+        context: Context for logging (e.g., "debate creation", "agent lookup")
+        status: HTTP status code (default: 500)
+        handler: Optional request handler for extracting trace_id
+
+    Returns:
+        HandlerResult with sanitized error message
+
+    Example:
+        try:
+            result = do_something()
+        except Exception as e:
+            return safe_error_response(e, "debate creation", 500, handler)
+    """
+    from aragora.server.error_utils import ErrorFormatter
+
+    # Generate or extract trace ID
+    trace_id = None
+    if handler is not None:
+        # Try to get existing trace_id from handler
+        if hasattr(handler, "trace_id"):
+            trace_id = handler.trace_id
+        elif hasattr(handler, "headers") and handler.headers:
+            trace_id = handler.headers.get("X-Request-ID") or handler.headers.get("X-Trace-ID")
+    if not trace_id:
+        trace_id = generate_trace_id()
+
+    # Format error with sanitization (logs full details server-side)
+    error_dict = ErrorFormatter.format_server_error(
+        exception, context=context, trace_id=trace_id
+    )
+
+    return json_response(error_dict, status=status)
 
 
 # ============================================================================
@@ -906,265 +995,8 @@ def with_error_recovery(
 # Note: Validation functions moved to aragora.server.validation
 # Use: from aragora.server.validation import validate_against_schema, ValidationResult
 
-
-class PathMatcher:
-    """Utility for matching URL paths against patterns.
-
-    Simplifies the common pattern of parsing path segments and dispatching
-    to handler methods.
-
-    Example:
-        matcher = PathMatcher("/api/agent/{name}/{action}")
-        result = matcher.match("/api/agent/claude/profile")
-        # result = {"name": "claude", "action": "profile"}
-
-        matcher = PathMatcher("/api/debates")
-        result = matcher.match("/api/debates")
-        # result = {}  (empty dict = matched)
-
-        result = matcher.match("/api/other")
-        # result = None  (None = no match)
-    """
-
-    def __init__(self, pattern: str):
-        """Initialize with a URL pattern.
-
-        Args:
-            pattern: URL pattern with {param} placeholders for path segments
-        """
-        self.pattern = pattern
-        self.parts = pattern.strip("/").split("/")
-        self.param_indices: dict[str, int] = {}
-
-        for i, part in enumerate(self.parts):
-            if part.startswith("{") and part.endswith("}"):
-                param_name = part[1:-1]
-                self.param_indices[param_name] = i
-
-    def match(self, path: str) -> dict | None:
-        """Match a path against this pattern.
-
-        Returns:
-            Dict of extracted parameters if matched, None otherwise
-        """
-        path_parts = path.strip("/").split("/")
-
-        if len(path_parts) != len(self.parts):
-            return None
-
-        params = {}
-        for i, (pattern_part, path_part) in enumerate(zip(self.parts, path_parts)):
-            if pattern_part.startswith("{") and pattern_part.endswith("}"):
-                param_name = pattern_part[1:-1]
-                params[param_name] = path_part
-            elif pattern_part != path_part:
-                return None
-
-        return params
-
-    def matches(self, path: str) -> bool:
-        """Check if a path matches this pattern."""
-        return self.match(path) is not None
-
-
-class RouteDispatcher:
-    """Dispatcher for routing paths to handler methods.
-
-    Simplifies the common pattern of if/elif chains in handle() methods.
-    Uses segment-count indexing for O(n/k) lookup instead of O(n).
-
-    Example:
-        dispatcher = RouteDispatcher()
-        dispatcher.add_route("/api/agents", self._list_agents)
-        dispatcher.add_route("/api/agent/{name}/profile", self._get_profile)
-        dispatcher.add_route("/api/agent/{name}/history", self._get_history)
-
-        # In handle() method:
-        result = dispatcher.dispatch(path, query_params)
-        if result is not None:
-            return result
-    """
-
-    def __init__(self):
-        self.routes: list[tuple[PathMatcher, Callable]] = []
-        # Index routes by segment count for faster lookup
-        self._segment_index: dict[int, list[int]] = {}
-
-    def add_route(self, pattern: str, handler: Callable) -> "RouteDispatcher":
-        """Add a route pattern with its handler.
-
-        Args:
-            pattern: URL pattern with {param} placeholders
-            handler: Callable that receives (params_dict, query_params)
-                     or just () if no path params
-
-        Returns:
-            Self for chaining
-        """
-        matcher = PathMatcher(pattern)
-        route_idx = len(self.routes)
-        self.routes.append((matcher, handler))
-
-        # Index by segment count
-        segment_count = len(matcher.parts)
-        if segment_count not in self._segment_index:
-            self._segment_index[segment_count] = []
-        self._segment_index[segment_count].append(route_idx)
-
-        return self
-
-    def dispatch(self, path: str, query_params: dict = None) -> Any:
-        """Dispatch a path to its handler.
-
-        Args:
-            path: URL path to dispatch
-            query_params: Query parameters dict
-
-        Returns:
-            Handler result if matched, None otherwise
-        """
-        query_params = query_params or {}
-
-        # Count path segments once
-        path_segments = len(path.strip("/").split("/"))
-
-        # Only check routes with matching segment count
-        route_indices = self._segment_index.get(path_segments, [])
-        for idx in route_indices:
-            matcher, handler = self.routes[idx]
-            params = matcher.match(path)
-            if params is not None:
-                # Call handler with path params and query params
-                if params:
-                    return handler(params, query_params)
-                else:
-                    return handler(query_params)
-
-        return None
-
-    def can_handle(self, path: str) -> bool:
-        """Check if any route can handle this path."""
-        path_segments = len(path.strip("/").split("/"))
-        route_indices = self._segment_index.get(path_segments, [])
-        return any(self.routes[idx][0].matches(path) for idx in route_indices)
-
-
-def parse_query_params(query_string: str) -> dict:
-    """Parse query string into a dictionary."""
-    if not query_string:
-        return {}
-    params = parse_qs(query_string)
-    # Convert single-value lists to just values
-    return {k: v[0] if len(v) == 1 else v for k, v in params.items()}
-
-
-def get_int_param(params: dict, key: str, default: int = 0) -> int:
-    """Safely get an integer parameter, handling list values from query strings."""
-    try:
-        value = params.get(key, default)
-        if isinstance(value, list):
-            value = value[0] if value else default
-        return int(value)
-    except (ValueError, TypeError):
-        return default
-
-
-def get_float_param(params: dict, key: str, default: float = 0.0) -> float:
-    """Safely get a float parameter, handling list values from query strings."""
-    try:
-        value = params.get(key, default)
-        if isinstance(value, list):
-            value = value[0] if value else default
-        return float(value)
-    except (ValueError, TypeError):
-        return default
-
-
-def get_bool_param(params: dict, key: str, default: bool = False) -> bool:
-    """Safely get a boolean parameter."""
-    value = params.get(key, str(default)).lower()
-    return value in ('true', '1', 'yes', 'on')
-
-
-def get_string_param(params: dict, key: str, default: str | None = None) -> Optional[str]:
-    """Safely get a string parameter, handling list values from query strings."""
-    value = params.get(key, default)
-    if value is None:
-        return default
-    if isinstance(value, list):
-        return value[0] if value else default
-    return str(value)
-
-
-def get_clamped_int_param(
-    params: dict,
-    key: str,
-    default: int,
-    min_val: int,
-    max_val: int,
-) -> int:
-    """Get integer parameter clamped to [min_val, max_val].
-
-    Args:
-        params: Query parameters dict
-        key: Parameter key to look up
-        default: Default value if key not found
-        min_val: Minimum allowed value (inclusive)
-        max_val: Maximum allowed value (inclusive)
-
-    Returns:
-        Integer value clamped to the specified range
-    """
-    val = get_int_param(params, key, default)
-    return min(max(val, min_val), max_val)
-
-
-def get_bounded_float_param(
-    params: dict,
-    key: str,
-    default: float,
-    min_val: float,
-    max_val: float,
-) -> float:
-    """Get float parameter bounded to [min_val, max_val].
-
-    Args:
-        params: Query parameters dict
-        key: Parameter key to look up
-        default: Default value if key not found
-        min_val: Minimum allowed value (inclusive)
-        max_val: Maximum allowed value (inclusive)
-
-    Returns:
-        Float value bounded to the specified range
-    """
-    val = get_float_param(params, key, default)
-    return min(max(val, min_val), max_val)
-
-
-def get_bounded_string_param(
-    params: dict,
-    key: str,
-    default: str | None = None,
-    max_length: int = 500,
-) -> Optional[str]:
-    """Get string parameter with length limit.
-
-    Args:
-        params: Query parameters dict
-        key: Parameter key to look up
-        default: Default value if key not found
-        max_length: Maximum allowed string length
-
-    Returns:
-        String value truncated to max_length, or None
-    """
-    val = get_string_param(params, key, default)
-    if val is None:
-        return None
-    return val[:max_length]
-
-
+# Note: PathMatcher and RouteDispatcher moved to aragora.server.handlers.utils.routing
+# Note: Parameter helpers moved to aragora.server.handlers.utils.params
 # Note: SAFE_ID_PATTERN, SAFE_AGENT_PATTERN, SAFE_SLUG_PATTERN imported from validation.py
 # Path segment validation functions (validate_path_segment, validate_agent_name,
 # validate_debate_id) are in aragora.server.validation

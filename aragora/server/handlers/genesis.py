@@ -28,10 +28,14 @@ from .base import (
     DB_TIMEOUT_SECONDS,
     safe_json_parse,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation import validate_genome_id, validate_debate_id
 from aragora.utils.optional_imports import try_import
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for genesis endpoints (10 requests per minute - evolution ops are expensive)
+_genesis_limiter = RateLimiter(requests_per_minute=10)
 
 # Lazy imports for optional dependencies using centralized utility
 _genesis_imports, GENESIS_AVAILABLE = try_import(
@@ -75,6 +79,12 @@ class GenesisHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route genesis requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _genesis_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for genesis endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         nomic_dir = self.ctx.get("nomic_dir")
 
         if path == "/api/genesis/stats":

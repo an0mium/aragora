@@ -22,6 +22,10 @@ from .base import (
     get_int_param,
     handle_errors,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
+
+# Rate limiter for tournament endpoints (30 requests per minute)
+_tournament_limiter = RateLimiter(requests_per_minute=30)
 
 # Optional import for tournament functionality
 try:
@@ -50,6 +54,14 @@ class TournamentHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route tournament requests to appropriate handler methods."""
+        logger.debug(f"Tournament request: {path}")
+
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _tournament_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for tournament endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/tournaments":
             return self._list_tournaments()
 
@@ -92,6 +104,7 @@ class TournamentHandler(BaseHandler):
                     logger.warning("Failed to load tournament %s: %s: %s", tournament_id, type(e).__name__, e)
                     continue
 
+        logger.info(f"Listed {len(tournaments)} tournaments")
         return json_response({
             "tournaments": tournaments,
             "count": len(tournaments),
@@ -114,6 +127,7 @@ class TournamentHandler(BaseHandler):
         manager = TournamentManager(db_path=str(tournament_path))
         standings = manager.get_current_standings()
 
+        logger.info(f"Retrieved standings for tournament {tournament_id}: {len(standings)} participants")
         return json_response({
             "tournament_id": tournament_id,
             "standings": [

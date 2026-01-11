@@ -22,6 +22,10 @@ from .base import (
     handle_errors,
     safe_error_message,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
+
+# Rate limiter for insights endpoints (60 requests per minute)
+_insights_limiter = RateLimiter(requests_per_minute=60)
 
 
 def _run_async(coro):
@@ -57,6 +61,12 @@ class InsightsHandler(BaseHandler):
         self, path: str, query: dict, handler, ctx: dict
     ) -> Optional[HandlerResult]:
         """Handle GET requests for insights endpoints."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _insights_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for insights endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/insights/recent":
             return self._get_recent_insights(query, ctx)
 
@@ -66,6 +76,12 @@ class InsightsHandler(BaseHandler):
         self, path: str, query_params: dict, handler
     ) -> Optional[HandlerResult]:
         """Handle POST requests for insights endpoints."""
+        # Rate limit check (shared with GET)
+        client_ip = get_client_ip(handler)
+        if not _insights_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for insights POST endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/insights/extract-detailed":
             # Read JSON body from request
             data = self.read_json_body(handler)

@@ -24,6 +24,7 @@ from .base import (
     HandlerResult,
     json_response,
     error_response,
+    safe_error_response,
     invalidate_leaderboard_cache,
     SAFE_SLUG_PATTERN,
     safe_error_message,
@@ -162,7 +163,8 @@ class AuditAgentFactory:
             agent = create_agent(model_type, name=agent_name, role=role)
             return agent, None
         except Exception as e:
-            return None, error_response(f"Failed to create agent: {str(e)}", 400)
+            logger.warning(f"Agent creation failed: {type(e).__name__}: {e}")
+            return None, error_response("Failed to create agent", 400)
 
     @staticmethod
     def create_multiple_agents(
@@ -465,7 +467,8 @@ class AuditingHandler(BaseHandler):
                         raw_output = target_agent.generate(prompt)
                     return OutputSanitizer.sanitize_agent_output(raw_output, target_agent.name)
                 except Exception as e:
-                    return f"[Agent Error: {str(e)}]"
+                    logger.debug(f"Agent generation failed: {type(e).__name__}: {e}")
+                    return "[Agent Error: Generation failed]"
 
             try:
                 report = run_async(prober.probe_agent(
@@ -479,7 +482,7 @@ class AuditingHandler(BaseHandler):
                     "Capability probe execution failed: agent=%s, error=%s",
                     agent_name, str(e), exc_info=True
                 )
-                return error_response(f"Probe execution failed: {str(e)}", 500)
+                return error_response("Probe execution failed", 500)
 
             # Transform results for response
             by_type_transformed = self._transform_probe_results(report.by_type)

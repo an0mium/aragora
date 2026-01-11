@@ -22,9 +22,13 @@ from .base import (
     get_string_param,
     SAFE_AGENT_PATTERN,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for evolution endpoints (10 requests per minute - mutation ops are expensive)
+_evolution_limiter = RateLimiter(requests_per_minute=10)
 
 # Lazy imports for optional dependencies
 EVOLUTION_AVAILABLE = False
@@ -64,6 +68,12 @@ class EvolutionHandler(BaseHandler):
         """Route evolution requests to appropriate methods."""
         if not path.startswith("/api/evolution/"):
             return None
+
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _evolution_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for evolution endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Global patterns endpoint
         if path == "/api/evolution/patterns":

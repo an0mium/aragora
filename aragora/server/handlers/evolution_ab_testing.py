@@ -260,7 +260,8 @@ class EvolutionABTestingHandler(BaseHandler):
             }, status=201)
 
         except ValueError as e:
-            return error_response(str(e), 409)  # Conflict
+            logger.warning(f"A/B test creation failed: {type(e).__name__}: {e}")
+            return error_response("A/B test creation failed - conflict", 409)
 
     @handle_errors("record A/B test result")
     def _record_result(self, test_id: str, body: dict) -> HandlerResult:
@@ -338,7 +339,8 @@ class EvolutionABTestingHandler(BaseHandler):
             })
 
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning(f"A/B test conclusion failed: {type(e).__name__}: {e}")
+            return error_response("A/B test conclusion failed", 400)
 
     @handle_errors("cancel A/B test")
     def _cancel_test(self, test_id: str) -> HandlerResult:

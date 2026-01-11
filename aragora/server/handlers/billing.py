@@ -29,6 +29,11 @@ from .base import (
     get_string_param,
 )
 
+# Module-level imports for test mocking compatibility
+from aragora.billing.models import TIER_LIMITS, SubscriptionTier
+from aragora.billing.stripe_client import get_stripe_client
+from aragora.billing.jwt_auth import extract_user_from_request
+
 logger = logging.getLogger(__name__)
 
 # Webhook idempotency tracking (persistent SQLite by default)
@@ -128,8 +133,6 @@ class BillingHandler(BaseHandler):
     @handle_errors("get plans")
     def _get_plans(self) -> HandlerResult:
         """Get available subscription plans."""
-        from aragora.billing.models import TIER_LIMITS, SubscriptionTier
-
         plans = []
         for tier in SubscriptionTier:
             limits = TIER_LIMITS[tier]
@@ -157,8 +160,6 @@ class BillingHandler(BaseHandler):
     @handle_errors("get usage")
     def _get_usage(self, handler) -> HandlerResult:
         """Get usage for authenticated user."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-
         # Get current user
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -213,8 +214,6 @@ class BillingHandler(BaseHandler):
     @handle_errors("get subscription")
     def _get_subscription(self, handler) -> HandlerResult:
         """Get current subscription for authenticated user."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-
         # Get current user
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -250,8 +249,6 @@ class BillingHandler(BaseHandler):
 
             # Get Stripe subscription if available
             if org.stripe_subscription_id:
-                from aragora.billing.stripe_client import get_stripe_client
-
                 try:
                     stripe = get_stripe_client()
                     stripe_sub = stripe.get_subscription(org.stripe_subscription_id)
@@ -276,12 +273,7 @@ class BillingHandler(BaseHandler):
     @log_request("create checkout session")
     def _create_checkout(self, handler) -> HandlerResult:
         """Create Stripe checkout session."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-        from aragora.billing.models import SubscriptionTier
-        from aragora.billing.stripe_client import (
-            get_stripe_client,
-            StripeConfigError,
-        )
+        from aragora.billing.stripe_client import StripeConfigError
 
         # Get current user
         user_store = self._get_user_store()
@@ -359,11 +351,7 @@ class BillingHandler(BaseHandler):
     @handle_errors("create portal")
     def _create_portal(self, handler) -> HandlerResult:
         """Create Stripe billing portal session."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-        from aragora.billing.stripe_client import (
-            get_stripe_client,
-            StripeConfigError,
-        )
+        from aragora.billing.stripe_client import StripeConfigError
 
         # Get current user
         user_store = self._get_user_store()
@@ -449,8 +437,6 @@ class BillingHandler(BaseHandler):
     @handle_errors("get audit log")
     def _get_audit_log(self, handler) -> HandlerResult:
         """Get billing audit log for organization (Enterprise feature)."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
@@ -508,7 +494,6 @@ class BillingHandler(BaseHandler):
     @handle_errors("export usage CSV")
     def _export_usage_csv(self, handler) -> HandlerResult:
         """Export usage data as CSV."""
-        from aragora.billing.jwt_auth import extract_user_from_request
         import csv
         import io
 
@@ -591,9 +576,6 @@ class BillingHandler(BaseHandler):
     @handle_errors("get usage forecast")
     def _get_usage_forecast(self, handler) -> HandlerResult:
         """Get usage forecast and cost projection."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-        from datetime import timedelta
-
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
@@ -688,8 +670,7 @@ class BillingHandler(BaseHandler):
     @handle_errors("get invoices")
     def _get_invoices(self, handler) -> HandlerResult:
         """Get invoice history from Stripe."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-        from aragora.billing.stripe_client import get_stripe_client, StripeConfigError
+        from aragora.billing.stripe_client import StripeConfigError
 
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -745,9 +726,6 @@ class BillingHandler(BaseHandler):
     @log_request("cancel subscription")
     def _cancel_subscription(self, handler) -> HandlerResult:
         """Cancel subscription at end of billing period."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-        from aragora.billing.stripe_client import get_stripe_client
-
         # Get current user
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -810,9 +788,6 @@ class BillingHandler(BaseHandler):
     @handle_errors("resume subscription")
     def _resume_subscription(self, handler) -> HandlerResult:
         """Resume a canceled subscription."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-        from aragora.billing.stripe_client import get_stripe_client
-
         # Get current user
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -878,8 +853,8 @@ class BillingHandler(BaseHandler):
         if not event:
             return error_response("Invalid webhook signature", 400)
 
-        # Get event ID for idempotency check
-        event_id = event.data.get("id", "")
+        # Get event ID for idempotency check (use top-level Stripe event ID)
+        event_id = event.event_id
         if not event_id:
             logger.warning("Webhook event missing ID, cannot check idempotency")
         elif _is_duplicate_webhook(event_id):

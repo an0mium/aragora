@@ -33,6 +33,9 @@ from .base import (
 )
 from .utils.rate_limit import rate_limit
 
+# Module-level imports for test mocking compatibility
+from aragora.billing.jwt_auth import extract_user_from_request, validate_refresh_token
+
 logger = logging.getLogger(__name__)
 
 # Email validation pattern
@@ -302,7 +305,6 @@ class AuthHandler(BaseHandler):
     def _handle_refresh(self, handler) -> HandlerResult:
         """Handle token refresh."""
         from aragora.billing.jwt_auth import (
-            validate_refresh_token,
             create_token_pair,
             get_token_blacklist,
         )
@@ -335,8 +337,13 @@ class AuthHandler(BaseHandler):
             return error_response("Account is disabled", 403)
 
         # Revoke the old refresh token to prevent reuse
+        # Use both in-memory (fast) and persistent (multi-instance) blacklists
         blacklist = get_token_blacklist()
         blacklist.revoke_token(refresh_token)
+
+        # Also persist revocation for multi-instance consistency
+        from aragora.billing.jwt_auth import revoke_token_persistent
+        revoke_token_persistent(refresh_token)
 
         # Create new token pair
         tokens = create_token_pair(
@@ -352,8 +359,8 @@ class AuthHandler(BaseHandler):
     def _handle_logout(self, handler) -> HandlerResult:
         """Handle user logout (token invalidation)."""
         from aragora.billing.jwt_auth import (
-            extract_user_from_request,
             get_token_blacklist,
+            revoke_token_persistent,
         )
         from aragora.server.middleware.auth import extract_token
 
@@ -363,12 +370,20 @@ class AuthHandler(BaseHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
-        # Revoke the current token by adding to blacklist
+        # Revoke the current token using both in-memory and persistent blacklists
         token = extract_token(handler)
         if token:
+            # In-memory for fast local checks
             blacklist = get_token_blacklist()
-            if blacklist.revoke_token(token):
-                logger.info(f"User logged out and token revoked: {auth_ctx.user_id}")
+            in_memory_ok = blacklist.revoke_token(token)
+
+            # Persistent for multi-instance consistency
+            persistent_ok = revoke_token_persistent(token)
+
+            if in_memory_ok and persistent_ok:
+                logger.info(f"User logged out and token revoked (in-memory + persistent): {auth_ctx.user_id}")
+            elif in_memory_ok:
+                logger.warning(f"User logged out, in-memory revoked but persistent failed: {auth_ctx.user_id}")
             else:
                 logger.warning(f"User logged out but token revocation failed: {auth_ctx.user_id}")
         else:
@@ -379,8 +394,6 @@ class AuthHandler(BaseHandler):
     @handle_errors("get user info")
     def _handle_get_me(self, handler) -> HandlerResult:
         """Get current user information."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-
         # Get current user
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -413,8 +426,6 @@ class AuthHandler(BaseHandler):
     @handle_errors("update user info")
     def _handle_update_me(self, handler) -> HandlerResult:
         """Update current user information."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-
         # Get current user
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -450,8 +461,6 @@ class AuthHandler(BaseHandler):
     @handle_errors("change password")
     def _handle_change_password(self, handler) -> HandlerResult:
         """Change user password."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-
         # Get current user
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -542,8 +551,6 @@ class AuthHandler(BaseHandler):
     @handle_errors("generate API key")
     def _handle_generate_api_key(self, handler) -> HandlerResult:
         """Generate a new API key for the user."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-
         # Get current user
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -567,21 +574,28 @@ class AuthHandler(BaseHandler):
                     "API access requires Professional tier or higher", 403
                 )
 
-        # Generate new API key
-        import secrets
-        api_key = f"ara_{secrets.token_urlsafe(32)}"
+        # Generate new API key using secure hash-based storage
+        # The plaintext key is only returned once; we store the hash
+        api_key = user.generate_api_key(expires_days=365)
+
+        # Persist the hashed key fields (api_key_hash, api_key_prefix, expiry)
         user_store.update_user(
             user.id,
-            api_key=api_key,
-            api_key_created_at=datetime.utcnow(),
+            api_key=None,  # Clear legacy plaintext field
+            api_key_hash=user.api_key_hash,
+            api_key_prefix=user.api_key_prefix,
+            api_key_created_at=user.api_key_created_at,
+            api_key_expires_at=user.api_key_expires_at,
         )
 
-        logger.info(f"API key generated for user: {user.email}")
+        logger.info(f"API key generated for user: {user.email} (prefix: {user.api_key_prefix})")
 
-        # Return the key (only shown once)
+        # Return the key (only shown once - plaintext is never stored)
         return json_response(
             {
                 "api_key": api_key,
+                "prefix": user.api_key_prefix,
+                "expires_at": user.api_key_expires_at.isoformat() if user.api_key_expires_at else None,
                 "message": "Save this key - it will not be shown again",
             }
         )
@@ -589,8 +603,6 @@ class AuthHandler(BaseHandler):
     @handle_errors("revoke API key")
     def _handle_revoke_api_key(self, handler) -> HandlerResult:
         """Revoke the user's API key."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-
         # Get current user
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -606,8 +618,15 @@ class AuthHandler(BaseHandler):
         if not user:
             return error_response("User not found", 404)
 
-        # Revoke API key
-        user_store.update_user(user.id, api_key=None, api_key_created_at=None)
+        # Revoke API key - clear both legacy and hashed fields
+        user_store.update_user(
+            user.id,
+            api_key=None,
+            api_key_hash=None,
+            api_key_prefix=None,
+            api_key_created_at=None,
+            api_key_expires_at=None,
+        )
 
         logger.info(f"API key revoked for user: {user.email}")
 
@@ -621,8 +640,6 @@ class AuthHandler(BaseHandler):
     @log_request("MFA setup")
     def _handle_mfa_setup(self, handler) -> HandlerResult:
         """Generate MFA secret and provisioning URI for setup."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-
         try:
             import pyotp
         except ImportError:
@@ -663,7 +680,6 @@ class AuthHandler(BaseHandler):
     @log_request("MFA enable")
     def _handle_mfa_enable(self, handler) -> HandlerResult:
         """Enable MFA after verifying setup code."""
-        from aragora.billing.jwt_auth import extract_user_from_request
         import hashlib
         import secrets as py_secrets
 
@@ -724,8 +740,6 @@ class AuthHandler(BaseHandler):
     @log_request("MFA disable")
     def _handle_mfa_disable(self, handler) -> HandlerResult:
         """Disable MFA for the user."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-
         try:
             import pyotp
         except ImportError:
@@ -885,7 +899,6 @@ class AuthHandler(BaseHandler):
     @log_request("MFA backup codes")
     def _handle_mfa_backup_codes(self, handler) -> HandlerResult:
         """Regenerate MFA backup codes."""
-        from aragora.billing.jwt_auth import extract_user_from_request
         import hashlib
         import secrets as py_secrets
 

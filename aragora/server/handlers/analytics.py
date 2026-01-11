@@ -53,6 +53,7 @@ class AnalyticsHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route analytics requests to appropriate methods."""
+        logger.debug(f"Analytics request: {path}")
         if path == "/api/analytics/disagreements":
             return self._get_disagreement_stats()
 
@@ -102,6 +103,7 @@ class AnalyticsHandler(BaseHandler):
                 dtype = result.get("uncertainty_metrics", {}).get("disagreement_type", "unknown")
                 stats["disagreement_types"][dtype] = stats["disagreement_types"].get(dtype, 0) + 1
 
+        logger.info(f"Disagreement stats: {stats['total_debates']} debates, {stats['with_disagreements']} with disagreements")
         return json_response({"stats": stats})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_roles", skip_first=True)
@@ -126,6 +128,7 @@ class AnalyticsHandler(BaseHandler):
                 role = msg.get("cognitive_role", msg.get("role", "unknown"))
                 stats["role_assignments"][role] = stats["role_assignments"].get(role, 0) + 1
 
+        logger.info(f"Role rotation stats: {len(stats['role_assignments'])} roles across {stats['total_debates']} debates")
         return json_response({"stats": stats})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_early_stop", skip_first=True)
@@ -159,6 +162,7 @@ class AnalyticsHandler(BaseHandler):
         if debates:
             stats["average_rounds"] = total_rounds / len(debates)
 
+        logger.info(f"Early stop stats: {stats['early_stopped']}/{stats['total_debates']} early stopped")
         return json_response({"stats": stats})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_consensus_quality", skip_first=True)

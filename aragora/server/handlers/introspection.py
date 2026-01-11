@@ -24,10 +24,14 @@ from .base import (
     ttl_cache,
     SAFE_AGENT_PATTERN,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.config import DB_PERSONAS_PATH
 from aragora.utils.optional_imports import try_import_class
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for introspection endpoints (20 requests per minute)
+_introspection_limiter = RateLimiter(requests_per_minute=20)
 
 # Lazy imports for optional dependencies using centralized utility
 get_agent_introspection, INTROSPECTION_AVAILABLE = try_import_class(
@@ -63,6 +67,12 @@ class IntrospectionHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route introspection requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _introspection_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for introspection endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/introspection/all":
             return self._get_all_introspection()
         elif path == "/api/introspection/leaderboard":

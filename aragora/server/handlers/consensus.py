@@ -39,6 +39,10 @@ from .base import (
     handle_errors,
     safe_error_message,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
+
+# Rate limiter for consensus endpoints (30 requests per minute)
+_consensus_limiter = RateLimiter(requests_per_minute=30)
 from aragora.utils.optional_imports import try_import
 
 logger = logging.getLogger(__name__)
@@ -76,6 +80,12 @@ class ConsensusHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route consensus requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _consensus_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for consensus endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/consensus/similar":
             # Validate raw topic length before truncation
             raw_topic = query_params.get('topic', '')

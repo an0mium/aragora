@@ -69,6 +69,7 @@ class LeaderboardViewHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route leaderboard view requests."""
+        logger.debug(f"Leaderboard request: {path} params={query_params}")
         if path == "/api/leaderboard-view":
             limit = get_int_param(query_params, 'limit', 10)
             domain = get_string_param(query_params, 'domain')
@@ -128,6 +129,7 @@ class LeaderboardViewHandler(BaseHandler):
             {"agents": {}, "count": 0}
         )
 
+        logger.info(f"Leaderboard view: {len(errors)} failed sections, {len(data.get('rankings', {}).get('agents', []))} agents")
         return json_response({
             "data": data,
             "errors": {

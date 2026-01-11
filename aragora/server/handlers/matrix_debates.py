@@ -22,8 +22,12 @@ from .base import (
     error_response,
     handle_errors,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for matrix debates (5 requests per minute - parallel debates are expensive)
+_matrix_limiter = RateLimiter(requests_per_minute=5)
 
 
 class MatrixDebatesHandler(BaseHandler):
@@ -68,31 +72,87 @@ class MatrixDebatesHandler(BaseHandler):
         if not path.rstrip("/").endswith("/debates/matrix"):
             return error_response("Not found", 404)
 
+        # Rate limit check (5/min - expensive parallel operations)
+        client_ip = get_client_ip(handler)
+        if not _matrix_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for matrix debates: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        logger.debug("POST /api/debates/matrix - running matrix debate")
         return await self._run_matrix_debate(handler, data)
 
     async def _run_matrix_debate(self, handler, data: dict) -> HandlerResult:
         """Run parallel scenario debates.
 
         Request body:
-            task: str - Base debate topic/question
-            agents: list[str] - Agent names to participate
-            scenarios: list[dict] - List of scenario configurations
-                - name: str - Scenario name
+            task: str - Base debate topic/question (10-5000 chars)
+            agents: list[str] - Agent names to participate (2-10 agents)
+            scenarios: list[dict] - List of scenario configurations (1-10 scenarios)
+                - name: str - Scenario name (max 100 chars)
                 - parameters: dict - Scenario-specific parameters
                 - constraints: list[str] - Additional constraints
                 - is_baseline: bool - Whether this is the baseline scenario
-            max_rounds: int - Maximum rounds per scenario (default: 3)
+            max_rounds: int - Maximum rounds per scenario (1-10, default: 3)
         """
+        # Validate task
         task = data.get("task")
         if not task:
             return error_response("task is required", 400)
+        if not isinstance(task, str):
+            return error_response("task must be a string", 400)
+        task = task.strip()
+        if len(task) < 10:
+            return error_response("task must be at least 10 characters", 400)
+        if len(task) > 5000:
+            return error_response("task must be at most 5000 characters", 400)
 
+        # Validate scenarios
         scenarios = data.get("scenarios", [])
+        if not isinstance(scenarios, list):
+            return error_response("scenarios must be an array", 400)
         if not scenarios:
             return error_response("At least one scenario is required", 400)
+        if len(scenarios) > 10:
+            return error_response("Maximum 10 scenarios allowed", 400)
 
+        # Validate each scenario
+        for i, scenario in enumerate(scenarios):
+            if not isinstance(scenario, dict):
+                return error_response(f"scenarios[{i}] must be an object", 400)
+            name = scenario.get("name", "")
+            if name and len(name) > 100:
+                return error_response(f"scenarios[{i}].name too long (max 100 chars)", 400)
+            if "parameters" in scenario and not isinstance(scenario["parameters"], dict):
+                return error_response(f"scenarios[{i}].parameters must be an object", 400)
+            if "constraints" in scenario:
+                if not isinstance(scenario["constraints"], list):
+                    return error_response(f"scenarios[{i}].constraints must be an array", 400)
+                if len(scenario["constraints"]) > 10:
+                    return error_response(f"scenarios[{i}].constraints too many (max 10)", 400)
+
+        # Validate agents
         agent_names = data.get("agents", [])
+        if not isinstance(agent_names, list):
+            return error_response("agents must be an array", 400)
+        if len(agent_names) > 10:
+            return error_response("Maximum 10 agents allowed", 400)
+        for i, name in enumerate(agent_names):
+            if not isinstance(name, str):
+                return error_response(f"agents[{i}] must be a string", 400)
+            if len(name) > 50:
+                return error_response(f"agents[{i}] name too long (max 50 chars)", 400)
+
+        # Validate max_rounds
         max_rounds = data.get("max_rounds", 3)
+        if not isinstance(max_rounds, int):
+            try:
+                max_rounds = int(max_rounds)
+            except (ValueError, TypeError):
+                return error_response("max_rounds must be an integer", 400)
+        if max_rounds < 1:
+            return error_response("max_rounds must be at least 1", 400)
+        if max_rounds > 10:
+            return error_response("max_rounds must be at most 10", 400)
 
         try:
             from aragora.debate.scenarios import MatrixDebateRunner, ScenarioConfig

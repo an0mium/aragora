@@ -21,8 +21,12 @@ from .base import (
     get_bounded_float_param,
     get_clamped_int_param,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for laboratory endpoints (20 requests per minute)
+_laboratory_limiter = RateLimiter(requests_per_minute=20)
 
 # Optional PersonaLaboratory import
 _lab_imports, LABORATORY_AVAILABLE = try_import(
@@ -46,6 +50,12 @@ class LaboratoryHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _laboratory_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for laboratory endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/laboratory/emergent-traits":
             min_confidence = get_bounded_float_param(query_params, 'min_confidence', 0.5, min_val=0.0, max_val=1.0)
             limit = get_clamped_int_param(query_params, 'limit', 20, min_val=1, max_val=100)
@@ -54,6 +64,12 @@ class LaboratoryHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
+        # Rate limit check (shared with GET)
+        client_ip = get_client_ip(handler)
+        if not _laboratory_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for laboratory POST endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/laboratory/cross-pollinations/suggest":
             return self._suggest_cross_pollinations(handler)
         return None

@@ -7,9 +7,11 @@ for user votes and suggestions.
 """
 
 import logging
+import os
 import queue
 import threading
 import time
+from collections import deque
 from typing import Any, Callable, Optional
 
 from aragora.config import MAX_EVENT_QUEUE_SIZE
@@ -99,16 +101,42 @@ class AudienceInbox:
 
     Collects votes and suggestions from WebSocket clients for processing
     by the debate arena.
+
+    Uses a bounded deque to prevent unbounded memory growth under spam.
+    Maximum size is configurable via ARAGORA_AUDIENCE_INBOX_MAX_SIZE env var.
     """
 
-    def __init__(self):
-        self._messages: list[AudienceMessage] = []
+    # Maximum messages to retain (prevents memory exhaustion under spam)
+    # Configurable via environment variable
+    MAX_MESSAGES = int(os.environ.get("ARAGORA_AUDIENCE_INBOX_MAX_SIZE", "1000"))
+
+    def __init__(self, max_messages: int | None = None):
+        """
+        Initialize audience inbox.
+
+        Args:
+            max_messages: Maximum messages to retain (defaults to MAX_MESSAGES)
+        """
+        max_size = max_messages if max_messages is not None else self.MAX_MESSAGES
+        self._messages: deque[AudienceMessage] = deque(maxlen=max_size)
         self._lock = threading.Lock()
+        self._overflow_count = 0  # Track dropped messages for monitoring
 
     def put(self, message: AudienceMessage) -> None:
-        """Add a message to the inbox (thread-safe)."""
+        """Add a message to the inbox (thread-safe).
+
+        If the inbox is at capacity, the oldest message is automatically dropped.
+        """
         with self._lock:
+            was_full = len(self._messages) == self._messages.maxlen
             self._messages.append(message)
+            if was_full:
+                self._overflow_count += 1
+                if self._overflow_count % 100 == 1:  # Log every 100 drops
+                    logger.warning(
+                        f"[audience] Inbox overflow, dropping old messages "
+                        f"(total dropped: {self._overflow_count})"
+                    )
 
     def get_all(self) -> list[AudienceMessage]:
         """
@@ -118,7 +146,7 @@ class AudienceInbox:
             List of all queued messages, emptying the inbox
         """
         with self._lock:
-            messages = self._messages.copy()
+            messages = list(self._messages)
             self._messages.clear()
             return messages
 
@@ -206,7 +234,9 @@ class AudienceInbox:
                 else:
                     remaining.append(msg)
 
-            self._messages = remaining
+            # Clear and repopulate the deque to preserve maxlen
+            self._messages.clear()
+            self._messages.extend(remaining)
             return suggestions
 
 

@@ -29,9 +29,13 @@ from .base import (
     get_int_param,
     ttl_cache,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.config import DB_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for gallery endpoints (60 requests per minute)
+_gallery_limiter = RateLimiter(requests_per_minute=60)
 
 
 @dataclass
@@ -94,6 +98,14 @@ class GalleryHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route gallery requests to appropriate methods."""
+        logger.debug(f"Gallery request: {path} params={query_params}")
+
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _gallery_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for gallery endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/gallery":
             return self._list_public_debates(query_params)
 
@@ -127,6 +139,7 @@ class GalleryHandler(BaseHandler):
         nomic_dir = self.ctx.get("nomic_dir")
         debates = self._load_debates_from_replays(nomic_dir, limit, offset, agent_filter)
 
+        logger.info(f"Gallery listing: {len(debates)} debates (limit={limit}, offset={offset})")
         return json_response({
             "debates": [d.to_dict() for d in debates],
             "total": len(debates),
@@ -140,8 +153,10 @@ class GalleryHandler(BaseHandler):
         debate = self._find_debate_by_id(nomic_dir, debate_id)
 
         if not debate:
+            logger.debug(f"Debate not found: {debate_id}")
             return error_response("Debate not found", status=404)
 
+        logger.info(f"Retrieved debate {debate_id} with {len(debate.get('events', []))} events")
         return json_response(debate)
 
     def _get_embed(self, debate_id: str) -> HandlerResult:

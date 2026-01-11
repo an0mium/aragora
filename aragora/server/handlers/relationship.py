@@ -198,6 +198,7 @@ class RelationshipHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route relationship requests to appropriate methods."""
+        logger.debug(f"Relationship request: {path} params={query_params}")
         nomic_dir = self.ctx.get("nomic_dir")
 
         if path == "/api/relationships/summary":
@@ -351,6 +352,7 @@ class RelationshipHandler(BaseHandler):
                     "relationship_count": agent_relationship_counts[most_connected_name]
                 }
 
+            logger.info(f"Relationship summary: {len(rows)} relationships, {len(rivalry_scores)} rivalries, {len(alliance_scores)} alliances")
             return json_response({
                 "total_relationships": len(rows),
                 "strongest_rivalry": strongest_rivalry,
@@ -431,6 +433,7 @@ class RelationshipHandler(BaseHandler):
                 for agent, data in nodes_data.items()
             ]
 
+            logger.info(f"Relationship graph: {len(nodes)} nodes, {len(edges)} edges")
             return json_response({
                 "nodes": nodes,
                 "edges": edges,

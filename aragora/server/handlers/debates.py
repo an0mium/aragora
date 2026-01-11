@@ -59,6 +59,8 @@ class DebatesHandler(BaseHandler):
         "/api/debates/*/citations",
         "/api/debates/*/messages",  # Paginated message history
         "/api/debates/*/fork",  # POST - counterfactual fork
+        "/api/debates/*/followup",  # POST - crux-driven follow-up debate
+        "/api/debates/*/followups",  # GET - list follow-up suggestions
         "/api/debates/*/verification-report",  # Verification feedback
         "/api/search",  # Cross-debate search
     ]
@@ -69,6 +71,7 @@ class DebatesHandler(BaseHandler):
         "/export/",  # Export debate data
         "/citations",  # Evidence citations
         "/fork",  # Fork debate
+        "/followup",  # Create follow-up debate
     ]
 
     # Allowed export formats and tables for input validation
@@ -89,6 +92,7 @@ class DebatesHandler(BaseHandler):
         ("/meta-critique", "_get_meta_critique", True, None),
         ("/graph/stats", "_get_graph_stats", True, None),
         ("/verification-report", "_get_verification_report", True, None),
+        ("/followups", "_get_followup_suggestions", True, None),
     ]
 
     def _check_auth(self, handler) -> Optional[HandlerResult]:
@@ -880,6 +884,13 @@ class DebatesHandler(BaseHandler):
             if debate_id:
                 return self._verify_outcome(handler, debate_id)
 
+        if path.endswith("/followup"):
+            debate_id, err = self._extract_debate_id(path)
+            if err:
+                return error_response(err, 400)
+            if debate_id:
+                return self._create_followup_debate(handler, debate_id)
+
         return None
 
     def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
@@ -1123,3 +1134,219 @@ class DebatesHandler(BaseHandler):
             return error_response("Position tracking not configured", 503)
         except ImportError:
             return error_response("PositionTracker module not available", 503)
+
+    @require_storage
+    def _get_followup_suggestions(self, debate_id: str) -> HandlerResult:
+        """Get follow-up debate suggestions based on identified cruxes.
+
+        Analyzes the debate's uncertainty metrics and generates suggestions
+        for follow-up debates to resolve key disagreement points.
+
+        Returns:
+            List of follow-up suggestions with priority and suggested task
+        """
+        storage = self.get_storage()
+
+        try:
+            debate = storage.get_debate(debate_id)
+            if not debate:
+                return error_response(f"Debate not found: {debate_id}", 404)
+
+            # Import uncertainty analysis components
+            from aragora.uncertainty.estimator import DisagreementAnalyzer, DisagreementCrux
+
+            # Extract cruxes from debate data
+            cruxes = []
+
+            # Check for stored uncertainty metrics
+            uncertainty = debate.get("uncertainty_metrics", {})
+            if uncertainty and "cruxes" in uncertainty:
+                for crux_data in uncertainty["cruxes"]:
+                    crux = DisagreementCrux(
+                        description=crux_data.get("description", ""),
+                        divergent_agents=crux_data.get("agents", []),
+                        evidence_needed=crux_data.get("evidence_needed", ""),
+                        severity=crux_data.get("severity", 0.5),
+                    )
+                    cruxes.append(crux)
+
+            # If no stored cruxes, analyze the debate
+            if not cruxes:
+                from aragora.core import Vote, Message
+                votes_data = debate.get("votes", [])
+                messages_data = debate.get("messages", [])
+                proposals = debate.get("proposals", {})
+
+                # Convert to Vote/Message objects if needed
+                votes = []
+                for v in votes_data:
+                    if hasattr(v, 'choice'):
+                        votes.append(v)
+                    else:
+                        votes.append(Vote(
+                            agent=v.get("agent", "unknown"),
+                            choice=v.get("choice", ""),
+                            confidence=v.get("confidence", 0.5),
+                            reasoning=v.get("reasoning", ""),
+                        ))
+
+                messages = []
+                for m in messages_data:
+                    if hasattr(m, 'content'):
+                        messages.append(m)
+                    else:
+                        messages.append(Message(
+                            agent=m.get("agent", "unknown"),
+                            content=m.get("content", ""),
+                            role=m.get("role", "proposer"),
+                            round=m.get("round", 1),
+                        ))
+
+                # Run disagreement analysis
+                analyzer = DisagreementAnalyzer()
+                metrics = analyzer.analyze_disagreement(messages, votes, proposals)
+                cruxes = metrics.cruxes
+
+            if not cruxes:
+                return json_response({
+                    "debate_id": debate_id,
+                    "suggestions": [],
+                    "message": "No significant disagreement cruxes identified",
+                })
+
+            # Generate follow-up suggestions
+            analyzer = DisagreementAnalyzer()
+            available_agents = debate.get("agents", [])
+            suggestions = analyzer.suggest_followups(
+                cruxes=cruxes,
+                parent_debate_id=debate_id,
+                available_agents=available_agents,
+            )
+
+            return json_response({
+                "debate_id": debate_id,
+                "suggestions": [s.to_dict() for s in suggestions],
+                "count": len(suggestions),
+            })
+
+        except Exception as e:
+            logger.error("Failed to get followup suggestions for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            return error_response(safe_error_message(e, "get followup suggestions"), 500)
+
+    @require_storage
+    def _create_followup_debate(self, handler, debate_id: str) -> HandlerResult:
+        """Create a follow-up debate to resolve a specific crux.
+
+        POST body:
+            crux_id: str - ID of the crux to explore
+            task: str (optional) - Custom task, otherwise generated from crux
+            agents: list[str] (optional) - Specific agents to include
+
+        Returns:
+            Created debate metadata with parent lineage
+        """
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid or missing JSON body", 400)
+
+        crux_id = body.get("crux_id")
+        custom_task = body.get("task")
+        requested_agents = body.get("agents", [])
+
+        if not crux_id and not custom_task:
+            return error_response("Either crux_id or task is required", 400)
+
+        storage = self.get_storage()
+
+        try:
+            # Get parent debate
+            parent_debate = storage.get_debate(debate_id)
+            if not parent_debate:
+                return error_response(f"Parent debate not found: {debate_id}", 404)
+
+            # Find the crux if crux_id provided
+            crux_data = None
+            if crux_id:
+                uncertainty = parent_debate.get("uncertainty_metrics", {})
+                for c in uncertainty.get("cruxes", []):
+                    if c.get("id") == crux_id:
+                        crux_data = c
+                        break
+
+                if not crux_data:
+                    return error_response(f"Crux not found: {crux_id}", 404)
+
+            # Generate task
+            if custom_task:
+                task = custom_task
+            elif crux_data:
+                # Generate task from crux description
+                from aragora.uncertainty.estimator import DisagreementAnalyzer, DisagreementCrux
+                analyzer = DisagreementAnalyzer()
+                crux = DisagreementCrux(
+                    description=crux_data.get("description", ""),
+                    divergent_agents=crux_data.get("agents", []),
+                    severity=crux_data.get("severity", 0.5),
+                )
+                task = analyzer._generate_followup_task(crux)
+            else:
+                return error_response("Could not generate task", 400)
+
+            # Determine agents
+            if requested_agents:
+                agents = requested_agents
+            elif crux_data:
+                agents = crux_data.get("agents", [])
+                # Add parent debate agents if not enough
+                if len(agents) < 2:
+                    for agent in parent_debate.get("agents", []):
+                        if agent not in agents:
+                            agents.append(agent)
+                        if len(agents) >= 3:
+                            break
+            else:
+                agents = parent_debate.get("agents", [])[:3]
+
+            # Create unique ID for follow-up debate
+            import time
+            import hashlib
+            followup_id = f"followup-{debate_id[:8]}-{int(time.time()) % 100000}"
+
+            # Store follow-up debate metadata
+            followup_data = {
+                "id": followup_id,
+                "task": task,
+                "agents": agents,
+                "parent_debate_id": debate_id,
+                "crux_id": crux_id,
+                "crux_description": crux_data.get("description") if crux_data else None,
+                "status": "pending",
+                "created_at": time.time(),
+            }
+
+            # Store in nomic dir
+            nomic_dir = self.get_nomic_dir()
+            if nomic_dir:
+                import json as json_mod
+                followups_dir = nomic_dir / "followups"
+                followups_dir.mkdir(exist_ok=True)
+                followup_file = followups_dir / f"{followup_id}.json"
+                with open(followup_file, "w") as f:
+                    json_mod.dump(followup_data, f, indent=2)
+
+            logger.info(f"Created follow-up debate {followup_id} from parent {debate_id}")
+
+            return json_response({
+                "success": True,
+                "followup_id": followup_id,
+                "parent_debate_id": debate_id,
+                "task": task,
+                "agents": agents,
+                "crux_id": crux_id,
+                "status": "pending",
+                "message": f"Created follow-up debate to explore: {task[:100]}",
+            })
+
+        except Exception as e:
+            logger.error("Failed to create followup debate for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            return error_response(safe_error_message(e, "create followup debate"), 500)

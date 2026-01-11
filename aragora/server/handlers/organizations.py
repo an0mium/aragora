@@ -58,8 +58,7 @@ class OrganizationsHandler(BaseHandler):
     PENDING_INVITATIONS_PATTERN = re.compile(r"^/api/invitations/pending$")
     ACCEPT_INVITATION_PATTERN = re.compile(r"^/api/invitations/([a-zA-Z0-9_-]+)/accept$")
 
-    # In-memory invitation store (production should use database)
-    _invitations: dict[str, OrganizationInvitation] = {}
+    # Invitations are now stored in user_store (persistent SQLite storage)
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -383,8 +382,8 @@ class OrganizationsHandler(BaseHandler):
             expires_at=datetime.utcnow() + timedelta(days=7),
         )
 
-        # Store invitation (in-memory for now, production should use database)
-        self._invitations[invitation.id] = invitation
+        # Store invitation in persistent database
+        user_store.create_invitation(invitation)
 
         logger.info(
             f"Invitation created: {email} invited to org {org_id} by {user.id} "
@@ -495,38 +494,38 @@ class OrganizationsHandler(BaseHandler):
         })
 
     # =========================================================================
-    # Invitation Helper Methods
+    # Invitation Helper Methods (now using persistent storage via user_store)
     # =========================================================================
 
     def _get_invitation_by_email(
         self, org_id: str, email: str
     ) -> Optional[OrganizationInvitation]:
         """Find a pending invitation by org and email."""
-        for invitation in self._invitations.values():
-            if invitation.org_id == org_id and invitation.email == email:
-                return invitation
-        return None
+        user_store = self._get_user_store()
+        if not user_store:
+            return None
+        return user_store.get_invitation_by_email(org_id, email)
 
     def _get_invitation_by_token(self, token: str) -> Optional[OrganizationInvitation]:
         """Find an invitation by token."""
-        for invitation in self._invitations.values():
-            if invitation.token == token:
-                return invitation
-        return None
+        user_store = self._get_user_store()
+        if not user_store:
+            return None
+        return user_store.get_invitation_by_token(token)
 
     def _get_invitations_by_email(self, email: str) -> list[OrganizationInvitation]:
         """Get all pending invitations for an email address."""
-        return [
-            inv for inv in self._invitations.values()
-            if inv.email == email and inv.is_pending
-        ]
+        user_store = self._get_user_store()
+        if not user_store:
+            return []
+        return user_store.get_pending_invitations_by_email(email)
 
     def _get_invitations_for_org(self, org_id: str) -> list[OrganizationInvitation]:
         """Get all invitations for an organization."""
-        return [
-            inv for inv in self._invitations.values()
-            if inv.org_id == org_id
-        ]
+        user_store = self._get_user_store()
+        if not user_store:
+            return []
+        return user_store.get_invitations_for_org(org_id)
 
     # =========================================================================
     # Invitation Endpoints
@@ -541,12 +540,14 @@ class OrganizationsHandler(BaseHandler):
         if not has_access:
             return error_response(err, 403 if user else 401)
 
-        invitations = self._get_invitations_for_org(org_id)
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
 
-        # Clean up expired invitations
-        for inv in invitations:
-            if inv.is_expired and inv.status == "pending":
-                inv.status = "expired"
+        # Clean up expired invitations in database
+        user_store.cleanup_expired_invitations()
+
+        invitations = self._get_invitations_for_org(org_id)
 
         return json_response({
             "invitations": [
@@ -567,7 +568,11 @@ class OrganizationsHandler(BaseHandler):
         if not has_access:
             return error_response(err, 403 if user else 401)
 
-        invitation = self._invitations.get(invitation_id)
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
+
+        invitation = user_store.get_invitation_by_id(invitation_id)
         if not invitation:
             return error_response("Invitation not found", 404)
 
@@ -580,7 +585,8 @@ class OrganizationsHandler(BaseHandler):
                 400
             )
 
-        invitation.revoke()
+        # Update status to revoked in database
+        user_store.update_invitation_status(invitation_id, "revoked")
 
         logger.info(f"Invitation {invitation_id} revoked by {user.id}")
 
@@ -668,8 +674,10 @@ class OrganizationsHandler(BaseHandler):
         if not success:
             return error_response("Failed to join organization", 500)
 
-        # Mark invitation as accepted
-        invitation.accept()
+        # Mark invitation as accepted in database
+        user_store.update_invitation_status(
+            invitation.id, "accepted", accepted_at=datetime.utcnow()
+        )
 
         logger.info(
             f"User {user.id} accepted invitation to org {invitation.org_id} "

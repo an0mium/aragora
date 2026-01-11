@@ -72,6 +72,7 @@ class PulseHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route pulse requests to appropriate methods."""
+        logger.debug(f"Pulse request: {path} params={query_params}")
         if path == "/api/pulse/trending":
             limit = get_int_param(query_params, 'limit', 10)
             return self._get_trending_topics(min(limit, 50))
@@ -147,6 +148,7 @@ class PulseHandler(BaseHandler):
             # Normalize scores: find max volume and scale to 0-1
             max_volume = max((t.volume for t in topics), default=1) or 1
 
+            logger.info(f"Retrieved {len(topics)} trending topics from {len(manager.ingestors)} sources")
             return json_response({
                 "topics": [
                     {
@@ -200,11 +202,13 @@ class PulseHandler(BaseHandler):
             selected = manager.select_topic_for_debate(topics)
 
             if not selected:
+                logger.info("No suitable debate topic found in trending data")
                 return json_response({
                     "topic": None,
                     "message": "No suitable topics found",
                 }, status=404)
 
+            logger.info(f"Suggested debate topic: '{selected.topic}' from {selected.platform}")
             return json_response({
                 "topic": selected.topic,
                 "debate_prompt": selected.to_debate_prompt(),

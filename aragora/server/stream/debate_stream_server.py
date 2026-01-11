@@ -53,6 +53,55 @@ WS_TOKEN_REVALIDATION_INTERVAL = 300.0
 # Maximum connections per IP (concurrent)
 WS_MAX_CONNECTIONS_PER_IP = int(os.getenv('ARAGORA_WS_MAX_PER_IP', '10'))
 
+# Per-connection message rate limiting (messages per second)
+WS_MESSAGES_PER_SECOND = int(os.getenv('ARAGORA_WS_MSG_RATE', '10'))
+WS_MESSAGE_BURST_SIZE = int(os.getenv('ARAGORA_WS_MSG_BURST', '20'))
+
+
+class WebSocketMessageRateLimiter:
+    """Per-connection message rate limiter using token bucket algorithm.
+
+    Limits the rate of incoming messages from a single WebSocket connection
+    to prevent DoS attacks via message flooding.
+    """
+
+    def __init__(
+        self,
+        messages_per_second: float = WS_MESSAGES_PER_SECOND,
+        burst_size: int = WS_MESSAGE_BURST_SIZE,
+    ):
+        """Initialize rate limiter.
+
+        Args:
+            messages_per_second: Maximum sustained message rate
+            burst_size: Maximum burst of messages allowed
+        """
+        self.messages_per_second = messages_per_second
+        self.burst_size = burst_size
+        self._tokens = float(burst_size)
+        self._last_update = time.time()
+
+    def allow_message(self) -> bool:
+        """Check if a message is allowed under the rate limit.
+
+        Returns:
+            True if message is allowed, False if rate limited
+        """
+        now = time.time()
+        elapsed = now - self._last_update
+        self._last_update = now
+
+        # Refill tokens based on elapsed time
+        self._tokens = min(
+            self.burst_size,
+            self._tokens + elapsed * self.messages_per_second
+        )
+
+        if self._tokens >= 1.0:
+            self._tokens -= 1.0
+            return True
+        return False
+
 
 class DebateStreamServer(ServerBase):
     """
@@ -93,6 +142,9 @@ class DebateStreamServer(ServerBase):
 
         # Token revalidation tracking for long-lived connections
         self._ws_token_validated: dict[int, float] = {}  # ws_id -> last validation time
+
+        # Per-connection message rate limiters
+        self._ws_msg_limiters: dict[int, WebSocketMessageRateLimiter] = {}  # ws_id -> rate limiter
 
     def _cleanup_stale_rate_limiters(self) -> None:
         """Remove rate limiters not accessed within TTL period."""
@@ -569,6 +621,9 @@ class DebateStreamServer(ServerBase):
         if is_authenticated:
             self._mark_token_validated(ws_id)
 
+        # Create per-connection message rate limiter
+        self._ws_msg_limiters[ws_id] = WebSocketMessageRateLimiter()
+
         return (True, client_ip, client_id, ws_id, is_authenticated, ws_token)
 
     async def _send_initial_state(self, websocket, client_id: str, is_authenticated: bool) -> None:
@@ -796,6 +851,7 @@ class DebateStreamServer(ServerBase):
 
         self._release_ws_connection(client_ip)
         self._ws_token_validated.pop(ws_id, None)
+        self._ws_msg_limiters.pop(ws_id, None)
 
     async def handler(self, websocket) -> None:
         """Handle a WebSocket connection with origin validation."""
@@ -814,6 +870,18 @@ class DebateStreamServer(ServerBase):
 
             # Handle incoming messages
             async for message in websocket:
+                # Per-connection message rate limiting
+                msg_limiter = self._ws_msg_limiters.get(ws_id)
+                if msg_limiter and not msg_limiter.allow_message():
+                    await websocket.send(json.dumps({
+                        "type": "error",
+                        "data": {
+                            "message": "Message rate limit exceeded. Please slow down.",
+                            "code": 429
+                        }
+                    }))
+                    continue
+
                 data = await self._parse_message(message)
                 if data is None:
                     await websocket.send(json.dumps({

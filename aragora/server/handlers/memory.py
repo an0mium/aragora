@@ -6,6 +6,8 @@ Endpoints:
 - POST /api/memory/continuum/consolidate - Trigger memory consolidation
 - POST /api/memory/continuum/cleanup - Cleanup expired memories
 - GET /api/memory/tier-stats - Get tier statistics
+- GET /api/memory/archive-stats - Get archive statistics
+- GET /api/memory/pressure - Get memory pressure and utilization
 - DELETE /api/memory/continuum/{id} - Delete a memory by ID
 """
 
@@ -45,6 +47,7 @@ class MemoryHandler(BaseHandler):
         "/api/memory/continuum/cleanup",
         "/api/memory/tier-stats",
         "/api/memory/archive-stats",
+        "/api/memory/pressure",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -75,6 +78,9 @@ class MemoryHandler(BaseHandler):
 
         if path == "/api/memory/archive-stats":
             return self._get_archive_stats()
+
+        if path == "/api/memory/pressure":
+            return self._get_memory_pressure()
 
         return None
 
@@ -236,6 +242,84 @@ class MemoryHandler(BaseHandler):
 
         stats = continuum.get_archive_stats()
         return json_response(stats)
+
+    @handle_errors("memory pressure retrieval")
+    def _get_memory_pressure(self) -> HandlerResult:
+        """Get current memory pressure and per-tier utilization.
+
+        Returns:
+            - pressure: Overall memory pressure (0.0-1.0)
+            - status: "normal", "elevated", "high", or "critical"
+            - tier_utilization: Dict of tier -> {count, limit, utilization}
+            - auto_cleanup_triggered: Whether cleanup was auto-triggered
+
+        Auto-triggers cleanup when pressure > 0.9.
+        """
+        if not CONTINUUM_AVAILABLE:
+            return error_response("Continuum memory system not available", 503)
+
+        continuum = self.ctx.get("continuum_memory")
+        if not continuum:
+            return error_response("Continuum memory not initialized", 503)
+
+        # Get current pressure
+        pressure = continuum.get_memory_pressure()
+
+        # Get per-tier stats for utilization breakdown
+        stats = continuum.get_stats()
+        tier_stats = stats.get("by_tier", {})
+
+        # Build tier utilization breakdown
+        tier_utilization = {}
+        tier_limits = {
+            "FAST": 100,
+            "MEDIUM": 500,
+            "SLOW": 1000,
+            "GLACIAL": 5000,
+        }
+
+        for tier_name, tier_data in tier_stats.items():
+            count = tier_data.get("count", 0)
+            limit = tier_limits.get(tier_name, 1000)
+            utilization = count / limit if limit > 0 else 0.0
+            tier_utilization[tier_name] = {
+                "count": count,
+                "limit": limit,
+                "utilization": round(utilization, 3),
+            }
+
+        # Determine status
+        if pressure < 0.5:
+            status = "normal"
+        elif pressure < 0.8:
+            status = "elevated"
+        elif pressure < 0.9:
+            status = "high"
+        else:
+            status = "critical"
+
+        # Auto-trigger cleanup if pressure is critical
+        auto_cleanup_triggered = False
+        cleanup_result = None
+        if pressure > 0.9:
+            try:
+                cleanup_result = continuum.cleanup_expired_memories(archive=True)
+                auto_cleanup_triggered = True
+            except Exception:
+                pass  # Don't fail the request if cleanup fails
+
+        response_data = {
+            "pressure": round(pressure, 3),
+            "status": status,
+            "tier_utilization": tier_utilization,
+            "total_memories": stats.get("total_memories", 0),
+            "auto_cleanup_triggered": auto_cleanup_triggered,
+        }
+
+        if cleanup_result is not None:
+            response_data["cleanup_result"] = cleanup_result
+
+        return json_response(response_data)
 
     def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route DELETE memory requests to appropriate methods."""

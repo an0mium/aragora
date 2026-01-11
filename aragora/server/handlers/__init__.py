@@ -147,6 +147,14 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "DashboardHandler": Stability.STABLE,
     "RoutingHandler": Stability.STABLE,
 
+    # Promoted to Stable (Jan 2026) - tested in production
+    "BillingHandler": Stability.STABLE,  # Transaction tests, Stripe webhooks
+    "OAuthHandler": Stability.STABLE,  # OAuth flow tests, Google integration
+    "AudioHandler": Stability.STABLE,  # Podcast generation, TTS
+    "VerificationHandler": Stability.STABLE,  # Z3 formal verification
+    "PulseHandler": Stability.STABLE,  # Trending topics API
+    "GalleryHandler": Stability.STABLE,  # Consensus gallery
+
     # Experimental - Works but may change
     "GraphDebatesHandler": Stability.EXPERIMENTAL,
     "MatrixDebatesHandler": Stability.EXPERIMENTAL,
@@ -158,26 +166,22 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "BeliefHandler": Stability.EXPERIMENTAL,
     "LaboratoryHandler": Stability.EXPERIMENTAL,
     "ProbesHandler": Stability.EXPERIMENTAL,
-    "InsightsHandler": Stability.EXPERIMENTAL,
     "LearningHandler": Stability.EXPERIMENTAL,
     "MemoryAnalyticsHandler": Stability.EXPERIMENTAL,
 
+    # Promoted to Preview (Jan 2026)
+    "InsightsHandler": Stability.PREVIEW,  # Unit tests, flip detection
+
     # Preview - Early access
-    "BillingHandler": Stability.PREVIEW,
     "OrganizationsHandler": Stability.PREVIEW,
-    "OAuthHandler": Stability.PREVIEW,
     "BroadcastHandler": Stability.PREVIEW,
-    "AudioHandler": Stability.PREVIEW,
     "SocialMediaHandler": Stability.PREVIEW,
     "GenesisHandler": Stability.PREVIEW,
-    "VerificationHandler": Stability.PREVIEW,
     "MomentsHandler": Stability.PREVIEW,
     "DocumentHandler": Stability.PREVIEW,
     "AuditingHandler": Stability.PREVIEW,
-    "GalleryHandler": Stability.PREVIEW,
     "BreakpointsHandler": Stability.PREVIEW,
     "PluginsHandler": Stability.PREVIEW,
-    "PulseHandler": Stability.PREVIEW,
 }
 
 
