@@ -1,0 +1,18 @@
+{
+  "id": "auth-spec",
+  "input_content": "# Authentication Spec\n\nUsers log in with email and password. Sessions last 30 days and can be refreshed indefinitely. Password reset links are emailed and never expire. Admin accounts are protected by a shared secret.\n\n## Constraints\n- Use PostgreSQL for user storage\n- Rate limiting is optional\n- MFA is recommended but not required\n",
+  "context": "Stress-test for security and logic gaps in the authentication flow.",
+  "attack_categories": ["security", "logic", "edge_case"],
+  "agents": ["mock-claude", "mock-gpt"],
+  "expected": {
+    "critical": 3,
+    "high": 0,
+    "medium": 0,
+    "low": 0
+  },
+  "attack_responses": [
+    "Critical vulnerability: security issue - SQL injection in login flow allows credential theft.",
+    "Critical vulnerability: edge case - password reset links never expire and can be replayed.",
+    "Critical vulnerability: security issue - shared admin secret enables lateral movement if leaked."
+  ]
+}

@@ -242,7 +242,7 @@ class FeedbackPhase:
 
         except ImportError:
             logger.debug("Risk assessment unavailable: module not found")
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.debug(f"Risk assessment error: {e}")
 
     def _record_calibration(self, ctx: "DebateContext") -> None:
@@ -288,7 +288,7 @@ class FeedbackPhase:
                 logger.debug(f"[calibration] Recorded {recorded} predictions")
                 # Emit CALIBRATION_UPDATE event for real-time panel updates
                 self._emit_calibration_update(ctx, recorded)
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning(f"[calibration] Failed to record: {e}")
 
     def _emit_calibration_update(self, ctx: "DebateContext", recorded_count: int) -> None:
@@ -315,7 +315,7 @@ class FeedbackPhase:
                     "domain": ctx.domain,
                 }
             ))
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug(f"Calibration event emission error: {e}")
 
     def _record_pulse_outcome(self, ctx: "DebateContext") -> None:

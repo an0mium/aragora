@@ -151,6 +151,15 @@ class DebateProtocol:
     verification_weight_bonus: float = 0.2  # Boost for verified claims (0.0-1.0)
     verification_timeout_seconds: float = 5.0  # Quick timeout per verification
 
+    # Formal proof verification: Use Lean4/Z3 to verify consensus claims
+    # When enabled, attempts machine-checkable proof of final consensus
+    # Requires formal verification backends to be installed (z3-solver, etc.)
+    formal_verification_enabled: bool = False  # Enable formal proof verification
+    formal_verification_languages: list[str] = field(
+        default_factory=lambda: ["z3_smt"]
+    )  # Languages to try: z3_smt, lean4
+    formal_verification_timeout: float = 30.0  # Timeout for proof search (seconds)
+
 
 def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
     """
