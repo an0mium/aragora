@@ -10,6 +10,7 @@ Usage:
 
 import argparse
 import asyncio
+import hashlib
 import sys
 from pathlib import Path
 from typing import Any, Optional
@@ -772,29 +773,8 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
     if args.output:
         output_path = Path(args.output)
 
-        # Create DecisionReceipt from result
-        receipt = DecisionReceipt(
-            receipt_id=f"receipt-{result.gauntlet_id[-12:]}",
-            gauntlet_id=result.gauntlet_id,
-            timestamp=result.created_at,
-            input_summary=result.input_summary,
-            input_hash=result.checksum,
-            risk_summary={
-                "critical": len(result.critical_findings),
-                "high": len(result.high_findings),
-                "medium": len(result.medium_findings),
-                "low": len(result.low_findings),
-                "total": result.total_findings,
-            },
-            attacks_attempted=result.redteam_result.total_attacks if result.redteam_result else 0,
-            attacks_successful=len(result.redteam_result.critical_issues) if result.redteam_result else 0,
-            probes_run=result.probe_report.probes_run if result.probe_report else 0,
-            vulnerabilities_found=result.total_findings,
-            verdict=result.verdict.value.upper(),
-            confidence=result.confidence,
-            robustness_score=result.robustness_score,
-            verdict_reasoning=f"Risk score: {result.risk_score:.0%}, Coverage: {result.coverage_score:.0%}",
-        )
+        input_hash = hashlib.sha256(config.input_content.encode()).hexdigest()
+        receipt = DecisionReceipt.from_mode_result(result, input_hash=input_hash)
 
         # Determine format from extension or --format
         format_ext = args.format or output_path.suffix.lstrip(".")

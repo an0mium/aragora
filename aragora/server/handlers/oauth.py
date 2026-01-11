@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import secrets
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -69,6 +70,7 @@ GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
 # State management (in-memory with TTL - use Redis in production)
 _OAUTH_STATES: dict[str, dict[str, Any]] = {}
+_OAUTH_STATES_LOCK = threading.Lock()  # Protects concurrent access
 _STATE_TTL_SECONDS = 600  # 10 minutes
 
 
@@ -84,22 +86,24 @@ class OAuthUserInfo:
 
 
 def _cleanup_expired_states() -> None:
-    """Remove expired OAuth states."""
+    """Remove expired OAuth states (thread-safe)."""
     now = time.time()
-    expired = [k for k, v in _OAUTH_STATES.items() if v.get("expires_at", 0) < now]
-    for k in expired:
-        del _OAUTH_STATES[k]
+    with _OAUTH_STATES_LOCK:
+        expired = [k for k, v in _OAUTH_STATES.items() if v.get("expires_at", 0) < now]
+        for k in expired:
+            del _OAUTH_STATES[k]
 
 
 def _generate_state(user_id: Optional[str] = None, redirect_url: Optional[str] = None) -> str:
-    """Generate a secure state token for CSRF protection."""
+    """Generate a secure state token for CSRF protection (thread-safe)."""
     _cleanup_expired_states()
     state = secrets.token_urlsafe(32)
-    _OAUTH_STATES[state] = {
-        "user_id": user_id,  # For account linking
-        "redirect_url": redirect_url,
-        "expires_at": time.time() + _STATE_TTL_SECONDS,
-    }
+    with _OAUTH_STATES_LOCK:
+        _OAUTH_STATES[state] = {
+            "user_id": user_id,  # For account linking
+            "redirect_url": redirect_url,
+            "expires_at": time.time() + _STATE_TTL_SECONDS,
+        }
     return state
 
 
@@ -144,12 +148,12 @@ def _validate_redirect_url(redirect_url: str) -> bool:
 
 
 def _validate_state(state: str) -> Optional[dict[str, Any]]:
-    """Validate and consume OAuth state token."""
+    """Validate and consume OAuth state token (thread-safe)."""
     _cleanup_expired_states()
-    if state not in _OAUTH_STATES:
-        return None
-    state_data = _OAUTH_STATES.pop(state)
-    return state_data
+    with _OAUTH_STATES_LOCK:
+        if state not in _OAUTH_STATES:
+            return None
+        return _OAUTH_STATES.pop(state)
 
 
 class OAuthHandler(BaseHandler):

@@ -1,6 +1,13 @@
 # Aragora Quick Start Guide
 
-Get your first multi-agent debate running in 5 minutes.
+Get started with Aragora in under 5 minutes.
+
+**Aragora** is an **Adversarial Validation Engine** that stress-tests high-stakes decisions through multi-agent debate. Use it to:
+- Run debates between AI agents on any topic
+- Stress-test policies, specs, and code with the **Gauntlet**
+- Generate compliance-ready Decision Receipts
+
+---
 
 ## 1. Install
 
@@ -137,3 +144,82 @@ Another service is using that port. Use a different port:
 ```bash
 aragora serve --api-port 8081
 ```
+
+---
+
+## Gauntlet: Stress-Test Documents
+
+The **Gauntlet** is Aragora's adversarial validation engine. It stress-tests policies, specs, and code using 12+ AI agents simulating hackers, regulators, and critics.
+
+### Quick Demo
+
+Run with simulated agents (no API keys needed):
+
+```bash
+python scripts/demo_gauntlet.py
+```
+
+This generates a Decision Receipt showing:
+- **Verdict**: APPROVED, NEEDS_REVIEW, or REJECTED
+- **Findings**: Issues categorized by severity
+- **Risk Score**: Overall risk assessment
+
+### Real Documents
+
+Stress-test your own documents:
+
+```bash
+# Quick validation (~30 sec)
+python scripts/demo_gauntlet.py my_policy.md
+
+# Thorough analysis (~15 min, with real APIs)
+python scripts/demo_gauntlet.py my_spec.md --profile thorough --real-apis
+
+# Code security review
+python scripts/demo_gauntlet.py src/auth.py --profile code --real-apis
+```
+
+### Gauntlet Profiles
+
+| Profile | Time | Best For |
+|---------|------|----------|
+| `demo` | 30 sec | Quick demos |
+| `quick` | 2 min | Fast validation |
+| `thorough` | 15 min | Comprehensive analysis |
+| `code` | 5 min | Security-focused code review |
+| `policy` | 5 min | Compliance-focused policy review |
+
+### Understanding Results
+
+Results are saved as Decision Receipts in multiple formats:
+
+```bash
+# After running, open the HTML report:
+open gauntlet_receipt_*.html
+```
+
+The receipt contains:
+- Verdict and confidence score
+- All findings with severity levels
+- Recommended mitigations
+- Full audit trail for compliance
+
+### Gauntlet via API
+
+```bash
+# Start server
+python -m aragora.server.unified_server --port 8080
+
+# Run Gauntlet
+curl -X POST http://localhost:8080/api/gauntlet/run \
+  -H "Content-Type: application/json" \
+  -d '{"input_text": "Your policy here...", "template": "quick"}'
+
+# Get results
+curl http://localhost:8080/api/gauntlet/{id}
+
+# Get Decision Receipt
+curl http://localhost:8080/api/gauntlet/{id}/receipt?format=html
+```
+
+See [STATUS.md](./STATUS.md) for complete Gauntlet documentation
