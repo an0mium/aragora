@@ -183,19 +183,22 @@ class GauntletConfig:
 class GauntletResult:
     """Complete result of a Gauntlet stress-test."""
 
-    # Identifiers
+    # Identifiers (required)
     gauntlet_id: str
     input_type: InputType
     input_summary: str  # First 500 chars of input
 
-    # Verdict
+    # Verdict (required)
     verdict: Verdict
     confidence: float  # 0-1
 
-    # Scores
+    # Scores (required)
     risk_score: float  # 0-1, aggregate risk
     robustness_score: float  # 0-1, how well input held up
     coverage_score: float  # 0-1, how thoroughly tested
+
+    # Optional fields with defaults
+    input_hash: str = ""  # SHA-256 of full input content
 
     # Findings by severity
     critical_findings: list[Finding] = field(default_factory=list)
@@ -242,10 +245,57 @@ class GauntletResult:
         return len(self.all_findings)
 
     @property
+    def severity_counts(self) -> dict[str, int]:
+        """Count findings by severity level."""
+        return {
+            "critical": len(self.critical_findings),
+            "high": len(self.high_findings),
+            "medium": len(self.medium_findings),
+            "low": len(self.low_findings),
+        }
+
+    @property
     def checksum(self) -> str:
         """Generate integrity checksum for the result."""
         content = f"{self.gauntlet_id}:{self.verdict.value}:{self.confidence}:{self.total_findings}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    def to_dict(self) -> dict:
+        """Convert result to a JSON-serializable dictionary."""
+        findings = []
+        for finding in self.all_findings:
+            findings.append({
+                "id": finding.finding_id,
+                "category": finding.category,
+                "severity": finding.severity,
+                "severity_level": finding.severity_level,
+                "title": finding.title,
+                "description": finding.description,
+                "evidence": finding.evidence,
+                "mitigation": finding.mitigation,
+                "source": finding.source,
+                "verified": finding.verified,
+                "timestamp": finding.timestamp,
+            })
+
+        return {
+            "gauntlet_id": self.gauntlet_id,
+            "input_type": self.input_type.value,
+            "input_summary": self.input_summary,
+            "input_hash": self.input_hash,
+            "verdict": self.verdict.value,
+            "confidence": self.confidence,
+            "risk_score": self.risk_score,
+            "robustness_score": self.robustness_score,
+            "coverage_score": self.coverage_score,
+            "verification_coverage": self.verification_coverage,
+            "severity_counts": self.severity_counts,
+            "findings": findings,
+            "consensus_reached": self.consensus_reached,
+            "agents_involved": self.agents_involved,
+            "duration_seconds": self.duration_seconds,
+            "created_at": self.created_at,
+        }
 
     def summary(self) -> str:
         """Generate human-readable summary."""
@@ -588,11 +638,13 @@ class GauntletOrchestrator:
 
         # Build result
         duration = (datetime.now() - self._start_time).total_seconds()
+        input_hash = hashlib.sha256(config.input_content.encode()).hexdigest()
 
         result = GauntletResult(
             gauntlet_id=gauntlet_id,
             input_type=config.input_type,
             input_summary=config.input_content[:500],
+            input_hash=input_hash,
             verdict=verdict,
             confidence=confidence,
             risk_score=risk_score,

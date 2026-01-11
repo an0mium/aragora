@@ -5,6 +5,7 @@ Provides persistent storage for Gauntlet validation results with
 support for listing, filtering, and comparison operations.
 """
 
+import hashlib
 import json
 import sqlite3
 from contextlib import contextmanager
@@ -131,6 +132,8 @@ class GauntletStorage:
         gauntlet_id = getattr(result, 'gauntlet_id', None) or getattr(result, 'id', f"gauntlet-{id(result)}")
         input_hash = getattr(result, 'input_hash', '')
         input_summary = getattr(result, 'input_summary', '')[:500] if hasattr(result, 'input_summary') else ''
+        if not input_hash and input_summary:
+            input_hash = hashlib.sha256(input_summary.encode()).hexdigest()
 
         # Get verdict - handle different result types
         verdict = 'unknown'
@@ -144,7 +147,12 @@ class GauntletStorage:
 
         # Count findings by severity
         critical = high = medium = low = 0
-        if hasattr(result, 'risk_summary'):
+        if hasattr(result, 'critical_findings') and hasattr(result, 'high_findings'):
+            critical = len(getattr(result, 'critical_findings', []) or [])
+            high = len(getattr(result, 'high_findings', []) or [])
+            medium = len(getattr(result, 'medium_findings', []) or [])
+            low = len(getattr(result, 'low_findings', []) or [])
+        elif hasattr(result, 'risk_summary'):
             critical = getattr(result.risk_summary, 'critical', 0)
             high = getattr(result.risk_summary, 'high', 0)
             medium = getattr(result.risk_summary, 'medium', 0)
@@ -156,13 +164,15 @@ class GauntletStorage:
             medium = counts.get('medium', 0)
             low = counts.get('low', 0)
 
-        total = critical + high + medium + low
-        if hasattr(result, 'vulnerabilities'):
-            total = len(result.vulnerabilities)
-        elif hasattr(result, 'findings'):
-            total = len(result.findings)
+        total = getattr(result, 'total_findings', None)
+        if total is None:
+            total = critical + high + medium + low
+            if hasattr(result, 'vulnerabilities'):
+                total = len(result.vulnerabilities)
+            elif hasattr(result, 'findings'):
+                total = len(result.findings)
 
-        agents = getattr(result, 'agents_used', [])
+        agents = getattr(result, 'agents_used', None) or getattr(result, 'agents_involved', [])
         template = getattr(result, 'template_used', None)
         duration = getattr(result, 'duration_seconds', 0)
 

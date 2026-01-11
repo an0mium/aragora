@@ -283,7 +283,7 @@ class DecisionReceipt:
             gauntlet_id=result.gauntlet_id,
             timestamp=getattr(result, "created_at", ""),
             input_summary=result.input_summary,
-            input_hash=input_hash or getattr(result, "checksum", ""),
+            input_hash=input_hash or getattr(result, "input_hash", "") or getattr(result, "checksum", ""),
             risk_summary={
                 "critical": critical,
                 "high": high,
