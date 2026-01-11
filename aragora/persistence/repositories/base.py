@@ -223,7 +223,8 @@ class BaseRepository(ABC, Generic[T]):
             try:
                 yield conn
                 conn.commit()
-            except Exception:
+            except Exception as e:
+                logger.debug("Transaction rolled back: %s", e)
                 conn.rollback()
                 raise
 

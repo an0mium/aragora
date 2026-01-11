@@ -317,9 +317,9 @@ def add_span_attributes(span: Any, attributes: Dict[str, Any]) -> None:
                 value = str(value)
             try:
                 span.set_attribute(key, value)
-            except Exception:
-                # Silently ignore attribute errors
-                pass
+            except (TypeError, ValueError) as e:
+                # Ignore invalid attribute types (e.g., unsupported types)
+                logger.debug("Failed to set span attribute %s: %s", key, e)
 
 
 def record_exception(span: Any, exception: BaseException) -> None:

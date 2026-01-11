@@ -71,8 +71,9 @@ class UserStore:
         try:
             yield cursor
             conn.commit()
-        except Exception:
+        except Exception as e:
             conn.rollback()
+            logger.debug("Transaction rolled back due to: %s", e)
             raise
 
     def _init_schema(self) -> None:

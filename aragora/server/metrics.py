@@ -332,7 +332,8 @@ def track_request(
     status = "success"
     try:
         yield
-    except Exception:
+    except BaseException:
+        # Catch BaseException to also track KeyboardInterrupt, SystemExit
         status = "error"
         raise
     finally:

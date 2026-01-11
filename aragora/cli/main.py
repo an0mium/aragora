@@ -633,6 +633,134 @@ def cmd_review(args: argparse.Namespace) -> int:
     return review_handler(args)
 
 
+def cmd_gauntlet(args: argparse.Namespace) -> None:
+    """Handle 'gauntlet' command - adversarial stress-testing."""
+    import time
+    from pathlib import Path
+
+    from aragora.agents.base import create_agent
+    from aragora.modes.gauntlet import (
+        GauntletOrchestrator,
+        GauntletConfig,
+        InputType,
+        QUICK_GAUNTLET,
+        THOROUGH_GAUNTLET,
+        CODE_REVIEW_GAUNTLET,
+        POLICY_GAUNTLET,
+    )
+    from aragora.export.decision_receipt import generate_decision_receipt
+
+    print("\n" + "=" * 60)
+    print("GAUNTLET - Adversarial Stress-Testing")
+    print("=" * 60)
+
+    # Load input content
+    input_path = Path(args.input)
+    if not input_path.exists():
+        print(f"Error: Input file not found: {input_path}")
+        return
+
+    input_content = input_path.read_text()
+    print(f"\nInput: {input_path} ({len(input_content)} chars)")
+
+    # Determine input type
+    input_type_map = {
+        "spec": InputType.SPEC,
+        "architecture": InputType.ARCHITECTURE,
+        "policy": InputType.POLICY,
+        "code": InputType.CODE,
+        "strategy": InputType.STRATEGY,
+        "contract": InputType.CONTRACT,
+    }
+    input_type = input_type_map.get(args.input_type, InputType.SPEC)
+    print(f"Type: {input_type.value}")
+
+    # Create agents
+    agent_specs = parse_agents(args.agents)
+    agents = []
+    for i, (agent_type, role) in enumerate(agent_specs):
+        role = role or f"agent_{i}"
+        try:
+            agent = create_agent(
+                model_type=agent_type,  # type: ignore[arg-type]
+                name=f"{agent_type}_{role}",
+                role=role,
+            )
+            agents.append(agent)
+        except Exception as e:
+            print(f"Warning: Could not create agent {agent_type}: {e}")
+
+    if not agents:
+        print("Error: No agents could be created. Check your API keys.")
+        return
+
+    print(f"Agents: {', '.join(a.name for a in agents)}")
+
+    # Select config profile
+    if args.profile == "quick":
+        base_config = QUICK_GAUNTLET
+    elif args.profile == "thorough":
+        base_config = THOROUGH_GAUNTLET
+    elif args.profile == "code":
+        base_config = CODE_REVIEW_GAUNTLET
+    elif args.profile == "policy":
+        base_config = POLICY_GAUNTLET
+    else:
+        base_config = GauntletConfig()
+
+    # Build config
+    config = GauntletConfig(
+        input_type=input_type,
+        input_content=input_content,
+        input_path=input_path,
+        severity_threshold=base_config.severity_threshold,
+        risk_threshold=base_config.risk_threshold,
+        max_duration_seconds=args.timeout or base_config.max_duration_seconds,
+        deep_audit_rounds=args.rounds or base_config.deep_audit_rounds,
+        enable_redteam=not args.no_redteam,
+        enable_probing=not args.no_probing,
+        enable_deep_audit=not args.no_audit,
+        enable_verification=args.verify,
+    )
+
+    print(f"Profile: {args.profile}")
+    print(f"Max duration: {config.max_duration_seconds}s")
+    print("\n" + "-" * 60)
+    print("Running stress-test...")
+    print("-" * 60 + "\n")
+
+    # Run gauntlet
+    start = time.time()
+    orchestrator = GauntletOrchestrator(agents)
+    result = asyncio.run(orchestrator.run(config))
+    elapsed = time.time() - start
+
+    # Print summary
+    print("\n" + result.summary())
+
+    # Generate and save receipt
+    if args.output:
+        output_path = Path(args.output)
+        receipt = generate_decision_receipt(result)
+
+        # Determine format from extension or --format
+        format_ext = args.format or output_path.suffix.lstrip(".")
+        if format_ext not in ("json", "md", "html"):
+            format_ext = "html"
+
+        saved_path = receipt.save(output_path, format=format_ext)
+        print(f"\nDecision Receipt saved: {saved_path}")
+        print(f"Checksum: {receipt.checksum}")
+
+    # Exit with non-zero if rejected
+    if result.verdict.value == "rejected":
+        print("\n[REJECTED] This input failed the stress-test.")
+        sys.exit(1)
+    elif result.verdict.value == "needs_review":
+        print("\n[NEEDS REVIEW] This input requires human review.")
+        sys.exit(2)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Aragora - Multi-Agent Debate Framework",
@@ -795,6 +923,92 @@ Examples:
     # Review command (AI red team code review)
     from aragora.cli.review import create_review_parser
     create_review_parser(subparsers)
+
+    # Gauntlet command (adversarial stress-testing)
+    gauntlet_parser = subparsers.add_parser(
+        "gauntlet",
+        help="Adversarial stress-test a specification, architecture, or policy",
+        description="""
+Run comprehensive adversarial stress-testing on documents.
+
+Gauntlet combines multiple validation techniques:
+- Red-team attacks (logical fallacies, edge cases, security)
+- Capability probing (hallucination, sycophancy, consistency)
+- Deep audit (multi-round intensive analysis)
+- Formal verification (Z3/Lean proofs where applicable)
+- Risk assessment (domain-specific hazards)
+
+Produces Decision Receipts - audit-ready artifacts for compliance.
+
+Examples:
+    aragora gauntlet spec.md --input-type spec
+    aragora gauntlet architecture.md --input-type architecture --profile thorough
+    aragora gauntlet policy.yaml --input-type policy --output receipt.html
+    aragora gauntlet code.py --input-type code --profile code --verify
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    gauntlet_parser.add_argument(
+        "input",
+        help="Path to input file (spec, architecture, policy, code)",
+    )
+    gauntlet_parser.add_argument(
+        "--input-type", "-t",
+        choices=["spec", "architecture", "policy", "code", "strategy", "contract"],
+        default="spec",
+        help="Type of input document (default: spec)",
+    )
+    gauntlet_parser.add_argument(
+        "--agents", "-a",
+        default="anthropic-api,openai-api",
+        help="Comma-separated agents for stress-testing",
+    )
+    gauntlet_parser.add_argument(
+        "--profile", "-p",
+        choices=["default", "quick", "thorough", "code", "policy"],
+        default="default",
+        help="Pre-configured test profile (default: default)",
+    )
+    gauntlet_parser.add_argument(
+        "--rounds", "-r",
+        type=int,
+        help="Number of deep audit rounds (overrides profile)",
+    )
+    gauntlet_parser.add_argument(
+        "--timeout",
+        type=int,
+        help="Maximum duration in seconds (overrides profile)",
+    )
+    gauntlet_parser.add_argument(
+        "--output", "-o",
+        help="Output path for Decision Receipt",
+    )
+    gauntlet_parser.add_argument(
+        "--format", "-f",
+        choices=["json", "md", "html"],
+        help="Output format (default: inferred from extension or html)",
+    )
+    gauntlet_parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Enable formal verification (Z3/Lean)",
+    )
+    gauntlet_parser.add_argument(
+        "--no-redteam",
+        action="store_true",
+        help="Disable red-team attacks",
+    )
+    gauntlet_parser.add_argument(
+        "--no-probing",
+        action="store_true",
+        help="Disable capability probing",
+    )
+    gauntlet_parser.add_argument(
+        "--no-audit",
+        action="store_true",
+        help="Disable deep audit",
+    )
+    gauntlet_parser.set_defaults(func=cmd_gauntlet)
 
     args = parser.parse_args()
 
