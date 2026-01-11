@@ -304,7 +304,11 @@ class TestModesEndpoint:
         """Should return modes list."""
         with patch('aragora.modes.custom.CustomModeLoader') as MockLoader:
             mock_loader = Mock()
-            mock_loader.list_modes.return_value = ["default", "tournament", "creative"]
+            # Mock load_all() which is what the handler actually calls
+            mock_mode = Mock()
+            mock_mode.name = "custom_mode"
+            mock_mode.description = "A custom mode"
+            mock_loader.load_all.return_value = [mock_mode]
             MockLoader.return_value = mock_loader
 
             result = system_handler.handle("/api/modes", {}, None)
@@ -329,7 +333,8 @@ class TestModesEndpoint:
     def test_returns_builtin_modes_on_custom_loader_exception(self, system_handler):
         """Should return builtin modes even when custom loader fails."""
         with patch('aragora.modes.custom.CustomModeLoader') as MockLoader:
-            MockLoader.side_effect = Exception("Mode error")
+            # Use an exception type that the handler actually catches
+            MockLoader.side_effect = OSError("Mode error")
 
             result = system_handler.handle("/api/modes", {}, None)
 
