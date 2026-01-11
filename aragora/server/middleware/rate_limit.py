@@ -599,7 +599,8 @@ class RateLimiter:
         """
         Extract client key from request handler.
 
-        Uses X-Forwarded-For if behind proxy, otherwise client_address.
+        Only trusts X-Forwarded-For when request comes from a trusted proxy
+        (configured via ARAGORA_TRUSTED_PROXIES environment variable).
         Falls back to 'anonymous' if neither available.
 
         Args:
@@ -611,19 +612,20 @@ class RateLimiter:
         if handler is None:
             return "anonymous"
 
-        # Check for forwarded IP (behind proxy)
-        if hasattr(handler, "headers"):
-            forwarded = handler.headers.get("X-Forwarded-For", "")
-            if forwarded:
-                return forwarded.split(",")[0].strip()
-
-        # Check for direct connection
+        # Get direct connection IP
+        remote_ip = "anonymous"
         if hasattr(handler, "client_address"):
             addr = handler.client_address
             if isinstance(addr, tuple) and len(addr) >= 1:
-                return str(addr[0])
+                remote_ip = str(addr[0])
 
-        return "anonymous"
+        # Get X-Forwarded-For header
+        xff_header = None
+        if hasattr(handler, "headers"):
+            xff_header = handler.headers.get("X-Forwarded-For", "")
+
+        # Only trust XFF from configured trusted proxies
+        return _extract_client_ip(remote_ip, xff_header)
 
 
 # Use ServiceRegistry for rate limiter management
@@ -1342,15 +1344,19 @@ def check_user_rate_limit(
     limiter = get_user_rate_limiter()
 
     # Default to IP-based key for unauthenticated
-    client_key = "anon"
+    # Use secure IP extraction that respects TRUSTED_PROXIES
+    remote_ip = "anon"
+    if hasattr(handler, "client_address"):
+        addr = handler.client_address
+        if isinstance(addr, tuple) and len(addr) >= 1:
+            remote_ip = str(addr[0])
+
+    xff_header = None
     if hasattr(handler, "headers"):
-        forwarded = handler.headers.get("X-Forwarded-For", "")
-        if forwarded:
-            client_key = f"ip:{forwarded.split(',')[0].strip()}"
-        elif hasattr(handler, "client_address"):
-            addr = handler.client_address
-            if isinstance(addr, tuple) and len(addr) >= 1:
-                client_key = f"ip:{addr[0]}"
+        xff_header = handler.headers.get("X-Forwarded-For", "")
+
+    client_ip = _extract_client_ip(remote_ip, xff_header)
+    client_key = f"ip:{client_ip}" if client_ip != "anon" else "anon"
 
     # Try to extract authenticated user
     if user_store:
@@ -1449,17 +1455,19 @@ def check_tier_rate_limit(
 
     # Default to free tier for anonymous/unauthenticated
     tier = "free"
-    client_key = limiter.get_client_key(handler) if hasattr(limiter, 'get_client_key') else "anonymous"
 
-    # Try to extract user IP
+    # Use secure IP extraction that respects TRUSTED_PROXIES
+    remote_ip = "anonymous"
+    if hasattr(handler, "client_address"):
+        addr = handler.client_address
+        if isinstance(addr, tuple) and len(addr) >= 1:
+            remote_ip = str(addr[0])
+
+    xff_header = None
     if hasattr(handler, "headers"):
-        forwarded = handler.headers.get("X-Forwarded-For", "")
-        if forwarded:
-            client_key = forwarded.split(",")[0].strip()
-        elif hasattr(handler, "client_address"):
-            addr = handler.client_address
-            if isinstance(addr, tuple) and len(addr) >= 1:
-                client_key = str(addr[0])
+        xff_header = handler.headers.get("X-Forwarded-For", "")
+
+    client_key = _extract_client_ip(remote_ip, xff_header)
 
     # Try to look up user tier
     if user_store:
