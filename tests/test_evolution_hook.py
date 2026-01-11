@@ -34,8 +34,9 @@ class TestEvolutionHookWiring:
         config = ArenaConfig(enable_prompt_evolution=True)
         assert config.enable_prompt_evolution is True
 
+    @patch('aragora.debate.orchestrator.init_phases')
     @patch('aragora.evolution.evolver.PromptEvolver')
-    def test_arena_auto_creates_evolver_when_enabled(self, mock_evolver_class):
+    def test_arena_auto_creates_evolver_when_enabled(self, mock_evolver_class, mock_init_phases):
         """Arena should auto-create PromptEvolver when enable_prompt_evolution=True."""
         from aragora.debate.orchestrator import Arena, ArenaConfig
 
@@ -43,7 +44,8 @@ class TestEvolutionHookWiring:
         mock_evolver_class.return_value = mock_evolver_instance
 
         env = Environment(task="Test task")
-        protocol = DebateProtocol()
+        # Disable convergence detection to avoid loading embedding models
+        protocol = DebateProtocol(convergence_detection=False)
         config = ArenaConfig(enable_prompt_evolution=True)
 
         # Mock agents
@@ -56,13 +58,15 @@ class TestEvolutionHookWiring:
         # The evolver should be created
         assert arena.prompt_evolver is not None
 
-    def test_arena_uses_provided_evolver(self):
+    @patch('aragora.debate.orchestrator.init_phases')
+    def test_arena_uses_provided_evolver(self, mock_init_phases):
         """Arena should use the provided prompt_evolver from config."""
         from aragora.debate.orchestrator import Arena, ArenaConfig
 
         mock_evolver = Mock()
         env = Environment(task="Test task")
-        protocol = DebateProtocol()
+        # Disable convergence detection to avoid loading embedding models
+        protocol = DebateProtocol(convergence_detection=False)
         config = ArenaConfig(prompt_evolver=mock_evolver)
 
         mock_agent = Mock()
@@ -248,7 +252,8 @@ class TestEvolutionHookE2E:
     """End-to-end tests for evolution hook integration."""
 
     @pytest.mark.asyncio
-    async def test_arena_run_triggers_evolution(self):
+    @patch('aragora.debate.orchestrator.init_phases')
+    async def test_arena_run_triggers_evolution(self, mock_init_phases):
         """Running Arena with evolution enabled should trigger pattern recording."""
         from aragora.debate.orchestrator import Arena, ArenaConfig
         from aragora.core import Environment
@@ -259,7 +264,8 @@ class TestEvolutionHookE2E:
         mock_evolver.extract_winning_patterns = Mock(return_value=[])
 
         env = Environment(task="Test task for evolution")
-        protocol = DebateProtocol(rounds=1)
+        # Disable convergence detection to avoid loading embedding models
+        protocol = DebateProtocol(rounds=1, convergence_detection=False)
         config = ArenaConfig(prompt_evolver=mock_evolver)
 
         # Mock agent

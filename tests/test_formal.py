@@ -251,16 +251,28 @@ class TestLeanBackend:
             mock_which.side_effect = lambda cmd: None if cmd == "lean" else f"/usr/bin/{cmd}"
             assert backend.is_available is False
 
-    def test_is_available_false_when_lake_missing(self, backend):
-        """is_available returns False when lake command missing."""
+    def test_is_available_false_when_lean_missing(self, backend):
+        """is_available returns False when lean command missing."""
         with patch("shutil.which") as mock_which:
-            mock_which.side_effect = lambda cmd: None if cmd == "lake" else f"/usr/bin/{cmd}"
-            assert backend.is_available is False
+            mock_which.return_value = None
+            # Create new backend to avoid cached version
+            from aragora.verification.formal import LeanBackend
+            new_backend = LeanBackend()
+            new_backend._lean_version = None  # Reset cached version
+            assert new_backend.is_available is False
 
-    def test_can_verify_returns_false(self, backend):
-        """can_verify always returns False (stub implementation)."""
-        assert backend.can_verify("any claim") is False
-        assert backend.can_verify("1 + 1 = 2", "math") is False
+    def test_can_verify_with_math_patterns(self, backend):
+        """can_verify returns True for mathematical claims when backend available."""
+        with patch("shutil.which", return_value="/usr/bin/lean"):
+            # Create fresh backend so is_available uses mocked shutil.which
+            from aragora.verification.formal import LeanBackend
+            fresh_backend = LeanBackend()
+            # Mathematical patterns should be verifiable
+            assert fresh_backend.can_verify("for all n, n + 0 = n") is True
+            assert fresh_backend.can_verify("prove that prime numbers are infinite") is True
+            assert fresh_backend.can_verify("theorem about even numbers") is True
+            # Non-math claims should not be verifiable
+            assert fresh_backend.can_verify("the sky is blue") is False
 
     @pytest.mark.asyncio
     async def test_translate_returns_none_without_api_key(self, backend):
@@ -270,12 +282,17 @@ class TestLeanBackend:
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_prove_returns_unavailable(self, backend):
-        """prove returns BACKEND_UNAVAILABLE status."""
-        result = await backend.prove("theorem test : True := trivial")
-        assert result.status == FormalProofStatus.BACKEND_UNAVAILABLE
-        assert result.language == FormalLanguage.LEAN4
-        assert "not yet implemented" in result.error_message
+    async def test_prove_returns_unavailable_when_lean_not_installed(self, backend):
+        """prove returns BACKEND_UNAVAILABLE status when Lean not installed."""
+        with patch("shutil.which", return_value=None):
+            # Create fresh backend so is_available uses mocked shutil.which
+            from aragora.verification.formal import LeanBackend
+            fresh_backend = LeanBackend()
+            result = await fresh_backend.prove("theorem test : True := trivial")
+            assert result.status == FormalProofStatus.BACKEND_UNAVAILABLE
+            assert result.language == FormalLanguage.LEAN4
+            # Should mention Lean not installed
+            assert "Lean" in result.error_message or "not installed" in result.error_message.lower()
 
     @pytest.mark.asyncio
     async def test_verify_proof_returns_false(self, backend):
