@@ -2,6 +2,7 @@
 
 import json
 import pytest
+from collections import OrderedDict
 from unittest.mock import Mock, MagicMock
 
 
@@ -172,7 +173,7 @@ class TestDocumentUploadEndpoint:
         ctx = {"document_store": mock_store}
         handler = DocumentHandler(ctx)
         # Reset rate limits for test isolation
-        DocumentHandler._upload_counts = {}
+        DocumentHandler._upload_counts = OrderedDict()
         return handler
 
     @pytest.fixture
@@ -187,7 +188,7 @@ class TestDocumentUploadEndpoint:
         from aragora.server.handlers.documents import DocumentHandler
         ctx = {"document_store": None}
         handler = DocumentHandler(ctx)
-        DocumentHandler._upload_counts = {}
+        DocumentHandler._upload_counts = OrderedDict()
 
         result = handler.handle_post("/api/documents/upload", {}, mock_http_handler)
         assert result.status_code == 500
@@ -239,7 +240,7 @@ class TestDocumentUploadRateLimiting:
         ctx = {"document_store": mock_store}
         handler = DocumentHandler(ctx)
         # Reset rate limits for test isolation
-        DocumentHandler._upload_counts = {}
+        DocumentHandler._upload_counts = OrderedDict()
         return handler
 
     @pytest.fixture
@@ -304,7 +305,7 @@ class TestDocumentUploadParsing:
         from aragora.server.handlers.documents import DocumentHandler
         ctx = {"document_store": mock_store}
         handler = DocumentHandler(ctx)
-        DocumentHandler._upload_counts = {}
+        DocumentHandler._upload_counts = OrderedDict()
         return handler
 
     def test_parse_raw_upload_extracts_filename(self, doc_handler):

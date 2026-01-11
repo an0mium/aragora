@@ -15,6 +15,7 @@ import logging
 import os
 import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
@@ -77,11 +78,12 @@ class DocumentHandler(BaseHandler):
         "/api/documents/upload",
     ]
 
-    # Upload rate limiting (IP-based)
-    _upload_counts: dict[str, list] = {}
+    # Upload rate limiting (IP-based with LRU eviction)
+    _upload_counts: OrderedDict[str, list] = OrderedDict()
     _upload_counts_lock = threading.Lock()
     MAX_UPLOADS_PER_MINUTE = 5
     MAX_UPLOADS_PER_HOUR = 30
+    MAX_TRACKED_IPS = 10000  # Prevent unbounded memory growth
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -215,12 +217,21 @@ class DocumentHandler(BaseHandler):
         with DocumentHandler._upload_counts_lock:
             if client_ip not in DocumentHandler._upload_counts:
                 DocumentHandler._upload_counts[client_ip] = []
+            else:
+                # Move to end for LRU tracking
+                DocumentHandler._upload_counts.move_to_end(client_ip)
 
-            # Clean up old entries
+            # Clean up old entries for this IP
             DocumentHandler._upload_counts[client_ip] = [
                 ts for ts in DocumentHandler._upload_counts[client_ip]
                 if ts > one_hour_ago
             ]
+
+            # Remove empty entries to prevent memory leak
+            if not DocumentHandler._upload_counts[client_ip]:
+                del DocumentHandler._upload_counts[client_ip]
+                # Re-add for the new upload
+                DocumentHandler._upload_counts[client_ip] = []
 
             timestamps = DocumentHandler._upload_counts[client_ip]
 
@@ -238,6 +249,11 @@ class DocumentHandler(BaseHandler):
                     f"Upload rate limit exceeded. Max {DocumentHandler.MAX_UPLOADS_PER_HOUR} per hour.",
                     429
                 )
+
+            # Enforce max tracked IPs (LRU eviction)
+            while len(DocumentHandler._upload_counts) > DocumentHandler.MAX_TRACKED_IPS:
+                # Remove oldest (first) entry
+                DocumentHandler._upload_counts.popitem(last=False)
 
             # Record this upload
             DocumentHandler._upload_counts[client_ip].append(now)

@@ -643,6 +643,7 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
     from aragora.modes.gauntlet import (
         GauntletOrchestrator,
         GauntletConfig,
+        GauntletProgress,
         InputType,
         QUICK_GAUNTLET,
         THOROUGH_GAUNTLET,
@@ -652,6 +653,7 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
         HIPAA_GAUNTLET,
         AI_ACT_GAUNTLET,
         SECURITY_GAUNTLET,
+        SOX_GAUNTLET,
         get_compliance_gauntlet,
     )
     from aragora.gauntlet.personas import list_personas, get_persona
@@ -735,6 +737,9 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
     elif args.profile == "security":
         base_config = SECURITY_GAUNTLET
         persona = "security"
+    elif args.profile == "sox":
+        base_config = SOX_GAUNTLET
+        persona = "sox"
     else:
         base_config = GauntletConfig()
 
@@ -760,9 +765,40 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
     print("Running stress-test...")
     print("-" * 60 + "\n")
 
-    # Run gauntlet
+    # Progress callback for CLI display
+    last_phase = [None]  # Use list for mutable closure
+
+    def on_progress(progress: GauntletProgress) -> None:
+        """Display progress updates in the CLI."""
+        # Progress bar
+        bar_width = 40
+        filled = int(bar_width * progress.percent / 100)
+        bar = "█" * filled + "░" * (bar_width - filled)
+
+        # Clear line and print progress
+        line = f"\r[{bar}] {progress.percent:5.1f}% | {progress.phase}"
+        if progress.findings_so_far > 0:
+            line += f" | {progress.findings_so_far} findings"
+
+        # Print to stderr for live updates (stdout may be buffered)
+        import sys
+        sys.stderr.write(line + " " * 10)  # Extra spaces to clear old text
+        sys.stderr.flush()
+
+        # Print phase change message on new line
+        if progress.phase != last_phase[0] and last_phase[0] is not None:
+            sys.stderr.write("\n")
+            sys.stderr.flush()
+        last_phase[0] = progress.phase
+
+        # Print completion message
+        if progress.percent >= 100:
+            sys.stderr.write("\n")
+            sys.stderr.flush()
+
+    # Run gauntlet with progress callback
     start = time.time()
-    orchestrator = GauntletOrchestrator(agents)
+    orchestrator = GauntletOrchestrator(agents, on_progress=on_progress)
     result = asyncio.run(orchestrator.run(config))
     elapsed = time.time() - start
 

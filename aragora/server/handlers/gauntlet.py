@@ -171,13 +171,10 @@ class GauntletHandler(BaseHandler):
 
     async def _start_gauntlet(self, handler: Any) -> HandlerResult:
         """Start a new gauntlet stress-test."""
-        # Parse request body
-        try:
-            content_length = int(handler.headers.get("Content-Length", 0))
-            body = handler.rfile.read(content_length) if content_length > 0 else b"{}"
-            data = json.loads(body.decode("utf-8"))
-        except (ValueError, json.JSONDecodeError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+        # Parse request body (with Content-Length validation)
+        data = self.read_json_body(handler)
+        if data is None:
+            return error_response("Invalid or too large request body", 400)
 
         # Extract parameters
         input_content = data.get("input_content", "")

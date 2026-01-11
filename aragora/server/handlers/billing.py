@@ -837,9 +837,12 @@ class BillingHandler(BaseHandler):
         )
         from aragora.billing.models import SubscriptionTier
 
-        # Get raw body and signature
+        # Get raw body and signature (limit to 1MB for webhook payloads)
+        MAX_WEBHOOK_SIZE = 1 * 1024 * 1024
+        content_length = self.validate_content_length(handler, max_size=MAX_WEBHOOK_SIZE)
+        if content_length is None:
+            return error_response("Invalid or too large Content-Length", 400)
         try:
-            content_length = int(handler.headers.get("Content-Length", 0))
             payload = handler.rfile.read(content_length)
         except (ValueError, AttributeError):
             return error_response("Invalid request", 400)
