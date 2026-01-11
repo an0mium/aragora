@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, NoReturn, Optional, TYPE_CHECKING
 from urllib.parse import urljoin
 
 from .models import (
@@ -38,6 +38,27 @@ from .models import (
     GauntletRunResponse,
     HealthCheck,
     APIError,
+    # Graph debates
+    GraphDebate,
+    GraphDebateCreateRequest,
+    GraphDebateCreateResponse,
+    GraphDebateBranch,
+    # Matrix debates
+    MatrixDebate,
+    MatrixDebateCreateRequest,
+    MatrixDebateCreateResponse,
+    MatrixScenario,
+    MatrixConclusion,
+    # Verification
+    VerifyClaimRequest,
+    VerifyClaimResponse,
+    VerifyStatusResponse,
+    # Memory analytics
+    MemoryAnalyticsResponse,
+    MemorySnapshotResponse,
+    # Replays
+    Replay,
+    ReplaySummary,
 )
 
 if TYPE_CHECKING:
@@ -153,7 +174,7 @@ class DebatesAPI:
         Returns:
             List of Debate objects.
         """
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
 
@@ -168,7 +189,7 @@ class DebatesAPI:
         status: str | None = None,
     ) -> list[Debate]:
         """Async version of list()."""
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
 
@@ -418,16 +439,488 @@ class GauntletAPI:
         raise TimeoutError(f"Gauntlet {gauntlet_id} did not complete within {timeout}s")
 
 
+class GraphDebatesAPI:
+    """API interface for graph-structured debates with branching."""
+
+    def __init__(self, client: "AragoraClient"):
+        self._client = client
+
+    def create(
+        self,
+        task: str,
+        agents: list[str] | None = None,
+        max_rounds: int = 5,
+        branch_threshold: float = 0.5,
+        max_branches: int = 5,
+    ) -> GraphDebateCreateResponse:
+        """
+        Create and start a graph-structured debate.
+
+        Graph debates allow for automatic branching when agents
+        identify fundamentally different approaches.
+
+        Args:
+            task: The question or topic to debate.
+            agents: List of agent IDs to participate.
+            max_rounds: Maximum rounds per branch (1-20).
+            branch_threshold: Divergence threshold for branching (0-1).
+            max_branches: Maximum number of branches allowed.
+
+        Returns:
+            GraphDebateCreateResponse with debate_id.
+        """
+        request = GraphDebateCreateRequest(
+            task=task,
+            agents=agents or ["anthropic-api", "openai-api"],
+            max_rounds=max_rounds,
+            branch_threshold=branch_threshold,
+            max_branches=max_branches,
+        )
+
+        response = self._client._post("/api/debates/graph", request.model_dump())
+        return GraphDebateCreateResponse(**response)
+
+    async def create_async(
+        self,
+        task: str,
+        agents: list[str] | None = None,
+        max_rounds: int = 5,
+        branch_threshold: float = 0.5,
+        max_branches: int = 5,
+    ) -> GraphDebateCreateResponse:
+        """Async version of create()."""
+        request = GraphDebateCreateRequest(
+            task=task,
+            agents=agents or ["anthropic-api", "openai-api"],
+            max_rounds=max_rounds,
+            branch_threshold=branch_threshold,
+            max_branches=max_branches,
+        )
+
+        response = await self._client._post_async("/api/debates/graph", request.model_dump())
+        return GraphDebateCreateResponse(**response)
+
+    def get(self, debate_id: str) -> GraphDebate:
+        """
+        Get graph debate details by ID.
+
+        Args:
+            debate_id: The graph debate ID.
+
+        Returns:
+            GraphDebate with full details including branches.
+        """
+        response = self._client._get(f"/api/debates/graph/{debate_id}")
+        return GraphDebate(**response)
+
+    async def get_async(self, debate_id: str) -> GraphDebate:
+        """Async version of get()."""
+        response = await self._client._get_async(f"/api/debates/graph/{debate_id}")
+        return GraphDebate(**response)
+
+    def get_branches(self, debate_id: str) -> list[GraphDebateBranch]:
+        """
+        Get all branches for a graph debate.
+
+        Args:
+            debate_id: The graph debate ID.
+
+        Returns:
+            List of GraphDebateBranch objects.
+        """
+        response = self._client._get(f"/api/debates/graph/{debate_id}/branches")
+        branches = response.get("branches", response) if isinstance(response, dict) else response
+        return [GraphDebateBranch(**b) for b in branches]
+
+    async def get_branches_async(self, debate_id: str) -> list[GraphDebateBranch]:
+        """Async version of get_branches()."""
+        response = await self._client._get_async(f"/api/debates/graph/{debate_id}/branches")
+        branches = response.get("branches", response) if isinstance(response, dict) else response
+        return [GraphDebateBranch(**b) for b in branches]
+
+
+class MatrixDebatesAPI:
+    """API interface for matrix debates with parallel scenarios."""
+
+    def __init__(self, client: "AragoraClient"):
+        self._client = client
+
+    def create(
+        self,
+        task: str,
+        agents: list[str] | None = None,
+        scenarios: list[dict] | None = None,
+        max_rounds: int = 3,
+    ) -> MatrixDebateCreateResponse:
+        """
+        Create and start a matrix debate with parallel scenarios.
+
+        Matrix debates run the same debate across different scenarios
+        to identify universal vs conditional conclusions.
+
+        Args:
+            task: The base question or topic to debate.
+            agents: List of agent IDs to participate.
+            scenarios: List of scenario configurations.
+                Each scenario can have: name, parameters, constraints, is_baseline.
+            max_rounds: Maximum rounds per scenario (1-10).
+
+        Returns:
+            MatrixDebateCreateResponse with matrix_id.
+        """
+        scenario_models = []
+        if scenarios:
+            for s in scenarios:
+                scenario_models.append(MatrixScenario(**s))
+
+        request = MatrixDebateCreateRequest(
+            task=task,
+            agents=agents or ["anthropic-api", "openai-api"],
+            scenarios=scenario_models,
+            max_rounds=max_rounds,
+        )
+
+        response = self._client._post("/api/debates/matrix", request.model_dump())
+        return MatrixDebateCreateResponse(**response)
+
+    async def create_async(
+        self,
+        task: str,
+        agents: list[str] | None = None,
+        scenarios: list[dict] | None = None,
+        max_rounds: int = 3,
+    ) -> MatrixDebateCreateResponse:
+        """Async version of create()."""
+        scenario_models = []
+        if scenarios:
+            for s in scenarios:
+                scenario_models.append(MatrixScenario(**s))
+
+        request = MatrixDebateCreateRequest(
+            task=task,
+            agents=agents or ["anthropic-api", "openai-api"],
+            scenarios=scenario_models,
+            max_rounds=max_rounds,
+        )
+
+        response = await self._client._post_async("/api/debates/matrix", request.model_dump())
+        return MatrixDebateCreateResponse(**response)
+
+    def get(self, matrix_id: str) -> MatrixDebate:
+        """
+        Get matrix debate details by ID.
+
+        Args:
+            matrix_id: The matrix debate ID.
+
+        Returns:
+            MatrixDebate with full details including scenario results.
+        """
+        response = self._client._get(f"/api/debates/matrix/{matrix_id}")
+        return MatrixDebate(**response)
+
+    async def get_async(self, matrix_id: str) -> MatrixDebate:
+        """Async version of get()."""
+        response = await self._client._get_async(f"/api/debates/matrix/{matrix_id}")
+        return MatrixDebate(**response)
+
+    def get_conclusions(self, matrix_id: str) -> MatrixConclusion:
+        """
+        Get universal and conditional conclusions from a matrix debate.
+
+        Args:
+            matrix_id: The matrix debate ID.
+
+        Returns:
+            MatrixConclusion with universal, conditional, and contradictory findings.
+        """
+        response = self._client._get(f"/api/debates/matrix/{matrix_id}/conclusions")
+        return MatrixConclusion(**response)
+
+    async def get_conclusions_async(self, matrix_id: str) -> MatrixConclusion:
+        """Async version of get_conclusions()."""
+        response = await self._client._get_async(f"/api/debates/matrix/{matrix_id}/conclusions")
+        return MatrixConclusion(**response)
+
+
+class VerificationAPI:
+    """API interface for formal verification of claims."""
+
+    def __init__(self, client: "AragoraClient"):
+        self._client = client
+
+    def verify(
+        self,
+        claim: str,
+        context: str | None = None,
+        backend: str = "z3",
+        timeout: int = 30,
+    ) -> VerifyClaimResponse:
+        """
+        Verify a claim using formal methods.
+
+        Args:
+            claim: The claim to verify in natural language.
+            context: Optional context for the claim.
+            backend: Verification backend (z3, lean, coq).
+            timeout: Verification timeout in seconds.
+
+        Returns:
+            VerifyClaimResponse with status, proof, or counterexample.
+        """
+        request = VerifyClaimRequest(
+            claim=claim,
+            context=context,
+            backend=backend,
+            timeout=timeout,
+        )
+
+        response = self._client._post("/api/verify/claim", request.model_dump())
+        return VerifyClaimResponse(**response)
+
+    async def verify_async(
+        self,
+        claim: str,
+        context: str | None = None,
+        backend: str = "z3",
+        timeout: int = 30,
+    ) -> VerifyClaimResponse:
+        """Async version of verify()."""
+        request = VerifyClaimRequest(
+            claim=claim,
+            context=context,
+            backend=backend,
+            timeout=timeout,
+        )
+
+        response = await self._client._post_async("/api/verify/claim", request.model_dump())
+        return VerifyClaimResponse(**response)
+
+    def status(self) -> VerifyStatusResponse:
+        """
+        Check verification backend availability.
+
+        Returns:
+            VerifyStatusResponse with available backends.
+        """
+        response = self._client._get("/api/verify/status")
+        return VerifyStatusResponse(**response)
+
+    async def status_async(self) -> VerifyStatusResponse:
+        """Async version of status()."""
+        response = await self._client._get_async("/api/verify/status")
+        return VerifyStatusResponse(**response)
+
+
+class MemoryAPI:
+    """API interface for memory tier analytics."""
+
+    def __init__(self, client: "AragoraClient"):
+        self._client = client
+
+    def analytics(self, days: int = 30) -> MemoryAnalyticsResponse:
+        """
+        Get comprehensive memory tier analytics.
+
+        Args:
+            days: Number of days to analyze (1-365).
+
+        Returns:
+            MemoryAnalyticsResponse with tier stats and recommendations.
+        """
+        response = self._client._get("/api/memory/analytics", params={"days": days})
+        return MemoryAnalyticsResponse(**response)
+
+    async def analytics_async(self, days: int = 30) -> MemoryAnalyticsResponse:
+        """Async version of analytics()."""
+        response = await self._client._get_async("/api/memory/analytics", params={"days": days})
+        return MemoryAnalyticsResponse(**response)
+
+    def tier_stats(self, tier_name: str, days: int = 30) -> dict:
+        """
+        Get statistics for a specific memory tier.
+
+        Args:
+            tier_name: Name of the tier (fast, medium, slow, glacial).
+            days: Number of days to analyze.
+
+        Returns:
+            Dict with tier-specific statistics.
+        """
+        response = self._client._get(
+            f"/api/memory/analytics/tier/{tier_name}",
+            params={"days": days}
+        )
+        return response
+
+    async def tier_stats_async(self, tier_name: str, days: int = 30) -> dict:
+        """Async version of tier_stats()."""
+        response = await self._client._get_async(
+            f"/api/memory/analytics/tier/{tier_name}",
+            params={"days": days}
+        )
+        return response
+
+    def snapshot(self) -> MemorySnapshotResponse:
+        """
+        Take a manual memory analytics snapshot.
+
+        Returns:
+            MemorySnapshotResponse with snapshot details.
+        """
+        response = self._client._post("/api/memory/analytics/snapshot", {})
+        return MemorySnapshotResponse(**response)
+
+    async def snapshot_async(self) -> MemorySnapshotResponse:
+        """Async version of snapshot()."""
+        response = await self._client._post_async("/api/memory/analytics/snapshot", {})
+        return MemorySnapshotResponse(**response)
+
+
+class ReplayAPI:
+    """API interface for debate replays."""
+
+    def __init__(self, client: "AragoraClient"):
+        self._client = client
+
+    def list(
+        self,
+        limit: int = 20,
+        debate_id: str | None = None,
+    ) -> list[ReplaySummary]:
+        """
+        List available debate replays.
+
+        Args:
+            limit: Maximum number of replays to return.
+            debate_id: Optional filter by debate ID.
+
+        Returns:
+            List of ReplaySummary objects.
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if debate_id:
+            params["debate_id"] = debate_id
+
+        response = self._client._get("/api/replays", params=params)
+        replays = response.get("replays", response) if isinstance(response, dict) else response
+        return [ReplaySummary(**r) for r in replays]
+
+    async def list_async(
+        self,
+        limit: int = 20,
+        debate_id: str | None = None,
+    ) -> list[ReplaySummary]:
+        """Async version of list()."""
+        params: dict[str, Any] = {"limit": limit}
+        if debate_id:
+            params["debate_id"] = debate_id
+
+        response = await self._client._get_async("/api/replays", params=params)
+        replays = response.get("replays", response) if isinstance(response, dict) else response
+        return [ReplaySummary(**r) for r in replays]
+
+    def get(self, replay_id: str) -> Replay:
+        """
+        Get full replay by ID.
+
+        Args:
+            replay_id: The replay ID.
+
+        Returns:
+            Replay with full event timeline.
+        """
+        response = self._client._get(f"/api/replays/{replay_id}")
+        return Replay(**response)
+
+    async def get_async(self, replay_id: str) -> Replay:
+        """Async version of get()."""
+        response = await self._client._get_async(f"/api/replays/{replay_id}")
+        return Replay(**response)
+
+    def delete(self, replay_id: str) -> bool:
+        """
+        Delete a replay.
+
+        Args:
+            replay_id: The replay ID to delete.
+
+        Returns:
+            True if deleted successfully.
+        """
+        self._client._delete(f"/api/replays/{replay_id}")
+        return True
+
+    async def delete_async(self, replay_id: str) -> bool:
+        """Async version of delete()."""
+        await self._client._delete_async(f"/api/replays/{replay_id}")
+        return True
+
+    def export(self, replay_id: str, format: str = "json") -> str:
+        """
+        Export replay data in specified format.
+
+        Args:
+            replay_id: The replay ID.
+            format: Export format (json, csv).
+
+        Returns:
+            Exported data as string.
+        """
+        response = self._client._get(
+            f"/api/replays/{replay_id}/export",
+            params={"format": format}
+        )
+        return response.get("data", "") if isinstance(response, dict) else str(response)
+
+    async def export_async(self, replay_id: str, format: str = "json") -> str:
+        """Async version of export()."""
+        response = await self._client._get_async(
+            f"/api/replays/{replay_id}/export",
+            params={"format": format}
+        )
+        return response.get("data", "") if isinstance(response, dict) else str(response)
+
+
 class AragoraClient:
     """
     Aragora API client.
 
     Provides synchronous and asynchronous access to the Aragora API.
 
+    Available API interfaces:
+        - debates: Standard debates (create, get, list, run)
+        - graph_debates: Graph-structured debates with branching
+        - matrix_debates: Parallel scenario debates
+        - verification: Formal claim verification
+        - memory: Memory tier analytics
+        - agents: Agent discovery and profiles
+        - leaderboard: ELO rankings
+        - gauntlet: Adversarial validation
+        - replays: Debate replay viewing and export
+
     Usage:
         # Synchronous
         client = AragoraClient(base_url="http://localhost:8080")
         debate = client.debates.run(task="Should we use microservices?")
+
+        # Graph debate with branching
+        result = client.graph_debates.create(task="Design a distributed system")
+
+        # Matrix debate with scenarios
+        result = client.matrix_debates.create(
+            task="Should we adopt microservices?",
+            scenarios=[
+                {"name": "small team", "parameters": {"team_size": 5}},
+                {"name": "large team", "parameters": {"team_size": 50}},
+            ]
+        )
+
+        # Verify a claim
+        result = client.verification.verify(claim="All primes > 2 are odd")
+
+        # Memory analytics
+        analytics = client.memory.analytics(days=30)
 
         # Asynchronous
         async with AragoraClient(base_url="http://localhost:8080") as client:
@@ -461,6 +954,13 @@ class AragoraClient:
         self.agents = AgentsAPI(self)
         self.leaderboard = LeaderboardAPI(self)
         self.gauntlet = GauntletAPI(self)
+
+        # Extended API interfaces
+        self.graph_debates = GraphDebatesAPI(self)
+        self.matrix_debates = MatrixDebatesAPI(self)
+        self.verification = VerificationAPI(self)
+        self.memory = MemoryAPI(self)
+        self.replays = ReplayAPI(self)
 
     def _get_headers(self) -> dict[str, str]:
         """Get common request headers."""
@@ -506,7 +1006,48 @@ class AragoraClient:
         except urllib.error.HTTPError as e:
             self._handle_http_error(e)
 
-    def _handle_http_error(self, e: Any) -> None:
+    def _delete(self, path: str, params: dict | None = None) -> dict:
+        """Make a synchronous DELETE request."""
+        import urllib.request
+        import urllib.parse
+        import urllib.error
+
+        url = urljoin(self.base_url, path)
+        if params:
+            url = f"{url}?{urllib.parse.urlencode(params)}"
+
+        req = urllib.request.Request(url, headers=self._get_headers(), method="DELETE")
+
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                return json.loads(resp.read().decode())
+        except urllib.error.HTTPError as e:
+            self._handle_http_error(e)
+
+    async def _delete_async(self, path: str, params: dict | None = None) -> dict:
+        """Make an asynchronous DELETE request."""
+        import aiohttp
+
+        if self._session is None:
+            self._session = aiohttp.ClientSession()
+
+        url = urljoin(self.base_url, path)
+        async with self._session.delete(
+            url,
+            headers=self._get_headers(),
+            params=params,
+            timeout=aiohttp.ClientTimeout(total=self.timeout),
+        ) as resp:
+            if resp.status >= 400:
+                body = await resp.json()
+                raise AragoraAPIError(
+                    body.get("error", "Unknown error"),
+                    body.get("code", "HTTP_ERROR"),
+                    resp.status,
+                )
+            return await resp.json()
+
+    def _handle_http_error(self, e: Any) -> NoReturn:
         """Handle HTTP errors."""
         try:
             body = json.loads(e.read().decode())

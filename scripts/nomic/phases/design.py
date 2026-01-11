@@ -443,7 +443,7 @@ Designs missing any of these will be automatically rejected."""
 
     def _count_votes(self, result: Any) -> Dict[str, int]:
         """Count votes from result."""
-        counts = {}
+        counts: Dict[str, int] = {}
         if hasattr(result, 'votes'):
             for vote in result.votes:
                 choice = vote.choice

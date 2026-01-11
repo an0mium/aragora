@@ -16,9 +16,12 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from aragora.debate.evidence_quality import EvidenceType
+
+if TYPE_CHECKING:
+    from aragora.debate.evidence_linker import EvidenceLink, EvidenceCoverageResult
 
 logger = logging.getLogger(__name__)
 

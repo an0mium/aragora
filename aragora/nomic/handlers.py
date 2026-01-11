@@ -22,7 +22,7 @@ import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple
 
 from .states import NomicState, StateContext
 from .events import Event
@@ -30,8 +30,8 @@ from .events import Event
 logger = logging.getLogger(__name__)
 
 
-# Type for state handlers
-StateHandler = Callable[[StateContext, Event], "asyncio.Future[Tuple[NomicState, Dict[str, Any]]]"]
+# Type for state handlers (async functions returning state and data)
+StateHandler = Callable[[StateContext, Event], "Coroutine[Any, Any, Tuple[NomicState, Dict[str, Any]]]"]
 
 
 async def context_handler(

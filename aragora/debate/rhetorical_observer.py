@@ -408,7 +408,7 @@ class RhetoricalAnalysisObserver:
             }
 
         # Count patterns
-        pattern_counts = {}
+        pattern_counts: dict[str, int] = {}
         for obs in self.observations:
             key = obs.pattern.value
             pattern_counts[key] = pattern_counts.get(key, 0) + 1

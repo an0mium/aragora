@@ -271,7 +271,7 @@ class StripeClient:
         Returns:
             StripeCustomer with the created customer data
         """
-        data = {"email": email}
+        data: dict[str, Any] = {"email": email}
         if name:
             data["name"] = name
         if metadata:
@@ -317,7 +317,7 @@ class StripeClient:
         metadata: Optional[dict] = None,
     ) -> StripeCustomer:
         """Update a Stripe customer."""
-        data = {}
+        data: dict[str, Any] = {}
         if email:
             data["email"] = email
         if name:
@@ -370,7 +370,7 @@ class StripeClient:
                 f"Set STRIPE_PRICE_{tier.name} environment variable."
             )
 
-        data = {
+        data: dict[str, Any] = {
             "mode": "subscription",
             "success_url": success_url,
             "cancel_url": cancel_url,
@@ -382,13 +382,16 @@ class StripeClient:
         else:
             data["customer_email"] = customer_email
 
+        subscription_data: dict[str, Any] = {}
         if metadata:
             data["metadata"] = metadata
-            data["subscription_data"] = {"metadata": metadata}
+            subscription_data["metadata"] = metadata
 
         if trial_days and trial_days > 0:
-            data["subscription_data"] = data.get("subscription_data", {})
-            data["subscription_data"]["trial_period_days"] = trial_days
+            subscription_data["trial_period_days"] = trial_days
+
+        if subscription_data:
+            data["subscription_data"] = subscription_data
 
         response = self._request("POST", "/checkout/sessions", data)
 

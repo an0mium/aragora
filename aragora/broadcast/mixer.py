@@ -18,6 +18,9 @@ try:
 except ImportError:
     PYDUB_AVAILABLE = False
 
+# Maximum audio files for FFmpeg filter_complex to prevent command overflow
+MAX_AUDIO_FILES = 500
+
 
 def _detect_audio_codec(audio_file: Path) -> Optional[str]:
     """
@@ -43,7 +46,7 @@ def _detect_audio_codec(audio_file: Path) -> Optional[str]:
         if result.returncode == 0:
             return result.stdout.strip() or None
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
-        logger.debug(f"ffprobe codec detection failed for {audio_path}: {e}")
+        logger.debug(f"ffprobe codec detection failed for {audio_file}: {e}")
     return None
 
 
@@ -133,6 +136,14 @@ def mix_audio_with_ffmpeg(audio_files: List[Path], output_path: Path) -> bool:
         True if successful
     """
     if not audio_files:
+        return False
+
+    # Enforce max file limit to prevent FFmpeg command overflow
+    if len(audio_files) > MAX_AUDIO_FILES:
+        logger.error(
+            f"Too many audio files ({len(audio_files)} > {MAX_AUDIO_FILES}). "
+            "Split into smaller batches."
+        )
         return False
 
     import subprocess
