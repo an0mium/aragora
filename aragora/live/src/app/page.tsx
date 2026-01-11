@@ -186,6 +186,21 @@ const LearningEvolution = dynamic(() => import('@/components/LearningEvolution')
   loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
 });
 
+const MomentsTimeline = dynamic(() => import('@/components/MomentsTimeline').then(m => ({ default: m.MomentsTimeline })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const ConsensusQualityDashboard = dynamic(() => import('@/components/ConsensusQualityDashboard').then(m => ({ default: m.ConsensusQualityDashboard })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const MemoryAnalyticsPanel = dynamic(() => import('@/components/MemoryAnalyticsPanel').then(m => ({ default: m.MemoryAnalyticsPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
 type ViewMode = 'tabs' | 'stream' | 'deep-audit';
 type SiteMode = 'landing' | 'dashboard' | 'loading';
 
@@ -223,6 +238,31 @@ export default function Home() {
     // Navigate to the dedicated debate viewer page
     router.push(`/debate/${debateId}`);
   }, [router]);
+
+  // Handle starting a debate from a trending topic
+  const handleStartDebateFromTrend = useCallback(async (topic: string, source: string) => {
+    try {
+      const response = await fetch(`${apiBase}/api/debate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: topic,
+          agents: 'grok,anthropic-api,openai-api,deepseek',
+          rounds: 3,
+          metadata: { source, from_trending: true },
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success && data.debate_id) {
+        router.push(`/debate/${data.debate_id}`);
+      } else {
+        setError(data.error || 'Failed to start debate from trend');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start debate');
+    }
+  }, [apiBase, router]);
   // Local state for nomicState, initialized from wsNomicState and updated by events
   const [localNomicState, setLocalNomicState] = useState<NomicState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -572,7 +612,7 @@ export default function Home() {
                 <RhetoricalObserverPanel events={events} />
               </PanelErrorBoundary>
               <PanelErrorBoundary panelName="Citations">
-                <CitationsPanel events={events} />
+                <CitationsPanel events={events} debateId={currentDebateId || undefined} apiBase={apiBase} />
               </PanelErrorBoundary>
               <PanelErrorBoundary panelName="History">
                 <HistoryPanel />
@@ -583,7 +623,7 @@ export default function Home() {
             <CollapsibleSection id="browse-discover" title="BROWSE & DISCOVER">
               <FeatureGuard featureId="pulse">
                 <PanelErrorBoundary panelName="Trending Topics">
-                  <TrendingTopicsPanel apiBase={apiBase} />
+                  <TrendingTopicsPanel apiBase={apiBase} onStartDebate={handleStartDebateFromTrend} />
                 </PanelErrorBoundary>
               </FeatureGuard>
               <PanelErrorBoundary panelName="Debate List">
@@ -622,6 +662,12 @@ export default function Home() {
 
             {/* Section 4: Insights & Learning */}
             <CollapsibleSection id="insights-learning" title="INSIGHTS & LEARNING">
+              <PanelErrorBoundary panelName="Moments Timeline">
+                <MomentsTimeline apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Consensus Quality">
+                <ConsensusQualityDashboard apiBase={apiBase} />
+              </PanelErrorBoundary>
               <PanelErrorBoundary panelName="Cross-Cycle Learning">
                 <LearningDashboard apiBase={apiBase} />
               </PanelErrorBoundary>
@@ -679,6 +725,9 @@ export default function Home() {
                   <MemoryInspector apiBase={apiBase} />
                 </PanelErrorBoundary>
               </FeatureGuard>
+              <PanelErrorBoundary panelName="Memory Analytics">
+                <MemoryAnalyticsPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
               {currentDebateId && (
                 <PanelErrorBoundary panelName="Impasse Detection">
                   <ImpasseDetectionPanel debateId={currentDebateId} apiBase={apiBase} />

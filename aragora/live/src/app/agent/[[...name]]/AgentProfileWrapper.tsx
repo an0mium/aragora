@@ -87,6 +87,16 @@ interface PerformanceData {
   };
 }
 
+interface HistoryEntry {
+  debate_id: string;
+  topic?: string;
+  opponent?: string;
+  result: 'win' | 'loss' | 'draw';
+  elo_change: number;
+  elo_after: number;
+  created_at: string;
+}
+
 const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
 export function AgentProfileWrapper() {
@@ -103,10 +113,11 @@ export function AgentProfileWrapper() {
   const [headToHead, setHeadToHead] = useState<HeadToHeadData | null>(null);
   const [domains, setDomains] = useState<DomainData | null>(null);
   const [performance, setPerformance] = useState<PerformanceData | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [selectedRival, setSelectedRival] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'moments' | 'network' | 'compare' | 'domains' | 'performance'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'moments' | 'network' | 'compare' | 'domains' | 'performance' | 'history'>('overview');
 
   const apiBase = DEFAULT_API_BASE;
 
@@ -120,13 +131,14 @@ export function AgentProfileWrapper() {
       setLoading(true);
       setError(null);
 
-      // Fetch profile, moments, network, domains, and performance in parallel
-      const [profileRes, momentsRes, networkRes, domainsRes, performanceRes] = await Promise.all([
+      // Fetch profile, moments, network, domains, performance, and history in parallel
+      const [profileRes, momentsRes, networkRes, domainsRes, performanceRes, historyRes] = await Promise.all([
         fetch(`${apiBase}/api/agent/${encodeURIComponent(agentName)}/profile`),
         fetch(`${apiBase}/api/agent/${encodeURIComponent(agentName)}/moments?limit=10`),
         fetch(`${apiBase}/api/agent/${encodeURIComponent(agentName)}/network`),
         fetch(`${apiBase}/api/agent/${encodeURIComponent(agentName)}/domains`),
         fetch(`${apiBase}/api/agent/${encodeURIComponent(agentName)}/performance`),
+        fetch(`${apiBase}/api/agent/${encodeURIComponent(agentName)}/history?limit=20`),
       ]);
 
       if (profileRes.ok) {
@@ -156,6 +168,11 @@ export function AgentProfileWrapper() {
       if (performanceRes.ok) {
         const data = await performanceRes.json();
         setPerformance(data);
+      }
+
+      if (historyRes.ok) {
+        const data = await historyRes.json();
+        setHistory(data.history || []);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch agent data');
@@ -343,7 +360,7 @@ export function AgentProfileWrapper() {
 
         {/* Tab Navigation */}
         <div className="flex flex-wrap gap-1 bg-surface border border-border rounded p-1 mb-6">
-          {(['overview', 'performance', 'domains', 'moments', 'network', 'compare'] as const).map((tab) => (
+          {(['overview', 'performance', 'domains', 'history', 'moments', 'network', 'compare'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -833,6 +850,74 @@ export function AgentProfileWrapper() {
               ) : (
                 <div className="text-center text-text-muted py-8">
                   No domain expertise data available. This agent needs more debates in specific topic areas.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* History Tab */}
+          {activeTab === 'history' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-text mb-4">Debate History</h3>
+
+              {history.length > 0 ? (
+                <div className="space-y-3">
+                  {history.map((entry) => (
+                    <div
+                      key={entry.debate_id}
+                      className="bg-bg border border-border rounded-lg p-4"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xl ${
+                            entry.result === 'win' ? 'text-green-400' :
+                            entry.result === 'loss' ? 'text-red-400' : 'text-yellow-400'
+                          }`}>
+                            {entry.result === 'win' ? '🏆' : entry.result === 'loss' ? '💔' : '🤝'}
+                          </span>
+                          <div>
+                            <div className="text-sm font-medium text-text">
+                              {entry.result === 'win' ? 'Won' : entry.result === 'loss' ? 'Lost' : 'Draw'}
+                              {entry.opponent && (
+                                <span className="text-text-muted">
+                                  {' '}vs{' '}
+                                  <Link
+                                    href={`/agent/${encodeURIComponent(entry.opponent)}/`}
+                                    className="text-accent hover:underline"
+                                  >
+                                    {entry.opponent}
+                                  </Link>
+                                </span>
+                              )}
+                            </div>
+                            {entry.topic && (
+                              <div className="text-xs text-text-muted truncate max-w-md">
+                                {entry.topic}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-sm font-mono ${
+                            entry.elo_change > 0 ? 'text-green-400' :
+                            entry.elo_change < 0 ? 'text-red-400' : 'text-text-muted'
+                          }`}>
+                            {entry.elo_change > 0 ? '+' : ''}{entry.elo_change}
+                          </div>
+                          <div className="text-xs text-text-muted">
+                            → {entry.elo_after}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-text-muted/50">
+                        {new Date(entry.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-text-muted py-8">
+                  No debate history available yet.
                 </div>
               )}
             </div>

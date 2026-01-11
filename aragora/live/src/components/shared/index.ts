@@ -1,20 +1,16 @@
-export { StatusBadge } from './StatusBadge';
-export type { StatusBadgeProps, BadgeVariant } from './StatusBadge';
+/**
+ * Shared component exports for consistent UI patterns.
+ */
 
-export { RefreshButton } from './RefreshButton';
-export type { RefreshButtonProps } from './RefreshButton';
+// Core panel components
+export { PanelTemplate, usePanelState } from './PanelTemplate';
+export type { PanelTemplateProps, Tab } from './PanelTemplate';
 
-export { ExpandToggle } from './ExpandToggle';
-export type { ExpandToggleProps } from './ExpandToggle';
-
-export { StatsGrid } from './StatsGrid';
-export type { StatsGridProps, StatItem } from './StatsGrid';
-
-export { TabNavigation } from './TabNavigation';
-export type { TabNavigationProps, Tab } from './TabNavigation';
-
+// Panel building blocks
+export { PanelContainer } from './PanelContainer';
 export { PanelHeader } from './PanelHeader';
-export type { PanelHeaderProps } from './PanelHeader';
-
-export { PanelContainer, PanelHeaderSimple, CollapsiblePanelHeader } from './PanelContainer';
-export type { PanelContainerProps, PanelHeaderSimpleProps, CollapsiblePanelHeaderProps } from './PanelContainer';
+export { RefreshButton } from './RefreshButton';
+export { ExpandToggle } from './ExpandToggle';
+export { StatsGrid } from './StatsGrid';
+export { StatusBadge } from './StatusBadge';
+export { TabNavigation } from './TabNavigation';

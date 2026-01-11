@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { DebateViewer } from '@/components/DebateViewer';
 import { CruxPanel } from '@/components/CruxPanel';
 import { AnalyticsPanel } from '@/components/AnalyticsPanel';
@@ -12,6 +13,7 @@ import { ConsensusKnowledgeBase } from '@/components/ConsensusKnowledgeBase';
 import { TrendingTopicsPanel } from '@/components/TrendingTopicsPanel';
 import { MemoryInspector } from '@/components/MemoryInspector';
 import { MetricsPanel } from '@/components/MetricsPanel';
+import { BroadcastPanel } from '@/components/broadcast/BroadcastPanel';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -19,11 +21,35 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { useBackend } from '@/components/BackendSelector';
 
 export function DebateViewerWrapper() {
+  const router = useRouter();
   const [debateId, setDebateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showDeepAnalysis, setShowDeepAnalysis] = useState(false);
   const { config } = useBackend();
+
+  // Handle starting a debate from a trending topic
+  const handleStartDebateFromTrend = useCallback(async (topic: string, source: string) => {
+    try {
+      const response = await fetch(`${config.api}/api/debate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: topic,
+          agents: 'grok,anthropic-api,openai-api,deepseek',
+          rounds: 3,
+          metadata: { source, from_trending: true },
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success && data.debate_id) {
+        router.push(`/debate/${data.debate_id}`);
+      }
+    } catch {
+      // Silently handle errors - could add toast notification
+    }
+  }, [config.api, router]);
 
   useEffect(() => {
     // Extract debate ID from actual browser URL: /debate/abc123 -> abc123
@@ -116,6 +142,13 @@ export function DebateViewerWrapper() {
             </div>
           </div>
 
+          {/* Broadcast Panel - generate audio/video from debate */}
+          <div className="mt-4">
+            <PanelErrorBoundary panelName="Broadcast">
+              <BroadcastPanel debateId={debateId} debateTitle={`Debate ${debateId}`} />
+            </PanelErrorBoundary>
+          </div>
+
           {/* Deep Analysis Toggle */}
           <button
             onClick={() => setShowDeepAnalysis(!showDeepAnalysis)}
@@ -137,7 +170,7 @@ export function DebateViewerWrapper() {
                 <ConsensusKnowledgeBase apiBase={config.api} />
               </PanelErrorBoundary>
               <PanelErrorBoundary panelName="Trending Topics">
-                <TrendingTopicsPanel apiBase={config.api} />
+                <TrendingTopicsPanel apiBase={config.api} onStartDebate={handleStartDebateFromTrend} />
               </PanelErrorBoundary>
               <PanelErrorBoundary panelName="Memory Inspector">
                 <MemoryInspector apiBase={config.api} />

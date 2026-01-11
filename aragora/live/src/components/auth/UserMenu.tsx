@@ -100,6 +100,13 @@ export function UserMenu() {
             >
               [API KEYS]
             </Link>
+            <Link
+              href="/ab-testing"
+              className="block px-4 py-2 text-xs font-mono text-text-muted hover:bg-acid-green/10 hover:text-acid-green transition-colors"
+              onClick={() => setIsOpen(false)}
+            >
+              [A/B TESTING]
+            </Link>
           </div>
 
           {/* Logout */}

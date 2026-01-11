@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
 
 interface CitationsPanelProps {
   events: StreamEvent[];
+  debateId?: string;
+  apiBase?: string;
 }
 
 interface Citation {
@@ -62,9 +64,71 @@ const QUALITY_CONFIG: Record<CitationQuality, { icon: string; label: string; col
   questionable: { icon: '!', label: 'Questionable', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
 };
 
-export function CitationsPanel({ events }: CitationsPanelProps) {
+export function CitationsPanel({ events, debateId, apiBase }: CitationsPanelProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<CitationType | 'all'>('all');
+  const [apiCitations, setApiCitations] = useState<Citation[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch evidence from API when debateId is available
+  const fetchEvidence = useCallback(async () => {
+    if (!debateId || !apiBase) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${apiBase}/api/debates/${debateId}/evidence`);
+      if (response.ok) {
+        const data = await response.json();
+        const fetchedCitations: Citation[] = [];
+
+        // Process grounded_verdict citations
+        if (data.grounded_verdict?.all_citations) {
+          data.grounded_verdict.all_citations.forEach((c: Record<string, unknown>) => {
+            fetchedCitations.push({
+              id: (c.id as string) || `api-${c.title}-${c.year}`,
+              type: ((c.citation_type || c.type || 'unknown') as string) as CitationType,
+              title: (c.title as string) || 'Untitled',
+              authors: (c.authors as string[]) || [],
+              year: c.year as number | undefined,
+              url: c.url as string | undefined,
+              excerpt: (c.excerpt as string) || '',
+              quality: ((c.quality || 'unverified') as string) as CitationQuality,
+              relevance: (c.relevance_score || c.relevance || 0.5) as number,
+              claimId: c.claim_id as string | undefined,
+            });
+          });
+        }
+
+        // Process related_evidence
+        if (data.related_evidence) {
+          data.related_evidence.forEach((e: Record<string, unknown>) => {
+            fetchedCitations.push({
+              id: (e.id as string) || `evidence-${Date.now()}`,
+              type: 'web_page' as CitationType,
+              title: (e.title as string) || 'Evidence',
+              authors: [],
+              excerpt: (e.snippet as string) || '',
+              quality: 'unverified' as CitationQuality,
+              relevance: (e.relevance as number) || 0.5,
+            });
+          });
+        }
+
+        setApiCitations(fetchedCitations);
+      }
+    } catch {
+      // Silently fail - API evidence is supplementary
+    } finally {
+      setLoading(false);
+    }
+  }, [debateId, apiBase]);
+
+  // Fetch evidence when debateId changes
+  useEffect(() => {
+    if (debateId && apiBase) {
+      fetchEvidence();
+    }
+  }, [debateId, apiBase, fetchEvidence]);
 
   // Extract citations from events
   const citations = useMemo(() => {
@@ -151,22 +215,38 @@ export function CitationsPanel({ events }: CitationsPanelProps) {
     return citationList.sort((a, b) => b.relevance - a.relevance);
   }, [events]);
 
-  const filteredCitations = filter === 'all' ? citations : citations.filter((c) => c.type === filter);
+  // Merge event citations with API citations (deduplicated)
+  const allCitations = useMemo(() => {
+    const seen = new Set(citations.map(c => c.id));
+    const merged = [...citations];
+
+    apiCitations.forEach(c => {
+      if (!seen.has(c.id)) {
+        seen.add(c.id);
+        merged.push(c);
+      }
+    });
+
+    return merged.sort((a, b) => b.relevance - a.relevance);
+  }, [citations, apiCitations]);
+
+  const filteredCitations = filter === 'all' ? allCitations : allCitations.filter((c) => c.type === filter);
 
   // Get unique types for filter
   const availableTypes = useMemo(() => {
-    const types = new Set(citations.map((c) => c.type));
+    const types = new Set(allCitations.map((c) => c.type));
     return Array.from(types);
-  }, [citations]);
+  }, [allCitations]);
 
-  if (citations.length === 0) {
+  if (allCitations.length === 0) {
     return (
       <div className="panel">
         <h3 className="panel-title-sm flex items-center gap-2 mb-3">
           <span>📚</span> Citations
+          {loading && <span className="text-xs text-text-muted animate-pulse">Loading...</span>}
         </h3>
         <div className="panel-empty">
-          No citations yet. References will appear as agents cite sources.
+          {loading ? 'Fetching evidence...' : 'No citations yet. References will appear as agents cite sources.'}
         </div>
       </div>
     );
@@ -177,7 +257,8 @@ export function CitationsPanel({ events }: CitationsPanelProps) {
       <div className="panel-header">
         <h3 className="panel-title-sm flex items-center gap-2">
           <span>📚</span> Citations
-          <span className="panel-badge">{citations.length}</span>
+          <span className="panel-badge">{allCitations.length}</span>
+          {loading && <span className="text-xs text-text-muted animate-pulse ml-2">Updating...</span>}
         </h3>
       </div>
 

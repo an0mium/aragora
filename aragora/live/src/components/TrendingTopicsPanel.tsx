@@ -15,12 +15,14 @@ interface TrendingTopicsPanelProps {
   apiBase: string;
   autoRefresh?: boolean;
   refreshInterval?: number;
+  onStartDebate?: (topic: string, source: string) => void;
 }
 
 export function TrendingTopicsPanel({
   apiBase,
   autoRefresh = true,
   refreshInterval = 60000,
+  onStartDebate,
 }: TrendingTopicsPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [topics, setTopics] = useState<TrendingTopic[]>([]);
@@ -139,7 +141,7 @@ export function TrendingTopicsPanel({
               {topics.map((topic, idx) => (
                 <div
                   key={idx}
-                  className="panel-item"
+                  className="panel-item group"
                 >
                   <div className="flex items-start gap-2">
                     <span className="text-sm" title={topic.source}>
@@ -169,6 +171,18 @@ export function TrendingTopicsPanel({
                         )}
                       </div>
                     </div>
+                    {onStartDebate && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onStartDebate(topic.topic, topic.source);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs font-mono text-acid-cyan border border-acid-cyan/50 hover:bg-acid-cyan/10 transition-all"
+                        title="Start a debate on this topic"
+                      >
+                        DEBATE
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

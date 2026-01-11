@@ -113,13 +113,18 @@ export default function PricingPage() {
     setError(null);
 
     try {
+      const currentUrl = window.location.origin;
       const response = await fetch(`${API_BASE}/api/billing/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokens?.access_token}`,
         },
-        body: JSON.stringify({ tier: planId }),
+        body: JSON.stringify({
+          tier: planId,
+          success_url: `${currentUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${currentUrl}/pricing`,
+        }),
       });
 
       const data = await response.json();
@@ -129,8 +134,11 @@ export default function PricingPage() {
       }
 
       // Redirect to Stripe Checkout
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
+      const checkoutUrl = data.checkout?.url || data.checkout_url;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      } else {
+        throw new Error('No checkout URL returned');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
