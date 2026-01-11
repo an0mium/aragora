@@ -193,6 +193,10 @@ Receipt contents:
 - **Cryptographic checksum** for integrity
 - **Timestamp** for audit trail
 
+## Case Study: Epic Strategic Debate
+
+See [docs/case_studies/epic_strategic_debate.md](docs/case_studies/epic_strategic_debate.md) for a real multi‑agent debate that converged on the “Automated Adversarial Validation” positioning and clarified the core wedge for Aragora.
+
 ## Compliance Personas
 
 Gauntlet includes specialized compliance personas:

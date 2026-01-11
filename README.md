@@ -4,6 +4,8 @@
 
 A society of heterogeneous AI agents that discuss, critique, improve each other's responses, and learn from successful patterns. Aragora implements dialectical reasoning: truth emerges not from any single perspective, but through the productive tension of contradiction and synthesis.
 
+Aragora is also an **adversarial validation engine**. Gauntlet Mode stress-tests high‑stakes specs, architectures, and policies and produces audit‑ready Decision Receipts and risk heatmaps.
+
 **Domain**: [aragora.ai](https://aragora.ai) (available)
 
 ## Inspiration & Citations
@@ -141,6 +143,8 @@ aragora gauntlet architecture.md --profile thorough --output report.html
 **Decision receipts** provide cryptographic audit trails for every finding, ready for regulatory review.
 
 See [docs/GAUNTLET.md](docs/GAUNTLET.md) for full documentation and [docs/AGENT_SELECTION.md](docs/AGENT_SELECTION.md) for agent recommendations.
+
+Case study: [Epic Strategic Debate](docs/case_studies/epic_strategic_debate.md)
 
 ## Quick Start
 

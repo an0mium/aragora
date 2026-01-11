@@ -117,6 +117,42 @@ class TestDecisionReceipt:
         assert data["receipt_id"] == "receipt-test-004"
         assert data["verdict"] == "PASS"
 
+    def test_receipt_from_mode_result(self):
+        """Test receipt generation from gauntlet mode result."""
+        from aragora.gauntlet.receipt import DecisionReceipt
+        from aragora.modes.gauntlet import GauntletResult, InputType, Verdict, Finding
+
+        result = GauntletResult(
+            gauntlet_id="gauntlet-mode-001",
+            input_type=InputType.ARCHITECTURE,
+            input_summary="Architecture summary",
+            input_hash="hash123",
+            verdict=Verdict.APPROVED_WITH_CONDITIONS,
+            confidence=0.82,
+            risk_score=0.4,
+            robustness_score=0.7,
+            coverage_score=0.6,
+            critical_findings=[],
+            high_findings=[
+                Finding(
+                    finding_id="finding-1",
+                    category="security",
+                    severity=0.8,
+                    title="Missing auth boundary",
+                    description="Service boundary lacks auth enforcement.",
+                ),
+            ],
+            medium_findings=[],
+            low_findings=[],
+            agents_involved=["claude", "gpt-4"],
+            duration_seconds=12.5,
+        )
+
+        receipt = DecisionReceipt.from_mode_result(result)
+        assert receipt.gauntlet_id == "gauntlet-mode-001"
+        assert receipt.input_hash == "hash123"
+        assert receipt.risk_summary["high"] == 1
+
 
 class TestRiskHeatmap:
     """Tests for RiskHeatmap."""
@@ -194,6 +230,50 @@ class TestRiskHeatmap:
         assert "security" in ascii_table
         assert "CRIT" in ascii_table
         assert "TOTAL" in ascii_table
+
+    def test_heatmap_from_mode_result(self):
+        """Test heatmap generation from gauntlet mode result."""
+        from aragora.gauntlet.heatmap import RiskHeatmap
+        from aragora.modes.gauntlet import GauntletResult, InputType, Verdict, Finding
+
+        result = GauntletResult(
+            gauntlet_id="gauntlet-mode-002",
+            input_type=InputType.POLICY,
+            input_summary="Policy summary",
+            input_hash="hash456",
+            verdict=Verdict.NEEDS_REVIEW,
+            confidence=0.6,
+            risk_score=0.5,
+            robustness_score=0.5,
+            coverage_score=0.4,
+            critical_findings=[],
+            high_findings=[
+                Finding(
+                    finding_id="finding-2",
+                    category="compliance",
+                    severity=0.85,
+                    title="Retention gap",
+                    description="Retention policy missing for audit logs.",
+                ),
+            ],
+            medium_findings=[
+                Finding(
+                    finding_id="finding-3",
+                    category="compliance",
+                    severity=0.5,
+                    title="Consent ambiguity",
+                    description="Consent language is ambiguous.",
+                ),
+            ],
+            low_findings=[],
+            agents_involved=["claude"],
+            duration_seconds=9.0,
+        )
+
+        heatmap = RiskHeatmap.from_mode_result(result)
+        cell = heatmap.get_cell("compliance", "high")
+        assert cell is not None
+        assert cell.count == 1
 
     def test_heatmap_empty(self):
         """Test empty heatmap handling."""

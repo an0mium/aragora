@@ -496,7 +496,7 @@ class SystemHandler(BaseHandler):
                 "total": len(all_lines),
                 "showing": len(recent),
             })
-        except Exception as e:
+        except (OSError, PermissionError, UnicodeDecodeError) as e:
             logger.error("Failed to read nomic log: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "read log"), 500)
 
@@ -572,10 +572,10 @@ class SystemHandler(BaseHandler):
                 "error": f"Invalid state file: {e}",
                 "cycle": 0,
             })
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             return json_response({
                 "status": "error",
-                "error": str(e),
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
                 "cycle": 0,
             })
 
@@ -628,7 +628,7 @@ class SystemHandler(BaseHandler):
                 "critical_count": critical,
                 "high_count": high,
             })
-        except Exception as e:
+        except (OSError, PermissionError, UnicodeDecodeError) as e:
             logger.error("Failed to read risk register: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "read risk register"), 500)
 
@@ -660,8 +660,8 @@ class SystemHandler(BaseHandler):
                         "type": "custom",
                         "description": getattr(mode, 'description', ''),
                     })
-        except Exception as e:
-            logger.debug(f"Could not load custom modes: {e}")
+        except (ImportError, OSError, AttributeError, ValueError) as e:
+            logger.debug(f"Could not load custom modes: {type(e).__name__}: {e}")
 
         return json_response({"modes": modes, "total": len(modes)})
 

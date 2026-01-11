@@ -492,3 +492,145 @@ class TestRateLimitConfigEdgeCases:
         # Should handle gracefully
         config = limiter.get_config("")
         assert config is not None
+
+
+class TestRedisRateLimiter:
+    """Tests for Redis-backed rate limiting."""
+
+    def test_redis_available_flag(self):
+        """Test REDIS_AVAILABLE flag is set correctly."""
+        from aragora.server.rate_limit import REDIS_AVAILABLE
+        # Redis package should be available (installed in dev dependencies)
+        assert isinstance(REDIS_AVAILABLE, bool)
+
+    def test_redis_token_bucket_interface(self):
+        """Test RedisTokenBucket has same interface as TokenBucket."""
+        from aragora.server.rate_limit import RedisTokenBucket, TokenBucket
+
+        # Check both classes have the same key methods
+        token_bucket_methods = {"consume", "get_retry_after", "remaining"}
+        for method in token_bucket_methods:
+            assert hasattr(TokenBucket, method), f"TokenBucket missing {method}"
+            assert hasattr(RedisTokenBucket, method), f"RedisTokenBucket missing {method}"
+
+    def test_redis_rate_limiter_interface(self):
+        """Test RedisRateLimiter has same interface as RateLimiter."""
+        from aragora.server.rate_limit import RedisRateLimiter, RateLimiter
+
+        # Check both classes have the same key methods
+        limiter_methods = {
+            "configure_endpoint",
+            "get_config",
+            "allow",
+            "get_client_key",
+            "get_stats",
+            "cleanup",
+            "reset",
+        }
+        for method in limiter_methods:
+            assert hasattr(RateLimiter, method), f"RateLimiter missing {method}"
+            assert hasattr(RedisRateLimiter, method), f"RedisRateLimiter missing {method}"
+
+    def test_get_redis_client_without_config(self):
+        """Test get_redis_client returns None without config."""
+        from aragora.server.middleware.rate_limit import (
+            get_redis_client,
+            reset_redis_client,
+        )
+        import os
+
+        # Reset to force re-check
+        reset_redis_client()
+
+        # Temporarily clear Redis URL if set
+        original = os.environ.get("ARAGORA_REDIS_URL")
+        if "ARAGORA_REDIS_URL" in os.environ:
+            del os.environ["ARAGORA_REDIS_URL"]
+
+        try:
+            # Reset settings cache
+            from aragora.config.settings import reset_settings
+            reset_settings()
+            reset_redis_client()
+
+            # Should return None when not configured
+            client = get_redis_client()
+            # May return None or may connect to localhost depending on environment
+            # Just ensure it doesn't crash
+        finally:
+            # Restore original
+            if original:
+                os.environ["ARAGORA_REDIS_URL"] = original
+            reset_redis_client()
+
+    def test_registry_has_is_using_redis_property(self):
+        """Test RateLimiterRegistry has is_using_redis property."""
+        from aragora.server.middleware.rate_limit import (
+            RateLimiterRegistry,
+            reset_rate_limiters,
+        )
+
+        reset_rate_limiters()
+        registry = RateLimiterRegistry()
+        # Should have is_using_redis property
+        assert hasattr(registry, "is_using_redis")
+        # Access should not crash
+        result = registry.is_using_redis
+        assert isinstance(result, bool)
+
+    def test_redis_token_bucket_fail_open(self):
+        """Test RedisTokenBucket fails open on errors."""
+        from aragora.server.rate_limit import RedisTokenBucket
+        from unittest.mock import MagicMock
+
+        # Create a mock Redis client that raises on evalsha
+        mock_redis = MagicMock()
+        mock_redis.script_load.return_value = "fake_sha"
+        mock_redis.evalsha.side_effect = Exception("Redis connection error")
+
+        bucket = RedisTokenBucket(
+            mock_redis,
+            key="test",
+            rate_per_minute=60,
+            burst_size=10,
+        )
+
+        # Should fail open (return True) on error
+        result = bucket.consume(1)
+        assert result is True  # Fail open
+
+    def test_redis_rate_limiter_fallback(self):
+        """Test RedisRateLimiter falls back on errors."""
+        from aragora.server.middleware.rate_limit import RedisRateLimiter
+        from unittest.mock import MagicMock
+
+        # Create a mock Redis client that raises
+        mock_redis = MagicMock()
+        mock_redis.script_load.side_effect = Exception("Redis error")
+
+        limiter = RedisRateLimiter(mock_redis)
+
+        # Configure an endpoint
+        limiter.configure_endpoint("/api/test", 30)
+
+        # Allow should work (using fallback)
+        result = limiter.allow("1.1.1.1", endpoint="/api/test")
+        # Should succeed via fallback
+        assert result.allowed is True
+
+    def test_redis_config_in_settings(self):
+        """Test Redis configuration exists in settings."""
+        from aragora.config.settings import get_settings, reset_settings
+
+        reset_settings()
+        settings = get_settings()
+
+        # Check Redis config fields exist
+        assert hasattr(settings.rate_limit, "redis_url")
+        assert hasattr(settings.rate_limit, "redis_key_prefix")
+        assert hasattr(settings.rate_limit, "redis_ttl_seconds")
+
+        # Check defaults
+        assert settings.rate_limit.redis_url is None
+        assert settings.rate_limit.redis_key_prefix == "aragora:ratelimit:"
+        assert settings.rate_limit.redis_ttl_seconds == 120

@@ -22,7 +22,6 @@ class TestEvolutionHookWiring:
 
         mock_evolver = Mock()
         config = ArenaConfig(
-            enable_circuit_breaker=True,
             prompt_evolver=mock_evolver,
         )
 
@@ -35,7 +34,7 @@ class TestEvolutionHookWiring:
         config = ArenaConfig(enable_prompt_evolution=True)
         assert config.enable_prompt_evolution is True
 
-    @patch('aragora.debate.orchestrator.PromptEvolver')
+    @patch('aragora.evolution.evolver.PromptEvolver')
     def test_arena_auto_creates_evolver_when_enabled(self, mock_evolver_class):
         """Arena should auto-create PromptEvolver when enable_prompt_evolution=True."""
         from aragora.debate.orchestrator import Arena, ArenaConfig
@@ -52,7 +51,7 @@ class TestEvolutionHookWiring:
         mock_agent.name = "test-agent"
         agents = [mock_agent]
 
-        arena = Arena(env, agents, protocol, config=config)
+        arena = Arena.from_config(env, agents, protocol, config)
 
         # The evolver should be created
         assert arena.prompt_evolver is not None
@@ -70,7 +69,7 @@ class TestEvolutionHookWiring:
         mock_agent.name = "test-agent"
         agents = [mock_agent]
 
-        arena = Arena(env, agents, protocol, config=config)
+        arena = Arena.from_config(env, agents, protocol, config)
 
         assert arena.prompt_evolver is mock_evolver
 
