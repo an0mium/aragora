@@ -25,6 +25,7 @@ class Fixture:
     fixture_id: str
     input_content: str
     context: str = ""
+    attack_rounds: int = 1
     attack_categories: list[str] = field(default_factory=list)
     agents: list[str] = field(default_factory=lambda: ["mock-agent-1", "mock-agent-2"])
     expected: dict[str, int] = field(default_factory=dict)
@@ -40,6 +41,7 @@ class Fixture:
             fixture_id=fixture_id,
             input_content=input_content,
             context=payload.get("context", ""),
+            attack_rounds=int(payload.get("attack_rounds", 1)),
             attack_categories=payload.get("attack_categories", []),
             agents=payload.get("agents", ["mock-agent-1", "mock-agent-2"]),
             expected=payload.get("expected", {}),
@@ -116,6 +118,7 @@ async def evaluate_fixture(
 
     config = GauntletConfig(
         attack_categories=_convert_attack_categories(fixture.attack_categories),
+        attack_rounds=fixture.attack_rounds,
         probe_categories=[],
         run_scenario_matrix=False,
         agents=fixture.agents,

@@ -165,6 +165,8 @@ class DebateResult:
     # Novelty tracking - semantic distance from prior proposals
     per_agent_novelty: dict[str, list[float]] = field(default_factory=dict)  # Agent -> novelty by round
     avg_novelty: float = 1.0  # Average novelty (1.0 = fresh ideas, 0.0 = repetitive)
+    # Formal verification result (from Lean4/Z3)
+    formal_verification: Optional[dict[str, Any]] = None  # FormalProofResult.to_dict()
 
     def summary(self) -> str:
         """Human-readable summary of the debate."""

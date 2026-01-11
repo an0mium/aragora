@@ -352,7 +352,7 @@ class FeedbackPhase:
                 category=getattr(trending_topic, 'category', ''),
                 volume=getattr(trending_topic, 'volume', 0),
             )
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.warning(f"[pulse] Failed to record outcome: {e}")
 
     def _run_memory_cleanup(self, ctx: "DebateContext") -> None:
@@ -381,7 +381,7 @@ class FeedbackPhase:
                 self.continuum_memory.enforce_tier_limits()
                 logger.debug("[memory] Enforced tier limits")
 
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, OSError, RuntimeError) as e:
             logger.debug(f"[memory] Cleanup error (non-fatal): {e}")
 
     def _record_elo_match(self, ctx: "DebateContext") -> None:
