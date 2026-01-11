@@ -79,12 +79,22 @@ for entry in TRUSTED_PROXIES:
         logger.debug("Ignoring invalid trusted proxy entry: %s", entry)
 
 
+def _normalize_ip(ip_value: str) -> str:
+    """Normalize IP address string for consistent comparisons."""
+    if not ip_value:
+        return ""
+    ip_value = str(ip_value).strip()
+    try:
+        return str(ipaddress.ip_address(ip_value))
+    except ValueError:
+        return ip_value
+
+
 def _is_trusted_proxy(ip: str) -> bool:
     """
     Check if an IP address is a trusted proxy.
 
-    Supports exact IP matches. For production with CIDR ranges,
-    consider using the ipaddress module.
+    Supports exact IP matches and CIDR ranges.
 
     Args:
         ip: IP address to check.
@@ -94,7 +104,14 @@ def _is_trusted_proxy(ip: str) -> bool:
     """
     if not TRUSTED_PROXIES:
         return False
-    return ip in TRUSTED_PROXIES
+    ip_norm = _normalize_ip(ip)
+    if ip_norm in _TRUSTED_PROXY_IPS:
+        return True
+    try:
+        ip_obj = ipaddress.ip_address(ip_norm)
+    except ValueError:
+        return False
+    return any(ip_obj in net for net in _TRUSTED_PROXY_NETS)
 
 
 def _extract_client_ip(
@@ -118,12 +135,13 @@ def _extract_client_ip(
         Best guess at the real client IP.
     """
     # Only trust XFF from known proxies
+    remote_ip = _normalize_ip(remote_ip)
     if xff_header and (trust_proxy or _is_trusted_proxy(remote_ip)):
         # XFF format: "client, proxy1, proxy2, ..."
         # First IP is the original client
         client_ip = xff_header.split(",")[0].strip()
         if client_ip:
-            return client_ip
+            return _normalize_ip(client_ip)
 
     return remote_ip
 
@@ -155,6 +173,8 @@ class TokenBucket:
 
         Returns True if tokens were consumed, False if rate limited.
         """
+        if tokens <= 0:
+            return False
         with self._lock:
             now = time.monotonic()
             elapsed_minutes = (now - self.last_refill) / 60.0
@@ -331,6 +351,40 @@ class RateLimitResult:
     limit: int = 0
     retry_after: float = 0
     key: str = ""
+
+
+def sanitize_rate_limit_key_component(value: str) -> str:
+    """Sanitize key components to prevent key injection."""
+    if value is None:
+        return ""
+    value = str(value)
+    return value.replace(":", "_").replace("\n", "").replace("\r", "").strip()
+
+
+def normalize_rate_limit_path(path: str) -> str:
+    """Normalize endpoint paths to prevent rate limit bypass."""
+    if not path:
+        return ""
+    raw = str(path).split("?", 1)[0]
+
+    wildcard = ""
+    if raw.endswith("/*"):
+        wildcard = "/*"
+        raw = raw[:-2]
+    elif raw.endswith("*"):
+        wildcard = "*"
+        raw = raw[:-1]
+
+    decoded = unquote(unquote(raw))
+    normalized = posixpath.normpath(decoded)
+    if normalized in ("", "."):
+        normalized = "/"
+    normalized = "/" + normalized.lstrip("/")
+    if normalized != "/" and normalized.endswith("/"):
+        normalized = normalized.rstrip("/")
+    normalized = normalized.lower()
+
+    return normalized + wildcard
 
 
 class RateLimiter:
