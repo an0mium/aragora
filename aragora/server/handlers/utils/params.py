@@ -41,9 +41,23 @@ def get_float_param(params: dict, key: str, default: float = 0.0) -> float:
 
 
 def get_bool_param(params: dict, key: str, default: bool = False) -> bool:
-    """Safely get a boolean parameter."""
-    value = params.get(key, str(default)).lower()
-    return value in ('true', '1', 'yes', 'on')
+    """Safely get a boolean parameter, handling various input types."""
+    value = params.get(key)
+    if value is None:
+        return default
+    # Already a boolean
+    if isinstance(value, bool):
+        return value
+    # List from query string - get first element
+    if isinstance(value, list):
+        value = value[0] if value else default
+        if isinstance(value, bool):
+            return value
+    # Convert to string and check truthy values
+    if isinstance(value, str):
+        return value.lower() in ('true', '1', 'yes', 'on')
+    # Numbers (1/0) or other types
+    return bool(value)
 
 
 def get_string_param(params: dict, key: str, default: str | None = None) -> Optional[str]:

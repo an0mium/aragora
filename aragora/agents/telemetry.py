@@ -27,6 +27,19 @@ T = TypeVar("T")
 AsyncFunc = Callable[P, Awaitable[T]]
 
 
+def _get_callable_name(func: Callable) -> str:
+    """Safely get a callable's name for logging.
+
+    Handles functions, methods, lambdas, partials, and other callables
+    that may not have __name__.
+    """
+    if hasattr(func, '__name__'):
+        return func.__name__
+    if hasattr(func, '__class__'):
+        return func.__class__.__name__
+    return repr(func)
+
+
 @dataclass
 class AgentTelemetry:
     """Telemetry data for a single agent operation."""
@@ -101,7 +114,7 @@ def _emit_telemetry(telemetry: AgentTelemetry) -> None:
         try:
             collector(telemetry)
         except Exception as e:
-            logger.warning(f"telemetry_collector_error collector={collector.__name__} error={e}")
+            logger.warning(f"telemetry_collector_error collector={_get_callable_name(collector)} error={e}")
 
 
 def _default_prometheus_collector(telemetry: AgentTelemetry) -> None:
@@ -384,7 +397,7 @@ def get_telemetry_stats() -> dict:
     with _telemetry_lock:
         return {
             "collectors_count": len(_telemetry_collectors),
-            "collectors": [c.__name__ for c in _telemetry_collectors],
+            "collectors": [_get_callable_name(c) for c in _telemetry_collectors],
         }
 
 

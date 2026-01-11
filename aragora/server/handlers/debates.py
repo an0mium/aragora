@@ -78,6 +78,9 @@ class DebatesHandler(BaseHandler):
     ALLOWED_EXPORT_FORMATS = {"json", "csv", "html"}
     ALLOWED_EXPORT_TABLES = {"summary", "messages", "critiques", "votes"}
 
+    # Endpoints that expose debate artifacts - require auth unless debate is_public
+    ARTIFACT_ENDPOINTS = {"/messages", "/evidence", "/verification-report"}
+
     # Route dispatch table: (suffix, handler_method_name, needs_debate_id, extra_params)
     # extra_params is a callable that extracts additional params from (path, query_params)
     SUFFIX_ROUTES = [
@@ -138,6 +141,31 @@ class DebatesHandler(BaseHandler):
                 return True
         return False
 
+    def _check_artifact_access(
+        self, debate_id: str, suffix: str, handler
+    ) -> Optional[HandlerResult]:
+        """Check access to artifact endpoints.
+
+        Returns None if access allowed, 401 error if auth required but missing.
+        Artifacts are accessible if:
+        - Debate is marked as is_public=True, OR
+        - Valid auth token is provided
+        """
+        if suffix not in self.ARTIFACT_ENDPOINTS:
+            return None  # Not an artifact endpoint
+
+        # Check if debate is public
+        storage = self.get_storage()
+        if storage and storage.is_public(debate_id):
+            return None  # Public debate, no auth needed
+
+        # Private debate - require authentication
+        auth_result = self._check_auth(handler)
+        if auth_result:
+            return auth_result  # Auth failed
+
+        return None  # Auth passed
+
     def _dispatch_suffix_route(
         self, path: str, query_params: dict, handler
     ) -> Optional[HandlerResult]:
@@ -157,6 +185,11 @@ class DebatesHandler(BaseHandler):
                     return error_response(err, 400)
                 if not debate_id:
                     continue
+
+                # Check artifact access (auth required for private debates)
+                access_error = self._check_artifact_access(debate_id, suffix, handler)
+                if access_error:
+                    return access_error
 
             # Get handler method
             method = getattr(self, method_name, None)

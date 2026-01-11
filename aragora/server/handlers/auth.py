@@ -515,6 +515,7 @@ class AuthHandler(BaseHandler):
         from aragora.billing.jwt_auth import (
             extract_user_from_request,
             get_token_blacklist,
+            revoke_token_persistent,
         )
         from aragora.server.middleware.auth import extract_token
 
@@ -537,13 +538,20 @@ class AuthHandler(BaseHandler):
         if not token_to_revoke:
             return error_response("No token provided to revoke", 400)
 
-        # Revoke the token
+        # Revoke using both in-memory (fast) and persistent (multi-instance) blacklists
         blacklist = get_token_blacklist()
-        if blacklist.revoke_token(token_to_revoke):
-            logger.info(f"Token revoked by user: {auth_ctx.user_id}")
+        in_memory_ok = blacklist.revoke_token(token_to_revoke)
+        persistent_ok = revoke_token_persistent(token_to_revoke)
+
+        if in_memory_ok:
+            if persistent_ok:
+                logger.info(f"Token revoked (in-memory + persistent) by user: {auth_ctx.user_id}")
+            else:
+                logger.warning(f"Token revoked in-memory but persistent failed for user: {auth_ctx.user_id}")
             return json_response({
                 "message": "Token revoked successfully",
                 "blacklist_size": blacklist.size(),
+                "persistent": persistent_ok,
             })
         else:
             return error_response("Invalid token - could not revoke", 400)
@@ -968,6 +976,7 @@ class InMemoryUserStore:
         """Save a user."""
         self.users[user.id] = user
         self.users_by_email[user.email] = user.id
+        # Legacy: store plaintext API key if present
         if user.api_key:
             self.api_keys[user.api_key] = user.id
 
@@ -983,10 +992,22 @@ class InMemoryUserStore:
         return None
 
     def get_user_by_api_key(self, api_key: str):
-        """Get user by API key."""
+        """Get user by API key.
+
+        Supports both:
+        - Legacy: plaintext API key lookup in cache
+        - Secure: hash-based verification against all users with API keys
+        """
+        # First try legacy plaintext lookup
         user_id = self.api_keys.get(api_key)
         if user_id:
             return self.users.get(user_id)
+
+        # Fall back to hash-based verification for secure storage
+        for user in self.users.values():
+            if hasattr(user, 'verify_api_key') and user.verify_api_key(api_key):
+                return user
+
         return None
 
     def save_organization(self, org) -> None:

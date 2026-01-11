@@ -69,6 +69,7 @@ class DebateMetadata:
     confidence: float
     created_at: datetime
     view_count: int = 0
+    is_public: bool = False  # If True, artifacts accessible without auth
 
 
 class DebateStorage:
@@ -140,6 +141,9 @@ class DebateStorage:
                 conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_debates_org ON debates(org_id, created_at)"
                 )
+
+            # Add is_public for configurable access control (default: private)
+            self._safe_add_column(conn, "debates", "is_public", "BOOLEAN DEFAULT 0")
 
             conn.commit()
 
@@ -445,7 +449,7 @@ class DebateStorage:
             if org_id:
                 cursor = conn.execute("""
                     SELECT slug, id, task, agents, consensus_reached,
-                           confidence, created_at, view_count
+                           confidence, created_at, view_count, is_public
                     FROM debates
                     WHERE org_id = ?
                     ORDER BY created_at DESC
@@ -454,7 +458,7 @@ class DebateStorage:
             else:
                 cursor = conn.execute("""
                     SELECT slug, id, task, agents, consensus_reached,
-                           confidence, created_at, view_count
+                           confidence, created_at, view_count, is_public
                     FROM debates
                     ORDER BY created_at DESC
                     LIMIT ?
@@ -476,6 +480,7 @@ class DebateStorage:
                     confidence=row[5] or 0,
                     created_at=created,
                     view_count=row[7] or 0,
+                    is_public=bool(row[8]) if len(row) > 8 else False,
                 ))
 
         return results
@@ -508,3 +513,50 @@ class DebateStorage:
             deleted = cursor.rowcount > 0
             conn.commit()
         return deleted
+
+    def is_public(self, debate_id: str) -> bool:
+        """
+        Check if a debate is publicly accessible.
+
+        Args:
+            debate_id: Debate ID to check
+
+        Returns:
+            True if debate exists and is_public=True, False otherwise
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT is_public FROM debates WHERE id = ?",
+                (debate_id,)
+            )
+            row = cursor.fetchone()
+        return bool(row and row[0])
+
+    def set_public(
+        self, debate_id: str, is_public: bool, org_id: Optional[str] = None
+    ) -> bool:
+        """
+        Set debate public/private status.
+
+        Args:
+            debate_id: Debate ID
+            is_public: True for public access, False for auth required
+            org_id: If provided, only update if debate belongs to this org
+
+        Returns:
+            True if updated, False if not found or ownership check failed
+        """
+        with self._get_connection() as conn:
+            if org_id:
+                cursor = conn.execute(
+                    "UPDATE debates SET is_public = ? WHERE id = ? AND org_id = ?",
+                    (is_public, debate_id, org_id)
+                )
+            else:
+                cursor = conn.execute(
+                    "UPDATE debates SET is_public = ? WHERE id = ?",
+                    (is_public, debate_id)
+                )
+            updated = cursor.rowcount > 0
+            conn.commit()
+        return updated
