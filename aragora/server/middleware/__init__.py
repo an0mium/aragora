@@ -85,6 +85,21 @@ from .tenancy import (
     scope_query,
     ensure_workspace_access,
 )
+from .exception_handler import (
+    EXCEPTION_STATUS_MAP,
+    map_exception_to_status,
+    generate_trace_id,
+    ErrorResponse,
+    build_error_response,
+    ExceptionHandler,
+    async_exception_handler,
+    handle_exceptions,
+    async_handle_exceptions,
+    is_client_error,
+    is_server_error,
+    is_retryable,
+    is_authentication_error,
+)
 
 __all__ = [
     # Auth
@@ -145,4 +160,18 @@ __all__ = [
     "tenant_scoped",
     "scope_query",
     "ensure_workspace_access",
+    # Exception handling
+    "EXCEPTION_STATUS_MAP",
+    "map_exception_to_status",
+    "generate_trace_id",
+    "ErrorResponse",
+    "build_error_response",
+    "ExceptionHandler",
+    "async_exception_handler",
+    "handle_exceptions",
+    "async_handle_exceptions",
+    "is_client_error",
+    "is_server_error",
+    "is_retryable",
+    "is_authentication_error",
 ]
