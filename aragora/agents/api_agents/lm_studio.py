@@ -73,7 +73,7 @@ class LMStudioAgent(APIAgent):
                     timeout=aiohttp.ClientTimeout(total=5),
                 ) as response:
                     return response.status == 200
-        except Exception:
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError):
             return False
 
     async def list_models(self) -> list[dict]:
@@ -92,7 +92,7 @@ class LMStudioAgent(APIAgent):
                         return []
                     data = await response.json()
                     return data.get("data", [])
-            except Exception as e:
+            except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError, KeyError) as e:
                 logger.warning(f"Failed to list LM Studio models: {e}")
                 return []
 
