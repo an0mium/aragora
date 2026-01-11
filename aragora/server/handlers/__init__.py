@@ -165,21 +165,21 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "CalibrationHandler": Stability.STABLE,  # Agent calibration - 4 test files
     "PersonaHandler": Stability.STABLE,  # Agent personas - 2 test files
 
+    # Promoted to Stable (Jan 2026) - comprehensive test coverage
+    "GraphDebatesHandler": Stability.STABLE,  # 7 test files, 95+ tests
+    "MatrixDebatesHandler": Stability.STABLE,  # Handler tests + integration
+    "EvolutionHandler": Stability.STABLE,  # 7 test files, 66+ tests
+    "EvolutionABTestingHandler": Stability.STABLE,  # AB testing with evolution
+    "LaboratoryHandler": Stability.STABLE,  # 3 test files, 70+ tests
+    "IntrospectionHandler": Stability.STABLE,  # 2 test files, 53+ tests
+    "LearningHandler": Stability.STABLE,  # 2 test files, 66+ tests
+    "MemoryAnalyticsHandler": Stability.STABLE,  # Handler tests, 23+ tests
+    "ProbesHandler": Stability.STABLE,  # 16 tests, capability probing
+    "InsightsHandler": Stability.STABLE,  # 3 test files, 110+ tests
+
     # Experimental - Works but may change
-    "GraphDebatesHandler": Stability.EXPERIMENTAL,
-    "MatrixDebatesHandler": Stability.EXPERIMENTAL,
-    "EvolutionHandler": Stability.EXPERIMENTAL,
-    "EvolutionABTestingHandler": Stability.EXPERIMENTAL,
-    "IntrospectionHandler": Stability.EXPERIMENTAL,
-    "LaboratoryHandler": Stability.EXPERIMENTAL,
-    "ProbesHandler": Stability.EXPERIMENTAL,
-    "LearningHandler": Stability.EXPERIMENTAL,
-    "MemoryAnalyticsHandler": Stability.EXPERIMENTAL,
     "ReviewsHandler": Stability.EXPERIMENTAL,  # Shareable code reviews
     "FormalVerificationHandler": Stability.EXPERIMENTAL,  # DeepSeek-Prover integration
-
-    # Promoted to Preview (Jan 2026)
-    "InsightsHandler": Stability.PREVIEW,  # Unit tests, flip detection
 
     # Preview - Early access
     "OrganizationsHandler": Stability.PREVIEW,

@@ -27,6 +27,9 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 # Rate limiter for insights endpoints (60 requests per minute)
 _insights_limiter = RateLimiter(requests_per_minute=60)
 
+# Maximum content size for insight extraction (1MB)
+MAX_CONTENT_SIZE = 1024 * 1024
+
 
 def _run_async(coro):
     """Run async coroutine from sync context."""
@@ -108,7 +111,7 @@ class InsightsHandler(BaseHandler):
         if not insight_store:
             return json_response({"error": "Insights not configured", "insights": []})
 
-        limit = min(get_int_param(query, "limit", 20), 100)
+        limit = max(1, min(get_int_param(query, "limit", 20), 100))
 
         insights = _run_async(insight_store.get_recent_insights(limit=limit))
         return json_response({
@@ -145,6 +148,12 @@ class InsightsHandler(BaseHandler):
         content = data.get("content", "").strip()
         if not content:
             return error_response("Missing required field: content", 400)
+
+        if len(content) > MAX_CONTENT_SIZE:
+            return error_response(
+                f"Content too large. Maximum size is {MAX_CONTENT_SIZE // 1024}KB",
+                413  # Payload Too Large
+            )
 
         debate_id = data.get("debate_id", "")
         extract_claims = data.get("extract_claims", True)

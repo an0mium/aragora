@@ -64,9 +64,10 @@ class PulseHandler(BaseHandler):
         "/api/pulse/trending",
         "/api/pulse/suggest",
         "/api/pulse/analytics",
+        "/api/pulse/debate-topic",
     ]
 
-    def can_handle(self, path: str) -> bool:
+    def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
@@ -241,3 +242,124 @@ class PulseHandler(BaseHandler):
 
         analytics = manager.get_analytics()
         return json_response(analytics)
+
+    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+        """Handle POST requests for pulse endpoints."""
+        if path == "/api/pulse/debate-topic":
+            return self._start_debate_on_topic(handler)
+        return None
+
+    def _start_debate_on_topic(self, handler) -> HandlerResult:
+        """Start a debate on a trending topic.
+
+        POST /api/pulse/debate-topic
+        Body: {
+            "topic": "The topic to debate",
+            "agents": ["anthropic-api", "openai-api"],  // Optional
+            "rounds": 3,  // Optional, default 3
+            "consensus": "majority"  // Optional
+        }
+
+        Returns: {
+            "debate_id": "...",
+            "status": "started",
+            "topic": "...",
+            "agents": [...]
+        }
+        """
+        import json as json_module
+
+        try:
+            # Read request body
+            content_length = int(handler.headers.get('Content-Length', 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json_module.loads(body.decode('utf-8'))
+            else:
+                return error_response("Request body is required", 400)
+        except (json_module.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        topic = data.get("topic")
+        if not topic:
+            return error_response("topic is required", 400)
+
+        # Validate topic
+        is_valid, err = validate_path_segment(topic[:50], "topic", SAFE_ID_PATTERN)
+        # Note: topic can contain spaces, so we only validate first 50 chars for safety
+
+        try:
+            from aragora import Arena, Environment, DebateProtocol
+            from aragora.agents import get_agents_by_names
+        except ImportError:
+            return feature_unavailable_response("debate")
+
+        # Get parameters
+        agent_names = data.get("agents", ["anthropic-api", "openai-api"])
+        rounds = data.get("rounds", 3)
+        consensus = data.get("consensus", "majority")
+
+        # Validate parameters
+        rounds = min(max(int(rounds), 1), 10)  # Clamp 1-10
+
+        try:
+            # Create environment
+            env = Environment(
+                task=f"Debate the following trending topic: {topic}",
+                context=f"This topic is currently trending and warrants thoughtful analysis from multiple perspectives.",
+            )
+
+            # Get agents
+            agents = get_agents_by_names(agent_names[:5])  # Max 5 agents
+
+            if not agents:
+                return error_response("No valid agents available", 400)
+
+            # Create protocol
+            protocol = DebateProtocol(
+                rounds=rounds,
+                consensus=consensus,
+            )
+
+            # Create arena
+            arena = Arena.from_env(env, agents, protocol)
+
+            # Run debate asynchronously
+            async def run_debate():
+                return await arena.run()
+
+            result = self._run_async_safely(run_debate)
+
+            if result is None:
+                return error_response("Debate failed to complete", 500)
+
+            # Record outcome with pulse manager
+            manager = get_pulse_manager()
+            if manager:
+                try:
+                    from aragora.pulse.ingestor import TrendingTopic
+                    # Create a minimal topic for tracking
+                    tracking_topic = TrendingTopic(
+                        topic=topic,
+                        platform="manual",
+                        volume=1,
+                        category="user_submitted",
+                    )
+                    manager.record_debate_outcome(tracking_topic, result)
+                except Exception as e:
+                    logger.warning(f"Failed to record debate outcome: {e}")
+
+            return json_response({
+                "debate_id": result.id,
+                "status": "completed",
+                "topic": topic,
+                "agents": [a.name for a in agents],
+                "consensus_reached": result.consensus_reached,
+                "confidence": result.confidence,
+                "final_answer": result.final_answer[:500] if result.final_answer else None,
+                "rounds_used": result.rounds_used,
+            })
+
+        except Exception as e:
+            logger.error(f"Failed to run debate on topic: {e}")
+            return error_response(safe_error_message(e, "start debate"), 500)

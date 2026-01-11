@@ -262,7 +262,7 @@ class GalleryHandler(BaseHandler):
         return debates[offset : offset + limit]
 
     def _find_debate_by_id(self, nomic_dir: Optional[Path], stable_id: str) -> Optional[dict]:
-        """Find a specific debate by its stable ID."""
+        """Find a specific debate by its stable ID (bounded search)."""
         if not nomic_dir:
             return None
 
@@ -270,9 +270,15 @@ class GalleryHandler(BaseHandler):
         if not replays_dir.exists():
             return None
 
+        max_search = 1000  # Reasonable search limit to prevent DoS
+        searched = 0
         for replay_path in replays_dir.iterdir():
+            if searched >= max_search:
+                logger.warning(f"Gallery search exceeded limit ({max_search}) for {stable_id}")
+                return None  # Not found within limit
             if not replay_path.is_dir():
                 continue
+            searched += 1
 
             meta_path = replay_path / "meta.json"
             if not meta_path.exists():

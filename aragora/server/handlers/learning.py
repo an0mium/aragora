@@ -114,7 +114,8 @@ class LearningHandler(BaseHandler):
         return json_response({
             "cycles": cycles,
             "count": len(cycles),
-            "total_cycles": len(list(replays_dir.iterdir())),
+            "total_cycles": len(cycles),  # Use bounded count instead of loading all entries
+            "has_more": len(cycles) >= limit,
         })
 
     @handle_errors("learned patterns")
@@ -164,15 +165,20 @@ class LearningHandler(BaseHandler):
             except Exception as e:
                 logger.warning(f"Failed to read risk register: {e}")
 
-        # Analyze replays for recurring themes
+        # Analyze replays for recurring themes (bounded iteration)
         replays_dir = nomic_dir / "replays"
         if replays_dir.exists():
             theme_counts: dict[str, int] = defaultdict(int)
             agent_wins: dict[str, int] = defaultdict(int)
 
+            max_to_scan = 500  # Reasonable upper bound to prevent memory exhaustion
+            scanned = 0
             for cycle_dir in replays_dir.iterdir():
+                if scanned >= max_to_scan:
+                    break
                 if not cycle_dir.is_dir():
                     continue
+                scanned += 1
                 meta_file = cycle_dir / "meta.json"
                 if meta_file.exists():
                     try:
@@ -208,11 +214,19 @@ class LearningHandler(BaseHandler):
         evolution: dict[str, list[dict]] = defaultdict(list)
 
         replays_dir = nomic_dir / "replays"
+        cycles_analyzed = 0
         if replays_dir.exists():
-            for cycle_dir in sorted(replays_dir.iterdir()):
-                if not cycle_dir.is_dir() or not cycle_dir.name.startswith("nomic-cycle-"):
-                    continue
+            # Collect cycle directories with bounds (prevent memory exhaustion)
+            max_to_scan = 500
+            cycle_dirs = []
+            for cycle_dir in replays_dir.iterdir():
+                if len(cycle_dirs) >= max_to_scan:
+                    break
+                if cycle_dir.is_dir() and cycle_dir.name.startswith("nomic-cycle-"):
+                    cycle_dirs.append(cycle_dir)
 
+            # Sort only the bounded subset
+            for cycle_dir in sorted(cycle_dirs, key=lambda d: d.name):
                 try:
                     cycle_num = int(cycle_dir.name.replace("nomic-cycle-", ""))
                 except ValueError:
@@ -224,6 +238,7 @@ class LearningHandler(BaseHandler):
                         with open(meta_file) as f:
                             meta = json.load(f)
 
+                        cycles_analyzed += 1
                         agents = meta.get("agents", [])
                         vote_tally = meta.get("vote_tally", {})
                         winner = meta.get("winner")
@@ -269,7 +284,7 @@ class LearningHandler(BaseHandler):
 
         return json_response({
             "agents": agent_trends,
-            "total_cycles_analyzed": len(list(replays_dir.iterdir())) if replays_dir.exists() else 0,
+            "total_cycles_analyzed": cycles_analyzed,  # Use bounded count
         })
 
     @handle_errors("aggregated insights")

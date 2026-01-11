@@ -49,6 +49,63 @@ DEFAULT_RATE_LIMIT = int(os.environ.get("ARAGORA_RATE_LIMIT", "60"))
 IP_RATE_LIMIT = int(os.environ.get("ARAGORA_IP_RATE_LIMIT", "120"))
 BURST_MULTIPLIER = float(os.environ.get("ARAGORA_BURST_MULTIPLIER", "2.0"))
 
+# Trusted proxies for X-Forwarded-For header (comma-separated IPs/CIDRs)
+# Only trust XFF header when request comes from these addresses
+# Example: "127.0.0.1,10.0.0.0/8,172.16.0.0/12"
+TRUSTED_PROXIES_RAW = os.environ.get("ARAGORA_TRUSTED_PROXIES", "").strip()
+TRUSTED_PROXIES: frozenset[str] = frozenset(
+    p.strip() for p in TRUSTED_PROXIES_RAW.split(",") if p.strip()
+)
+
+
+def _is_trusted_proxy(ip: str) -> bool:
+    """
+    Check if an IP address is a trusted proxy.
+
+    Supports exact IP matches. For production with CIDR ranges,
+    consider using the ipaddress module.
+
+    Args:
+        ip: IP address to check.
+
+    Returns:
+        True if IP is in TRUSTED_PROXIES.
+    """
+    if not TRUSTED_PROXIES:
+        return False
+    return ip in TRUSTED_PROXIES
+
+
+def _extract_client_ip(
+    remote_ip: str,
+    xff_header: str | None,
+    trust_proxy: bool = False,
+) -> str:
+    """
+    Extract the real client IP from request headers.
+
+    Only trusts X-Forwarded-For when:
+    1. trust_proxy is True, OR
+    2. remote_ip is in TRUSTED_PROXIES
+
+    Args:
+        remote_ip: Direct connection IP address.
+        xff_header: X-Forwarded-For header value (may be None).
+        trust_proxy: Override to force trusting XFF header.
+
+    Returns:
+        Best guess at the real client IP.
+    """
+    # Only trust XFF from known proxies
+    if xff_header and (trust_proxy or _is_trusted_proxy(remote_ip)):
+        # XFF format: "client, proxy1, proxy2, ..."
+        # First IP is the original client
+        client_ip = xff_header.split(",")[0].strip()
+        if client_ip:
+            return client_ip
+
+    return remote_ip
+
 
 class TokenBucket:
     """
@@ -211,7 +268,8 @@ class RedisTokenBucket:
             tokens_needed = 1 - tokens
             minutes_needed = tokens_needed / self.rate_per_minute
             return minutes_needed * 60
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Error getting retry_after, defaulting to 0: {e}")
             return 0
 
     @property
@@ -228,7 +286,8 @@ class RedisTokenBucket:
             tokens = min(self.burst_size, tokens + refill_amount)
 
             return max(0, int(tokens))
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Error getting remaining tokens, defaulting to burst_size: {e}")
             return self.burst_size
 
 

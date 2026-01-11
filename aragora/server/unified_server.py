@@ -672,12 +672,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         try:
             self._do_GET_internal(path, query)
-        except Exception as e:
+        except (OSError, ConnectionError, BrokenPipeError, TimeoutError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+            # Top-level safety net for GET handlers
             status_code = 500
             logger.exception(f"[request] Unhandled exception in GET {path}: {e}")
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
-            except Exception as send_err:
+            except (OSError, ConnectionError, BrokenPipeError) as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
             duration_ms = (time.time() - start_time) * 1000
@@ -776,12 +777,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         try:
             self._do_POST_internal(path)
-        except Exception as e:
+        except (OSError, ConnectionError, BrokenPipeError, TimeoutError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+            # Top-level safety net for POST handlers
             status_code = 500
             logger.exception(f"[request] Unhandled exception in POST {path}: {e}")
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
-            except Exception as send_err:
+            except (OSError, ConnectionError, BrokenPipeError) as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
             duration_ms = (time.time() - start_time) * 1000
@@ -823,12 +825,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         try:
             self._do_DELETE_internal(path)
-        except Exception as e:
+        except (OSError, ConnectionError, BrokenPipeError, TimeoutError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+            # Top-level safety net for DELETE handlers
             status_code = 500
             logger.exception(f"[request] Unhandled exception in DELETE {path}: {e}")
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
-            except Exception as send_err:
+            except (OSError, ConnectionError, BrokenPipeError) as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
             duration_ms = (time.time() - start_time) * 1000
@@ -852,12 +855,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         try:
             self._do_PATCH_internal(path)
-        except Exception as e:
+        except (OSError, ConnectionError, BrokenPipeError, TimeoutError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+            # Top-level safety net for PATCH handlers
             status_code = 500
             logger.exception(f"[request] Unhandled exception in PATCH {path}: {e}")
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
-            except Exception as send_err:
+            except (OSError, ConnectionError, BrokenPipeError) as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
             duration_ms = (time.time() - start_time) * 1000
@@ -881,12 +885,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         try:
             self._do_PUT_internal(path)
-        except Exception as e:
+        except (OSError, ConnectionError, BrokenPipeError, TimeoutError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+            # Top-level safety net for PUT handlers
             status_code = 500
             logger.exception(f"[request] Unhandled exception in PUT {path}: {e}")
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
-            except Exception as send_err:
+            except (OSError, ConnectionError, BrokenPipeError) as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
             duration_ms = (time.time() - start_time) * 1000

@@ -60,15 +60,16 @@ class ReplaysHandler(BaseHandler):
         nomic_dir = self.ctx.get("nomic_dir")
 
         if path == "/api/replays":
-            return self._list_replays(nomic_dir)
+            limit = get_int_param(query_params, 'limit', 100)
+            return self._list_replays(nomic_dir, max(1, min(limit, 500)))
 
         if path == "/api/learning/evolution":
             limit = get_int_param(query_params, 'limit', 20)
-            return self._get_learning_evolution(nomic_dir, min(limit, 100))
+            return self._get_learning_evolution(nomic_dir, max(1, min(limit, 100)))
 
         if path == "/api/meta-learning/stats":
             limit = get_int_param(query_params, 'limit', 20)
-            return self._get_meta_learning_stats(nomic_dir, min(limit, 50))
+            return self._get_meta_learning_stats(nomic_dir, max(1, min(limit, 50)))
 
         if path.startswith("/api/replays/"):
             replay_id, err = self.extract_path_param(path, 2, "replay_id")
@@ -77,14 +78,14 @@ class ReplaysHandler(BaseHandler):
             # Support pagination for large replay files
             offset = get_int_param(query_params, 'offset', 0)
             limit = get_int_param(query_params, 'limit', 1000)
-            return self._get_replay(nomic_dir, replay_id, offset, min(limit, 5000))
+            return self._get_replay(nomic_dir, replay_id, max(0, offset), max(1, min(limit, 5000)))
 
         return None
 
     @ttl_cache(ttl_seconds=CACHE_TTL_REPLAYS_LIST, key_prefix="replays_list", skip_first=True)
     @handle_errors("replays list retrieval")
-    def _list_replays(self, nomic_dir: Optional[Path]) -> HandlerResult:
-        """List available replay directories."""
+    def _list_replays(self, nomic_dir: Optional[Path], limit: int = 100) -> HandlerResult:
+        """List available replay directories with bounded iteration."""
         if not nomic_dir:
             return json_response([])
 
@@ -92,24 +93,42 @@ class ReplaysHandler(BaseHandler):
         if not replays_dir.exists():
             return json_response([])
 
-        replays = []
-        for replay_path in replays_dir.iterdir():
-            if replay_path.is_dir():
-                meta_file = replay_path / "meta.json"
-                if meta_file.exists():
-                    try:
-                        meta = json.loads(meta_file.read_text())
-                        replays.append({
-                            "id": replay_path.name,
-                            "topic": meta.get("topic", replay_path.name),
-                            "agents": [a.get("name") for a in meta.get("agents", [])],
-                            "schema_version": meta.get("schema_version", "1.0"),
-                        })
-                    except json.JSONDecodeError:
-                        # Skip malformed meta files
-                        continue
+        # Collect directory entries with modification times (bounded iteration)
+        max_to_scan = limit * 3  # Scan more to account for missing meta.json
+        dir_entries: list[tuple[float, Path]] = []
 
-        return json_response(sorted(replays, key=lambda x: x["id"], reverse=True))
+        for replay_path in replays_dir.iterdir():
+            if not replay_path.is_dir():
+                continue
+            try:
+                mtime = replay_path.stat().st_mtime
+                dir_entries.append((mtime, replay_path))
+            except OSError:
+                continue
+            # Early termination to prevent memory exhaustion
+            if len(dir_entries) >= max_to_scan:
+                break
+
+        # Sort only the collected subset by modification time (newest first)
+        dir_entries.sort(key=lambda x: x[0], reverse=True)
+
+        replays = []
+        for _, replay_path in dir_entries[:limit]:
+            meta_file = replay_path / "meta.json"
+            if meta_file.exists():
+                try:
+                    meta = json.loads(meta_file.read_text())
+                    replays.append({
+                        "id": replay_path.name,
+                        "topic": meta.get("topic", replay_path.name),
+                        "agents": [a.get("name") for a in meta.get("agents", [])],
+                        "schema_version": meta.get("schema_version", "1.0"),
+                    })
+                except json.JSONDecodeError:
+                    # Skip malformed meta files
+                    continue
+
+        return json_response(replays)
 
     @handle_errors("replay retrieval")
     def _get_replay(

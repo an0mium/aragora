@@ -172,6 +172,11 @@ class RateLimiter:
             if key in self._buckets:
                 del self._buckets[key]
 
+    def clear(self) -> None:
+        """Clear all rate limit buckets (for testing)."""
+        with self._lock:
+            self._buckets.clear()
+
 
 # Global rate limiters for different endpoint categories
 _limiters: dict[str, RateLimiter] = {}
