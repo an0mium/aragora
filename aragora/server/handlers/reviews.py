@@ -73,7 +73,8 @@ class ReviewsHandler(BaseHandler):
 
     def _get_review(self, review_id: str) -> dict:
         """Get a specific review by ID."""
-        if not review_id or not review_id.isalnum():
+        # Validate ID: must be alphanumeric and reasonable length
+        if not review_id or not review_id.isalnum() or len(review_id) > 64:
             return {"error": "Invalid review ID", "status": 400}
 
         review_path = REVIEWS_DIR / f"{review_id}.json"
