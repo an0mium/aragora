@@ -42,10 +42,38 @@ class AuthConfig:
         self._max_revoked_tokens = auth_settings.max_revoked_tokens
 
     def configure_from_env(self):
-        """Configure from environment variables."""
+        """Configure from environment variables.
+
+        Auth is enabled when ARAGORA_API_TOKEN is set.
+        In production mode (ARAGORA_ENV=production), auth is mandatory -
+        the server will refuse to start without a configured API token.
+        """
+        import logging
+        _logger = logging.getLogger(__name__)
+
         self.api_token = os.getenv("ARAGORA_API_TOKEN")
+        env_mode = os.getenv("ARAGORA_ENV", "development").lower()
+        is_production = env_mode == "production"
+
         if self.api_token:
             self.enabled = True
+            _logger.info("Authentication enabled (API token configured)")
+        elif is_production:
+            # In production, auth is mandatory
+            _logger.error(
+                "SECURITY ERROR: ARAGORA_ENV=production but ARAGORA_API_TOKEN not set. "
+                "Authentication is required in production mode. "
+                "Set ARAGORA_API_TOKEN or use ARAGORA_ENV=development for testing."
+            )
+            raise RuntimeError(
+                "Authentication required in production mode. "
+                "Set ARAGORA_API_TOKEN environment variable."
+            )
+        else:
+            _logger.warning(
+                "Authentication disabled (no API token). "
+                "Set ARAGORA_API_TOKEN for access control."
+            )
 
         ttl_str = os.getenv("ARAGORA_TOKEN_TTL", "3600")
         try:
