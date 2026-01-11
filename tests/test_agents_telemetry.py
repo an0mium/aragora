@@ -244,13 +244,15 @@ class TestDefaultCollectors:
     """Tests for default telemetry collectors."""
 
     def test_prometheus_collector_success(self, completed_telemetry):
-        """Test Prometheus collector on success."""
-        with patch("aragora.agents.telemetry.record_agent_generation") as mock_gen:
-            with patch.dict("sys.modules", {"aragora.server.prometheus": MagicMock()}):
-                # Re-import to get patched version
-                from aragora.agents.telemetry import _default_prometheus_collector
-                # The ImportError path is taken since prometheus isn't actually available
-                _default_prometheus_collector(completed_telemetry)
+        """Test Prometheus collector handles success telemetry.
+
+        The collector attempts to import prometheus metrics and record them.
+        When prometheus isn't available (common in tests), it gracefully
+        handles the ImportError without raising.
+        """
+        # Should not raise - handles ImportError gracefully
+        _default_prometheus_collector(completed_telemetry)
+        # No assertion needed - we just verify it doesn't crash
 
     def test_prometheus_collector_import_error(self, completed_telemetry):
         """Test Prometheus collector handles ImportError gracefully."""
