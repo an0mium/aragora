@@ -444,8 +444,8 @@ class AuditingHandler(BaseHandler):
             for pt_str in parsed['probe_types']:
                 try:
                     probe_types.append(ProbeType(pt_str))
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug(f"Skipping invalid probe type '{pt_str}': {e}")
             if not probe_types:
                 return error_response("No valid probe types specified", 400)
 

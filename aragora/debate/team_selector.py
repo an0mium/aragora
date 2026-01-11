@@ -141,8 +141,8 @@ class TeamSelector:
                 elo = self.elo_system.get_rating(agent.name)
                 # Normalize: baseline is average, each 100 points = weight bonus
                 score += (elo - self.config.elo_baseline) / 1000 * self.config.elo_weight
-            except (KeyError, AttributeError):
-                pass
+            except (KeyError, AttributeError) as e:
+                logger.debug(f"ELO rating not found for {agent.name}: {e}")
 
         # Calibration contribution (well-calibrated agents get a bonus)
         if self.calibration_tracker:
@@ -150,8 +150,8 @@ class TeamSelector:
                 brier = self.calibration_tracker.get_brier_score(agent.name)
                 # Lower Brier = better calibration = higher score
                 score += (1 - brier) * self.config.calibration_weight
-            except (KeyError, AttributeError):
-                pass
+            except (KeyError, AttributeError) as e:
+                logger.debug(f"Calibration score not found for {agent.name}: {e}")
 
         return score
 

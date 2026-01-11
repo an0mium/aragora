@@ -5,6 +5,16 @@ Endpoints:
 - GET /api/pulse/trending - Get trending topics from multiple sources
 - GET /api/pulse/suggest - Suggest a trending topic for debate
 - GET /api/pulse/analytics - Get analytics on trending topic debate outcomes
+- POST /api/pulse/debate-topic - Start a debate on a trending topic
+
+Scheduler endpoints:
+- GET /api/pulse/scheduler/status - Current scheduler state and metrics
+- POST /api/pulse/scheduler/start - Start the scheduler
+- POST /api/pulse/scheduler/stop - Stop the scheduler
+- POST /api/pulse/scheduler/pause - Pause the scheduler
+- POST /api/pulse/scheduler/resume - Resume the scheduler
+- PATCH /api/pulse/scheduler/config - Update scheduler configuration
+- GET /api/pulse/scheduler/history - Get scheduled debate history
 """
 
 from __future__ import annotations
@@ -20,7 +30,9 @@ from .base import (
     BaseHandler, HandlerResult, json_response, error_response,
     get_int_param, get_string_param, validate_path_segment, SAFE_ID_PATTERN,
     feature_unavailable_response, auto_error_response, ttl_cache, safe_error_message,
+    require_auth,
 )
+from .utils.rate_limit import rate_limit
 
 
 # Shared PulseManager singleton for analytics tracking
@@ -28,6 +40,10 @@ from .base import (
 import threading
 _pulse_lock = threading.Lock()
 _shared_pulse_manager = None
+_shared_scheduler = None
+_shared_debate_store = None
+
+MAX_TOPIC_LENGTH = 200
 
 
 def get_pulse_manager():
@@ -57,6 +73,46 @@ def get_pulse_manager():
     return _shared_pulse_manager
 
 
+def get_scheduled_debate_store():
+    """Get or create the shared ScheduledDebateStore singleton."""
+    global _shared_debate_store
+    if _shared_debate_store is None:
+        with _pulse_lock:
+            if _shared_debate_store is None:
+                try:
+                    from aragora.pulse.store import ScheduledDebateStore
+                    from aragora.config.legacy import DATA_DIR
+                    db_path = DATA_DIR / "scheduled_debates.db"
+                    _shared_debate_store = ScheduledDebateStore(db_path)
+                except Exception as e:
+                    logger.warning(f"Failed to initialize ScheduledDebateStore: {e}")
+                    return None
+    return _shared_debate_store
+
+
+def get_pulse_scheduler():
+    """Get or create the shared PulseDebateScheduler singleton.
+
+    Note: The scheduler is created but not started automatically.
+    Call scheduler.start() to begin scheduling debates.
+    """
+    global _shared_scheduler
+    if _shared_scheduler is None:
+        with _pulse_lock:
+            if _shared_scheduler is None:
+                try:
+                    from aragora.pulse.scheduler import PulseDebateScheduler, SchedulerConfig
+                    manager = get_pulse_manager()
+                    store = get_scheduled_debate_store()
+                    if manager and store:
+                        _shared_scheduler = PulseDebateScheduler(manager, store)
+                        logger.info("PulseDebateScheduler singleton created")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize PulseDebateScheduler: {e}")
+                    return None
+    return _shared_scheduler
+
+
 class PulseHandler(BaseHandler):
     """Handler for pulse/trending topic endpoints."""
 
@@ -65,6 +121,13 @@ class PulseHandler(BaseHandler):
         "/api/pulse/suggest",
         "/api/pulse/analytics",
         "/api/pulse/debate-topic",
+        "/api/pulse/scheduler/status",
+        "/api/pulse/scheduler/start",
+        "/api/pulse/scheduler/stop",
+        "/api/pulse/scheduler/pause",
+        "/api/pulse/scheduler/resume",
+        "/api/pulse/scheduler/config",
+        "/api/pulse/scheduler/history",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -88,6 +151,15 @@ class PulseHandler(BaseHandler):
 
         if path == "/api/pulse/analytics":
             return self._get_analytics()
+
+        if path == "/api/pulse/scheduler/status":
+            return self._get_scheduler_status()
+
+        if path == "/api/pulse/scheduler/history":
+            limit = get_int_param(query_params, 'limit', 50)
+            offset = get_int_param(query_params, 'offset', 0)
+            platform = get_string_param(query_params, 'platform')
+            return self._get_scheduler_history(min(limit, 100), offset, platform)
 
         return None
 
@@ -247,8 +319,24 @@ class PulseHandler(BaseHandler):
         """Handle POST requests for pulse endpoints."""
         if path == "/api/pulse/debate-topic":
             return self._start_debate_on_topic(handler)
+        if path == "/api/pulse/scheduler/start":
+            return self._start_scheduler(handler)
+        if path == "/api/pulse/scheduler/stop":
+            return self._stop_scheduler(handler)
+        if path == "/api/pulse/scheduler/pause":
+            return self._pause_scheduler(handler)
+        if path == "/api/pulse/scheduler/resume":
+            return self._resume_scheduler(handler)
         return None
 
+    def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+        """Handle PATCH requests for pulse endpoints."""
+        if path == "/api/pulse/scheduler/config":
+            return self._update_scheduler_config(handler)
+        return None
+
+    @require_auth
+    @rate_limit(rpm=5, limiter_name="pulse_debate_topic")
     def _start_debate_on_topic(self, handler) -> HandlerResult:
         """Start a debate on a trending topic.
 
@@ -280,13 +368,16 @@ class PulseHandler(BaseHandler):
         except (json_module.JSONDecodeError, ValueError) as e:
             return error_response(f"Invalid JSON: {e}", 400)
 
-        topic = data.get("topic")
+        topic = data.get("topic", "")
+        if not isinstance(topic, str):
+            return error_response("topic must be a string", 400)
+        topic = topic.strip()
         if not topic:
             return error_response("topic is required", 400)
-
-        # Validate topic
-        is_valid, err = validate_path_segment(topic[:50], "topic", SAFE_ID_PATTERN)
-        # Note: topic can contain spaces, so we only validate first 50 chars for safety
+        if len(topic) > MAX_TOPIC_LENGTH:
+            return error_response(f"topic exceeds {MAX_TOPIC_LENGTH} characters", 400)
+        if any(ch in topic for ch in ("\x00", "\n", "\r")):
+            return error_response("topic contains invalid characters", 400)
 
         try:
             from aragora import Arena, Environment, DebateProtocol
@@ -296,11 +387,21 @@ class PulseHandler(BaseHandler):
 
         # Get parameters
         agent_names = data.get("agents", ["anthropic-api", "openai-api"])
+        if isinstance(agent_names, str):
+            agent_names = [a.strip() for a in agent_names.split(",") if a.strip()]
+        if not isinstance(agent_names, list):
+            return error_response("agents must be a list or comma-separated string", 400)
         rounds = data.get("rounds", 3)
         consensus = data.get("consensus", "majority")
 
         # Validate parameters
-        rounds = min(max(int(rounds), 1), 10)  # Clamp 1-10
+        try:
+            rounds = min(max(int(rounds), 1), 10)  # Clamp 1-10
+        except (TypeError, ValueError):
+            rounds = 3
+        consensus = str(consensus).strip()
+        if consensus not in {"majority", "unanimous", "judge", "none"}:
+            return error_response("consensus must be one of: majority, unanimous, judge, none", 400)
 
         try:
             # Create environment
@@ -363,3 +464,260 @@ class PulseHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to run debate on topic: {e}")
             return error_response(safe_error_message(e, "start debate"), 500)
+
+    # ==================== Scheduler Endpoints ====================
+
+    @auto_error_response("get scheduler status")
+    def _get_scheduler_status(self) -> HandlerResult:
+        """Get current scheduler status.
+
+        GET /api/pulse/scheduler/status
+
+        Returns scheduler state, configuration, and metrics.
+        """
+        scheduler = get_pulse_scheduler()
+        if not scheduler:
+            return feature_unavailable_response("pulse scheduler")
+
+        status = scheduler.get_status()
+
+        # Add store analytics
+        store = get_scheduled_debate_store()
+        if store:
+            status["store_analytics"] = store.get_analytics()
+
+        return json_response(status)
+
+    @require_auth
+    @rate_limit(rpm=5, limiter_name="scheduler_control")
+    @auto_error_response("start scheduler")
+    def _start_scheduler(self, handler) -> HandlerResult:
+        """Start the pulse debate scheduler.
+
+        POST /api/pulse/scheduler/start
+
+        The scheduler will poll for trending topics and create debates
+        automatically based on its configuration.
+        """
+        scheduler = get_pulse_scheduler()
+        if not scheduler:
+            return feature_unavailable_response("pulse scheduler")
+
+        # Set up the debate creator callback if not already set
+        if not scheduler._debate_creator:
+            async def create_debate(topic_text: str, rounds: int, threshold: float):
+                try:
+                    from aragora import Arena, Environment, DebateProtocol
+                    from aragora.agents import get_agents_by_names
+
+                    env = Environment(task=topic_text)
+                    agents = get_agents_by_names(["anthropic-api", "openai-api"])
+                    protocol = DebateProtocol(rounds=rounds, consensus="majority")
+
+                    if not agents:
+                        logger.warning("No agents available for scheduled debate")
+                        return None
+
+                    arena = Arena.from_env(env, agents, protocol)
+                    result = await arena.run()
+
+                    return {
+                        "debate_id": result.id,
+                        "consensus_reached": result.consensus_reached,
+                        "confidence": result.confidence,
+                        "rounds_used": result.rounds_used,
+                    }
+                except Exception as e:
+                    logger.error(f"Scheduled debate creation failed: {e}")
+                    return None
+
+            scheduler.set_debate_creator(create_debate)
+
+        # Start the scheduler
+        async def start():
+            await scheduler.start()
+
+        try:
+            self._run_async_safely(start)
+            return json_response({
+                "success": True,
+                "message": "Scheduler started",
+                "state": scheduler.state.value,
+            })
+        except RuntimeError as e:
+            return error_response(str(e), 400)
+
+    @require_auth
+    @rate_limit(rpm=5, limiter_name="scheduler_control")
+    @auto_error_response("stop scheduler")
+    def _stop_scheduler(self, handler) -> HandlerResult:
+        """Stop the pulse debate scheduler.
+
+        POST /api/pulse/scheduler/stop
+        Body: { "graceful": true }  // Optional, default true
+        """
+        scheduler = get_pulse_scheduler()
+        if not scheduler:
+            return feature_unavailable_response("pulse scheduler")
+
+        # Read body for graceful flag
+        import json as json_module
+        graceful = True
+        try:
+            content_length = int(handler.headers.get('Content-Length', 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json_module.loads(body.decode('utf-8'))
+                graceful = data.get("graceful", True)
+        except (ValueError, json_module.JSONDecodeError, UnicodeDecodeError) as e:
+            # Failed to parse body, use default graceful=True
+            logger.debug(f"Failed to parse stop request body, using graceful=True: {e}")
+
+        async def stop():
+            await scheduler.stop(graceful=graceful)
+
+        self._run_async_safely(stop)
+
+        return json_response({
+            "success": True,
+            "message": f"Scheduler stopped (graceful={graceful})",
+            "state": scheduler.state.value,
+        })
+
+    @require_auth
+    @rate_limit(rpm=5, limiter_name="scheduler_control")
+    @auto_error_response("pause scheduler")
+    def _pause_scheduler(self, handler) -> HandlerResult:
+        """Pause the pulse debate scheduler.
+
+        POST /api/pulse/scheduler/pause
+        """
+        scheduler = get_pulse_scheduler()
+        if not scheduler:
+            return feature_unavailable_response("pulse scheduler")
+
+        async def pause():
+            await scheduler.pause()
+
+        self._run_async_safely(pause)
+
+        return json_response({
+            "success": True,
+            "message": "Scheduler paused",
+            "state": scheduler.state.value,
+        })
+
+    @require_auth
+    @rate_limit(rpm=5, limiter_name="scheduler_control")
+    @auto_error_response("resume scheduler")
+    def _resume_scheduler(self, handler) -> HandlerResult:
+        """Resume the pulse debate scheduler.
+
+        POST /api/pulse/scheduler/resume
+        """
+        scheduler = get_pulse_scheduler()
+        if not scheduler:
+            return feature_unavailable_response("pulse scheduler")
+
+        async def resume():
+            await scheduler.resume()
+
+        self._run_async_safely(resume)
+
+        return json_response({
+            "success": True,
+            "message": "Scheduler resumed",
+            "state": scheduler.state.value,
+        })
+
+    @require_auth
+    @rate_limit(rpm=10, limiter_name="scheduler_config")
+    @auto_error_response("update scheduler config")
+    def _update_scheduler_config(self, handler) -> HandlerResult:
+        """Update scheduler configuration.
+
+        PATCH /api/pulse/scheduler/config
+        Body: {
+            "poll_interval_seconds": 300,
+            "max_debates_per_hour": 6,
+            "min_volume_threshold": 100,
+            "allowed_categories": ["tech", "ai", "science"],
+            ...
+        }
+        """
+        scheduler = get_pulse_scheduler()
+        if not scheduler:
+            return feature_unavailable_response("pulse scheduler")
+
+        import json as json_module
+        try:
+            content_length = int(handler.headers.get('Content-Length', 0))
+            if content_length == 0:
+                return error_response("Request body is required", 400)
+            body = handler.rfile.read(content_length)
+            updates = json_module.loads(body.decode('utf-8'))
+        except (json_module.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        if not isinstance(updates, dict):
+            return error_response("Body must be a JSON object", 400)
+
+        # Validate config keys
+        valid_keys = {
+            "poll_interval_seconds", "platforms", "max_debates_per_hour",
+            "min_interval_between_debates", "min_volume_threshold",
+            "min_controversy_score", "allowed_categories", "blocked_categories",
+            "dedup_window_hours", "debate_rounds", "consensus_threshold"
+        }
+        invalid_keys = set(updates.keys()) - valid_keys
+        if invalid_keys:
+            return error_response(f"Invalid config keys: {invalid_keys}", 400)
+
+        scheduler.update_config(updates)
+
+        return json_response({
+            "success": True,
+            "message": f"Updated config keys: {list(updates.keys())}",
+            "config": scheduler.config.to_dict(),
+        })
+
+    @auto_error_response("get scheduler history")
+    def _get_scheduler_history(
+        self,
+        limit: int,
+        offset: int,
+        platform: str | None,
+    ) -> HandlerResult:
+        """Get scheduled debate history.
+
+        GET /api/pulse/scheduler/history?limit=50&offset=0&platform=hackernews
+        """
+        store = get_scheduled_debate_store()
+        if not store:
+            return feature_unavailable_response("pulse scheduler")
+
+        records = store.get_history(limit=limit, offset=offset, platform=platform)
+
+        return json_response({
+            "debates": [
+                {
+                    "id": r.id,
+                    "topic": r.topic_text,
+                    "platform": r.platform,
+                    "category": r.category,
+                    "volume": r.volume,
+                    "debate_id": r.debate_id,
+                    "created_at": r.created_at,
+                    "hours_ago": r.hours_ago,
+                    "consensus_reached": r.consensus_reached,
+                    "confidence": r.confidence,
+                    "rounds_used": r.rounds_used,
+                    "scheduler_run_id": r.scheduler_run_id,
+                }
+                for r in records
+            ],
+            "count": len(records),
+            "total": store.count_total(),
+            "limit": limit,
+            "offset": offset,
+        })

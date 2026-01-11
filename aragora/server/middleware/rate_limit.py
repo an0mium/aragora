@@ -429,6 +429,11 @@ class RateLimiter:
         self._lock = threading.Lock()
         self._last_cleanup = time.monotonic()
 
+        # Observability metrics
+        self._requests_allowed: int = 0
+        self._requests_rejected: int = 0
+        self._rejections_by_endpoint: Dict[str, int] = {}
+
     def configure_endpoint(
         self,
         endpoint: str,
@@ -482,26 +487,47 @@ class RateLimiter:
         """
         self._maybe_cleanup()
 
-        config = self.get_config(endpoint) if endpoint else RateLimitConfig()
+        normalized_endpoint = normalize_rate_limit_path(endpoint) if endpoint else None
+        config = self.get_config(normalized_endpoint) if normalized_endpoint else RateLimitConfig()
         if not config.enabled:
             return RateLimitResult(allowed=True, limit=0)
 
+        client_ip = _normalize_ip(client_ip or "anonymous")
+        safe_ip = sanitize_rate_limit_key_component(client_ip)
+        safe_token = sanitize_rate_limit_key_component(token) if token else None
+        safe_endpoint = (
+            sanitize_rate_limit_key_component(normalized_endpoint)
+            if normalized_endpoint
+            else None
+        )
+
         # Determine the key based on config
-        if config.key_type == "token" and token:
-            key = f"token:{token}"
-            bucket = self._get_or_create_token_bucket(token, config)
-        elif config.key_type == "combined" and endpoint:
-            key = f"ep:{endpoint}:ip:{client_ip}"
-            bucket = self._get_or_create_endpoint_bucket(endpoint, client_ip, config)
-        elif config.key_type == "endpoint" and endpoint:
-            key = f"ep:{endpoint}"
-            bucket = self._get_or_create_endpoint_bucket(endpoint, "_global", config)
+        if config.key_type == "token" and safe_token:
+            key = f"token:{safe_token}"
+            bucket = self._get_or_create_token_bucket(safe_token, config)
+        elif config.key_type == "combined" and safe_endpoint:
+            key = f"ep:{safe_endpoint}:ip:{safe_ip}"
+            bucket = self._get_or_create_endpoint_bucket(safe_endpoint, safe_ip, config)
+        elif config.key_type == "endpoint" and safe_endpoint:
+            key = f"ep:{safe_endpoint}"
+            bucket = self._get_or_create_endpoint_bucket(safe_endpoint, "_global", config)
         else:
             # Default to IP-based limiting
-            key = f"ip:{client_ip}"
-            bucket = self._get_or_create_ip_bucket(client_ip)
+            key = f"ip:{safe_ip}"
+            bucket = self._get_or_create_ip_bucket(safe_ip)
 
         allowed = bucket.consume(1)
+
+        # Track metrics
+        with self._lock:
+            if allowed:
+                self._requests_allowed += 1
+            else:
+                self._requests_rejected += 1
+                if safe_endpoint:
+                    self._rejections_by_endpoint[safe_endpoint] = (
+                        self._rejections_by_endpoint.get(safe_endpoint, 0) + 1
+                    )
 
         return RateLimitResult(
             allowed=allowed,
@@ -656,19 +682,40 @@ class RateLimiter:
             self._endpoint_buckets.clear()
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get rate limiter statistics."""
+        """Get rate limiter statistics including observability metrics."""
         with self._lock:
+            total_requests = self._requests_allowed + self._requests_rejected
+            rejection_rate = (
+                self._requests_rejected / total_requests
+                if total_requests > 0
+                else 0.0
+            )
             return {
+                # Bucket counts
                 "ip_buckets": len(self._ip_buckets),
                 "token_buckets": len(self._token_buckets),
                 "endpoint_buckets": {
                     ep: len(buckets)
                     for ep, buckets in self._endpoint_buckets.items()
                 },
+                # Configuration
                 "configured_endpoints": list(self._endpoint_configs.keys()),
                 "default_limit": self.default_limit,
                 "ip_limit": self.ip_limit,
+                # Observability metrics
+                "requests_allowed": self._requests_allowed,
+                "requests_rejected": self._requests_rejected,
+                "total_requests": total_requests,
+                "rejection_rate": rejection_rate,
+                "rejections_by_endpoint": dict(self._rejections_by_endpoint),
             }
+
+    def reset_metrics(self) -> None:
+        """Reset observability metrics (useful for testing)."""
+        with self._lock:
+            self._requests_allowed = 0
+            self._requests_rejected = 0
+            self._rejections_by_endpoint.clear()
 
     def get_client_key(self, handler: Any) -> str:
         """
@@ -700,7 +747,8 @@ class RateLimiter:
             xff_header = handler.headers.get("X-Forwarded-For", "")
 
         # Only trust XFF from configured trusted proxies
-        return _extract_client_ip(remote_ip, xff_header)
+        client_ip = _extract_client_ip(remote_ip, xff_header)
+        return sanitize_rate_limit_key_component(client_ip)
 
 
 # Use ServiceRegistry for rate limiter management
@@ -811,6 +859,11 @@ class RedisRateLimiter:
         self._buckets: Dict[str, RedisTokenBucket] = {}
         self._lock = threading.Lock()
 
+        # Observability metrics (in-memory, not persisted to Redis)
+        self._requests_allowed: int = 0
+        self._requests_rejected: int = 0
+        self._rejections_by_endpoint: Dict[str, int] = {}
+
     def configure_endpoint(
         self,
         endpoint: str,
@@ -819,21 +872,23 @@ class RedisRateLimiter:
         key_type: str = "ip",
     ) -> None:
         """Configure rate limit for a specific endpoint."""
-        self._endpoint_configs[endpoint] = RateLimitConfig(
+        normalized_endpoint = normalize_rate_limit_path(endpoint)
+        self._endpoint_configs[normalized_endpoint] = RateLimitConfig(
             requests_per_minute=requests_per_minute,
             burst_size=burst_size,
             key_type=key_type,
         )
         # Also configure fallback
-        self._fallback.configure_endpoint(endpoint, requests_per_minute, burst_size, key_type)
+        self._fallback.configure_endpoint(normalized_endpoint, requests_per_minute, burst_size, key_type)
 
     def get_config(self, endpoint: str) -> RateLimitConfig:
         """Get rate limit config for an endpoint."""
-        if endpoint in self._endpoint_configs:
-            return self._endpoint_configs[endpoint]
+        normalized_endpoint = normalize_rate_limit_path(endpoint)
+        if normalized_endpoint in self._endpoint_configs:
+            return self._endpoint_configs[normalized_endpoint]
 
         for path, config in self._endpoint_configs.items():
-            if path.endswith("*") and endpoint.startswith(path[:-1]):
+            if path.endswith("*") and normalized_endpoint.startswith(path[:-1]):
                 return config
 
         return RateLimitConfig(requests_per_minute=self.default_limit)
@@ -859,23 +914,44 @@ class RedisRateLimiter:
         token: str | None = None,
     ) -> RateLimitResult:
         """Check if a request should be allowed."""
-        config = self.get_config(endpoint) if endpoint else RateLimitConfig()
+        normalized_endpoint = normalize_rate_limit_path(endpoint) if endpoint else None
+        config = self.get_config(normalized_endpoint) if normalized_endpoint else RateLimitConfig()
         if not config.enabled:
             return RateLimitResult(allowed=True, limit=0)
 
+        client_ip = _normalize_ip(client_ip or "anonymous")
+        safe_ip = sanitize_rate_limit_key_component(client_ip)
+        safe_token = sanitize_rate_limit_key_component(token) if token else None
+        safe_endpoint = (
+            sanitize_rate_limit_key_component(normalized_endpoint)
+            if normalized_endpoint
+            else None
+        )
+
         # Determine the key based on config
-        if config.key_type == "token" and token:
-            key = f"token:{token}"
-        elif config.key_type == "combined" and endpoint:
-            key = f"ep:{endpoint}:ip:{client_ip}"
-        elif config.key_type == "endpoint" and endpoint:
-            key = f"ep:{endpoint}"
+        if config.key_type == "token" and safe_token:
+            key = f"token:{safe_token}"
+        elif config.key_type == "combined" and safe_endpoint:
+            key = f"ep:{safe_endpoint}:ip:{safe_ip}"
+        elif config.key_type == "endpoint" and safe_endpoint:
+            key = f"ep:{safe_endpoint}"
         else:
-            key = f"ip:{client_ip}"
+            key = f"ip:{safe_ip}"
 
         try:
             bucket = self._get_bucket(key, config)
             allowed = bucket.consume(1)
+
+            # Track metrics
+            with self._lock:
+                if allowed:
+                    self._requests_allowed += 1
+                else:
+                    self._requests_rejected += 1
+                    if safe_endpoint:
+                        self._rejections_by_endpoint[safe_endpoint] = (
+                            self._rejections_by_endpoint.get(safe_endpoint, 0) + 1
+                        )
 
             return RateLimitResult(
                 allowed=allowed,
@@ -893,23 +969,44 @@ class RedisRateLimiter:
         return self._fallback.get_client_key(handler)
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get rate limiter statistics."""
-        try:
-            # Count Redis keys with our prefix
-            keys = list(self.redis.scan_iter(f"{self.key_prefix}*", count=1000))
-            return {
+        """Get rate limiter statistics including observability metrics."""
+        with self._lock:
+            total_requests = self._requests_allowed + self._requests_rejected
+            rejection_rate = (
+                self._requests_rejected / total_requests
+                if total_requests > 0
+                else 0.0
+            )
+            base_stats = {
                 "backend": "redis",
-                "redis_keys": len(keys),
                 "configured_endpoints": list(self._endpoint_configs.keys()),
                 "default_limit": self.default_limit,
                 "ip_limit": self.ip_limit,
+                # Observability metrics
+                "requests_allowed": self._requests_allowed,
+                "requests_rejected": self._requests_rejected,
+                "total_requests": total_requests,
+                "rejection_rate": rejection_rate,
+                "rejections_by_endpoint": dict(self._rejections_by_endpoint),
             }
+
+        try:
+            # Count Redis keys with our prefix
+            keys = list(self.redis.scan_iter(f"{self.key_prefix}*", count=1000))
+            base_stats["redis_keys"] = len(keys)
+            return base_stats
         except Exception as e:
-            return {
-                "backend": "redis",
-                "error": str(e),
-                "fallback_stats": self._fallback.get_stats(),
-            }
+            base_stats["error"] = str(e)
+            base_stats["fallback_stats"] = self._fallback.get_stats()
+            return base_stats
+
+    def reset_metrics(self) -> None:
+        """Reset observability metrics (useful for testing)."""
+        with self._lock:
+            self._requests_allowed = 0
+            self._requests_rejected = 0
+            self._rejections_by_endpoint.clear()
+        self._fallback.reset_metrics()
 
     def cleanup(self, max_age_seconds: int = 300) -> int:
         """Redis handles TTL-based cleanup automatically."""
@@ -1430,7 +1527,7 @@ def check_user_rate_limit(
     if hasattr(handler, "headers"):
         xff_header = handler.headers.get("X-Forwarded-For", "")
 
-    client_ip = _extract_client_ip(remote_ip, xff_header)
+    client_ip = sanitize_rate_limit_key_component(_extract_client_ip(remote_ip, xff_header))
     client_key = f"ip:{client_ip}" if client_ip != "anon" else "anon"
 
     # Try to extract authenticated user
@@ -1542,7 +1639,7 @@ def check_tier_rate_limit(
     if hasattr(handler, "headers"):
         xff_header = handler.headers.get("X-Forwarded-For", "")
 
-    client_key = _extract_client_ip(remote_ip, xff_header)
+    client_key = sanitize_rate_limit_key_component(_extract_client_ip(remote_ip, xff_header))
 
     # Try to look up user tier
     if user_store:

@@ -14,8 +14,11 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 import json
+import logging
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 # Allowed base directories for plugin manifests
@@ -253,8 +256,8 @@ class PluginManifest:
         for r in data.get("requirements", []):
             try:
                 requirements.append(PluginRequirement(r))
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug(f"Skipping invalid plugin requirement '{r}': {e}")
 
         return cls(
             name=data.get("name", ""),

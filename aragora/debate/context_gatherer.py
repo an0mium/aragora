@@ -108,7 +108,7 @@ class ContextGatherer:
         Gather Aragora-specific documentation context if task is relevant.
 
         Only activates for tasks mentioning Aragora, multi-agent debates,
-        nomic loop, or debate framework.
+        decision stress-tests, nomic loop, or the debate framework.
 
         Args:
             task: The debate topic/task description.
@@ -119,7 +119,16 @@ class ContextGatherer:
         task_lower = task.lower()
         is_aragora_topic = any(
             kw in task_lower
-            for kw in ["aragora", "multi-agent debate", "nomic loop", "debate framework"]
+            for kw in [
+                "aragora",
+                "multi-agent debate",
+                "decision stress-test",
+                "ai red team",
+                "adversarial validation",
+                "gauntlet",
+                "nomic loop",
+                "debate framework",
+            ]
         )
 
         if not is_aragora_topic:
@@ -134,8 +143,8 @@ class ContextGatherer:
                 try:
                     if path.exists():
                         return path.read_text()[:limit]
-                except (OSError, UnicodeDecodeError):
-                    pass
+                except (OSError, UnicodeDecodeError) as e:
+                    logger.debug(f"Failed to read file {path}: {e}")
                 return None
 
             # Read key documentation files

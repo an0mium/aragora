@@ -248,8 +248,9 @@ class CognitiveLoadLimiter:
             try:
                 message.content = truncated
                 return message
-            except (AttributeError, TypeError):
-                pass
+            except (AttributeError, TypeError) as e:
+                # Object is immutable, return raw truncated content
+                logger.debug(f"Could not mutate message object: {e}")
 
         return truncated
 
@@ -323,8 +324,9 @@ class CognitiveLoadLimiter:
             try:
                 critique.reasoning = summarized
                 return critique
-            except (AttributeError, TypeError):
-                pass
+            except (AttributeError, TypeError) as e:
+                # Object is immutable, return raw summarized content
+                logger.debug(f"Could not mutate critique object: {e}")
 
         return summarized
 

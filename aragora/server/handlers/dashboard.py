@@ -207,8 +207,8 @@ class DashboardHandler(BaseHandler):
                                 recent_consensus += 1
                             d_domain = d.get("domain", "general")
                             domain_counts[d_domain] = domain_counts.get(d_domain, 0) + 1
-                    except (ValueError, KeyError):
-                        pass
+                    except (ValueError, KeyError) as e:
+                        logger.debug(f"Skipping debate with invalid timestamp: {e}")
 
                 # Pattern metrics
                 if d.get("disagreement_report"):
@@ -748,8 +748,8 @@ class DashboardHandler(BaseHandler):
                                 "debates_count": version.debates_count,
                             }
                             metrics["total_versions"] += version.version
-                    except (AttributeError, KeyError):
-                        pass
+                    except (AttributeError, KeyError) as e:
+                        logger.debug(f"Skipping agent version with missing data: {e}")
 
                 # Get pattern count
                 patterns = prompt_evolver.get_top_patterns(limit=100)

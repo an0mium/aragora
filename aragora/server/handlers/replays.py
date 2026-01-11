@@ -267,8 +267,8 @@ class ReplaysHandler(BaseHandler):
                         "critique_quality": rating.get("calibration_score", 0.5),
                         "reputation_score": min(rating.get("elo", 1000) / 2000, 1.0),  # Normalize ELO to 0-1
                     })
-            except (json.JSONDecodeError, KeyError):
-                pass
+            except (json.JSONDecodeError, KeyError) as e:
+                logger.debug(f"Failed to parse ELO snapshot {snapshot_file.name}: {e}")
 
         # Collect debate data from nomic state history
         debates: list[dict] = []
@@ -301,8 +301,8 @@ class ReplaysHandler(BaseHandler):
                         "avg_rounds": avg_rounds,
                         "avg_duration": avg_duration,
                     })
-            except (json.JSONDecodeError, KeyError):
-                pass
+            except (json.JSONDecodeError, KeyError) as e:
+                logger.debug(f"Failed to parse nomic state for debate history: {e}")
 
         return json_response({
             "patterns": patterns,

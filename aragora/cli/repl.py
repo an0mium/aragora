@@ -6,10 +6,13 @@ and exploring the Aragora system.
 """
 
 import asyncio
+import logging
 import readline
 import sys
 from pathlib import Path
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 # REPL history file
 HISTORY_FILE = Path.home() / ".aragora_history"
@@ -49,8 +52,8 @@ class AragoraREPL:
             if HISTORY_FILE.exists():
                 readline.read_history_file(HISTORY_FILE)
             readline.set_history_length(1000)
-        except (OSError, PermissionError):
-            pass
+        except (OSError, PermissionError) as e:
+            logger.debug(f"Failed to load readline history: {e}")
 
         # Tab completion for commands
         def completer(text: str, state: int) -> Optional[str]:
@@ -66,8 +69,8 @@ class AragoraREPL:
         """Save command history."""
         try:
             readline.write_history_file(HISTORY_FILE)
-        except (OSError, PermissionError):
-            pass
+        except (OSError, PermissionError) as e:
+            logger.debug(f"Failed to save readline history: {e}")
 
     def print_banner(self) -> None:
         """Print welcome banner."""

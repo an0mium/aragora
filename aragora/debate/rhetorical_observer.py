@@ -344,8 +344,8 @@ class RhetoricalAnalysisObserver:
                 try:
                     if re.search(regex, content_lower):
                         score += 0.3
-                except re.error:
-                    pass
+                except re.error as e:
+                    logger.debug(f"Invalid regex pattern '{regex}': {e}")
 
             # Normalize score
             confidence = min(1.0, score)
@@ -376,8 +376,8 @@ class RhetoricalAnalysisObserver:
                 try:
                     if re.search(regex, sentence_lower):
                         return sentence.strip()[:150]
-                except re.error:
-                    pass
+                except re.error as e:
+                    logger.debug(f"Invalid regex pattern '{regex}': {e}")
 
         # Fallback to first sentence
         if sentences:

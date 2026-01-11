@@ -13,10 +13,13 @@ Example usage via API:
 
 import asyncio
 import json
+import logging
 import re
 import shutil
 
 from aragora.plugins.runner import PluginContext
+
+logger = logging.getLogger(__name__)
 
 
 async def run(context: PluginContext) -> dict:
@@ -147,8 +150,8 @@ def _parse_json_report(output: str) -> dict:
                 "duration": data.get("duration", 0),
                 "total": summary.get("total", 0),
             }
-    except (json.JSONDecodeError, AttributeError):
-        pass
+    except (json.JSONDecodeError, AttributeError) as e:
+        logger.debug(f"Failed to parse pytest JSON output: {e}")
     return {}
 
 

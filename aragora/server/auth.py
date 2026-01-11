@@ -78,8 +78,8 @@ class AuthConfig:
         ttl_str = os.getenv("ARAGORA_TOKEN_TTL", "3600")
         try:
             self.token_ttl = int(ttl_str)
-        except ValueError:
-            pass
+        except ValueError as e:
+            _logger.warning(f"Invalid ARAGORA_TOKEN_TTL '{ttl_str}', using default: {e}")
 
         origins = os.getenv("ARAGORA_ALLOWED_ORIGINS")
         if origins:

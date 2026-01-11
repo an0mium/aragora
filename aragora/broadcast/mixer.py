@@ -42,8 +42,8 @@ def _detect_audio_codec(audio_file: Path) -> Optional[str]:
         )
         if result.returncode == 0:
             return result.stdout.strip() or None
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        pass
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        logger.debug(f"ffprobe codec detection failed for {audio_path}: {e}")
     return None
 
 

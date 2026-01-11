@@ -7,10 +7,11 @@ like "database is locked" and "database is busy".
 
 import logging
 import sqlite3
+import threading
 import time
 from contextlib import contextmanager
 from functools import wraps
-from typing import Callable, Optional, TypeVar
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 from aragora.config import DB_TIMEOUT_SECONDS
 
@@ -117,8 +118,8 @@ class ResilientConnection:
                 if conn:
                     try:
                         conn.rollback()
-                    except sqlite3.Error:
-                        pass
+                    except sqlite3.Error as rollback_err:
+                        logger.debug(f"Rollback failed during error recovery: {rollback_err}")
 
                 if not is_transient_error(e) or attempt >= self.max_retries:
                     logger.error(
@@ -136,8 +137,8 @@ class ResilientConnection:
                 if conn:
                     try:
                         conn.close()
-                    except sqlite3.Error:
-                        pass
+                    except sqlite3.Error as close_err:
+                        logger.debug(f"Connection close failed: {close_err}")
 
         # Should not reach here, but just in case
         if last_error:
@@ -295,8 +296,8 @@ def atomic_transaction(
             if conn:
                 try:
                     conn.rollback()
-                except sqlite3.Error:
-                    pass
+                except sqlite3.Error as rollback_err:
+                    logger.debug(f"Rollback failed in atomic_transaction: {rollback_err}")
 
             if not is_transient_error(e) or attempt >= max_retries:
                 logger.error(
@@ -314,8 +315,8 @@ def atomic_transaction(
             if conn:
                 try:
                     conn.close()
-                except sqlite3.Error:
-                    pass
+                except sqlite3.Error as close_err:
+                    logger.debug(f"Connection close failed in atomic_transaction: {close_err}")
 
     # Should not reach here, but just in case
     if last_error:
@@ -324,10 +325,20 @@ def atomic_transaction(
 
 class ConnectionPool:
     """
-    Simple connection pool for SQLite with health checking.
+    Thread-safe connection pool for SQLite with WAL mode and health checking.
 
     Maintains a pool of reusable connections to reduce connection overhead.
     Automatically removes stale connections and creates new ones as needed.
+
+    Usage:
+        pool = ConnectionPool("/path/to/db.sqlite")
+
+        with pool.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users")
+
+        # Get stats for observability
+        stats = pool.get_stats()
     """
 
     def __init__(
@@ -335,6 +346,7 @@ class ConnectionPool:
         db_path: str,
         max_connections: int = 5,
         timeout: float = DB_TIMEOUT_SECONDS,
+        enable_wal: bool = True,
     ):
         """
         Initialize connection pool.
@@ -343,17 +355,33 @@ class ConnectionPool:
             db_path: Path to SQLite database
             max_connections: Maximum pool size
             timeout: SQLite busy timeout
+            enable_wal: Enable WAL mode for better concurrency
         """
         self.db_path = db_path
         self.max_connections = max_connections
         self.timeout = timeout
+        self.enable_wal = enable_wal
         self._pool: list[sqlite3.Connection] = []
         self._in_use: set[sqlite3.Connection] = set()
+        self._lock = threading.Lock()
+
+        # Observability metrics
+        self._connections_created: int = 0
+        self._connections_reused: int = 0
+        self._connections_closed: int = 0
+        self._health_check_failures: int = 0
 
     def _create_connection(self) -> sqlite3.Connection:
-        """Create a new connection."""
+        """Create a new connection with WAL mode."""
         conn = sqlite3.connect(self.db_path, timeout=self.timeout)
         conn.row_factory = sqlite3.Row
+
+        # Enable WAL mode for better concurrency
+        if self.enable_wal:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=30000")  # 30 second busy timeout
+
+        self._connections_created += 1
         return conn
 
     def _is_connection_healthy(self, conn: sqlite3.Connection) -> bool:
@@ -362,12 +390,13 @@ class ConnectionPool:
             conn.execute("SELECT 1")
             return True
         except sqlite3.Error:
+            self._health_check_failures += 1
             return False
 
     @contextmanager
     def get_connection(self):
         """
-        Get a connection from the pool.
+        Get a connection from the pool (thread-safe).
 
         Yields:
             sqlite3.Connection: A database connection
@@ -376,48 +405,87 @@ class ConnectionPool:
         """
         conn: Optional[sqlite3.Connection] = None
 
-        # Try to get an existing connection from pool
-        while self._pool:
-            candidate = self._pool.pop()
-            if self._is_connection_healthy(candidate):
-                conn = candidate
-                break
-            else:
-                try:
-                    candidate.close()
-                except sqlite3.Error:
-                    pass
+        with self._lock:
+            # Try to get an existing connection from pool
+            while self._pool:
+                candidate = self._pool.pop()
+                if self._is_connection_healthy(candidate):
+                    conn = candidate
+                    self._connections_reused += 1
+                    break
+                else:
+                    try:
+                        candidate.close()
+                        self._connections_closed += 1
+                    except sqlite3.Error as close_err:
+                        logger.debug(f"Failed to close unhealthy connection: {close_err}")
 
-        # Create new connection if needed
-        if conn is None:
-            conn = self._create_connection()
+            # Create new connection if needed
+            if conn is None:
+                conn = self._create_connection()
 
-        self._in_use.add(conn)
+            self._in_use.add(conn)
+
         try:
             yield conn
         finally:
-            self._in_use.discard(conn)
-            # Return to pool if not at max
-            if len(self._pool) < self.max_connections:
-                self._pool.append(conn)
-            else:
+            with self._lock:
+                self._in_use.discard(conn)
+                # Return to pool if not at max
+                if len(self._pool) < self.max_connections:
+                    self._pool.append(conn)
+                else:
+                    try:
+                        conn.close()
+                        self._connections_closed += 1
+                    except sqlite3.Error as close_err:
+                        logger.debug(f"Failed to close excess connection: {close_err}")
+
+    def close_all(self) -> None:
+        """Close all connections in the pool (thread-safe)."""
+        with self._lock:
+            for conn in self._pool:
                 try:
                     conn.close()
-                except sqlite3.Error:
-                    pass
+                    self._connections_closed += 1
+                except sqlite3.Error as close_err:
+                    logger.debug(f"Failed to close pooled connection: {close_err}")
+            self._pool.clear()
 
-    def close_all(self):
-        """Close all connections in the pool."""
-        for conn in self._pool:
-            try:
-                conn.close()
-            except sqlite3.Error:
-                pass
-        self._pool.clear()
+            for conn in list(self._in_use):
+                try:
+                    conn.close()
+                    self._connections_closed += 1
+                except sqlite3.Error as close_err:
+                    logger.debug(f"Failed to close in-use connection: {close_err}")
+            self._in_use.clear()
 
-        for conn in list(self._in_use):
-            try:
-                conn.close()
-            except sqlite3.Error:
-                pass
-        self._in_use.clear()
+    def get_stats(self) -> Dict[str, Any]:
+        """Get connection pool statistics for observability."""
+        with self._lock:
+            return {
+                "db_path": self.db_path,
+                "max_connections": self.max_connections,
+                "active": len(self._in_use),
+                "idle": len(self._pool),
+                "total": len(self._in_use) + len(self._pool),
+                # Metrics
+                "connections_created": self._connections_created,
+                "connections_reused": self._connections_reused,
+                "connections_closed": self._connections_closed,
+                "health_check_failures": self._health_check_failures,
+                "reuse_rate": (
+                    self._connections_reused /
+                    (self._connections_created + self._connections_reused)
+                    if (self._connections_created + self._connections_reused) > 0
+                    else 0.0
+                ),
+            }
+
+    def reset_metrics(self) -> None:
+        """Reset observability metrics (useful for testing)."""
+        with self._lock:
+            self._connections_created = 0
+            self._connections_reused = 0
+            self._connections_closed = 0
+            self._health_check_failures = 0

@@ -422,13 +422,21 @@ class WebConnector(BaseConnector):
 
         return None
 
-    async def fetch_url(self, url: str, max_redirects: int = 5) -> Optional[Evidence]:
+    async def fetch_url(
+        self,
+        url: str,
+        max_redirects: int = 5,
+        max_retries: int = 3,
+        base_delay: float = 1.0,
+    ) -> Optional[Evidence]:
         """
-        Fetch and parse content from a URL with SSRF protection.
+        Fetch and parse content from a URL with SSRF protection and retry logic.
 
         Args:
             url: URL to fetch
             max_redirects: Maximum number of redirects to follow
+            max_retries: Maximum retry attempts for transient failures
+            base_delay: Base delay between retries (exponential backoff)
 
         Returns:
             Evidence object with parsed content, or None on failure
@@ -452,116 +460,136 @@ class WebConnector(BaseConnector):
         if not is_safe:
             return self._create_error_evidence(f"SSRF protection: {error_msg}")
 
-        await self._rate_limit()
+        last_error: Optional[Exception] = None
 
-        current_url = url
-        redirect_count = 0
+        for attempt in range(max_retries):
+            await self._rate_limit()
 
-        try:
-            client = await self._get_http_client()
+            current_url = url
+            redirect_count = 0
 
-            while redirect_count <= max_redirects:
-                response = await client.get(
-                    current_url,
-                    headers={
-                        "User-Agent": "Mozilla/5.0 (compatible; AragoraBot/1.0; +https://aragora.ai)"
-                    }
+            try:
+                client = await self._get_http_client()
+
+                while redirect_count <= max_redirects:
+                    response = await client.get(
+                        current_url,
+                        headers={
+                            "User-Agent": "Mozilla/5.0 (compatible; AragoraBot/1.0; +https://aragora.ai)"
+                        }
+                    )
+
+                    # Handle redirects manually
+                    if response.is_redirect:
+                        redirect_count += 1
+                        if redirect_count > max_redirects:
+                            return self._create_error_evidence(f"Too many redirects (>{max_redirects})")
+
+                        # Get and validate redirect target
+                        redirect_url = response.headers.get("location", "")
+                        if not redirect_url:
+                            return self._create_error_evidence("Redirect without Location header")
+
+                        # Handle relative URLs
+                        if redirect_url.startswith("/"):
+                            parsed = urlparse(current_url)
+                            redirect_url = f"{parsed.scheme}://{parsed.netloc}{redirect_url}"
+
+                        # Validate redirect target for SSRF
+                        is_safe, error_msg = self._validate_redirect_target(redirect_url)
+                        if not is_safe:
+                            return self._create_error_evidence(f"Blocked redirect to: {error_msg}")
+
+                        logger.debug(f"Following redirect: {current_url} -> {redirect_url}")
+                        current_url = redirect_url
+                        continue
+
+                    # Not a redirect, process the response
+                    response.raise_for_status()
+                    break
+
+                content_type = response.headers.get("content-type", "")
+
+                if "text/html" in content_type:
+                    content, title = self._parse_html(response.text)
+                elif "application/json" in content_type:
+                    content = response.text[:self.max_content_length]
+                    title = "JSON Response"
+                elif "text/" in content_type:
+                    content = response.text[:self.max_content_length]
+                    title = "Text Content"
+                else:
+                    return self._create_error_evidence(f"Unsupported content type: {content_type}")
+
+                evidence_id = hashlib.sha256(url.encode()).hexdigest()[:16]
+                domain = urlparse(url).netloc
+
+                evidence = Evidence(
+                    id=evidence_id,
+                    source_type=SourceType.WEB_SEARCH,
+                    source_id=url,
+                    content=content,
+                    title=title,
+                    url=url,
+                    author=domain,
+                    created_at=datetime.now().isoformat(),
+                    confidence=self.default_confidence,
+                    authority=self._get_domain_authority(domain),
+                    freshness=1.0,  # Just fetched
+                    metadata={"fetched_at": datetime.now().isoformat()},
                 )
 
-                # Handle redirects manually
-                if response.is_redirect:
-                    redirect_count += 1
-                    if redirect_count > max_redirects:
-                        return self._create_error_evidence(f"Too many redirects (>{max_redirects})")
+                self._cache_put(evidence_id, evidence)
 
-                    # Get and validate redirect target
-                    redirect_url = response.headers.get("location", "")
-                    if not redirect_url:
-                        return self._create_error_evidence("Redirect without Location header")
+                # Record success to circuit breaker
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_success()
 
-                    # Handle relative URLs
-                    if redirect_url.startswith("/"):
-                        parsed = urlparse(current_url)
-                        redirect_url = f"{parsed.scheme}://{parsed.netloc}{redirect_url}"
+                return evidence
 
-                    # Validate redirect target for SSRF
-                    is_safe, error_msg = self._validate_redirect_target(redirect_url)
-                    if not is_safe:
-                        return self._create_error_evidence(f"Blocked redirect to: {error_msg}")
+            except httpx.TimeoutException as e:
+                last_error = e
+                # Transient - retry with backoff
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
+            except httpx.ConnectError as e:
+                last_error = e
+                # Transient - retry with backoff
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
+            except httpx.HTTPStatusError as e:
+                last_error = e
+                # Only retry on 5xx errors (server errors), not 4xx (client errors)
+                if e.response.status_code >= 500:
+                    if self._circuit_breaker is not None:
+                        self._circuit_breaker.record_failure()
+                else:
+                    # 4xx errors are not transient - don't retry
+                    return self._create_error_evidence(f"HTTP {e.response.status_code} for {url}")
+            except httpx.RequestError as e:
+                last_error = e
+                # Transient - retry with backoff
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
+            except Exception as e:
+                # Unexpected errors - don't retry
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
+                logger.warning(f"Unexpected fetch error for {url}: {type(e).__name__}: {e}")
+                return self._create_error_evidence(f"Error fetching {url}: {e}")
 
-                    logger.debug(f"Following redirect: {current_url} -> {redirect_url}")
-                    current_url = redirect_url
-                    continue
+            # If we get here, we had a transient error - apply backoff and retry
+            if attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt)
+                logger.info(
+                    f"Fetch failed (attempt {attempt + 1}/{max_retries}), "
+                    f"retrying in {delay:.1f}s: {last_error}"
+                )
+                await asyncio.sleep(delay)
 
-                # Not a redirect, process the response
-                response.raise_for_status()
-                break
-
-            content_type = response.headers.get("content-type", "")
-
-            if "text/html" in content_type:
-                content, title = self._parse_html(response.text)
-            elif "application/json" in content_type:
-                content = response.text[:self.max_content_length]
-                title = "JSON Response"
-            elif "text/" in content_type:
-                content = response.text[:self.max_content_length]
-                title = "Text Content"
-            else:
-                return self._create_error_evidence(f"Unsupported content type: {content_type}")
-
-            evidence_id = hashlib.sha256(url.encode()).hexdigest()[:16]
-            domain = urlparse(url).netloc
-
-            evidence = Evidence(
-                id=evidence_id,
-                source_type=SourceType.WEB_SEARCH,
-                source_id=url,
-                content=content,
-                title=title,
-                url=url,
-                author=domain,
-                created_at=datetime.now().isoformat(),
-                confidence=self.default_confidence,
-                authority=self._get_domain_authority(domain),
-                freshness=1.0,  # Just fetched
-                metadata={"fetched_at": datetime.now().isoformat()},
-            )
-
-            self._cache_put(evidence_id, evidence)
-
-            # Record success to circuit breaker
-            if self._circuit_breaker is not None:
-                self._circuit_breaker.record_success()
-
-            return evidence
-
-        except httpx.TimeoutException:
-            # Record failure to circuit breaker
-            if self._circuit_breaker is not None:
-                self._circuit_breaker.record_failure()
-            return self._create_error_evidence(f"Timeout fetching {url}")
-        except httpx.ConnectError as e:
-            # Connection failed (DNS, refused, etc.)
-            if self._circuit_breaker is not None:
-                self._circuit_breaker.record_failure()
-            return self._create_error_evidence(f"Connection failed for {url}: {e}")
-        except httpx.HTTPStatusError as e:
-            # Record failure to circuit breaker (only for 5xx errors, not 4xx)
-            if self._circuit_breaker is not None and e.response.status_code >= 500:
-                self._circuit_breaker.record_failure()
-            return self._create_error_evidence(f"HTTP {e.response.status_code} for {url}")
-        except httpx.RequestError as e:
-            # Other httpx request errors (network issues, etc.)
-            if self._circuit_breaker is not None:
-                self._circuit_breaker.record_failure()
-            return self._create_error_evidence(f"Request error for {url}: {e}")
-        except Exception as e:
-            # Catch-all for truly unexpected errors
-            if self._circuit_breaker is not None:
-                self._circuit_breaker.record_failure()
-            logger.warning(f"Unexpected fetch error for {url}: {type(e).__name__}: {e}")
-            return self._create_error_evidence(f"Error fetching {url}: {e}")
+        # All retries exhausted
+        logger.warning(f"All {max_retries} fetch attempts failed for {url}: {last_error}")
+        return self._create_error_evidence(f"Failed after {max_retries} attempts: {last_error}")
 
     def _parse_html(self, html: str) -> tuple[str, str]:
         """
