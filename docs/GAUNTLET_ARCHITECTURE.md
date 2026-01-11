@@ -65,7 +65,7 @@ from aragora.gauntlet import GauntletRunner, GauntletConfig
 3. Aggregation - Risk scoring
 
 ```python
-from aragora.gauntlet import GauntletRunner, GauntletConfig, AttackCategory
+from aragora.gauntlet import GauntletRunner, GauntletConfig, AttackCategory, DecisionReceipt
 
 config = GauntletConfig(
     attack_categories=[AttackCategory.SECURITY, AttackCategory.COMPLIANCE],
@@ -73,7 +73,7 @@ config = GauntletConfig(
 )
 runner = GauntletRunner(config)
 result = await runner.run("Your specification here")
-receipt = result.to_receipt()
+receipt = DecisionReceipt.from_result(result)
 ```
 
 Best for:
@@ -149,7 +149,7 @@ Both Runner and Orchestrator produce compatible results that can be converted to
 from aragora.gauntlet import DecisionReceipt
 
 # From Runner result
-receipt = result.to_receipt()
+receipt = DecisionReceipt.from_result(result)
 
 # From Orchestrator result (manual)
 receipt = DecisionReceipt.from_mode_result(result, input_hash=...)

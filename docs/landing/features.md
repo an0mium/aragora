@@ -121,12 +121,12 @@ Integrate with Slack, Discord, or custom dashboards.
 ### CLI
 ```bash
 pip install aragora
-aragora gauntlet run spec.md --persona gdpr
+aragora gauntlet spec.md --persona gdpr
 ```
 
 ### API
 ```python
-from aragora import GauntletRunner
+from aragora.gauntlet import GauntletRunner
 
 runner = GauntletRunner(config)
 result = await runner.run(spec_content)

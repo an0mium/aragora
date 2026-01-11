@@ -63,7 +63,7 @@ Sessions expire after 7 days of inactivity.
 ### 2. Run Gauntlet
 
 ```bash
-aragora gauntlet run spec.md
+aragora gauntlet spec.md
 ```
 
 ### 3. Review results
@@ -105,13 +105,13 @@ Run with a specific compliance persona:
 
 ```bash
 # GDPR compliance check
-aragora gauntlet run spec.md --persona gdpr
+aragora gauntlet spec.md --persona gdpr
 
 # HIPAA compliance check
-aragora gauntlet run spec.md --persona hipaa
+aragora gauntlet spec.md --persona hipaa
 
 # Security-focused review
-aragora gauntlet run spec.md --persona security
+aragora gauntlet spec.md --persona security
 ```
 
 ---
@@ -120,12 +120,16 @@ aragora gauntlet run spec.md --persona security
 
 ```python
 import asyncio
-from aragora import GauntletRunner, GauntletConfig
+from aragora.gauntlet import GauntletRunner, GauntletConfig, AttackCategory, DecisionReceipt
 
 async def main():
     config = GauntletConfig(
         agents=["anthropic-api", "openai-api", "gemini"],
-        attack_categories=["security", "logic", "compliance"],
+        attack_categories=[
+            AttackCategory.SECURITY,
+            AttackCategory.LOGIC,
+            AttackCategory.COMPLIANCE,
+        ],
     )
 
     runner = GauntletRunner(config)
@@ -133,12 +137,12 @@ async def main():
     spec = open("spec.md").read()
     result = await runner.run(spec)
 
-    print(f"Verdict: {result.verdict}")
+    print(f"Verdict: {result.verdict.value}")
     print(f"Confidence: {result.confidence:.0%}")
     print(f"Findings: {len(result.vulnerabilities)}")
 
     # Get decision receipt
-    receipt = result.to_receipt()
+    receipt = DecisionReceipt.from_result(result)
     print(receipt.to_markdown())
 
 asyncio.run(main())
@@ -151,7 +155,7 @@ asyncio.run(main())
 Start the full Aragora server with API and WebSocket support:
 
 ```bash
-aragora serve --port 8080
+aragora serve
 ```
 
 Then use the REST API:
@@ -173,50 +177,53 @@ curl http://localhost:8080/api/gauntlet/gauntlet-abc123/receipt
 
 ## Common Options
 
-### Attack Categories
+### Profiles
 
 ```bash
-# Security-focused
-aragora gauntlet run spec.md --attacks security,injection
+# Quick pass
+aragora gauntlet spec.md --profile quick
 
-# Compliance-focused
-aragora gauntlet run spec.md --attacks compliance,gdpr
+# Deep pass
+aragora gauntlet spec.md --profile thorough
 
-# Architecture-focused
-aragora gauntlet run spec.md --attacks architecture,scalability
+# Code review
+aragora gauntlet src/auth.py --profile code --input-type code
+```
+
+### Feature Toggles
+
+```bash
+# Disable red-team attacks
+aragora gauntlet spec.md --no-redteam
+
+# Disable probing
+aragora gauntlet spec.md --no-probing
+
+# Disable deep audit
+aragora gauntlet spec.md --no-audit
+
+# Enable formal verification
+aragora gauntlet spec.md --verify
 ```
 
 ### Output Formats
 
 ```bash
-# JSON (default)
-aragora gauntlet run spec.md -o json
+# JSON output
+aragora gauntlet spec.md --output receipt.json --format json
 
-# Markdown
-aragora gauntlet run spec.md -o markdown
+# Markdown output
+aragora gauntlet spec.md --output receipt.md --format md
 
-# HTML report
-aragora gauntlet run spec.md -o html --output-file report.html
-```
-
-### Verbosity
-
-```bash
-# Quiet mode (verdict only)
-aragora gauntlet run spec.md -q
-
-# Verbose mode (show agent reasoning)
-aragora gauntlet run spec.md -v
-
-# Debug mode (all internal details)
-aragora gauntlet run spec.md --debug
+# HTML output (format inferred from extension)
+aragora gauntlet spec.md --output receipt.html
 ```
 
 ---
 
 ## Next Steps
 
-1. **Explore attack categories** - See all available attacks with `aragora attacks list`
+1. **Explore profiles/personas** - See options with `aragora gauntlet --help`
 2. **Create custom personas** - Define your own compliance frameworks
 3. **Set up CI/CD integration** - Run Gauntlet on every PR
 4. **Join the community** - [GitHub Discussions](https://github.com/aragora/aragora/discussions)

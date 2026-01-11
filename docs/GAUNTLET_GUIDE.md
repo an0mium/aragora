@@ -38,39 +38,42 @@ aragora gauntlet api_design.md --input-type architecture --verify
 curl -X POST http://localhost:8080/api/gauntlet/run \
   -H "Content-Type: application/json" \
   -d '{
-    "input_text": "# My Spec\n\nThis is my specification...",
-    "template": "thorough"
+    "input_content": "# My Spec\n\nThis is my specification...",
+    "input_type": "spec",
+    "profile": "thorough"
   }'
 
 # Get results
-curl http://localhost:8080/api/gauntlet/results/{id}
+curl http://localhost:8080/api/gauntlet/{id}
 
 # Get Decision Receipt
-curl http://localhost:8080/api/gauntlet/results/{id}/receipt?format=markdown
+curl http://localhost:8080/api/gauntlet/{id}/receipt?format=md
 ```
 
 ### Python
 
 ```python
 import asyncio
-from aragora.modes.gauntlet import GauntletOrchestrator, THOROUGH_GAUNTLET
-from aragora.agents.registry import AgentRegistry, register_all_agents
+from aragora.agents.base import create_agent
+from aragora.gauntlet import GauntletRunner, GauntletConfig, AttackCategory, DecisionReceipt
 
-register_all_agents()
-agents = [
-    AgentRegistry.create("anthropic-api"),
-    AgentRegistry.create("openai-api"),
-]
+def agent_factory(name: str):
+    return create_agent(name, name=f"{name}_gauntlet", role="auditor")
 
-orchestrator = GauntletOrchestrator(agents=agents)
-result = asyncio.run(orchestrator.run(
-    "Your specification content here...",
-    config=THOROUGH_GAUNTLET,
-))
+config = GauntletConfig(
+    agents=["anthropic-api", "openai-api"],
+    attack_categories=[AttackCategory.SECURITY, AttackCategory.LOGIC],
+)
 
-print(f"Verdict: {result.verdict}")
+runner = GauntletRunner(config, agent_factory=agent_factory)
+result = asyncio.run(runner.run("Your specification content here..."))
+
+print(f"Verdict: {result.verdict.value}")
 print(f"Confidence: {result.confidence:.0%}")
-print(f"Findings: {result.total_findings}")
+print(f"Findings: {len(result.vulnerabilities)}")
+
+receipt = DecisionReceipt.from_result(result)
+print(receipt.to_markdown())
 ```
 
 ## Input Types

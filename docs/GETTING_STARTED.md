@@ -165,7 +165,7 @@ aragora serve
 ### Start the Server
 
 ```bash
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ### Core Endpoints
@@ -280,13 +280,13 @@ python examples/gauntlet_demo.py
 
 ```bash
 # CLI usage
-aragora gauntlet --input my_policy.md --persona gdpr
+aragora gauntlet my_policy.md --persona gdpr
 
 # With specific profile
-aragora gauntlet --input my_spec.md --profile thorough
+aragora gauntlet my_spec.md --profile thorough
 
 # Code security review
-aragora gauntlet --input src/auth.py --profile code
+aragora gauntlet src/auth.py --profile code
 ```
 
 ### Gauntlet Profiles

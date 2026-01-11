@@ -183,11 +183,11 @@ python scripts/demo_gauntlet.py src/auth.py --profile code --real-apis
 
 | Profile | Time | Best For |
 |---------|------|----------|
-| `demo` | 30 sec | Quick demos |
 | `quick` | 2 min | Fast validation |
+| `default` | 5 min | Balanced analysis |
 | `thorough` | 15 min | Comprehensive analysis |
-| `code` | 5 min | Security-focused code review |
-| `policy` | 5 min | Compliance-focused policy review |
+| `code` | 10 min | Security-focused code review |
+| `policy` | 10 min | Compliance-focused policy review |
 
 ### Understanding Results
 
@@ -208,12 +208,12 @@ The receipt contains:
 
 ```bash
 # Start server
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 
 # Run Gauntlet
 curl -X POST http://localhost:8080/api/gauntlet/run \
   -H "Content-Type: application/json" \
-  -d '{"input_text": "Your policy here...", "template": "quick"}'
+  -d '{"input_content": "Your policy here...", "input_type": "policy", "profile": "quick"}'
 
 # Get results
 curl http://localhost:8080/api/gauntlet/{id}

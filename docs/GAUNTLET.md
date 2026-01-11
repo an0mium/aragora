@@ -49,13 +49,13 @@ Attacks run:
 Verify GDPR, HIPAA, AI Act compliance:
 ```bash
 # GDPR compliance check
-aragora gauntlet data_policy.md --input-type policy --compliance gdpr
+aragora gauntlet data_policy.md --input-type policy --persona gdpr
 
 # HIPAA compliance check
-aragora gauntlet health_api.yaml --input-type spec --compliance hipaa
+aragora gauntlet health_api.yaml --input-type spec --persona hipaa
 
 # AI Act compliance check
-aragora gauntlet ml_model_spec.md --input-type spec --compliance ai-act
+aragora gauntlet ml_model_spec.md --input-type spec --persona ai_act
 ```
 
 ### 3. Architecture Stress Testing
@@ -243,13 +243,13 @@ Arguments:
 
 Options:
   -t, --input-type     Type: spec, architecture, policy, code, strategy, contract
-  -p, --profile        Profile: quick, default, thorough, code, policy
+  -p, --profile        Profile: quick, default, thorough, code, policy, gdpr, hipaa, ai_act, security, sox
   -a, --agents         Comma-separated agents (default: anthropic-api,openai-api)
   -o, --output         Output path for decision receipt
-  --format             Output format: html, json, md (default: html)
-  --compliance         Compliance framework: gdpr, hipaa, ai-act
-  --timeout            Maximum duration in seconds (default: 900)
-  --rounds             Deep audit rounds (default: 3)
+  --format             Output format: html, json, md (default: inferred)
+  --persona            Regulatory persona (gdpr, hipaa, ai_act, security, soc2, sox, pci_dss, nist_csf)
+  --timeout            Maximum duration in seconds (overrides profile)
+  --rounds             Deep audit rounds (overrides profile)
   --verify             Enable formal verification (Z3/Lean)
   --no-redteam         Disable red team attacks
   --no-probing         Disable capability probing
@@ -259,13 +259,15 @@ Options:
 ## Programmatic Usage
 
 ```python
-from aragora.gauntlet import GauntletRunner, GauntletConfig, AttackCategory
+from pathlib import Path
+
+from aragora.gauntlet import GauntletRunner, GauntletConfig, AttackCategory, DecisionReceipt
 
 # Configure gauntlet
 config = GauntletConfig(
-    attack_types=[AttackCategory.SECURITY, AttackCategory.COMPLIANCE],
+    attack_categories=[AttackCategory.SECURITY, AttackCategory.COMPLIANCE],
     agents=["anthropic-api", "openai-api", "gemini"],
-    max_duration_seconds=600,
+    timeout_seconds=600,
     deep_audit_rounds=3,
 )
 
@@ -274,12 +276,12 @@ runner = GauntletRunner(config)
 result = await runner.run(spec_content)
 
 # Check verdict
-if result.verdict == "fail":
-    print(f"FAILED: {result.critical_findings}")
+if result.verdict.is_failing:
+    print(f"FAILED: {len(result.get_critical_vulnerabilities())} critical findings")
 
 # Generate receipt
-receipt = result.to_receipt()
-receipt.save("decision_receipt.html")
+receipt = DecisionReceipt.from_result(result)
+Path("decision_receipt.html").write_text(receipt.to_html())
 ```
 
 ## Risk Heatmap

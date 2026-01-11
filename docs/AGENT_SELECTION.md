@@ -64,7 +64,7 @@ Why:
 **Recommended:** `anthropic-api,mistral-api`
 
 ```bash
-aragora gauntlet policy.md --agents anthropic-api,mistral-api --compliance gdpr
+aragora gauntlet policy.md --agents anthropic-api,mistral-api --persona gdpr
 ```
 
 Why:

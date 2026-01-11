@@ -125,7 +125,7 @@ Stress-test your specifications, architectures, and policies before they ship:
 aragora gauntlet spec.md --input-type spec --profile quick
 
 # GDPR compliance audit
-aragora gauntlet policy.yaml --input-type policy --compliance gdpr
+aragora gauntlet policy.yaml --input-type policy --persona gdpr
 
 # Full adversarial stress test with HTML report
 aragora gauntlet architecture.md --profile thorough --output report.html
