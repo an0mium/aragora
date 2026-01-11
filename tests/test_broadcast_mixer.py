@@ -212,9 +212,12 @@ class TestFFmpegMixer:
             result = mix_audio_with_ffmpeg(audio_files, output_path)
 
         assert result is True
-        mock_run.assert_called_once()
-        # Check ffmpeg command structure
-        call_args = mock_run.call_args[0][0]
+        # Called multiple times: ffprobe for codec detection + ffmpeg for mixing
+        assert mock_run.call_count >= 1
+        # Check ffmpeg command structure (last call should be ffmpeg)
+        ffmpeg_calls = [c for c in mock_run.call_args_list if c[0][0][0] == "ffmpeg"]
+        assert len(ffmpeg_calls) == 1
+        call_args = ffmpeg_calls[0][0][0]
         assert call_args[0] == "ffmpeg"
         assert "concat" in call_args  # -f concat (not -concat)
 

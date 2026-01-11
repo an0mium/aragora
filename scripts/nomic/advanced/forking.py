@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional, Callable, TYPE_CHECKING
+from typing import Any, Awaitable, Optional, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
@@ -116,19 +116,29 @@ class ForkingRunner:
         self,
         fork_decision: Any,
         base_context: str,
+        *,
+        env: Optional[Any] = None,
+        agents: Optional[list[Any]] = None,
+        run_debate_fn: Optional[Callable[..., Awaitable[Any]]] = None,
     ) -> Optional[Any]:
         """
         Run forked parallel debates.
 
-        Note: This feature requires proper Environment, agents, and run_debate_fn
-        to be passed to run_branches. Currently disabled until full integration.
+        This method requires all parameters to execute forked debates. If required
+        parameters are missing, it raises NotImplementedError with guidance.
 
         Args:
             fork_decision: ForkDecision from check_should_fork
             base_context: Base context for the forked debates
+            env: Environment for debates (required for execution)
+            agents: List of agents (required for execution)
+            run_debate_fn: Async function to run each debate branch (required)
 
         Returns:
             MergeResult if successful, None otherwise
+
+        Raises:
+            NotImplementedError: If required parameters not provided
         """
         if not self.is_enabled or not fork_decision:
             return None
@@ -141,11 +151,60 @@ class ForkingRunner:
 
             self._log(f"  [forking] Fork detected with {len(branches)} branches")
 
-            # TODO: Full forking requires Environment, agents list, and run_debate_fn
-            # For now, log the fork but don't execute parallel branches
-            self._log("  [forking] Skipping parallel execution (integration pending)")
-            return None
+            # Validate required parameters for execution
+            if env is None or agents is None or run_debate_fn is None:
+                missing = []
+                if env is None:
+                    missing.append("env")
+                if agents is None:
+                    missing.append("agents")
+                if run_debate_fn is None:
+                    missing.append("run_debate_fn")
 
+                self._log(
+                    f"  [forking] Missing required parameters: {', '.join(missing)}. "
+                    "Use DebateForker directly for full functionality."
+                )
+                raise NotImplementedError(
+                    f"ForkingRunner.run_forked_debate requires {', '.join(missing)}. "
+                    "Use aragora.debate.forking.DebateForker.run_branches() directly "
+                    "for full forking functionality."
+                )
+
+            # Full implementation when all parameters provided
+            try:
+                from aragora.debate.forking import DebateForker
+
+                forker = DebateForker()
+                fork_branches = forker.fork(
+                    parent_debate_id=base_context[:8] if base_context else "fork",
+                    fork_round=0,
+                    messages_so_far=[],
+                    decision=fork_decision,
+                )
+
+                completed = await forker.run_branches(
+                    branches=fork_branches,
+                    env=env,
+                    agents=agents,
+                    run_debate_fn=run_debate_fn,
+                )
+
+                if completed:
+                    result = forker.merge(completed)
+                    self._log(f"  [forking] Merged {len(completed)} branches")
+                    return result
+                return None
+
+            except ImportError:
+                self._log("  [forking] DebateForker not available")
+                raise NotImplementedError(
+                    "DebateForker module not available. "
+                    "Ensure aragora.debate.forking is installed."
+                )
+
+        except NotImplementedError:
+            raise  # Re-raise NotImplementedError as-is
         except Exception as e:
             self._log(f"  [forking] Run error: {e}")
             return None

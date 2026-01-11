@@ -158,7 +158,8 @@ class SupabaseAuthValidator:
         self.supabase_url = supabase_url or os.getenv("SUPABASE_URL")
 
         # Cache for validated tokens (short TTL)
-        self._cache: Dict[str, tuple[User, float]] = {}
+        # Stores: (user, cached_at, token_exp)
+        self._cache: Dict[str, tuple[User, float, float]] = {}
         self._cache_ttl = 60  # 1 minute
 
     def validate_jwt(self, token: str) -> Optional[User]:
@@ -176,11 +177,17 @@ class SupabaseAuthValidator:
 
         # Check cache first
         if token in self._cache:
-            user, cached_at = self._cache[token]
-            if time.time() - cached_at < self._cache_ttl:
+            user, cached_at, token_exp = self._cache[token]
+            now = time.time()
+            # Must pass BOTH cache freshness AND token expiration
+            if now - cached_at < self._cache_ttl and now < token_exp:
                 return user
             else:
+                # Cache stale or token expired - remove it
                 del self._cache[token]
+                if now >= token_exp:
+                    logger.debug("Cached token expired, re-validating")
+                    return None  # Don't re-validate expired tokens
 
         try:
             if HAS_JWT and self.jwt_secret:
@@ -219,8 +226,10 @@ class SupabaseAuthValidator:
             # Extract user info
             user = self._payload_to_user(payload)
 
-            # Cache the result
-            self._cache[token] = (user, time.time())
+            # Cache the result with token expiration time
+            # Default to cache_ttl from now if no exp claim (shouldn't happen with valid JWTs)
+            token_exp = payload.get("exp", time.time() + self._cache_ttl)
+            self._cache[token] = (user, time.time(), token_exp)
 
             return user
 

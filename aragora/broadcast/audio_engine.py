@@ -265,7 +265,7 @@ async def generate_audio(segments: list[ScriptSegment], output_dir: Optional[Pat
     if output_dir is None:
         output_dir = Path(tempfile.mkdtemp(prefix="aragora_broadcast_"))
 
-    output_dir.mkdir(exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     tasks = [generate_audio_segment(seg, output_dir) for seg in segments]
     results = await asyncio.gather(*tasks, return_exceptions=True)

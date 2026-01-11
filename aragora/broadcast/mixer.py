@@ -8,7 +8,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,53 @@ try:
     PYDUB_AVAILABLE = True
 except ImportError:
     PYDUB_AVAILABLE = False
+
+
+def _detect_audio_codec(audio_file: Path) -> Optional[str]:
+    """
+    Detect audio codec of a file using ffprobe.
+
+    Args:
+        audio_file: Path to audio file
+
+    Returns:
+        Codec name (e.g., 'mp3', 'pcm_s16le') or None if detection fails
+    """
+    import subprocess
+
+    try:
+        cmd = [
+            "ffprobe", "-v", "error", "-select_streams", "a:0",
+            "-show_entries", "stream=codec_name", "-of", "csv=p=0",
+            str(audio_file)
+        ]
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=10, shell=False
+        )
+        if result.returncode == 0:
+            return result.stdout.strip() or None
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
+    return None
+
+
+def _has_mixed_codecs(audio_files: List[Path]) -> bool:
+    """
+    Check if audio files have different codecs.
+
+    Args:
+        audio_files: List of audio file paths
+
+    Returns:
+        True if files have different codecs (require re-encoding)
+    """
+    codecs = set()
+    for audio_file in audio_files:
+        if audio_file.exists():
+            codec = _detect_audio_codec(audio_file)
+            if codec:
+                codecs.add(codec)
+    return len(codecs) > 1
 
 
 def mix_audio(audio_files: List[Path], output_path: Path, format: str = "mp3") -> bool:
@@ -102,11 +149,24 @@ def mix_audio_with_ffmpeg(audio_files: List[Path], output_path: Path) -> bool:
                     escaped_path = str(audio_file.absolute()).replace("'", "'\\''")
                     f.write(f"file '{escaped_path}'\n")
 
-            # Run ffmpeg concat
-            cmd = [
-                "ffmpeg", "-y", "-f", "concat", "-safe", "0",
-                "-i", file_list, "-c", "copy", str(output_path)
-            ]
+            # Detect if we need to re-encode (mixed codecs)
+            needs_reencode = _has_mixed_codecs(audio_files)
+
+            if needs_reencode:
+                # Re-encode to mp3 for compatibility with mixed formats
+                logger.info("Mixed audio formats detected, re-encoding to mp3")
+                cmd = [
+                    "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                    "-i", file_list,
+                    "-c:a", "libmp3lame", "-q:a", "2",  # High quality MP3
+                    str(output_path)
+                ]
+            else:
+                # Stream copy (faster, no quality loss) when codecs match
+                cmd = [
+                    "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                    "-i", file_list, "-c", "copy", str(output_path)
+                ]
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, shell=False)
             if result.returncode != 0:
