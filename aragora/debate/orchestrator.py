@@ -614,7 +614,7 @@ class Arena:
                 event_type="health_event",
                 **event.get("data", event),
             )
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, RuntimeError) as e:
             logger.debug(f"health_broadcast_failed error={e}")
 
     def _init_trackers(
@@ -684,7 +684,7 @@ class Arena:
             logger.debug("Auto-initialized PositionLedger for position tracking")
         except ImportError:
             logger.warning("PositionLedger not available - position tracking disabled")
-        except Exception as e:
+        except (TypeError, ValueError, RuntimeError) as e:
             logger.warning("PositionLedger auto-init failed: %s", e)
 
     def _auto_init_calibration_tracker(self) -> None:
@@ -695,7 +695,7 @@ class Arena:
             logger.debug("Auto-initialized CalibrationTracker for prediction calibration")
         except ImportError:
             logger.warning("CalibrationTracker not available - calibration disabled")
-        except Exception as e:
+        except (TypeError, ValueError, RuntimeError) as e:
             logger.warning("CalibrationTracker auto-init failed: %s", e)
 
     def _auto_init_dissent_retriever(self) -> None:
@@ -710,7 +710,7 @@ class Arena:
             logger.debug("Auto-initialized DissentRetriever for historical minority views")
         except ImportError:
             logger.debug("DissentRetriever not available - historical dissent disabled")
-        except Exception as e:
+        except (TypeError, ValueError, RuntimeError) as e:
             logger.warning("DissentRetriever auto-init failed: %s", e)
 
     def _auto_init_moment_detector(self) -> None:
@@ -725,7 +725,7 @@ class Arena:
             logger.debug("Auto-initialized MomentDetector for significant moment detection")
         except ImportError:
             pass  # MomentDetector not available
-        except Exception as e:
+        except (TypeError, ValueError, RuntimeError) as e:
             logger.debug("MomentDetector auto-init failed: %s", e)
 
     def _auto_init_breakpoint_manager(self) -> None:
@@ -738,7 +738,7 @@ class Arena:
             logger.debug("Auto-initialized BreakpointManager for human-in-the-loop breakpoints")
         except ImportError:
             logger.warning("BreakpointManager not available - breakpoints disabled")
-        except Exception as e:
+        except (TypeError, ValueError, RuntimeError) as e:
             logger.warning("BreakpointManager auto-init failed: %s", e)
 
     def _init_user_participation(self) -> None:
@@ -927,7 +927,7 @@ class Arena:
             # Expected errors from memory system
             logger.warning(f"  [continuum] Memory retrieval error: {e}")
             return ""
-        except Exception as e:
+        except (KeyError, IndexError, RuntimeError, OSError) as e:
             # Unexpected error - log with more detail but don't crash debate
             logger.warning(f"  [continuum] Unexpected memory error (type={type(e).__name__}): {e}")
             return ""
@@ -1096,7 +1096,7 @@ class Arena:
         except (AttributeError, TypeError, ValueError) as e:
             # Expected parameter or state errors
             logger.warning(f"Position ledger error: {e}")
-        except Exception as e:
+        except (KeyError, RuntimeError, OSError) as e:
             # Unexpected error - log type for debugging
             logger.warning(f"Position ledger error (type={type(e).__name__}): {e}")
 
@@ -1129,7 +1129,7 @@ class Arena:
         except (AttributeError, TypeError, KeyError) as e:
             # Expected data access errors
             logger.warning(f"Relationship update error: {e}")
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             # Unexpected error - log type for debugging
             logger.warning(f"Relationship update error (type={type(e).__name__}): {e}")
 
@@ -1274,7 +1274,7 @@ class Arena:
 
                 return len(evidence_pack.snippets)
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError, OSError, ConnectionError) as e:
             logger.warning(f"Evidence refresh failed for round {round_num}: {e}")
             return 0
 
@@ -1436,7 +1436,7 @@ class Arena:
                 current_consensus=getattr(ctx.result, 'final_answer', None),
             )
             logger.debug(f"[checkpoint] Saved checkpoint after round {round_num}")
-        except Exception as e:
+        except (IOError, OSError, TypeError, ValueError, RuntimeError) as e:
             logger.warning(f"[checkpoint] Failed to create checkpoint: {e}")
 
     async def run(self, correlation_id: str = "") -> DebateResult:
@@ -1610,7 +1610,7 @@ class Arena:
                     f"Recorded usage: {total_tokens_in} in, {total_tokens_out} out "
                     f"for debate {debate_id} (org={self.org_id})"
                 )
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError, OSError) as e:
             # Don't fail the debate if usage recording fails
             logger.warning(f"Failed to record token usage: {e}")
 
@@ -1619,7 +1619,7 @@ class Arena:
         try:
             if self.debate_embeddings:
                 await self.debate_embeddings.index_debate(artifact)
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, RuntimeError, OSError, ConnectionError) as e:
             logger.warning("Async debate indexing failed: %s", e)
 
     def _group_similar_votes(self, votes: list[Vote]) -> dict[str, list[str]]:
@@ -1734,7 +1734,7 @@ and building on others' ideas."""
                 if fix_preview:
                     lines.append(f"  Fix: {fix_preview} ({p.success_count} successes)")
             return "\n".join(lines)
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError, OSError) as e:
             logger.warning(f"Pattern retrieval error: {e}")
             return ""
 
@@ -1860,7 +1860,7 @@ and building on others' ideas."""
 
             return "\n".join(lines) if len(lines) > 1 else ""
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
             logger.warning(f"Flip context error for {agent.name}: {e}")
             return ""
 
@@ -1944,7 +1944,7 @@ and building on others' ideas."""
 
         except ImportError:
             logger.debug("Breakpoints module not available")
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
             logger.warning(f"Breakpoint check failed: {e}")
 
         return None

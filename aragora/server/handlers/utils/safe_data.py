@@ -93,7 +93,7 @@ def safe_json_parse(data: Any, default: Any = None) -> Any:
         return default
     if isinstance(data, (dict, list)):
         return data
-    if isinstance(data, str):
+    if isinstance(data, (str, bytes, bytearray)):
         try:
             return json.loads(data)
         except (json.JSONDecodeError, ValueError):

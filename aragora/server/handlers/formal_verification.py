@@ -90,7 +90,7 @@ class FormalVerificationHandler(BaseHandler):
         else:
             return error_response(f"Unknown path: {path}", 404)
 
-    @handle_errors
+    @handle_errors("formal verification claim")
     @rate_limit(rpm=30)
     async def _handle_verify_claim(
         self, handler, body: Optional[bytes]
@@ -144,7 +144,7 @@ class FormalVerificationHandler(BaseHandler):
 
         return json_response(result.to_dict())
 
-    @handle_errors
+    @handle_errors("formal verification batch")
     @rate_limit(rpm=10)
     async def _handle_verify_batch(
         self, handler, body: Optional[bytes]
@@ -240,7 +240,7 @@ class FormalVerificationHandler(BaseHandler):
 
         return json_response({"results": processed, "summary": summary})
 
-    @handle_errors
+    @handle_errors("formal verification status")
     def _handle_verify_status(self, handler) -> HandlerResult:
         """
         GET /api/verify/status - Get backend availability status.
@@ -268,7 +268,7 @@ class FormalVerificationHandler(BaseHandler):
 
         return json_response(status)
 
-    @handle_errors
+    @handle_errors("formal verification translate")
     @rate_limit(rpm=30)
     async def _handle_translate(
         self, handler, body: Optional[bytes]

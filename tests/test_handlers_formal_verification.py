@@ -67,8 +67,8 @@ class TestVerifyClaimEndpoint:
             "/api/verify/claim",
             body=None,
         )
-        assert result[1] == 400
-        data = json.loads(result[0])
+        assert result.status_code == 400
+        data = json.loads(result.body)
         assert "error" in data
 
     @pytest.mark.asyncio
@@ -80,8 +80,8 @@ class TestVerifyClaimEndpoint:
             "/api/verify/claim",
             body=b'{"context": "test"}',
         )
-        assert result[1] == 400
-        data = json.loads(result[0])
+        assert result.status_code == 400
+        data = json.loads(result.body)
         assert "claim" in data["error"].lower()
 
     @pytest.mark.asyncio
@@ -105,8 +105,8 @@ class TestVerifyClaimEndpoint:
                 "/api/verify/claim",
                 body=b'{"claim": "1 + 1 = 2"}',
             )
-            assert result[1] == 200
-            data = json.loads(result[0])
+            assert result.status_code == 200
+            data = json.loads(result.body)
             assert data["status"] == "proof_found"
             assert data["is_verified"] is True
 
@@ -132,7 +132,7 @@ class TestVerifyBatchEndpoint:
             "/api/verify/batch",
             body=None,
         )
-        assert result[1] == 400
+        assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_verify_batch_requires_claims_array(self, handler, mock_http_handler):
@@ -143,8 +143,8 @@ class TestVerifyBatchEndpoint:
             "/api/verify/batch",
             body=b'{"timeout": 30}',
         )
-        assert result[1] == 400
-        data = json.loads(result[0])
+        assert result.status_code == 400
+        data = json.loads(result.body)
         assert "claims" in data["error"].lower()
 
     @pytest.mark.asyncio
@@ -159,8 +159,8 @@ class TestVerifyBatchEndpoint:
             "/api/verify/batch",
             body=body,
         )
-        assert result[1] == 400
-        data = json.loads(result[0])
+        assert result.status_code == 400
+        data = json.loads(result.body)
         assert "20" in data["error"] or "maximum" in data["error"].lower()
 
 
@@ -197,8 +197,8 @@ class TestVerifyStatusEndpoint:
                     "/api/verify/status",
                     body=None,
                 )
-                assert result[1] == 200
-                data = json.loads(result[0])
+                assert result.status_code == 200
+                data = json.loads(result.body)
                 assert "backends" in data
                 assert data["any_available"] is True
 
@@ -224,7 +224,7 @@ class TestVerifyTranslateEndpoint:
             "/api/verify/translate",
             body=None,
         )
-        assert result[1] == 400
+        assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_translate_requires_claim(self, handler, mock_http_handler):
@@ -235,8 +235,8 @@ class TestVerifyTranslateEndpoint:
             "/api/verify/translate",
             body=b'{"target_language": "lean4"}',
         )
-        assert result[1] == 400
-        data = json.loads(result[0])
+        assert result.status_code == 400
+        data = json.loads(result.body)
         assert "claim" in data["error"].lower()
 
     @pytest.mark.asyncio
@@ -248,8 +248,8 @@ class TestVerifyTranslateEndpoint:
             "/api/verify/translate",
             body=b'{"claim": "1 + 1 = 2", "target_language": "coq"}',
         )
-        assert result[1] == 400
-        data = json.loads(result[0])
+        assert result.status_code == 400
+        data = json.loads(result.body)
         assert "unknown" in data["error"].lower() or "target" in data["error"].lower()
 
 
