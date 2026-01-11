@@ -340,14 +340,17 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
           <div className="border border-acid-green/30 p-4 space-y-4 bg-surface/50">
             {/* Debate Mode Selector */}
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-2">
+              <label id="debate-mode-label" className="block text-xs font-mono text-text-muted mb-2">
                 DEBATE MODE
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2" role="tablist" aria-labelledby="debate-mode-label">
                 {(Object.keys(DEBATE_MODES) as DebateMode[]).map((mode) => (
                   <button
                     key={mode}
                     type="button"
+                    role="tab"
+                    aria-selected={debateMode === mode}
+                    aria-label={`${DEBATE_MODES[mode].label} mode: ${DEBATE_MODES[mode].description}`}
                     onClick={() => setDebateMode(mode)}
                     className={`flex-1 px-3 py-2 text-xs font-mono border transition-colors ${
                       debateMode === mode
@@ -368,10 +371,11 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
             <div className="grid grid-cols-2 gap-4">
               {/* Agents */}
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">
+                <label htmlFor="debate-agents" className="block text-xs font-mono text-text-muted mb-1">
                   AGENTS (comma-separated)
                 </label>
                 <input
+                  id="debate-agents"
                   type="text"
                   value={agents}
                   onChange={(e) => setAgents(e.target.value)}
@@ -387,10 +391,11 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
 
               {/* Rounds */}
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">
+                <label htmlFor="debate-rounds" className="block text-xs font-mono text-text-muted mb-1">
                   DEBATE ROUNDS
                 </label>
                 <select
+                  id="debate-rounds"
                   value={rounds}
                   onChange={(e) => setRounds(parseInt(e.target.value))}
                   className="w-full bg-bg border border-acid-green/30 px-3 py-2

@@ -12,7 +12,7 @@
   --border: #1a1a1a;
   --border-glow: #39ff1440;
   --text: #e0e0e0;
-  --text-muted: #666666;
+  --text-muted: #9a9a9a; /* WCAG AA compliant: 4.5:1 on #0a0a0a */
 
   /* Acid/Demoscene accent colors */
   --acid-green: #39ff14;
@@ -499,10 +499,52 @@ body {
   color: var(--bg);
 }
 
-/* Focus styling */
+/* Focus styling - WCAG 2.1 AA compliant */
 :focus-visible {
   outline: 2px solid var(--acid-green);
   outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(57, 255, 20, 0.25);
+}
+
+/* Ensure buttons and interactive elements have visible focus */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="menuitem"]:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--acid-green);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(57, 255, 20, 0.25);
+}
+
+/* Screen reader only - visually hidden but accessible */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip to main content link */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--acid-green);
+  color: var(--bg);
+  padding: 8px 16px;
+  z-index: 10000;
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: 0;
 }
 
 /* Link styling */

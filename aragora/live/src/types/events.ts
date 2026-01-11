@@ -70,6 +70,8 @@ export type StreamEventType =
   | 'evidence_found'
   | 'calibration_update'
   | 'genesis_evolution'
+  // Uncertainty quantification events
+  | 'uncertainty_analysis'
   // Graph debate events
   | 'debate_branch'
   | 'debate_merge'
@@ -185,6 +187,38 @@ export interface RhetoricalObservationData {
   analysis?: string;
 }
 
+export interface UncertaintyCrux {
+  claim: string;
+  uncertainty: number;
+  supporting_agents: string[];
+  opposing_agents: string[];
+  topic?: string;
+}
+
+export interface UncertaintyAnalysisData {
+  collective_confidence: number;
+  confidence_interval: [number, number];
+  disagreement_type: 'consensus' | 'mild' | 'moderate' | 'severe' | 'polarized';
+  cruxes: UncertaintyCrux[];
+  calibration_quality: number;
+}
+
+export interface EvidenceSnippet {
+  id: string;
+  source: string;
+  title: string;
+  snippet: string;
+  url: string;
+  reliability_score: number;
+  freshness_score: number;
+}
+
+export interface EvidenceFoundData {
+  keywords: string[];
+  count: number;
+  snippets: EvidenceSnippet[];
+}
+
 // Discriminated union of specific event types
 export type TypedStreamEvent =
   | (StreamEventBase & { type: 'agent_message'; data: AgentMessageData })
@@ -204,7 +238,9 @@ export type TypedStreamEvent =
   | (StreamEventBase & { type: 'audit_verdict'; data: AuditVerdictData })
   | (StreamEventBase & { type: 'hollow_consensus'; data: HollowConsensusData })
   | (StreamEventBase & { type: 'trickster_intervention'; data: TricksterInterventionData })
-  | (StreamEventBase & { type: 'rhetorical_observation'; data: RhetoricalObservationData });
+  | (StreamEventBase & { type: 'rhetorical_observation'; data: RhetoricalObservationData })
+  | (StreamEventBase & { type: 'uncertainty_analysis'; data: UncertaintyAnalysisData })
+  | (StreamEventBase & { type: 'evidence_found'; data: EvidenceFoundData });
 
 // Generic event type for events not yet specifically typed
 export interface GenericStreamEvent extends StreamEventBase {
@@ -235,6 +271,14 @@ export function isAudienceSummary(event: StreamEvent): event is StreamEventBase 
 
 export function isAudienceMetrics(event: StreamEvent): event is StreamEventBase & { type: 'audience_metrics'; data: AudienceMetricsData } {
   return event.type === 'audience_metrics';
+}
+
+export function isUncertaintyAnalysis(event: StreamEvent): event is StreamEventBase & { type: 'uncertainty_analysis'; data: UncertaintyAnalysisData } {
+  return event.type === 'uncertainty_analysis';
+}
+
+export function isEvidenceFound(event: StreamEvent): event is StreamEventBase & { type: 'evidence_found'; data: EvidenceFoundData } {
+  return event.type === 'evidence_found';
 }
 
 export interface NomicState {

@@ -216,7 +216,7 @@ export function QualityDashboard() {
           </span>
         </div>
         <div className="p-4 space-y-3">
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
             <div>
               <div className="text-xs font-mono text-text-muted">Avg Latency</div>
               <div className="text-lg font-mono text-gold">

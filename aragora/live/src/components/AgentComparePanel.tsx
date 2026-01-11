@@ -101,7 +101,7 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
       <h3 className="text-lg font-semibold text-white mb-4">Agent Comparison</h3>
 
       {/* Agent Selection */}
-      <div className="flex gap-4 mb-6">
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="flex-1">
           <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1">Agent 1</label>
           <select
@@ -152,7 +152,7 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
       {comparison && comparison.agents.length === 2 && !loading && (
         <div className="space-y-4">
           {/* Rating Comparison */}
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
             <div className="bg-zinc-50 dark:bg-zinc-900 rounded p-3">
               <div className="text-2xl font-bold text-blue-400">
                 {comparison.agents[0].rating.toFixed(0)}

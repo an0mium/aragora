@@ -486,6 +486,83 @@ export function useDebateWebSocket({
         addStreamEvent(event);
         setHasCitations(true);
       }
+
+      // Uncertainty analysis events (disagreement detection)
+      else if (data.type === 'uncertainty_analysis') {
+        const event: StreamEvent = {
+          type: 'uncertainty_analysis',
+          data: data.data || {},
+          timestamp: data.timestamp || Date.now() / 1000,
+        };
+        addStreamEvent(event);
+      }
+
+      // Vote events (for analytics panels)
+      else if (data.type === 'vote') {
+        const event: StreamEvent = {
+          type: 'vote',
+          data: data.data || {},
+          timestamp: data.timestamp || Date.now() / 1000,
+          agent: data.agent || data.data?.agent,
+        };
+        addStreamEvent(event);
+      }
+
+      // Rhetorical observation events
+      else if (data.type === 'rhetorical_observation') {
+        const event: StreamEvent = {
+          type: 'rhetorical_observation',
+          data: data.data || {},
+          timestamp: data.timestamp || Date.now() / 1000,
+          agent: data.agent || data.data?.agent,
+          round: data.round || data.data?.round,
+        };
+        addStreamEvent(event);
+      }
+
+      // Hollow consensus / trickster events
+      else if (data.type === 'hollow_consensus' || data.type === 'trickster_intervention') {
+        const event: StreamEvent = {
+          type: data.type,
+          data: data.data || {},
+          timestamp: data.timestamp || Date.now() / 1000,
+        };
+        addStreamEvent(event);
+      }
+
+      // Memory recall events
+      else if (data.type === 'memory_recall') {
+        const event: StreamEvent = {
+          type: 'memory_recall',
+          data: data.data || {},
+          timestamp: data.timestamp || Date.now() / 1000,
+        };
+        addStreamEvent(event);
+      }
+
+      // Flip detected events
+      else if (data.type === 'flip_detected') {
+        const event: StreamEvent = {
+          type: 'flip_detected',
+          data: data.data || {},
+          timestamp: data.timestamp || Date.now() / 1000,
+        };
+        addStreamEvent(event);
+      }
+
+      // Evidence found events (real-time evidence collection)
+      else if (data.type === 'evidence_found') {
+        const event: StreamEvent = {
+          type: 'evidence_found',
+          data: data.data || {},
+          timestamp: data.timestamp || Date.now() / 1000,
+        };
+        addStreamEvent(event);
+        // Also mark that we have citations available
+        if (data.data?.count > 0) {
+          setHasCitations(true);
+        }
+      }
     } catch (e) {
       logger.error('Failed to parse WebSocket message:', e);
     }

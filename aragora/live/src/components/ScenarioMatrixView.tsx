@@ -162,7 +162,7 @@ function ScenarioCard({
           )}
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-border">
             <div className="text-xs font-mono">
               <span className="text-text-muted">Rounds: </span>
               <span className="text-text">{result.rounds_used}</span>
@@ -435,7 +435,7 @@ function GridView({
       <div className="text-xs font-mono text-text-muted mb-2">
         Click two scenarios to compare them side-by-side
       </div>
-      <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(results.length, 4)}, 1fr)` }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {results.map((r, i) => (
           <div
             key={i}

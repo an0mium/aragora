@@ -218,8 +218,12 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Lab
       {expanded && (
         <>
           {/* Tab Navigation */}
-          <div className="flex space-x-1 bg-bg border border-border rounded p-1 mb-4">
+          <div role="tablist" aria-label="Laboratory sections" className="flex space-x-1 bg-bg border border-border rounded p-1 mb-4">
             <button
+              role="tab"
+              id="lab-traits-tab"
+              aria-selected={activeTab === 'traits'}
+              aria-controls="lab-traits-panel"
               onClick={() => setActiveTab('traits')}
               className={`px-3 py-1 rounded text-sm font-mono transition-colors flex-1 ${
                 activeTab === 'traits'
@@ -230,6 +234,10 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Lab
               EMERGENT TRAITS
             </button>
             <button
+              role="tab"
+              id="lab-pollinations-tab"
+              aria-selected={activeTab === 'pollinations'}
+              aria-controls="lab-pollinations-panel"
               onClick={() => setActiveTab('pollinations')}
               className={`px-3 py-1 rounded text-sm font-mono transition-colors flex-1 ${
                 activeTab === 'pollinations'
@@ -240,6 +248,10 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Lab
               POLLINATIONS
             </button>
             <button
+              role="tab"
+              id="lab-evolution-tab"
+              aria-selected={activeTab === 'evolution'}
+              aria-controls="lab-evolution-panel"
               onClick={() => setActiveTab('evolution')}
               className={`px-3 py-1 rounded text-sm font-mono transition-colors flex-1 ${
                 activeTab === 'evolution'
@@ -250,6 +262,10 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Lab
               EVOLUTION
             </button>
             <button
+              role="tab"
+              id="lab-patterns-tab"
+              aria-selected={activeTab === 'patterns'}
+              aria-controls="lab-patterns-panel"
               onClick={() => setActiveTab('patterns')}
               className={`px-3 py-1 rounded text-sm font-mono transition-colors flex-1 ${
                 activeTab === 'patterns'
@@ -263,7 +279,7 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Lab
 
           {/* Traits Tab */}
           {activeTab === 'traits' && (
-            <div className="space-y-3 max-h-80 overflow-y-auto">
+            <div id="lab-traits-panel" role="tabpanel" aria-labelledby="lab-traits-tab" className="space-y-3 max-h-80 overflow-y-auto">
               {loading && traits.length === 0 && (
                 <div className="text-center text-text-muted py-4 font-mono text-sm">
                   Detecting emergent traits...
@@ -324,7 +340,7 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Lab
 
           {/* Pollinations Tab */}
           {activeTab === 'pollinations' && (
-            <div className="space-y-3 max-h-80 overflow-y-auto">
+            <div id="lab-pollinations-panel" role="tabpanel" aria-labelledby="lab-pollinations-tab" className="space-y-3 max-h-80 overflow-y-auto">
               {loading && pollinations.length === 0 && (
                 <div className="text-center text-text-muted py-4 font-mono text-sm">
                   Analyzing cross-pollination opportunities...
@@ -369,7 +385,7 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Lab
 
           {/* Evolution Tab */}
           {activeTab === 'evolution' && (
-            <div className="space-y-4 max-h-80 overflow-y-auto">
+            <div id="lab-evolution-panel" role="tabpanel" aria-labelledby="lab-evolution-tab" className="space-y-4 max-h-80 overflow-y-auto">
               {loading && !genesisStats && (
                 <div className="text-center text-text-muted py-4 font-mono text-sm">
                   Loading evolution data...
@@ -450,7 +466,7 @@ export function LaboratoryPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Lab
 
           {/* Patterns Tab */}
           {activeTab === 'patterns' && (
-            <div className="space-y-3 max-h-80 overflow-y-auto">
+            <div id="lab-patterns-panel" role="tabpanel" aria-labelledby="lab-patterns-tab" className="space-y-3 max-h-80 overflow-y-auto">
               {loading && patterns.length === 0 && (
                 <div className="text-center text-text-muted py-4 font-mono text-sm">
                   Discovering critique patterns...
