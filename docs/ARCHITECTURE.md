@@ -431,8 +431,12 @@ Dependency injection via ArenaConfig:
 | `use_airlock` | Wrap agents with AirlockProxy | `False` |
 | `airlock_config` | Custom AirlockConfig | `None` |
 | `population_manager` | Genesis PopulationManager | `None` |
-| `auto_evolve` | Trigger evolution after debates | `False` |
+| `auto_evolve` | Trigger evolution after debates (gated) | `False` |
 | `breeding_threshold` | Min confidence for evolution | `0.8` |
+
+Safety gates:
+- Set `ARAGORA_ALLOW_AUTO_EVOLVE=1` to enable `auto_evolve`.
+- Set `ARAGORA_ALLOW_PROMPT_EVOLVE=1` to enable prompt evolution.
 
 ## Performance Considerations
 

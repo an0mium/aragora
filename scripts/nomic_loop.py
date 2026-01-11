@@ -8295,6 +8295,16 @@ async def main():
 
     args = parser.parse_args()
 
+    if getattr(args, "auto", False) and not NOMIC_AUTO_COMMIT:
+        print("=" * 70)
+        print("AUTO-COMMIT SAFETY GATE")
+        print("=" * 70)
+        print("Auto-commit requires explicit opt-in via NOMIC_AUTO_COMMIT=1.")
+        print("Set NOMIC_AUTO_COMMIT=1 and re-run with --auto if you intend")
+        print("to allow unattended commits.")
+        print("=" * 70)
+        sys.exit(2)
+
     # Determine aragora path
     aragora_path = Path(args.path) if args.path else Path(__file__).parent.parent
 

@@ -995,7 +995,7 @@ class FeedbackPhase:
                 len(cruxes),
                 consensus_id[:8],
             )
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
             logger.debug("Crux storage failed: %s", e)
 
     def _update_genome_fitness(self, ctx: "DebateContext") -> None:
@@ -1038,7 +1038,7 @@ class FeedbackPhase:
                     consensus_win,
                     prediction_correct,
                 )
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                 logger.debug("Genome fitness update failed for %s: %s", agent.name, e)
 
     def _check_agent_prediction(
@@ -1107,7 +1107,7 @@ class FeedbackPhase:
                     result.confidence,
                 )
 
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.debug("Evolution check failed: %s", e)
 
     async def _evolve_async(self, population: Any) -> None:
@@ -1138,7 +1138,7 @@ class FeedbackPhase:
                     }
                 ))
 
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("[genesis] Evolution failed: %s", e)
 
     def _record_evolution_patterns(self, ctx: "DebateContext") -> None:
@@ -1209,7 +1209,7 @@ class FeedbackPhase:
                         debate_result=proxy,
                     )
 
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.debug("[evolution] Pattern extraction failed: %s", e)
 
     async def _record_insight_usage(self, ctx: "DebateContext") -> None:
@@ -1266,5 +1266,5 @@ class FeedbackPhase:
                 was_successful,
                 ctx.debate_id[:8],
             )
-        except Exception as e:
-            logger.debug(f"[insight] Usage recording failed: {e}")
+        except (TypeError, ValueError, AttributeError, KeyError, OSError, ConnectionError, RuntimeError) as e:
+            logger.debug("[insight] Usage recording failed: %s", e)

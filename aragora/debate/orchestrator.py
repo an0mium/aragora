@@ -22,6 +22,7 @@ from aragora.debate.immune_system import TransparentImmuneSystem, get_immune_sys
 from aragora.debate.chaos_theater import ChaosDirector, get_chaos_director, DramaLevel
 from aragora.debate.audience_manager import AudienceManager
 from aragora.debate.autonomic_executor import AutonomicExecutor
+from aragora.debate.safety import resolve_auto_evolve, resolve_prompt_evolution
 from aragora.debate.arena_phases import init_phases
 from aragora.debate.complexity_governor import (
     classify_task_complexity,
@@ -506,6 +507,8 @@ class Arena:
         usage_tracker=None,
     ) -> None:
         """Initialize core Arena configuration."""
+        auto_evolve = resolve_auto_evolve(auto_evolve)
+        enable_prompt_evolution = resolve_prompt_evolution(enable_prompt_evolution)
         self.env = environment
         self.agents = agents
         self.protocol = protocol or DebateProtocol()
@@ -2002,4 +2005,3 @@ and building on others' ideas."""
         return self.prompt_builder.build_revision_prompt(
             agent, original, critiques, audience_section
         )
-

@@ -658,7 +658,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             logger.info(f"[auto_select] Selected team: {agent_specs} (rationale: {team.rationale[:100]})")
             return ','.join(agent_specs)
 
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning(f"[auto_select] Failed: {e}, using fallback")
             return 'gemini,anthropic-api'  # Fallback on error
 
@@ -794,7 +794,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             try:
                 if self._try_modular_handler(path, {}):
                     return
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
                 logger.exception(f"Modular handler failed for {path}: {e}")
                 # Continue to legacy handlers
 
@@ -923,7 +923,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             if not self._check_rate_limit():
                 logger.info("[_start_debate] Rate limit check failed")
                 return
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.exception(f"[_start_debate] Rate limit check error: {e}")
             self._send_json({"error": f"Rate limit check failed: {e}"}, status=500)
             return
@@ -934,7 +934,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         try:
             if not self._check_tier_rate_limit():
                 return
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning(f"Tier rate limit check failed, proceeding: {e}")
 
         # Quota enforcement - check org usage limits
@@ -953,7 +953,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
                             "upgrade_url": "/pricing",
                         }, status=429)
                         return
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, ImportError) as e:
                 logger.warning(f"Quota check failed, proceeding without enforcement: {e}")
 
         if not DEBATE_AVAILABLE:
@@ -998,7 +998,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         try:
             controller = self._get_debate_controller()
             response = controller.start_debate(request)
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
             logger.exception(f"Failed to start debate: {e}")
             self._send_json({"error": f"Failed to start debate: {str(e)}"}, status=500)
             return
@@ -1011,7 +1011,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
                 if auth_ctx.is_authenticated and auth_ctx.org_id:
                     UnifiedHandler.user_store.increment_usage(auth_ctx.org_id)
                     logger.info(f"Incremented debate usage for org {auth_ctx.org_id}")
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, ImportError) as e:
                 logger.warning(f"Usage increment failed: {e}")
 
         # Send response
@@ -1357,7 +1357,7 @@ class UnifiedServer:
                 else:
                     logger.error(f"HTTP server failed to start: {e}")
                     break
-            except Exception as e:
+            except (RuntimeError, SystemError, KeyboardInterrupt) as e:
                 logger.error(f"HTTP server unexpected error: {e}")
                 break
 
@@ -1383,7 +1383,7 @@ class UnifiedServer:
             loaded = load_circuit_breakers()
             if loaded > 0:
                 logger.info(f"Restored {loaded} circuit breaker states from disk")
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError) as e:
             logger.debug(f"Circuit breaker persistence not available: {e}")
 
         # Initialize background tasks for maintenance
@@ -1394,7 +1394,7 @@ class UnifiedServer:
             background_mgr = get_background_manager()
             background_mgr.start()
             logger.info("Background task manager started")
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.warning("Failed to start background tasks: %s", e)
 
         logger.info("Starting unified server...")
@@ -1584,7 +1584,7 @@ async def run_unified_server(
         try:
             storage = DebateStorage(str(db_path))
             logger.info(f"[server] DebateStorage initialized at {db_path}")
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.warning(f"[server] Failed to initialize DebateStorage: {e}")
 
     # Ensure demo data is loaded for search functionality
@@ -1592,7 +1592,7 @@ async def run_unified_server(
         from aragora.fixtures import ensure_demo_data
         logger.info("[server] Checking demo data initialization...")
         ensure_demo_data()
-    except Exception as e:
+    except (ImportError, OSError, RuntimeError) as e:
         logger.warning(f"[server] Demo data initialization failed: {e}")
 
     server = UnifiedServer(

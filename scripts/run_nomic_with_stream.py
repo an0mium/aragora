@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from aragora.server.stream import AiohttpUnifiedServer
 from scripts.nomic_loop import NomicLoop
+from scripts.nomic.config import NOMIC_AUTO_COMMIT
 
 
 def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
@@ -221,6 +222,16 @@ def main():
     )
 
     args = parser.parse_args()
+
+    if getattr(args, "auto", False) and not NOMIC_AUTO_COMMIT:
+        print("=" * 70)
+        print("AUTO-COMMIT SAFETY GATE")
+        print("=" * 70)
+        print("Auto-commit requires explicit opt-in via NOMIC_AUTO_COMMIT=1.")
+        print("Set NOMIC_AUTO_COMMIT=1 and re-run with --auto if you intend")
+        print("to allow unattended commits.")
+        print("=" * 70)
+        sys.exit(2)
 
     if args.command == "run":
         # Support legacy --http-port

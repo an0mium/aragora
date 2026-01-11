@@ -32,7 +32,9 @@ from aragora.utils.cache import invalidate_cache
 logger = logging.getLogger(__name__)
 
 # Schema version for ConsensusMemory migrations
-CONSENSUS_SCHEMA_VERSION = 1
+# v1: Initial schema (consensus + dissent tables)
+# v2: Added verified_proofs table for formal verification results
+CONSENSUS_SCHEMA_VERSION = 2
 
 
 class ConsensusStrength(Enum):
@@ -268,6 +270,33 @@ class ConsensusMemory:
 
                 CREATE INDEX IF NOT EXISTS idx_dissent_timestamp
                 ON dissent(timestamp DESC);
+
+                -- Verified proofs table (added in v2)
+                CREATE TABLE IF NOT EXISTS verified_proofs (
+                    id TEXT PRIMARY KEY,
+                    debate_id TEXT NOT NULL,
+                    proof_status TEXT NOT NULL,
+                    language TEXT,
+                    formal_statement TEXT,
+                    is_verified INTEGER DEFAULT 0,
+                    proof_hash TEXT,
+                    translation_time_ms REAL,
+                    proof_search_time_ms REAL,
+                    prover_version TEXT,
+                    error_message TEXT,
+                    timestamp TEXT NOT NULL,
+                    data TEXT NOT NULL,
+                    FOREIGN KEY (debate_id) REFERENCES consensus(id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_verified_proofs_debate
+                ON verified_proofs(debate_id);
+
+                CREATE INDEX IF NOT EXISTS idx_verified_proofs_status
+                ON verified_proofs(proof_status);
+
+                CREATE INDEX IF NOT EXISTS idx_verified_proofs_verified
+                ON verified_proofs(is_verified);
             """
 
             manager.ensure_schema(initial_schema=initial_schema)
@@ -457,6 +486,148 @@ class ConsensusMemory:
             f"Updated consensus {consensus_id} with {len(cruxes[:5])} cruxes"
         )
         return True
+
+    def store_verified_proof(
+        self,
+        debate_id: str,
+        proof_result: dict,
+    ) -> str:
+        """Store a formal verification result for a debate.
+
+        Args:
+            debate_id: The ID of the consensus/debate this proof relates to
+            proof_result: Dict from FormalProofResult.to_dict() containing:
+                - status: proof_found, proof_failed, translation_failed, etc.
+                - language: z3_smt, lean4, etc.
+                - formal_statement: The translated formal statement
+                - is_verified: Whether the proof succeeded
+                - proof_hash: Hash of the proof for deduplication
+                - translation_time_ms, proof_search_time_ms: Timing info
+                - prover_version: Version of the prover used
+                - error_message: Any error message
+
+        Returns:
+            The ID of the stored proof record
+        """
+        proof_id = str(uuid.uuid4())
+        timestamp = datetime.now().isoformat()
+
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO verified_proofs (
+                    id, debate_id, proof_status, language, formal_statement,
+                    is_verified, proof_hash, translation_time_ms, proof_search_time_ms,
+                    prover_version, error_message, timestamp, data
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    proof_id,
+                    debate_id,
+                    proof_result.get("status", "unknown"),
+                    proof_result.get("language"),
+                    proof_result.get("formal_statement"),
+                    1 if proof_result.get("is_verified", False) else 0,
+                    proof_result.get("proof_hash"),
+                    proof_result.get("translation_time_ms"),
+                    proof_result.get("proof_search_time_ms"),
+                    proof_result.get("prover_version"),
+                    proof_result.get("error_message"),
+                    timestamp,
+                    json.dumps(proof_result),
+                ),
+            )
+            conn.commit()
+
+        logger.debug(
+            f"Stored verified proof {proof_id} for debate {debate_id} "
+            f"status={proof_result.get('status')} verified={proof_result.get('is_verified')}"
+        )
+
+        # Invalidate related caches
+        invalidate_cache("consensus")
+
+        return proof_id
+
+    def get_verified_proof(self, debate_id: str) -> Optional[dict]:
+        """Get the formal verification result for a debate.
+
+        Args:
+            debate_id: The debate/consensus ID
+
+        Returns:
+            The proof result dict if found, None otherwise
+        """
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT data FROM verified_proofs
+                WHERE debate_id = ?
+                ORDER BY timestamp DESC
+                LIMIT 1
+                """,
+                (debate_id,),
+            )
+            row = cursor.fetchone()
+
+        if row:
+            return safe_json_loads(row[0], None, context=f"proof:{debate_id}")
+        return None
+
+    def list_verified_debates(
+        self,
+        verified_only: bool = True,
+        limit: int = 50,
+    ) -> list[dict]:
+        """List debates with formal verification attempts.
+
+        Args:
+            verified_only: If True, only return successfully verified debates
+            limit: Maximum number of results
+
+        Returns:
+            List of dicts with debate_id, proof_status, is_verified, timestamp
+        """
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+            cursor = conn.cursor()
+
+            if verified_only:
+                cursor.execute(
+                    """
+                    SELECT debate_id, proof_status, is_verified, language, timestamp
+                    FROM verified_proofs
+                    WHERE is_verified = 1
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT debate_id, proof_status, is_verified, language, timestamp
+                    FROM verified_proofs
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                )
+
+            rows = cursor.fetchall()
+
+        return [
+            {
+                "debate_id": row[0],
+                "proof_status": row[1],
+                "is_verified": bool(row[2]),
+                "language": row[3],
+                "timestamp": row[4],
+            }
+            for row in rows
+        ]
 
     def get_consensus(self, consensus_id: str) -> Optional[ConsensusRecord]:
         """Get a consensus record by ID."""

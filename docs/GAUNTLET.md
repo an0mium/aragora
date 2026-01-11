@@ -208,6 +208,14 @@ aragora gauntlet spec.md --profile thorough --output receipt.html
 
 Use this in CI to fail builds when a decision does not pass the stress-test.
 
+### GitHub Action
+
+A ready-to-use workflow is available at:
+
+- `.github/workflows/aragora-gauntlet.yml`
+
+Configure provider keys in repository secrets to enable PR reviews.
+
 ## Evaluation Harness
 
 For deterministic, no-key evaluation, use the fixture-based harness:

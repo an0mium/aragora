@@ -347,17 +347,90 @@ class GauntletRunner:
         if not matrix.scenarios:
             return summary
 
-        # Create debate function
+        # Create debate function using real Arena
         async def debate_func(task: str, ctx: str):
-            # Simplified debate - would integrate with full Arena in production
-            return type("Result", (), {
-                "final_answer": f"Analysis of: {task[:50]}",
-                "confidence": 0.7,
-                "consensus_reached": True,
-                "key_claims": [],
-                "dissenting_views": [],
-                "rounds": 3,
-            })()
+            try:
+                from aragora import Arena, Environment, DebateProtocol
+                from aragora.debate.orchestrator import ArenaConfig
+
+                # Create environment for this scenario
+                env = Environment(
+                    task=task,
+                    context=ctx,
+                )
+
+                # Get agents - use agent_factory if provided, else use default agent names
+                agents = []
+                if self.agent_factory:
+                    for agent_name in self.config.agents[:self.config.max_agents]:
+                        try:
+                            agent = self.agent_factory(agent_name)
+                            if agent:
+                                agents.append(agent)
+                        except Exception as e:
+                            logger.debug(f"Failed to create agent {agent_name}: {e}")
+
+                # Fallback to creating agents from names
+                if not agents:
+                    from aragora.agents import get_agents_by_names
+                    agents = get_agents_by_names(
+                        self.config.agents[:self.config.max_agents]
+                    )
+
+                if not agents:
+                    # Return mock result if no agents available
+                    logger.warning("[gauntlet] No agents available for scenario debate")
+                    return type("Result", (), {
+                        "final_answer": f"Analysis of: {task[:50]}",
+                        "confidence": 0.5,
+                        "consensus_reached": False,
+                        "key_claims": [],
+                        "dissenting_views": [],
+                        "rounds_used": 0,
+                    })()
+
+                # Configure protocol for short scenario debates
+                protocol = DebateProtocol(
+                    rounds=2,
+                    consensus="majority",
+                    consensus_threshold=0.6,
+                    convergence_detection=False,  # Faster without embedding checks
+                    role_rotation=False,  # Faster without role rotation
+                    enable_breakpoints=False,  # No human intervention needed
+                )
+
+                # Configure arena
+                arena_config = ArenaConfig(
+                    enable_evolution=False,  # No learning during scenarios
+                    enable_memory=False,  # Don't store scenario debates
+                )
+
+                # Run the debate
+                arena = Arena.from_config(env, agents, protocol, arena_config)
+                result = await arena.run()
+
+                return result
+
+            except ImportError as e:
+                logger.warning(f"[gauntlet] Arena not available: {e}")
+                return type("Result", (), {
+                    "final_answer": f"Analysis of: {task[:50]}",
+                    "confidence": 0.5,
+                    "consensus_reached": False,
+                    "key_claims": [],
+                    "dissenting_views": [],
+                    "rounds_used": 0,
+                })()
+            except Exception as e:
+                logger.error(f"[gauntlet] Arena debate error: {e}")
+                return type("Result", (), {
+                    "final_answer": f"Error during analysis: {str(e)[:100]}",
+                    "confidence": 0.3,
+                    "consensus_reached": False,
+                    "key_claims": [],
+                    "dissenting_views": [],
+                    "rounds_used": 0,
+                })()
 
         runner = MatrixDebateRunner(
             debate_func=debate_func,

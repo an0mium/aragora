@@ -175,10 +175,9 @@ class CommitPhase:
             self._log("\n[commit] Auto-committing (NOMIC_AUTO_COMMIT=1)")
             return True
         elif not sys.stdin.isatty():
-            # Non-interactive mode: log warning and proceed with commit
-            self._log("\n[commit] Non-interactive mode detected - proceeding with auto-commit")
-            self._log("[commit] Set NOMIC_AUTO_COMMIT=1 to suppress this warning")
-            return True
+            self._log("\n[commit] Non-interactive mode detected, auto-commit disabled")
+            self._log("[commit] Set NOMIC_AUTO_COMMIT=1 to allow unattended commits")
+            return False
         else:
             # Interactive mode: prompt for approval
             response = input("\nCommit these changes? [y/N]: ")

@@ -50,10 +50,10 @@ The name "nomic" comes from the game of Nomic, where players modify the rules of
 
 ```bash
 # Run with streaming dashboard
-python scripts/run_nomic_with_stream.py run --cycles 24 --auto
+NOMIC_AUTO_COMMIT=1 python scripts/run_nomic_with_stream.py run --cycles 24 --auto
 
 # Run without streaming
-python scripts/nomic_loop.py --cycles 10 --auto-commit
+NOMIC_AUTO_COMMIT=1 python scripts/nomic_loop.py --cycles 10 --auto
 ```
 
 ### Command Line Options
@@ -61,7 +61,7 @@ python scripts/nomic_loop.py --cycles 10 --auto-commit
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--cycles N` | Number of improvement cycles | 10 |
-| `--auto` | Auto-commit successful changes | False |
+| `--auto` | Auto-commit successful changes (requires `NOMIC_AUTO_COMMIT=1`) | False |
 | `--human-approval` | Require human approval for commits | False |
 | `--skip-genesis` | Skip codebase analysis | False |
 

@@ -626,8 +626,9 @@ def reset_redis_client() -> None:
     if _redis_client is not None:
         try:
             _redis_client.close()
-        except Exception:
-            pass
+        except Exception as e:
+            # Log but don't fail - we're resetting anyway
+            logger.debug(f"Error closing Redis client during reset: {e}")
     _redis_client = None
     _redis_init_attempted = False
 
