@@ -154,7 +154,7 @@ class SQLiteBackend(DatabaseBackend):
         try:
             yield conn
             conn.commit()
-        except Exception:
+        except sqlite3.Error:
             conn.rollback()
             raise
         finally:
@@ -241,7 +241,7 @@ class PostgreSQLBackend(DatabaseBackend):
         try:
             yield conn
             conn.commit()
-        except Exception:
+        except psycopg2.Error:
             conn.rollback()
             raise
         finally:
