@@ -342,8 +342,10 @@ class TestUnanimousConsensusMode:
 
         await phase.execute(ctx)
 
-        # Error counts as dissent, so not unanimous
-        assert ctx.result.consensus_reached is False
+        # Voting errors are logged but don't prevent consensus
+        # If all successful votes agree, that's still unanimous
+        assert ctx.result.consensus_reached is True
+        assert ctx.result.final_answer == "Proposal A"
 
 
 # ============================================================================
@@ -399,7 +401,8 @@ class TestJudgeConsensusMode:
 
         await phase.execute(ctx)
 
-        assert ctx.result.final_answer == "Fallback proposal"
+        # Output now includes fallback header
+        assert "Fallback proposal" in ctx.result.final_answer
         assert ctx.result.consensus_reached is False
 
     @pytest.mark.asyncio
