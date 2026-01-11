@@ -55,7 +55,7 @@ def _init_gauntlet():
             QUICK_GAUNTLET,
             THOROUGH_GAUNTLET,
         )
-        from aragora.gauntlet import DecisionReceipt as _DecisionReceipt
+        from aragora.export.decision_receipt import DecisionReceipt as _DecisionReceipt, generate_decision_receipt
         from enum import Enum
 
         # Assign to module-level names
@@ -113,8 +113,8 @@ class GauntletHandler(BaseHandler):
     def __init__(self, ctx: dict = None):
         """Initialize with context."""
         super().__init__(ctx)
-        self._orchestrator: Optional[GauntletOrchestrator] = None
-        self._results_cache: dict[str, GauntletResult] = {}
+        self._orchestrator = None  # GauntletOrchestrator, lazily loaded
+        self._results_cache: dict = {}  # str -> GauntletResult
 
     @property
     def orchestrator(self) -> Optional["GauntletOrchestrator"]:
@@ -200,11 +200,23 @@ class GauntletHandler(BaseHandler):
     @handle_errors("get Gauntlet template")
     def _get_template(self, template_id: str) -> HandlerResult:
         """Get details for a specific template."""
+        import dataclasses
         try:
             config = get_template(template_id)
+            # Convert dataclass to dict, handling enums
+            config_dict = dataclasses.asdict(config)
+            # Convert enum values to strings
+            for key, value in config_dict.items():
+                if hasattr(value, 'value'):
+                    config_dict[key] = value.value
+                elif isinstance(value, list):
+                    config_dict[key] = [
+                        v.value if hasattr(v, 'value') else v
+                        for v in value
+                    ]
             return json_response({
                 "id": template_id,
-                "config": config.to_dict(),
+                "config": config_dict,
             })
         except ValueError as e:
             return error_response(str(e), 404)
