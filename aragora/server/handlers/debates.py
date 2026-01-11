@@ -315,6 +315,7 @@ class DebatesHandler(BaseHandler):
     @rate_limit(rpm=30, limiter_name="debates_list")
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_DEBATES_LIST, key_prefix="debates_list", skip_first=True)
+    @handle_errors("list debates")
     def _list_debates(self, limit: int, org_id: Optional[str] = None) -> HandlerResult:
         """List recent debates, optionally filtered by organization.
 
@@ -326,14 +327,10 @@ class DebatesHandler(BaseHandler):
         Cached for 30 seconds. Cache key includes org_id for per-org isolation.
         """
         storage = self.get_storage()
-        try:
-            debates = storage.list_recent(limit=limit, org_id=org_id)
-            # Convert DebateMetadata objects to dicts
-            debates_list = [d.__dict__ if hasattr(d, '__dict__') else d for d in debates]
-            return json_response({"debates": debates_list, "count": len(debates_list)})
-        except Exception as e:
-            logger.error("Failed to list debates: %s: %s", type(e).__name__, e, exc_info=True)
-            return error_response(safe_error_message(e, "list debates"), 500)
+        debates = storage.list_recent(limit=limit, org_id=org_id)
+        # Convert DebateMetadata objects to dicts
+        debates_list = [d.__dict__ if hasattr(d, '__dict__') else d for d in debates]
+        return json_response({"debates": debates_list, "count": len(debates_list)})
 
     @rate_limit(rpm=30, limiter_name="debates_search")
     @require_storage
@@ -406,73 +403,64 @@ class DebatesHandler(BaseHandler):
             return error_response(safe_error_message(e, "search debates"), 500)
 
     @require_storage
+    @handle_errors("get debate by slug")
     def _get_debate_by_slug(self, handler, slug: str) -> HandlerResult:
         """Get a debate by slug."""
         storage = self.get_storage()
-        try:
-            debate = storage.get_debate(slug)
-            if debate:
-                return json_response(debate)
-            return error_response(f"Debate not found: {slug}", 404)
-        except Exception as e:
-            logger.error("Failed to get debate %s: %s: %s", slug, type(e).__name__, e, exc_info=True)
-            return error_response(safe_error_message(e, "get debate"), 500)
+        debate = storage.get_debate(slug)
+        if debate:
+            return json_response(debate)
+        return error_response(f"Debate not found: {slug}", 404)
 
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_IMPASSE, key_prefix="debates_impasse", skip_first=True)
+    @handle_errors("impasse detection")
     def _get_impasse(self, handler, debate_id: str) -> HandlerResult:
         """Detect impasse in a debate."""
         storage = self.get_storage()
-        try:
-            debate = storage.get_debate(debate_id)
-            if not debate:
-                return error_response(f"Debate not found: {debate_id}", 404)
+        debate = storage.get_debate(debate_id)
+        if not debate:
+            return error_response(f"Debate not found: {debate_id}", 404)
 
-            # Analyze for impasse indicators
-            messages = debate.get("messages", [])
-            critiques = debate.get("critiques", [])
+        # Analyze for impasse indicators
+        critiques = debate.get("critiques", [])
 
-            # Simple impasse detection: repetitive critiques without progress
-            impasse_indicators = {
-                "repeated_critiques": False,
-                "no_convergence": not debate.get("consensus_reached", False),
-                "high_severity_critiques": any(c.get("severity", 0) > 0.7 for c in critiques),
-            }
+        # Simple impasse detection: repetitive critiques without progress
+        impasse_indicators = {
+            "repeated_critiques": False,
+            "no_convergence": not debate.get("consensus_reached", False),
+            "high_severity_critiques": any(c.get("severity", 0) > 0.7 for c in critiques),
+        }
 
-            is_impasse = sum(impasse_indicators.values()) >= 2
+        is_impasse = sum(impasse_indicators.values()) >= 2
 
-            return json_response({
-                "debate_id": debate_id,
-                "is_impasse": is_impasse,
-                "indicators": impasse_indicators,
-            })
-        except Exception as e:
-            logger.error("Impasse detection failed for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(safe_error_message(e, "impasse detection"), 500)
+        return json_response({
+            "debate_id": debate_id,
+            "is_impasse": is_impasse,
+            "indicators": impasse_indicators,
+        })
 
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_convergence", skip_first=True)
+    @handle_errors("convergence check")
     def _get_convergence(self, handler, debate_id: str) -> HandlerResult:
         """Get convergence status for a debate."""
         storage = self.get_storage()
-        try:
-            debate = storage.get_debate(debate_id)
-            if not debate:
-                return error_response(f"Debate not found: {debate_id}", 404)
+        debate = storage.get_debate(debate_id)
+        if not debate:
+            return error_response(f"Debate not found: {debate_id}", 404)
 
-            return json_response({
-                "debate_id": debate_id,
-                "convergence_status": debate.get("convergence_status", "unknown"),
-                "convergence_similarity": debate.get("convergence_similarity", 0.0),
-                "consensus_reached": debate.get("consensus_reached", False),
-                "rounds_used": debate.get("rounds_used", 0),
-            })
-        except Exception as e:
-            logger.error("Convergence check failed for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(safe_error_message(e, "convergence check"), 500)
+        return json_response({
+            "debate_id": debate_id,
+            "convergence_status": debate.get("convergence_status", "unknown"),
+            "convergence_similarity": debate.get("convergence_similarity", 0.0),
+            "consensus_reached": debate.get("consensus_reached", False),
+            "rounds_used": debate.get("rounds_used", 0),
+        })
 
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_verification", skip_first=True)
+    @handle_errors("verification report")
     def _get_verification_report(self, handler, debate_id: str) -> HandlerResult:
         """Get verification report for a debate.
 
@@ -480,35 +468,31 @@ class DebatesHandler(BaseHandler):
         useful for analyzing claim quality and feedback loop effectiveness.
         """
         storage = self.get_storage()
-        try:
-            debate = storage.get_debate(debate_id)
-            if not debate:
-                return error_response(f"Debate not found: {debate_id}", 404)
+        debate = storage.get_debate(debate_id)
+        if not debate:
+            return error_response(f"Debate not found: {debate_id}", 404)
 
-            verification_results = debate.get("verification_results", {})
-            verification_bonuses = debate.get("verification_bonuses", {})
+        verification_results = debate.get("verification_results", {})
+        verification_bonuses = debate.get("verification_bonuses", {})
 
-            # Calculate summary stats
-            total_verified = sum(v for v in verification_results.values() if v > 0)
-            agents_verified = sum(1 for v in verification_results.values() if v > 0)
-            total_bonus = sum(verification_bonuses.values())
+        # Calculate summary stats
+        total_verified = sum(v for v in verification_results.values() if v > 0)
+        agents_verified = sum(1 for v in verification_results.values() if v > 0)
+        total_bonus = sum(verification_bonuses.values())
 
-            return json_response({
-                "debate_id": debate_id,
-                "verification_enabled": bool(verification_results),
-                "verification_results": verification_results,
-                "verification_bonuses": verification_bonuses,
-                "summary": {
-                    "total_verified_claims": total_verified,
-                    "agents_with_verified_claims": agents_verified,
-                    "total_bonus_applied": round(total_bonus, 3),
-                },
-                "winner": debate.get("winner"),
-                "consensus_reached": debate.get("consensus_reached", False),
-            })
-        except Exception as e:
-            logger.error("Verification report failed for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(safe_error_message(e, "verification report"), 500)
+        return json_response({
+            "debate_id": debate_id,
+            "verification_enabled": bool(verification_results),
+            "verification_results": verification_results,
+            "verification_bonuses": verification_bonuses,
+            "summary": {
+                "total_verified_claims": total_verified,
+                "agents_with_verified_claims": agents_verified,
+                "total_bonus_applied": round(total_bonus, 3),
+            },
+            "winner": debate.get("winner"),
+            "consensus_reached": debate.get("consensus_reached", False),
+        })
 
     @require_storage
     def _export_debate(self, handler, debate_id: str, format: str, table: str) -> HandlerResult:

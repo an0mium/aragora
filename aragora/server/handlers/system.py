@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 from .base import (
     BaseHandler, HandlerResult, json_response, error_response,
     get_int_param, get_string_param, validate_path_segment, SAFE_ID_PATTERN,
-    ttl_cache, safe_error_message,
+    ttl_cache, safe_error_message, handle_errors,
 )
 
 # Cache TTLs for system endpoints (in seconds)
@@ -221,8 +221,8 @@ class SystemHandler(BaseHandler):
             if not storage:
                 # Storage not configured is OK for readiness
                 checks["storage"] = True
-        except Exception as e:
-            logger.warning(f"Storage readiness check failed: {e}")
+        except (OSError, RuntimeError, ValueError) as e:
+            logger.warning(f"Storage readiness check failed: {type(e).__name__}: {e}")
             checks["storage"] = False
             ready = False
 
@@ -233,8 +233,8 @@ class SystemHandler(BaseHandler):
             if not elo:
                 # ELO not configured is OK for readiness
                 checks["elo_system"] = True
-        except Exception as e:
-            logger.warning(f"ELO system readiness check failed: {e}")
+        except (OSError, RuntimeError, ValueError) as e:
+            logger.warning(f"ELO system readiness check failed: {type(e).__name__}: {e}")
             checks["elo_system"] = False
             ready = False
 
@@ -270,8 +270,8 @@ class SystemHandler(BaseHandler):
             else:
                 checks["database"] = {"healthy": False, "error": "Storage not initialized"}
                 all_healthy = False
-        except Exception as e:
-            checks["database"] = {"healthy": False, "error": str(e)[:100]}
+        except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as e:
+            checks["database"] = {"healthy": False, "error": f"{type(e).__name__}: {str(e)[:80]}"}
             all_healthy = False
 
         # Check ELO system
@@ -284,8 +284,8 @@ class SystemHandler(BaseHandler):
             else:
                 checks["elo_system"] = {"healthy": False, "error": "ELO system not initialized"}
                 all_healthy = False
-        except Exception as e:
-            checks["elo_system"] = {"healthy": False, "error": str(e)[:100]}
+        except (OSError, RuntimeError, ValueError, KeyError) as e:
+            checks["elo_system"] = {"healthy": False, "error": f"{type(e).__name__}: {str(e)[:80]}"}
             all_healthy = False
 
         # Check nomic directory
@@ -306,8 +306,8 @@ class SystemHandler(BaseHandler):
             try:
                 client_count = len(getattr(ws_manager, 'clients', []))
                 checks["websocket"] = {"healthy": True, "active_clients": client_count}
-            except Exception as e:
-                checks["websocket"] = {"healthy": False, "error": str(e)[:100]}
+            except (AttributeError, TypeError) as e:
+                checks["websocket"] = {"healthy": False, "error": f"{type(e).__name__}: {str(e)[:80]}"}
         else:
             # WebSocket runs as separate aiohttp service - check via different mechanism
             checks["websocket"] = {"healthy": True, "note": "Managed by separate aiohttp server"}
@@ -704,63 +704,54 @@ class SystemHandler(BaseHandler):
             return data[:limit]
 
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_cycles", skip_first=True)
+    @handle_errors("get cycles")
     def _get_history_cycles(self, loop_id: Optional[str], limit: int) -> HandlerResult:
         """Get cycle history from Supabase or local storage."""
-        try:
-            nomic_dir = self.get_nomic_dir()
-            if nomic_dir:
-                cycles_file = nomic_dir / "cycles.json"
-                cycles = self._load_filtered_json(cycles_file, loop_id, limit)
-                return json_response({"cycles": cycles})
+        nomic_dir = self.get_nomic_dir()
+        if nomic_dir:
+            cycles_file = nomic_dir / "cycles.json"
+            cycles = self._load_filtered_json(cycles_file, loop_id, limit)
+            return json_response({"cycles": cycles})
 
-            return json_response({"cycles": []})
-        except Exception as e:
-            logger.error("Failed to get history cycles: %s", e, exc_info=True)
-            return error_response(safe_error_message(e, "get cycles"), 500)
+        return json_response({"cycles": []})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_events", skip_first=True)
+    @handle_errors("get events")
     def _get_history_events(self, loop_id: Optional[str], limit: int) -> HandlerResult:
         """Get event history."""
-        try:
-            nomic_dir = self.get_nomic_dir()
-            if nomic_dir:
-                events_file = nomic_dir / "events.json"
-                events = self._load_filtered_json(events_file, loop_id, limit)
-                return json_response({"events": events})
+        nomic_dir = self.get_nomic_dir()
+        if nomic_dir:
+            events_file = nomic_dir / "events.json"
+            events = self._load_filtered_json(events_file, loop_id, limit)
+            return json_response({"events": events})
 
-            return json_response({"events": []})
-        except Exception as e:
-            logger.error("Failed to get history events: %s", e, exc_info=True)
-            return error_response(safe_error_message(e, "get events"), 500)
+        return json_response({"events": []})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_debates", skip_first=True)
+    @handle_errors("get debates")
     def _get_history_debates(self, loop_id: Optional[str], limit: int) -> HandlerResult:
         """Get debate history."""
         storage = self.get_storage()
         if not storage:
             return json_response({"debates": []})
 
-        try:
-            # When filtering, fetch more to account for non-matching items
-            fetch_limit = limit * 3 if loop_id else limit
-            debate_metadata = storage.list_recent(limit=fetch_limit)
+        # When filtering, fetch more to account for non-matching items
+        fetch_limit = limit * 3 if loop_id else limit
+        debate_metadata = storage.list_recent(limit=fetch_limit)
 
-            if loop_id:
-                # Filter with early termination
-                debates = []
-                for d in debate_metadata:
-                    item = d.__dict__ if hasattr(d, '__dict__') else d
-                    if item.get("loop_id") == loop_id:
-                        debates.append(item)
-                        if len(debates) >= limit:
-                            break
-            else:
-                debates = [d.__dict__ if hasattr(d, '__dict__') else d for d in debate_metadata[:limit]]
+        if loop_id:
+            # Filter with early termination
+            debates = []
+            for d in debate_metadata:
+                item = d.__dict__ if hasattr(d, '__dict__') else d
+                if item.get("loop_id") == loop_id:
+                    debates.append(item)
+                    if len(debates) >= limit:
+                        break
+        else:
+            debates = [d.__dict__ if hasattr(d, '__dict__') else d for d in debate_metadata[:limit]]
 
-            return json_response({"debates": debates})
-        except Exception as e:
-            logger.error("Failed to get history debates: %s", e, exc_info=True)
-            return error_response(safe_error_message(e, "get debates"), 500)
+        return json_response({"debates": debates})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_summary", skip_first=True)
     def _get_history_summary(self, loop_id: Optional[str]) -> HandlerResult:
