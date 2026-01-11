@@ -420,7 +420,7 @@ class TestAirlockProxySanitization:
 
     async def test_sanitize_disabled_strip_fences(self, mock_agent):
         """Test with markdown fence stripping disabled."""
-        config = AirlockConfig(strip_markdown_fences=False)
+        config = AirlockConfig(strip_markdown_fences=False, extract_json=False)
         mock_agent.generate_response = '```json\n{"key": "value"}\n```'
         proxy = AirlockProxy(mock_agent, config)
 

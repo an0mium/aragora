@@ -282,11 +282,18 @@ class TestFFmpegMixer:
 
         def capture_run(cmd, **kwargs):
             nonlocal concat_content
-            # Find the file list argument
+            # Codec detection calls use ffprobe
+            if cmd[0] == "ffprobe":
+                mock_result = MagicMock()
+                mock_result.returncode = 0
+                mock_result.stdout = "mp3\n"  # Same codec for both
+                return mock_result
+
+            # FFmpeg calls - look for concat file
             for i, arg in enumerate(cmd):
                 if arg == "-i" and i + 1 < len(cmd):
                     file_list_path = cmd[i + 1]
-                    if os.path.exists(file_list_path):
+                    if os.path.exists(file_list_path) and "filelist" in str(file_list_path):
                         with open(file_list_path) as f:
                             concat_content = f.read()
             mock_result = MagicMock()
@@ -297,7 +304,7 @@ class TestFFmpegMixer:
             result = mix_audio_with_ffmpeg(audio_files, output_path)
 
         assert result is True
-        assert concat_content is not None
+        assert concat_content is not None, "Concat file was not captured"
         assert "file '" in concat_content
         assert "audio1.mp3" in concat_content
         assert "audio2.mp3" in concat_content
