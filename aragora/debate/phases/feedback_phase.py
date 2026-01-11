@@ -412,7 +412,7 @@ class FeedbackPhase:
             # Emit MATCH_RECORDED event
             self._emit_match_recorded_event(ctx, participants)
 
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             _, msg, exc_info = _build_error_action(e, "elo")
             logger.warning("ELO update failed for debate %s: %s", ctx.debate_id, msg, exc_info=exc_info)
 
@@ -461,7 +461,7 @@ class FeedbackPhase:
                             "is_winner": agent_name == ctx.result.winner,
                         }
                     ))
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.warning(f"ELO event emission error: {e}")
 
     def _update_persona_performance(self, ctx: "DebateContext") -> None:

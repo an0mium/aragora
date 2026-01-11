@@ -239,6 +239,11 @@ class ConsensusPhase:
                 self._execute_consensus(ctx, consensus_mode),
                 timeout=timeout
             )
+
+            # Attempt formal verification if enabled and consensus reached
+            if ctx.result.consensus_reached:
+                await self._verify_consensus_formally(ctx)
+
         except asyncio.TimeoutError:
             logger.warning(
                 f"consensus_timeout mode={consensus_mode} timeout={timeout}s, falling back to none"
