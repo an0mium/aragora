@@ -213,7 +213,7 @@ class TestRunMatrixDebate:
         result = await handler.handle_post(
             mock_handler_obj,
             "/api/debates/matrix",
-            {"task": "Test task"},
+            {"task": "Test task that is long enough to pass validation"},
         )
 
         assert result.status_code == 400

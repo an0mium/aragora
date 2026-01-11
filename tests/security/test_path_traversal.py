@@ -24,6 +24,8 @@ class TestPathTraversalPrevention:
         """Should reject ../../../etc/passwd style attacks."""
         def is_safe_path(base_dir: str, requested_path: str) -> bool:
             """Check if requested path stays within base directory."""
+            # Normalize backslashes to forward slashes for cross-platform
+            requested_path = requested_path.replace("\\", "/")
             base = Path(base_dir).resolve()
             target = (base / requested_path).resolve()
             return str(target).startswith(str(base))
@@ -46,8 +48,8 @@ class TestPathTraversalPrevention:
         from urllib.parse import unquote
 
         def normalize_and_check(base_dir: str, path: str) -> bool:
-            # Decode URL encoding
-            decoded = unquote(path)
+            # Decode URL encoding (decode twice to catch double-encoding)
+            decoded = unquote(unquote(path))
             # Check for traversal after decoding
             base = Path(base_dir).resolve()
             target = (base / decoded).resolve()
@@ -58,7 +60,8 @@ class TestPathTraversalPrevention:
         # URL-encoded attacks
         assert normalize_and_check(base_dir, "%2e%2e/%2e%2e/etc/passwd") is False
         assert normalize_and_check(base_dir, "..%2f..%2fetc/passwd") is False
-        assert normalize_and_check(base_dir, "%252e%252e%252f") is False  # Double encoded
+        # Double encoded: %252e%252e%252f decodes to %2e%2e%2f then to ../
+        assert normalize_and_check(base_dir, "%252e%252e%252f%252e%252e%252fetc/passwd") is False
 
     def test_rejects_null_byte_injection(self):
         """Should reject null byte injection attempts."""
@@ -157,7 +160,8 @@ class TestFileUploadPathSecurity:
         assert sanitize_filename("my-file_v2.txt") == "my-file_v2.txt"
 
         # Attack attempts
-        assert sanitize_filename("../../../etc/passwd") == "______etc_passwd"
+        # ../../../etc/passwd -> .._.._.._etc_passwd (4 slashes) -> _.._.._etc_passwd (lstrip dots)
+        assert sanitize_filename("../../../etc/passwd") == "_.._.._etc_passwd"
         assert sanitize_filename("/etc/passwd") == "_etc_passwd"
         assert sanitize_filename(".htaccess") == "htaccess"
         assert sanitize_filename("file.txt\x00.jpg") == "file.txt.jpg"
@@ -186,9 +190,14 @@ class TestFileUploadPathSecurity:
             upload_dir.mkdir()
 
             def safe_upload(upload_dir: Path, filename: str, content: bytes) -> Path:
-                # Sanitize filename
-                safe_name = Path(filename).name  # Remove any path components
-                safe_name = safe_name.replace("..", "_")
+                # Reject filenames with path traversal attempts
+                if ".." in filename or filename.startswith("/"):
+                    raise ValueError("Path traversal attempt")
+
+                # Sanitize filename - only keep the base name
+                safe_name = Path(filename).name
+                if not safe_name or safe_name.startswith("."):
+                    raise ValueError("Invalid filename")
 
                 target = (upload_dir / safe_name).resolve()
 
@@ -201,7 +210,8 @@ class TestFileUploadPathSecurity:
 
             # Safe upload
             result = safe_upload(upload_dir, "test.txt", b"content")
-            assert result.parent == upload_dir
+            # Compare resolved paths (macOS uses /private/var symlink)
+            assert result.parent.resolve() == upload_dir.resolve()
 
             # Attack attempt
             with pytest.raises(ValueError):

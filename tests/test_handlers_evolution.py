@@ -10,7 +10,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
 
-from aragora.server.handlers.evolution import EvolutionHandler
+from aragora.server.handlers.evolution import EvolutionHandler, _evolution_limiter
 from aragora.server.handlers.base import clear_cache
 
 
@@ -72,10 +72,12 @@ def handler_no_nomic_dir():
 
 @pytest.fixture(autouse=True)
 def clear_caches():
-    """Clear caches before and after each test."""
+    """Clear caches and rate limits before and after each test."""
     clear_cache()
+    _evolution_limiter.clear()
     yield
     clear_cache()
+    _evolution_limiter.clear()
 
 
 # ============================================================================

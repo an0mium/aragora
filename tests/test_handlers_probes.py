@@ -47,12 +47,26 @@ def probes_handler(mock_elo_system, mock_nomic_dir):
 
 @pytest.fixture
 def mock_handler():
-    """Create a mock HTTP handler with request body."""
+    """Create a mock HTTP handler with request body and auth."""
     handler = Mock()
-    handler.headers = {"Content-Length": "100"}
+    handler.headers = {
+        "Content-Length": "100",
+        "Authorization": "Bearer test-token",
+    }
     handler.server = Mock()
     handler.server.stream_server = None
     return handler
+
+
+@pytest.fixture(autouse=True)
+def mock_auth():
+    """Mock auth to return a valid user context for all tests."""
+    mock_user = Mock()
+    mock_user.user_id = "test-user-123"
+    mock_user.org_id = "test-org-456"
+    mock_user.email = "test@example.com"
+    with patch('aragora.billing.jwt_auth.extract_user_from_request', return_value=mock_user):
+        yield
 
 
 @pytest.fixture(autouse=True)
