@@ -499,6 +499,7 @@ def cmd_review(args: argparse.Namespace) -> int:
                     capture_output=True,
                     text=True,
                     timeout=30,
+                    shell=False,
                 )
                 if result.returncode == 0:
                     diff = result.stdout
