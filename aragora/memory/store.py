@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 from aragora.core import Critique, DebateResult
 from aragora.utils.json_helpers import safe_json_loads
-from aragora.server.handlers.base import ttl_cache
+from aragora.utils.cache import ttl_cache, invalidate_cache
 from aragora.config import (
     CACHE_TTL_CRITIQUE_PATTERNS,
     CACHE_TTL_CRITIQUE_STATS,
@@ -344,12 +344,8 @@ class CritiqueStore:
             conn.commit()
 
         # Invalidate related caches so API returns fresh data
-        try:
-            from aragora.server.handlers.base import invalidate_cache
-            invalidate_cache("memory")
-            invalidate_cache("debates")
-        except ImportError:
-            logger.debug("Cache invalidation skipped: handlers module not available")
+        invalidate_cache("memory")
+        invalidate_cache("debates")
 
     def store_pattern(self, critique: Critique, successful_fix: str) -> None:
         """Store a successful critique pattern."""
@@ -400,11 +396,7 @@ class CritiqueStore:
             conn.commit()
 
         # Invalidate related caches so API returns fresh data
-        try:
-            from aragora.server.handlers.base import invalidate_cache
-            invalidate_cache("memory")
-        except ImportError:
-            logger.debug("Cache invalidation skipped: handlers module not available")
+        invalidate_cache("memory")
 
     def _categorize_issue(self, issue: str) -> str:
         """Simple issue categorization."""

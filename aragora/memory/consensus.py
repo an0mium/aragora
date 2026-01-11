@@ -27,6 +27,7 @@ import uuid
 from aragora.config import DB_CONSENSUS_PATH, DB_TIMEOUT_SECONDS
 from aragora.storage.schema import SchemaManager, get_wal_connection
 from aragora.utils.json_helpers import safe_json_loads
+from aragora.utils.cache import invalidate_cache
 
 logger = logging.getLogger(__name__)
 
@@ -338,11 +339,7 @@ class ConsensusMemory:
             conn.commit()
 
         # Invalidate related caches so API returns fresh data
-        try:
-            from aragora.server.handlers.base import invalidate_cache
-            invalidate_cache("consensus")
-        except ImportError:
-            logger.debug("Cache invalidation skipped: handlers module not available")
+        invalidate_cache("consensus")
 
         return record
 
@@ -411,11 +408,7 @@ class ConsensusMemory:
             conn.commit()
 
         # Invalidate related caches so API returns fresh data
-        try:
-            from aragora.server.handlers.base import invalidate_cache
-            invalidate_cache("consensus")
-        except ImportError:
-            logger.debug("Cache invalidation skipped: handlers module not available")
+        invalidate_cache("consensus")
 
         return record
 

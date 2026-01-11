@@ -292,3 +292,136 @@ def clear_all_caches() -> dict[str, int]:
         "method_cache": _method_cache.clear(),
         "query_cache": _query_cache.clear(),
     }
+
+
+# =============================================================================
+# Handler-style cache utilities (for use by memory and other modules)
+# =============================================================================
+
+# Global bounded cache for handler-style caching
+_handler_cache: TTLCache[Any] = TTLCache(maxsize=1000, ttl_seconds=60.0)
+
+
+def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool = True):
+    """
+    Decorator for caching function results with TTL expiry.
+
+    This is the handler-style cache decorator that can be used by both
+    server handlers and other modules like memory.
+
+    Args:
+        ttl_seconds: How long to cache results (default 60s)
+        key_prefix: Prefix for cache key to namespace different functions
+        skip_first: If True, skip first arg (self) when building cache key for methods.
+                   Default is True since most usage is on class methods.
+                   Set to False when decorating standalone functions.
+
+    Usage:
+        @ttl_cache(ttl_seconds=300, key_prefix="leaderboard")
+        def _get_leaderboard(self, limit: int):
+            ...
+    """
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @wraps(func)
+        def wrapper(*args, **kwargs) -> T:
+            # Skip 'self' when building cache key for methods
+            cache_args = args[1:] if skip_first and args else args
+            # Build cache key from function name, args and kwargs
+            cache_key = f"{key_prefix}:{func.__name__}:{cache_args}:{sorted(kwargs.items())}"
+
+            # Check cache
+            cached = _handler_cache.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache hit for {cache_key}")
+                return cached
+
+            # Cache miss - compute and store
+            result = func(*args, **kwargs)
+            _handler_cache.set(cache_key, result)
+            logger.debug(f"Cache miss, stored {cache_key}")
+            return result
+        return wrapper
+    return decorator
+
+
+def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool = True):
+    """
+    Async decorator for caching coroutine results with TTL expiry.
+
+    Same as ttl_cache but works with async functions.
+
+    Args:
+        ttl_seconds: How long to cache results (default 60s)
+        key_prefix: Prefix for cache key to namespace different functions
+        skip_first: If True, skip first arg (self) when building cache key for methods.
+    """
+    import asyncio
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @wraps(func)
+        async def wrapper(*args, **kwargs) -> T:
+            # Skip 'self' when building cache key for methods
+            cache_args = args[1:] if skip_first and args else args
+            cache_key = f"{key_prefix}:{func.__name__}:{cache_args}:{sorted(kwargs.items())}"
+
+            # Check cache
+            cached = _handler_cache.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache hit for {cache_key}")
+                return cached
+
+            # Cache miss - compute and store
+            result = await func(*args, **kwargs)
+            _handler_cache.set(cache_key, result)
+            logger.debug(f"Cache miss, stored {cache_key}")
+            return result
+        return wrapper  # type: ignore
+    return decorator
+
+
+# Maps data sources to cache prefixes that should be invalidated
+CACHE_INVALIDATION_MAP: dict[str, list[str]] = {
+    # Memory module events
+    "memory": ["analytics_memory", "critique_patterns", "critique_stats"],
+    # Debate events
+    "debates": ["dashboard_debates", "analytics_debates", "replays_list", "consensus_stats"],
+    # Consensus events
+    "consensus": ["consensus_stats", "consensus_settled", "consensus_similar"],
+    # ELO/ranking events
+    "elo": ["leaderboard", "lb_rankings", "agents_list", "agent_profile"],
+    # Agent events
+    "agent": ["agent_profile", "agents_list"],
+}
+
+
+def invalidate_cache(data_source: str) -> int:
+    """Invalidate cache entries associated with a data source.
+
+    This function clears all cache prefixes registered for a given data source.
+    Can be used by memory modules, server handlers, or any other code that
+    needs to invalidate related caches.
+
+    Args:
+        data_source: Name of the data source (e.g., "memory", "debates", "consensus")
+
+    Returns:
+        Total number of cache entries invalidated
+    """
+    prefixes = CACHE_INVALIDATION_MAP.get(data_source, [data_source])
+    total_cleared = 0
+
+    for prefix in prefixes:
+        cleared = _handler_cache.clear_prefix(prefix)
+        total_cleared += cleared
+        if cleared > 0:
+            logger.debug(f"Cache invalidation: cleared {cleared} entries with prefix '{prefix}'")
+
+    if total_cleared > 0:
+        logger.info(f"Cache invalidated: source={data_source}, entries_cleared={total_cleared}")
+
+    return total_cleared
+
+
+def get_handler_cache() -> TTLCache[Any]:
+    """Get the global handler cache instance."""
+    return _handler_cache
