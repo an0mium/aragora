@@ -937,6 +937,7 @@ class DebateStreamServer(ServerBase):
             max_size=WS_MAX_MESSAGE_SIZE,
             ping_interval=30,  # Send ping every 30s
             ping_timeout=10,   # Close connection if no pong within 10s
+            compression="deflate",  # Enable permessage-deflate for reduced bandwidth
         ):
             logger.info(f"WebSocket server: ws://{self.host}:{self.port} (max message size: {WS_MAX_MESSAGE_SIZE} bytes)")
             await asyncio.Future()  # Run forever
