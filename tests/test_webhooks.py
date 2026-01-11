@@ -347,14 +347,14 @@ class TestWebhookDispatcher:
     def test_init_not_running(self, basic_config):
         """Test that dispatcher is not running initially."""
         d = WebhookDispatcher([basic_config])
-        assert not d._running
+        assert not d.is_running
         d.stop()
 
     def test_start_creates_worker_thread(self, basic_config):
         """Test that start creates worker thread."""
         d = WebhookDispatcher([basic_config])
         d.start()
-        assert d._running
+        assert d.is_running
         assert d._worker is not None
         assert d._worker.is_alive()
         d.stop()
@@ -364,11 +364,14 @@ class TestWebhookDispatcher:
         d = WebhookDispatcher([basic_config])
         d.start()
         d.stop(timeout=2.0)
-        assert not d._running
+        assert not d.is_running
 
-    def test_enqueue_before_start_returns_false(self, dispatcher):
-        """Test that enqueueing before start returns False."""
-        result = dispatcher.enqueue({"type": "debate_start"})
+    def test_enqueue_after_stop_returns_false(self, basic_config):
+        """Test that enqueueing after stop returns False."""
+        d = WebhookDispatcher([basic_config], allow_localhost=True)
+        d.start()
+        d.stop()
+        result = d.enqueue({"type": "debate_start"})
         assert not result
 
     def test_enqueue_matching_event(self, dispatcher):

@@ -48,6 +48,7 @@ def mock_user():
     user.org_id = "org-456"
     user.role = "member"
     user.is_active = True
+    user.mfa_enabled = False  # Explicitly disable MFA for tests
     user.verify_password = Mock(return_value=True)
     user.to_dict = Mock(return_value={
         "id": "user-123",
@@ -87,6 +88,18 @@ def auth_handler(mock_user_store):
     """Create AuthHandler with mock dependencies."""
     ctx = {"user_store": mock_user_store}
     return AuthHandler(ctx)
+
+
+@pytest.fixture(autouse=True)
+def clear_rate_limiters():
+    """Clear rate limiters before each test to avoid rate limit pollution."""
+    from aragora.server.handlers.utils.rate_limit import _limiters
+    # Reset internal buckets of all existing limiters
+    for limiter in _limiters.values():
+        limiter._buckets.clear()
+    yield
+    for limiter in _limiters.values():
+        limiter._buckets.clear()
 
 
 # ============================================================================
@@ -223,8 +236,8 @@ class TestAuthHandlerRoutes:
 class TestRegistration:
     """Tests for user registration endpoint."""
 
-    @patch("aragora.server.handlers.auth.hash_password")
-    @patch("aragora.server.handlers.auth.create_token_pair")
+    @patch("aragora.billing.models.hash_password")
+    @patch("aragora.billing.jwt_auth.create_token_pair")
     def test_register_success(
         self, mock_tokens, mock_hash, auth_handler, mock_handler, mock_user_store
     ):
@@ -312,7 +325,7 @@ class TestRegistration:
 class TestLogin:
     """Tests for user login endpoint."""
 
-    @patch("aragora.server.handlers.auth.create_token_pair")
+    @patch("aragora.billing.jwt_auth.create_token_pair")
     def test_login_success(
         self, mock_tokens, auth_handler, mock_handler, mock_user_store, mock_user
     ):
@@ -411,7 +424,7 @@ class TestTokenRefresh:
     """Tests for token refresh endpoint."""
 
     @patch("aragora.server.handlers.auth.validate_refresh_token")
-    @patch("aragora.server.handlers.auth.create_token_pair")
+    @patch("aragora.billing.jwt_auth.create_token_pair")
     def test_refresh_success(
         self, mock_tokens, mock_validate, auth_handler, mock_handler, mock_user_store, mock_user
     ):
@@ -608,7 +621,7 @@ class TestSecurityMeasures:
         }
         mock_user_store.get_user_by_email.return_value = mock_user
 
-        with patch("aragora.server.handlers.auth.create_token_pair") as mock_tokens:
+        with patch("aragora.billing.jwt_auth.create_token_pair") as mock_tokens:
             mock_tokens.return_value = Mock(to_dict=lambda: {"access_token": "token"})
             auth_handler.read_json_body = Mock(return_value={
                 "email": "test@example.com",

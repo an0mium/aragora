@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 from aragora.uncertainty.estimator import (
     ConfidenceScore,
     DisagreementCrux,
+    FollowUpSuggestion,
     UncertaintyMetrics,
     ConfidenceEstimator,
     DisagreementAnalyzer,
@@ -676,3 +677,214 @@ class TestIntegration:
 
         # Perfect should have higher quality than poor
         assert perfect_quality > poor_quality
+
+
+# =============================================================================
+# TestFollowUpSuggestion
+# =============================================================================
+
+
+class TestFollowUpSuggestion:
+    """Tests for FollowUpSuggestion dataclass."""
+
+    def test_creation_with_required_fields(self) -> None:
+        """Test creating FollowUpSuggestion with required fields."""
+        crux = DisagreementCrux(
+            description="Security concerns",
+            divergent_agents=["claude", "gemini"],
+        )
+        suggestion = FollowUpSuggestion(
+            crux=crux,
+            suggested_task="Investigate security implications",
+            priority=0.8,
+        )
+        assert suggestion.crux is crux
+        assert suggestion.suggested_task == "Investigate security implications"
+        assert suggestion.priority == 0.8
+        assert suggestion.parent_debate_id is None
+        assert suggestion.suggested_agents == []
+
+    def test_creation_with_all_fields(self) -> None:
+        """Test creating FollowUpSuggestion with all fields."""
+        crux = DisagreementCrux(
+            description="Performance trade-offs",
+            divergent_agents=["claude"],
+        )
+        suggestion = FollowUpSuggestion(
+            crux=crux,
+            suggested_task="Debate performance vs simplicity",
+            priority=0.6,
+            parent_debate_id="debate-123",
+            suggested_agents=["claude", "gemini", "grok"],
+        )
+        assert suggestion.parent_debate_id == "debate-123"
+        assert suggestion.suggested_agents == ["claude", "gemini", "grok"]
+
+    def test_to_dict(self) -> None:
+        """Test FollowUpSuggestion serialization."""
+        crux = DisagreementCrux(
+            description="Scalability concerns",
+            divergent_agents=["agent1"],
+            severity=0.7,
+        )
+        suggestion = FollowUpSuggestion(
+            crux=crux,
+            suggested_task="Resolve scalability debate",
+            priority=0.75,
+            parent_debate_id="parent-456",
+            suggested_agents=["agent1", "agent2"],
+        )
+
+        data = suggestion.to_dict()
+
+        assert data["crux_id"] == crux.crux_id
+        assert data["crux_description"] == "Scalability concerns"
+        assert data["suggested_task"] == "Resolve scalability debate"
+        assert data["priority"] == 0.75
+        assert data["parent_debate_id"] == "parent-456"
+        assert data["suggested_agents"] == ["agent1", "agent2"]
+        assert data["divergent_agents"] == ["agent1"]
+
+
+class TestDisagreementCruxId:
+    """Tests for DisagreementCrux crux_id generation."""
+
+    def test_auto_generated_id(self) -> None:
+        """Test that crux_id is auto-generated."""
+        crux = DisagreementCrux(
+            description="Test crux",
+            divergent_agents=["a"],
+        )
+        assert crux.crux_id.startswith("crux-")
+        # ID is "crux-" + up to 5 digits (10-11 chars total)
+        assert 10 <= len(crux.crux_id) <= 11
+
+    def test_custom_id_preserved(self) -> None:
+        """Test that custom crux_id is preserved."""
+        crux = DisagreementCrux(
+            description="Test crux",
+            divergent_agents=["a"],
+            crux_id="custom-id-123",
+        )
+        assert crux.crux_id == "custom-id-123"
+
+    def test_stable_id_generation(self) -> None:
+        """Test that same description generates same ID."""
+        crux1 = DisagreementCrux(description="Same text", divergent_agents=["a"])
+        crux2 = DisagreementCrux(description="Same text", divergent_agents=["b"])
+        assert crux1.crux_id == crux2.crux_id
+
+    def test_different_descriptions_different_ids(self) -> None:
+        """Test that different descriptions generate different IDs."""
+        crux1 = DisagreementCrux(description="First text", divergent_agents=["a"])
+        crux2 = DisagreementCrux(description="Second text", divergent_agents=["a"])
+        assert crux1.crux_id != crux2.crux_id
+
+
+class TestSuggestFollowups:
+    """Tests for DisagreementAnalyzer.suggest_followups method."""
+
+    def test_suggest_followups_basic(self) -> None:
+        """Test basic follow-up suggestion generation."""
+        analyzer = DisagreementAnalyzer()
+        cruxes = [
+            DisagreementCrux(
+                description="Security vulnerability in auth",
+                divergent_agents=["claude", "gemini"],
+                severity=0.8,
+            ),
+        ]
+
+        suggestions = analyzer.suggest_followups(cruxes)
+
+        assert len(suggestions) == 1
+        assert suggestions[0].crux is cruxes[0]
+        assert "security vulnerability" in suggestions[0].suggested_task.lower() or "auth" in suggestions[0].suggested_task.lower()
+        assert suggestions[0].priority > 0
+
+    def test_suggest_followups_with_parent_id(self) -> None:
+        """Test follow-up suggestions include parent debate ID."""
+        analyzer = DisagreementAnalyzer()
+        cruxes = [
+            DisagreementCrux(description="Test crux", divergent_agents=["a"]),
+        ]
+
+        suggestions = analyzer.suggest_followups(cruxes, parent_debate_id="debate-789")
+
+        assert suggestions[0].parent_debate_id == "debate-789"
+
+    def test_suggest_followups_with_available_agents(self) -> None:
+        """Test follow-up suggestions include available agents."""
+        analyzer = DisagreementAnalyzer()
+        cruxes = [
+            DisagreementCrux(description="Test crux", divergent_agents=["claude"]),
+        ]
+
+        suggestions = analyzer.suggest_followups(
+            cruxes,
+            available_agents=["claude", "gemini", "grok", "codex"],
+        )
+
+        # Should include divergent agents plus others
+        assert "claude" in suggestions[0].suggested_agents
+        assert len(suggestions[0].suggested_agents) <= 4
+
+    def test_suggest_followups_priority_ordering(self) -> None:
+        """Test that suggestions are ordered by priority."""
+        analyzer = DisagreementAnalyzer()
+        cruxes = [
+            DisagreementCrux(description="Low priority", divergent_agents=["a"], severity=0.2),
+            DisagreementCrux(description="High priority", divergent_agents=["a", "b", "c"], severity=0.9),
+            DisagreementCrux(description="Medium priority", divergent_agents=["a", "b"], severity=0.5),
+        ]
+
+        suggestions = analyzer.suggest_followups(cruxes)
+
+        # Should be sorted by priority descending
+        priorities = [s.priority for s in suggestions]
+        assert priorities == sorted(priorities, reverse=True)
+
+    def test_suggest_followups_empty_cruxes(self) -> None:
+        """Test suggest_followups with empty cruxes list."""
+        analyzer = DisagreementAnalyzer()
+
+        suggestions = analyzer.suggest_followups([])
+
+        assert suggestions == []
+
+    def test_generate_followup_task_with_but(self) -> None:
+        """Test task generation with 'but' marker."""
+        analyzer = DisagreementAnalyzer()
+        crux = DisagreementCrux(
+            description="But we should use async instead",
+            divergent_agents=["a"],
+        )
+
+        task = analyzer._generate_followup_task(crux)
+
+        assert "Investigate:" in task
+
+    def test_generate_followup_task_with_question(self) -> None:
+        """Test task generation with question mark."""
+        analyzer = DisagreementAnalyzer()
+        crux = DisagreementCrux(
+            description="Is this approach scalable?",
+            divergent_agents=["a"],
+        )
+
+        task = analyzer._generate_followup_task(crux)
+
+        assert "Resolve:" in task
+
+    def test_generate_followup_task_generic(self) -> None:
+        """Test task generation for generic description."""
+        analyzer = DisagreementAnalyzer()
+        crux = DisagreementCrux(
+            description="Performance considerations",
+            divergent_agents=["a"],
+        )
+
+        task = analyzer._generate_followup_task(crux)
+
+        assert "Debate:" in task
+        assert "performance considerations" in task.lower()

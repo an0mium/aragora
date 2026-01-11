@@ -831,9 +831,9 @@ class TestLifecycle(unittest.TestCase):
         dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
         dispatcher.start()
 
-        self.assertTrue(dispatcher._running)
+        self.assertTrue(dispatcher.is_running)
         dispatcher.stop()
-        self.assertFalse(dispatcher._running)
+        self.assertFalse(dispatcher.is_running)
 
         # Enqueue after stop should return False
         result = dispatcher.enqueue({"type": "debate_start"})
@@ -852,7 +852,7 @@ class TestLifecycle(unittest.TestCase):
 
         # Stop should complete without error
         dispatcher.stop(timeout=2.0)
-        self.assertFalse(dispatcher._running)
+        self.assertFalse(dispatcher.is_running)
 
     def test_start_is_idempotent(self):
         """Calling start() twice should not create duplicate workers."""

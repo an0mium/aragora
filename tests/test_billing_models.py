@@ -25,21 +25,21 @@ from aragora.billing.models import (
 class TestPasswordHashing:
     """Tests for password hashing functions."""
 
-    def test_hash_password_generates_unique_salts(self):
-        """Each hash should have a unique salt."""
+    def test_hash_password_generates_unique_hashes(self):
+        """Each hash should be unique (bcrypt uses random salt internally)."""
         hash1, salt1 = hash_password("password123")
         hash2, salt2 = hash_password("password123")
 
-        assert salt1 != salt2
-        assert hash1 != hash2  # Different salts = different hashes
+        # With bcrypt, salt is embedded in hash (salt field is empty)
+        # Different hashes are generated each time due to random salt
+        assert hash1 != hash2
 
-    def test_hash_password_with_provided_salt(self):
-        """Same salt should produce same hash."""
-        salt = "fixed_salt_for_testing"
-        hash1, _ = hash_password("password123", salt)
-        hash2, _ = hash_password("password123", salt)
+    def test_hash_password_returns_versioned_hash(self):
+        """Hash should have version prefix for migration support."""
+        password_hash, salt = hash_password("password123")
 
-        assert hash1 == hash2
+        # Should have either bcrypt: or sha256: prefix
+        assert password_hash.startswith("bcrypt:") or password_hash.startswith("sha256:")
 
     def test_verify_password_correct(self):
         """Correct password should verify."""
@@ -56,9 +56,8 @@ class TestPasswordHashing:
 
     def test_hash_password_different_passwords(self):
         """Different passwords should produce different hashes."""
-        salt = "same_salt"
-        hash1, _ = hash_password("password1", salt)
-        hash2, _ = hash_password("password2", salt)
+        hash1, _ = hash_password("password1")
+        hash2, _ = hash_password("password2")
 
         assert hash1 != hash2
 
@@ -74,13 +73,14 @@ class TestUser:
         assert len(user.id) > 0
 
     def test_user_set_password(self):
-        """Setting password should hash it."""
+        """Setting password should hash it with version prefix."""
         user = User(email="test@example.com")
         user.set_password("my_password")
 
         assert user.password_hash != ""
-        assert user.password_salt != ""
         assert user.password_hash != "my_password"
+        # Should have version prefix (bcrypt: or sha256:)
+        assert user.password_hash.startswith("bcrypt:") or user.password_hash.startswith("sha256:")
 
     def test_user_verify_password_correct(self):
         """User should verify correct password."""
@@ -97,14 +97,20 @@ class TestUser:
         assert user.verify_password("wrong_password") is False
 
     def test_user_generate_api_key(self):
-        """API key generation should follow format."""
+        """API key generation should follow format and store hash."""
         user = User(email="test@example.com")
         api_key = user.generate_api_key()
 
         assert api_key.startswith("ara_")
         assert len(api_key) > 15
-        assert user.api_key == api_key
+        # API key is NOT stored in plaintext (security)
+        assert user.api_key is None
+        # Hash is stored instead
+        assert user.api_key_hash is not None
+        assert user.api_key_prefix == api_key[:12]
         assert user.api_key_created_at is not None
+        # Key can be verified
+        assert user.verify_api_key(api_key) is True
 
     def test_user_revoke_api_key(self):
         """Revoking API key should clear it."""
