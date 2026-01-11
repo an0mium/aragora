@@ -21,7 +21,7 @@ import secrets
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .base import (
     BaseHandler,
@@ -29,8 +29,8 @@ from .base import (
     json_response,
     error_response,
     handle_errors,
-    rate_limit,
 )
+from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -155,10 +155,23 @@ _share_store: Optional[ShareStore] = None
 
 
 def get_share_store() -> ShareStore:
-    """Get the global share store instance."""
+    """Get the global share store instance.
+
+    Uses SQLite-backed ShareLinkStore for production persistence,
+    with fallback to in-memory ShareStore if database unavailable.
+    """
     global _share_store
     if _share_store is None:
-        _share_store = ShareStore()
+        try:
+            from aragora.storage.share_store import ShareLinkStore
+            from aragora.config.legacy import DATA_DIR
+
+            db_path = DATA_DIR / "share_links.db"
+            _share_store = ShareLinkStore(db_path)
+            logger.info(f"Using SQLite ShareLinkStore: {db_path}")
+        except Exception as e:
+            logger.warning(f"Failed to init ShareLinkStore, using in-memory: {e}")
+            _share_store = ShareStore()
     return _share_store
 
 
@@ -177,8 +190,8 @@ class SharingHandler(BaseHandler):
         "/share/revoke",
     ]
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, server_context: dict = None):
+        super().__init__(server_context or {})
         self._store = get_share_store()
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:

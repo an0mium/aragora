@@ -24,6 +24,7 @@ from .backends import (
     reset_database_backend,
     POSTGRESQL_AVAILABLE,
 )
+from .share_store import ShareLinkStore
 
 __all__ = [
     # Legacy base classes
@@ -44,4 +45,6 @@ __all__ = [
     "get_database_backend",
     "reset_database_backend",
     "POSTGRESQL_AVAILABLE",
+    # Share links
+    "ShareLinkStore",
 ]

@@ -710,7 +710,8 @@ class TestBroadcastGeneration:
         assert result is not None
         assert result.status_code == 500
         data = json.loads(result.body)
-        assert "trace" in data["error"].lower()
+        # Error message is sanitized by safe_error_message() for security
+        assert "error" in data["error"].lower() or data["error"] == "An error occurred"
 
 
 # ============================================================================

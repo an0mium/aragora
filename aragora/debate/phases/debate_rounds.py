@@ -15,7 +15,7 @@ import asyncio
 import logging
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
-from aragora.config import AGENT_TIMEOUT_SECONDS
+from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES, MAX_CONCURRENT_REVISIONS
 from aragora.debate.complexity_governor import get_complexity_governor
 
 if TYPE_CHECKING:
@@ -320,7 +320,15 @@ class DebateRoundsPhase:
             except Exception as e:
                 return (critic, proposal_agent, e)
 
-        # Create critique tasks based on topology
+        # Create critique tasks based on topology with bounded concurrency
+        # Semaphore prevents exhausting API rate limits with too many parallel requests
+        critique_semaphore = asyncio.Semaphore(MAX_CONCURRENT_CRITIQUES)
+
+        async def generate_critique_bounded(critic, proposal_agent, proposal):
+            """Wrap critique generation with semaphore for bounded concurrency."""
+            async with critique_semaphore:
+                return await generate_critique(critic, proposal_agent, proposal)
+
         critique_tasks = []
         for proposal_agent, proposal in proposals.items():
             if self._select_critics_for_proposal:
@@ -331,7 +339,7 @@ class DebateRoundsPhase:
 
             for critic in selected_critics:
                 critique_tasks.append(
-                    asyncio.create_task(generate_critique(critic, proposal_agent, proposal))
+                    asyncio.create_task(generate_critique_bounded(critic, proposal_agent, proposal))
                 )
 
         # Stream output as each critique completes
@@ -435,29 +443,35 @@ class DebateRoundsPhase:
         if not agent_critiques:
             return
 
-        # Build revision tasks for all proposers
+        # Build revision tasks for all proposers with bounded concurrency
         # Use complexity-scaled timeout from governor
         timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
+
+        # Semaphore prevents exhausting API rate limits with too many parallel requests
+        revision_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REVISIONS)
+
+        async def generate_revision_bounded(agent, revision_prompt):
+            """Wrap revision generation with semaphore for bounded concurrency."""
+            async with revision_semaphore:
+                if self._with_timeout:
+                    return await self._with_timeout(
+                        self._generate_with_agent(agent, revision_prompt, ctx.context_messages),
+                        agent.name,
+                        timeout_seconds=timeout,
+                    )
+                else:
+                    return await self._generate_with_agent(agent, revision_prompt, ctx.context_messages)
+
         revision_tasks = []
         revision_agents = []
         for agent in ctx.proposers:
             revision_prompt = self._build_revision_prompt(
                 agent, proposals.get(agent.name, ""), agent_critiques[-len(critics):]
             )
-
-            if self._with_timeout:
-                task = self._with_timeout(
-                    self._generate_with_agent(agent, revision_prompt, ctx.context_messages),
-                    agent.name,
-                    timeout_seconds=timeout,
-                )
-            else:
-                task = self._generate_with_agent(agent, revision_prompt, ctx.context_messages)
-
-            revision_tasks.append(task)
+            revision_tasks.append(generate_revision_bounded(agent, revision_prompt))
             revision_agents.append(agent)
 
-        # Execute all revisions in parallel
+        # Execute all revisions with bounded concurrency
         revision_results = await asyncio.gather(*revision_tasks, return_exceptions=True)
 
         # Process results

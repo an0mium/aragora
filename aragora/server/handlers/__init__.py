@@ -176,21 +176,21 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "MemoryAnalyticsHandler": Stability.STABLE,  # Handler tests, 23+ tests
     "ProbesHandler": Stability.STABLE,  # 16 tests, capability probing
     "InsightsHandler": Stability.STABLE,  # 3 test files, 110+ tests
+    "ReviewsHandler": Stability.STABLE,  # 18 tests, shareable code reviews
+    "FormalVerificationHandler": Stability.STABLE,  # 18 tests, Z3/Lean backends
 
-    # Experimental - Works but may change
-    "ReviewsHandler": Stability.EXPERIMENTAL,  # Shareable code reviews
-    "FormalVerificationHandler": Stability.EXPERIMENTAL,  # DeepSeek-Prover integration
+    # Promoted to Stable (Jan 2026) - from Preview
+    "OrganizationsHandler": Stability.STABLE,  # 49 tests, team management
+    "SocialMediaHandler": Stability.STABLE,  # 31 tests, OAuth flows
+    "MomentsHandler": Stability.STABLE,  # 33 tests, moment detection
+    "AuditingHandler": Stability.STABLE,  # 55 tests, audit trails
+    "PluginsHandler": Stability.STABLE,  # 23 tests, plugin system
+    "BroadcastHandler": Stability.STABLE,  # 65 tests, podcast generation
 
-    # Preview - Early access
-    "OrganizationsHandler": Stability.PREVIEW,
-    "BroadcastHandler": Stability.PREVIEW,
-    "SocialMediaHandler": Stability.PREVIEW,
-    "GenesisHandler": Stability.PREVIEW,
-    "MomentsHandler": Stability.PREVIEW,
-    "DocumentHandler": Stability.PREVIEW,
-    "AuditingHandler": Stability.PREVIEW,
-    "BreakpointsHandler": Stability.PREVIEW,
-    "PluginsHandler": Stability.PREVIEW,
+    # Preview - Early access (tests need fixes)
+    "GenesisHandler": Stability.PREVIEW,  # 11 test failures
+    "DocumentHandler": Stability.PREVIEW,  # 4 test failures
+    "BreakpointsHandler": Stability.PREVIEW,  # 4 test failures
 }
 
 
