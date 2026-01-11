@@ -117,9 +117,9 @@ class GauntletHandler(BaseHandler):
         self._results_cache: dict[str, GauntletResult] = {}
 
     @property
-    def orchestrator(self) -> Optional[GauntletOrchestrator]:
+    def orchestrator(self) -> Optional["GauntletOrchestrator"]:
         """Lazy-load Gauntlet orchestrator."""
-        if self._orchestrator is None and GAUNTLET_AVAILABLE:
+        if self._orchestrator is None and _init_gauntlet():
             nomic_dir = self.ctx.get("nomic_dir")
             self._orchestrator = GauntletOrchestrator(nomic_dir=nomic_dir)
         return self._orchestrator
@@ -130,7 +130,7 @@ class GauntletHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests."""
-        if not GAUNTLET_AVAILABLE:
+        if not _init_gauntlet():
             return error_response("Gauntlet module not available", 503)
 
         # GET /api/gauntlet/templates
@@ -169,7 +169,7 @@ class GauntletHandler(BaseHandler):
 
     def handle_post(self, path: str, body: dict, handler=None) -> Optional[HandlerResult]:
         """Route POST requests."""
-        if not GAUNTLET_AVAILABLE:
+        if not _init_gauntlet():
             return error_response("Gauntlet module not available", 503)
 
         # POST /api/gauntlet/run
