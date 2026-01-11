@@ -1,40 +1,58 @@
-name: 'Aagora PR Review'
-description: 'Multi-agent AI debate for pull request code reviews'
-author: 'aragora'
+name: 'Aragora AI Code Review'
+description: 'Multi-agent AI red team code review for pull requests'
+author: 'Aragora'
 branding:
-  icon: 'message-circle'
-  color: 'purple'
+  icon: 'shield'
+  color: 'blue'
 
 inputs:
   agents:
-    description: 'Comma-separated list of agents to use (e.g., claude,codex)'
+    description: 'Comma-separated list of agents (anthropic-api,openai-api)'
     required: false
-    default: 'claude,codex'
+    default: 'anthropic-api,openai-api'
   rounds:
     description: 'Number of debate rounds'
     required: false
     default: '2'
   focus:
-    description: 'Focus areas (security, performance, quality, all)'
+    description: 'Focus areas (security,performance,quality)'
     required: false
-    default: 'all'
-  anthropic_api_key:
+    default: 'security,performance,quality'
+  anthropic-api-key:
     description: 'Anthropic API key for Claude'
     required: false
-  openai_api_key:
-    description: 'OpenAI API key for Codex'
+  openai-api-key:
+    description: 'OpenAI API key for GPT'
     required: false
+  openrouter-api-key:
+    description: 'OpenRouter API key (fallback provider)'
+    required: false
+  post-comment:
+    description: 'Post review as PR comment'
+    required: false
+    default: 'true'
+  fail-on-critical:
+    description: 'Fail workflow if critical issues found'
+    required: false
+    default: 'false'
+  max-diff-size:
+    description: 'Maximum diff size in bytes'
+    required: false
+    default: '50000'
 
 outputs:
-  review:
-    description: 'The generated code review'
-    value: ${{ steps.review.outputs.review }}
-  consensus:
-    description: 'Whether consensus was reached'
-    value: ${{ steps.review.outputs.consensus }}
-  confidence:
-    description: 'Confidence score of the review'
-    value: ${{ steps.review.outputs.confidence }}
+  review-path:
+    description: 'Path to the generated review file'
+    value: ${{ steps.review.outputs.review_path }}
+  unanimous-count:
+    description: 'Number of unanimous issues found'
+    value: ${{ steps.review.outputs.unanimous_count }}
+  critical-count:
+    description: 'Number of critical issues found'
+    value: ${{ steps.review.outputs.critical_count }}
+  agreement-score:
+    description: 'Agent agreement score (0-1)'
+    value: ${{ steps.review.outputs.agreement_score }}
 
 runs:
   using: 'composite'
@@ -43,49 +61,82 @@ runs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'
 
-    - name: Install aragora
+    - name: Install Aragora
       shell: bash
-      run: pip install aragora
+      run: |
+        pip install --upgrade pip
+        pip install aragora
 
     - name: Get PR diff
       id: diff
       shell: bash
       run: |
-        gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr_diff.txt
+        PR_NUMBER=${{ github.event.pull_request.number }}
+        gh pr diff $PR_NUMBER > pr.diff
+
+        # Truncate if needed
+        DIFF_SIZE=$(wc -c < pr.diff)
+        MAX_SIZE=${{ inputs.max-diff-size }}
+        if [ "$DIFF_SIZE" -gt "$MAX_SIZE" ]; then
+          head -c $MAX_SIZE pr.diff > pr_truncated.diff
+          echo -e "\n[... diff truncated ...]" >> pr_truncated.diff
+          mv pr_truncated.diff pr.diff
+        fi
+
+        echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
       env:
         GH_TOKEN: ${{ github.token }}
 
-    - name: Run aragora review
+    - name: Run Aragora review
       id: review
       shell: bash
-      env:
-        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
-        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
-        AGENTS: ${{ inputs.agents }}
-        ROUNDS: ${{ inputs.rounds }}
-        FOCUS: ${{ inputs.focus }}
       run: |
-        python << 'EOF'
-        import os
-        from pathlib import Path
+        mkdir -p ./aragora-artifacts
 
-        diff = Path("/tmp/pr_diff.txt").read_text()
-        agents = os.environ.get("AGENTS", "claude,codex")
-        rounds = os.environ.get("ROUNDS", "2")
-        focus = os.environ.get("FOCUS", "all")
+        aragora review \
+          --diff-file pr.diff \
+          --output-format github \
+          --output-dir ./aragora-artifacts \
+          --agents "${{ inputs.agents }}" \
+          --rounds ${{ inputs.rounds }} \
+          --focus "${{ inputs.focus }}" \
+          > ./aragora-artifacts/comment.md 2> ./aragora-artifacts/review.log || true
 
-        # Placeholder for actual implementation
-        review = f"""## Aagora Code Review
+        if [ -f "./aragora-artifacts/comment.md" ] && [ -s "./aragora-artifacts/comment.md" ]; then
+          echo "review_path=./aragora-artifacts/comment.md" >> $GITHUB_OUTPUT
+          echo "review_generated=true" >> $GITHUB_OUTPUT
+        else
+          echo "review_generated=false" >> $GITHUB_OUTPUT
+        fi
 
-        **Agents:** {agents}
-        **Rounds:** {rounds}
-        **Focus:** {focus}
+        echo "unanimous_count=0" >> $GITHUB_OUTPUT
+        echo "critical_count=0" >> $GITHUB_OUTPUT
+        echo "agreement_score=0" >> $GITHUB_OUTPUT
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+        OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
 
-        [Review would be generated here with full API integration]
-        """
+    - name: Post PR comment
+      if: inputs.post-comment == 'true' && steps.review.outputs.review_generated == 'true'
+      shell: bash
+      run: |
+        gh pr comment ${{ steps.diff.outputs.pr_number }} --body-file ./aragora-artifacts/comment.md
+      env:
+        GH_TOKEN: ${{ github.token }}
 
-        print(f"review={review[:100]}")
-        print("consensus=true")
-        print("confidence=0.8")
-        EOF
+    - name: Check for critical issues
+      if: inputs.fail-on-critical == 'true' && steps.review.outputs.critical_count != '0'
+      shell: bash
+      run: |
+        echo "::error::Critical issues found in code review"
+        exit 1
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: aragora-review-${{ steps.diff.outputs.pr_number }}
+        path: ./aragora-artifacts/
+        retention-days: 30
