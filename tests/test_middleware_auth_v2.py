@@ -179,27 +179,29 @@ class TestSupabaseAuthValidator:
 
     def test_validate_jwt_caches_result(self):
         """validate_jwt caches valid tokens."""
-        validator = SupabaseAuthValidator(jwt_secret="secret")
-
-        # Create a mock JWT payload
+        # Create a valid JWT-like token structure for testing
         payload = {
             "sub": "user-123",
             "email": "test@example.com",
             "role": "user",
             "exp": time.time() + 3600,
-            "aud": "authenticated",
         }
+        payload_b64 = base64.urlsafe_b64encode(
+            json.dumps(payload).encode()
+        ).decode().rstrip("=")
+        token = f"header.{payload_b64}.signature"
 
-        with patch.object(validator, '_decode_jwt_unsafe', return_value=payload):
-            with patch.dict('os.environ', {'ARAGORA_ENVIRONMENT': 'development'}):
-                # First call
-                user1 = validator.validate_jwt("test-token")
-                assert user1 is not None
-                assert user1.id == "user-123"
+        validator = SupabaseAuthValidator()
 
-                # Second call should use cache
-                user2 = validator.validate_jwt("test-token")
-                assert user2 is user1  # Same object from cache
+        with patch.dict('os.environ', {'ARAGORA_ENVIRONMENT': 'development'}):
+            # First call
+            user1 = validator.validate_jwt(token)
+            assert user1 is not None
+            assert user1.id == "user-123"
+
+            # Second call should use cache
+            user2 = validator.validate_jwt(token)
+            assert user2 is user1  # Same object from cache
 
     def test_validate_jwt_rejects_expired_cached_token(self):
         """validate_jwt rejects expired tokens from cache."""
@@ -519,8 +521,8 @@ class TestRequireUserDecorator:
         with patch('aragora.server.middleware.auth_v2.get_current_user', return_value=None):
             result = endpoint(handler)
 
-            assert result["status"] == 401
-            assert "Authentication required" in result["body"]["error"]
+            assert result.status_code == 401
+            assert b"Authentication required" in result.body
 
     def test_require_user_no_handler(self):
         """require_user returns 500 for missing handler."""
@@ -530,7 +532,7 @@ class TestRequireUserDecorator:
 
         result = endpoint()
 
-        assert result["status"] == 500
+        assert result.status_code == 500
 
 
 class TestRequireAdminDecorator:
@@ -564,8 +566,8 @@ class TestRequireAdminDecorator:
         with patch('aragora.server.middleware.auth_v2.get_current_user', return_value=regular_user):
             result = endpoint(handler)
 
-            assert result["status"] == 403
-            assert "Admin access required" in result["body"]["error"]
+            assert result.status_code == 403
+            assert b"Admin access required" in result.body
 
 
 class TestRequirePlanDecorator:
@@ -599,8 +601,8 @@ class TestRequirePlanDecorator:
         with patch('aragora.server.middleware.auth_v2.get_current_user', return_value=free_user):
             result = endpoint(handler)
 
-            assert result["status"] == 403
-            assert "requires pro plan" in result["body"]["error"]
+            assert result.status_code == 403
+            assert b"pro plan" in result.body
 
     def test_require_plan_hierarchy(self):
         """require_plan respects plan hierarchy."""
