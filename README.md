@@ -1,7 +1,5 @@
 # aragora (Agent Agora): AI Red Team for Decision Stress-Testing
 
-> *"The truth is the whole."* — Hegel
-
 Aragora is an **adversarial validation engine**. It stress-tests high-stakes specs, architectures, policies, and code by running multi-agent red-team debates and producing audit-ready Decision Receipts, risk heatmaps, and dissent trails.
 
 Debate is the engine. The product is a defensible decision record.
@@ -33,9 +31,11 @@ We gratefully acknowledge these projects whose patterns we adapted:
 
 See `aragora/debate/convergence.py` and `aragora/debate/orchestrator.py` for implementations.
 
-## Philosophical Foundation
+## Debate Engine (Dialectic Roots)
 
-Aragora's architecture embodies principles from Hegelian dialectics:
+The dialectic framing is the **internal engine**; users get adversarial validation outputs (decision receipts, risk heatmaps, dissent trails). If you're here for outcomes, this section is optional background.
+
+Aragora's debate engine draws from Hegelian dialectics:
 
 | Dialectical Concept | Aragora Implementation |
 |---------------------|------------------------|
@@ -45,7 +45,7 @@ Aragora's architecture embodies principles from Hegelian dialectics:
 | **Negation of negation** | Proposal → Critique (negation) → Revision (higher unity) |
 | **Truth as totality** | No single agent has complete truth; it emerges from multi-perspectival synthesis |
 
-The **nomic loop** (self-modifying rules) mirrors Hegel's concept of Spirit developing through its own internal contradictions—the system's structure becomes an object of its own dialectical process.
+The **nomic loop** (self-modifying rules) mirrors this internal engine by debating and refining its own processes. It is experimental—run in a sandbox and require human review before any auto-commit.
 
 ## Key Features
 
@@ -181,6 +181,41 @@ aragora ask "Implement a secure auth system" \
 
 > **See [docs/QUICKSTART.md](docs/QUICKSTART.md) for the complete 5-minute setup guide.**
 
+### Python SDK
+
+Use the type-safe Python SDK for programmatic access:
+
+```python
+from aragora.client import AragoraClient
+
+# Synchronous
+client = AragoraClient(base_url="http://localhost:8080")
+debate = client.debates.run(task="Should we adopt microservices?")
+print(f"Consensus: {debate.consensus.reached}")
+
+# Asynchronous
+async with AragoraClient(base_url="http://localhost:8080") as client:
+    debate = await client.debates.run_async(task="Design a rate limiter")
+    receipt = await client.gauntlet.run_and_wait(input_content="spec.md")
+```
+
+See [docs/SDK_GUIDE.md](docs/SDK_GUIDE.md) for full API reference.
+
+### Chat Integrations
+
+Post debate notifications to Discord and Slack:
+
+```python
+from aragora.integrations.discord import DiscordConfig, DiscordIntegration
+
+discord = DiscordIntegration(DiscordConfig(
+    webhook_url="https://discord.com/api/webhooks/..."
+))
+await discord.send_consensus_reached(debate_id, topic, "majority", result)
+```
+
+See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for setup instructions.
+
 ## Supported Entry Points
 
 Stable interfaces (recommended):
@@ -306,7 +341,7 @@ print(f"Consensus: {result.consensus_reached} ({result.confidence:.0%})")
 ### CLI Commands
 
 ```bash
-# Run a debate
+# Run a decision stress-test
 aragora ask "Your task here" --agents codex,claude --rounds 3
 
 # View statistics
@@ -325,9 +360,9 @@ aragora doctor
 aragora export --format jsonl > training_data.jsonl
 ```
 
-## Debate Protocol
+## Debate Protocol (Stress-Test Engine)
 
-Each debate follows the dialectical structure of thesis → antithesis → synthesis:
+Each stress-test session follows the debate engine structure of thesis → antithesis → synthesis:
 
 1. **Round 0: Thesis (Initial Proposals)**
    - Proposer agents generate initial responses to the task
@@ -347,12 +382,12 @@ Each debate follows the dialectical structure of thesis → antithesis → synth
 
 ## Self-Improvement (Reflexive Development)
 
-Aragora learns from successful debates through a process analogous to Hegel's self-developing Spirit—the system examines its own patterns, finds inadequacies, and transcends to higher forms:
+Aragora learns from successful stress-tests through a structured feedback loop; the engine critiques itself to harden future outputs. This is powerful but risky—keep the nomic loop sandboxed and human-reviewed.
 
 1. **Pattern Storage**: Successful critique→fix patterns are indexed by issue type
 2. **Retrieval**: Future debates can retrieve relevant patterns (learning from history)
 3. **Prompt Evolution**: Agent system prompts evolve based on what works
-4. **Nomic Loop**: The system debates *changes to itself*, making its own rules an object of dialectical inquiry
+4. **Nomic Loop**: The system debates *changes to itself*, making its own rules an object of dialectical inquiry (guarded by safety gates)
 5. **Export**: Patterns can be exported for fine-tuning
 
 ```python
