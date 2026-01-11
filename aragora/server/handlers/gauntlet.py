@@ -265,7 +265,7 @@ class GauntletHandler(BaseHandler):
                         role="auditor",
                     )
                     agent_instances.append(agent)
-                except Exception as e:
+                except (ImportError, ValueError, RuntimeError) as e:
                     logger.warning(f"Could not create agent {agent_type}: {e}")
 
             if not agent_instances:
@@ -376,13 +376,13 @@ class GauntletHandler(BaseHandler):
                 storage = _get_storage()
                 storage.save(result)
                 logger.info(f"Gauntlet {gauntlet_id} persisted to storage")
-            except Exception as storage_err:
+            except (OSError, RuntimeError, ValueError) as storage_err:
                 logger.warning(f"Failed to persist gauntlet {gauntlet_id}: {storage_err}")
 
             # Clean up in-memory storage after persisting (keep result_obj for receipt generation)
             # In-memory entry can be removed after a timeout in production
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, ImportError, asyncio.CancelledError) as e:
             logger.error(f"Gauntlet {gauntlet_id} failed: {e}")
             _gauntlet_runs[gauntlet_id]["status"] = "failed"
             _gauntlet_runs[gauntlet_id]["error"] = str(e)
@@ -405,7 +405,7 @@ class GauntletHandler(BaseHandler):
                     "status": "completed",
                     "result": stored,
                 })
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
 
         return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
@@ -434,7 +434,7 @@ class GauntletHandler(BaseHandler):
                     result = stored
                 else:
                     return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
                 return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
 
@@ -501,7 +501,7 @@ class GauntletHandler(BaseHandler):
                     result = stored
                 else:
                     return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
                 return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
 
@@ -594,7 +594,7 @@ class GauntletHandler(BaseHandler):
                 "limit": limit,
                 "offset": offset,
             })
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.error(f"Failed to list results: {e}")
             return error_response(f"Failed to list results: {e}", 500)
 
@@ -608,7 +608,7 @@ class GauntletHandler(BaseHandler):
                 return error_response("One or both gauntlet runs not found", 404)
 
             return json_response(comparison)
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.error(f"Failed to compare results: {e}")
             return error_response(f"Failed to compare results: {e}", 500)
 
@@ -627,6 +627,6 @@ class GauntletHandler(BaseHandler):
                 return json_response({"deleted": True, "gauntlet_id": gauntlet_id})
             else:
                 return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError) as e:
             logger.error(f"Failed to delete result: {e}")
             return error_response(f"Failed to delete result: {e}", 500)

@@ -142,6 +142,18 @@ class AgentSettings(BaseSettings):
         description="Maximum characters per message"
     )
 
+    # Local LLM fallback configuration
+    local_fallback_enabled: bool = Field(
+        default=False,
+        alias="ARAGORA_LOCAL_FALLBACK_ENABLED",
+        description="Enable local LLM (Ollama/LM Studio) as fallback before OpenRouter"
+    )
+    local_fallback_priority: bool = Field(
+        default=False,
+        alias="ARAGORA_LOCAL_FALLBACK_PRIORITY",
+        description="Prioritize local LLMs over cloud providers when available"
+    )
+
     @property
     def default_agent_list(self) -> list[str]:
         """Get default agents as a list."""
@@ -195,6 +207,12 @@ class DatabaseSettings(BaseSettings):
     mode: str = Field(default="legacy", alias="ARAGORA_DB_MODE")
     nomic_dir: str = Field(default=".nomic", alias="ARAGORA_NOMIC_DIR")
 
+    # PostgreSQL configuration
+    url: Optional[str] = Field(default=None, alias="DATABASE_URL")
+    backend: str = Field(default="sqlite", alias="ARAGORA_DB_BACKEND")
+    pool_size: int = Field(default=5, ge=1, le=100, alias="ARAGORA_DB_POOL_SIZE")
+    pool_max_overflow: int = Field(default=10, ge=0, le=100, alias="ARAGORA_DB_POOL_OVERFLOW")
+
     # Legacy paths (for backwards compatibility)
     elo_path: str = Field(default="agent_elo.db", alias="ARAGORA_DB_ELO")
     memory_path: str = Field(default="continuum.db", alias="ARAGORA_DB_MEMORY")
@@ -212,10 +230,23 @@ class DatabaseSettings(BaseSettings):
             raise ValueError(f"Database mode must be one of {valid}")
         return v.lower()
 
+    @field_validator("backend")
+    @classmethod
+    def validate_backend(cls, v: str) -> str:
+        valid = {"sqlite", "postgresql"}
+        if v.lower() not in valid:
+            raise ValueError(f"Database backend must be one of {valid}")
+        return v.lower()
+
     @property
     def nomic_path(self) -> Path:
         """Get nomic directory as Path."""
         return Path(self.nomic_dir)
+
+    @property
+    def is_postgresql(self) -> bool:
+        """Check if PostgreSQL backend is configured."""
+        return self.backend == "postgresql" and self.url is not None
 
 
 class WebSocketSettings(BaseSettings):

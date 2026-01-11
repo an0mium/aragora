@@ -633,3 +633,99 @@ class AgentFallbackChain:
                 "providers_used": self.metrics.fallback_providers_used,
             },
         }
+
+
+def get_local_fallback_providers() -> list[str]:
+    """Get list of available local LLM providers for fallback.
+
+    Checks for running Ollama or LM Studio instances and returns
+    their provider names if available.
+
+    Returns:
+        List of provider names (e.g., ["ollama", "lm-studio"])
+    """
+    try:
+        from aragora.agents.registry import AgentRegistry
+        local_agents = AgentRegistry.detect_local_agents()
+        return [
+            agent["name"] for agent in local_agents
+            if agent.get("available", False)
+        ]
+    except Exception as e:
+        logger.debug(f"Could not detect local LLMs: {e}")
+        return []
+
+
+def build_fallback_chain_with_local(
+    primary_providers: list[str],
+    include_local: bool = True,
+    local_priority: bool = False,
+) -> list[str]:
+    """Build a fallback chain that includes local LLMs.
+
+    Args:
+        primary_providers: Primary cloud providers to use
+        include_local: Whether to include local LLMs in the chain
+        local_priority: If True, local LLMs come before OpenRouter
+
+    Returns:
+        Ordered list of providers for fallback chain
+
+    Example:
+        # Default: OpenAI -> OpenRouter -> Local -> Anthropic
+        chain = build_fallback_chain_with_local(
+            ["openai", "openrouter", "anthropic"],
+            include_local=True,
+        )
+
+        # Priority: OpenAI -> Local -> OpenRouter -> Anthropic
+        chain = build_fallback_chain_with_local(
+            ["openai", "openrouter", "anthropic"],
+            include_local=True,
+            local_priority=True,
+        )
+    """
+    if not include_local:
+        return primary_providers
+
+    local_providers = get_local_fallback_providers()
+    if not local_providers:
+        return primary_providers
+
+    result = []
+    openrouter_idx = -1
+
+    for i, provider in enumerate(primary_providers):
+        if provider == "openrouter":
+            openrouter_idx = i
+            if local_priority:
+                # Insert local before OpenRouter
+                result.extend(local_providers)
+            result.append(provider)
+            if not local_priority:
+                # Insert local after OpenRouter
+                result.extend(local_providers)
+        else:
+            result.append(provider)
+
+    # If no OpenRouter in chain, append local at the end
+    if openrouter_idx == -1:
+        result.extend(local_providers)
+
+    # Deduplicate while preserving order
+    seen = set()
+    return [p for p in result if not (p in seen or seen.add(p))]
+
+
+def is_local_llm_available() -> bool:
+    """Check if any local LLM server is available.
+
+    Returns:
+        True if Ollama, LM Studio, or compatible server is running
+    """
+    try:
+        from aragora.agents.registry import AgentRegistry
+        status = AgentRegistry.get_local_status()
+        return status.get("any_available", False)
+    except Exception:
+        return False

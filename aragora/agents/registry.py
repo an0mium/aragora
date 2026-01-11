@@ -300,6 +300,94 @@ class AgentRegistry:
         """
         return model_type in ALLOWED_AGENT_TYPES
 
+    @classmethod
+    def detect_local_agents(cls) -> list[dict]:
+        """
+        Detect available local LLM servers.
+
+        Probes Ollama, LM Studio, and other OpenAI-compatible servers
+        to find available local models.
+
+        Returns:
+            List of dicts with server info:
+            [{"name": "ollama", "models": ["llama3.1", ...], "available": True}, ...]
+        """
+        import asyncio
+        from aragora.agents.local_llm_detector import LocalLLMDetector
+
+        detector = LocalLLMDetector()
+
+        # Run async detection
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # Already in async context - create new event loop in thread
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, detector.detect_all())
+                status = future.result(timeout=10)
+        else:
+            status = asyncio.run(detector.detect_all())
+
+        return [
+            {
+                "name": server.name,
+                "base_url": server.base_url,
+                "models": server.models,
+                "available": server.available,
+                "default_model": server.default_model,
+                "version": server.version,
+            }
+            for server in status.servers
+        ]
+
+    @classmethod
+    def get_local_status(cls) -> dict:
+        """
+        Get overall local LLM status with recommendations.
+
+        Returns:
+            Dict with availability status and recommendations
+        """
+        import asyncio
+        from aragora.agents.local_llm_detector import LocalLLMDetector
+
+        detector = LocalLLMDetector()
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, detector.detect_all())
+                status = future.result(timeout=10)
+        else:
+            status = asyncio.run(detector.detect_all())
+
+        return {
+            "any_available": status.any_available,
+            "total_models": status.total_models,
+            "recommended_server": status.recommended_server,
+            "recommended_model": status.recommended_model,
+            "available_agents": status.get_available_agents(),
+            "servers": [
+                {
+                    "name": s.name,
+                    "base_url": s.base_url,
+                    "available": s.available,
+                    "models": s.models,
+                    "default_model": s.default_model,
+                }
+                for s in status.servers
+            ],
+        }
+
 
 def register_all_agents() -> None:
     """
