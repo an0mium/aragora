@@ -194,6 +194,8 @@ class ContinuumMemory:
                 CREATE INDEX IF NOT EXISTS idx_continuum_tier_updated ON continuum_memory(tier, updated_at);
                 -- Composite index for tier-filtered retrieval by importance
                 CREATE INDEX IF NOT EXISTS idx_continuum_tier_importance ON continuum_memory(tier, importance DESC);
+                -- Composite index for promotion queries (tier + surprise_score)
+                CREATE INDEX IF NOT EXISTS idx_continuum_tier_surprise ON continuum_memory(tier, surprise_score DESC);
                 -- Index for TTL-based cleanup queries
                 CREATE INDEX IF NOT EXISTS idx_continuum_expires ON continuum_memory(expires_at);
 

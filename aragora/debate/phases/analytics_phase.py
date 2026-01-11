@@ -7,6 +7,7 @@ Arena._run_inner() method, handling post-consensus processing:
 - Metrics recording
 - Insight extraction
 - Agent relationship updates
+- Uncertainty quantification
 - Disagreement report generation
 - Grounded verdict creation
 - Formal verification (Z3/Lean)
@@ -23,6 +24,21 @@ if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
+
+# Lazy import for uncertainty estimation
+_uncertainty_estimator = None
+
+
+def get_uncertainty_estimator():
+    """Lazy-load the uncertainty estimator to avoid circular imports."""
+    global _uncertainty_estimator
+    if _uncertainty_estimator is None:
+        try:
+            from aragora.uncertainty.estimator import ConfidenceEstimator
+            _uncertainty_estimator = ConfidenceEstimator()
+        except ImportError:
+            logger.debug("Uncertainty estimator not available")
+    return _uncertainty_estimator
 
 
 class AnalyticsPhase:
@@ -128,6 +144,9 @@ class AnalyticsPhase:
         # 8. Determine winner and update relationships
         self._determine_winner(ctx)
         self._update_relationships(ctx)
+
+        # 8.5. Uncertainty quantification
+        await self._analyze_uncertainty(ctx)
 
         # 9. Generate disagreement report
         self._generate_disagreement(ctx)
@@ -272,6 +291,78 @@ class AnalyticsPhase:
             winner=ctx.winner_agent,
             votes=result.votes,
         )
+
+    async def _analyze_uncertainty(self, ctx: "DebateContext") -> None:
+        """Analyze uncertainty and disagreement in debate results.
+
+        Uses the uncertainty estimator to:
+        - Calculate collective confidence with proper calibration
+        - Identify disagreement cruxes
+        - Classify disagreement types
+        - Emit uncertainty_analysis event for frontend
+
+        This enriches the debate result with calibrated confidence metrics
+        and helps identify follow-up debate topics.
+        """
+        estimator = get_uncertainty_estimator()
+        if not estimator:
+            return
+
+        result = ctx.result
+        if not result.votes:
+            return
+
+        try:
+            # Build proposals dict from messages
+            proposals = {}
+            for msg in result.messages:
+                if msg.role == "response" and msg.agent not in proposals:
+                    proposals[msg.agent] = msg.content[:500]  # Truncate for analysis
+
+            # Analyze disagreement
+            metrics = estimator.analyze_disagreement(
+                votes=result.votes,
+                messages=result.messages,
+                proposals=proposals,
+            )
+
+            # Attach uncertainty metrics to result
+            result.uncertainty_metrics = metrics.to_dict()
+
+            # Update result confidence with calibrated value
+            if metrics.collective_confidence > 0:
+                result.calibrated_confidence = metrics.collective_confidence
+
+            # Log uncertainty analysis
+            logger.info(
+                f"uncertainty_analysis confidence={metrics.collective_confidence:.2f} "
+                f"disagreement={metrics.disagreement_type} cruxes={len(metrics.cruxes)}"
+            )
+
+            # Emit event for frontend
+            if self.event_emitter:
+                self.event_emitter.emit(
+                    "uncertainty_analysis",
+                    loop_id=self.loop_id,
+                    data={
+                        "collective_confidence": metrics.collective_confidence,
+                        "confidence_interval": metrics.confidence_interval,
+                        "disagreement_type": metrics.disagreement_type,
+                        "cruxes": [c.to_dict() for c in metrics.cruxes],
+                        "calibration_quality": metrics.calibration_quality,
+                    },
+                )
+
+            # Notify spectator
+            if self._notify_spectator and metrics.cruxes:
+                self._notify_spectator(
+                    "uncertainty_detected",
+                    details=f"{len(metrics.cruxes)} cruxes identified",
+                    metric=metrics.collective_confidence,
+                )
+
+        except Exception as e:
+            logger.warning(f"uncertainty_analysis_failed error={e}")
 
     def _generate_disagreement(self, ctx: "DebateContext") -> None:
         """Generate disagreement report."""

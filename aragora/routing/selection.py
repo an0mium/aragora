@@ -72,6 +72,29 @@ DOMAIN_KEYWORDS: dict[str, list[str]] = {
         "document", "readme", "docstring", "comment", "explain", "tutorial",
         "guide", "specification", "api doc",
     ],
+    "ethics": [
+        "ethics", "ethical", "fairness", "bias", "privacy", "consent",
+        "responsible", "governance", "compliance", "gdpr", "moral",
+        "transparency", "accountability", "harm", "safety", "alignment",
+    ],
+    "philosophy": [
+        "philosophy", "philosophical", "epistemology", "epistemological",
+        "ontology", "ontological", "logic", "logical", "reasoning",
+        "argument", "premise", "conclusion", "fallacy", "dialectic",
+        "metaphysics", "metaphysical", "theory of", "concept", "definition",
+        "truth claim", "knowledge", "belief", "justify", "justification",
+        "foundational", "first principles",
+    ],
+    "data_analysis": [
+        "data", "analysis", "dataset", "statistics", "statistical", "pandas",
+        "numpy", "visualization", "chart", "plot", "correlation", "regression",
+        "machine learning", "ml", "prediction", "model", "feature", "training",
+        "jupyter", "notebook", "csv", "json", "etl", "pipeline",
+    ],
+    "general": [
+        "implement", "create", "build", "add", "update", "change", "modify",
+        "code", "function", "class", "method", "module", "library", "package",
+    ],
 }
 
 
@@ -86,6 +109,10 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
         "testing": 0.8,
         "frontend": 0.75,
         "database": 0.8,
+        "ethics": 0.95,  # Claude excels at ethical reasoning
+        "philosophy": 0.9,  # Strong philosophical analysis
+        "data_analysis": 0.8,
+        "general": 0.85,
     },
     "codex": {
         "performance": 0.9,
@@ -95,6 +122,8 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
         "database": 0.85,
         "architecture": 0.8,
         "devops": 0.75,
+        "data_analysis": 0.85,  # Strong at data pipelines
+        "general": 0.9,  # Primary implementer
     },
     "gemini": {
         "architecture": 0.95,
@@ -103,6 +132,9 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
         "documentation": 0.85,
         "frontend": 0.8,
         "database": 0.8,
+        "data_analysis": 0.9,  # Excellent at data analysis
+        "philosophy": 0.8,
+        "general": 0.85,
     },
     "grok": {
         "debugging": 0.9,
@@ -110,6 +142,9 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
         "testing": 0.85,
         "performance": 0.8,
         "architecture": 0.75,
+        "philosophy": 0.85,  # Good at lateral thinking
+        "ethics": 0.75,
+        "general": 0.8,
     },
     "deepseek": {
         "architecture": 0.9,
@@ -117,6 +152,9 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
         "database": 0.85,
         "api": 0.85,
         "security": 0.8,
+        "data_analysis": 0.9,  # Strong at analysis
+        "philosophy": 0.85,  # Rigorous reasoning
+        "general": 0.85,
     },
 }
 
@@ -1152,12 +1190,33 @@ class AgentSelector:
         detector = DomainDetector()
         requirements = detector.get_task_requirements(task_text, task_id)
 
+        # Detailed routing decision log
         logger.info(
-            f"Auto-routing task: domain={requirements.primary_domain}, "
-            f"secondary={requirements.secondary_domains}, traits={requirements.required_traits}"
+            f"[ROUTING] Task '{task_id or 'unnamed'}': "
+            f"primary_domain={requirements.primary_domain}, "
+            f"secondary={requirements.secondary_domains}, "
+            f"traits={requirements.required_traits}"
         )
 
-        return self.select_team(requirements, exclude=exclude)
+        # Log detected domains with confidence
+        domain_scores = detector.detect(task_text, top_n=5)
+        if domain_scores:
+            domain_breakdown = ", ".join(f"{d}:{c:.2f}" for d, c in domain_scores)
+            logger.debug(f"[ROUTING] Domain scores: {domain_breakdown}")
+
+        team = self.select_team(requirements, exclude=exclude)
+
+        # Log team selection rationale
+        agent_details = []
+        for agent in team.agents:
+            exp = agent.expertise.get(requirements.primary_domain, 0)
+            agent_details.append(f"{agent.name}(exp={exp:.0%},elo={agent.elo_rating:.0f})")
+        logger.info(
+            f"[ROUTING] Selected team for {requirements.primary_domain}: "
+            f"{', '.join(agent_details)}"
+        )
+
+        return team
 
     def get_domain_leaderboard(self, domain: str, limit: int = 10) -> list[dict]:
         """

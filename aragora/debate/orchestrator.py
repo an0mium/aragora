@@ -39,6 +39,7 @@ from aragora.debate.topology import TopologySelector
 from aragora.debate.judge_selector import JudgeSelector, JudgeScoringMixin
 from aragora.debate.team_selector import TeamSelector
 from aragora.debate.sanitization import OutputSanitizer
+from aragora.debate.termination_checker import TerminationChecker
 from aragora.spectate.stream import SpectatorStream
 
 from aragora.debate.context import DebateContext
@@ -355,6 +356,9 @@ class Arena:
 
         # Initialize phase classes for orchestrator decomposition
         self._init_phases()
+
+        # Initialize termination checker
+        self._init_termination_checker()
 
     @classmethod
     def from_config(
@@ -788,6 +792,24 @@ class Arena:
     def _init_phases(self) -> None:
         """Initialize phase classes for orchestrator decomposition."""
         init_phases(self)
+
+    def _init_termination_checker(self) -> None:
+        """Initialize the termination checker for early debate termination."""
+
+        async def generate_fn(agent, prompt, ctx):
+            return await self.autonomic.generate(agent, prompt, ctx)
+
+        async def select_judge_fn(proposals, context):
+            return await self._select_judge(proposals, context)
+
+        self.termination_checker = TerminationChecker(
+            protocol=self.protocol,
+            agents=self._require_agents() if self.agents else [],
+            generate_fn=generate_fn,
+            task=self.env.task if self.env else "",
+            select_judge_fn=select_judge_fn,
+            hooks=self.hooks,
+        )
 
     def _require_agents(self) -> list[Agent]:
         """Return agents list, raising error if empty.
@@ -1545,123 +1567,29 @@ class Arena:
     async def _check_judge_termination(
         self, round_num: int, proposals: dict[str, str], context: list[Message]
     ) -> tuple[bool, str]:
-        """
-        Have a judge evaluate if the debate is conclusive.
+        """Have a judge evaluate if the debate is conclusive.
+
+        Delegates to TerminationChecker.
 
         Returns:
             Tuple of (should_continue: bool, reason: str)
         """
-        if not self.protocol.judge_termination:
-            return True, ""
-
-        if round_num < self.protocol.min_rounds_before_judge_check:
-            return True, ""
-
-        # Select a judge (use existing method)
-        judge = await self._select_judge(proposals, context)
-
-        prompt = f"""You are evaluating whether this multi-agent debate has reached a conclusive state.
-
-Task: {self.env.task[:300]}
-
-After {round_num} rounds of debate, the proposals are:
-{chr(10).join(f"- {agent}: {prop[:200]}..." for agent, prop in proposals.items())}
-
-Evaluate:
-1. Have the key issues been thoroughly discussed?
-2. Are there major unresolved disagreements that more debate could resolve?
-3. Would additional rounds likely produce meaningful improvements?
-
-Respond with:
-CONCLUSIVE: <yes/no>
-REASON: <brief explanation>"""
-
-        try:
-            response = await self.autonomic.generate(judge, prompt, context[-5:])
-            lines = response.strip().split('\n')
-
-            conclusive = False
-            reason = ""
-
-            for line in lines:
-                if line.upper().startswith("CONCLUSIVE:"):
-                    val = line.split(":", 1)[1].strip().lower()
-                    conclusive = val in ("yes", "true", "1")
-                elif line.upper().startswith("REASON:"):
-                    reason = line.split(":", 1)[1].strip()
-
-            if conclusive:
-                logger.info(f"judge_termination judge={judge.name} reason={reason[:100]}")
-                # Emit event
-                if "on_judge_termination" in self.hooks:
-                    self.hooks["on_judge_termination"](judge.name, reason)
-                return False, reason
-
-        except Exception as e:
-            logger.warning(f"Judge termination check failed: {e}")
-
-        return True, ""
+        return await self.termination_checker.check_judge_termination(
+            round_num, proposals, context
+        )
 
     async def _check_early_stopping(
         self, round_num: int, proposals: dict[str, str], context: list[Message]
     ) -> bool:
         """Check if agents want to stop debate early.
 
+        Delegates to TerminationChecker.
+
         Returns True if debate should continue, False if it should stop.
         """
-        if not self.protocol.early_stopping:
-            return True  # Continue
-
-        if round_num < self.protocol.min_rounds_before_early_stop:
-            return True  # Continue - haven't met minimum rounds
-
-        # Ask each agent if they think more debate would help
-        prompt = f"""After {round_num} round(s) of debate on this task:
-Task: {self.env.task[:200]}
-
-Current proposals have been critiqued and revised. Do you think additional debate
-rounds would significantly improve the answer quality?
-
-Respond with only: CONTINUE or STOP
-- CONTINUE: More debate rounds would help refine the answer
-- STOP: The proposals are mature enough, further debate is unlikely to help"""
-
-        stop_votes = 0
-        total_votes = 0
-
-        tasks = [self.autonomic.generate(agent, prompt, context[-5:]) for agent in self.agents]
-        try:
-            # Use wait_for for Python 3.10 compatibility (asyncio.timeout is 3.11+)
-            results = await asyncio.wait_for(
-                asyncio.gather(*tasks, return_exceptions=True),
-                timeout=self.protocol.round_timeout_seconds
-            )
-        except asyncio.TimeoutError:
-            # Timeout during early stopping check - continue debate (safe default)
-            logger.warning(f"Early stopping check timed out after {self.protocol.round_timeout_seconds}s")
-            return True
-
-        for agent, result in zip(self.agents, results):
-            if isinstance(result, BaseException):
-                continue
-            total_votes += 1
-            response = str(result).strip().upper()
-            if "STOP" in response and "CONTINUE" not in response:
-                stop_votes += 1
-
-        if total_votes == 0:
-            return True  # Continue if voting failed
-
-        stop_ratio = stop_votes / total_votes
-        should_stop = stop_ratio >= self.protocol.early_stop_threshold
-
-        if should_stop:
-            logger.info(f"early_stopping votes={stop_votes}/{total_votes}")
-            # Emit early stop event
-            if "on_early_stop" in self.hooks:
-                self.hooks["on_early_stop"](round_num, stop_votes, total_votes)
-
-        return not should_stop  # Return True to continue, False to stop
+        return await self.termination_checker.check_early_stopping(
+            round_num, proposals, context
+        )
 
     async def _select_judge(self, proposals: dict[str, str], context: list[Message]) -> Agent:
         """Select judge based on protocol.judge_selection setting.

@@ -86,6 +86,10 @@ class TricksterIntervention:
 class TricksterConfig:
     """Configuration for the trickster system."""
 
+    # Sensitivity (convenience parameter - higher = more sensitive detection)
+    # Maps to hollow_detection_threshold: sensitivity 0.7 -> threshold 0.3
+    sensitivity: float = 0.5
+
     # Thresholds - tuned for earlier detection of hollow consensus
     min_quality_threshold: float = 0.65  # Minimum acceptable evidence quality (raised from 0.4)
     hollow_detection_threshold: float = 0.5  # Alert severity to trigger (raised from 0.3)
@@ -100,6 +104,15 @@ class TricksterConfig:
     # Limits
     max_challenges_per_round: int = 3
     max_interventions_total: int = 5
+
+    def __post_init__(self):
+        """Adjust thresholds based on sensitivity if sensitivity was explicitly set."""
+        # Higher sensitivity = lower threshold (more sensitive to hollow consensus)
+        # sensitivity 0.0 -> threshold 0.8 (very insensitive)
+        # sensitivity 0.5 -> threshold 0.5 (balanced)
+        # sensitivity 1.0 -> threshold 0.2 (very sensitive)
+        if self.sensitivity != 0.5:  # Only adjust if sensitivity was changed from default
+            self.hollow_detection_threshold = 0.8 - (self.sensitivity * 0.6)
 
 
 @dataclass
