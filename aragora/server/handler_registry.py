@@ -85,6 +85,7 @@ try:
         MatrixDebatesHandler,
         FeaturesHandler,
         MemoryAnalyticsHandler,
+        GauntletHandler,
         HandlerResult,
     )
     HANDLERS_AVAILABLE = True
@@ -133,6 +134,7 @@ except ImportError:
     MatrixDebatesHandler = None  # type: ignore[misc, assignment]
     FeaturesHandler = None  # type: ignore[misc, assignment]
     MemoryAnalyticsHandler = None  # type: ignore[misc, assignment]
+    GauntletHandler = None  # type: ignore[misc, assignment]
     HandlerResult = None  # type: ignore[misc, assignment]
 
 
@@ -181,6 +183,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_matrix_debates_handler", MatrixDebatesHandler),
     ("_features_handler", FeaturesHandler),
     ("_memory_analytics_handler", MemoryAnalyticsHandler),
+    ("_gauntlet_handler", GauntletHandler),
 ]
 
 
@@ -244,6 +247,7 @@ class RouteIndex:
             "_billing_handler": ["/api/billing/"],
             "_graph_debates_handler": ["/api/debates/graph"],
             "_matrix_debates_handler": ["/api/debates/matrix"],
+            "_gauntlet_handler": ["/api/gauntlet/"],
         }
 
         for attr_name, _ in HANDLER_REGISTRY:

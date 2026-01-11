@@ -205,6 +205,87 @@ class ConsensusProof:
 
         return "\n".join(lines)
 
+    def get_confidence_breakdown(self) -> dict[str, float]:
+        """Get per-agent confidence scores.
+
+        Returns:
+            Dict mapping agent names to their confidence scores.
+        """
+        breakdown = {}
+        for vote in self.votes:
+            breakdown[vote.agent] = vote.confidence
+        return breakdown
+
+    def get_blind_spots(self) -> list[str]:
+        """Identify perspectives not covered in the debate.
+
+        Returns:
+            List of potential blind spots based on dissent patterns.
+        """
+        blind_spots = []
+
+        # High-severity dissents indicate blind spots
+        for dissent in self.dissents:
+            if dissent.severity >= 0.7:
+                if dissent.alternative_view:
+                    blind_spots.append(
+                        f"Alternative view from {dissent.agent}: {dissent.alternative_view}"
+                    )
+                else:
+                    blind_spots.append(
+                        f"Strong dissent from {dissent.agent}: {', '.join(dissent.reasons[:2])}"
+                    )
+
+        # Unresolved tensions are potential blind spots
+        for tension in self.unresolved_tensions:
+            blind_spots.append(
+                f"Unresolved: {tension.description} ({', '.join(tension.options[:2])})"
+            )
+
+        # Low agreement ratio indicates blind spots
+        if self.agreement_ratio < 0.6:
+            blind_spots.append(
+                f"Low consensus ({self.agreement_ratio:.0%}) suggests multiple valid perspectives"
+            )
+
+        return blind_spots
+
+    def get_risk_correlation(self) -> dict[str, list[str]]:
+        """Get risk areas grouped by agent agreement.
+
+        Returns:
+            Dict with keys "unanimous", "majority", "contested" mapping to risk descriptions.
+        """
+        correlation = {
+            "unanimous": [],  # All agents agree
+            "majority": [],   # Most agents agree
+            "contested": [],  # Significant disagreement
+        }
+
+        # Analyze claim support patterns
+        for claim in self.claims:
+            support_count = len(claim.supporting_evidence)
+            refute_count = len(claim.refuting_evidence)
+            total = support_count + refute_count
+
+            if total == 0:
+                continue
+
+            support_ratio = support_count / total
+
+            if support_ratio >= 0.9:
+                correlation["unanimous"].append(claim.statement[:100])
+            elif support_ratio >= 0.6:
+                correlation["majority"].append(claim.statement[:100])
+            else:
+                correlation["contested"].append(claim.statement[:100])
+
+        # Add tensions to contested
+        for tension in self.unresolved_tensions:
+            correlation["contested"].append(tension.description)
+
+        return correlation
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {

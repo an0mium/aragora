@@ -74,6 +74,12 @@ DEFAULT_EVENT_TYPES = frozenset({
     "error",
     "proposal_accepted",
     "proposal_rejected",
+    # Gauntlet events
+    "gauntlet_start",
+    "gauntlet_complete",
+    "gauntlet_finding",
+    "gauntlet_verdict",
+    "decision_receipt_generated",
 })
 
 
