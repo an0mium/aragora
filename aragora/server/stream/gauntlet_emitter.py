@@ -33,7 +33,7 @@ from typing import Any, Callable, Optional, TYPE_CHECKING
 from .events import StreamEventType, StreamEvent
 
 if TYPE_CHECKING:
-    from aragora.modes.gauntlet import GauntletConfig, GauntletResult, Finding
+    from aragora.gauntlet import GauntletConfig, GauntletResult, Finding
 
 logger = logging.getLogger(__name__)
 

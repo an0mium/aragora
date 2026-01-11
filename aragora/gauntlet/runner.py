@@ -260,10 +260,10 @@ class GauntletRunner:
 
         # Map ProbeCategory to ProbeType
         category_to_type = {
-            ProbeCategory.CONTRADICTION: ProbeType.CONTRADICTION_TRAP,
-            ProbeCategory.HALLUCINATION: ProbeType.HALLUCINATION_BAIT,
-            ProbeCategory.SYCOPHANCY: ProbeType.SYCOPHANCY_TEST,
-            ProbeCategory.PERSISTENCE: ProbeType.PERSISTENCE_CHALLENGE,
+            ProbeCategory.CONTRADICTION: ProbeType.CONTRADICTION,
+            ProbeCategory.HALLUCINATION: ProbeType.HALLUCINATION,
+            ProbeCategory.SYCOPHANCY: ProbeType.SYCOPHANCY,
+            ProbeCategory.PERSISTENCE: ProbeType.PERSISTENCE,
             ProbeCategory.CALIBRATION: ProbeType.CONFIDENCE_CALIBRATION,
             ProbeCategory.REASONING_DEPTH: ProbeType.REASONING_DEPTH,
             ProbeCategory.EDGE_CASE: ProbeType.EDGE_CASE,

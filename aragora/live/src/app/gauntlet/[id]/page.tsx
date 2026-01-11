@@ -20,8 +20,7 @@ export default function GauntletLivePage() {
 
   const gauntletId = params.id as string;
 
-  // Derive WebSocket URL from API base
-  const wsUrl = backendConfig.api.replace(/^http/, 'ws');
+  const wsUrl = backendConfig.ws;
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(window.location.href);

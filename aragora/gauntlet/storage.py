@@ -1,19 +1,27 @@
 """
-SQLite-backed Gauntlet result storage.
+Database-backed Gauntlet result storage.
 
 Provides persistent storage for Gauntlet validation results with
 support for listing, filtering, and comparison operations.
+
+Supports both SQLite (default) and PostgreSQL (via DATABASE_URL env var).
 """
 
 import hashlib
 import json
-import sqlite3
-from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Generator, Any
+from typing import Optional, Any
 import logging
+import os
+
+from aragora.storage.backends import (
+    DatabaseBackend,
+    SQLiteBackend,
+    PostgreSQLBackend,
+    POSTGRESQL_AVAILABLE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,82 +48,115 @@ class GauntletStorage:
     """
     Persistent storage for Gauntlet validation results.
 
-    Stores complete results in SQLite with support for:
+    Stores complete results with support for:
     - Save/load individual results
     - List results with pagination and filters
     - Compare two results
     - Track result history by input hash
 
-    Usage:
-        storage = GauntletStorage()
-        storage.save(result)
+    Supports both SQLite (default) and PostgreSQL backends.
 
+    Usage:
+        # SQLite (default)
+        storage = GauntletStorage()
+
+        # PostgreSQL (via environment or explicit)
+        storage = GauntletStorage(backend="postgresql")
+
+        # Or set DATABASE_URL environment variable
+        # export DATABASE_URL=postgresql://user:pass@host:5432/dbname
+
+        storage.save(result)
         result = storage.get("gauntlet-abc123")
         recent = storage.list_recent(limit=20)
     """
 
-    def __init__(self, db_path: str = "aragora_gauntlet.db"):
-        """Initialize storage with database path."""
-        self.db_path = Path(db_path)
-        self._init_db()
+    def __init__(
+        self,
+        db_path: str = "aragora_gauntlet.db",
+        backend: Optional[str] = None,
+        database_url: Optional[str] = None,
+    ):
+        """
+        Initialize storage with database backend.
 
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection with WAL mode for concurrency."""
-        conn = sqlite3.connect(
-            str(self.db_path),
-            timeout=30.0,
-            isolation_level=None,  # Autocommit mode
-        )
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA busy_timeout=30000")
-        try:
-            yield conn
-        finally:
-            conn.close()
+        Args:
+            db_path: Path to SQLite database file (used when backend="sqlite").
+            backend: Database backend type ("sqlite" or "postgresql").
+                    If not specified, uses DATABASE_URL env var if set,
+                    otherwise defaults to SQLite.
+            database_url: PostgreSQL connection URL. Overrides DATABASE_URL env var.
+        """
+        # Determine backend type
+        env_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")
+        actual_url = database_url or env_url
+
+        if backend is None:
+            # Auto-detect based on URL presence
+            backend = "postgresql" if actual_url else "sqlite"
+
+        self.backend_type = backend
+
+        # Create appropriate backend
+        if backend == "postgresql":
+            if not actual_url:
+                raise ValueError(
+                    "PostgreSQL backend requires DATABASE_URL or database_url parameter"
+                )
+            if not POSTGRESQL_AVAILABLE:
+                raise ImportError(
+                    "psycopg2 is required for PostgreSQL support. "
+                    "Install with: pip install psycopg2-binary"
+                )
+            self._backend: DatabaseBackend = PostgreSQLBackend(actual_url)
+            logger.info("GauntletStorage using PostgreSQL backend")
+        else:
+            # SQLite backend
+            self.db_path = Path(db_path)
+            self._backend = SQLiteBackend(db_path)
+            logger.info(f"GauntletStorage using SQLite backend: {db_path}")
+
+        self._init_db()
 
     def _init_db(self) -> None:
         """Initialize database schema."""
-        with self._get_connection() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS gauntlet_results (
-                    gauntlet_id TEXT PRIMARY KEY,
-                    input_hash TEXT NOT NULL,
-                    input_summary TEXT,
-                    result_json TEXT NOT NULL,
-                    verdict TEXT NOT NULL,
-                    confidence REAL,
-                    robustness_score REAL,
-                    critical_count INTEGER DEFAULT 0,
-                    high_count INTEGER DEFAULT 0,
-                    medium_count INTEGER DEFAULT 0,
-                    low_count INTEGER DEFAULT 0,
-                    total_findings INTEGER DEFAULT 0,
-                    agents_used TEXT,
-                    template_used TEXT,
-                    duration_seconds REAL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    org_id TEXT
-                )
-            """)
+        # Create table - use backend-agnostic SQL
+        create_table_sql = """
+            CREATE TABLE IF NOT EXISTS gauntlet_results (
+                gauntlet_id TEXT PRIMARY KEY,
+                input_hash TEXT NOT NULL,
+                input_summary TEXT,
+                result_json TEXT NOT NULL,
+                verdict TEXT NOT NULL,
+                confidence REAL,
+                robustness_score REAL,
+                critical_count INTEGER DEFAULT 0,
+                high_count INTEGER DEFAULT 0,
+                medium_count INTEGER DEFAULT 0,
+                low_count INTEGER DEFAULT 0,
+                total_findings INTEGER DEFAULT 0,
+                agents_used TEXT,
+                template_used TEXT,
+                duration_seconds REAL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                org_id TEXT
+            )
+        """
+        self._backend.execute_write(create_table_sql)
 
-            # Indexes for common queries
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_gauntlet_input_hash "
-                "ON gauntlet_results(input_hash)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_gauntlet_created "
-                "ON gauntlet_results(created_at DESC)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_gauntlet_verdict "
-                "ON gauntlet_results(verdict)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_gauntlet_org "
-                "ON gauntlet_results(org_id, created_at DESC)"
-            )
+        # Create indexes (syntax works for both SQLite and PostgreSQL)
+        indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_gauntlet_input_hash ON gauntlet_results(input_hash)",
+            "CREATE INDEX IF NOT EXISTS idx_gauntlet_created ON gauntlet_results(created_at DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_gauntlet_verdict ON gauntlet_results(verdict)",
+            "CREATE INDEX IF NOT EXISTS idx_gauntlet_org ON gauntlet_results(org_id, created_at DESC)",
+        ]
+        for idx_sql in indexes:
+            try:
+                self._backend.execute_write(idx_sql)
+            except Exception as e:
+                # Index may already exist with different definition
+                logger.debug(f"Index creation skipped: {e}")
 
     def save(self, result: Any, org_id: Optional[str] = None) -> str:
         """
@@ -147,22 +188,42 @@ class GauntletStorage:
 
         # Count findings by severity
         critical = high = medium = low = 0
-        if hasattr(result, 'critical_findings') and hasattr(result, 'high_findings'):
-            critical = len(getattr(result, 'critical_findings', []) or [])
-            high = len(getattr(result, 'high_findings', []) or [])
-            medium = len(getattr(result, 'medium_findings', []) or [])
-            low = len(getattr(result, 'low_findings', []) or [])
+        critical_findings = getattr(result, 'critical_findings', None)
+        high_findings = getattr(result, 'high_findings', None)
+        medium_findings = getattr(result, 'medium_findings', None)
+        low_findings = getattr(result, 'low_findings', None)
+
+        def _len_if_list(value: Any) -> int:
+            if isinstance(value, (list, tuple, set)):
+                return len(value)
+            return 0
+
+        def _coerce_count(value: Any) -> int:
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return 0
+
+        if any(
+            isinstance(value, (list, tuple, set))
+            for value in (critical_findings, high_findings, medium_findings, low_findings)
+        ):
+            critical = _len_if_list(critical_findings)
+            high = _len_if_list(high_findings)
+            medium = _len_if_list(medium_findings)
+            low = _len_if_list(low_findings)
         elif hasattr(result, 'risk_summary'):
-            critical = getattr(result.risk_summary, 'critical', 0)
-            high = getattr(result.risk_summary, 'high', 0)
-            medium = getattr(result.risk_summary, 'medium', 0)
-            low = getattr(result.risk_summary, 'low', 0)
+            critical = _coerce_count(getattr(result.risk_summary, 'critical', 0))
+            high = _coerce_count(getattr(result.risk_summary, 'high', 0))
+            medium = _coerce_count(getattr(result.risk_summary, 'medium', 0))
+            low = _coerce_count(getattr(result.risk_summary, 'low', 0))
         elif hasattr(result, 'severity_counts'):
             counts = result.severity_counts
-            critical = counts.get('critical', 0)
-            high = counts.get('high', 0)
-            medium = counts.get('medium', 0)
-            low = counts.get('low', 0)
+            if isinstance(counts, dict):
+                critical = counts.get('critical', 0)
+                high = counts.get('high', 0)
+                medium = counts.get('medium', 0)
+                low = counts.get('low', 0)
 
         total = getattr(result, 'total_findings', None)
         if total is None:
@@ -172,7 +233,14 @@ class GauntletStorage:
             elif hasattr(result, 'findings'):
                 total = len(result.findings)
 
-        agents = getattr(result, 'agents_used', None) or getattr(result, 'agents_involved', [])
+        agents = getattr(result, 'agents_used', None)
+        if agents is None:
+            agents = getattr(result, 'agents_involved', [])
+        if not isinstance(agents, list):
+            try:
+                agents = list(agents)
+            except TypeError:
+                agents = []
         template = getattr(result, 'template_used', None)
         duration = getattr(result, 'duration_seconds', 0)
 
@@ -186,8 +254,36 @@ class GauntletStorage:
                 'confidence': confidence,
             }
 
-        with self._get_connection() as conn:
-            conn.execute("""
+        # Use UPSERT syntax that works for both SQLite and PostgreSQL
+        if self.backend_type == "postgresql":
+            sql = """
+                INSERT INTO gauntlet_results (
+                    gauntlet_id, input_hash, input_summary, result_json,
+                    verdict, confidence, robustness_score,
+                    critical_count, high_count, medium_count, low_count,
+                    total_findings, agents_used, template_used,
+                    duration_seconds, org_id
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (gauntlet_id) DO UPDATE SET
+                    input_hash = EXCLUDED.input_hash,
+                    input_summary = EXCLUDED.input_summary,
+                    result_json = EXCLUDED.result_json,
+                    verdict = EXCLUDED.verdict,
+                    confidence = EXCLUDED.confidence,
+                    robustness_score = EXCLUDED.robustness_score,
+                    critical_count = EXCLUDED.critical_count,
+                    high_count = EXCLUDED.high_count,
+                    medium_count = EXCLUDED.medium_count,
+                    low_count = EXCLUDED.low_count,
+                    total_findings = EXCLUDED.total_findings,
+                    agents_used = EXCLUDED.agents_used,
+                    template_used = EXCLUDED.template_used,
+                    duration_seconds = EXCLUDED.duration_seconds,
+                    org_id = EXCLUDED.org_id
+            """
+        else:
+            sql = """
                 INSERT OR REPLACE INTO gauntlet_results (
                     gauntlet_id, input_hash, input_summary, result_json,
                     verdict, confidence, robustness_score,
@@ -196,24 +292,26 @@ class GauntletStorage:
                     duration_seconds, org_id
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                gauntlet_id,
-                input_hash,
-                input_summary,
-                json.dumps(result_dict, default=str),
-                verdict,
-                confidence,
-                robustness,
-                critical,
-                high,
-                medium,
-                low,
-                total,
-                json.dumps(agents),
-                template,
-                duration,
-                org_id,
-            ))
+            """
+
+        self._backend.execute_write(sql, (
+            gauntlet_id,
+            input_hash,
+            input_summary,
+            json.dumps(result_dict, default=str),
+            verdict,
+            confidence,
+            robustness,
+            critical,
+            high,
+            medium,
+            low,
+            total,
+            json.dumps(agents),
+            template,
+            duration,
+            org_id,
+        ))
 
         logger.info(f"Saved gauntlet result: {gauntlet_id}")
         return gauntlet_id
@@ -229,19 +327,17 @@ class GauntletStorage:
         Returns:
             Result dict or None if not found
         """
-        with self._get_connection() as conn:
-            if org_id:
-                cursor = conn.execute(
-                    "SELECT result_json FROM gauntlet_results "
-                    "WHERE gauntlet_id = ? AND org_id = ?",
-                    (gauntlet_id, org_id)
-                )
-            else:
-                cursor = conn.execute(
-                    "SELECT result_json FROM gauntlet_results WHERE gauntlet_id = ?",
-                    (gauntlet_id,)
-                )
-            row = cursor.fetchone()
+        if org_id:
+            row = self._backend.fetch_one(
+                "SELECT result_json FROM gauntlet_results "
+                "WHERE gauntlet_id = ? AND org_id = ?",
+                (gauntlet_id, org_id)
+            )
+        else:
+            row = self._backend.fetch_one(
+                "SELECT result_json FROM gauntlet_results WHERE gauntlet_id = ?",
+                (gauntlet_id,)
+            )
 
         return json.loads(row[0]) if row else None
 
@@ -291,30 +387,35 @@ class GauntletStorage:
         query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
-        with self._get_connection() as conn:
-            cursor = conn.execute(query, params)
-            results = []
-            for row in cursor.fetchall():
-                try:
-                    created = datetime.fromisoformat(row[11])
-                except (ValueError, TypeError):
+        rows = self._backend.fetch_all(query, tuple(params))
+        results = []
+        for row in rows:
+            try:
+                created_val = row[11]
+                if isinstance(created_val, datetime):
+                    created = created_val
+                elif isinstance(created_val, str):
+                    created = datetime.fromisoformat(created_val)
+                else:
                     created = datetime.now()
+            except (ValueError, TypeError):
+                created = datetime.now()
 
-                results.append(GauntletMetadata(
-                    gauntlet_id=row[0],
-                    input_hash=row[1],
-                    input_summary=row[2] or '',
-                    verdict=row[3],
-                    confidence=row[4] or 0,
-                    robustness_score=row[5] or 0,
-                    critical_count=row[6] or 0,
-                    high_count=row[7] or 0,
-                    total_findings=row[8] or 0,
-                    agents_used=json.loads(row[9]) if row[9] else [],
-                    template_used=row[10],
-                    created_at=created,
-                    duration_seconds=row[12] or 0,
-                ))
+            results.append(GauntletMetadata(
+                gauntlet_id=row[0],
+                input_hash=row[1],
+                input_summary=row[2] or '',
+                verdict=row[3],
+                confidence=row[4] or 0,
+                robustness_score=row[5] or 0,
+                critical_count=row[6] or 0,
+                high_count=row[7] or 0,
+                total_findings=row[8] or 0,
+                agents_used=json.loads(row[9]) if row[9] else [],
+                template_used=row[10],
+                created_at=created,
+                duration_seconds=row[12] or 0,
+            ))
 
         return results
 
@@ -353,30 +454,35 @@ class GauntletStorage:
         query += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
 
-        with self._get_connection() as conn:
-            cursor = conn.execute(query, params)
-            results = []
-            for row in cursor.fetchall():
-                try:
-                    created = datetime.fromisoformat(row[11])
-                except (ValueError, TypeError):
+        rows = self._backend.fetch_all(query, tuple(params))
+        results = []
+        for row in rows:
+            try:
+                created_val = row[11]
+                if isinstance(created_val, datetime):
+                    created = created_val
+                elif isinstance(created_val, str):
+                    created = datetime.fromisoformat(created_val)
+                else:
                     created = datetime.now()
+            except (ValueError, TypeError):
+                created = datetime.now()
 
-                results.append(GauntletMetadata(
-                    gauntlet_id=row[0],
-                    input_hash=row[1],
-                    input_summary=row[2] or '',
-                    verdict=row[3],
-                    confidence=row[4] or 0,
-                    robustness_score=row[5] or 0,
-                    critical_count=row[6] or 0,
-                    high_count=row[7] or 0,
-                    total_findings=row[8] or 0,
-                    agents_used=json.loads(row[9]) if row[9] else [],
-                    template_used=row[10],
-                    created_at=created,
-                    duration_seconds=row[12] or 0,
-                ))
+            results.append(GauntletMetadata(
+                gauntlet_id=row[0],
+                input_hash=row[1],
+                input_summary=row[2] or '',
+                verdict=row[3],
+                confidence=row[4] or 0,
+                robustness_score=row[5] or 0,
+                critical_count=row[6] or 0,
+                high_count=row[7] or 0,
+                total_findings=row[8] or 0,
+                agents_used=json.loads(row[9]) if row[9] else [],
+                template_used=row[10],
+                created_at=created,
+                duration_seconds=row[12] or 0,
+            ))
 
         return results
 
@@ -457,23 +563,24 @@ class GauntletStorage:
         Returns:
             True if deleted, False if not found
         """
-        with self._get_connection() as conn:
-            if org_id:
-                cursor = conn.execute(
-                    "DELETE FROM gauntlet_results WHERE gauntlet_id = ? AND org_id = ?",
-                    (gauntlet_id, org_id)
-                )
-            else:
-                cursor = conn.execute(
-                    "DELETE FROM gauntlet_results WHERE gauntlet_id = ?",
-                    (gauntlet_id,)
-                )
-            deleted = cursor.rowcount > 0
+        # Check if exists first
+        exists = self.get(gauntlet_id, org_id) is not None
+        if not exists:
+            return False
 
-        if deleted:
-            logger.info(f"Deleted gauntlet result: {gauntlet_id}")
+        if org_id:
+            self._backend.execute_write(
+                "DELETE FROM gauntlet_results WHERE gauntlet_id = ? AND org_id = ?",
+                (gauntlet_id, org_id)
+            )
+        else:
+            self._backend.execute_write(
+                "DELETE FROM gauntlet_results WHERE gauntlet_id = ?",
+                (gauntlet_id,)
+            )
 
-        return deleted
+        logger.info(f"Deleted gauntlet result: {gauntlet_id}")
+        return True
 
     def count(self, org_id: Optional[str] = None, verdict: Optional[str] = None) -> int:
         """
@@ -497,20 +604,47 @@ class GauntletStorage:
             query += " AND verdict = ?"
             params.append(verdict)
 
-        with self._get_connection() as conn:
-            cursor = conn.execute(query, params)
-            row = cursor.fetchone()
-
+        row = self._backend.fetch_one(query, tuple(params))
         return row[0] if row else 0
+
+    def close(self) -> None:
+        """Close the database connection/pool."""
+        self._backend.close()
 
 
 # Module-level singleton for convenience
 _default_storage: Optional[GauntletStorage] = None
 
 
-def get_storage(db_path: str = "aragora_gauntlet.db") -> GauntletStorage:
-    """Get or create the default GauntletStorage instance."""
+def get_storage(
+    db_path: str = "aragora_gauntlet.db",
+    backend: Optional[str] = None,
+    database_url: Optional[str] = None,
+) -> GauntletStorage:
+    """
+    Get or create the default GauntletStorage instance.
+
+    Args:
+        db_path: Path to SQLite database (used when backend="sqlite")
+        backend: Database backend type ("sqlite" or "postgresql")
+        database_url: PostgreSQL connection URL
+
+    Returns:
+        GauntletStorage instance
+    """
     global _default_storage
     if _default_storage is None:
-        _default_storage = GauntletStorage(db_path)
+        _default_storage = GauntletStorage(
+            db_path=db_path,
+            backend=backend,
+            database_url=database_url,
+        )
     return _default_storage
+
+
+def reset_storage() -> None:
+    """Reset the default storage instance (for testing)."""
+    global _default_storage
+    if _default_storage is not None:
+        _default_storage.close()
+        _default_storage = None

@@ -82,6 +82,12 @@ class GauntletHandler(BaseHandler):
         "/api/gauntlet/",
     ]
 
+    def __init__(self, server_context: dict):
+        super().__init__(server_context)
+        emitter = server_context.get("stream_emitter")
+        if emitter and hasattr(emitter, "emit"):
+            set_gauntlet_broadcast_fn(emitter.emit)
+
     def can_handle(self, path: str, method: str) -> bool:
         """Check if this handler can handle the request."""
         if path == "/api/gauntlet/run" and method == "POST":

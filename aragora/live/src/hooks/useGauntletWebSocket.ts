@@ -24,6 +24,7 @@ export interface GauntletEvent {
   data: Record<string, unknown>;
   timestamp: number;
   seq: number;
+  loop_id?: string;
 }
 
 export interface GauntletFinding {
@@ -111,7 +112,7 @@ export function useGauntletWebSocket({
     if (!enabled || !gauntletId) return;
 
     try {
-      const url = `${wsUrl}/gauntlet/${gauntletId}`;
+      const url = wsUrl.endsWith('/') ? wsUrl.slice(0, -1) : wsUrl;
       logger.info(`Connecting to Gauntlet WebSocket: ${url}`);
 
       const ws = new WebSocket(url);
@@ -165,6 +166,17 @@ export function useGauntletWebSocket({
   }, [enabled, gauntletId, wsUrl, status]);
 
   const handleEvent = useCallback((event: GauntletEvent) => {
+    if (!event.type.startsWith('gauntlet_')) {
+      return;
+    }
+
+    const eventGauntletId =
+      event.loop_id || (event.data as { gauntlet_id?: string }).gauntlet_id;
+
+    if (eventGauntletId && eventGauntletId !== gauntletId) {
+      return;
+    }
+
     // Add to events list
     setEvents(prev => [...prev, event]);
 
@@ -292,7 +304,7 @@ export function useGauntletWebSocket({
         break;
       }
     }
-  }, []);
+  }, [gauntletId]);
 
   const reconnect = useCallback(() => {
     if (wsRef.current) {

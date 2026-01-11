@@ -70,7 +70,7 @@ export default function GauntletPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-acid-cyan">&gt;</span>
-                  <code className="bg-bg px-2 py-0.5">aragora gauntlet policy.yaml --compliance gdpr</code>
+                  <code className="bg-bg px-2 py-0.5">aragora gauntlet policy.yaml --persona gdpr</code>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-acid-cyan">&gt;</span>
