@@ -32,13 +32,11 @@ HASH_VERSION_BCRYPT = "bcrypt:"
 HASH_VERSION_CURRENT = HASH_VERSION_BCRYPT if HAS_BCRYPT else HASH_VERSION_SHA256
 BCRYPT_ROUNDS = 12  # Cost factor for bcrypt
 
-# Security: Allow SHA-256 fallback only in development/testing
-# Set ARAGORA_ALLOW_INSECURE_PASSWORDS=1 to enable (NOT for production)
-# Also auto-enable when running under pytest to avoid test failures
-_running_under_pytest = "pytest" in sys.modules
+# Security: Allow SHA-256 fallback only when explicitly enabled
+# Set ARAGORA_ALLOW_INSECURE_PASSWORDS=1 for testing (NOT for production)
+# Note: bcrypt is a required dependency, so fallback should never be needed
 ALLOW_INSECURE_PASSWORDS = (
     os.environ.get("ARAGORA_ALLOW_INSECURE_PASSWORDS", "").lower() in ("1", "true", "yes")
-    or _running_under_pytest
 )
 
 

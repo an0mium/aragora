@@ -534,8 +534,8 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
         try:
             header_json = _base64url_decode(header_b64).decode("utf-8")
             header = json.loads(header_json)
-        except Exception:
-            logger.debug("jwt_decode_failed: invalid header encoding")
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as e:
+            logger.debug("jwt_decode_failed: invalid header encoding: %s", e)
             return None
 
         token_alg = header.get("alg", "")
