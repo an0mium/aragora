@@ -31,6 +31,33 @@ from .base import (
 
 logger = logging.getLogger(__name__)
 
+# Webhook idempotency tracking (in-memory with TTL)
+# For production, use Redis or database
+_PROCESSED_WEBHOOK_EVENTS: dict[str, datetime] = {}
+_WEBHOOK_EVENT_TTL_SECONDS = 86400  # 24 hours
+
+
+def _cleanup_old_webhook_events() -> None:
+    """Remove webhook events older than TTL."""
+    now = datetime.utcnow()
+    expired = [
+        event_id for event_id, timestamp in _PROCESSED_WEBHOOK_EVENTS.items()
+        if (now - timestamp).total_seconds() > _WEBHOOK_EVENT_TTL_SECONDS
+    ]
+    for event_id in expired:
+        del _PROCESSED_WEBHOOK_EVENTS[event_id]
+
+
+def _is_duplicate_webhook(event_id: str) -> bool:
+    """Check if webhook event was already processed."""
+    _cleanup_old_webhook_events()
+    return event_id in _PROCESSED_WEBHOOK_EVENTS
+
+
+def _mark_webhook_processed(event_id: str) -> None:
+    """Mark webhook event as processed."""
+    _PROCESSED_WEBHOOK_EVENTS[event_id] = datetime.utcnow()
+
 
 class BillingHandler(BaseHandler):
     """Handler for billing and subscription endpoints."""
@@ -43,6 +70,10 @@ class BillingHandler(BaseHandler):
         "/api/billing/portal",
         "/api/billing/cancel",
         "/api/billing/resume",
+        "/api/billing/audit-log",
+        "/api/billing/usage/export",
+        "/api/billing/usage/forecast",
+        "/api/billing/invoices",
         "/api/webhooks/stripe",
     ]
 
@@ -78,6 +109,18 @@ class BillingHandler(BaseHandler):
 
         if path == "/api/billing/resume" and method == "POST":
             return self._resume_subscription(handler)
+
+        if path == "/api/billing/audit-log" and method == "GET":
+            return self._get_audit_log(handler)
+
+        if path == "/api/billing/usage/export" and method == "GET":
+            return self._export_usage_csv(handler)
+
+        if path == "/api/billing/usage/forecast" and method == "GET":
+            return self._get_usage_forecast(handler)
+
+        if path == "/api/billing/invoices" and method == "GET":
+            return self._get_invoices(handler)
 
         if path == "/api/webhooks/stripe" and method == "POST":
             return self._handle_stripe_webhook(handler)
@@ -371,6 +414,340 @@ class BillingHandler(BaseHandler):
         except StripeConfigError as e:
             return error_response(str(e), 503)
 
+    def _log_audit(
+        self,
+        user_store,
+        action: str,
+        resource_type: str,
+        resource_id: str = None,
+        user_id: str = None,
+        org_id: str = None,
+        old_value: dict = None,
+        new_value: dict = None,
+        metadata: dict = None,
+        handler=None,
+    ) -> None:
+        """Log an audit event for billing operations."""
+        if not user_store or not hasattr(user_store, "log_audit_event"):
+            return
+
+        ip_address = None
+        user_agent = None
+        if handler:
+            from aragora.server.middleware.auth import extract_client_ip
+            ip_address = extract_client_ip(handler)
+            user_agent = handler.headers.get("User-Agent", "")[:200] if hasattr(handler, "headers") else None
+
+        try:
+            user_store.log_audit_event(
+                action=action,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                user_id=user_id,
+                org_id=org_id,
+                old_value=old_value,
+                new_value=new_value,
+                metadata=metadata,
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log audit event: {e}")
+
+    @handle_errors("get audit log")
+    def _get_audit_log(self, handler) -> HandlerResult:
+        """Get billing audit log for organization (Enterprise feature)."""
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        if not user_store:
+            return error_response("Service unavailable", 503)
+
+        # Get organization and check tier
+        user = user_store.get_user_by_id(auth_ctx.user_id)
+        if not user or not user.org_id:
+            return error_response("No organization found", 404)
+
+        org = user_store.get_organization_by_id(user.org_id)
+        if not org:
+            return error_response("Organization not found", 404)
+
+        # Check if audit logs are enabled for this tier
+        if not org.limits.audit_logs:
+            return error_response(
+                "Audit logs require Enterprise tier", 403
+            )
+
+        # Only admins/owners can view audit logs
+        if auth_ctx.role not in ("owner", "admin"):
+            return error_response("Insufficient permissions", 403)
+
+        # Get query params
+        limit = min(int(get_string_param(handler, "limit", "50")), 100)
+        offset = int(get_string_param(handler, "offset", "0"))
+        action_filter = get_string_param(handler, "action", None)
+
+        # Get audit entries
+        entries = user_store.get_audit_log(
+            org_id=org.id,
+            action=action_filter,
+            resource_type="subscription",
+            limit=limit,
+            offset=offset,
+        )
+
+        total = user_store.get_audit_log_count(
+            org_id=org.id,
+            action=action_filter,
+            resource_type="subscription",
+        )
+
+        return json_response({
+            "entries": entries,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        })
+
+    @handle_errors("export usage CSV")
+    def _export_usage_csv(self, handler) -> HandlerResult:
+        """Export usage data as CSV."""
+        from aragora.billing.jwt_auth import extract_user_from_request
+        import csv
+        import io
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        if not user_store:
+            return error_response("Service unavailable", 503)
+
+        user = user_store.get_user_by_id(auth_ctx.user_id)
+        if not user or not user.org_id:
+            return error_response("No organization found", 404)
+
+        org = user_store.get_organization_by_id(user.org_id)
+        if not org:
+            return error_response("Organization not found", 404)
+
+        # Get date range from query params
+        start_date = get_string_param(handler, "start", None)
+        end_date = get_string_param(handler, "end", None)
+
+        # Get usage events from store
+        usage_events = []
+        if hasattr(user_store, "_transaction"):
+            with user_store._transaction() as cursor:
+                query = "SELECT * FROM usage_events WHERE org_id = ?"
+                params = [org.id]
+
+                if start_date:
+                    query += " AND created_at >= ?"
+                    params.append(start_date)
+                if end_date:
+                    query += " AND created_at <= ?"
+                    params.append(end_date)
+
+                query += " ORDER BY created_at DESC"
+                cursor.execute(query, params)
+                usage_events = cursor.fetchall()
+
+        # Build CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "Date", "Event Type", "Count", "Metadata"
+        ])
+
+        for row in usage_events:
+            writer.writerow([
+                row[5],  # created_at
+                row[2],  # event_type
+                row[3],  # count
+                row[4],  # metadata
+            ])
+
+        # Add summary row
+        writer.writerow([])
+        writer.writerow(["Summary"])
+        writer.writerow(["Organization", org.name])
+        writer.writerow(["Tier", org.tier.value])
+        writer.writerow(["Debates Used", org.debates_used_this_month])
+        writer.writerow(["Debates Limit", org.limits.debates_per_month])
+        writer.writerow(["Billing Cycle Start", org.billing_cycle_start.isoformat()])
+
+        csv_content = output.getvalue()
+        output.close()
+
+        # Return CSV file
+        filename = f"usage_export_{org.slug}_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+        return HandlerResult(
+            status_code=200,
+            content_type="text/csv",
+            body=csv_content.encode("utf-8"),
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+            },
+        )
+
+    @handle_errors("get usage forecast")
+    def _get_usage_forecast(self, handler) -> HandlerResult:
+        """Get usage forecast and cost projection."""
+        from aragora.billing.jwt_auth import extract_user_from_request
+        from datetime import timedelta
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        if not user_store:
+            return error_response("Service unavailable", 503)
+
+        user = user_store.get_user_by_id(auth_ctx.user_id)
+        if not user or not user.org_id:
+            return error_response("No organization found", 404)
+
+        org = user_store.get_organization_by_id(user.org_id)
+        if not org:
+            return error_response("Organization not found", 404)
+
+        # Calculate days elapsed in billing cycle
+        now = datetime.utcnow()
+        days_elapsed = (now - org.billing_cycle_start).days
+        days_in_cycle = 30  # Approximate
+
+        if days_elapsed < 1:
+            days_elapsed = 1  # Avoid division by zero
+
+        # Calculate run rate
+        debates_per_day = org.debates_used_this_month / days_elapsed
+        days_remaining = max(0, days_in_cycle - days_elapsed)
+
+        # Project usage
+        projected_debates = org.debates_used_this_month + (debates_per_day * days_remaining)
+        projected_debates = int(projected_debates)
+
+        # Calculate if will hit limit
+        will_hit_limit = projected_debates >= org.limits.debates_per_month
+        debates_overage = max(0, projected_debates - org.limits.debates_per_month)
+
+        # Get usage tracker for token/cost data
+        usage_tracker = self._get_usage_tracker()
+        projected_cost = 0.0
+        tokens_per_day = 0
+
+        if usage_tracker:
+            summary = usage_tracker.get_summary(
+                org_id=org.id,
+                start_time=org.billing_cycle_start,
+            )
+            if summary and days_elapsed > 0:
+                tokens_per_day = summary.total_tokens / days_elapsed
+                cost_per_day = float(summary.total_cost) / days_elapsed
+                projected_cost = float(summary.total_cost) + (cost_per_day * days_remaining)
+
+        # Suggest tier upgrade if hitting limits
+        tier_recommendation = None
+        from aragora.billing.models import SubscriptionTier, TIER_LIMITS
+        if will_hit_limit and org.tier != SubscriptionTier.ENTERPRISE:
+            # Find next tier
+            tier_order = [
+                SubscriptionTier.FREE,
+                SubscriptionTier.STARTER,
+                SubscriptionTier.PROFESSIONAL,
+                SubscriptionTier.ENTERPRISE,
+            ]
+            current_idx = tier_order.index(org.tier)
+            if current_idx < len(tier_order) - 1:
+                next_tier = tier_order[current_idx + 1]
+                tier_recommendation = {
+                    "recommended_tier": next_tier.value,
+                    "debates_limit": TIER_LIMITS[next_tier].debates_per_month,
+                    "price_monthly": f"${TIER_LIMITS[next_tier].price_monthly_cents / 100:.2f}",
+                }
+
+        return json_response({
+            "forecast": {
+                "current_usage": {
+                    "debates": org.debates_used_this_month,
+                    "debates_limit": org.limits.debates_per_month,
+                },
+                "projection": {
+                    "debates_end_of_cycle": projected_debates,
+                    "debates_per_day": round(debates_per_day, 2),
+                    "tokens_per_day": int(tokens_per_day),
+                    "cost_end_of_cycle_usd": round(projected_cost, 2),
+                },
+                "days_remaining": days_remaining,
+                "days_elapsed": days_elapsed,
+                "will_hit_limit": will_hit_limit,
+                "debates_overage": debates_overage,
+                "tier_recommendation": tier_recommendation,
+            },
+        })
+
+    @handle_errors("get invoices")
+    def _get_invoices(self, handler) -> HandlerResult:
+        """Get invoice history from Stripe."""
+        from aragora.billing.jwt_auth import extract_user_from_request
+        from aragora.billing.stripe_client import get_stripe_client, StripeConfigError
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        if not user_store:
+            return error_response("Service unavailable", 503)
+
+        user = user_store.get_user_by_id(auth_ctx.user_id)
+        if not user or not user.org_id:
+            return error_response("No organization found", 404)
+
+        org = user_store.get_organization_by_id(user.org_id)
+        if not org or not org.stripe_customer_id:
+            return error_response("No billing account found", 404)
+
+        limit = min(int(get_string_param(handler, "limit", "10")), 100)
+
+        try:
+            stripe = get_stripe_client()
+            invoices_data = stripe.list_invoices(
+                customer_id=org.stripe_customer_id,
+                limit=limit,
+            )
+
+            invoices = []
+            for inv in invoices_data:
+                invoices.append({
+                    "id": inv.get("id"),
+                    "number": inv.get("number"),
+                    "status": inv.get("status"),
+                    "amount_due": inv.get("amount_due", 0) / 100,
+                    "amount_paid": inv.get("amount_paid", 0) / 100,
+                    "currency": inv.get("currency", "usd").upper(),
+                    "created": datetime.fromtimestamp(inv.get("created", 0)).isoformat(),
+                    "period_start": datetime.fromtimestamp(inv.get("period_start", 0)).isoformat() if inv.get("period_start") else None,
+                    "period_end": datetime.fromtimestamp(inv.get("period_end", 0)).isoformat() if inv.get("period_end") else None,
+                    "hosted_invoice_url": inv.get("hosted_invoice_url"),
+                    "invoice_pdf": inv.get("invoice_pdf"),
+                })
+
+            return json_response({"invoices": invoices})
+
+        except StripeConfigError as e:
+            return error_response(str(e), 503)
+        except Exception as e:
+            logger.error(f"Failed to get invoices: {e}")
+            return error_response("Failed to retrieve invoices", 500)
+
     @handle_errors("cancel subscription")
     @log_request("cancel subscription")
     def _cancel_subscription(self, handler) -> HandlerResult:
@@ -411,6 +788,19 @@ class BillingHandler(BaseHandler):
             logger.info(
                 f"Subscription canceled for org {org.id} "
                 f"(user: {user.email})"
+            )
+
+            # Log audit event
+            self._log_audit(
+                user_store,
+                action="subscription.canceled",
+                resource_type="subscription",
+                resource_id=org.stripe_subscription_id,
+                user_id=auth_ctx.user_id,
+                org_id=org.id,
+                old_value={"tier": org.tier.value, "status": "active"},
+                new_value={"tier": org.tier.value, "status": "canceling"},
+                handler=handler,
             )
 
             return json_response(
@@ -495,32 +885,48 @@ class BillingHandler(BaseHandler):
         if not event:
             return error_response("Invalid webhook signature", 400)
 
-        logger.info(f"Received Stripe webhook: {event.type}")
+        # Get event ID for idempotency check
+        event_id = event.data.get("id", "")
+        if not event_id:
+            logger.warning("Webhook event missing ID, cannot check idempotency")
+        elif _is_duplicate_webhook(event_id):
+            logger.info(f"Skipping duplicate webhook event: {event_id}")
+            return json_response({"received": True, "duplicate": True})
+
+        logger.info(f"Received Stripe webhook: {event.type} (id={event_id})")
 
         # Get user store
         user_store = self._get_user_store()
 
         # Handle different event types
+        result = None
         if event.type == "checkout.session.completed":
-            return self._handle_checkout_completed(event, user_store)
+            result = self._handle_checkout_completed(event, user_store)
 
         elif event.type == "customer.subscription.created":
-            return self._handle_subscription_created(event, user_store)
+            result = self._handle_subscription_created(event, user_store)
 
         elif event.type == "customer.subscription.updated":
-            return self._handle_subscription_updated(event, user_store)
+            result = self._handle_subscription_updated(event, user_store)
 
         elif event.type == "customer.subscription.deleted":
-            return self._handle_subscription_deleted(event, user_store)
+            result = self._handle_subscription_deleted(event, user_store)
 
         elif event.type == "invoice.payment_succeeded":
-            return self._handle_invoice_paid(event, user_store)
+            result = self._handle_invoice_paid(event, user_store)
 
         elif event.type == "invoice.payment_failed":
-            return self._handle_invoice_failed(event, user_store)
+            result = self._handle_invoice_failed(event, user_store)
 
-        # Acknowledge unhandled events
-        return json_response({"received": True})
+        else:
+            # Acknowledge unhandled events
+            result = json_response({"received": True})
+
+        # Mark event as processed (only for successful handling)
+        if event_id and result and result.status_code < 400:
+            _mark_webhook_processed(event_id)
+
+        return result
 
     def _handle_checkout_completed(self, event, user_store) -> HandlerResult:
         """Handle checkout.session.completed event."""
@@ -544,6 +950,8 @@ class BillingHandler(BaseHandler):
         if user_store and org_id:
             org = user_store.get_organization_by_id(org_id)
             if org:
+                old_tier = org.tier.value
+
                 # Parse tier
                 try:
                     tier = SubscriptionTier(tier_str)
@@ -558,6 +966,19 @@ class BillingHandler(BaseHandler):
                     tier=tier,
                 )
                 logger.info(f"Updated org {org_id} with subscription, tier={tier.value}")
+
+                # Log audit event
+                self._log_audit(
+                    user_store,
+                    action="subscription.created",
+                    resource_type="subscription",
+                    resource_id=subscription_id,
+                    user_id=user_id,
+                    org_id=org_id,
+                    old_value={"tier": old_tier},
+                    new_value={"tier": tier.value, "subscription_id": subscription_id},
+                    metadata={"checkout_session": session.get("id")},
+                )
 
         return json_response({"received": True})
 
@@ -588,15 +1009,30 @@ class BillingHandler(BaseHandler):
         if user_store and subscription_id:
             org = user_store.get_organization_by_subscription(subscription_id)
             if org:
+                old_tier = org.tier.value
                 updates = {}
+                new_tier = None
                 if price_id:
                     tier = get_tier_from_price_id(price_id)
                     if tier:
                         updates["tier"] = tier
+                        new_tier = tier.value
 
                 if updates:
                     user_store.update_organization(org.id, **updates)
                     logger.info(f"Updated org {org.id} tier from subscription update")
+
+                    # Log audit event for tier change
+                    if new_tier and new_tier != old_tier:
+                        self._log_audit(
+                            user_store,
+                            action="subscription.tier_changed",
+                            resource_type="subscription",
+                            resource_id=subscription_id,
+                            org_id=org.id,
+                            old_value={"tier": old_tier},
+                            new_value={"tier": new_tier, "status": status},
+                        )
 
         return json_response({"received": True})
 
@@ -613,12 +1049,25 @@ class BillingHandler(BaseHandler):
         if user_store and subscription_id:
             org = user_store.get_organization_by_subscription(subscription_id)
             if org:
+                old_tier = org.tier.value
+
                 user_store.update_organization(
                     org.id,
                     tier=SubscriptionTier.FREE,
                     stripe_subscription_id=None,
                 )
                 logger.info(f"Downgraded org {org.id} to FREE tier after subscription deletion")
+
+                # Log audit event
+                self._log_audit(
+                    user_store,
+                    action="subscription.deleted",
+                    resource_type="subscription",
+                    resource_id=subscription_id,
+                    org_id=org.id,
+                    old_value={"tier": old_tier, "subscription_id": subscription_id},
+                    new_value={"tier": "free", "subscription_id": None},
+                )
 
         return json_response({"received": True})
 

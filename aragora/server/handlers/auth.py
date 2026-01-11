@@ -77,6 +77,11 @@ class AuthHandler(BaseHandler):
         "/api/auth/me",
         "/api/auth/password",
         "/api/auth/api-key",
+        "/api/auth/mfa/setup",
+        "/api/auth/mfa/enable",
+        "/api/auth/mfa/disable",
+        "/api/auth/mfa/verify",
+        "/api/auth/mfa/backup-codes",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -120,6 +125,22 @@ class AuthHandler(BaseHandler):
                 return self._handle_generate_api_key(handler)
             elif method == "DELETE":
                 return self._handle_revoke_api_key(handler)
+
+        # MFA endpoints
+        if path == "/api/auth/mfa/setup" and method == "POST":
+            return self._handle_mfa_setup(handler)
+
+        if path == "/api/auth/mfa/enable" and method == "POST":
+            return self._handle_mfa_enable(handler)
+
+        if path == "/api/auth/mfa/disable" and method == "POST":
+            return self._handle_mfa_disable(handler)
+
+        if path == "/api/auth/mfa/verify" and method == "POST":
+            return self._handle_mfa_verify(handler)
+
+        if path == "/api/auth/mfa/backup-codes" and method == "POST":
+            return self._handle_mfa_backup_codes(handler)
 
         return error_response("Method not allowed", 405)
 
@@ -578,6 +599,305 @@ class AuthHandler(BaseHandler):
         logger.info(f"API key revoked for user: {user.email}")
 
         return json_response({"message": "API key revoked"})
+
+    # =========================================================================
+    # MFA/2FA Methods
+    # =========================================================================
+
+    @handle_errors("MFA setup")
+    @log_request("MFA setup")
+    def _handle_mfa_setup(self, handler) -> HandlerResult:
+        """Generate MFA secret and provisioning URI for setup."""
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        try:
+            import pyotp
+        except ImportError:
+            return error_response("MFA not available (pyotp not installed)", 503)
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        user = user_store.get_user_by_id(auth_ctx.user_id)
+        if not user:
+            return error_response("User not found", 404)
+
+        if user.mfa_enabled:
+            return error_response("MFA is already enabled", 400)
+
+        # Generate new secret
+        secret = pyotp.random_base32()
+
+        # Store secret temporarily (not enabled yet)
+        user_store.update_user(user.id, mfa_secret=secret)
+
+        # Generate provisioning URI for authenticator apps
+        totp = pyotp.TOTP(secret)
+        provisioning_uri = totp.provisioning_uri(
+            name=user.email,
+            issuer_name="Aragora"
+        )
+
+        return json_response({
+            "secret": secret,
+            "provisioning_uri": provisioning_uri,
+            "message": "Scan QR code or enter secret in your authenticator app, then call /api/auth/mfa/enable with verification code",
+        })
+
+    @handle_errors("MFA enable")
+    @log_request("MFA enable")
+    def _handle_mfa_enable(self, handler) -> HandlerResult:
+        """Enable MFA after verifying setup code."""
+        from aragora.billing.jwt_auth import extract_user_from_request
+        import hashlib
+        import secrets as py_secrets
+
+        try:
+            import pyotp
+        except ImportError:
+            return error_response("MFA not available", 503)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        code = body.get("code", "").strip()
+        if not code:
+            return error_response("Verification code is required", 400)
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        user = user_store.get_user_by_id(auth_ctx.user_id)
+        if not user:
+            return error_response("User not found", 404)
+
+        if user.mfa_enabled:
+            return error_response("MFA is already enabled", 400)
+
+        if not user.mfa_secret:
+            return error_response("MFA not set up. Call /api/auth/mfa/setup first", 400)
+
+        # Verify the code
+        totp = pyotp.TOTP(user.mfa_secret)
+        if not totp.verify(code, valid_window=1):
+            return error_response("Invalid verification code", 400)
+
+        # Generate backup codes
+        backup_codes = [py_secrets.token_hex(4) for _ in range(10)]
+        backup_hashes = [hashlib.sha256(c.encode()).hexdigest() for c in backup_codes]
+
+        import json as json_module
+        user_store.update_user(
+            user.id,
+            mfa_enabled=True,
+            mfa_backup_codes=json_module.dumps(backup_hashes),
+        )
+
+        logger.info(f"MFA enabled for user: {user.email}")
+
+        return json_response({
+            "message": "MFA enabled successfully",
+            "backup_codes": backup_codes,
+            "warning": "Save these backup codes securely. They cannot be shown again.",
+        })
+
+    @handle_errors("MFA disable")
+    @log_request("MFA disable")
+    def _handle_mfa_disable(self, handler) -> HandlerResult:
+        """Disable MFA for the user."""
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        try:
+            import pyotp
+        except ImportError:
+            return error_response("MFA not available", 503)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        # Require password or MFA code to disable
+        code = body.get("code", "").strip()
+        password = body.get("password", "").strip()
+
+        if not code and not password:
+            return error_response("MFA code or password required to disable MFA", 400)
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        user = user_store.get_user_by_id(auth_ctx.user_id)
+        if not user:
+            return error_response("User not found", 404)
+
+        if not user.mfa_enabled:
+            return error_response("MFA is not enabled", 400)
+
+        # Verify with code or password
+        if code:
+            totp = pyotp.TOTP(user.mfa_secret)
+            if not totp.verify(code, valid_window=1):
+                return error_response("Invalid MFA code", 400)
+        elif password:
+            if not user.verify_password(password):
+                return error_response("Invalid password", 400)
+
+        # Disable MFA
+        user_store.update_user(
+            user.id,
+            mfa_enabled=False,
+            mfa_secret=None,
+            mfa_backup_codes=None,
+        )
+
+        logger.info(f"MFA disabled for user: {user.email}")
+
+        return json_response({"message": "MFA disabled successfully"})
+
+    @handle_errors("MFA verify")
+    @log_request("MFA verify")
+    def _handle_mfa_verify(self, handler) -> HandlerResult:
+        """Verify MFA code during login."""
+        from aragora.billing.jwt_auth import extract_user_from_request, create_token_pair
+        import hashlib
+
+        try:
+            import pyotp
+        except ImportError:
+            return error_response("MFA not available", 503)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        code = body.get("code", "").strip()
+        pending_token = body.get("pending_token", "").strip()
+
+        if not code:
+            return error_response("MFA code is required", 400)
+
+        if not pending_token:
+            return error_response("Pending token is required", 400)
+
+        user_store = self._get_user_store()
+
+        # For now, use the pending token to identify the user
+        # In a full implementation, this would be a separate short-lived token
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        user = user_store.get_user_by_id(auth_ctx.user_id)
+        if not user:
+            return error_response("User not found", 404)
+
+        if not user.mfa_enabled or not user.mfa_secret:
+            return error_response("MFA not enabled for this user", 400)
+
+        # Try TOTP code first
+        totp = pyotp.TOTP(user.mfa_secret)
+        if totp.verify(code, valid_window=1):
+            # Valid TOTP code
+            tokens = create_token_pair(user.id, user.email)
+            return json_response({
+                "message": "MFA verification successful",
+                "access_token": tokens["access_token"],
+                "refresh_token": tokens["refresh_token"],
+                "expires_in": tokens["expires_in"],
+            })
+
+        # Try backup code
+        if user.mfa_backup_codes:
+            import json as json_module
+            code_hash = hashlib.sha256(code.encode()).hexdigest()
+            backup_hashes = json_module.loads(user.mfa_backup_codes)
+
+            if code_hash in backup_hashes:
+                # Valid backup code - remove it
+                backup_hashes.remove(code_hash)
+                user_store.update_user(
+                    user.id,
+                    mfa_backup_codes=json_module.dumps(backup_hashes),
+                )
+
+                tokens = create_token_pair(user.id, user.email)
+                remaining = len(backup_hashes)
+
+                logger.info(f"Backup code used for user: {user.email}, {remaining} remaining")
+
+                return json_response({
+                    "message": "MFA verification successful (backup code used)",
+                    "access_token": tokens["access_token"],
+                    "refresh_token": tokens["refresh_token"],
+                    "expires_in": tokens["expires_in"],
+                    "backup_codes_remaining": remaining,
+                    "warning": f"Backup code used. {remaining} remaining." if remaining < 5 else None,
+                })
+
+        return error_response("Invalid MFA code", 400)
+
+    @handle_errors("MFA backup codes")
+    @log_request("MFA backup codes")
+    def _handle_mfa_backup_codes(self, handler) -> HandlerResult:
+        """Regenerate MFA backup codes."""
+        from aragora.billing.jwt_auth import extract_user_from_request
+        import hashlib
+        import secrets as py_secrets
+
+        try:
+            import pyotp
+        except ImportError:
+            return error_response("MFA not available", 503)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        # Require current MFA code to regenerate backup codes
+        code = body.get("code", "").strip()
+        if not code:
+            return error_response("Current MFA code is required", 400)
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        user = user_store.get_user_by_id(auth_ctx.user_id)
+        if not user:
+            return error_response("User not found", 404)
+
+        if not user.mfa_enabled or not user.mfa_secret:
+            return error_response("MFA not enabled", 400)
+
+        # Verify current code
+        totp = pyotp.TOTP(user.mfa_secret)
+        if not totp.verify(code, valid_window=1):
+            return error_response("Invalid MFA code", 400)
+
+        # Generate new backup codes
+        backup_codes = [py_secrets.token_hex(4) for _ in range(10)]
+        backup_hashes = [hashlib.sha256(c.encode()).hexdigest() for c in backup_codes]
+
+        import json as json_module
+        user_store.update_user(
+            user.id,
+            mfa_backup_codes=json_module.dumps(backup_hashes),
+        )
+
+        logger.info(f"Backup codes regenerated for user: {user.email}")
+
+        return json_response({
+            "backup_codes": backup_codes,
+            "warning": "Save these backup codes securely. They cannot be shown again.",
+        })
 
 
 class InMemoryUserStore:

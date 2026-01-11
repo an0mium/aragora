@@ -35,6 +35,10 @@ from .rate_limit import (
     RateLimiter,
     get_rate_limiter,
     cleanup_rate_limiters,
+    TierRateLimiter,
+    get_tier_rate_limiter,
+    check_tier_rate_limit,
+    TIER_RATE_LIMITS,
 )
 from .cache import (
     cache,
@@ -96,6 +100,10 @@ __all__ = [
     "RateLimiter",
     "get_rate_limiter",
     "cleanup_rate_limiters",
+    "TierRateLimiter",
+    "get_tier_rate_limiter",
+    "check_tier_rate_limit",
+    "TIER_RATE_LIMITS",
     # Caching
     "cache",
     "ttl_cache",

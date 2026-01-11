@@ -488,6 +488,40 @@ class StripeClient:
         response = self._request("POST", f"/subscriptions/{subscription_id}", data)
         return self._parse_subscription(response)
 
+    # =========================================================================
+    # Invoices
+    # =========================================================================
+
+    def list_invoices(
+        self,
+        customer_id: str,
+        limit: int = 10,
+        starting_after: Optional[str] = None,
+    ) -> list[dict]:
+        """
+        List invoices for a customer.
+
+        Args:
+            customer_id: Stripe customer ID
+            limit: Maximum number of invoices to return
+            starting_after: Pagination cursor
+
+        Returns:
+            List of invoice data dicts
+        """
+        params = {
+            "customer": customer_id,
+            "limit": limit,
+        }
+        if starting_after:
+            params["starting_after"] = starting_after
+
+        # Build query string
+        query = "&".join(f"{k}={v}" for k, v in params.items())
+        response = self._request("GET", f"/invoices?{query}")
+
+        return response.get("data", [])
+
     def _parse_subscription(self, data: dict) -> StripeSubscription:
         """Parse Stripe subscription response into StripeSubscription."""
         # Get price ID from items

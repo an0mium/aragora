@@ -211,6 +211,10 @@ def is_token_revoked_persistent(token: str) -> bool:
 ARAGORA_ENVIRONMENT = os.environ.get("ARAGORA_ENVIRONMENT", "development")
 JWT_SECRET = os.environ.get("ARAGORA_JWT_SECRET", "")
 JWT_SECRET_PREVIOUS = os.environ.get("ARAGORA_JWT_SECRET_PREVIOUS", "")
+# Unix timestamp when secret was rotated (for limiting previous secret validity)
+JWT_SECRET_ROTATED_AT = os.environ.get("ARAGORA_JWT_SECRET_ROTATED_AT", "")
+# How long previous secret remains valid after rotation (default: 24 hours)
+JWT_ROTATION_GRACE_HOURS = int(os.environ.get("ARAGORA_JWT_ROTATION_GRACE_HOURS", "24"))
 JWT_ALGORITHM = "HS256"
 ALLOWED_ALGORITHMS = frozenset(["HS256"])  # Explicitly allowed algorithms
 JWT_EXPIRY_HOURS = int(os.environ.get("ARAGORA_JWT_EXPIRY_HOURS", "24"))
@@ -279,10 +283,38 @@ def _get_secret() -> bytes:
 
 
 def _get_previous_secret() -> Optional[bytes]:
-    """Get previous JWT secret for rotation support."""
-    if JWT_SECRET_PREVIOUS and len(JWT_SECRET_PREVIOUS) >= MIN_SECRET_LENGTH:
-        return JWT_SECRET_PREVIOUS.encode("utf-8")
-    return None
+    """
+    Get previous JWT secret for rotation support.
+
+    Returns the previous secret only if:
+    1. It meets minimum length requirements
+    2. The rotation timestamp is within the grace period
+
+    This prevents leaked old secrets from being exploitable indefinitely.
+    """
+    if not JWT_SECRET_PREVIOUS or len(JWT_SECRET_PREVIOUS) < MIN_SECRET_LENGTH:
+        return None
+
+    # Check rotation timestamp if set
+    if JWT_SECRET_ROTATED_AT:
+        try:
+            rotated_at = int(JWT_SECRET_ROTATED_AT)
+            grace_seconds = JWT_ROTATION_GRACE_HOURS * 3600
+            if time.time() - rotated_at > grace_seconds:
+                logger.debug(
+                    f"jwt_previous_secret_expired: rotated {JWT_ROTATION_GRACE_HOURS}+ hours ago"
+                )
+                return None
+        except ValueError:
+            logger.warning(
+                "jwt_previous_secret: invalid ARAGORA_JWT_SECRET_ROTATED_AT format, "
+                "expected Unix timestamp"
+            )
+            # In production, reject previous secret if timestamp is invalid
+            if _is_production():
+                return None
+
+    return JWT_SECRET_PREVIOUS.encode("utf-8")
 
 
 def _base64url_encode(data: bytes) -> str:
@@ -544,19 +576,29 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
             return None
 
         # Decode payload
-        payload_json = _base64url_decode(payload_b64).decode("utf-8")
-        payload_data = json.loads(payload_json)
-        payload = JWTPayload.from_dict(payload_data)
+        try:
+            payload_json = _base64url_decode(payload_b64).decode("utf-8")
+            payload_data = json.loads(payload_json)
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            logger.warning(f"jwt_decode_failed: malformed payload - {type(e).__name__}")
+            return None
+
+        try:
+            payload = JWTPayload.from_dict(payload_data)
+        except (KeyError, TypeError, ValueError) as e:
+            logger.warning(f"jwt_decode_failed: invalid payload structure - {type(e).__name__}")
+            return None
 
         # Check expiration
         if payload.is_expired:
-            logger.debug("jwt_decode_failed: token expired")
+            logger.info("jwt_decode_failed: token expired")
             return None
 
         return payload
 
     except Exception as e:
-        logger.debug(f"jwt_decode_failed: {e}")
+        # Catch-all for unexpected errors - log at warning level for visibility
+        logger.warning(f"jwt_decode_failed: unexpected error - {type(e).__name__}: {e}")
         return None
 
 
@@ -783,7 +825,13 @@ def _validate_api_key(api_key: str, context: UserAuthContext, user_store=None) -
 
     # Fallback: format-only validation (explicitly enabled for development)
     if _allow_format_only_api_keys():
-        logger.debug(f"api_key_format_valid key_prefix={api_key[:8]}... (no db validation)")
+        # SECURITY WARNING: This allows ANY correctly-formatted API key to authenticate.
+        # This is ONLY acceptable in development/testing environments.
+        logger.warning(
+            "SECURITY: Format-only API key validation enabled - "
+            f"accepting key_prefix={api_key[:8]}... without database lookup. "
+            "Set ARAGORA_ALLOW_FORMAT_ONLY_API_KEYS=0 or unset in production!"
+        )
         context.authenticated = True
         context.token_type = "api_key"
         return context
