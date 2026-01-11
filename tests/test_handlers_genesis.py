@@ -22,11 +22,20 @@ from aragora.server.handlers import (
     json_response,
     error_response,
 )
+from aragora.server.handlers.genesis import _genesis_limiter
 
 
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
+@pytest.fixture(autouse=True)
+def clear_rate_limits():
+    """Clear rate limits before and after each test."""
+    _genesis_limiter.clear()
+    yield
+    _genesis_limiter.clear()
+
 
 @pytest.fixture
 def temp_genesis_db():

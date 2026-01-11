@@ -55,10 +55,28 @@ BURST_MULTIPLIER = float(os.environ.get("ARAGORA_BURST_MULTIPLIER", "2.0"))
 # Trusted proxies for X-Forwarded-For header (comma-separated IPs/CIDRs)
 # Only trust XFF header when request comes from these addresses
 # Example: "127.0.0.1,10.0.0.0/8,172.16.0.0/12"
-TRUSTED_PROXIES_RAW = os.environ.get("ARAGORA_TRUSTED_PROXIES", "").strip()
+TRUSTED_PROXIES_RAW = os.environ.get(
+    "ARAGORA_TRUSTED_PROXIES",
+    "127.0.0.1,::1,localhost",
+).strip()
 TRUSTED_PROXIES: frozenset[str] = frozenset(
     p.strip() for p in TRUSTED_PROXIES_RAW.split(",") if p.strip()
 )
+_TRUSTED_PROXY_IPS: set[str] = set()
+_TRUSTED_PROXY_NETS: list[ipaddress._BaseNetwork] = []
+
+for entry in TRUSTED_PROXIES:
+    if entry == "localhost":
+        _TRUSTED_PROXY_IPS.update({"127.0.0.1", "::1"})
+        continue
+    try:
+        if "/" in entry:
+            _TRUSTED_PROXY_NETS.append(ipaddress.ip_network(entry, strict=False))
+        else:
+            _TRUSTED_PROXY_IPS.add(str(ipaddress.ip_address(entry)))
+    except ValueError:
+        # Ignore invalid entries rather than failing at import time
+        logger.debug("Ignoring invalid trusted proxy entry: %s", entry)
 
 
 def _is_trusted_proxy(ip: str) -> bool:
