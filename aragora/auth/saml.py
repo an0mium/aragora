@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import os
 import time
 import zlib
 from dataclasses import dataclass, field
@@ -153,6 +154,19 @@ class SAMLProvider(SSOProvider):
                 f"Invalid SAML configuration: {', '.join(errors)}",
                 {"errors": errors}
             )
+
+        # SECURITY: Warn about simplified parser in production
+        if not HAS_SAML_LIB and config.idp_certificate:
+            logger.warning(
+                "SECURITY WARNING: Using simplified SAML parser without signature validation. "
+                "Install python3-saml for production: pip install python3-saml"
+            )
+            if os.getenv("ARAGORA_ENV") == "production":
+                raise SSOConfigurationError(
+                    "python3-saml required for production SAML. "
+                    "Install with: pip install python3-saml",
+                    {"code": "MISSING_SAML_LIBRARY"}
+                )
 
     @property
     def provider_type(self) -> SSOProviderType:

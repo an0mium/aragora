@@ -1,10 +1,10 @@
-# aragora (Agent Agora): Multi-Agent Debate Framework
+# aragora (Agent Agora): AI Red Team for Decision Stress-Testing
 
 > *"The truth is the whole."* — Hegel
 
-A society of heterogeneous AI agents that discuss, critique, improve each other's responses, and learn from successful patterns. Aragora implements dialectical reasoning: truth emerges not from any single perspective, but through the productive tension of contradiction and synthesis.
+Aragora is an **adversarial validation engine**. It stress-tests high-stakes specs, architectures, policies, and code by running multi-agent red-team debates and producing audit-ready Decision Receipts, risk heatmaps, and dissent trails.
 
-Aragora is also an **adversarial validation engine**. Gauntlet Mode stress-tests high‑stakes specs, architectures, and policies and produces audit‑ready Decision Receipts and risk heatmaps.
+Debate is the engine. The product is a defensible decision record.
 
 **Domain**: [aragora.ai](https://aragora.ai) (available)
 
@@ -50,6 +50,8 @@ The **nomic loop** (self-modifying rules) mirrors Hegel's concept of Spirit deve
 ## Key Features
 
 ### Core Capabilities
+- **Gauntlet Mode (Decision Stress-Test)**: Red-team attacks, probes, and scenario tests for specs, policies, and architectures
+- **Decision Receipts**: Audit-ready artifacts with evidence chains and dissent tracking
 - **Heterogeneous Agents**: Mix Claude, GPT, Gemini, Grok, Mistral, DeepSeek, and local models in the same debate
 - **Structured Debate Protocol**: Propose → Critique → Revise loop with configurable rounds
 - **Multiple Consensus Mechanisms**: Majority voting, unanimous, judge-based, or none
@@ -80,7 +82,7 @@ Real-time debate visualization at **[live.aragora.ai](https://live.aragora.ai)**
 
 ## AI Red Team Code Review
 
-Get **unanimous AI consensus** on your pull requests. When 3 independent AI models agree on an issue, you know it's worth fixing.
+Get **unanimous AI consensus** on your pull requests. When 3 independent AI models agree on an issue, you know it's worth fixing. This is Gauntlet configured for code-level stress-testing.
 
 ```bash
 # Review a PR
