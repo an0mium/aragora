@@ -213,10 +213,17 @@ class GauntletStorage:
             medium = _len_if_list(medium_findings)
             low = _len_if_list(low_findings)
         elif hasattr(result, 'risk_summary'):
-            critical = _coerce_count(getattr(result.risk_summary, 'critical', 0))
-            high = _coerce_count(getattr(result.risk_summary, 'high', 0))
-            medium = _coerce_count(getattr(result.risk_summary, 'medium', 0))
-            low = _coerce_count(getattr(result.risk_summary, 'low', 0))
+            risk_summary = result.risk_summary
+            if isinstance(risk_summary, dict):
+                critical = risk_summary.get('critical', 0)
+                high = risk_summary.get('high', 0)
+                medium = risk_summary.get('medium', 0)
+                low = risk_summary.get('low', 0)
+            else:
+                critical = _coerce_count(getattr(risk_summary, 'critical', 0))
+                high = _coerce_count(getattr(risk_summary, 'high', 0))
+                medium = _coerce_count(getattr(risk_summary, 'medium', 0))
+                low = _coerce_count(getattr(risk_summary, 'low', 0))
         elif hasattr(result, 'severity_counts'):
             counts = result.severity_counts
             if isinstance(counts, dict):
@@ -225,13 +232,22 @@ class GauntletStorage:
                 medium = counts.get('medium', 0)
                 low = counts.get('low', 0)
 
+        critical = _coerce_count(critical)
+        high = _coerce_count(high)
+        medium = _coerce_count(medium)
+        low = _coerce_count(low)
+
         total = getattr(result, 'total_findings', None)
         if total is None:
             total = critical + high + medium + low
-            if hasattr(result, 'vulnerabilities'):
-                total = len(result.vulnerabilities)
-            elif hasattr(result, 'findings'):
-                total = len(result.findings)
+            vulnerabilities = getattr(result, 'vulnerabilities', None)
+            if isinstance(vulnerabilities, (list, tuple, set)):
+                total = len(vulnerabilities)
+            else:
+                findings = getattr(result, 'findings', None)
+                if isinstance(findings, (list, tuple, set)):
+                    total = len(findings)
+        total = _coerce_count(total)
 
         agents = getattr(result, 'agents_used', None)
         if agents is None:
@@ -241,6 +257,7 @@ class GauntletStorage:
                 agents = list(agents)
             except TypeError:
                 agents = []
+        agents = [str(agent) for agent in agents]
         template = getattr(result, 'template_used', None)
         duration = getattr(result, 'duration_seconds', 0)
 
@@ -255,7 +272,10 @@ class GauntletStorage:
             }
 
         # Use UPSERT syntax that works for both SQLite and PostgreSQL
-        if self.backend_type == "postgresql":
+        backend_type = getattr(self, "backend_type", None) or getattr(
+            self._backend, "backend_type", "sqlite"
+        )
+        if backend_type == "postgresql":
             sql = """
                 INSERT INTO gauntlet_results (
                     gauntlet_id, input_hash, input_summary, result_json,
