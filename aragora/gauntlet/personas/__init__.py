@@ -6,6 +6,9 @@ Provides domain-specific attack prompts and compliance checks for:
 - HIPAA (Healthcare)
 - EU AI Act (AI Regulation)
 - Security (Red Team)
+- SOC2 (Trust Services)
+- PCI-DSS (Payment Card Industry)
+- NIST CSF (Cybersecurity Framework)
 """
 
 from .base import RegulatoryPersona, PersonaAttack
@@ -13,6 +16,9 @@ from .gdpr import GDPRPersona
 from .hipaa import HIPAAPersona
 from .ai_act import AIActPersona
 from .security import SecurityPersona
+from .soc2 import SOC2Persona
+from .pci_dss import PCIDSSPersona
+from .nist_csf import NISTCSFPersona
 
 __all__ = [
     "RegulatoryPersona",
@@ -21,6 +27,9 @@ __all__ = [
     "HIPAAPersona",
     "AIActPersona",
     "SecurityPersona",
+    "SOC2Persona",
+    "PCIDSSPersona",
+    "NISTCSFPersona",
     "get_persona",
     "list_personas",
 ]
@@ -30,6 +39,11 @@ PERSONAS = {
     "hipaa": HIPAAPersona,
     "ai_act": AIActPersona,
     "security": SecurityPersona,
+    "soc2": SOC2Persona,
+    "pci_dss": PCIDSSPersona,
+    "pci-dss": PCIDSSPersona,  # Alias with hyphen
+    "nist_csf": NISTCSFPersona,
+    "nist-csf": NISTCSFPersona,  # Alias with hyphen
 }
 
 
