@@ -113,10 +113,11 @@ class TestEvolutionHookInFeedbackPhase:
     async def test_feedback_phase_records_evolution_patterns(self):
         """FeedbackPhase should record evolution patterns when evolver is available."""
         from aragora.debate.phases.feedback_phase import FeedbackPhase
+        from aragora.debate.context import DebateContext
 
         mock_evolver = Mock()
+        mock_evolver.extract_winning_patterns = Mock(return_value=[])
         mock_evolver.record_pattern = Mock()
-        mock_evolver.update_performance = Mock()
 
         phase = FeedbackPhase(
             elo_system=Mock(),
@@ -141,18 +142,21 @@ class TestEvolutionHookInFeedbackPhase:
             prompt_evolver=mock_evolver,
         )
 
-        # Create a mock debate result with a winner
-        result = Mock()
-        result.winner = "claude"
-        result.final_answer = "Test conclusion"
-        result.confidence = 0.9
-        result.consensus_reached = True
+        # Create a mock DebateContext with result (method signature takes ctx, not result)
+        ctx = Mock(spec=DebateContext)
+        ctx.debate_id = "test-debate-123"
+        ctx.result = Mock()
+        ctx.result.winner = "claude"
+        ctx.result.final_answer = "Test conclusion"
+        ctx.result.confidence = 0.9
+        ctx.result.consensus_reached = True
+        ctx.result.messages = []
 
         # Call the internal method that should use the evolver
         if hasattr(phase, '_record_evolution_patterns'):
-            phase._record_evolution_patterns(result, {"claude": "Test response"})
-            # Verify evolver was called
-            mock_evolver.update_performance.assert_called()
+            phase._record_evolution_patterns(ctx)
+            # Verify evolver extract_winning_patterns was called
+            mock_evolver.extract_winning_patterns.assert_called()
 
 
 class TestPromptEvolverIntegration:
@@ -190,10 +194,14 @@ class TestPromptEvolverIntegration:
 
         evolver = PromptEvolver()
 
-        # Update performance for an agent
+        # Update performance for an agent - signature: (agent_name, version, debate_result)
         if hasattr(evolver, 'update_performance'):
-            evolver.update_performance("claude", 0.9)
-            evolver.update_performance("claude", 0.8)
+            mock_result = Mock()
+            mock_result.consensus_reached = True
+            mock_result.confidence = 0.9
+            evolver.update_performance("claude", 1, mock_result)
+            mock_result.confidence = 0.8
+            evolver.update_performance("claude", 1, mock_result)
 
             # Should track the history
             if hasattr(evolver, 'get_performance'):
@@ -248,7 +256,7 @@ class TestEvolutionHookE2E:
 
         mock_evolver = Mock()
         mock_evolver.extract_patterns = Mock(return_value=[])
-        mock_evolver.update_performance = Mock()
+        mock_evolver.extract_winning_patterns = Mock(return_value=[])
 
         env = Environment(task="Test task for evolution")
         protocol = DebateProtocol(rounds=1)
@@ -261,7 +269,7 @@ class TestEvolutionHookE2E:
         mock_agent.vote = AsyncMock(return_value={"agent": "test-agent", "confidence": 0.8})
         agents = [mock_agent]
 
-        arena = Arena(env, agents, protocol, config=config)
+        arena = Arena.from_config(env, agents, protocol, config)
 
         # Mock the autonomous methods to avoid actual API calls
         arena.autonomic = Mock()

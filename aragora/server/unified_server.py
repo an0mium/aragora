@@ -1445,6 +1445,8 @@ class UnifiedServer:
         3. Persist circuit breaker states
         4. Stop background tasks
         5. Close WebSocket connections
+        6. Close shared HTTP connector
+        7. Close database connections (connection pool cleanup)
 
         Args:
             timeout: Maximum seconds to wait for in-flight debates
