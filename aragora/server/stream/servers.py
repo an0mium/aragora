@@ -1012,7 +1012,12 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                 return web.Response(status=500, text="Authentication system unavailable")
             is_authenticated = True  # Auth module not available, allow connection
 
-        ws = web.WebSocketResponse(max_msg_size=WS_MAX_MESSAGE_SIZE)
+        # Enable permessage-deflate compression for reduced bandwidth
+        # compress=15 uses 15-bit window (32KB) for good compression ratio
+        ws = web.WebSocketResponse(
+            max_msg_size=WS_MAX_MESSAGE_SIZE,
+            compress=15,  # Enable compression with 15-bit window
+        )
         await ws.prepare(request)
 
         # Initialize tracking variables before any operations that could fail
