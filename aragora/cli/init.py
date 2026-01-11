@@ -74,7 +74,7 @@ def init_project(
         Dict with created files and directories
     """
     target = Path(directory) if directory else Path.cwd()
-    created = {"files": [], "directories": []}
+    created: dict[str, list[str]] = {"files": [], "directories": []}
 
     # Create data directory
     data_dir = target / ".aragora"

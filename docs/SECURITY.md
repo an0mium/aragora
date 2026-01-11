@@ -32,10 +32,12 @@ Aragora uses JSON Web Tokens (JWT) for stateless authentication.
 class JWTPayload:
     sub: str        # User ID
     email: str      # User email
-    org_id: str     # Organization ID
+    org_id: str     # Organization ID (optional)
     role: str       # User role
-    iat: float      # Issued at (Unix timestamp)
-    exp: float      # Expiration (Unix timestamp)
+    iat: int        # Issued at (Unix timestamp)
+    exp: int        # Expiration (Unix timestamp)
+    type: str       # Token type: "access" or "refresh"
+    tv: int = 1     # Token version (for logout-all functionality)
 ```
 
 #### Token Lifecycle
@@ -147,7 +149,11 @@ OAUTH_ALLOWED_REDIRECT_HOSTS=yourdomain.com,localhost
 
 ### Token Revocation
 
-Tokens can be revoked before expiration:
+Aragora supports two complementary token revocation mechanisms:
+
+#### 1. Individual Token Blacklisting
+
+Revoke specific tokens before expiration:
 
 ```python
 from aragora.billing.jwt_auth import (
@@ -165,11 +171,83 @@ revoke_token_persistent(access_token)
 is_revoked = is_token_revoked_persistent(access_token)
 ```
 
+#### 2. Token Versioning (Logout All Devices)
+
+Invalidate all tokens for a user at once using token versioning:
+
+```python
+# Each user has a token_version field (default: 1)
+# Tokens include a 'tv' claim matching the version at creation time
+# When token_version is incremented, all existing tokens become invalid
+
+from aragora.storage.user_store import UserStore
+
+user_store = UserStore()
+
+# Invalidate all tokens for a user
+new_version = user_store.increment_token_version(user_id)
+# All tokens with tv < new_version are now rejected
+```
+
+**Token Payload with Version:**
+
+```python
+@dataclass
+class JWTPayload:
+    sub: str        # User ID
+    email: str      # User email
+    org_id: str     # Organization ID
+    role: str       # User role
+    iat: float      # Issued at (Unix timestamp)
+    exp: float      # Expiration (Unix timestamp)
+    tv: int = 1     # Token version (for logout-all)
+```
+
+**Validation Flow:**
+
+```
+Token Received → Decode JWT → Check Blacklist → Check Token Version
+                                                      ↓
+                                          Compare tv claim with
+                                          user's current token_version
+                                                      ↓
+                                          Reject if tv < token_version
+```
+
+#### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/logout` | POST | Revoke current token only |
+| `/api/auth/logout-all` | POST | Increment token version, invalidate all sessions |
+
+**Example: Logout from All Devices**
+
+```bash
+curl -X POST https://api.aragora.com/api/auth/logout-all \
+  -H "Authorization: Bearer <access_token>"
+```
+
+Response:
+```json
+{
+  "message": "All sessions terminated",
+  "sessions_invalidated": true,
+  "token_version": 2
+}
+```
+
 #### Blacklist Storage
 
 - **In-Memory**: Default, single-instance deployments
 - **SQLite**: Persistent, survives restarts
 - **Redis**: Multi-instance deployments (planned)
+
+#### Security Considerations
+
+1. **Rate Limiting**: `/api/auth/logout-all` is rate-limited to 3 requests/minute to prevent abuse
+2. **Immediate Effect**: Current token is also blacklisted for immediate revocation
+3. **No Token Enumeration**: Token version only increments, never exposes active session count
 
 ---
 

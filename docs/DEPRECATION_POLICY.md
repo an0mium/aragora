@@ -1,362 +1,154 @@
 # API Deprecation Policy
 
-This document describes the deprecation policy for Aragora APIs, including timeline, communication, and migration guidance.
+This document outlines Aragora's API deprecation policy, versioning strategy, and migration guidance.
 
-## Table of Contents
+## Versioning Strategy
 
-- [Overview](#overview)
-- [Deprecation Lifecycle](#deprecation-lifecycle)
-- [HTTP Headers](#http-headers)
-- [Versioning Rules](#versioning-rules)
-- [Migration Timeline](#migration-timeline)
-- [Developer Guide](#developer-guide)
-- [FAQ](#faq)
+Aragora uses **path-based API versioning**:
 
----
+```
+/api/v1/debates   # Version 1 (deprecated)
+/api/v2/debates   # Version 2 (current)
+```
 
-## Overview
+### Version Detection
 
-Aragora follows a predictable deprecation policy to ensure API stability while enabling evolution. When an endpoint or feature is deprecated:
+The API version is determined in this order:
 
-1. It continues to work normally
-2. Deprecation headers are added to responses
-3. Documentation is updated
-4. After the sunset date, the endpoint returns `410 Gone`
+1. **Path prefix**: `/api/v2/debates` uses V2
+2. **Accept header**: `Accept: application/vnd.aragora.v2+json`
+3. **Default**: V2 for new requests, V1 for legacy `/api/debates` paths
 
----
+## Current API Versions
 
-## Deprecation Lifecycle
+| Version | Status | Sunset Date | Notes |
+|---------|--------|-------------|-------|
+| V1 | **Deprecated** | 2026-06-01 | Legacy, still functional |
+| V2 | Current | - | Recommended for all new integrations |
 
-### Phase 1: Announcement
+## Deprecation Timeline
 
-- Deprecation notice added to release notes
-- Documentation updated with migration guidance
-- `Deprecation: true` header added to responses
+When an API version is deprecated:
 
-### Phase 2: Warning Period (90+ days)
+1. **Announcement** (6+ months before sunset)
+   - Deprecation headers added to all responses
+   - Documentation updated
+   - Changelog entry published
 
-- Endpoint continues to function normally
-- Deprecation headers included in all responses
-- Sunset date announced via `Sunset` header
-- Monitoring of deprecated endpoint usage
+2. **Warning Period** (3-6 months)
+   - V1 endpoints return `X-API-Deprecated: true` header
+   - `X-API-Sunset: 2026-06-01` header indicates removal date
+   - Console warnings logged for deprecated calls
 
-### Phase 3: Sunset
+3. **Migration Assistance** (1-3 months before sunset)
+   - Additional logging enabled
+   - Email notifications to high-volume API users (if contact available)
 
-- Endpoint returns `410 Gone` status
-- Response includes replacement information
-- Endpoint removed from documentation
+4. **Sunset**
+   - V1 endpoints return `410 Gone` with migration guidance
+   - Traffic automatically redirected to V2 equivalent (best effort)
 
----
+## Response Headers
 
-## HTTP Headers
-
-### Request Headers
-
-No special headers required. Deprecated endpoints accept normal requests.
-
-### Response Headers
-
-| Header | Description | Example |
-|--------|-------------|---------|
-| `Deprecation` | Indicates deprecation status | `true` or `2026-01-01` |
-| `Sunset` | When endpoint will be removed | `Sat, 01 Jun 2026 00:00:00 GMT` |
-| `Link` | Replacement endpoint | `</api/v2/debates>; rel="successor-version"` |
-
-### Example Response
+All API responses include versioning headers:
 
 ```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-Deprecation: true
-Sunset: Sat, 01 Jun 2026 00:00:00 GMT
-Link: </api/v2/debates>; rel="successor-version"
-
-{"debates": [...]}
+X-API-Version: v2
+X-API-Supported-Versions: v1,v2
 ```
 
-### Sunset Response (410 Gone)
-
-After the sunset date:
+For deprecated versions:
 
 ```http
-HTTP/1.1 410 Gone
-Content-Type: application/json
-
-{
-  "error": {
-    "code": "ENDPOINT_SUNSET",
-    "message": "This endpoint has been removed.",
-    "replacement": "/api/v2/debates",
-    "suggestion": "Use /api/v2/debates instead"
-  }
-}
+X-API-Version: v1
+X-API-Deprecated: true
+X-API-Sunset: 2026-06-01
+X-API-Migration: Use /api/v2/ prefix for versioned endpoints
 ```
 
----
+For legacy (unversioned) paths:
 
-## Versioning Rules
+```http
+X-API-Legacy: true
+X-API-Migration: Use /api/v1/ prefix for versioned endpoints
+```
 
-### Major Versions (v1 → v2)
+## Migration Guide: V1 to V2
 
-Major versions may contain breaking changes:
-- Removed endpoints
-- Changed response formats
-- Modified authentication requirements
-- Changed error formats
+### Breaking Changes
 
-**Policy**: 90-day minimum migration window between major versions.
+V2 introduces the following changes:
 
-### Minor Versions
+1. **Response envelope** (planned)
+   - V1: Direct data in response body
+   - V2: `{ "data": {...}, "meta": {...} }` envelope
 
-Minor versions add features without breaking changes:
-- New endpoints
-- New optional response fields
-- New optional request parameters
-- Performance improvements
+2. **Pagination** (planned)
+   - V1: `offset` + `limit` parameters
+   - V2: Cursor-based pagination with `cursor` parameter
 
-**Policy**: No deprecation period required.
+3. **Error format** (planned)
+   - V1: `{ "error": "message" }`
+   - V2: `{ "error": { "code": "ERROR_CODE", "message": "...", "details": {...} } }`
 
-### Patch Versions
+### Endpoint Mappings
 
-Patch versions fix bugs only:
-- Security fixes
-- Bug corrections
-- Documentation updates
+| V1 Endpoint | V2 Endpoint | Changes |
+|-------------|-------------|---------|
+| `/api/debates` | `/api/v2/debates` | Response envelope |
+| `/api/debates/:id` | `/api/v2/debates/:id` | Response envelope |
+| `/api/agents` | `/api/v2/agents` | Response envelope |
+| `/api/health` | `/api/v2/health` | No changes |
 
-**Policy**: Deployed immediately.
+### Code Migration Example
 
----
-
-## Migration Timeline
-
-### Standard Deprecation
-
-| Day | Action |
-|-----|--------|
-| 0 | Deprecation announced, headers added |
-| 30 | First reminder in release notes |
-| 60 | Usage statistics reviewed |
-| 90 | Sunset date reached, endpoint returns 410 |
-
-### Extended Deprecation (High-Impact)
-
-For widely-used endpoints:
-
-| Day | Action |
-|-----|--------|
-| 0 | Deprecation announced |
-| 90 | Usage reviewed, sunset date set |
-| 180 | Final reminder |
-| 270 | Sunset |
-
-### Emergency Deprecation
-
-For security issues:
-- Immediate deprecation notice
-- 7-day minimum warning (security permitting)
-- Sunset with security patch
-
----
-
-## Developer Guide
-
-### Detecting Deprecation
-
-#### Python
-
+**Before (V1):**
 ```python
-import requests
-
-response = requests.get("https://api.aragora.io/api/debates")
-
-# Check deprecation headers
-if response.headers.get("Deprecation"):
-    print("Warning: This endpoint is deprecated")
-    sunset = response.headers.get("Sunset")
-    replacement = response.headers.get("Link")
-    print(f"Sunset: {sunset}")
-    print(f"Replacement: {replacement}")
+response = requests.get("https://api.aragora.com/api/debates")
+debates = response.json()  # List directly
 ```
 
-#### JavaScript
-
-```javascript
-const response = await fetch('https://api.aragora.io/api/debates');
-
-if (response.headers.get('Deprecation')) {
-  console.warn('Warning: This endpoint is deprecated');
-  console.warn('Sunset:', response.headers.get('Sunset'));
-  console.warn('Replacement:', response.headers.get('Link'));
-}
-```
-
-### Handling Sunset
-
+**After (V2):**
 ```python
-response = requests.get("https://api.aragora.io/api/old-endpoint")
-
-if response.status_code == 410:
-    error = response.json()["error"]
-    replacement = error.get("replacement")
-    if replacement:
-        # Retry with replacement endpoint
-        response = requests.get(f"https://api.aragora.io{replacement}")
+response = requests.get("https://api.aragora.com/api/v2/debates")
+data = response.json()
+debates = data["data"]  # Unwrap from envelope
+meta = data.get("meta", {})  # Access pagination, etc.
 ```
 
-### Migration Checklist
+## Checking Your Version
 
-1. [ ] Identify deprecated endpoints in your codebase
-2. [ ] Review replacement documentation
-3. [ ] Update API calls to new endpoints
-4. [ ] Test with staging environment
-5. [ ] Deploy changes before sunset date
-6. [ ] Monitor for 410 errors in production
+Use the health endpoint to verify which version you're using:
 
----
+```bash
+# Check current version
+curl -I https://api.aragora.com/api/v2/health
 
-## What Gets Deprecated
-
-### Endpoints
-
-- Changed URL structure
-- Merged into other endpoints
-- Replaced by improved versions
-
-### Response Fields
-
-- Fields moved to different location
-- Fields renamed for consistency
-- Fields replaced with better alternatives
-
-### Request Parameters
-
-- Parameters renamed
-- Parameters moved to different location
-- Parameters replaced with better alternatives
-
-### Features
-
-- Experimental features not promoted to stable
-- Features replaced by better alternatives
-- Features with security concerns
-
----
-
-## What Does NOT Get Deprecated
-
-### Without Major Version
-
-- Required response fields
-- Required request parameters
-- Authentication methods
-- Error code meanings
-- Rate limit behavior
-
-These require a major version bump (v1 → v2).
-
----
-
-## Notifications
-
-### Release Notes
-
-All deprecations are announced in release notes with:
-- Affected endpoints/features
-- Sunset date
-- Migration instructions
-- Replacement information
-
-### API Responses
-
-Deprecation headers are added immediately when deprecation is announced.
-
-### Documentation
-
-- Deprecated items marked with warning banner
-- Migration guide linked
-- Examples updated to show new approach
-
----
-
-## FAQ
-
-### Q: Can I request a deprecation extension?
-
-Yes, contact support with:
-- Your use case
-- Why you need more time
-- Your migration plan
-
-Extensions are granted case-by-case for legitimate needs.
-
-### Q: Will deprecated endpoints perform differently?
-
-No. Deprecated endpoints perform identically until sunset. The only difference is the added headers.
-
-### Q: How do I know if I'm using deprecated endpoints?
-
-1. Check response headers for `Deprecation`
-2. Search your codebase for deprecated endpoint URLs
-3. Review the deprecation log at `/api/system/deprecations`
-
-### Q: What happens at sunset?
-
-The endpoint returns:
-- HTTP status `410 Gone`
-- JSON error with replacement information
-- No data processing occurs
-
-### Q: Are there any exceptions to the policy?
-
-Security issues may require faster deprecation. We'll communicate urgency and provide alternatives as quickly as possible.
-
----
-
-## Implementation Details
-
-### Server-Side
-
-```python
-from aragora.server.deprecation import deprecated, add_deprecation_headers
-
-@deprecated(
-    sunset="2026-06-01",
-    replacement="/api/v2/debates",
-    category="api"
-)
-def _handle_v1_debates(self, handler):
-    # Normal processing
-    result = self._do_work()
-
-    # Headers are automatically added by the decorator
-    return result
+# Response headers show version info
+X-API-Version: v2
+X-API-Supported-Versions: v1,v2
 ```
 
-### Manual Header Addition
+## When We Deprecate
 
-```python
-from aragora.server.deprecation import add_deprecation_headers
+An API version may be deprecated when:
 
-def handle_legacy_endpoint(self, handler):
-    result = self._do_work()
+1. **Security issues** that cannot be fixed without breaking changes
+2. **Performance improvements** requiring structural changes
+3. **New standards adoption** (e.g., updated OAuth, pagination patterns)
+4. **Simplification** to reduce maintenance burden
 
-    headers = add_deprecation_headers(
-        result.headers,
-        sunset="2026-06-01",
-        replacement="/api/v2/endpoint"
-    )
+We commit to:
+- **6+ months notice** before any version sunset
+- **Overlap period** where both versions are functional
+- **Clear migration documentation** for each version transition
 
-    return HandlerResult(
-        status_code=200,
-        body=json.dumps(data).encode(),
-        headers=headers,
-    )
-```
+## Contact
+
+For API deprecation questions or migration assistance:
+- GitHub Issues: https://github.com/aragora/aragora/issues
+- Tag: `api-migration`
 
 ---
 
-## See Also
-
-- [API_VERSIONING.md](./API_VERSIONING.md) - Version negotiation
-- [API_REFERENCE.md](./API_REFERENCE.md) - Endpoint documentation
-- [CHANGELOG.md](./CHANGELOG.md) - Release notes
+*Last updated: 2026-01-11*

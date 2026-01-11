@@ -281,7 +281,7 @@ class PostDebateProcessor:
 
     def _identify_winning_patterns(self, result: Any) -> List[dict]:
         """Identify argument patterns that led to consensus."""
-        patterns = []
+        patterns: List[dict] = []
         if not hasattr(result, 'messages'):
             return patterns
 
@@ -396,7 +396,7 @@ class PostDebateProcessor:
             winner = None
             votes = getattr(ctx.result, 'votes', [])
             if votes:
-                vote_tally = {}
+                vote_tally: dict[str, int] = {}
                 for v in votes:
                     choice = getattr(v, 'choice', None)
                     if choice:

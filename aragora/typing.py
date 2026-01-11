@@ -119,13 +119,13 @@ class MemoryProtocol(Protocol):
 class TieredMemoryProtocol(MemoryProtocol, Protocol):
     """Protocol for tiered memory systems like ContinuumMemory."""
 
-    def store(
+    def store(  # type: ignore[override]
         self,
         content: str,
-        tier: Any,  # MemoryTier
+        tier: Any = None,  # MemoryTier, optional for protocol compatibility
         importance: float = 0.5,
         **kwargs: Any,
-    ) -> Any:
+    ) -> str:
         """Store content in a specific tier."""
         ...
 

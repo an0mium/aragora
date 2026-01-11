@@ -66,12 +66,14 @@ class DeprecationRegistry:
     """
 
     _instance: Optional["DeprecationRegistry"] = None
+    _deprecations: Dict[str, DeprecationInfo]
+    _call_counts: Dict[str, int]
 
     def __new__(cls) -> "DeprecationRegistry":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._deprecations: Dict[str, DeprecationInfo] = {}
-            cls._instance._call_counts: Dict[str, int] = {}
+            cls._instance._deprecations = {}
+            cls._instance._call_counts = {}
         return cls._instance
 
     def register(self, info: DeprecationInfo) -> None:

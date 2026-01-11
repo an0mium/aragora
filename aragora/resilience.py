@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sqlite3
 import threading
 import time
 from contextlib import asynccontextmanager, contextmanager
@@ -104,7 +105,7 @@ def reset_all_circuit_breakers() -> None:
     logger.info(f"Reset {count} circuit breakers")
 
 
-def get_circuit_breaker_status() -> dict[str, dict]:
+def get_circuit_breaker_status() -> dict[str, Any]:
     """Get status of all registered circuit breakers (thread-safe)."""
     with _circuit_breakers_lock:
         return {

@@ -604,3 +604,177 @@ class TestJWTIntegration:
         assert refresh_payload.sub == user_id
         assert refresh_payload.type == "refresh"
         assert refresh_payload.exp > access_payload.exp
+
+
+# ============================================================================
+# Token Version Tests (for logout-all functionality)
+# ============================================================================
+
+class TestTokenVersion:
+    """Tests for token version (logout-all) functionality."""
+
+    def test_token_includes_version(self, mock_env_secret):
+        """Test token includes tv (token version) claim."""
+        token = create_access_token(
+            user_id="user-123",
+            email="test@example.com",
+            token_version=5,
+        )
+        payload = decode_jwt(token)
+        assert payload is not None
+        assert payload.tv == 5
+
+    def test_token_default_version_is_1(self, mock_env_secret):
+        """Test token defaults to version 1."""
+        token = create_access_token(
+            user_id="user-123",
+            email="test@example.com",
+        )
+        payload = decode_jwt(token)
+        assert payload is not None
+        assert payload.tv == 1
+
+    def test_refresh_token_includes_version(self, mock_env_secret):
+        """Test refresh token includes tv claim."""
+        token = create_refresh_token(user_id="user-123", token_version=3)
+        payload = decode_jwt(token)
+        assert payload is not None
+        assert payload.tv == 3
+
+    def test_payload_to_dict_includes_tv(self):
+        """Test payload to_dict includes tv field."""
+        now = int(time.time())
+        payload = JWTPayload(
+            sub="user-123",
+            email="test@example.com",
+            org_id=None,
+            role="member",
+            iat=now,
+            exp=now + 3600,
+            tv=7,
+        )
+        data = payload.to_dict()
+        assert data["tv"] == 7
+
+    def test_payload_from_dict_reads_tv(self):
+        """Test payload from_dict reads tv field."""
+        data = {
+            "sub": "user-123",
+            "email": "test@example.com",
+            "org_id": None,
+            "role": "member",
+            "iat": 1000,
+            "exp": 5000,
+            "tv": 10,
+        }
+        payload = JWTPayload.from_dict(data)
+        assert payload.tv == 10
+
+    def test_payload_from_dict_defaults_tv_to_1(self):
+        """Test payload from_dict defaults tv to 1."""
+        data = {"sub": "user-123"}
+        payload = JWTPayload.from_dict(data)
+        assert payload.tv == 1
+
+    def test_validate_access_token_rejects_old_version(self, mock_env_secret):
+        """Test validate_access_token rejects token with old version."""
+        # Create token with version 1
+        token = create_access_token(
+            user_id="user-123",
+            email="test@example.com",
+            token_version=1,
+        )
+
+        # Create mock user store where user has version 2
+        mock_user = MagicMock()
+        mock_user.token_version = 2
+        mock_store = MagicMock()
+        mock_store.get_user_by_id.return_value = mock_user
+
+        # Token should be rejected
+        payload = validate_access_token(token, user_store=mock_store)
+        assert payload is None
+        mock_store.get_user_by_id.assert_called_once_with("user-123")
+
+    def test_validate_access_token_accepts_current_version(self, mock_env_secret):
+        """Test validate_access_token accepts token with current version."""
+        # Create token with version 2
+        token = create_access_token(
+            user_id="user-123",
+            email="test@example.com",
+            token_version=2,
+        )
+
+        # Create mock user store where user has version 2
+        mock_user = MagicMock()
+        mock_user.token_version = 2
+        mock_store = MagicMock()
+        mock_store.get_user_by_id.return_value = mock_user
+
+        # Token should be accepted
+        payload = validate_access_token(token, user_store=mock_store)
+        assert payload is not None
+        assert payload.tv == 2
+
+    def test_validate_access_token_accepts_newer_version(self, mock_env_secret):
+        """Test validate_access_token accepts token with newer version (edge case)."""
+        # Token with version 3
+        token = create_access_token(
+            user_id="user-123",
+            email="test@example.com",
+            token_version=3,
+        )
+
+        # User has version 2 (less than token)
+        mock_user = MagicMock()
+        mock_user.token_version = 2
+        mock_store = MagicMock()
+        mock_store.get_user_by_id.return_value = mock_user
+
+        # Token should be accepted (version 3 >= 2)
+        payload = validate_access_token(token, user_store=mock_store)
+        assert payload is not None
+
+    def test_validate_access_token_works_without_user_store(self, mock_env_secret):
+        """Test validate_access_token works when user_store is not provided."""
+        token = create_access_token(
+            user_id="user-123",
+            email="test@example.com",
+            token_version=1,
+        )
+
+        # Should validate successfully without version check
+        payload = validate_access_token(token, user_store=None)
+        assert payload is not None
+
+    def test_validate_access_token_handles_store_error(self, mock_env_secret):
+        """Test validate_access_token handles user store errors gracefully."""
+        token = create_access_token(
+            user_id="user-123",
+            email="test@example.com",
+            token_version=1,
+        )
+
+        # Create mock store that raises an error
+        mock_store = MagicMock()
+        mock_store.get_user_by_id.side_effect = Exception("Database error")
+
+        # Should still validate (don't block on store errors)
+        payload = validate_access_token(token, user_store=mock_store)
+        assert payload is not None
+
+    def test_validate_access_token_handles_user_not_found(self, mock_env_secret):
+        """Test validate_access_token handles non-existent user."""
+        token = create_access_token(
+            user_id="nonexistent-user",
+            email="test@example.com",
+            token_version=1,
+        )
+
+        # User not found
+        mock_store = MagicMock()
+        mock_store.get_user_by_id.return_value = None
+
+        # Should still validate (user might be deleted but token valid)
+        payload = validate_access_token(token, user_store=mock_store)
+        assert payload is not None

@@ -18,9 +18,9 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Any, Iterator, Optional
 
-from aragora.billing.models import Organization, SubscriptionTier, User
+from aragora.billing.models import Organization, OrganizationInvitation, SubscriptionTier, User
 
 logger = logging.getLogger(__name__)
 
@@ -247,6 +247,11 @@ class UserStore:
             cursor.execute("ALTER TABLE users ADD COLUMN mfa_backup_codes TEXT")
             logger.info("Migration: Added mfa_backup_codes column")
 
+        # Token revocation support
+        if "token_version" not in existing_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN token_version INTEGER DEFAULT 1")
+            logger.info("Migration: Added token_version column")
+
     def migrate_plaintext_api_keys(self) -> int:
         """
         Migrate existing plaintext API keys to hashed storage.
@@ -465,8 +470,8 @@ class UserStore:
             "mfa_backup_codes": "mfa_backup_codes",
         }
 
-        updates = []
-        values = []
+        updates: list[str] = []
+        values: list[Any] = []
         for field, value in fields.items():
             if field in column_map:
                 updates.append(f"{column_map[field]} = ?")
@@ -496,6 +501,47 @@ class UserStore:
         with self._transaction() as cursor:
             cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
             return cursor.rowcount > 0
+
+    def increment_token_version(self, user_id: str) -> int:
+        """
+        Increment a user's token version, invalidating all existing tokens.
+
+        This is used for "logout all devices" functionality. When the token
+        version is incremented, all existing JWT tokens (which contain the
+        old version) will fail validation.
+
+        Args:
+            user_id: User ID to increment token version for
+
+        Returns:
+            The new token version, or 0 if user not found
+        """
+        with self._transaction() as cursor:
+            # Increment and get new version in one query
+            cursor.execute(
+                """
+                UPDATE users
+                SET token_version = COALESCE(token_version, 1) + 1,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (datetime.utcnow().isoformat(), user_id),
+            )
+
+            if cursor.rowcount == 0:
+                logger.warning(f"increment_token_version: user {user_id} not found")
+                return 0
+
+            # Get the new version
+            cursor.execute(
+                "SELECT token_version FROM users WHERE id = ?",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            new_version = row[0] if row else 1
+
+            logger.info(f"token_version_incremented user_id={user_id} new_version={new_version}")
+            return new_version
 
     def _row_to_user(self, row: sqlite3.Row) -> User:
         """Convert database row to User object."""
@@ -533,6 +579,7 @@ class UserStore:
             mfa_secret=safe_get("mfa_secret"),
             mfa_enabled=bool(safe_get("mfa_enabled", 0)),
             mfa_backup_codes=safe_get("mfa_backup_codes"),
+            token_version=safe_get("token_version", 1) or 1,
         )
 
     # =========================================================================
@@ -1213,8 +1260,8 @@ class UserStore:
         Returns:
             List of audit log entries
         """
-        conditions = []
-        params = []
+        conditions: list[str] = []
+        params: list[Any] = []
 
         if org_id:
             conditions.append("org_id = ?")

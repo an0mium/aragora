@@ -17,9 +17,10 @@ import asyncio
 import hashlib
 import json
 import logging
+import time
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from .base import (
     BaseHandler,
@@ -33,6 +34,7 @@ from .base import (
     safe_json_parse,
 )
 from .utils.rate_limit import rate_limit
+from aragora.server.validation.entities import validate_gauntlet_id
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +43,18 @@ logger = logging.getLogger(__name__)
 # Completed runs are persisted to GauntletStorage
 _gauntlet_runs: dict[str, dict[str, Any]] = {}
 
+# Memory management for gauntlet runs
+MAX_GAUNTLET_RUNS_IN_MEMORY = 500
+_GAUNTLET_COMPLETED_TTL = 3600  # Keep completed runs for 1 hour
+
 # Persistent storage singleton
 _storage: Optional["GauntletStorage"] = None
 
 # WebSocket broadcast function (set by unified server when streaming is enabled)
-_gauntlet_broadcast_fn: Optional[callable] = None
+_gauntlet_broadcast_fn: Optional[Callable[..., Any]] = None
 
 
-def set_gauntlet_broadcast_fn(broadcast_fn: callable) -> None:
+def set_gauntlet_broadcast_fn(broadcast_fn: Callable[..., Any]) -> None:
     """Set the broadcast function for WebSocket streaming."""
     global _gauntlet_broadcast_fn
     _gauntlet_broadcast_fn = broadcast_fn
@@ -61,6 +67,30 @@ def _get_storage() -> "GauntletStorage":
         from aragora.gauntlet.storage import GauntletStorage
         _storage = GauntletStorage()
     return _storage
+
+
+def _cleanup_gauntlet_runs() -> None:
+    """Remove old completed runs from memory (persisted ones are in storage)."""
+    global _gauntlet_runs
+    if len(_gauntlet_runs) <= MAX_GAUNTLET_RUNS_IN_MEMORY:
+        return
+
+    now = time.time()
+    # Find completed runs older than TTL
+    to_remove = []
+    for run_id, run in _gauntlet_runs.items():
+        if run.get("status") == "completed":
+            completed_at = run.get("completed_at")
+            if completed_at:
+                try:
+                    completed_time = datetime.fromisoformat(completed_at).timestamp()
+                    if now - completed_time > _GAUNTLET_COMPLETED_TTL:
+                        to_remove.append(run_id)
+                except (ValueError, TypeError):
+                    pass
+
+    for run_id in to_remove:
+        _gauntlet_runs.pop(run_id, None)
 
 
 class GauntletHandler(BaseHandler):
@@ -102,7 +132,6 @@ class GauntletHandler(BaseHandler):
             return True
         return False
 
-    @handle_errors
     @rate_limit(rpm=10)
     async def handle(self, path: str, method: str, handler: Any = None) -> Optional[HandlerResult]:
         """Route request to appropriate handler."""
@@ -127,11 +156,17 @@ class GauntletHandler(BaseHandler):
         # GET /api/gauntlet/{id}/receipt
         if path.endswith("/receipt"):
             gauntlet_id = path.split("/")[-2]
+            is_valid, err = validate_gauntlet_id(gauntlet_id)
+            if not is_valid:
+                return error_response(err, 400)
             return await self._get_receipt(gauntlet_id, query_params)
 
         # GET /api/gauntlet/{id}/heatmap
         if path.endswith("/heatmap"):
             gauntlet_id = path.split("/")[-2]
+            is_valid, err = validate_gauntlet_id(gauntlet_id)
+            if not is_valid:
+                return error_response(err, 400)
             return await self._get_heatmap(gauntlet_id, query_params)
 
         # GET /api/gauntlet/{id}/compare/{id2}
@@ -140,18 +175,31 @@ class GauntletHandler(BaseHandler):
             if len(parts) >= 5:
                 gauntlet_id = parts[-3]
                 compare_id = parts[-1]
+                # Validate both IDs
+                is_valid, err = validate_gauntlet_id(gauntlet_id)
+                if not is_valid:
+                    return error_response(err, 400)
+                is_valid, err = validate_gauntlet_id(compare_id)
+                if not is_valid:
+                    return error_response(f"Invalid compare ID: {err}", 400)
                 return self._compare_results(gauntlet_id, compare_id, query_params)
 
         # DELETE /api/gauntlet/{id}
         if method == "DELETE" and path.startswith("/api/gauntlet/"):
             gauntlet_id = path.split("/")[-1]
             if gauntlet_id and gauntlet_id not in ("run", "personas", "results"):
+                is_valid, err = validate_gauntlet_id(gauntlet_id)
+                if not is_valid:
+                    return error_response(err, 400)
                 return self._delete_result(gauntlet_id, query_params)
 
         # GET /api/gauntlet/{id}
         if path.startswith("/api/gauntlet/"):
             gauntlet_id = path.split("/")[-1]
             if gauntlet_id and gauntlet_id not in ("run", "personas", "results"):
+                is_valid, err = validate_gauntlet_id(gauntlet_id)
+                if not is_valid:
+                    return error_response(err, 400)
                 return await self._get_status(gauntlet_id)
 
         return None
@@ -204,6 +252,9 @@ class GauntletHandler(BaseHandler):
         # Generate gauntlet ID
         gauntlet_id = f"gauntlet-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6]}"
         input_hash = hashlib.sha256(input_content.encode()).hexdigest()
+
+        # Cleanup old completed runs before storing new one
+        _cleanup_gauntlet_runs()
 
         # Store initial state
         _gauntlet_runs[gauntlet_id] = {

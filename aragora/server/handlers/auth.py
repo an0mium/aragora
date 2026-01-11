@@ -5,6 +5,7 @@ Endpoints:
 - POST /api/auth/register - Create a new user account
 - POST /api/auth/login - Authenticate and get tokens
 - POST /api/auth/logout - Invalidate current token (adds to blacklist)
+- POST /api/auth/logout-all - Invalidate all tokens for user (logout all devices)
 - POST /api/auth/refresh - Refresh access token (revokes old refresh token)
 - POST /api/auth/revoke - Explicitly revoke a specific token
 - GET /api/auth/me - Get current user information
@@ -75,6 +76,7 @@ class AuthHandler(BaseHandler):
         "/api/auth/register",
         "/api/auth/login",
         "/api/auth/logout",
+        "/api/auth/logout-all",
         "/api/auth/refresh",
         "/api/auth/revoke",
         "/api/auth/me",
@@ -107,6 +109,9 @@ class AuthHandler(BaseHandler):
 
         if path == "/api/auth/logout" and method == "POST":
             return self._handle_logout(handler)
+
+        if path == "/api/auth/logout-all" and method == "POST":
+            return self._handle_logout_all(handler)
 
         if path == "/api/auth/refresh" and method == "POST":
             return self._handle_refresh(handler)
@@ -391,6 +396,54 @@ class AuthHandler(BaseHandler):
             logger.info(f"User logged out (no token to revoke): {auth_ctx.user_id}")
 
         return json_response({"message": "Logged out successfully"})
+
+    @rate_limit(rpm=3, limiter_name="auth_logout_all")
+    @handle_errors("logout all devices")
+    @log_request("logout all devices")
+    def _handle_logout_all(self, handler) -> HandlerResult:
+        """
+        Handle logout from all devices.
+
+        Increments the user's token_version, immediately invalidating all
+        existing JWT tokens for this user across all devices.
+        Also revokes the current token for immediate effect.
+        """
+        from aragora.billing.jwt_auth import (
+            get_token_blacklist,
+            revoke_token_persistent,
+        )
+        from aragora.server.middleware.auth import extract_token
+
+        # Get current user
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("User service unavailable", 503)
+
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        # Increment token version to invalidate all existing tokens
+        new_version = user_store.increment_token_version(auth_ctx.user_id)
+        if new_version == 0:
+            return error_response("User not found", 404)
+
+        # Also revoke current token for immediate effect (before version check)
+        token = extract_token(handler)
+        if token:
+            blacklist = get_token_blacklist()
+            blacklist.revoke_token(token)
+            revoke_token_persistent(token)
+
+        logger.info(
+            f"logout_all user_id={auth_ctx.user_id} new_token_version={new_version}"
+        )
+
+        return json_response({
+            "message": "All sessions terminated",
+            "sessions_invalidated": True,
+            "token_version": new_version,
+        })
 
     @handle_errors("get user info")
     def _handle_get_me(self, handler) -> HandlerResult:

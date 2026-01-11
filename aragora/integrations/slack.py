@@ -215,15 +215,15 @@ class SlackIntegration:
                 },
                 {
                     "type": "mrkdwn",
-                    "text": f"*Rounds:*\n{result.rounds_completed}"
+                    "text": f"*Rounds:*\n{result.rounds_used}"
                 }
             ]
         })
 
-        # Final proposal preview if consensus reached
-        if result.consensus_reached and result.final_proposal:
-            preview = result.final_proposal[:500]
-            if len(result.final_proposal) > 500:
+        # Final answer preview if consensus reached
+        if result.consensus_reached and result.final_answer:
+            preview = result.final_answer[:500]
+            if len(result.final_answer) > 500:
                 preview += "..."
 
             blocks.append({

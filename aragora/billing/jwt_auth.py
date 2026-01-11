@@ -42,6 +42,11 @@ class TokenBlacklist:
 
     _instance: Optional["TokenBlacklist"] = None
     _lock = threading.Lock()
+    _initialized: bool
+    _blacklist: dict[str, float]
+    _data_lock: threading.Lock
+    _cleanup_interval: int
+    _last_cleanup: float
 
     def __new__(cls) -> "TokenBlacklist":
         """Singleton pattern for global blacklist."""
@@ -241,11 +246,49 @@ def _is_production() -> bool:
 def _validate_security_config() -> None:
     """Validate security configuration at module load.
 
-    Placeholder for future security configuration validation.
-    Format-only API key validation has been removed for security.
+    Enforces strict requirements in production and logs warnings in non-prod.
     """
-    # All API key validation now requires a user store lookup
-    pass
+    if "pytest" in sys.modules:
+        return
+
+    if JWT_ROTATION_GRACE_HOURS < 0:
+        logger.warning("jwt_rotation_grace_hours_negative=%s", JWT_ROTATION_GRACE_HOURS)
+
+    if JWT_EXPIRY_HOURS < 1 or JWT_EXPIRY_HOURS > MAX_ACCESS_TOKEN_HOURS:
+        logger.warning(
+            "jwt_expiry_hours_out_of_range=%s (allowed 1-%s)",
+            JWT_EXPIRY_HOURS,
+            MAX_ACCESS_TOKEN_HOURS,
+        )
+
+    if REFRESH_TOKEN_EXPIRY_DAYS < 1 or REFRESH_TOKEN_EXPIRY_DAYS > MAX_REFRESH_TOKEN_DAYS:
+        logger.warning(
+            "refresh_token_expiry_days_out_of_range=%s (allowed 1-%s)",
+            REFRESH_TOKEN_EXPIRY_DAYS,
+            MAX_REFRESH_TOKEN_DAYS,
+        )
+
+    if JWT_SECRET_PREVIOUS and len(JWT_SECRET_PREVIOUS) < MIN_SECRET_LENGTH:
+        logger.warning(
+            "jwt_previous_secret_too_short length=%s min=%s",
+            len(JWT_SECRET_PREVIOUS),
+            MIN_SECRET_LENGTH,
+        )
+
+    if JWT_SECRET_PREVIOUS and not JWT_SECRET_ROTATED_AT:
+        logger.warning("jwt_previous_secret_without_rotation_timestamp")
+
+    if _is_production():
+        if not JWT_SECRET:
+            raise RuntimeError(
+                "ARAGORA_JWT_SECRET must be set in production. "
+                "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
+        if len(JWT_SECRET) < MIN_SECRET_LENGTH:
+            raise RuntimeError(
+                f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters in production. "
+                f"Current length: {len(JWT_SECRET)}"
+            )
 
 
 def _validate_secret_strength(secret: str) -> bool:
@@ -350,6 +393,7 @@ class JWTPayload:
     iat: int  # Issued at (Unix timestamp)
     exp: int  # Expiration (Unix timestamp)
     type: str = "access"  # access or refresh
+    tv: int = 1  # Token version - for logout-all functionality
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -361,6 +405,7 @@ class JWTPayload:
             "iat": self.iat,
             "exp": self.exp,
             "type": self.type,
+            "tv": self.tv,
         }
 
     @classmethod
@@ -374,6 +419,7 @@ class JWTPayload:
             iat=data.get("iat", 0),
             exp=data.get("exp", 0),
             type=data.get("type", "access"),
+            tv=data.get("tv", 1),
         )
 
     @property
@@ -393,6 +439,7 @@ def create_access_token(
     org_id: Optional[str] = None,
     role: str = "member",
     expiry_hours: Optional[int] = None,
+    token_version: int = 1,
 ) -> str:
     """
     Create a JWT access token.
@@ -403,6 +450,7 @@ def create_access_token(
         org_id: Organization ID
         role: User role in organization
         expiry_hours: Token expiry in hours (default from config, max 168h/7 days)
+        token_version: User's token version for logout-all support
 
     Returns:
         JWT token string
@@ -430,6 +478,7 @@ def create_access_token(
         iat=now,
         exp=exp,
         type="access",
+        tv=token_version,
     )
 
     return _encode_jwt(payload)
@@ -438,6 +487,7 @@ def create_access_token(
 def create_refresh_token(
     user_id: str,
     expiry_days: Optional[int] = None,
+    token_version: int = 1,
 ) -> str:
     """
     Create a JWT refresh token.
@@ -445,6 +495,7 @@ def create_refresh_token(
     Args:
         user_id: User ID
         expiry_days: Token expiry in days (default from config, max 90 days)
+        token_version: User's token version for logout-all support
 
     Returns:
         JWT refresh token string
@@ -472,6 +523,7 @@ def create_refresh_token(
         iat=now,
         exp=exp,
         type="refresh",
+        tv=token_version,
     )
 
     return _encode_jwt(payload)
@@ -611,7 +663,11 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
         return None
 
 
-def validate_access_token(token: str, use_persistent_blacklist: bool = True) -> Optional[JWTPayload]:
+def validate_access_token(
+    token: str,
+    use_persistent_blacklist: bool = True,
+    user_store: Optional[Any] = None,
+) -> Optional[JWTPayload]:
     """
     Validate an access token.
 
@@ -620,10 +676,12 @@ def validate_access_token(token: str, use_persistent_blacklist: bool = True) -> 
     2. Token expiration
     3. Token type is "access"
     4. Token is not blacklisted (revoked)
+    5. Token version matches user's current version (if user_store provided)
 
     Args:
         token: JWT token string
         use_persistent_blacklist: If True, also check persistent blacklist (default)
+        user_store: Optional UserStore for token version validation (logout-all support)
 
     Returns:
         JWTPayload if valid access token, None otherwise
@@ -649,10 +707,30 @@ def validate_access_token(token: str, use_persistent_blacklist: bool = True) -> 
         blacklist.revoke(token_jti, payload.exp)
         return None
 
+    # Check token version against user's current version (logout-all support)
+    if user_store is not None:
+        try:
+            user = user_store.get_user_by_id(payload.user_id)
+            if user is not None:
+                user_token_version = getattr(user, 'token_version', 1)
+                if payload.tv < user_token_version:
+                    logger.debug(
+                        f"jwt_validate_failed: token version mismatch "
+                        f"(token={payload.tv}, user={user_token_version})"
+                    )
+                    return None
+        except Exception as e:
+            logger.warning(f"jwt_validate_failed: error checking token version - {e}")
+            # Continue validation - don't block on store errors
+
     return payload
 
 
-def validate_refresh_token(token: str, use_persistent_blacklist: bool = True) -> Optional[JWTPayload]:
+def validate_refresh_token(
+    token: str,
+    use_persistent_blacklist: bool = True,
+    user_store: Optional[Any] = None,
+) -> Optional[JWTPayload]:
     """
     Validate a refresh token.
 
@@ -661,10 +739,12 @@ def validate_refresh_token(token: str, use_persistent_blacklist: bool = True) ->
     2. Token expiration
     3. Token type is "refresh"
     4. Token is not blacklisted (revoked)
+    5. Token version matches user's current version (if user_store provided)
 
     Args:
         token: JWT refresh token string
         use_persistent_blacklist: If True, also check persistent blacklist (default)
+        user_store: Optional UserStore for token version validation (logout-all support)
 
     Returns:
         JWTPayload if valid refresh token, None otherwise
@@ -688,6 +768,21 @@ def validate_refresh_token(token: str, use_persistent_blacklist: bool = True) ->
         token_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
         blacklist.revoke(token_jti, payload.exp)
         return None
+
+    # Check token version against user's current version (logout-all support)
+    if user_store is not None:
+        try:
+            user = user_store.get_user_by_id(payload.user_id)
+            if user is not None:
+                user_token_version = getattr(user, 'token_version', 1)
+                if payload.tv < user_token_version:
+                    logger.debug(
+                        f"jwt_validate_failed: refresh token version mismatch "
+                        f"(token={payload.tv}, user={user_token_version})"
+                    )
+                    return None
+        except Exception as e:
+            logger.warning(f"jwt_validate_failed: error checking token version - {e}")
 
     return payload
 
@@ -868,6 +963,7 @@ def create_token_pair(
     email: str,
     org_id: Optional[str] = None,
     role: str = "member",
+    token_version: int = 1,
 ) -> TokenPair:
     """
     Create a new access/refresh token pair.
@@ -877,12 +973,13 @@ def create_token_pair(
         email: User email
         org_id: Organization ID
         role: User role
+        token_version: User's token version for logout-all support
 
     Returns:
         TokenPair with access and refresh tokens
     """
-    access = create_access_token(user_id, email, org_id, role)
-    refresh = create_refresh_token(user_id)
+    access = create_access_token(user_id, email, org_id, role, token_version=token_version)
+    refresh = create_refresh_token(user_id, token_version=token_version)
     return TokenPair(access, refresh)
 
 

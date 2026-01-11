@@ -289,6 +289,9 @@ class User:
     mfa_enabled: bool = False
     mfa_backup_codes: Optional[str] = None  # JSON-encoded list of hashed backup codes
 
+    # Token revocation - increment to invalidate all existing tokens
+    token_version: int = 1
+
     def set_password(self, password: str) -> None:
         """Set user password."""
         self.password_hash, self.password_salt = hash_password(password)
@@ -406,6 +409,7 @@ class User:
             "updated_at": self.updated_at.isoformat(),
             "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
             "has_api_key": self.api_key_hash is not None or self.api_key is not None,
+            "token_version": self.token_version,
         }
         if include_sensitive:
             # API key is only available if stored in legacy format
@@ -427,6 +431,7 @@ class User:
             is_active=data.get("is_active", True),
             email_verified=data.get("email_verified", False),
             api_key=data.get("api_key"),
+            token_version=data.get("token_version", 1),
         )
         if "created_at" in data and data["created_at"]:
             if isinstance(data["created_at"], str):
