@@ -28,22 +28,77 @@ from .base import (
 
 logger = logging.getLogger(__name__)
 
-# Try to import Gauntlet module
-try:
-    from aragora.gauntlet import (
-        GauntletOrchestrator,
-        GauntletConfig,
-        GauntletTemplate,
-        GauntletResult,
-        DecisionReceipt,
-        ReceiptFormat,
-        list_templates,
-        get_template,
-    )
-    GAUNTLET_AVAILABLE = True
-except ImportError as e:
-    GAUNTLET_AVAILABLE = False
-    logger.debug(f"Gauntlet module not available: {e}")
+# Gauntlet module imports are deferred to avoid circular imports
+GAUNTLET_AVAILABLE = False
+_gauntlet_initialized = False
+
+
+def _init_gauntlet():
+    """Initialize gauntlet imports (deferred to avoid circular imports)."""
+    global GAUNTLET_AVAILABLE, _gauntlet_initialized
+    global GauntletOrchestrator, GauntletConfig, GauntletResult
+    global InputType, Verdict, DecisionReceipt
+    global list_templates, get_template, ReceiptFormat
+
+    if _gauntlet_initialized:
+        return GAUNTLET_AVAILABLE
+
+    _gauntlet_initialized = True
+
+    try:
+        from aragora.modes.gauntlet import (
+            GauntletOrchestrator as _GauntletOrchestrator,
+            GauntletConfig as _GauntletConfig,
+            GauntletResult as _GauntletResult,
+            InputType as _InputType,
+            Verdict as _Verdict,
+            QUICK_GAUNTLET,
+            THOROUGH_GAUNTLET,
+        )
+        from aragora.gauntlet import DecisionReceipt as _DecisionReceipt
+        from enum import Enum
+
+        # Assign to module-level names
+        GauntletOrchestrator = _GauntletOrchestrator
+        GauntletConfig = _GauntletConfig
+        GauntletResult = _GauntletResult
+        InputType = _InputType
+        Verdict = _Verdict
+        DecisionReceipt = _DecisionReceipt
+
+        class ReceiptFormat(Enum):
+            JSON = "json"
+            MARKDOWN = "markdown"
+            HTML = "html"
+
+        # Simple template system using pre-configured profiles
+        _TEMPLATES = {
+            "quick": {"name": "Quick Validation", "config": QUICK_GAUNTLET, "description": "Fast stress-test for basic issues"},
+            "thorough": {"name": "Thorough Validation", "config": THOROUGH_GAUNTLET, "description": "Comprehensive adversarial analysis"},
+            "security": {"name": "Security Assessment", "config": _GauntletConfig(input_type=_InputType.CODE, enable_verification=True), "description": "Security-focused validation"},
+        }
+
+        def list_templates():
+            return [{"id": k, "name": v["name"], "description": v["description"]} for k, v in _TEMPLATES.items()]
+
+        def get_template(template_id: str):
+            if template_id not in _TEMPLATES:
+                raise ValueError(f"Unknown template: {template_id}")
+            return _TEMPLATES[template_id]["config"]
+
+        # Make available at module level
+        globals()["list_templates"] = list_templates
+        globals()["get_template"] = get_template
+        globals()["ReceiptFormat"] = ReceiptFormat
+
+        GAUNTLET_AVAILABLE = True
+        logger.info("Gauntlet module initialized successfully")
+
+    except ImportError as e:
+        GAUNTLET_AVAILABLE = False
+        logger.debug(f"Gauntlet module not available: {e}")
+
+    return GAUNTLET_AVAILABLE
 
 
 class GauntletHandler(BaseHandler):

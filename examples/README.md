@@ -56,6 +56,22 @@ Demonstrates Aragora's unique self-improvement capability (runs in dry-run mode)
 - Implement phase: code generation (simulated)
 - Verify phase: testing (simulated)
 
+### 4. Gauntlet Showcase - AI Decision Assurance (1-2 min)
+
+```bash
+python examples/04_gauntlet_showcase.py
+```
+
+Demonstrates Aragora's Gauntlet system for adversarial validation and compliance stress-testing. Showcases a real debate from 10 AI models.
+
+**What you'll see:**
+- Regulatory personas (GDPR, HIPAA, AI Act, Security)
+- Decision Receipt generation (JSON, HTML, PDF)
+- Real strategic debate results from 12 AI models
+- CLI usage for CI/CD integration
+
+**No API keys required** - views pre-computed results.
+
 ## Troubleshooting
 
 **"Need at least 2 agents"**

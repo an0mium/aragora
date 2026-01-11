@@ -16,6 +16,7 @@ class AttackCategory(Enum):
     SECURITY = "security"
     INJECTION = "injection"
     PRIVILEGE_ESCALATION = "privilege_escalation"
+    ADVERSARIAL_INPUT = "adversarial_input"
 
     # Compliance attacks
     COMPLIANCE = "compliance"
@@ -30,9 +31,13 @@ class AttackCategory(Enum):
 
     # Logic attacks
     LOGIC = "logic"
+    LOGICAL_FALLACY = "logical_fallacy"
     EDGE_CASES = "edge_cases"
+    EDGE_CASE = "edge_case"
     ASSUMPTIONS = "assumptions"
+    UNSTATED_ASSUMPTION = "unstated_assumption"
     COUNTEREXAMPLES = "counterexamples"
+    COUNTEREXAMPLE = "counterexample"
 
     # Operational attacks
     OPERATIONAL = "operational"
@@ -60,6 +65,63 @@ class Verdict(Enum):
     PASS = "pass"
     CONDITIONAL = "conditional"
     FAIL = "fail"
+
+
+class GauntletPhase(Enum):
+    """Phases of the Gauntlet validation pipeline."""
+
+    NOT_STARTED = "not_started"
+    RISK_ASSESSMENT = "risk_assessment"
+    SCENARIO_ANALYSIS = "scenario_analysis"
+    ADVERSARIAL_PROBING = "adversarial_probing"
+    FORMAL_VERIFICATION = "formal_verification"
+    DEEP_AUDIT = "deep_audit"
+    SYNTHESIS = "synthesis"
+    COMPLETE = "complete"
+    FAILED = "failed"
+
+
+class GauntletSeverity(Enum):
+    """Severity levels for Gauntlet findings."""
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INFO = "info"
+
+
+@dataclass
+class PassFailCriteria:
+    """Criteria for determining pass/fail verdict."""
+
+    max_critical_findings: int = 0
+    max_high_findings: int = 2
+    min_robustness_score: float = 0.7
+    min_verification_coverage: float = 0.0
+    require_consensus: bool = False
+
+    @classmethod
+    def strict(cls) -> "PassFailCriteria":
+        """Strict criteria - no critical or high findings allowed."""
+        return cls(
+            max_critical_findings=0,
+            max_high_findings=0,
+            min_robustness_score=0.85,
+            min_verification_coverage=0.5,
+            require_consensus=True,
+        )
+
+    @classmethod
+    def lenient(cls) -> "PassFailCriteria":
+        """Lenient criteria - allows some findings."""
+        return cls(
+            max_critical_findings=1,
+            max_high_findings=5,
+            min_robustness_score=0.5,
+            min_verification_coverage=0.0,
+            require_consensus=False,
+        )
 
 
 @dataclass
@@ -224,3 +286,129 @@ class GauntletConfig:
             probes_per_category=1,
             run_scenario_matrix=False,
         )
+
+
+@dataclass
+class GauntletFinding:
+    """A finding from the Gauntlet validation process."""
+
+    id: str = field(default_factory=lambda: f"finding-{id(object())}")
+    severity: GauntletSeverity = GauntletSeverity.MEDIUM
+    category: str = ""
+    title: str = ""
+    description: str = ""
+    source_phase: GauntletPhase = GauntletPhase.NOT_STARTED
+
+    # Optional details
+    recommendations: list[str] = field(default_factory=list)
+    attack_type: Optional[AttackCategory] = None
+    exploitability: float = 0.5
+    impact: float = 0.5
+    risk_score: float = 0.5
+
+    # Verification
+    is_verified: bool = False
+    verification_method: Optional[str] = None
+
+    # Metadata
+    metadata: dict = field(default_factory=dict)
+
+
+@dataclass
+class PhaseResult:
+    """Result from a single Gauntlet phase."""
+
+    phase: GauntletPhase
+    status: str  # "completed", "skipped", "failed"
+    duration_ms: int = 0
+    findings: list[GauntletFinding] = field(default_factory=list)
+    metrics: dict = field(default_factory=dict)
+    error: Optional[str] = None
+
+
+@dataclass
+class GauntletResult:
+    """Result of a complete Gauntlet validation run."""
+
+    id: str = field(default_factory=lambda: f"gauntlet-{id(object())}")
+    config: Optional[GauntletConfig] = None
+    input_text: str = ""
+    agents_used: list[str] = field(default_factory=list)
+
+    # Current status
+    current_phase: GauntletPhase = GauntletPhase.NOT_STARTED
+
+    # Results
+    phase_results: list[PhaseResult] = field(default_factory=list)
+    findings: list[GauntletFinding] = field(default_factory=list)
+
+    # Scores
+    risk_score: float = 0.0
+    robustness_score: float = 0.5
+    confidence: float = 0.5
+
+    # Phase-specific metrics
+    scenarios_tested: int = 0
+    probes_executed: int = 0
+    verified_claims: int = 0
+    total_claims: int = 0
+    consensus_reached: bool = False
+    agent_votes: dict = field(default_factory=dict)
+
+    # Verdict
+    passed: bool = False
+    verdict_summary: str = ""
+
+    # Timing
+    total_duration_ms: int = 0
+
+    @property
+    def severity_counts(self) -> dict:
+        """Count findings by severity."""
+        counts = {s.value: 0 for s in GauntletSeverity}
+        for f in self.findings:
+            counts[f.severity.value] = counts.get(f.severity.value, 0) + 1
+        return counts
+
+    @property
+    def critical_findings(self) -> list:
+        """Get critical severity findings."""
+        return [f for f in self.findings if f.severity == GauntletSeverity.CRITICAL]
+
+    def evaluate_pass_fail(self) -> None:
+        """Evaluate pass/fail based on criteria."""
+        criteria = PassFailCriteria()
+
+        critical_count = len(self.critical_findings)
+        high_count = len([f for f in self.findings if f.severity == GauntletSeverity.HIGH])
+
+        if critical_count > criteria.max_critical_findings:
+            self.passed = False
+            self.verdict_summary = f"FAIL: {critical_count} critical findings"
+        elif high_count > criteria.max_high_findings:
+            self.passed = False
+            self.verdict_summary = f"FAIL: {high_count} high findings"
+        elif self.robustness_score < criteria.min_robustness_score:
+            self.passed = False
+            self.verdict_summary = f"FAIL: Robustness {self.robustness_score:.0%}"
+        else:
+            self.passed = True
+            self.verdict_summary = f"PASS: {len(self.findings)} findings"
+
+    def to_dict(self) -> dict:
+        """Convert result to dictionary."""
+        return {
+            "id": self.id,
+            "passed": self.passed,
+            "verdict_summary": self.verdict_summary,
+            "risk_score": self.risk_score,
+            "robustness_score": self.robustness_score,
+            "severity_counts": self.severity_counts,
+            "findings_count": len(self.findings),
+            "total_duration_ms": self.total_duration_ms,
+        }
+
+    def to_receipt(self):
+        """Convert to DecisionReceipt."""
+        from .receipt import DecisionReceipt
+        return DecisionReceipt.from_gauntlet_result(self)
