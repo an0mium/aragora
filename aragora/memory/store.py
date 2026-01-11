@@ -4,15 +4,12 @@ SQLite-based critique pattern store for self-improvement.
 Stores successful critique patterns so future debates can learn from past successes.
 """
 
-import sqlite3
 import json
 import hashlib
 import logging
-from contextlib import contextmanager
 from dataclasses import dataclass, asdict
 from datetime import datetime
-from pathlib import Path
-from typing import Optional, Generator
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +17,7 @@ from aragora.core import Critique, DebateResult
 from aragora.utils.json_helpers import safe_json_loads
 from aragora.utils.cache import ttl_cache, invalidate_cache
 from aragora.config import (
+    resolve_db_path,
     CACHE_TTL_CRITIQUE_PATTERNS,
     CACHE_TTL_CRITIQUE_STATS,
     CACHE_TTL_AGENT_REPUTATION,
@@ -28,11 +26,109 @@ from aragora.config import (
 )
 
 
-# Import WAL connection helper and schema management from storage module
-from aragora.storage.schema import get_wal_connection, DB_TIMEOUT, safe_add_column, SchemaManager
+from aragora.storage.base_store import SQLiteStore
+from aragora.storage.schema import safe_add_column
 
 # Schema version for CritiqueStore migrations
 CRITIQUE_STORE_SCHEMA_VERSION = 1
+
+CRITIQUE_INITIAL_SCHEMA = """
+    -- Debates table
+    CREATE TABLE IF NOT EXISTS debates (
+        id TEXT,
+        task TEXT NOT NULL,
+        final_answer TEXT,
+        consensus_reached INTEGER,
+        confidence REAL,
+        rounds_used INTEGER,
+        duration_seconds REAL,
+        grounded_verdict TEXT,  -- JSON: evidence, citations, grounding score
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Critiques table (includes Titans/MIRAS prediction tracking)
+    CREATE TABLE IF NOT EXISTS critiques (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        debate_id TEXT,
+        agent TEXT NOT NULL,
+        target_agent TEXT,
+        issues TEXT,  -- JSON array
+        suggestions TEXT,  -- JSON array
+        severity REAL,
+        reasoning TEXT,
+        led_to_improvement INTEGER DEFAULT 0,
+        expected_usefulness REAL DEFAULT 0.5,
+        actual_usefulness REAL,
+        prediction_error REAL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (debate_id) REFERENCES debates(id)
+    );
+
+    -- Patterns table (includes Titans/MIRAS surprise scoring)
+    CREATE TABLE IF NOT EXISTS patterns (
+        id TEXT PRIMARY KEY,
+        issue_type TEXT NOT NULL,
+        issue_text TEXT NOT NULL,
+        suggestion_text TEXT,
+        success_count INTEGER DEFAULT 0,
+        failure_count INTEGER DEFAULT 0,
+        avg_severity REAL DEFAULT 0.5,
+        surprise_score REAL DEFAULT 0.0,
+        base_rate REAL DEFAULT 0.5,
+        avg_prediction_error REAL DEFAULT 0.0,
+        prediction_count INTEGER DEFAULT 0,
+        example_task TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Pattern embeddings for semantic search (optional, for future)
+    CREATE TABLE IF NOT EXISTS pattern_embeddings (
+        pattern_id TEXT PRIMARY KEY,
+        embedding BLOB,
+        FOREIGN KEY (pattern_id) REFERENCES patterns(id)
+    );
+
+    -- Agent reputation tracking (includes Titans/MIRAS calibration)
+    CREATE TABLE IF NOT EXISTS agent_reputation (
+        agent_name TEXT PRIMARY KEY,
+        proposals_made INTEGER DEFAULT 0,
+        proposals_accepted INTEGER DEFAULT 0,
+        critiques_given INTEGER DEFAULT 0,
+        critiques_valuable INTEGER DEFAULT 0,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        total_predictions INTEGER DEFAULT 0,
+        total_prediction_error REAL DEFAULT 0.0,
+        calibration_score REAL DEFAULT 0.5
+    );
+
+    -- Patterns archive table for adaptive forgetting
+    CREATE TABLE IF NOT EXISTS patterns_archive (
+        id TEXT,
+        issue_type TEXT,
+        issue_text TEXT,
+        suggestion_text TEXT,
+        success_count INTEGER,
+        failure_count INTEGER,
+        avg_severity REAL,
+        surprise_score REAL,
+        example_task TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        archived_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Indexes
+    CREATE INDEX IF NOT EXISTS idx_critiques_debate ON critiques(debate_id);
+    CREATE INDEX IF NOT EXISTS idx_patterns_type ON patterns(issue_type);
+    CREATE INDEX IF NOT EXISTS idx_patterns_success ON patterns(success_count DESC);
+    -- Composite index for filtered retrieval by type with success ranking
+    CREATE INDEX IF NOT EXISTS idx_patterns_type_success ON patterns(issue_type, success_count DESC);
+    -- Composite index for time-decayed ranking queries
+    CREATE INDEX IF NOT EXISTS idx_patterns_success_updated ON patterns(success_count DESC, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_reputation_score ON agent_reputation(proposals_accepted DESC);
+    CREATE INDEX IF NOT EXISTS idx_reputation_agent ON agent_reputation(agent_name);
+"""
 
 
 @dataclass
@@ -123,7 +219,7 @@ class AgentReputation:
         return max(0.4, min(1.6, base_weight + calibration_bonus))
 
 
-class CritiqueStore:
+class CritiqueStore(SQLiteStore):
     """
     SQLite-based storage for critique patterns.
 
@@ -133,134 +229,16 @@ class CritiqueStore:
     3. Tracking which patterns lead to consensus
     """
 
+    SCHEMA_NAME = "critique_store"
+    SCHEMA_VERSION = CRITIQUE_STORE_SCHEMA_VERSION
+    INITIAL_SCHEMA = CRITIQUE_INITIAL_SCHEMA
+
     def __init__(self, db_path: str = "agora_memory.db") -> None:
-        self.db_path = Path(db_path)
-        self._init_db()
+        super().__init__(resolve_db_path(db_path))
 
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection as a context manager.
-
-        Uses WAL mode for better concurrency. Ensures connections are
-        properly closed even if exceptions occur.
-        """
-        conn = get_wal_connection(self.db_path, timeout=DB_TIMEOUT)
-        try:
-            yield conn
-        finally:
-            conn.close()
-
-    def _init_db(self) -> None:
-        """Initialize the database schema using SchemaManager."""
-        with self._get_connection() as conn:
-            # Use SchemaManager for version tracking and migrations
-            manager = SchemaManager(
-                conn, "critique_store", current_version=CRITIQUE_STORE_SCHEMA_VERSION
-            )
-
-            # Initial schema (v1) - includes all tables with full column set
-            initial_schema = """
-                -- Debates table
-                CREATE TABLE IF NOT EXISTS debates (
-                    id TEXT PRIMARY KEY,
-                    task TEXT NOT NULL,
-                    final_answer TEXT,
-                    consensus_reached INTEGER,
-                    confidence REAL,
-                    rounds_used INTEGER,
-                    duration_seconds REAL,
-                    grounded_verdict TEXT,  -- JSON: evidence, citations, grounding score
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-
-                -- Critiques table (includes Titans/MIRAS prediction tracking)
-                CREATE TABLE IF NOT EXISTS critiques (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    debate_id TEXT,
-                    agent TEXT NOT NULL,
-                    target_agent TEXT,
-                    issues TEXT,  -- JSON array
-                    suggestions TEXT,  -- JSON array
-                    severity REAL,
-                    reasoning TEXT,
-                    led_to_improvement INTEGER DEFAULT 0,
-                    expected_usefulness REAL DEFAULT 0.5,
-                    actual_usefulness REAL,
-                    prediction_error REAL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (debate_id) REFERENCES debates(id)
-                );
-
-                -- Patterns table (includes Titans/MIRAS surprise scoring)
-                CREATE TABLE IF NOT EXISTS patterns (
-                    id TEXT PRIMARY KEY,
-                    issue_type TEXT NOT NULL,
-                    issue_text TEXT NOT NULL,
-                    suggestion_text TEXT,
-                    success_count INTEGER DEFAULT 0,
-                    failure_count INTEGER DEFAULT 0,
-                    avg_severity REAL DEFAULT 0.5,
-                    surprise_score REAL DEFAULT 0.0,
-                    base_rate REAL DEFAULT 0.5,
-                    avg_prediction_error REAL DEFAULT 0.0,
-                    prediction_count INTEGER DEFAULT 0,
-                    example_task TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-
-                -- Pattern embeddings for semantic search (optional, for future)
-                CREATE TABLE IF NOT EXISTS pattern_embeddings (
-                    pattern_id TEXT PRIMARY KEY,
-                    embedding BLOB,
-                    FOREIGN KEY (pattern_id) REFERENCES patterns(id)
-                );
-
-                -- Agent reputation tracking (includes Titans/MIRAS calibration)
-                CREATE TABLE IF NOT EXISTS agent_reputation (
-                    agent_name TEXT PRIMARY KEY,
-                    proposals_made INTEGER DEFAULT 0,
-                    proposals_accepted INTEGER DEFAULT 0,
-                    critiques_given INTEGER DEFAULT 0,
-                    critiques_valuable INTEGER DEFAULT 0,
-                    total_predictions INTEGER DEFAULT 0,
-                    total_prediction_error REAL DEFAULT 0.0,
-                    calibration_score REAL DEFAULT 0.5,
-                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-
-                -- Patterns archive table for adaptive forgetting
-                CREATE TABLE IF NOT EXISTS patterns_archive (
-                    id TEXT,
-                    issue_type TEXT,
-                    issue_text TEXT,
-                    suggestion_text TEXT,
-                    success_count INTEGER,
-                    failure_count INTEGER,
-                    avg_severity REAL,
-                    surprise_score REAL,
-                    example_task TEXT,
-                    created_at TEXT,
-                    updated_at TEXT,
-                    archived_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-
-                -- Indexes
-                CREATE INDEX IF NOT EXISTS idx_critiques_debate ON critiques(debate_id);
-                CREATE INDEX IF NOT EXISTS idx_patterns_type ON patterns(issue_type);
-                CREATE INDEX IF NOT EXISTS idx_patterns_success ON patterns(success_count DESC);
-                -- Composite index for filtered retrieval by type with success ranking
-                CREATE INDEX IF NOT EXISTS idx_patterns_type_success ON patterns(issue_type, success_count DESC);
-                -- Composite index for time-decayed ranking queries
-                CREATE INDEX IF NOT EXISTS idx_patterns_success_updated ON patterns(success_count DESC, updated_at DESC);
-                CREATE INDEX IF NOT EXISTS idx_reputation_score ON agent_reputation(proposals_accepted DESC);
-                CREATE INDEX IF NOT EXISTS idx_reputation_agent ON agent_reputation(agent_name);
-            """
-
-            # Apply schema (creates tables for new DBs, tracks version for existing)
-            manager.ensure_schema(initial_schema=initial_schema)
-
-            # For existing databases that predate SchemaManager, ensure columns exist
+    def _post_init(self) -> None:
+        """Backfill columns for legacy critique store databases."""
+        with self.connection() as conn:
             # safe_add_column is idempotent (no-op if column already exists)
             for col_name, col_type, default in [
                 ("surprise_score", "REAL", "0.0"),
@@ -288,7 +266,7 @@ class CritiqueStore:
 
     def store_debate(self, result: DebateResult) -> None:
         """Store a complete debate result."""
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Serialize grounded_verdict if present
@@ -349,7 +327,7 @@ class CritiqueStore:
 
     def store_pattern(self, critique: Critique, successful_fix: str) -> None:
         """Store a successful critique pattern."""
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             for issue in critique.issues:
@@ -426,7 +404,7 @@ class CritiqueStore:
         with matching issue text did NOT lead to improvement.
         Implements Titans/MIRAS failure tracking for balanced learning.
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Create pattern ID from issue hash (same as store_pattern)
@@ -469,7 +447,7 @@ class CritiqueStore:
         Returns:
             Prediction error (|expected - actual|)
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Get expected usefulness
@@ -622,7 +600,7 @@ class CritiqueStore:
         - More surprising patterns (unexpected successes)
         - Recent patterns (time-decay)
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Build query with Titans/MIRAS-inspired ranking
@@ -672,7 +650,7 @@ class CritiqueStore:
         # Ensure tables exist
         self._init_db()
 
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Consolidated query: All counts and averages in one query using subqueries
@@ -712,7 +690,7 @@ class CritiqueStore:
         Returns:
             List of training data dictionaries
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -746,7 +724,7 @@ class CritiqueStore:
     @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_REPUTATION, key_prefix="agent_reputation", skip_first=True)
     def get_reputation(self, agent_name: str) -> Optional[AgentReputation]:
         """Get reputation for an agent."""
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -800,7 +778,7 @@ class CritiqueStore:
         if not agent_names:
             return {}
 
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Build placeholders for IN clause
@@ -872,7 +850,7 @@ class CritiqueStore:
         Uses a whitelist of allowed column updates to prevent SQL injection.
         Only boolean flags corresponding to _REPUTATION_INCREMENTS keys are processed.
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Ensure agent exists
@@ -931,7 +909,7 @@ class CritiqueStore:
         Returns:
             List of AgentReputation objects
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -990,7 +968,7 @@ class CritiqueStore:
         Returns:
             Number of patterns pruned
         """
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             if archive:
@@ -1034,7 +1012,7 @@ class CritiqueStore:
     @ttl_cache(ttl_seconds=CACHE_TTL_ARCHIVE_STATS, key_prefix="archive_stats", skip_first=True)
     def get_archive_stats(self) -> dict:
         """Get statistics about archived patterns."""
-        with self._get_connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute("SELECT COUNT(*) FROM patterns_archive")
