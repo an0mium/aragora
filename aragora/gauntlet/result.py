@@ -10,20 +10,13 @@ Combines findings from:
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from typing import Any, Optional
 
-from .config import Verdict, AttackCategory, ProbeCategory
+# Import shared types
+from .types import Verdict, SeverityLevel, RiskSummary as BaseRiskSummary
 
-
-class SeverityLevel(Enum):
-    """Severity levels for findings."""
-
-    CRITICAL = "critical"
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-    INFO = "info"
+# Import categories from config
+from .config import AttackCategory, ProbeCategory
 
 
 @dataclass
@@ -78,40 +71,8 @@ class Vulnerability:
         }
 
 
-@dataclass
-class RiskSummary:
-    """Summary of risk findings by severity."""
-
-    critical: int = 0
-    high: int = 0
-    medium: int = 0
-    low: int = 0
-    info: int = 0
-
-    @property
-    def total(self) -> int:
-        return self.critical + self.high + self.medium + self.low + self.info
-
-    @property
-    def weighted_score(self) -> float:
-        """Weighted risk score (critical=10, high=5, medium=2, low=1)."""
-        return (
-            self.critical * 10 +
-            self.high * 5 +
-            self.medium * 2 +
-            self.low * 1
-        )
-
-    def to_dict(self) -> dict:
-        return {
-            "critical": self.critical,
-            "high": self.high,
-            "medium": self.medium,
-            "low": self.low,
-            "info": self.info,
-            "total": self.total,
-            "weighted_score": self.weighted_score,
-        }
+# Use shared RiskSummary from types.py
+RiskSummary = BaseRiskSummary
 
 
 @dataclass

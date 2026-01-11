@@ -7,6 +7,7 @@ Provides domain-specific attack prompts and compliance checks for:
 - EU AI Act (AI Regulation)
 - Security (Red Team)
 - SOC2 (Trust Services)
+- SOX (Sarbanes-Oxley / Financial Controls)
 - PCI-DSS (Payment Card Industry)
 - NIST CSF (Cybersecurity Framework)
 """
@@ -17,6 +18,7 @@ from .hipaa import HIPAAPersona
 from .ai_act import AIActPersona
 from .security import SecurityPersona
 from .soc2 import SOC2Persona
+from .sox import SOXPersona
 from .pci_dss import PCIDSSPersona
 from .nist_csf import NISTCSFPersona
 
@@ -28,6 +30,7 @@ __all__ = [
     "AIActPersona",
     "SecurityPersona",
     "SOC2Persona",
+    "SOXPersona",
     "PCIDSSPersona",
     "NISTCSFPersona",
     "get_persona",
@@ -40,6 +43,7 @@ PERSONAS = {
     "ai_act": AIActPersona,
     "security": SecurityPersona,
     "soc2": SOC2Persona,
+    "sox": SOXPersona,
     "pci_dss": PCIDSSPersona,
     "pci-dss": PCIDSSPersona,  # Alias with hyphen
     "nist_csf": NISTCSFPersona,

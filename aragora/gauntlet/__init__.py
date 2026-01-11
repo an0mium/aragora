@@ -9,11 +9,15 @@ The Gauntlet orchestrates:
 - Scenario matrix testing (scale, risk, time horizon)
 - Risk aggregation and Decision Receipts
 
+Two orchestration options:
+1. GauntletRunner (this package) - Simple 3-phase runner with templates
+2. GauntletOrchestrator (aragora.modes.gauntlet) - Full 5-phase orchestrator
+
 Usage:
     from aragora.gauntlet import GauntletRunner, GauntletConfig
 
     config = GauntletConfig(
-        attack_types=[AttackCategory.SECURITY, AttackCategory.COMPLIANCE],
+        attack_categories=[AttackCategory.SECURITY, AttackCategory.COMPLIANCE],
         agents=["anthropic-api", "openai-api", "gemini"],
     )
     runner = GauntletRunner(config)
@@ -21,13 +25,40 @@ Usage:
     receipt = result.to_receipt()
 """
 
+# Shared types (canonical source)
+from .types import (
+    InputType,
+    Verdict,
+    SeverityLevel,
+    GauntletSeverity,
+    GauntletPhase,
+    BaseFinding,
+    RiskSummary,
+)
+
+# Config and categories
 from .config import GauntletConfig, AttackCategory, ProbeCategory
-from .result import GauntletResult, Vulnerability, RiskSummary
+
+# Result types
+from .result import GauntletResult, Vulnerability
+from .result import RiskSummary as ResultRiskSummary  # Alias for backward compat
+
+# Runner
 from .runner import GauntletRunner
+
+# Output formats
 from .receipt import DecisionReceipt
 from .heatmap import RiskHeatmap, HeatmapCell
 
 __all__ = [
+    # Shared types (canonical)
+    "InputType",
+    "Verdict",
+    "SeverityLevel",
+    "GauntletSeverity",
+    "GauntletPhase",
+    "BaseFinding",
+    "RiskSummary",
     # Config
     "GauntletConfig",
     "AttackCategory",
@@ -35,7 +66,6 @@ __all__ = [
     # Result
     "GauntletResult",
     "Vulnerability",
-    "RiskSummary",
     # Runner
     "GauntletRunner",
     # Receipt

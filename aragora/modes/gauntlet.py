@@ -21,7 +21,6 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -59,6 +58,9 @@ from aragora.verification.formal import (
     get_formal_verification_manager,
 )
 
+# Import shared types from aragora.gauntlet.types (canonical source)
+from aragora.gauntlet.types import InputType, Verdict, SeverityLevel
+
 # Import personas for compliance-aware stress testing
 try:
     from aragora.gauntlet.personas import RegulatoryPersona, PersonaAttack, get_persona
@@ -86,24 +88,8 @@ class GauntletProgress:
 # Type for progress callback
 ProgressCallback = Callable[[GauntletProgress], None]
 
-
-class InputType(Enum):
-    """Types of inputs that can be stress-tested."""
-    SPEC = "spec"  # Product/feature specification
-    ARCHITECTURE = "architecture"  # System architecture document
-    POLICY = "policy"  # Policy or compliance document
-    CODE = "code"  # Source code
-    STRATEGY = "strategy"  # Business strategy
-    CONTRACT = "contract"  # Legal contract
-    CUSTOM = "custom"  # Custom input type
-
-
-class Verdict(Enum):
-    """Final verdict from Gauntlet analysis."""
-    APPROVED = "approved"  # Safe to proceed
-    APPROVED_WITH_CONDITIONS = "approved_with_conditions"  # Proceed with mitigations
-    NEEDS_REVIEW = "needs_review"  # Requires human review
-    REJECTED = "rejected"  # Do not proceed
+# InputType and Verdict are imported from aragora.gauntlet.types (canonical source)
+# This ensures consistency across the gauntlet system
 
 
 @dataclass
@@ -556,15 +542,22 @@ class GauntletOrchestrator:
 
         # 3. Aggregate and score
         logger.info("--- Phase 3: Aggregation ---")
+        self._emit_progress("Aggregation", 3, 3, 80, "Filtering and scoring findings...")
 
         # Filter findings by threshold
         all_findings = [f for f in all_findings if f.severity >= config.severity_threshold]
+        self._findings_count = len(all_findings)
 
         # Sort into severity buckets
         critical = [f for f in all_findings if f.severity >= 0.9]
         high = [f for f in all_findings if 0.7 <= f.severity < 0.9]
         medium = [f for f in all_findings if 0.4 <= f.severity < 0.7]
         low = [f for f in all_findings if f.severity < 0.4]
+
+        self._emit_progress(
+            "Aggregation", 3, 3, 85,
+            f"Categorized: {len(critical)} critical, {len(high)} high, {len(medium)} medium"
+        )
 
         # Calculate aggregate scores
         risk_score = self._calculate_risk_score(all_findings, risk_assessments)
@@ -577,11 +570,20 @@ class GauntletOrchestrator:
             if (verified_claims or unverified_claims) else 0.0
         )
 
+        self._emit_progress(
+            "Aggregation", 3, 3, 90,
+            f"Scores: risk={risk_score:.0%}, robustness={robustness_score:.0%}"
+        )
+
         # Determine verdict
         verdict, confidence = self._determine_verdict(
             critical, high, medium,
             risk_score, robustness_score,
             dissenting_views
+        )
+        self._emit_progress(
+            "Aggregation", 3, 3, 95,
+            f"Verdict: {verdict.value.upper()} ({confidence:.0%} confidence)"
         )
 
         # Build result
@@ -615,6 +617,11 @@ class GauntletOrchestrator:
         )
 
         logger.info(f"\n{result.summary()}")
+
+        self._emit_progress(
+            "Complete", 3, 3, 100,
+            f"Gauntlet complete: {result.total_findings} findings, {verdict.value.upper()}"
+        )
 
         return result
 
@@ -1158,3 +1165,4 @@ GDPR_GAUNTLET = get_compliance_gauntlet("gdpr") if PERSONAS_AVAILABLE else None
 HIPAA_GAUNTLET = get_compliance_gauntlet("hipaa") if PERSONAS_AVAILABLE else None
 AI_ACT_GAUNTLET = get_compliance_gauntlet("ai_act") if PERSONAS_AVAILABLE else None
 SECURITY_GAUNTLET = get_compliance_gauntlet("security") if PERSONAS_AVAILABLE else None
+SOX_GAUNTLET = get_compliance_gauntlet("sox") if PERSONAS_AVAILABLE else None

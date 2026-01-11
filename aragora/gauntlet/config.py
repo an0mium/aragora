@@ -8,6 +8,14 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
+# Import shared types from types.py
+from .types import (
+    Verdict,
+    SeverityLevel,
+    GauntletPhase,
+    GauntletSeverity,  # Alias for SeverityLevel
+)
+
 
 class AttackCategory(Enum):
     """Categories of adversarial attacks to run."""
@@ -61,38 +69,6 @@ class ProbeCategory(Enum):
     EDGE_CASE = "edge_case"
     INSTRUCTION_INJECTION = "instruction_injection"
     CAPABILITY_EXAGGERATION = "capability_exaggeration"
-
-
-class Verdict(Enum):
-    """Gauntlet verdict outcomes."""
-
-    PASS = "pass"
-    CONDITIONAL = "conditional"
-    FAIL = "fail"
-
-
-class GauntletPhase(Enum):
-    """Phases of the Gauntlet validation pipeline."""
-
-    NOT_STARTED = "not_started"
-    RISK_ASSESSMENT = "risk_assessment"
-    SCENARIO_ANALYSIS = "scenario_analysis"
-    ADVERSARIAL_PROBING = "adversarial_probing"
-    FORMAL_VERIFICATION = "formal_verification"
-    DEEP_AUDIT = "deep_audit"
-    SYNTHESIS = "synthesis"
-    COMPLETE = "complete"
-    FAILED = "failed"
-
-
-class GauntletSeverity(Enum):
-    """Severity levels for Gauntlet findings."""
-
-    CRITICAL = "critical"
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-    INFO = "info"
 
 
 @dataclass
