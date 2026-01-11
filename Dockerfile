@@ -26,9 +26,9 @@ RUN groupadd --gid 1000 aragora && \
 COPY pyproject.toml README.md ./
 COPY aragora/ ./aragora/
 
-# Install Python dependencies from pyproject
+# Install Python dependencies from pyproject with observability and redis
 RUN pip install --upgrade pip && \
-    pip install .
+    pip install ".[observability,redis]"
 
 # Copy application code extras
 COPY scripts/ ./scripts/
@@ -44,8 +44,10 @@ USER aragora
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/api/health || exit 1
 
-# Expose port
-EXPOSE 8080
+# Expose ports
+# 8080: HTTP API server
+# 9090: Prometheus metrics
+EXPOSE 8080 9090
 
 # Default command
 CMD ["python", "-m", "aragora.server.unified_server", "--host", "0.0.0.0", "--port", "8080"]

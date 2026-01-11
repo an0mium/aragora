@@ -1,0 +1,77 @@
+# Aragora Ingress
+# Kubernetes ingress manifest for external access
+#
+# Usage:
+#   kubectl apply -f ingress.yaml
+#
+# Prerequisites:
+#   - Nginx Ingress Controller installed
+#   - TLS certificate configured (cert-manager recommended)
+#   - DNS configured for your domain
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aragora-ingress
+  labels:
+    app: aragora
+  annotations:
+    # Nginx ingress annotations
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    # WebSocket support
+    nginx.ingress.kubernetes.io/websocket-services: "aragora-service"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
+    # Rate limiting (adjust as needed)
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-connections: "50"
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+    # TLS (uncomment and configure for production)
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  # TLS configuration (uncomment for production)
+  # tls:
+  #   - hosts:
+  #       - api.aragora.io
+  #     secretName: aragora-tls
+  rules:
+    - host: api.aragora.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aragora-service
+                port:
+                  name: http
+---
+# Internal ingress for metrics (optional)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aragora-metrics-ingress
+  labels:
+    app: aragora
+  annotations:
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: metrics.aragora.internal
+      http:
+        paths:
+          - path: /metrics
+            pathType: Prefix
+            backend:
+              service:
+                name: aragora-service
+                port:
+                  name: metrics

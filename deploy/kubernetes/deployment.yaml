@@ -28,7 +28,7 @@ spec:
         app.kubernetes.io/component: server
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
+        prometheus.io/port: "9090"
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: aragora
@@ -47,6 +47,25 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+
+          env:
+            # OpenTelemetry configuration
+            - name: OTEL_ENABLED
+              value: "true"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://jaeger-collector.observability:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "aragora"
+            - name: OTEL_SAMPLE_RATE
+              value: "0.1"
+            # Prometheus metrics
+            - name: METRICS_ENABLED
+              value: "true"
+            - name: METRICS_PORT
+              value: "9090"
 
           envFrom:
             - configMapRef:
