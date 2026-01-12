@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from aragora.agents.grounded import MomentDetector  # type: ignore[attr-defined]
     from aragora.storage import UserStore
     from aragora.billing.usage import UsageTracker
+    from aragora.server.middleware.rate_limit import RateLimitResult
 from urllib.parse import urlparse, parse_qs
 
 from .stream import DebateStreamServer, SyncEventEmitter, StreamEvent, StreamEventType, create_arena_hooks
@@ -280,6 +281,10 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     _request_log_enabled = True  # Can be disabled via environment
     _slow_request_threshold_ms = 1000  # Log warning for requests slower than this
 
+    # Per-request rate limit result (set by _check_tier_rate_limit)
+    # Used to include X-RateLimit-* headers in all responses
+    _rate_limit_result: Optional["RateLimitResult"] = None
+
     def _log_request(self, method: str, path: str, status: int, duration_ms: float, extra: dict = None) -> None:
         """Log request details for observability.
 
@@ -444,10 +449,14 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         Returns True if allowed, False if blocked.
         Sends 429 error response if rate limited.
+        Also stores the result for inclusion in response headers.
         """
         from aragora.server.middleware.rate_limit import check_tier_rate_limit, rate_limit_headers
 
         result = check_tier_rate_limit(self, UnifiedHandler.user_store)
+
+        # Store result for response headers (used by _add_rate_limit_headers)
+        self._rate_limit_result = result
 
         if not result.allowed:
             headers = rate_limit_headers(result)
@@ -664,6 +673,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
     def do_GET(self) -> None:
         """Handle GET requests."""
+        self._rate_limit_result = None  # Reset per-request state
         start_time = time.time()
         status_code = 200  # Default, updated by handlers
         parsed = urlparse(self.path)
@@ -770,6 +780,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
     def do_POST(self) -> None:
         """Handle POST requests."""
+        self._rate_limit_result = None  # Reset per-request state
         start_time = time.time()
         status_code = 200  # Default, updated by handlers
         parsed = urlparse(self.path)
@@ -818,6 +829,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
     def do_DELETE(self) -> None:
         """Handle DELETE requests."""
+        self._rate_limit_result = None  # Reset per-request state
         start_time = time.time()
         status_code = 200  # Default, updated by handlers
         parsed = urlparse(self.path)
@@ -1111,8 +1123,24 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         self.send_header('Content-Length', str(len(content)))
         self._add_cors_headers()
         self._add_security_headers()
+        self._add_rate_limit_headers()
         self.end_headers()
         self.wfile.write(content)
+
+    def _add_rate_limit_headers(self) -> None:
+        """Add rate limit headers to response.
+
+        Includes X-RateLimit-Limit, X-RateLimit-Remaining, and X-RateLimit-Reset
+        headers if a rate limit check was performed for this request.
+        """
+        result = getattr(self, '_rate_limit_result', None)
+        if result is None:
+            return
+
+        from aragora.server.middleware.rate_limit import rate_limit_headers
+        headers = rate_limit_headers(result)
+        for name, value in headers.items():
+            self.send_header(name, value)
 
     def _add_security_headers(self) -> None:
         """Add security headers to prevent common attacks."""

@@ -2,61 +2,21 @@
 Rate limit enforcement security tests.
 
 Verifies that rate limiting cannot be bypassed through various techniques.
-Uses standalone implementations to test security patterns independently.
 """
 
 import threading
 import time
 import pytest
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
-
-# =============================================================================
-# Simple Token Bucket for Testing Patterns
-# =============================================================================
-
-
-class SimpleTokenBucket:
-    """Simple token bucket rate limiter for testing security patterns."""
-
-    def __init__(self, rate_per_minute: float, burst_multiplier: float = 1.0):
-        self.rate_per_minute = rate_per_minute
-        self.burst_capacity = rate_per_minute * burst_multiplier
-        self._tokens = self.burst_capacity
-        self._last_refill = time.monotonic()
-        self._lock = threading.Lock()
-
-    def try_acquire(self, amount: int = 1) -> bool:
-        """Attempt to acquire tokens. Returns True if successful."""
-        with self._lock:
-            self._refill()
-
-            # Reject negative amounts (security check)
-            if amount < 0:
-                return False
-
-            if self._tokens >= amount:
-                self._tokens -= amount
-                return True
-            return False
-
-    def _refill(self):
-        """Refill tokens based on elapsed time."""
-        now = time.monotonic()
-        elapsed_minutes = (now - self._last_refill) / 60.0
-        refill_amount = elapsed_minutes * self.rate_per_minute
-
-        # Cap at burst capacity (prevent overflow)
-        self._tokens = min(self.burst_capacity, self._tokens + refill_amount)
-        self._last_refill = now
-
-    def get_retry_after(self) -> float:
-        """Get seconds until a token is available."""
-        if self._tokens >= 1:
-            return 0
-        tokens_needed = 1 - self._tokens
-        minutes_needed = tokens_needed / self.rate_per_minute
-        return minutes_needed * 60
+from aragora.server.middleware.rate_limit import (
+    TokenBucket,
+    RateLimiter,
+    rate_limit_headers,
+    normalize_rate_limit_path,
+    sanitize_rate_limit_key_component,
+)
 
 
 # =============================================================================
@@ -69,60 +29,60 @@ class TestRateLimiterBypassPrevention:
 
     def test_blocks_after_limit_exhausted(self):
         """Rate limiter should block requests after limit is reached."""
-        limiter = SimpleTokenBucket(rate_per_minute=5, burst_multiplier=1.0)
+        limiter = TokenBucket(rate_per_minute=5, burst_size=5)
 
         # Exhaust the limit
         for _ in range(5):
-            assert limiter.try_acquire() is True
+            assert limiter.consume() is True
 
         # Next request should be blocked
-        assert limiter.try_acquire() is False
+        assert limiter.consume() is False
 
     def test_blocks_burst_after_exhausted(self):
         """Burst capacity should also eventually be blocked."""
-        limiter = SimpleTokenBucket(rate_per_minute=5, burst_multiplier=2.0)
+        limiter = TokenBucket(rate_per_minute=5, burst_size=10)
 
         # Exhaust limit including burst (5 * 2 = 10)
         for _ in range(10):
-            limiter.try_acquire()
+            limiter.consume()
 
         # Should be blocked
-        assert limiter.try_acquire() is False
+        assert limiter.consume() is False
 
     def test_time_based_recovery(self):
         """Tokens should recover over time."""
-        limiter = SimpleTokenBucket(rate_per_minute=60, burst_multiplier=1.0)
+        limiter = TokenBucket(rate_per_minute=60, burst_size=60)
 
         # Exhaust limit
         for _ in range(60):
-            limiter.try_acquire()
+            limiter.consume()
 
-        assert limiter.try_acquire() is False
+        assert limiter.consume() is False
 
         # Simulate time passing (1 second = 1 token at 60/min)
-        limiter._last_refill -= 1.0
-        assert limiter.try_acquire() is True
+        limiter.last_refill -= 1.0
+        assert limiter.consume() is True
 
     def test_cannot_bypass_with_negative_amount(self):
         """Negative acquire amounts should not add tokens."""
-        limiter = SimpleTokenBucket(rate_per_minute=5, burst_multiplier=1.0)
+        limiter = TokenBucket(rate_per_minute=5, burst_size=5)
 
-        initial_tokens = limiter._tokens
+        initial_tokens = limiter.tokens
 
         # Try to bypass with negative amount - should be rejected
-        result = limiter.try_acquire(amount=-100)
+        result = limiter.consume(tokens=-100)
         assert result is False
 
         # Tokens should not have increased
-        assert limiter._tokens <= initial_tokens
+        assert limiter.tokens <= initial_tokens
 
     def test_concurrent_access_safety(self):
         """Concurrent access should not exceed limits."""
-        limiter = SimpleTokenBucket(rate_per_minute=10, burst_multiplier=1.0)
+        limiter = TokenBucket(rate_per_minute=10, burst_size=10)
         successes = []
 
         def attempt():
-            return limiter.try_acquire()
+            return limiter.consume()
 
         threads = []
         for _ in range(50):
@@ -139,16 +99,16 @@ class TestRateLimiterBypassPrevention:
 
     def test_token_overflow_prevention(self):
         """Tokens should not overflow beyond burst capacity."""
-        limiter = SimpleTokenBucket(rate_per_minute=10, burst_multiplier=2.0)
+        limiter = TokenBucket(rate_per_minute=10, burst_size=20)
 
         # Simulate long time passing to accumulate tokens
-        limiter._last_refill -= 3600  # 1 hour ago
+        limiter.last_refill -= 3600  # 1 hour ago
 
         # Trigger refill
-        limiter.try_acquire()
+        limiter.consume()
 
         # Should cap at burst capacity (10 * 2 = 20)
-        assert limiter._tokens <= 20
+        assert limiter.tokens <= 20
 
 
 # =============================================================================
@@ -165,48 +125,33 @@ class TestIPRateLimitBypass:
 
         def get_limiter(ip):
             if ip not in limiters:
-                limiters[ip] = SimpleTokenBucket(rate_per_minute=5, burst_multiplier=1.0)
+                limiters[ip] = TokenBucket(rate_per_minute=5, burst_size=5)
             return limiters[ip]
 
         # IP 1 exhausts limit
         limiter1 = get_limiter("192.168.1.1")
         for _ in range(5):
-            limiter1.try_acquire()
-        assert limiter1.try_acquire() is False
+            limiter1.consume()
+        assert limiter1.consume() is False
 
         # IP 2 should still have capacity
         limiter2 = get_limiter("192.168.1.2")
-        assert limiter2.try_acquire() is True
+        assert limiter2.consume() is True
 
     def test_spoofed_xff_header_ignored_when_untrusted(self):
         """X-Forwarded-For should be ignored from untrusted sources."""
-        def extract_client_ip(headers, trusted_proxies=None):
-            trusted_proxies = trusted_proxies or []
-            xff = headers.get("X-Forwarded-For", "")
+        limiter = RateLimiter()
+        handler = SimpleNamespace(
+            headers={"X-Forwarded-For": "10.0.0.1"},
+            client_address=("192.168.1.100", 12345),
+        )
 
-            # If not from trusted proxy, use direct connection IP
-            remote_ip = headers.get("REMOTE_ADDR", "127.0.0.1")
-            if remote_ip not in trusted_proxies:
-                return remote_ip
+        # Untrusted proxy - ignore XFF
+        assert limiter.get_client_key(handler) == "192.168.1.100"
 
-            # Only trust XFF from known proxies
-            if xff:
-                return xff.split(",")[0].strip()
-            return remote_ip
-
-        # Attacker tries to spoof XFF
-        headers = {
-            "X-Forwarded-For": "10.0.0.1",
-            "REMOTE_ADDR": "192.168.1.100",
-        }
-
-        # Without trusted proxies, should return actual IP
-        ip = extract_client_ip(headers, trusted_proxies=[])
-        assert ip == "192.168.1.100"
-
-        # With trusted proxy, should use XFF
-        ip = extract_client_ip(headers, trusted_proxies=["192.168.1.100"])
-        assert ip == "10.0.0.1"
+        # Trusted proxy - use XFF
+        handler.client_address = ("127.0.0.1", 12345)
+        assert limiter.get_client_key(handler) == "10.0.0.1"
 
     def test_ipv6_and_ipv4_treated_separately(self):
         """IPv6 and IPv4 addresses should be tracked separately."""
@@ -214,7 +159,7 @@ class TestIPRateLimitBypass:
 
         def get_limiter(ip):
             if ip not in limiters:
-                limiters[ip] = SimpleTokenBucket(rate_per_minute=5, burst_multiplier=1.0)
+                limiters[ip] = TokenBucket(rate_per_minute=5, burst_size=5)
             return limiters[ip]
 
         ipv4 = "192.168.1.1"
@@ -228,23 +173,14 @@ class TestIPRateLimitBypass:
 
     def test_normalized_ipv6_addresses(self):
         """IPv6 addresses should be normalized before rate limiting."""
-        def normalize_ipv6(ip: str) -> str:
-            """Normalize IPv6 address to prevent bypass."""
-            import ipaddress
-
-            try:
-                addr = ipaddress.ip_address(ip)
-                if isinstance(addr, ipaddress.IPv6Address):
-                    return str(addr)  # Normalized form
-                return ip
-            except ValueError:
-                return ip
-
-        # Different representations of same address
+        limiter = RateLimiter()
         full = "2001:0db8:0000:0000:0000:0000:0000:0001"
         short = "2001:db8::1"
 
-        assert normalize_ipv6(full) == normalize_ipv6(short)
+        handler_full = SimpleNamespace(headers={}, client_address=(full, 12345))
+        handler_short = SimpleNamespace(headers={}, client_address=(short, 12345))
+
+        assert limiter.get_client_key(handler_full) == limiter.get_client_key(handler_short)
 
 
 # =============================================================================
@@ -344,9 +280,8 @@ class TestDistributedRateLimitBypass:
     def test_redis_key_injection_prevention(self):
         """Redis keys should be sanitized to prevent injection."""
         def safe_rate_limit_key(org_id: str, endpoint: str) -> str:
-            # Sanitize inputs
-            safe_org = org_id.replace(":", "_").replace("\n", "")
-            safe_endpoint = endpoint.replace(":", "_").replace("\n", "")
+            safe_org = sanitize_rate_limit_key_component(org_id)
+            safe_endpoint = normalize_rate_limit_path(endpoint)
             return f"aragora:ratelimit:{safe_org}:{safe_endpoint}"
 
         # Normal inputs
@@ -382,36 +317,17 @@ class TestEndpointRateLimitBypass:
 
     def test_path_normalization_prevents_bypass(self):
         """Path normalization should prevent bypass via URL tricks."""
-        from urllib.parse import unquote
-        import posixpath
-
-        def normalize_path(path):
-            # Remove trailing slashes
-            path = path.rstrip("/")
-            # Remove double slashes
-            while "//" in path:
-                path = path.replace("//", "/")
-            # Decode URL encoding
-            path = unquote(path)
-            # Normalize path (handles ../ and ./)
-            path = posixpath.normpath(path)
-            return path
-
         # These should all normalize to same path
-        assert normalize_path("/api/debates") == "/api/debates"
-        assert normalize_path("/api/debates/") == "/api/debates"
-        assert normalize_path("/api//debates") == "/api/debates"
-        assert normalize_path("/api/debates/../debates") == "/api/debates"
-        assert normalize_path("/api/%64ebates") == "/api/debates"
+        assert normalize_rate_limit_path("/api/debates") == "/api/debates"
+        assert normalize_rate_limit_path("/api/debates/") == "/api/debates"
+        assert normalize_rate_limit_path("/api//debates") == "/api/debates"
+        assert normalize_rate_limit_path("/api/debates/../debates") == "/api/debates"
+        assert normalize_rate_limit_path("/api/%64ebates") == "/api/debates"
 
     def test_case_sensitivity_handling(self):
         """Path matching should handle case consistently."""
-        def normalize_for_rate_limit(path: str) -> str:
-            # Lowercase for rate limiting (case-insensitive matching)
-            return path.lower().rstrip("/")
-
-        assert normalize_for_rate_limit("/API/Debates") == "/api/debates"
-        assert normalize_for_rate_limit("/api/DEBATES/") == "/api/debates"
+        assert normalize_rate_limit_path("/API/Debates") == "/api/debates"
+        assert normalize_rate_limit_path("/api/DEBATES/") == "/api/debates"
 
 
 # =============================================================================
@@ -424,11 +340,11 @@ class TestRateLimitHeaders:
 
     def test_retry_after_header_accurate(self):
         """Retry-After header should be accurate."""
-        limiter = SimpleTokenBucket(rate_per_minute=60, burst_multiplier=1.0)
+        limiter = TokenBucket(rate_per_minute=60, burst_size=60)
 
         # Exhaust limit
         for _ in range(60):
-            limiter.try_acquire()
+            limiter.consume()
 
         # Calculate retry after
         retry_after = limiter.get_retry_after()
@@ -438,13 +354,13 @@ class TestRateLimitHeaders:
 
     def test_remaining_count_not_negative(self):
         """Remaining count should never be negative."""
-        limiter = SimpleTokenBucket(rate_per_minute=5, burst_multiplier=1.0)
+        limiter = TokenBucket(rate_per_minute=5, burst_size=5)
 
         # Exhaust limit
         for _ in range(10):  # More than limit
-            limiter.try_acquire()
+            limiter.consume()
 
-        remaining = max(0, int(limiter._tokens))
+        remaining = max(0, int(limiter.tokens))
         assert remaining >= 0
 
     def test_limit_header_matches_tier(self):
@@ -461,14 +377,9 @@ class TestRateLimitHeaders:
 
     def test_headers_not_expose_internals(self):
         """Rate limit headers should not expose sensitive info."""
-        def generate_rate_limit_headers(remaining: int, limit: int, reset: int) -> dict:
-            return {
-                "X-RateLimit-Limit": str(limit),
-                "X-RateLimit-Remaining": str(max(0, remaining)),
-                "X-RateLimit-Reset": str(reset),
-            }
-
-        headers = generate_rate_limit_headers(5, 100, 1704067200)
+        headers = rate_limit_headers(
+            type("Result", (), {"limit": 100, "remaining": 5, "retry_after": 10})()
+        )
 
         # Should not contain internal details
         assert "token" not in str(headers).lower()
@@ -487,28 +398,28 @@ class TestRateLimitPersistence:
     def test_server_restart_resets_in_memory_limits(self):
         """In-memory rate limits should reset on restart (acceptable behavior)."""
         # In-memory limiter
-        limiter1 = SimpleTokenBucket(rate_per_minute=5, burst_multiplier=1.0)
+        limiter1 = TokenBucket(rate_per_minute=5, burst_size=5)
         for _ in range(5):
-            limiter1.try_acquire()
-        assert limiter1.try_acquire() is False
+            limiter1.consume()
+        assert limiter1.consume() is False
 
         # Simulate restart - new limiter instance
-        limiter2 = SimpleTokenBucket(rate_per_minute=5, burst_multiplier=1.0)
-        assert limiter2.try_acquire() is True  # Fresh start
+        limiter2 = TokenBucket(rate_per_minute=5, burst_size=5)
+        assert limiter2.consume() is True  # Fresh start
 
     def test_window_expiry_correct(self):
         """Rate limit windows should expire correctly."""
-        limiter = SimpleTokenBucket(rate_per_minute=60, burst_multiplier=1.0)
+        limiter = TokenBucket(rate_per_minute=60, burst_size=60)
 
         # Record current state
-        initial_tokens = limiter._tokens
+        initial_tokens = limiter.tokens
 
         # Simulate 2 minutes passing
-        limiter._last_refill -= 120
+        limiter.last_refill -= 120
 
         # Should have recovered tokens
-        limiter.try_acquire()  # Trigger refill
-        assert limiter._tokens >= initial_tokens - 1
+        limiter.consume()  # Trigger refill
+        assert limiter.tokens >= initial_tokens - 1
 
 
 # =============================================================================
@@ -586,3 +497,63 @@ class TestSlidingWindowRateLimiting:
         # Now should allow one more
         assert limiter.allow() is True
         assert limiter.allow() is False  # Back to limit
+
+
+# =============================================================================
+# Rate Limit Headers Tests
+# =============================================================================
+
+
+class TestRateLimitHeaders:
+    """Test rate limit headers generation."""
+
+    def test_rate_limit_headers_allowed(self):
+        """Headers should include limit and remaining when allowed."""
+        from aragora.server.middleware.rate_limit import RateLimitResult
+
+        result = RateLimitResult(allowed=True, remaining=8, limit=10, retry_after=0)
+        headers = rate_limit_headers(result)
+
+        assert headers["X-RateLimit-Limit"] == "10"
+        assert headers["X-RateLimit-Remaining"] == "8"
+        assert "Retry-After" not in headers
+        assert "X-RateLimit-Reset" not in headers
+
+    def test_rate_limit_headers_blocked(self):
+        """Headers should include retry info when blocked."""
+        from aragora.server.middleware.rate_limit import RateLimitResult
+
+        result = RateLimitResult(allowed=False, remaining=0, limit=10, retry_after=30.5)
+        headers = rate_limit_headers(result)
+
+        assert headers["X-RateLimit-Limit"] == "10"
+        assert headers["X-RateLimit-Remaining"] == "0"
+        assert headers["Retry-After"] == "31"  # Rounded up
+        assert "X-RateLimit-Reset" in headers
+
+    def test_rate_limit_headers_zero_remaining(self):
+        """Headers should work with zero remaining."""
+        from aragora.server.middleware.rate_limit import RateLimitResult
+
+        result = RateLimitResult(allowed=True, remaining=0, limit=10, retry_after=0)
+        headers = rate_limit_headers(result)
+
+        assert headers["X-RateLimit-Limit"] == "10"
+        assert headers["X-RateLimit-Remaining"] == "0"
+
+
+class TestUnifiedHandlerRateLimitHeaders:
+    """Test rate limit headers in UnifiedHandler responses."""
+
+    def test_handler_has_rate_limit_result_attribute(self):
+        """UnifiedHandler should have _rate_limit_result attribute."""
+        from aragora.server.unified_server import UnifiedHandler
+
+        assert hasattr(UnifiedHandler, '_rate_limit_result')
+
+    def test_handler_has_add_rate_limit_headers_method(self):
+        """UnifiedHandler should have _add_rate_limit_headers method."""
+        from aragora.server.unified_server import UnifiedHandler
+
+        assert hasattr(UnifiedHandler, '_add_rate_limit_headers')
+        assert callable(getattr(UnifiedHandler, '_add_rate_limit_headers'))
