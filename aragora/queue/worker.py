@@ -16,6 +16,7 @@ import signal
 import time
 from typing import Any, Callable, Coroutine, Dict, Optional
 
+from aragora.exceptions import InfrastructureError
 from aragora.queue.base import Job, JobQueue, JobStatus
 from aragora.queue.config import get_queue_config
 from aragora.queue.retry import RetryPolicy, is_retryable_error
@@ -307,7 +308,7 @@ async def create_default_executor() -> DebateExecutor:
             from aragora.debate.orchestrator import Arena
             from aragora.core import Environment, DebateProtocol
         except ImportError as e:
-            raise RuntimeError(f"Debate infrastructure not available: {e}")
+            raise InfrastructureError(f"Debate infrastructure not available: {e}")
 
         # Create environment and protocol
         env = Environment(task=payload.question)

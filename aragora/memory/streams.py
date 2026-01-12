@@ -19,6 +19,7 @@ from typing import Optional, TYPE_CHECKING
 import hashlib
 
 from aragora.config import DB_MEMORY_PATH, DB_TIMEOUT_SECONDS
+from aragora.exceptions import ConfigurationError
 from aragora.memory.database import MemoryDatabase
 from aragora.utils.async_utils import run_async
 from aragora.utils.json_helpers import safe_json_loads
@@ -78,7 +79,10 @@ def _get_cached_embedding(content: str) -> tuple[float, ...]:
     """
     provider = get_embedding_provider()
     if provider is None:
-        raise RuntimeError("Embedding provider not initialized")
+        raise ConfigurationError(
+            component="EmbeddingProvider",
+            reason="Provider not initialized. Call set_embedding_provider() first"
+        )
     # Use run_async() for safe sync/async bridging
     result = run_async(provider.embed(content))
     return tuple(result)

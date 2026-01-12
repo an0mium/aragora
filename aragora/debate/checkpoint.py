@@ -34,6 +34,7 @@ SAFE_CHECKPOINT_ID = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$')
 logger = logging.getLogger(__name__)
 
 from aragora.core import Message, Vote, DebateResult, Critique
+from aragora.exceptions import ConfigurationError
 
 
 class CheckpointStatus(Enum):
@@ -365,7 +366,10 @@ class S3CheckpointStore(CheckpointStore):
                 import boto3
                 self._client = boto3.client("s3", region_name=self.region)
             except ImportError:
-                raise RuntimeError("boto3 required for S3CheckpointStore")
+                raise ConfigurationError(
+                    component="S3CheckpointStore",
+                    reason="boto3 required but not installed. Run: pip install boto3"
+                )
         return self._client
 
     def _get_key(self, checkpoint_id: str) -> str:

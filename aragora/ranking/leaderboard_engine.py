@@ -17,6 +17,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import ELO_INITIAL_RATING
+from aragora.exceptions import ConfigurationError
 from aragora.utils.json_helpers import safe_json_loads
 
 if TYPE_CHECKING:
@@ -98,7 +99,10 @@ class LeaderboardEngine:
             List of AgentRating sorted by ELO (highest first)
         """
         if not self._rating_factory:
-            raise RuntimeError("rating_factory must be set to create AgentRating objects")
+            raise ConfigurationError(
+                component="LeaderboardEngine",
+                reason="rating_factory must be set to create AgentRating objects"
+            )
 
         with self._db.connection() as conn:
             cursor = conn.cursor()

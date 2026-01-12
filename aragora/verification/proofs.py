@@ -24,6 +24,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Optional
+
+from aragora.exceptions import VerificationError
+
 import ast
 import asyncio
 import hashlib
@@ -314,7 +317,7 @@ def _exec_with_timeout(code: str, namespace: dict, timeout: float = EXEC_TIMEOUT
         error_msg = result.get("error", "Unknown execution error")
         if "AssertionError" in error_msg:
             raise AssertionError(error_msg)
-        raise RuntimeError(error_msg)
+        raise VerificationError(error_msg)
 
     # Parse all namespace variables back
     if result.get("namespace"):

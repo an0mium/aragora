@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import ALLOWED_AGENT_TYPES, MAX_AGENTS_PER_DEBATE
+from aragora.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +191,10 @@ class DebateFactory:
             AgentCreationResult with created agents and failures
         """
         if create_agent is None:
-            raise RuntimeError("create_agent not available - agents module failed to import")
+            raise ConfigurationError(
+                component="DebateFactory",
+                reason="create_agent not available - agents module failed to import"
+            )
 
         result = AgentCreationResult()
 

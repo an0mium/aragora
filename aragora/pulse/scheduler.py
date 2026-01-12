@@ -27,6 +27,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Union
 
+from aragora.exceptions import ConfigurationError
 from aragora.pulse.ingestor import PulseManager, TrendingTopic
 from aragora.pulse.store import ScheduledDebateRecord, ScheduledDebateStore
 
@@ -388,7 +389,10 @@ class PulseDebateScheduler:
             return
 
         if not self._debate_creator:
-            raise RuntimeError("No debate creator set. Call set_debate_creator() first")
+            raise ConfigurationError(
+                component="PulseDebateScheduler",
+                reason="No debate creator set. Call set_debate_creator() first"
+            )
 
         self._state = SchedulerState.RUNNING
         self._stop_event.clear()

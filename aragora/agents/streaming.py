@@ -9,6 +9,8 @@ import json
 import logging
 from typing import AsyncIterator, Any
 
+from aragora.exceptions import StreamingError
+
 logger = logging.getLogger(__name__)
 
 # Maximum buffer size for streaming responses (1MB) - DoS protection
@@ -62,7 +64,7 @@ class StreamingMixin:
 
             # Prevent unbounded buffer growth (DoS protection)
             if len(buffer) > MAX_STREAM_BUFFER_SIZE:
-                raise RuntimeError("Streaming buffer exceeded maximum size")
+                raise StreamingError("Streaming buffer exceeded maximum size (1MB limit)")
 
             # Process complete SSE lines
             while '\n' in buffer:

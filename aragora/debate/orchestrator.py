@@ -17,6 +17,7 @@ from typing import Optional
 
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
+from aragora.exceptions import EarlyStopError
 from aragora.debate.convergence import ConvergenceDetector
 from aragora.debate.event_bridge import EventEmitterBridge
 from aragora.debate.immune_system import TransparentImmuneSystem, get_immune_system
@@ -1604,13 +1605,16 @@ class Arena:
 
                     # Handle abort action
                     if guidance.action == "abort":
-                        raise RuntimeError(f"Debate aborted by human: {guidance.reasoning}")
+                        raise EarlyStopError(
+                            reason=f"Debate aborted by human: {guidance.reasoning}",
+                            round_stopped=round_num
+                        )
 
                     return guidance.reasoning or guidance.decision
 
         except ImportError:
             logger.debug("Breakpoints module not available")
-        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
+        except (AttributeError, TypeError, ValueError, KeyError) as e:
             logger.warning(f"Breakpoint check failed: {e}")
 
         return None

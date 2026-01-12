@@ -22,6 +22,7 @@ from typing import Any, Callable, TYPE_CHECKING
 from aragora.agents.base import CritiqueMixin, MAX_CONTEXT_CHARS, MAX_MESSAGE_CHARS
 from aragora.agents.errors import (
     AgentCircuitOpenError,
+    CLISubprocessError,
     ErrorClassifier,
     # Re-export patterns for backward compatibility
     RATE_LIMIT_PATTERNS,
@@ -246,7 +247,12 @@ class CLIAgent(CritiqueMixin, Agent):
                             error_msg += f": {last_line}"
                     else:
                         error_msg += " (stderr empty)"
-                    raise RuntimeError(error_msg)
+                    raise CLISubprocessError(
+                        message=error_msg,
+                        agent_name=self.name,
+                        returncode=proc.returncode,
+                        stderr=stderr_text or None,
+                    )
 
                 # Record success to circuit breaker
                 if self._circuit_breaker is not None:
