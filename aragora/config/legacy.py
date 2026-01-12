@@ -94,6 +94,7 @@ __all__ = [
     "DATA_DIR",
     "get_db_path",
     "validate_db_path",
+    "resolve_db_path",
     # Database Paths (legacy - prefer get_db_path())
     "DB_ELO_PATH",
     "DB_MEMORY_PATH",
@@ -234,6 +235,8 @@ STREAMING_CAPABLE_AGENTS = _env_str(
 # Valid agent types (allowlist for security)
 # Single source of truth - import this instead of duplicating
 ALLOWED_AGENT_TYPES = frozenset({
+    # Built-in
+    "demo",
     # CLI-based
     "codex", "claude", "openai", "gemini-cli", "grok-cli",
     "qwen-cli", "deepseek-cli", "kilocode",
@@ -307,6 +310,15 @@ CACHE_TTL_EMBEDDINGS = _env_int("ARAGORA_CACHE_EMBEDDINGS", 3600)  # 1 hour
 # --- Generic cache tiers (for utils/cache.py) ---
 CACHE_TTL_METHOD = _env_int("ARAGORA_CACHE_METHOD", 300)  # 5 min
 CACHE_TTL_QUERY = _env_int("ARAGORA_CACHE_QUERY", 60)  # 1 min
+
+# === Pulse Scheduler ===
+# Auto-start the pulse debate scheduler when the server starts
+# Set to "true" or "1" to enable
+PULSE_SCHEDULER_AUTOSTART = _env_bool("PULSE_SCHEDULER_AUTOSTART", False)
+# Poll interval in seconds (how often to check for trending topics)
+PULSE_SCHEDULER_POLL_INTERVAL = _env_int("PULSE_SCHEDULER_POLL_INTERVAL", 300)  # 5 min
+# Maximum debates per hour (rate limiting)
+PULSE_SCHEDULER_MAX_PER_HOUR = _env_int("PULSE_SCHEDULER_MAX_PER_HOUR", 6)
 
 # === WebSocket ===
 # Note: 64KB default prevents memory exhaustion from malicious large messages
@@ -390,6 +402,36 @@ def get_db_path(name: str, ensure_dir: bool = True) -> Path:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     return validate_db_path(name)
+
+
+def resolve_db_path(path_str: Union[str, Path]) -> str:
+    """
+    Resolve a database path with a guard against stray root-level files.
+
+    - Absolute paths are returned as-is.
+    - Bare filenames are redirected under ARAGORA_DATA_DIR.
+    - Special SQLite paths (":memory:", "file:...") are preserved.
+    """
+    raw = str(path_str)
+    if raw == ":memory:" or raw.startswith("file:"):
+        return raw
+
+    path = Path(raw)
+    if path.is_absolute():
+        return str(path)
+
+    if path.parent == Path("."):
+        resolved = get_db_path(path.name)
+        if resolved != path:
+            import logging
+            logging.getLogger(__name__).debug(
+                "Redirecting SQLite DB path %s -> %s (ARAGORA_DATA_DIR)",
+                path,
+                resolved,
+            )
+        return str(resolved)
+
+    return str(path)
 
 
 # Database name constants (for use with get_db_path)
