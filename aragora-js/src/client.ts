@@ -60,6 +60,20 @@ import {
   BreakpointResolveRequest,
   BreakpointResolveResponse,
   BreakpointStatusResponse,
+  // Tournament types
+  TournamentSummary,
+  TournamentStanding,
+  TournamentListResponse,
+  TournamentStandingsResponse,
+  // Organization types
+  Organization,
+  OrganizationMember,
+  OrganizationInvitation,
+  InviteRequest,
+  InviteResponse,
+  OrganizationUpdateRequest,
+  // Analytics types
+  AnalyticsResponse,
 } from './types';
 
 // =============================================================================
@@ -614,6 +628,155 @@ class BreakpointsAPI {
   }
 }
 
+class TournamentsAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all available tournaments.
+   */
+  async list(): Promise<TournamentSummary[]> {
+    const response = await this.http.get<TournamentListResponse>('/api/tournaments');
+    return response.tournaments;
+  }
+
+  /**
+   * Get standings for a specific tournament.
+   */
+  async standings(tournamentId: string): Promise<TournamentStanding[]> {
+    const response = await this.http.get<TournamentStandingsResponse>(
+      `/api/tournaments/${tournamentId}/standings`
+    );
+    return response.standings;
+  }
+}
+
+class OrganizationsAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get organization details.
+   */
+  async get(orgId: string): Promise<Organization> {
+    const response = await this.http.get<{ organization: Organization }>(`/api/org/${orgId}`);
+    return response.organization;
+  }
+
+  /**
+   * Update organization settings.
+   */
+  async update(orgId: string, data: OrganizationUpdateRequest): Promise<Organization> {
+    const response = await this.http.put<{ organization: Organization }>(`/api/org/${orgId}`, data);
+    return response.organization;
+  }
+
+  /**
+   * List organization members.
+   */
+  async members(orgId: string): Promise<OrganizationMember[]> {
+    const response = await this.http.get<{ members: OrganizationMember[] }>(
+      `/api/org/${orgId}/members`
+    );
+    return response.members;
+  }
+
+  /**
+   * Invite a user to the organization.
+   */
+  async invite(orgId: string, request: InviteRequest): Promise<InviteResponse> {
+    return this.http.post<InviteResponse>(`/api/org/${orgId}/invite`, request);
+  }
+
+  /**
+   * List pending invitations for the organization.
+   */
+  async invitations(orgId: string): Promise<OrganizationInvitation[]> {
+    const response = await this.http.get<{ invitations: OrganizationInvitation[] }>(
+      `/api/org/${orgId}/invitations`
+    );
+    return response.invitations;
+  }
+
+  /**
+   * Revoke a pending invitation.
+   */
+  async revokeInvitation(orgId: string, invitationId: string): Promise<boolean> {
+    await this.http.delete(`/api/org/${orgId}/invitations/${invitationId}`);
+    return true;
+  }
+
+  /**
+   * Remove a member from the organization.
+   */
+  async removeMember(orgId: string, userId: string): Promise<boolean> {
+    await this.http.delete(`/api/org/${orgId}/members/${userId}`);
+    return true;
+  }
+
+  /**
+   * Update a member's role.
+   */
+  async updateMemberRole(
+    orgId: string,
+    userId: string,
+    role: 'member' | 'admin'
+  ): Promise<{ message: string; user_id: string; role: string }> {
+    return this.http.put(`/api/org/${orgId}/members/${userId}/role`, { role });
+  }
+
+  /**
+   * Get pending invitations for the current user.
+   */
+  async myPendingInvitations(): Promise<OrganizationInvitation[]> {
+    const response = await this.http.get<{ invitations: OrganizationInvitation[] }>(
+      '/api/invitations/pending'
+    );
+    return response.invitations;
+  }
+
+  /**
+   * Accept an organization invitation.
+   */
+  async acceptInvitation(
+    token: string
+  ): Promise<{ message: string; organization: { id: string; name: string; slug: string }; role: string }> {
+    return this.http.post(`/api/invitations/${token}/accept`, {});
+  }
+}
+
+class AnalyticsAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get analytics overview.
+   */
+  async overview(days = 30): Promise<AnalyticsResponse> {
+    return this.http.get<AnalyticsResponse>(`/api/analytics?days=${days}`);
+  }
+
+  /**
+   * Get agent-specific analytics.
+   */
+  async agent(agentId: string, days = 30): Promise<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`/api/analytics/agent/${agentId}?days=${days}`);
+  }
+
+  /**
+   * Get debate analytics.
+   */
+  async debates(options?: {
+    days?: number;
+    status?: string;
+  }): Promise<Record<string, unknown>> {
+    const params = new URLSearchParams();
+    if (options?.days) params.set('days', String(options.days));
+    if (options?.status) params.set('status', options.status);
+
+    const query = params.toString();
+    const path = query ? `/api/analytics/debates?${query}` : '/api/analytics/debates';
+    return this.http.get<Record<string, unknown>>(path);
+  }
+}
+
 // =============================================================================
 // Main Client
 // =============================================================================
@@ -633,6 +796,9 @@ export class AragoraClient {
   readonly pulse: PulseAPI;
   readonly documents: DocumentsAPI;
   readonly breakpoints: BreakpointsAPI;
+  readonly tournaments: TournamentsAPI;
+  readonly organizations: OrganizationsAPI;
+  readonly analytics: AnalyticsAPI;
 
   /**
    * Create a new Aragora client.
@@ -673,6 +839,9 @@ export class AragoraClient {
     this.pulse = new PulseAPI(this.http);
     this.documents = new DocumentsAPI(this.http);
     this.breakpoints = new BreakpointsAPI(this.http);
+    this.tournaments = new TournamentsAPI(this.http);
+    this.organizations = new OrganizationsAPI(this.http);
+    this.analytics = new AnalyticsAPI(this.http);
   }
 
   /**

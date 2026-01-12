@@ -563,3 +563,122 @@ export interface DeepHealthCheck {
   timestamp: string;
   version: string;
 }
+
+// =============================================================================
+// Tournament Types
+// =============================================================================
+
+export interface TournamentSummary {
+  tournament_id: string;
+  participants: number;
+  total_matches: number;
+  top_agent: string | null;
+}
+
+export interface TournamentStanding {
+  agent: string;
+  wins: number;
+  losses: number;
+  draws: number;
+  points: number;
+  total_score: number;
+  win_rate: number;
+}
+
+export interface TournamentListResponse {
+  tournaments: TournamentSummary[];
+  count: number;
+}
+
+export interface TournamentStandingsResponse {
+  tournament_id: string;
+  standings: TournamentStanding[];
+  count: number;
+}
+
+// =============================================================================
+// Organization Types
+// =============================================================================
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  tier: string;
+  owner_id: string;
+  member_count: number;
+  debates_used: number;
+  debates_limit: number;
+  settings: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface OrganizationMember {
+  id: string;
+  email: string;
+  name: string;
+  role: 'member' | 'admin' | 'owner';
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export interface OrganizationInvitation {
+  id: string;
+  org_id: string;
+  email: string;
+  role: 'member' | 'admin';
+  invited_by: string;
+  status: 'pending' | 'accepted' | 'revoked' | 'expired';
+  expires_at: string;
+  created_at: string;
+  org_name?: string;
+}
+
+export interface InviteRequest {
+  email: string;
+  role?: 'member' | 'admin';
+}
+
+export interface InviteResponse {
+  message: string;
+  invitation_id?: string;
+  user_id?: string;
+  role: string;
+  expires_at?: string;
+  invite_link?: string;
+}
+
+export interface OrganizationUpdateRequest {
+  name?: string;
+  settings?: Record<string, unknown>;
+}
+
+// =============================================================================
+// Analytics Types
+// =============================================================================
+
+export interface AnalyticsOverview {
+  total_debates: number;
+  active_debates: number;
+  completed_debates: number;
+  failed_debates: number;
+  avg_debate_duration_seconds: number;
+  consensus_rate: number;
+  period_days: number;
+}
+
+export interface AnalyticsAgentStats {
+  agent_id: string;
+  debates_participated: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  avg_contribution_score: number;
+}
+
+export interface AnalyticsResponse {
+  overview: AnalyticsOverview;
+  top_agents: AnalyticsAgentStats[];
+  debates_by_day: Array<{ date: string; count: number }>;
+}

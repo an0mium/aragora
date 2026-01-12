@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aragora.fullname" . }}-config
+  labels:
+    {{- include "aragora.labels" . | nindent 4 }}
+data:
+  ARAGORA_PORT: {{ .Values.config.port | quote }}
+  ARAGORA_LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  ARAGORA_LOG_FORMAT: {{ .Values.config.logFormat | quote }}
+  ARAGORA_ALLOWED_ORIGINS: {{ .Values.config.allowedOrigins | quote }}
+  ARAGORA_RATE_LIMIT_ENABLED: {{ .Values.config.rateLimitEnabled | quote }}
+  ARAGORA_RATE_LIMIT_WINDOW: {{ .Values.config.rateLimitWindow | quote }}
+  ARAGORA_RATE_LIMIT_MAX_REQUESTS: {{ .Values.config.rateLimitMaxRequests | quote }}
+  {{- if .Values.config.redisUrl }}
+  REDIS_URL: {{ .Values.config.redisUrl | quote }}
+  {{- end }}
+  {{- if .Values.config.supabaseUrl }}
+  SUPABASE_URL: {{ .Values.config.supabaseUrl | quote }}
+  {{- end }}

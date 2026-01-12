@@ -1,0 +1,154 @@
+# Default values for Aragora
+# This is a YAML-formatted file.
+
+# Replica count
+replicaCount: 1
+
+# Image configuration
+image:
+  repository: aragora/aragora
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Image pull secrets
+imagePullSecrets: []
+
+# Override name
+nameOverride: ""
+fullnameOverride: ""
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod security context
+podSecurityContext: {}
+
+# Container security context
+securityContext: {}
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: aragora.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: aragora-tls
+  #    hosts:
+  #      - aragora.local
+
+# Resource limits
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Liveness probe
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Readiness probe
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Application configuration
+config:
+  # Server settings
+  port: 8080
+  logLevel: INFO
+  logFormat: json  # json or text
+
+  # API keys (use secrets in production)
+  anthropicApiKey: ""
+  openaiApiKey: ""
+  openrouterApiKey: ""
+
+  # Supabase (optional)
+  supabaseUrl: ""
+  supabaseKey: ""
+
+  # Redis (for rate limiting and caching)
+  redisUrl: ""
+
+  # CORS
+  allowedOrigins: "*"
+
+  # Rate limiting
+  rateLimitEnabled: true
+  rateLimitWindow: 60
+  rateLimitMaxRequests: 100
+
+# External secrets (reference existing secrets)
+existingSecrets:
+  apiKeys: ""  # Name of secret containing API keys
+  database: ""  # Name of secret containing database credentials
+
+# Redis subchart (disabled by default, use external)
+redis:
+  enabled: false
+  architecture: standalone
+  auth:
+    enabled: false
+
+# PostgreSQL subchart (disabled by default)
+postgresql:
+  enabled: false
+
+# Persistence (for local storage mode)
+persistence:
+  enabled: false
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+  annotations: {}
