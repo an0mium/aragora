@@ -39,6 +39,11 @@ from .debates_batch import BatchOperationsMixin
 from .debates_fork import ForkOperationsMixin
 from .utils.rate_limit import rate_limit
 from aragora.server.validation import validate_debate_id
+from aragora.server.validation.schema import (
+    validate_against_schema,
+    DEBATE_START_SCHEMA,
+    DEBATE_UPDATE_SCHEMA,
+)
 from aragora.exceptions import (
     StorageError,
     DatabaseError,
@@ -1091,6 +1096,11 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         if not body:
             return error_response("No content provided", 400)
 
+        # Schema validation for input sanitization
+        validation_result = validate_against_schema(body, DEBATE_START_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, 400)
+
         # Parse and validate request using DebateRequest
         try:
             from aragora.server.debate_queue import DebateRequest
@@ -1153,6 +1163,11 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
         if not body:
             return error_response("Empty update body", 400)
+
+        # Schema validation for input sanitization
+        validation_result = validate_against_schema(body, DEBATE_UPDATE_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, 400)
 
         # Get storage and find debate
         storage = self.get_storage()

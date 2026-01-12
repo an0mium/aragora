@@ -95,6 +95,7 @@ from .query_params import (
 # Schema validation
 from .schema import (
     DEBATE_START_SCHEMA,
+    DEBATE_UPDATE_SCHEMA,
     VERIFICATION_SCHEMA,
     PROBE_RUN_SCHEMA,
     FORK_REQUEST_SCHEMA,
@@ -110,6 +111,10 @@ from .schema import (
     SOCIAL_PUBLISH_SCHEMA,
     PLUGIN_RUN_SCHEMA,
     PLUGIN_INSTALL_SCHEMA,
+    SHARE_UPDATE_SCHEMA,
+    EMAIL_CONFIG_SCHEMA,
+    TELEGRAM_CONFIG_SCHEMA,
+    NOTIFICATION_SEND_SCHEMA,
     validate_against_schema,
 )
 
@@ -168,6 +173,7 @@ __all__ = [
     "validate_search_query",
     # Schema
     "DEBATE_START_SCHEMA",
+    "DEBATE_UPDATE_SCHEMA",
     "VERIFICATION_SCHEMA",
     "PROBE_RUN_SCHEMA",
     "FORK_REQUEST_SCHEMA",
@@ -183,6 +189,10 @@ __all__ = [
     "SOCIAL_PUBLISH_SCHEMA",
     "PLUGIN_RUN_SCHEMA",
     "PLUGIN_INSTALL_SCHEMA",
+    "SHARE_UPDATE_SCHEMA",
+    "EMAIL_CONFIG_SCHEMA",
+    "TELEGRAM_CONFIG_SCHEMA",
+    "NOTIFICATION_SEND_SCHEMA",
     "validate_against_schema",
     # Decorators
     "validate_request",

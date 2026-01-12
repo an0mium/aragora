@@ -32,6 +32,7 @@ from .base import (
     handle_errors,
 )
 from .utils.rate_limit import rate_limit
+from aragora.server.validation.schema import validate_against_schema, SHARE_UPDATE_SCHEMA
 
 logger = logging.getLogger(__name__)
 
@@ -322,6 +323,11 @@ class SharingHandler(BaseHandler):
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid or missing JSON body", 400)
+
+        # Schema validation for input sanitization
+        validation_result = validate_against_schema(body, SHARE_UPDATE_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, 400)
 
         # Get or create settings
         settings = self._store.get(debate_id)

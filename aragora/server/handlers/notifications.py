@@ -18,6 +18,12 @@ from aragora.server.handlers.base import (
     json_response,
     error_response,
 )
+from aragora.server.validation.schema import (
+    validate_against_schema,
+    EMAIL_CONFIG_SCHEMA,
+    TELEGRAM_CONFIG_SCHEMA,
+    NOTIFICATION_SEND_SCHEMA,
+)
 from aragora.integrations.email import EmailConfig, EmailIntegration, EmailRecipient
 from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
 
@@ -223,6 +229,11 @@ class NotificationsHandler(BaseHandler):
         if err:
             return err
 
+        # Schema validation for input sanitization
+        validation_result = validate_against_schema(body, EMAIL_CONFIG_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, 400)
+
         try:
             config = EmailConfig(
                 smtp_host=body.get("smtp_host", ""),
@@ -258,11 +269,13 @@ class NotificationsHandler(BaseHandler):
         if err:
             return err
 
+        # Schema validation for input sanitization
+        validation_result = validate_against_schema(body, TELEGRAM_CONFIG_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, 400)
+
         bot_token = body.get("bot_token", "")
         chat_id = body.get("chat_id", "")
-
-        if not bot_token or not chat_id:
-            return error_response("bot_token and chat_id are required", 400)
 
         try:
             config = TelegramConfig(
@@ -413,13 +426,15 @@ class NotificationsHandler(BaseHandler):
         if err:
             return err
 
+        # Schema validation for input sanitization
+        validation_result = validate_against_schema(body, NOTIFICATION_SEND_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, 400)
+
         notification_type = body.get("type", "all")
         subject = body.get("subject", "Aragora Notification")
         message = body.get("message", "")
         html_message = body.get("html_message", f"<p>{message}</p>")
-
-        if not message:
-            return error_response("message is required", 400)
 
         results = {}
         import asyncio

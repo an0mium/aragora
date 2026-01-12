@@ -23,10 +23,18 @@ from .entities import SAFE_AGENT_PATTERN
 # =============================================================================
 
 DEBATE_START_SCHEMA = {
-    "task": {"type": "string", "min_length": 1, "max_length": 2000, "required": True},
+    "task": {"type": "string", "min_length": 1, "max_length": 2000, "required": False},  # Can use 'question' too
+    "question": {"type": "string", "min_length": 1, "max_length": 2000, "required": False},
     "agents": {"type": "list", "min_length": 2, "max_length": 10, "item_type": str, "required": False},
     "mode": {"type": "string", "max_length": 64, "required": False},
     "rounds": {"type": "int", "min_value": 1, "max_value": 20, "required": False},
+    "consensus": {"type": "string", "max_length": 64, "required": False},
+}
+
+DEBATE_UPDATE_SCHEMA = {
+    "title": {"type": "string", "max_length": 500, "required": False},
+    "status": {"type": "enum", "allowed_values": {"active", "paused", "concluded", "archived"}, "required": False},
+    "tags": {"type": "list", "max_length": 20, "item_type": str, "required": False},
 }
 
 VERIFICATION_SCHEMA = {
@@ -127,6 +135,38 @@ PLUGIN_RUN_SCHEMA = {
 PLUGIN_INSTALL_SCHEMA = {
     "config": {"type": "string", "max_length": 10000, "required": False},
     "enabled": {"type": "string", "max_length": 10, "required": False},  # "true"/"false"
+}
+
+# Sharing update schema
+SHARE_UPDATE_SCHEMA = {
+    "visibility": {"type": "enum", "allowed_values": {"private", "team", "public"}, "required": False},
+    "expires_in_hours": {"type": "int", "min_value": 0, "max_value": 8760, "required": False},  # Max 1 year
+    "allow_comments": {"type": "string", "max_length": 10, "required": False},  # bool as string
+    "allow_forking": {"type": "string", "max_length": 10, "required": False},  # bool as string
+}
+
+# Email configuration schema
+EMAIL_CONFIG_SCHEMA = {
+    "smtp_host": {"type": "string", "max_length": 255, "required": False},
+    "smtp_port": {"type": "int", "min_value": 1, "max_value": 65535, "required": False},
+    "smtp_username": {"type": "string", "max_length": 255, "required": False},
+    "smtp_password": {"type": "string", "max_length": 255, "required": False},
+    "from_email": {"type": "string", "max_length": 255, "required": False},
+    "from_name": {"type": "string", "max_length": 100, "required": False},
+}
+
+# Telegram configuration schema
+TELEGRAM_CONFIG_SCHEMA = {
+    "bot_token": {"type": "string", "min_length": 1, "max_length": 100, "required": True},
+    "chat_id": {"type": "string", "min_length": 1, "max_length": 50, "required": True},
+}
+
+# Notification send schema
+NOTIFICATION_SEND_SCHEMA = {
+    "type": {"type": "enum", "allowed_values": {"all", "email", "telegram"}, "required": False},
+    "subject": {"type": "string", "max_length": 200, "required": False},
+    "message": {"type": "string", "min_length": 1, "max_length": 10000, "required": True},
+    "html_message": {"type": "string", "max_length": 50000, "required": False},
 }
 
 

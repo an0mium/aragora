@@ -21,6 +21,7 @@ from .base import (
     handle_errors,
 )
 from aragora.server.middleware.rate_limit import rate_limit
+from aragora.server.validation.schema import validate_against_schema, VERIFICATION_SCHEMA
 
 logger = logging.getLogger(__name__)
 
@@ -112,9 +113,12 @@ class VerificationHandler(BaseHandler):
         if body is None:
             return error_response("Invalid JSON body or body too large", status=400)
 
+        # Schema validation for input sanitization
+        validation_result = validate_against_schema(body, VERIFICATION_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, status=400)
+
         claim = body.get('claim', '').strip()
-        if not claim:
-            return error_response("Missing required field: claim", status=400)
 
         claim_type = body.get('claim_type')
         context = body.get('context', '')
