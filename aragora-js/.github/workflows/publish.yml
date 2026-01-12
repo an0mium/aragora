@@ -1,0 +1,73 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v0.1.0, v1.0.0
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for npm provenance
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: aragora-js/package-lock.json
+
+      - name: Install dependencies
+        working-directory: aragora-js
+        run: npm ci
+
+      - name: Run type check
+        working-directory: aragora-js
+        run: npm run typecheck
+
+      - name: Run lint
+        working-directory: aragora-js
+        run: npm run lint
+
+      - name: Run tests
+        working-directory: aragora-js
+        run: npm test -- --run
+
+      - name: Build
+        working-directory: aragora-js
+        run: npm run build
+
+      - name: Verify build output
+        working-directory: aragora-js
+        run: |
+          ls -la dist/
+          test -f dist/index.js
+          test -f dist/index.mjs
+          test -f dist/index.d.ts
+
+      - name: Publish to npm
+        working-directory: aragora-js
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  notify:
+    needs: publish
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Post success notification
+        run: |
+          echo "Successfully published @aragora/sdk@${{ steps.version.outputs.version }} to npm!"

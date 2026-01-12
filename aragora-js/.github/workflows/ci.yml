@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aragora-js/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora-js/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: aragora-js/package-lock.json
+
+      - name: Install dependencies
+        working-directory: aragora-js
+        run: npm ci || npm install
+
+      - name: Run type check
+        working-directory: aragora-js
+        run: npm run typecheck
+
+      - name: Run lint
+        working-directory: aragora-js
+        run: npm run lint
+
+      - name: Run tests
+        working-directory: aragora-js
+        run: npm test -- --run
+
+      - name: Build
+        working-directory: aragora-js
+        run: npm run build
+
+      - name: Verify build output
+        working-directory: aragora-js
+        run: |
+          test -f dist/index.js
+          test -f dist/index.mjs
+          test -f dist/index.d.ts
+          echo "Build verification passed"
