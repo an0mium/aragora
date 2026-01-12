@@ -12,6 +12,17 @@ Arena._run_inner() method, handling post-debate updates:
 7. Flip detection
 8. Continuum memory storage
 9. Memory outcome updates
+10. Calibration data recording
+11. Genome fitness updates (Genesis)
+12. Population evolution
+13. Pulse outcome recording
+14. Memory cleanup
+15. Evolution pattern extraction
+16. Risk assessment
+17. Insight usage recording
+18. Consensus outcome storage
+19. Crux extraction
+20. Training data emission (Tinker integration)
 """
 
 import asyncio
@@ -1275,3 +1286,219 @@ class FeedbackPhase:
             )
         except (TypeError, ValueError, AttributeError, KeyError, OSError, ConnectionError, RuntimeError) as e:
             logger.debug("[insight] Usage recording failed: %s", e)
+
+    async def _emit_training_data(self, ctx: "DebateContext") -> None:
+        """Emit training data for Tinker fine-tuning integration.
+
+        This method exports debate outcomes for model fine-tuning:
+        1. SFT data from high-confidence winning debates
+        2. DPO preference pairs from win/loss outcomes
+        3. Calibration data from prediction accuracy
+
+        Data is emitted asynchronously to avoid blocking debate completion.
+        Only debates with sufficient quality signals are exported.
+
+        Training data format:
+        - SFT: {"task": str, "response": str, "confidence": float}
+        - DPO: {"prompt": str, "chosen": str, "rejected": str}
+        - Calibration: {"agent": str, "confidence": float, "correct": bool}
+        """
+        if not self.training_exporter:
+            return
+
+        result = ctx.result
+        if not result or not result.final_answer:
+            return
+
+        try:
+            training_records = []
+
+            # 1. Export SFT data from high-confidence debates
+            if result.confidence >= 0.8 and result.consensus_reached:
+                sft_record = self._build_sft_record(ctx)
+                if sft_record:
+                    training_records.append(sft_record)
+
+            # 2. Export DPO preference pairs from votes
+            dpo_records = self._build_dpo_records(ctx)
+            training_records.extend(dpo_records)
+
+            # 3. Export calibration data
+            calibration_records = self._build_calibration_records(ctx)
+            training_records.extend(calibration_records)
+
+            if not training_records:
+                return
+
+            # Emit training data asynchronously
+            if asyncio.iscoroutinefunction(self.training_exporter):
+                await self.training_exporter(training_records, ctx.debate_id)
+            elif callable(self.training_exporter):
+                self.training_exporter(training_records, ctx.debate_id)
+
+            logger.info(
+                "[training] Emitted %d training records for debate %s "
+                "(sft=%d, dpo=%d, calibration=%d)",
+                len(training_records),
+                ctx.debate_id[:8],
+                1 if result.confidence >= 0.8 else 0,
+                len(dpo_records),
+                len(calibration_records),
+            )
+
+            # Emit TRAINING_DATA_EXPORTED event if event_emitter available
+            self._emit_training_event(ctx, len(training_records))
+
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
+            logger.debug("[training] Data emission failed: %s", e)
+
+    def _build_sft_record(self, ctx: "DebateContext") -> dict | None:
+        """Build SFT (Supervised Fine-Tuning) record from winning debate.
+
+        Returns a training record for high-confidence consensus outcomes.
+        """
+        result = ctx.result
+        if not result.final_answer:
+            return None
+
+        # Build instruction from task + context
+        instruction = f"Debate task: {ctx.env.task}"
+        if hasattr(ctx.env, 'context') and ctx.env.context:
+            instruction += f"\n\nContext: {ctx.env.context[:500]}"
+
+        # Get the winning response (final answer represents consensus)
+        response = result.final_answer
+
+        return {
+            "type": "sft",
+            "instruction": instruction,
+            "response": response[:4000],  # Limit response length
+            "metadata": {
+                "debate_id": ctx.debate_id,
+                "domain": ctx.domain,
+                "confidence": result.confidence,
+                "rounds_used": result.rounds_used,
+                "winner": result.winner,
+                "participating_agents": [a.name for a in ctx.agents],
+            },
+        }
+
+    def _build_dpo_records(self, ctx: "DebateContext") -> list[dict]:
+        """Build DPO (Direct Preference Optimization) records from vote outcomes.
+
+        Creates preference pairs where winner = chosen, loser = rejected.
+        Only generates pairs when there's a clear winner.
+        """
+        result = ctx.result
+        records = []
+
+        if not result.winner or not result.messages:
+            return records
+
+        # Extract agent responses from messages
+        agent_responses = {}
+        for msg in result.messages:
+            agent_name = getattr(msg, 'agent', None)
+            if not agent_name:
+                continue
+            content = getattr(msg, 'content', str(msg))
+            # Keep the most substantive response per agent
+            if agent_name not in agent_responses or len(content) > len(agent_responses[agent_name]):
+                agent_responses[agent_name] = content[:2000]
+
+        if not agent_responses:
+            return records
+
+        # Get winner's response
+        winner_response = agent_responses.get(result.winner)
+        if not winner_response:
+            return records
+
+        # Create preference pairs: winner vs each non-winner
+        prompt = f"Debate task: {ctx.env.task}"
+
+        for agent_name, response in agent_responses.items():
+            if agent_name == result.winner:
+                continue
+            if not response:
+                continue
+
+            # Only create pairs with significant difference
+            if len(response) < 50:
+                continue
+
+            records.append({
+                "type": "dpo",
+                "prompt": prompt,
+                "chosen": winner_response,
+                "rejected": response,
+                "metadata": {
+                    "debate_id": ctx.debate_id,
+                    "domain": ctx.domain,
+                    "winner": result.winner,
+                    "loser": agent_name,
+                    "confidence": result.confidence,
+                },
+            })
+
+        return records
+
+    def _build_calibration_records(self, ctx: "DebateContext") -> list[dict]:
+        """Build calibration training records from prediction accuracy.
+
+        Creates records mapping confidence to correctness for each vote.
+        """
+        result = ctx.result
+        records = []
+
+        if not result.votes or not result.winner:
+            return records
+
+        for vote in result.votes:
+            confidence = getattr(vote, 'confidence', None)
+            if confidence is None:
+                continue
+
+            # Determine if prediction was correct
+            canonical = ctx.choice_mapping.get(vote.choice, vote.choice)
+            correct = (canonical == result.winner)
+
+            records.append({
+                "type": "calibration",
+                "agent": vote.agent,
+                "confidence": confidence,
+                "correct": correct,
+                "metadata": {
+                    "debate_id": ctx.debate_id,
+                    "domain": ctx.domain,
+                    "choice": vote.choice,
+                    "actual_winner": result.winner,
+                },
+            })
+
+        return records
+
+    def _emit_training_event(self, ctx: "DebateContext", record_count: int) -> None:
+        """Emit TRAINING_DATA_EXPORTED event to WebSocket."""
+        if not self.event_emitter:
+            return
+
+        try:
+            from aragora.server.stream import StreamEvent, StreamEventType
+
+            # Check if TRAINING_DATA_EXPORTED exists, otherwise skip
+            if not hasattr(StreamEventType, 'TRAINING_DATA_EXPORTED'):
+                return
+
+            self.event_emitter.emit(StreamEvent(
+                type=StreamEventType.TRAINING_DATA_EXPORTED,
+                loop_id=self.loop_id,
+                data={
+                    "debate_id": ctx.debate_id,
+                    "records_exported": record_count,
+                    "domain": ctx.domain,
+                    "confidence": ctx.result.confidence if ctx.result else 0.0,
+                }
+            ))
+        except (TypeError, ValueError, AttributeError, KeyError) as e:
+            logger.debug("Training event emission error: %s", e)

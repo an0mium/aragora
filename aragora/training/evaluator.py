@@ -15,7 +15,6 @@ import random
 from pathlib import Path
 
 from aragora.core import Agent, DebateResult
-from aragora.debate.orchestrator import Arena
 from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)
@@ -293,6 +292,7 @@ class TinkerEvaluator:
     ) -> DebateResult:
         """Run a single debate."""
         from aragora.core import Environment, DebateProtocol
+        from aragora.debate.orchestrator import Arena
 
         env = Environment(task=task)
         protocol = DebateProtocol(

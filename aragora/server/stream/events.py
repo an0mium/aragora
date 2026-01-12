@@ -88,6 +88,7 @@ class StreamEventType(Enum):
     EVIDENCE_FOUND = "evidence_found"        # Supporting evidence collected
     CALIBRATION_UPDATE = "calibration_update"  # Confidence calibration updated
     GENESIS_EVOLUTION = "genesis_evolution"  # Agent population evolved
+    TRAINING_DATA_EXPORTED = "training_data_exported"  # Training data emitted for Tinker
 
     # Rhetorical analysis events
     RHETORICAL_OBSERVATION = "rhetorical_observation"  # Rhetorical pattern detected
