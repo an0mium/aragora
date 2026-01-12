@@ -66,9 +66,8 @@ class YouTubeAPIError(YouTubeError, ConnectorAPIError):
 
     def __init__(self, message: str = "YouTube API request failed", status_code: Optional[int] = None):
         full_message = f"{message} (HTTP {status_code})" if status_code else message
-        # Let ConnectorAPIError determine retryability based on status code
-        is_retryable = status_code is not None and 500 <= status_code < 600
-        super().__init__(full_message, is_retryable=is_retryable)
+        # Pass status_code to parent - ConnectorAPIError determines retryability
+        super().__init__(full_message, status_code=status_code)
         self.status_code = status_code
 
 

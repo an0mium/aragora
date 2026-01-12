@@ -22,6 +22,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from typing import Any, Optional
+from collections.abc import MutableMapping, Iterator
 from urllib.parse import urlencode, parse_qs
 from uuid import uuid4
 
@@ -70,14 +71,63 @@ GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 # State management - uses Redis in production, falls back to in-memory
 # Import from dedicated state store module
 from aragora.server.oauth_state_store import (
+    OAuthState,
     generate_oauth_state as _generate_state,
     validate_oauth_state as _validate_state_internal,
     get_oauth_state_store,
 )
 
+class _OAuthStatesView(MutableMapping[str, dict]):
+    """Compatibility view over OAuth state storage."""
+
+    def __init__(self, store) -> None:
+        self._store = store
+
+    @property
+    def _states(self) -> dict:
+        return self._store._memory_store._states  # type: ignore[attr-defined]
+
+    def __getitem__(self, key: str) -> dict:
+        value = self._states[key]
+        if isinstance(value, OAuthState):
+            return value.to_dict()
+        if isinstance(value, dict):
+            return value
+        return {"value": value}
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        if isinstance(value, OAuthState):
+            self._states[key] = value
+            return
+        if isinstance(value, dict):
+            self._states[key] = OAuthState.from_dict(value)
+            return
+        self._states[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self._states[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._states)
+
+    def __len__(self) -> int:
+        return len(self._states)
+
+    def values(self):
+        return [self[k] for k in list(self._states.keys())]
+
+    def items(self):
+        return [(k, self[k]) for k in list(self._states.keys())]
+
+    def get(self, key: str, default: Any = None) -> Any:
+        if key in self._states:
+            return self[key]
+        return default
+
+
 _state_store = get_oauth_state_store()
 try:
-    _OAUTH_STATES = _state_store._memory_store._states  # type: ignore[attr-defined]
+    _OAUTH_STATES = _OAuthStatesView(_state_store)
 except AttributeError:
     _OAUTH_STATES = {}
 
@@ -144,6 +194,14 @@ def _validate_state(state: str) -> Optional[dict[str, Any]]:
     falls back to in-memory storage in development.
     """
     return _validate_state_internal(state)
+
+
+def _cleanup_expired_states() -> int:
+    """Backward-compatible cleanup helper for in-memory states."""
+    try:
+        return _state_store._memory_store.cleanup_expired()  # type: ignore[attr-defined]
+    except AttributeError:
+        return 0
 
 
 class OAuthHandler(BaseHandler):

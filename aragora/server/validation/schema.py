@@ -35,9 +35,10 @@ VERIFICATION_SCHEMA = {
 }
 
 PROBE_RUN_SCHEMA = {
-    "agent": {"type": "string", "min_length": 1, "max_length": 64, "pattern": SAFE_AGENT_PATTERN, "required": True},
-    "strategies": {"type": "list", "max_length": 10, "item_type": str, "required": False},
-    "num_probes": {"type": "int", "min_value": 1, "max_value": 50, "required": False},
+    "agent_name": {"type": "string", "min_length": 1, "max_length": 64, "pattern": SAFE_AGENT_PATTERN, "required": True},
+    "probe_types": {"type": "list", "max_length": 10, "item_type": str, "required": False},
+    "probes_per_type": {"type": "int", "min_value": 1, "max_value": 10, "required": False},
+    "model_type": {"type": "string", "max_length": 64, "required": False},
 }
 
 FORK_REQUEST_SCHEMA = {

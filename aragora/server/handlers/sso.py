@@ -27,6 +27,31 @@ from .base import BaseHandler, HandlerResult, json_response, error_response
 logger = logging.getLogger(__name__)
 
 
+try:
+    from aragora.auth import get_sso_provider as _get_sso_provider
+except ImportError:  # pragma: no cover - optional dependency
+    def _get_sso_provider():
+        raise ImportError("SSO auth module not available")
+
+get_sso_provider = _get_sso_provider
+
+try:
+    from aragora.server.auth import auth_config as auth_config
+except ImportError:  # pragma: no cover - optional dependency
+    auth_config = None
+
+try:
+    from aragora.auth.sso import SSOUser, SSOProviderType
+except ImportError:  # pragma: no cover - optional dependency
+    SSOUser = None
+    SSOProviderType = None
+
+try:
+    from aragora.auth.saml import SAMLProvider
+except ImportError:  # pragma: no cover - optional dependency
+    SAMLProvider = None
+
+
 class SSOHandler(BaseHandler):
     """
     Handler for SSO authentication endpoints.
@@ -34,8 +59,9 @@ class SSOHandler(BaseHandler):
     Supports SAML 2.0 and OpenID Connect (OIDC) providers.
     """
 
-    def __init__(self):
+    def __init__(self, server_context: Optional[dict] = None):
         """Initialize SSO handler."""
+        super().__init__(server_context or {})
         self._provider = None
         self._initialized = False
 
@@ -43,7 +69,6 @@ class SSOHandler(BaseHandler):
         """Lazy-load SSO provider."""
         if not self._initialized:
             try:
-                from aragora.auth import get_sso_provider
                 self._provider = get_sso_provider()
             except ImportError:
                 logger.warning("SSO auth module not available")
@@ -189,7 +214,8 @@ class SSOHandler(BaseHandler):
             )
 
             # Generate session token
-            from aragora.server.auth import auth_config
+            if not auth_config:
+                raise RuntimeError("Auth config unavailable")
             session_token = auth_config.generate_token(
                 loop_id=user.id,
                 expires_in=provider.config.session_duration_seconds,
@@ -260,7 +286,8 @@ class SSOHandler(BaseHandler):
 
         try:
             # Get current user token
-            from aragora.server.auth import auth_config
+            if not auth_config:
+                raise RuntimeError("Auth config unavailable")
 
             token = None
             if hasattr(handler, "headers"):
@@ -273,7 +300,8 @@ class SSOHandler(BaseHandler):
                 auth_config.revoke_token(token, "user_logout")
 
             # Get IdP logout URL
-            from aragora.auth.sso import SSOUser
+            if not SSOUser:
+                raise RuntimeError("SSO user type unavailable")
             logout_url = await provider.logout(SSOUser(id="", email=""))
 
             if logout_url:
@@ -316,7 +344,8 @@ class SSOHandler(BaseHandler):
             )
 
         # Check if SAML provider
-        from aragora.auth.sso import SSOProviderType
+        if not SSOProviderType:
+            return error_response("SSO provider types unavailable", 503)
         if provider.provider_type != SSOProviderType.SAML:
             return error_response(
                 "Metadata only available for SAML providers",
@@ -325,8 +354,7 @@ class SSOHandler(BaseHandler):
             )
 
         try:
-            from aragora.auth.saml import SAMLProvider
-            if isinstance(provider, SAMLProvider):
+            if SAMLProvider and isinstance(provider, SAMLProvider):
                 metadata = await provider.get_metadata()
                 return {
                     "status": 200,

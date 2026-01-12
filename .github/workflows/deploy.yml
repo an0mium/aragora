@@ -87,23 +87,30 @@ jobs:
     needs: test
     if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'lightsail' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    continue-on-error: true  # Don't fail the workflow if Lightsail is unreachable
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Configure SSH
+        id: ssh_config
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail
           chmod 600 ~/.ssh/lightsail
           # Timeout after 10 seconds if host unreachable
-          timeout 10 ssh-keyscan -H ${{ secrets.LIGHTSAIL_HOST }} >> ~/.ssh/known_hosts || {
-            echo "::warning::Could not reach Lightsail host for SSH keyscan"
-            exit 1
-          }
+          if timeout 10 ssh-keyscan -H ${{ secrets.LIGHTSAIL_HOST }} >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "ssh_ready=true" >> $GITHUB_OUTPUT
+            echo "SSH keyscan successful"
+          else
+            echo "ssh_ready=false" >> $GITHUB_OUTPUT
+            echo "::warning::Could not reach Lightsail host - instance may be stopped or firewall blocking SSH"
+            echo "::warning::Check that the Lightsail instance is running and security group allows SSH from GitHub Actions"
+          fi
 
       - name: Deploy to Lightsail
+        if: steps.ssh_config.outputs.ssh_ready == 'true'
         run: |
           ssh -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -i ~/.ssh/lightsail ubuntu@${{ secrets.LIGHTSAIL_HOST }} 'bash -s' << 'ENDSSH'
             set -e
@@ -146,6 +153,7 @@ jobs:
           ENDSSH
 
       - name: Verify deployment
+        if: steps.ssh_config.outputs.ssh_ready == 'true'
         run: |
           # Wait for server to start (up to 60 seconds)
           for i in {1..12}; do
@@ -159,6 +167,15 @@ jobs:
           echo "Health check failed after 60 seconds"
           # Don't fail the job - server may be down for other reasons
           echo "::warning::Lightsail health check failed, but deploy may have completed"
+
+      - name: Skip notification
+        if: steps.ssh_config.outputs.ssh_ready != 'true'
+        run: |
+          echo "::notice::Lightsail deployment skipped - host unreachable"
+          echo "To fix this, ensure:"
+          echo "  1. The Lightsail instance is running"
+          echo "  2. Security group allows SSH (port 22) from 0.0.0.0/0 or GitHub Actions IPs"
+          echo "  3. The LIGHTSAIL_HOST secret contains the correct IP address"
 
   deploy-ec2:
     needs: test

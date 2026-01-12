@@ -17,6 +17,7 @@ from typing import Optional
 
 from aragora.utils.optional_imports import try_import
 from aragora.server.validation import validate_agent_name
+from aragora.server.validation.schema import validate_against_schema, PROBE_RUN_SCHEMA
 from aragora.server.http_utils import run_async
 from aragora.debate.sanitization import OutputSanitizer
 from .base import (
@@ -118,6 +119,11 @@ class ProbesHandler(BaseHandler):
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body or body too large", status=400)
+
+        # Schema validation for input sanitization
+        validation_result = validate_against_schema(body, PROBE_RUN_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, status=400)
 
         agent_name = body.get('agent_name', '').strip()
         if not agent_name:

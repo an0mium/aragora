@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from aragora.billing.models import OrganizationInvitation
+from aragora.server.validation.schema import validate_against_schema, ORG_INVITE_SCHEMA
 
 from .base import (
     BaseHandler,
@@ -323,6 +324,11 @@ class OrganizationsHandler(BaseHandler):
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
+
+        # Schema validation for input sanitization
+        validation_result = validate_against_schema(body, ORG_INVITE_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, 400)
 
         email = body.get("email", "").strip().lower()
         role = body.get("role", "member")
