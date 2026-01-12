@@ -40,6 +40,18 @@ def mock_handler_with_query(path: str, query_params: dict = None) -> Mock:
         mock_handler.path = f"{path}?{query_str}"
     else:
         mock_handler.path = path
+    # Ensure headers returns a proper dict for extract_client_ip
+    mock_handler.headers = {}
+    mock_handler.client_address = ("127.0.0.1", 8080)
+    return mock_handler
+
+
+def create_mock_handler(path: str = "/api/gauntlet/run") -> Mock:
+    """Create a properly configured mock handler for gauntlet tests."""
+    mock_handler = Mock()
+    mock_handler.path = path
+    mock_handler.headers = {}
+    mock_handler.client_address = ("127.0.0.1", 8080)
     return mock_handler
 
 
@@ -484,8 +496,7 @@ class TestGauntletRun:
 
     def test_run_requires_input_content(self, gauntlet_handler):
         """Should require input_content in body."""
-        mock_handler = Mock()
-        mock_handler.path = "/api/gauntlet/run"
+        mock_handler = create_mock_handler("/api/gauntlet/run")
 
         # Mock read_json_body to return empty dict
         with patch.object(gauntlet_handler, 'read_json_body', return_value={}):
@@ -497,8 +508,7 @@ class TestGauntletRun:
 
     def test_run_returns_accepted(self, gauntlet_handler):
         """Should return 202 Accepted with gauntlet ID."""
-        mock_handler = Mock()
-        mock_handler.path = "/api/gauntlet/run"
+        mock_handler = create_mock_handler("/api/gauntlet/run")
 
         with patch.object(gauntlet_handler, 'read_json_body', return_value={
             "input_content": "Test content to validate",
@@ -622,8 +632,7 @@ class TestGauntletIntegration:
 
     def test_run_then_get_status(self, gauntlet_handler):
         """Test running gauntlet then getting status."""
-        mock_handler = Mock()
-        mock_handler.path = "/api/gauntlet/run"
+        mock_handler = create_mock_handler("/api/gauntlet/run")
 
         with patch.object(gauntlet_handler, 'read_json_body', return_value={
             "input_content": "Test content",

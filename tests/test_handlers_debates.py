@@ -1389,8 +1389,8 @@ class TestSpecificExceptionHandling:
     def test_search_storage_error_returns_500(self, debates_handler, mock_storage):
         """Search with StorageError should return 500."""
         from aragora.exceptions import StorageError
-        # Search uses list_recent internally
-        mock_storage.list_recent.side_effect = StorageError("Storage unavailable")
+        # Search with query uses storage.search() method
+        mock_storage.search.side_effect = StorageError("Storage unavailable")
 
         result = debates_handler.handle("/api/search", {"q": "test"}, None)
 
@@ -1402,8 +1402,8 @@ class TestSpecificExceptionHandling:
     def test_search_database_error_returns_500(self, debates_handler, mock_storage):
         """Search with DatabaseError should return 500."""
         from aragora.exceptions import DatabaseError
-        # Search uses list_recent internally
-        mock_storage.list_recent.side_effect = DatabaseError("DB connection lost")
+        # Search with query uses storage.search() method
+        mock_storage.search.side_effect = DatabaseError("DB connection lost")
 
         result = debates_handler.handle("/api/search", {"q": "test"}, None)
 
@@ -1414,8 +1414,8 @@ class TestSpecificExceptionHandling:
 
     def test_search_value_error_returns_400(self, debates_handler, mock_storage):
         """Search with ValueError should return 400."""
-        # Search uses list_recent internally, but ValueError is caught too
-        mock_storage.list_recent.side_effect = ValueError("Invalid search pattern")
+        # Search with query uses storage.search() method
+        mock_storage.search.side_effect = ValueError("Invalid search pattern")
 
         result = debates_handler.handle("/api/search", {"q": "test"}, None)
 
