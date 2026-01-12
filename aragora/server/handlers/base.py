@@ -77,6 +77,23 @@ from aragora.server.handlers.utils.routing import (
     PathMatcher,
     RouteDispatcher,
 )
+from aragora.server.handlers.utils.decorators import (
+    generate_trace_id,
+    map_exception_to_status as _map_exception_to_status,
+    validate_params,
+    handle_errors,
+    auto_error_response,
+    log_request,
+    PERMISSION_MATRIX,
+    has_permission,
+    require_permission,
+    require_user_auth,
+    require_auth,
+    require_storage,
+    require_feature,
+    safe_fetch,
+    with_error_recovery,
+)
 from aragora.server.error_utils import safe_error_message
 from aragora.server.handlers.cache import (
     BoundedTTLCache,

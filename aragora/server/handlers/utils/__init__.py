@@ -6,6 +6,7 @@ Provides reusable utilities for HTTP handlers including:
 - URL routing and pattern matching
 - Database connection helpers
 - Safe data access utilities
+- Handler decorators (auth, validation, error handling)
 """
 
 from .rate_limit import RateLimiter, rate_limit, get_client_ip
@@ -28,6 +29,23 @@ from .responses import (
     error_response,
     html_response,
     redirect_response,
+)
+from .decorators import (
+    generate_trace_id,
+    map_exception_to_status,
+    validate_params,
+    handle_errors,
+    auto_error_response,
+    log_request,
+    PERMISSION_MATRIX,
+    has_permission,
+    require_permission,
+    require_user_auth,
+    require_auth,
+    require_storage,
+    require_feature,
+    safe_fetch,
+    with_error_recovery,
 )
 
 __all__ = [
@@ -60,4 +78,20 @@ __all__ = [
     "error_response",
     "html_response",
     "redirect_response",
+    # Decorators
+    "generate_trace_id",
+    "map_exception_to_status",
+    "validate_params",
+    "handle_errors",
+    "auto_error_response",
+    "log_request",
+    "PERMISSION_MATRIX",
+    "has_permission",
+    "require_permission",
+    "require_user_auth",
+    "require_auth",
+    "require_storage",
+    "require_feature",
+    "safe_fetch",
+    "with_error_recovery",
 ]
