@@ -137,9 +137,13 @@ def sanitize_rate_limit_key_component(value: str) -> str:
     """Sanitize a component used in rate limit keys.
 
     Prevents injection attacks via malformed IPs or tokens.
+    Replaces colons with underscores to prevent key injection.
     """
-    # Remove any characters that could break key structure
-    return "".join(c for c in value if c.isalnum() or c in ".-_:")[:128]
+    if value is None:
+        return ""
+    value = str(value)
+    # Replace colon to prevent Redis key injection, remove newlines
+    return value.replace(":", "_").replace("\n", "").replace("\r", "").strip()
 
 
 def normalize_rate_limit_path(path: str) -> str:
@@ -167,6 +171,9 @@ def normalize_rate_limit_path(path: str) -> str:
     # Remove trailing slash (except for root)
     if normalized != "/" and normalized.endswith("/"):
         normalized = normalized.rstrip("/")
+
+    # Lowercase for consistent matching
+    normalized = normalized.lower()
 
     return normalized
 

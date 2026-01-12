@@ -35,30 +35,50 @@ from .base import (
 # Re-export from bucket module
 from .bucket import TokenBucket, RedisTokenBucket
 
-# Import from the original module for backwards compatibility
-# This will be refactored in future iterations
-from aragora.server.middleware.rate_limit_legacy import (
+# Re-export from limiter module
+from .limiter import (
     RateLimitConfig,
     RateLimitResult,
     RateLimiter,
-    RedisRateLimiter,
-    RateLimiterRegistry,
-    TierRateLimiter,
-    UserRateLimiter,
+)
+
+# Re-export from redis_limiter module
+from .redis_limiter import (
+    REDIS_AVAILABLE,
     get_redis_client,
     reset_redis_client,
+    RedisRateLimiter,
+)
+
+# Re-export from tier_limiter module
+from .tier_limiter import (
+    TIER_RATE_LIMITS,
+    TierRateLimiter,
+    get_tier_rate_limiter,
+    check_tier_rate_limit,
+)
+
+# Re-export from user_limiter module
+from .user_limiter import (
+    USER_RATE_LIMITS,
+    UserRateLimiter,
+    get_user_rate_limiter,
+    check_user_rate_limit,
+)
+
+# Re-export from registry module
+from .registry import (
+    RateLimiterRegistry,
     get_rate_limiter,
     cleanup_rate_limiters,
     reset_rate_limiters,
-    get_user_rate_limiter,
-    check_user_rate_limit,
-    user_rate_limit,
-    get_tier_rate_limiter,
-    check_tier_rate_limit,
-    rate_limit,
+)
+
+# Re-export from decorators module
+from .decorators import (
     rate_limit_headers,
-    REDIS_AVAILABLE,
-    TIER_RATE_LIMITS,
+    rate_limit,
+    user_rate_limit,
 )
 
 __all__ = [
@@ -103,4 +123,5 @@ __all__ = [
     "user_rate_limit",
     # Tier configuration
     "TIER_RATE_LIMITS",
+    "USER_RATE_LIMITS",
 ]

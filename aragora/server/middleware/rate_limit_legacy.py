@@ -1,11 +1,35 @@
 """
-Rate Limiting Middleware.
+Rate Limiting Middleware (DEPRECATED).
+
+.. deprecated:: Session 9
+    This module is deprecated. Use the modular rate_limit package instead:
+
+    from aragora.server.middleware.rate_limit import (
+        RateLimiter,
+        RedisRateLimiter,
+        TierRateLimiter,
+        UserRateLimiter,
+        rate_limit,
+        user_rate_limit,
+    )
+
+    The modular package provides the same functionality with better organization:
+    - rate_limit/base.py - Configuration and helper functions
+    - rate_limit/bucket.py - TokenBucket implementations
+    - rate_limit/limiter.py - Core RateLimiter class
+    - rate_limit/redis_limiter.py - Redis-backed limiter
+    - rate_limit/tier_limiter.py - Tier-based limiting
+    - rate_limit/user_limiter.py - Per-user limiting
+    - rate_limit/registry.py - Limiter registry
+    - rate_limit/decorators.py - Decorator functions
+
+    This file will be removed in a future session.
 
 Provides configurable rate limiting decorators and classes for API endpoints.
 Supports per-IP, per-token, and per-endpoint rate limiting with automatic
 cleanup of stale entries.
 
-Usage:
+Usage (DEPRECATED - use rate_limit package instead):
     from aragora.server.middleware import rate_limit, RateLimiter
 
     # Use as decorator
@@ -20,6 +44,14 @@ Usage:
 """
 
 from __future__ import annotations
+
+import warnings
+
+warnings.warn(
+    "rate_limit_legacy is deprecated. Use aragora.server.middleware.rate_limit instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 import ipaddress
 import logging
@@ -51,6 +83,12 @@ except ImportError:
 DEFAULT_RATE_LIMIT = int(os.environ.get("ARAGORA_RATE_LIMIT", "60"))
 IP_RATE_LIMIT = int(os.environ.get("ARAGORA_IP_RATE_LIMIT", "120"))
 BURST_MULTIPLIER = float(os.environ.get("ARAGORA_BURST_MULTIPLIER", "2.0"))
+
+# Redis rate limiter fail-open policy (SECURITY: default to fail-closed)
+# Set ARAGORA_RATE_LIMIT_FAIL_OPEN=true only in dev/testing
+RATE_LIMIT_FAIL_OPEN = os.environ.get("ARAGORA_RATE_LIMIT_FAIL_OPEN", "false").lower() == "true"
+# Number of consecutive Redis failures before falling back to in-memory limiting
+REDIS_FAILURE_THRESHOLD = int(os.environ.get("ARAGORA_REDIS_FAILURE_THRESHOLD", "3"))
 
 # Trusted proxies for X-Forwarded-For header (comma-separated IPs/CIDRs)
 # Only trust XFF header when request comes from these addresses
@@ -269,18 +307,41 @@ class RedisTokenBucket:
         self.ttl_seconds = ttl_seconds
         self._consume_sha: Optional[str] = None
 
+        # Redis failure tracking for fallback
+        self._redis_failures = 0
+        self._fallback_bucket: Optional[TokenBucket] = None
+
     def _get_consume_script(self) -> str:
         """Get or register the consume Lua script."""
         if self._consume_sha is None:
             self._consume_sha = self.redis.script_load(self.CONSUME_SCRIPT)
         return self._consume_sha
 
+    def _get_fallback_bucket(self) -> TokenBucket:
+        """Get or create in-memory fallback bucket."""
+        if self._fallback_bucket is None:
+            self._fallback_bucket = TokenBucket(
+                self.rate_per_minute,
+                self.burst_size,
+            )
+        return self._fallback_bucket
+
     def consume(self, tokens: int = 1) -> bool:
         """
         Attempt to consume tokens from the bucket.
 
         Returns True if tokens were consumed, False if rate limited.
+
+        SECURITY: On Redis errors, behavior depends on configuration:
+        - If ARAGORA_RATE_LIMIT_FAIL_OPEN=true: allows request (dev only!)
+        - Otherwise (default): uses in-memory fallback after N failures,
+          then fails closed (rejects request)
         """
+        # If we've had too many Redis failures, use in-memory fallback
+        if self._redis_failures >= REDIS_FAILURE_THRESHOLD:
+            logger.debug("Using in-memory fallback due to Redis failures")
+            return self._get_fallback_bucket().consume(tokens)
+
         try:
             now = time.time()
             sha = self._get_consume_script()
@@ -294,10 +355,34 @@ class RedisTokenBucket:
                 tokens,  # ARGV[4]
                 self.ttl_seconds,  # ARGV[5]
             )
+            # Redis succeeded - reset failure counter
+            if self._redis_failures > 0:
+                logger.info("Redis rate limiter recovered, resetting failure count")
+                self._redis_failures = 0
             return bool(result[0])
         except Exception as e:
-            logger.warning(f"Redis rate limit error, allowing request: {e}")
-            return True  # Fail open on Redis errors
+            self._redis_failures += 1
+            logger.error(
+                f"Redis rate limit error (failure {self._redis_failures}/{REDIS_FAILURE_THRESHOLD}): {e}"
+            )
+
+            # After threshold failures, fall back to in-memory limiter
+            if self._redis_failures >= REDIS_FAILURE_THRESHOLD:
+                logger.warning(
+                    f"Redis failure threshold reached, switching to in-memory fallback"
+                )
+                return self._get_fallback_bucket().consume(tokens)
+
+            # SECURITY: Default to fail-closed unless explicitly configured otherwise
+            if RATE_LIMIT_FAIL_OPEN:
+                logger.warning(
+                    "SECURITY WARNING: Rate limiting failing open due to "
+                    "ARAGORA_RATE_LIMIT_FAIL_OPEN=true (NOT for production!)"
+                )
+                return True
+            else:
+                logger.warning("Rate limiting failing closed (rejecting request)")
+                return False  # Fail closed - reject the request
 
     def get_retry_after(self) -> float:
         """Get seconds until next token is available."""
