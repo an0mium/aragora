@@ -42,6 +42,7 @@ from aragora.debate.judge_selector import JudgeSelector, JudgeScoringMixin
 from aragora.debate.team_selector import TeamSelector
 from aragora.debate.sanitization import OutputSanitizer
 from aragora.debate.termination_checker import TerminationChecker
+from aragora.debate.result_formatter import ResultFormatter
 from aragora.spectate.stream import SpectatorStream
 
 from aragora.debate.context import DebateContext
@@ -1136,62 +1137,12 @@ class Arena:
         return 0
 
     def _format_conclusion(self, result: "DebateResult") -> str:
-        """Format a clear, readable debate conclusion with full context."""
-        lines = []
-        lines.append("=" * 60)
-        lines.append("DEBATE CONCLUSION")
-        lines.append("=" * 60)
+        """Format a clear, readable debate conclusion with full context.
 
-        # Verdict section
-        lines.append("\n## VERDICT")
-        if result.consensus_reached:
-            lines.append(f"Consensus: YES ({result.confidence:.0%} agreement)")
-            if hasattr(result, 'consensus_strength') and result.consensus_strength:
-                lines.append(f"Strength: {result.consensus_strength.upper()}")
-        else:
-            lines.append(f"Consensus: NO (only {result.confidence:.0%} agreement)")
-
-        # Winner (if determined)
-        if hasattr(result, 'winner') and result.winner:
-            lines.append(f"Winner: {result.winner}")
-
-        # Final answer section
-        lines.append("\n## FINAL ANSWER")
-        if result.final_answer:
-            # Truncate if very long, but show substantial content
-            answer_display = result.final_answer[:1000] + "..." if len(result.final_answer) > 1000 else result.final_answer
-            lines.append(answer_display)
-        else:
-            lines.append("No final answer determined.")
-
-        # Vote breakdown (if available)
-        if hasattr(result, 'votes') and result.votes:
-            lines.append("\n## VOTE BREAKDOWN")
-            vote_counts = {}
-            for vote in result.votes:
-                voter = getattr(vote, 'voter', 'unknown')
-                choice = getattr(vote, 'choice', 'abstain')
-                vote_counts[voter] = choice
-            for voter, choice in vote_counts.items():
-                lines.append(f"  - {voter}: {choice}")
-
-        # Dissenting views (if any)
-        if hasattr(result, 'dissenting_views') and result.dissenting_views:
-            lines.append("\n## DISSENTING VIEWS")
-            for i, view in enumerate(result.dissenting_views[:3]):
-                view_display = view[:300] + "..." if len(view) > 300 else view
-                lines.append(f"  {i+1}. {view_display}")
-
-        # Debate cruxes (key disagreement points)
-        if hasattr(result, 'belief_cruxes') and result.belief_cruxes:
-            lines.append("\n## KEY CRUXES")
-            for crux in result.belief_cruxes[:3]:
-                claim = crux.get('claim', 'unknown')[:80]
-                uncertainty = crux.get('uncertainty', 0)
-                lines.append(f"  - {claim}... (uncertainty: {uncertainty:.2f})")
-
-        lines.append("\n" + "=" * 60)
-        return "\n".join(lines)
+        Delegates to ResultFormatter for the actual formatting.
+        """
+        formatter = ResultFormatter()
+        return formatter.format_conclusion(result)
 
     def _assign_roles(self):
         """Assign roles to agents based on protocol. Delegates to RolesManager."""
