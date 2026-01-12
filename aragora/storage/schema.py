@@ -785,9 +785,14 @@ PERFORMANCE_INDEXES = [
     # Debates table for listing
     ("debates", "idx_debates_created", "created_at"),
     ("debates", "idx_debates_status", "status"),
+    # Composite index for filtering by status and sorting by time (common pattern)
+    ("debates", "idx_debates_status_created", "status, created_at"),
 
     # Consensus memory for debate lookups
     ("consensus_memory", "idx_consensus_debate", "debate_id"),
+
+    # ELO ratings for domain-specific queries
+    ("ratings", "idx_ratings_elo", "elo"),
 ]
 
 

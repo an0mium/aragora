@@ -210,6 +210,20 @@ class UserStore:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_invitations_token ON org_invitations(token)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_invitations_status ON org_invitations(status)")
 
+            # Composite indexes for common query patterns (Phase 5 optimization)
+            # Filter users by org and role together (e.g., "get all admins in org X")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_users_org_role ON users(org_id, role)"
+            )
+            # Active user lookups by email (common for authentication)
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_users_email_active ON users(email, is_active)"
+            )
+            # Usage events by org and type for analytics
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_usage_org_type ON usage_events(org_id, event_type)"
+            )
+
         logger.info(f"UserStore initialized: {self.db_path}")
 
     def _migrate_api_key_columns(self, cursor: sqlite3.Cursor) -> None:
@@ -402,6 +416,32 @@ class UserStore:
                 return self._row_to_user(row)
         return None
 
+    def get_users_batch(self, user_ids: list[str]) -> dict[str, User]:
+        """
+        Fetch multiple users in a single query.
+
+        This is more efficient than calling get_user_by_id in a loop (N+1 pattern).
+
+        Args:
+            user_ids: List of user IDs to fetch
+
+        Returns:
+            Dict mapping user_id to User object for found users
+        """
+        if not user_ids:
+            return {}
+
+        # Remove duplicates while preserving order
+        unique_ids = list(dict.fromkeys(user_ids))
+
+        with self._transaction() as cursor:
+            placeholders = ",".join("?" * len(unique_ids))
+            cursor.execute(
+                f"SELECT * FROM users WHERE id IN ({placeholders})",
+                unique_ids,
+            )
+            return {row["id"]: self._row_to_user(row) for row in cursor.fetchall()}
+
     def get_user_by_email(self, email: str) -> Optional[User]:
         """Get user by email."""
         with self._transaction() as cursor:
@@ -513,6 +553,92 @@ class UserStore:
                 values,
             )
             return cursor.rowcount > 0
+
+    def update_users_batch(
+        self,
+        updates: list[dict[str, Any]],
+    ) -> int:
+        """
+        Update multiple users in a single transaction.
+
+        More efficient than calling update_user in a loop. Uses executemany
+        for batch performance.
+
+        Args:
+            updates: List of dicts, each containing 'user_id' and fields to update.
+                    Example: [{"user_id": "abc", "role": "admin"}, ...]
+
+        Returns:
+            Number of users successfully updated
+        """
+        if not updates:
+            return 0
+
+        updated_count = 0
+        now = datetime.utcnow().isoformat()
+
+        # Group updates by the set of fields being updated
+        # This allows us to use executemany for each group
+        field_groups: dict[tuple[str, ...], list[dict]] = {}
+        for update in updates:
+            if "user_id" not in update:
+                continue
+            fields = tuple(sorted(k for k in update.keys() if k != "user_id"))
+            if fields not in field_groups:
+                field_groups[fields] = []
+            field_groups[fields].append(update)
+
+        column_map = {
+            "email": "email",
+            "password_hash": "password_hash",
+            "password_salt": "password_salt",
+            "name": "name",
+            "org_id": "org_id",
+            "role": "role",
+            "is_active": "is_active",
+            "email_verified": "email_verified",
+            "api_key": "api_key",
+            "api_key_hash": "api_key_hash",
+            "api_key_prefix": "api_key_prefix",
+            "api_key_created_at": "api_key_created_at",
+            "api_key_expires_at": "api_key_expires_at",
+            "last_login_at": "last_login_at",
+            "mfa_secret": "mfa_secret",
+            "mfa_enabled": "mfa_enabled",
+            "mfa_backup_codes": "mfa_backup_codes",
+        }
+
+        with self._transaction() as cursor:
+            for fields, group in field_groups.items():
+                # Build SQL for this group
+                valid_fields = [f for f in fields if f in column_map]
+                if not valid_fields:
+                    continue
+
+                set_clauses = [f"{column_map[f]} = ?" for f in valid_fields]
+                set_clauses.append("updated_at = ?")
+                sql = f"UPDATE users SET {', '.join(set_clauses)} WHERE id = ?"
+
+                # Build parameter tuples for executemany
+                params_list = []
+                for update in group:
+                    values = []
+                    for field in valid_fields:
+                        value = update[field]
+                        if isinstance(value, bool):
+                            values.append(1 if value else 0)
+                        elif isinstance(value, datetime):
+                            values.append(value.isoformat())
+                        else:
+                            values.append(value)
+                    values.append(now)  # updated_at
+                    values.append(update["user_id"])
+                    params_list.append(tuple(values))
+
+                cursor.executemany(sql, params_list)
+                updated_count += cursor.rowcount
+
+        return updated_count
 
     def delete_user(self, user_id: str) -> bool:
         """Delete a user."""
@@ -831,6 +957,85 @@ class UserStore:
         with self._transaction() as cursor:
             cursor.execute("SELECT * FROM users WHERE org_id = ?", (org_id,))
             return [self._row_to_user(row) for row in cursor.fetchall()]
+
+    def get_org_members_eager(
+        self, org_id: str
+    ) -> tuple[Optional[Organization], list[User]]:
+        """
+        Get organization and all its members in a single query operation.
+
+        This is more efficient than calling get_organization_by_id and
+        get_org_members separately, especially when you need both.
+
+        Args:
+            org_id: Organization ID
+
+        Returns:
+            Tuple of (Organization or None, list of User members)
+        """
+        with self._transaction() as cursor:
+            # Fetch organization
+            cursor.execute("SELECT * FROM organizations WHERE id = ?", (org_id,))
+            org_row = cursor.fetchone()
+            if not org_row:
+                return None, []
+
+            org = self._row_to_org(org_row)
+
+            # Fetch members in same transaction
+            cursor.execute("SELECT * FROM users WHERE org_id = ?", (org_id,))
+            members = [self._row_to_user(row) for row in cursor.fetchall()]
+
+            return org, members
+
+    def get_orgs_with_members_batch(
+        self, org_ids: list[str]
+    ) -> dict[str, tuple[Organization, list[User]]]:
+        """
+        Get multiple organizations with their members in optimized queries.
+
+        Uses batch queries to avoid N+1 pattern when loading multiple orgs
+        with their members.
+
+        Args:
+            org_ids: List of organization IDs
+
+        Returns:
+            Dict mapping org_id to (Organization, members list) tuple
+        """
+        if not org_ids:
+            return {}
+
+        unique_ids = list(dict.fromkeys(org_ids))
+        result: dict[str, tuple[Organization, list[User]]] = {}
+
+        with self._transaction() as cursor:
+            # Batch fetch organizations
+            placeholders = ",".join("?" * len(unique_ids))
+            cursor.execute(
+                f"SELECT * FROM organizations WHERE id IN ({placeholders})",
+                unique_ids,
+            )
+            orgs = {row["id"]: self._row_to_org(row) for row in cursor.fetchall()}
+
+            # Batch fetch all members for these orgs
+            cursor.execute(
+                f"SELECT * FROM users WHERE org_id IN ({placeholders})",
+                unique_ids,
+            )
+
+            # Group users by org_id
+            members_by_org: dict[str, list[User]] = {oid: [] for oid in orgs}
+            for row in cursor.fetchall():
+                user = self._row_to_user(row)
+                if user.org_id in members_by_org:
+                    members_by_org[user.org_id].append(user)
+
+            # Build result
+            for org_id, org in orgs.items():
+                result[org_id] = (org, members_by_org.get(org_id, []))
+
+        return result
 
     def _row_to_org(self, row: sqlite3.Row) -> Organization:
         """Convert database row to Organization object."""
