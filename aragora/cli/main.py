@@ -318,84 +318,8 @@ def cmd_patterns(args: argparse.Namespace) -> None:
 
 def cmd_demo(args: argparse.Namespace) -> None:
     """Handle 'demo' command - run a quick compelling demo."""
-    import time
-
-    demo_tasks: dict[str, dict[str, str | int]] = {
-        "rate-limiter": {
-            "task": "Design a distributed rate limiter that handles 1M requests/second across multiple regions",
-            "agents": "demo,demo,demo",
-            "rounds": 2,
-        },
-        "auth": {
-            "task": "Design a secure authentication system with passwordless login and MFA support",
-            "agents": "demo,demo,demo",
-            "rounds": 2,
-        },
-        "cache": {
-            "task": "Design a cache invalidation strategy for a social media feed with 100M users",
-            "agents": "demo,demo,demo",
-            "rounds": 2,
-        },
-    }
-
-    demo_name = args.name or "rate-limiter"
-    if demo_name not in demo_tasks:
-        print(f"Unknown demo: {demo_name}")
-        print(f"Available demos: {', '.join(demo_tasks.keys())}")
-        return
-
-    demo = demo_tasks[demo_name]
-    task = str(demo["task"])
-    agents = str(demo["agents"])
-    rounds = int(demo["rounds"])
-
-    print("\n" + "=" * 60)
-    print("🎭 ARAGORA DEMO - Decision Stress-Test")
-    print("=" * 60)
-    print(f"\n📋 Task: {task[:80]}...")
-    print(f"🤖 Agents: {agents}")
-    print(f"🔄 Rounds: {rounds}")
-    print("\n" + "-" * 60)
-    print("Starting debate...")
-    print("-" * 60 + "\n")
-
-    start = time.time()
-
-    result = asyncio.run(
-        run_debate(
-            task=task,
-            agents_str=agents,
-            rounds=rounds,
-            consensus="majority",
-            learn=False,
-            enable_audience=False,
-            protocol_overrides={
-                "convergence_detection": False,
-                "vote_grouping": False,
-                "enable_trickster": False,
-                "enable_research": False,
-                "enable_rhetorical_observer": False,
-                "role_rotation": False,
-                "role_matching": False,
-            },
-        )
-    )
-
-    elapsed = time.time() - start
-
-    print("\n" + "=" * 60)
-    print("✅ DEBATE COMPLETE")
-    print("=" * 60)
-    print(f"⏱️  Duration: {elapsed:.1f}s")
-    print(f"🎯 Consensus: {'Reached' if result.consensus_reached else 'Not reached'}")
-    print(f"📊 Confidence: {result.confidence:.0%}")
-    print("\n" + "-" * 60)
-    print("FINAL ANSWER:")
-    print("-" * 60)
-    print(result.final_answer[:1000])
-    if len(result.final_answer) > 1000:
-        print("...")
-    print("\n" + "=" * 60)
+    from aragora.cli.demo import main as demo_main
+    demo_main(args)
 
 
 def cmd_templates(args: argparse.Namespace) -> None:
@@ -552,56 +476,8 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
 
 def cmd_badge(args) -> None:
     """Generate badge markdown for README."""
-    style = getattr(args, "style", "flat")
-    repo = getattr(args, "repo", None)
-
-    # Badge URLs
-    badges = {
-        "reviewed": {
-            "flat": "https://img.shields.io/badge/Reviewed%20by-Aragora%20AI%20Red%20Team-blue?style=flat",
-            "flat-square": "https://img.shields.io/badge/Reviewed%20by-Aragora%20AI%20Red%20Team-blue?style=flat-square",
-            "for-the-badge": "https://img.shields.io/badge/Reviewed%20by-Aragora%20AI%20Red%20Team-blue?style=for-the-badge",
-            "plastic": "https://img.shields.io/badge/Reviewed%20by-Aragora%20AI%20Red%20Team-blue?style=plastic",
-        },
-        "consensus": {
-            "flat": "https://img.shields.io/badge/AI%20Consensus-Unanimous-brightgreen?style=flat",
-            "flat-square": "https://img.shields.io/badge/AI%20Consensus-Unanimous-brightgreen?style=flat-square",
-            "for-the-badge": "https://img.shields.io/badge/AI%20Consensus-Unanimous-brightgreen?style=for-the-badge",
-            "plastic": "https://img.shields.io/badge/AI%20Consensus-Unanimous-brightgreen?style=plastic",
-        },
-        "gauntlet": {
-            "flat": "https://img.shields.io/badge/Stress%20Tested-Aragora%20Gauntlet-orange?style=flat",
-            "flat-square": "https://img.shields.io/badge/Stress%20Tested-Aragora%20Gauntlet-orange?style=flat-square",
-            "for-the-badge": "https://img.shields.io/badge/Stress%20Tested-Aragora%20Gauntlet-orange?style=for-the-badge",
-            "plastic": "https://img.shields.io/badge/Stress%20Tested-Aragora%20Gauntlet-orange?style=plastic",
-        },
-    }
-
-    badge_type = getattr(args, "type", "reviewed")
-    badge_url = badges.get(badge_type, badges["reviewed"]).get(style, badges[badge_type]["flat"])
-
-    link_url = "https://github.com/an0mium/aragora"
-    if repo:
-        link_url = f"https://github.com/{repo}"
-
-    # Generate markdown
-    markdown = f"[![Aragora]({badge_url})]({link_url})"
-
-    print("\n📛 Aragora Badge\n")
-    print("Add this to your README.md:\n")
-    print("```markdown")
-    print(markdown)
-    print("```\n")
-
-    # Also show HTML version
-    print("Or use HTML:\n")
-    print("```html")
-    print(f'<a href="{link_url}"><img src="{badge_url}" alt="Aragora"></a>')
-    print("```\n")
-
-    # Copy hint
-    print("Preview:")
-    print(f"  {markdown}\n")
+    from aragora.cli.badge import main as badge_main
+    badge_main(args)
 
 
 def cmd_mcp_server(args: argparse.Namespace) -> None:
