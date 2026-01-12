@@ -384,7 +384,9 @@ class ContinuumMemory:
         keyword_params: list = []
         if query:
             # Split query into words and require at least one match
-            keywords = [kw.strip().lower() for kw in query.split() if kw.strip()]
+            # Limit to 50 keywords to prevent unbounded SQL condition generation
+            MAX_QUERY_KEYWORDS = 50
+            keywords = [kw.strip().lower() for kw in query.split()[:MAX_QUERY_KEYWORDS] if kw.strip()]
             if keywords:
                 # Use INSTR for case-insensitive containment check (faster than LIKE)
                 keyword_conditions = [
@@ -1190,6 +1192,74 @@ class ContinuumMemory:
             results["deleted"],
         )
         return results
+
+    def delete(
+        self,
+        memory_id: str,
+        archive: bool = True,
+        reason: str = "user_deleted",
+    ) -> Dict[str, Any]:
+        """
+        Delete a specific memory entry by ID.
+
+        Args:
+            memory_id: The ID of the memory to delete
+            archive: If True, archive before deletion; if False, delete permanently
+            reason: Reason for deletion (stored in archive)
+
+        Returns:
+            Dict with result: {"deleted": bool, "archived": bool, "id": str}
+        """
+        result: Dict[str, Any] = {"deleted": False, "archived": False, "id": memory_id}
+
+        with get_wal_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # Check if memory exists
+            cursor.execute(
+                "SELECT id FROM continuum_memory WHERE id = ?",
+                (memory_id,)
+            )
+            if not cursor.fetchone():
+                logger.debug("Memory %s not found for deletion", memory_id)
+                return result
+
+            if archive:
+                # Archive the entry before deletion
+                cursor.execute(
+                    """
+                    INSERT INTO continuum_memory_archive
+                        (id, tier, content, importance, surprise_score,
+                         consolidation_score, update_count, success_count,
+                         failure_count, semantic_centroid, created_at,
+                         updated_at, archive_reason, metadata)
+                    SELECT id, tier, content, importance, surprise_score,
+                           consolidation_score, update_count, success_count,
+                           failure_count, semantic_centroid, created_at,
+                           updated_at, ?, metadata
+                    FROM continuum_memory
+                    WHERE id = ?
+                    """,
+                    (reason, memory_id),
+                )
+                result["archived"] = cursor.rowcount > 0
+
+            # Delete from main table
+            cursor.execute(
+                "DELETE FROM continuum_memory WHERE id = ?",
+                (memory_id,),
+            )
+            result["deleted"] = cursor.rowcount > 0
+
+            conn.commit()
+
+        if result["deleted"]:
+            logger.info(
+                "Memory %s deleted (archived=%s, reason=%s)",
+                memory_id, result["archived"], reason
+            )
+
+        return result
 
     def enforce_tier_limits(
         self,

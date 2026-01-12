@@ -255,18 +255,23 @@ class SystemHandler(BaseHandler):
         - storage: Debate storage is initialized
         - elo_system: ELO ranking system is available
         - nomic_dir: Nomic state directory exists
+        - filesystem: Can write to data directory
+        - redis: Cache connectivity (if configured)
+        - ai_providers: API key availability
         """
         checks: Dict[str, Dict[str, Any]] = {}
         all_healthy = True
         start_time = time.time()
 
         # Check database connectivity
+        db_start = time.time()
         try:
             storage = self.get_storage()
             if storage is not None:
                 # Try to execute a simple query to verify DB is responsive
                 storage.list_recent(limit=1)
-                checks["database"] = {"healthy": True, "latency_ms": 0}
+                db_latency = round((time.time() - db_start) * 1000, 2)
+                checks["database"] = {"healthy": True, "latency_ms": db_latency}
             else:
                 checks["database"] = {"healthy": False, "error": "Storage not initialized"}
                 all_healthy = False
@@ -298,6 +303,24 @@ class SystemHandler(BaseHandler):
             checks["nomic_dir"]["healthy"] = True  # Downgrade to warning
             checks["nomic_dir"]["warning"] = "Nomic directory not configured"
 
+        # Check filesystem write access
+        checks["filesystem"] = self._check_filesystem_health()
+        if not checks["filesystem"]["healthy"]:
+            all_healthy = False
+
+        # Check Redis connectivity (if configured)
+        checks["redis"] = self._check_redis_health()
+        # Redis is optional - don't fail if not configured
+        if checks["redis"].get("error") and checks["redis"].get("configured", False):
+            all_healthy = False
+
+        # Check AI provider availability
+        checks["ai_providers"] = self._check_ai_providers_health()
+        # At least one provider should be available
+        if not checks["ai_providers"].get("any_available", False):
+            checks["ai_providers"]["warning"] = "No AI providers configured"
+            # Don't fail health check - just warn
+
         # Check WebSocket manager (if available in context)
         # Note: ws_manager is only available when running via AiohttpUnifiedServer.
         # When using standard HTTP handlers, WebSocket runs as a separate service.
@@ -325,6 +348,100 @@ class SystemHandler(BaseHandler):
         }
 
         return json_response(health, status=status_code)
+
+    def _check_filesystem_health(self) -> Dict[str, Any]:
+        """Check filesystem write access to data directory.
+
+        Attempts to create and delete a temporary file to verify write access.
+        """
+        import os
+        import tempfile
+
+        try:
+            # Try to use nomic_dir first, then fall back to temp dir
+            nomic_dir = self.get_nomic_dir()
+            test_dir = nomic_dir if nomic_dir and nomic_dir.exists() else Path(tempfile.gettempdir())
+
+            test_file = test_dir / f".health_check_{os.getpid()}"
+            try:
+                # Write test
+                test_file.write_text("health_check")
+                # Read verify
+                content = test_file.read_text()
+                if content != "health_check":
+                    return {"healthy": False, "error": "Read verification failed"}
+                return {"healthy": True, "path": str(test_dir)}
+            finally:
+                # Cleanup
+                if test_file.exists():
+                    test_file.unlink()
+
+        except PermissionError as e:
+            return {"healthy": False, "error": f"Permission denied: {e}"}
+        except OSError as e:
+            return {"healthy": False, "error": f"Filesystem error: {e}"}
+
+    def _check_redis_health(self) -> Dict[str, Any]:
+        """Check Redis connectivity if configured.
+
+        Returns status of Redis cache connection.
+        """
+        import os
+
+        redis_url = os.environ.get("REDIS_URL") or os.environ.get("CACHE_REDIS_URL")
+
+        if not redis_url:
+            return {"healthy": True, "configured": False, "note": "Redis not configured"}
+
+        try:
+            import redis
+            client = redis.from_url(redis_url, socket_timeout=2.0)
+            ping_start = time.time()
+            pong = client.ping()
+            ping_latency = round((time.time() - ping_start) * 1000, 2)
+
+            if pong:
+                return {"healthy": True, "configured": True, "latency_ms": ping_latency}
+            else:
+                return {"healthy": False, "configured": True, "error": "Ping returned False"}
+
+        except ImportError:
+            return {"healthy": True, "configured": True, "warning": "redis package not installed"}
+        except Exception as e:
+            return {"healthy": False, "configured": True, "error": f"{type(e).__name__}: {str(e)[:80]}"}
+
+    def _check_ai_providers_health(self) -> Dict[str, Any]:
+        """Check AI provider API key availability.
+
+        Checks if environment variables for AI providers are set.
+        Does NOT make API calls - just verifies configuration.
+        """
+        import os
+
+        providers = {
+            "anthropic": "ANTHROPIC_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "gemini": "GEMINI_API_KEY",
+            "grok": "GROK_API_KEY",
+            "xai": "XAI_API_KEY",
+            "deepseek": "DEEPSEEK_API_KEY",
+            "openrouter": "OPENROUTER_API_KEY",
+        }
+
+        available = {}
+        for name, env_var in providers.items():
+            key = os.environ.get(env_var)
+            available[name] = key is not None and len(key) > 10
+
+        any_available = any(available.values())
+        available_count = sum(1 for v in available.values() if v)
+
+        return {
+            "healthy": True,  # Not having providers configured isn't unhealthy
+            "any_available": any_available,
+            "available_count": available_count,
+            "providers": available,
+        }
 
     def _detailed_health_check(self) -> HandlerResult:
         """Return detailed health status with system observer metrics.

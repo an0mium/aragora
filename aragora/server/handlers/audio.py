@@ -25,6 +25,9 @@ from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 logger = logging.getLogger(__name__)
 
+# Podcast feed limits
+MAX_PODCAST_EPISODES = 200  # Prevent unbounded feed generation
+
 # Optional imports for broadcast functionality
 try:
     from aragora.broadcast.rss_gen import PodcastFeedGenerator, PodcastConfig, PodcastEpisode
@@ -124,8 +127,13 @@ class AudioHandler(BaseHandler):
         try:
             storage = self.get_storage()
             debates_with_audio = []
+            episode_count = 0
 
             for audio_meta in audio_store.list_all():
+                # Limit podcast feed size to prevent unbounded growth
+                if episode_count >= MAX_PODCAST_EPISODES:
+                    break
+
                 debate_id = audio_meta.get("debate_id")
                 if not debate_id:
                     continue
@@ -147,6 +155,7 @@ class AudioHandler(BaseHandler):
                     "duration_seconds": audio_meta.get("duration_seconds", 0),
                     "file_size_bytes": audio_meta.get("file_size_bytes", 0),
                 })
+                episode_count += 1
 
             # Generate RSS feed
             config = PodcastConfig()

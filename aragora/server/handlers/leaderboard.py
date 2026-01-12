@@ -24,6 +24,10 @@ from aragora.config import (
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
 logger = logging.getLogger(__name__)
+
+# Introspection limits
+MAX_INTROSPECTION_AGENTS = 50  # Prevent unbounded introspection calls
+
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -296,6 +300,9 @@ class LeaderboardViewHandler(BaseHandler):
 
         if not agents:
             agents = ["gemini", "claude", "codex", "grok", "deepseek"]
+
+        # Limit agents for introspection to prevent unbounded calls
+        agents = agents[:MAX_INTROSPECTION_AGENTS]
 
         # Get persona manager if available
         persona_manager = None

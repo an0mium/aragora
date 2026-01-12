@@ -39,6 +39,7 @@ _request_counts: dict[str, int] = {}
 _error_counts: dict[str, int] = {}
 _metrics_lock = threading.Lock()
 _start_time = time.time()
+MAX_TRACKED_ENDPOINTS = 1000  # Prevent unbounded dict growth
 
 # Verification metrics tracking (thread-safe)
 _verification_stats: dict[str, int | float] = {
@@ -95,6 +96,14 @@ def get_verification_stats() -> dict:
 def track_request(endpoint: str, is_error: bool = False):
     """Track a request for metrics (thread-safe)."""
     with _metrics_lock:
+        # Enforce max size - remove oldest entries if at capacity
+        if endpoint not in _request_counts and len(_request_counts) >= MAX_TRACKED_ENDPOINTS:
+            # Remove first 10% of entries (approximate LRU eviction)
+            keys = list(_request_counts.keys())
+            remove_count = max(1, len(keys) // 10)
+            for k in keys[:remove_count]:
+                del _request_counts[k]
+                _error_counts.pop(k, None)
         _request_counts[endpoint] = _request_counts.get(endpoint, 0) + 1
         if is_error:
             _error_counts[endpoint] = _error_counts.get(endpoint, 0) + 1
@@ -152,7 +161,7 @@ class MetricsHandler(BaseHandler):
 
             # Update server info
             set_server_info(
-                version="0.07",
+                version="0.8.0",
                 python_version=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
                 start_time=_start_time,
             )

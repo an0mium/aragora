@@ -15,6 +15,13 @@ SAFE_ID_PATTERN_WITH_DOTS = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$')
 SAFE_SLUG_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,128}$')
 SAFE_AGENT_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,32}$')
 
+# Specific patterns for structured IDs
+SAFE_GAUNTLET_ID_PATTERN = re.compile(r'^gauntlet-\d{14}-[a-f0-9]{6}$')
+SAFE_TOKEN_PATTERN = re.compile(r'^[A-Za-z0-9_-]{16,64}$')
+SAFE_BATCH_ID_PATTERN = re.compile(r'^batch_[a-zA-Z0-9]{6,32}$')
+SAFE_SHARE_TOKEN_PATTERN = re.compile(r'^[A-Za-z0-9_-]{16,32}$')
+SAFE_SESSION_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{8,64}$')
+
 
 def validate_path_segment(
     value: str,
@@ -85,6 +92,66 @@ def validate_debate_id(debate_id: str) -> Tuple[bool, Optional[str]]:
         Tuple of (is_valid, error_message)
     """
     return validate_path_segment(debate_id, "debate ID", SAFE_SLUG_PATTERN)
+
+
+def validate_gauntlet_id(gauntlet_id: str) -> Tuple[bool, Optional[str]]:
+    """Validate a gauntlet ID (prefixed with gauntlet-).
+
+    Accepts both strict format (gauntlet-YYYYMMDDHHMMSS-xxxxxx) and
+    legacy format (gauntlet-*) for backwards compatibility.
+
+    Args:
+        gauntlet_id: Gauntlet ID to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not gauntlet_id or not gauntlet_id.startswith("gauntlet-"):
+        return False, "Invalid gauntlet ID: must start with 'gauntlet-'"
+    # Accept strict format or legacy format
+    if SAFE_GAUNTLET_ID_PATTERN.match(gauntlet_id):
+        return True, None
+    return validate_path_segment(gauntlet_id, "gauntlet ID", SAFE_SLUG_PATTERN)
+
+
+def validate_share_token(token: str) -> Tuple[bool, Optional[str]]:
+    """Validate a share token.
+
+    Share tokens are URL-safe base64 strings, 16-32 characters.
+
+    Args:
+        token: Share token to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    return validate_path_segment(token, "share token", SAFE_SHARE_TOKEN_PATTERN)
+
+
+def validate_batch_id(batch_id: str) -> Tuple[bool, Optional[str]]:
+    """Validate a batch ID (prefixed with batch_).
+
+    Args:
+        batch_id: Batch ID to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not batch_id or not batch_id.startswith("batch_"):
+        return False, "Invalid batch ID: must start with 'batch_'"
+    return validate_path_segment(batch_id, "batch ID", SAFE_BATCH_ID_PATTERN)
+
+
+def validate_session_id(session_id: str) -> Tuple[bool, Optional[str]]:
+    """Validate a session ID.
+
+    Args:
+        session_id: Session ID to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    return validate_path_segment(session_id, "session ID", SAFE_SESSION_ID_PATTERN)
 
 
 def validate_plugin_name(plugin_name: str) -> Tuple[bool, Optional[str]]:

@@ -287,3 +287,198 @@ PaginatedResponse = HandlerResult
 ListResponse = HandlerResult
 ItemResponse = HandlerResult
 ErrorResponse = HandlerResult
+
+
+# =============================================================================
+# V2 Response Envelope Support
+# =============================================================================
+
+
+def v2_envelope(
+    data: Any,
+    meta: Optional[dict] = None,
+    status: int = 200,
+    headers: Optional[dict] = None,
+) -> HandlerResult:
+    """Wrap response data in V2 envelope format.
+
+    V2 API responses follow the structure:
+        {
+            "data": {...},      # Actual response data
+            "meta": {...}       # Metadata (pagination, timing, etc.)
+        }
+
+    Args:
+        data: The response data to wrap
+        meta: Optional metadata dict (pagination cursor, total, etc.)
+        status: HTTP status code
+        headers: Optional additional headers
+
+    Returns:
+        HandlerResult with V2 envelope structure
+    """
+    envelope = {"data": data}
+    if meta:
+        envelope["meta"] = meta
+    return json_response(envelope, status=status, headers=headers)
+
+
+def v2_paginated_response(
+    items: list,
+    total: int,
+    cursor: Optional[str] = None,
+    next_cursor: Optional[str] = None,
+    limit: int = 20,
+    item_key: str = "items",
+    extra_meta: Optional[dict] = None,
+) -> HandlerResult:
+    """Create a V2 paginated response with cursor-based pagination.
+
+    V2 uses cursor-based pagination instead of offset:
+        {
+            "data": {
+                "<item_key>": [...]
+            },
+            "meta": {
+                "total": N,
+                "limit": 20,
+                "cursor": "current_cursor",
+                "next_cursor": "next_page_cursor",  # null if no more pages
+                "has_more": true/false
+            }
+        }
+
+    Args:
+        items: List of items for current page
+        total: Total count of items
+        cursor: Current cursor value
+        next_cursor: Cursor for next page (None if last page)
+        limit: Page size
+        item_key: Key name for items array
+        extra_meta: Additional metadata fields
+
+    Returns:
+        HandlerResult with V2 paginated response
+    """
+    data = {item_key: items}
+    meta = {
+        "total": total,
+        "limit": limit,
+        "has_more": next_cursor is not None,
+    }
+    if cursor:
+        meta["cursor"] = cursor
+    if next_cursor:
+        meta["next_cursor"] = next_cursor
+    if extra_meta:
+        meta.update(extra_meta)
+
+    return v2_envelope(data, meta=meta)
+
+
+def v2_list_response(
+    items: list,
+    item_key: str = "items",
+    extra_meta: Optional[dict] = None,
+) -> HandlerResult:
+    """Create a V2 list response (non-paginated).
+
+    Args:
+        items: List of items
+        item_key: Key name for items array
+        extra_meta: Additional metadata
+
+    Returns:
+        HandlerResult with V2 envelope:
+        {
+            "data": {"<item_key>": [...]},
+            "meta": {"total": N}
+        }
+    """
+    data = {item_key: items}
+    meta = {"total": len(items)}
+    if extra_meta:
+        meta.update(extra_meta)
+    return v2_envelope(data, meta=meta)
+
+
+def v2_item_response(
+    item: Any,
+    status: int = 200,
+    meta: Optional[dict] = None,
+) -> HandlerResult:
+    """Create a V2 single item response.
+
+    Args:
+        item: The item to return
+        status: HTTP status code
+        meta: Optional metadata
+
+    Returns:
+        HandlerResult with V2 envelope:
+        {"data": item, "meta": {...}}
+    """
+    return v2_envelope(item, meta=meta, status=status)
+
+
+def v2_success_response(
+    message: str,
+    data: Optional[dict] = None,
+    status: int = 200,
+) -> HandlerResult:
+    """Create a V2 success response.
+
+    Args:
+        message: Success message
+        data: Optional additional data
+        status: HTTP status code
+
+    Returns:
+        HandlerResult with V2 envelope:
+        {"data": {"message": "...", ...}, "meta": {}}
+    """
+    response_data = {"message": message}
+    if data:
+        response_data.update(data)
+    return v2_envelope(response_data, status=status)
+
+
+def v2_error_response(
+    code: str,
+    message: str,
+    status: int = 400,
+    details: Optional[dict] = None,
+    trace_id: Optional[str] = None,
+) -> HandlerResult:
+    """Create a V2 structured error response.
+
+    V2 error format:
+        {
+            "error": {
+                "code": "ERROR_CODE",
+                "message": "Human readable message",
+                "details": {...},  # optional
+                "trace_id": "abc123"  # optional
+            }
+        }
+
+    Args:
+        code: Error code (e.g., "VALIDATION_ERROR", "NOT_FOUND")
+        message: Human-readable error message
+        status: HTTP status code
+        details: Optional additional error details
+        trace_id: Optional trace ID for debugging
+
+    Returns:
+        HandlerResult with V2 error structure
+    """
+    error = {
+        "code": code,
+        "message": message,
+    }
+    if details:
+        error["details"] = details
+    if trace_id:
+        error["trace_id"] = trace_id
+
+    return json_response({"error": error}, status=status)

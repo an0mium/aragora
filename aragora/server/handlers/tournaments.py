@@ -27,6 +27,9 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 # Rate limiter for tournament endpoints (30 requests per minute)
 _tournament_limiter = RateLimiter(requests_per_minute=30)
 
+# Tournament listing limits
+MAX_TOURNAMENTS_TO_LIST = 100  # Prevent unbounded directory iteration
+
 # Optional import for tournament functionality
 try:
     from aragora.ranking.tournaments import TournamentManager
@@ -88,7 +91,13 @@ class TournamentHandler(BaseHandler):
         tournaments = []
 
         if tournaments_dir.exists():
+            scanned = 0
             for db_file in tournaments_dir.glob("*.db"):
+                # Limit directory iteration to prevent unbounded growth
+                if scanned >= MAX_TOURNAMENTS_TO_LIST:
+                    break
+                scanned += 1
+
                 tournament_id = db_file.stem
                 try:
                     manager = TournamentManager(db_path=str(db_file))

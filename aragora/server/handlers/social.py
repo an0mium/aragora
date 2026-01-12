@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 _oauth_states: dict[str, float] = {}  # state -> expiry_time
 _oauth_states_lock = threading.Lock()
 _OAUTH_STATE_TTL = 600  # 10 minutes
+MAX_OAUTH_STATES = 5000  # Prevent memory exhaustion from rapid state generation
 
 # Allowed hosts for OAuth redirect URI (prevent open redirect)
 ALLOWED_OAUTH_HOSTS = frozenset(
@@ -52,6 +53,14 @@ def _store_oauth_state(state: str) -> None:
         expired = [s for s, exp in _oauth_states.items() if exp < now]
         for s in expired:
             del _oauth_states[s]
+
+        # Enforce max size - remove oldest entries if at capacity
+        if len(_oauth_states) >= MAX_OAUTH_STATES:
+            sorted_states = sorted(_oauth_states.items(), key=lambda x: x[1])
+            remove_count = max(1, len(sorted_states) // 10)
+            for s, _ in sorted_states[:remove_count]:
+                del _oauth_states[s]
+
         # Store new state
         _oauth_states[state] = now + _OAUTH_STATE_TTL
 

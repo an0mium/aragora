@@ -20,6 +20,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -111,36 +112,41 @@ class TierTransitionMetrics:
     total_promotions: int = 0
     total_demotions: int = 0
     last_reset: str = field(default_factory=lambda: datetime.now().isoformat())
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
     def record_promotion(self, from_tier: MemoryTier, to_tier: MemoryTier) -> None:
-        """Record a promotion event."""
-        key = f"{from_tier.value}->{to_tier.value}"
-        self.promotions[key] = self.promotions.get(key, 0) + 1
-        self.total_promotions += 1
+        """Record a promotion event (thread-safe)."""
+        with self._lock:
+            key = f"{from_tier.value}->{to_tier.value}"
+            self.promotions[key] = self.promotions.get(key, 0) + 1
+            self.total_promotions += 1
 
     def record_demotion(self, from_tier: MemoryTier, to_tier: MemoryTier) -> None:
-        """Record a demotion event."""
-        key = f"{from_tier.value}->{to_tier.value}"
-        self.demotions[key] = self.demotions.get(key, 0) + 1
-        self.total_demotions += 1
+        """Record a demotion event (thread-safe)."""
+        with self._lock:
+            key = f"{from_tier.value}->{to_tier.value}"
+            self.demotions[key] = self.demotions.get(key, 0) + 1
+            self.total_demotions += 1
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization."""
-        return {
-            "promotions": self.promotions,
-            "demotions": self.demotions,
-            "total_promotions": self.total_promotions,
-            "total_demotions": self.total_demotions,
-            "last_reset": self.last_reset,
-        }
+        """Convert to dictionary for serialization (thread-safe)."""
+        with self._lock:
+            return {
+                "promotions": dict(self.promotions),
+                "demotions": dict(self.demotions),
+                "total_promotions": self.total_promotions,
+                "total_demotions": self.total_demotions,
+                "last_reset": self.last_reset,
+            }
 
     def reset(self) -> None:
-        """Reset metrics."""
-        self.promotions = {}
-        self.demotions = {}
-        self.total_promotions = 0
-        self.total_demotions = 0
-        self.last_reset = datetime.now().isoformat()
+        """Reset metrics (thread-safe)."""
+        with self._lock:
+            self.promotions = {}
+            self.demotions = {}
+            self.total_promotions = 0
+            self.total_demotions = 0
+            self.last_reset = datetime.now().isoformat()
 
 
 class TierManager:

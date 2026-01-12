@@ -863,6 +863,110 @@ class ConsensusMemory:
 
         return new_record
 
+    def cleanup_old_records(
+        self,
+        max_age_days: int = 90,
+        archive: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Clean up old consensus and dissent records.
+
+        Args:
+            max_age_days: Records older than this are cleaned up
+            archive: If True, archive before deletion (archive table must exist)
+
+        Returns:
+            Dict with counts: {"archived": N, "deleted": N}
+        """
+        result: dict[str, Any] = {"archived": 0, "deleted": 0}
+        cutoff = (datetime.now() - timedelta(days=max_age_days)).isoformat()
+
+        with get_wal_connection(self.db_path, timeout=DB_TIMEOUT_SECONDS) as conn:
+            cursor = conn.cursor()
+
+            # Check if archive table exists; create if needed
+            if archive:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS consensus_archive (
+                        id TEXT PRIMARY KEY,
+                        topic TEXT NOT NULL,
+                        topic_hash TEXT NOT NULL,
+                        conclusion TEXT NOT NULL,
+                        strength TEXT NOT NULL,
+                        confidence REAL,
+                        domain TEXT,
+                        tags TEXT,
+                        debate_id TEXT,
+                        agent_votes TEXT,
+                        supersedes TEXT,
+                        superseded_by TEXT,
+                        created_at TEXT,
+                        archived_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS dissent_archive (
+                        id TEXT PRIMARY KEY,
+                        debate_id TEXT NOT NULL,
+                        agent TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        dissent_type TEXT NOT NULL,
+                        rationale TEXT,
+                        created_at TEXT,
+                        archived_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+                # Archive old consensus records
+                cursor.execute("""
+                    INSERT OR IGNORE INTO consensus_archive
+                        (id, topic, topic_hash, conclusion, strength, confidence,
+                         domain, tags, debate_id, agent_votes, supersedes,
+                         superseded_by, created_at)
+                    SELECT id, topic, topic_hash, conclusion, strength, confidence,
+                           domain, tags, debate_id, agent_votes, supersedes,
+                           superseded_by, created_at
+                    FROM consensus
+                    WHERE datetime(created_at) < datetime(?)
+                """, (cutoff,))
+                archived_consensus = cursor.rowcount
+
+                # Archive old dissent records
+                cursor.execute("""
+                    INSERT OR IGNORE INTO dissent_archive
+                        (id, debate_id, agent, content, dissent_type, rationale, created_at)
+                    SELECT id, debate_id, agent, content, dissent_type, rationale, created_at
+                    FROM dissent
+                    WHERE datetime(created_at) < datetime(?)
+                """, (cutoff,))
+                archived_dissent = cursor.rowcount
+
+                result["archived"] = archived_consensus + archived_dissent
+
+            # Delete old records from main tables
+            cursor.execute(
+                "DELETE FROM consensus WHERE datetime(created_at) < datetime(?)",
+                (cutoff,)
+            )
+            deleted_consensus = cursor.rowcount
+
+            cursor.execute(
+                "DELETE FROM dissent WHERE datetime(created_at) < datetime(?)",
+                (cutoff,)
+            )
+            deleted_dissent = cursor.rowcount
+
+            result["deleted"] = deleted_consensus + deleted_dissent
+
+            conn.commit()
+
+        logger.info(
+            "Consensus cleanup: archived=%d, deleted=%d (cutoff=%d days)",
+            result["archived"], result["deleted"], max_age_days
+        )
+
+        return result
+
     def get_statistics(self) -> dict[str, Any]:
         """Get statistics about stored consensus."""
 

@@ -86,6 +86,7 @@ try:
         FeaturesHandler,
         MemoryAnalyticsHandler,
         GauntletHandler,
+        SlackHandler,
         HandlerResult,
     )
     HANDLERS_AVAILABLE = True
@@ -135,6 +136,7 @@ except ImportError:
     FeaturesHandler = None  # type: ignore[misc, assignment]
     MemoryAnalyticsHandler = None  # type: ignore[misc, assignment]
     GauntletHandler = None  # type: ignore[misc, assignment]
+    SlackHandler = None  # type: ignore[misc, assignment]
     HandlerResult = None  # type: ignore[misc, assignment]
 
 
@@ -184,6 +186,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_features_handler", FeaturesHandler),
     ("_memory_analytics_handler", MemoryAnalyticsHandler),
     ("_gauntlet_handler", GauntletHandler),
+    ("_slack_handler", SlackHandler),
 ]
 
 

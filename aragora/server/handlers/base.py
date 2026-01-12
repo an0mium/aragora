@@ -111,6 +111,7 @@ from aragora.server.validation import (
 # Re-export DB_TIMEOUT_SECONDS for backwards compatibility
 __all__ = [
     "DB_TIMEOUT_SECONDS", "require_auth", "require_user_auth", "require_storage", "require_feature",
+    "require_permission", "has_permission", "PERMISSION_MATRIX",
     "error_response", "json_response", "handle_errors", "auto_error_response", "log_request", "ttl_cache",
     "safe_error_message", "safe_error_response",
     "async_ttl_cache", "clear_cache", "get_cache_stats", "CACHE_INVALIDATION_MAP", "invalidate_cache",
@@ -677,6 +678,150 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
                     exc_info=True,
                 )
                 raise
+        return wrapper
+    return decorator
+
+
+# =============================================================================
+# Permission System (RBAC)
+# =============================================================================
+
+# Permission matrix: permission -> list of roles that have access
+# Role hierarchy: owner > admin > member
+# Higher roles inherit all permissions from lower roles
+PERMISSION_MATRIX: dict[str, list[str]] = {
+    # Debate permissions
+    "debates:read": ["member", "admin", "owner"],
+    "debates:create": ["member", "admin", "owner"],
+    "debates:update": ["admin", "owner"],
+    "debates:delete": ["admin", "owner"],
+    "debates:export": ["member", "admin", "owner"],
+    # Agent permissions
+    "agents:read": ["member", "admin", "owner"],
+    "agents:create": ["admin", "owner"],
+    "agents:update": ["admin", "owner"],
+    "agents:delete": ["admin", "owner"],
+    # Organization permissions
+    "org:read": ["member", "admin", "owner"],
+    "org:settings": ["admin", "owner"],
+    "org:members": ["admin", "owner"],
+    "org:invite": ["admin", "owner"],
+    "org:billing": ["owner"],
+    "org:delete": ["owner"],
+    # Plugin permissions
+    "plugins:read": ["member", "admin", "owner"],
+    "plugins:install": ["admin", "owner"],
+    "plugins:configure": ["admin", "owner"],
+    "plugins:uninstall": ["admin", "owner"],
+    "plugins:run": ["member", "admin", "owner"],
+    # Admin permissions
+    "admin:audit": ["admin", "owner"],
+    "admin:system": ["owner"],
+    "admin:users": ["owner"],
+    # API key management
+    "apikeys:read": ["member", "admin", "owner"],  # Own keys only
+    "apikeys:create": ["member", "admin", "owner"],  # Own keys only
+    "apikeys:delete": ["member", "admin", "owner"],  # Own keys only
+    "apikeys:manage": ["admin", "owner"],  # Manage org keys
+}
+
+
+def has_permission(role: str, permission: str) -> bool:
+    """
+    Check if a role has a specific permission.
+
+    Args:
+        role: User's role (member, admin, owner)
+        permission: Permission string (e.g., "debates:create")
+
+    Returns:
+        True if role has the permission, False otherwise
+    """
+    if not role or not permission:
+        return False
+
+    # Check exact permission
+    allowed_roles = PERMISSION_MATRIX.get(permission, [])
+    if role in allowed_roles:
+        return True
+
+    # Check wildcard permission (e.g., "admin:*" grants all admin:xxx permissions)
+    permission_category = permission.split(":")[0]
+    wildcard = f"{permission_category}:*"
+    wildcard_roles = PERMISSION_MATRIX.get(wildcard, [])
+    if role in wildcard_roles:
+        return True
+
+    return False
+
+
+def require_permission(permission: str) -> Callable[[Callable], Callable]:
+    """
+    Decorator that requires a specific permission.
+
+    First authenticates the user, then checks if they have the required permission
+    based on their role. Returns 401 if not authenticated, 403 if not authorized.
+
+    Args:
+        permission: Required permission (e.g., "debates:create", "org:billing")
+
+    Usage:
+        @require_permission("debates:delete")
+        def _delete_debate(self, handler, user: UserAuthContext, debate_id: str) -> HandlerResult:
+            # User is authenticated and has debates:delete permission
+            ...
+
+        @require_permission("org:settings")
+        def _update_org_settings(self, handler, user: UserAuthContext) -> HandlerResult:
+            # User is authenticated and is admin or owner
+            ...
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            from aragora.billing.jwt_auth import extract_user_from_request, UserAuthContext
+
+            # Extract handler from kwargs or args
+            handler = kwargs.get('handler')
+            if handler is None and args:
+                for arg in args:
+                    if hasattr(arg, 'headers'):
+                        handler = arg
+                        break
+
+            if handler is None:
+                logger.warning(f"require_permission({permission}): No handler provided")
+                return error_response("Authentication required", 401)
+
+            # Get user store from handler or context
+            user_store = None
+            if hasattr(handler, 'user_store'):
+                user_store = handler.user_store
+            elif hasattr(handler.__class__, 'user_store'):
+                user_store = handler.__class__.user_store
+
+            # Extract user from request
+            user_ctx = extract_user_from_request(handler, user_store)
+
+            if not user_ctx.is_authenticated:
+                error_msg = user_ctx.error_reason or "Authentication required"
+                return error_response(error_msg, 401)
+
+            # Check permission
+            if not has_permission(user_ctx.role, permission):
+                logger.warning(
+                    f"Permission denied: user={user_ctx.user_id} role={user_ctx.role} "
+                    f"permission={permission}"
+                )
+                return error_response(
+                    f"Permission denied: requires '{permission}'",
+                    403
+                )
+
+            # Inject user context into kwargs
+            kwargs['user'] = user_ctx
+            return func(*args, **kwargs)
+
         return wrapper
     return decorator
 

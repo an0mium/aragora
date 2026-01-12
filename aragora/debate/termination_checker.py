@@ -83,7 +83,7 @@ class TerminationChecker:
         # Select a judge
         judge = await self.select_judge_fn(proposals, context)
 
-        prompt = f"""You are evaluating whether this multi-agent debate has reached a conclusive state.
+        prompt = f"""You are evaluating whether this multi-agent debate (decision stress-test) has reached a conclusive state.
 
 Task: {self.task[:300]}
 

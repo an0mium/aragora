@@ -1,28 +1,60 @@
 """
 Rate limiting utilities for HTTP handlers.
 
-Provides token bucket rate limiting to protect endpoints from abuse.
+This module provides a simplified rate limiting interface for HTTP handlers.
+For the full-featured rate limiting implementation with Redis support, see
+aragora.server.middleware.rate_limit.
+
+The simplified interface here is optimized for handler decorators with
+a simple `is_allowed(key)` API.
 """
 
 from __future__ import annotations
 
+import ipaddress
 import logging
+import os
 import threading
 import time
 from collections import defaultdict
 from functools import wraps
 from typing import Callable, Optional, TypeVar, Any
 
+# Re-export the middleware rate_limit decorator for handlers that want
+# the full-featured version with burst support and rate limit headers
+from aragora.server.middleware.rate_limit import (
+    rate_limit as middleware_rate_limit,
+    get_rate_limiter as get_middleware_limiter,
+    RateLimitResult,
+    rate_limit_headers,
+)
+
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
+
+TRUSTED_PROXIES = frozenset(
+    p.strip()
+    for p in os.getenv("ARAGORA_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",")
+    if p.strip()
+)
+
+
+def _normalize_ip(ip_value: str) -> str:
+    """Normalize IP address string for consistent keying."""
+    if not ip_value:
+        return ""
+    ip_value = str(ip_value).strip()
+    try:
+        return str(ipaddress.ip_address(ip_value))
+    except ValueError:
+        return ip_value
 
 
 def get_client_ip(handler) -> str:
     """Extract client IP from request handler.
 
-    Checks X-Forwarded-For header first (for proxied requests),
-    then falls back to direct client address.
+    Only trusts X-Forwarded-For when the direct IP is a trusted proxy.
 
     Args:
         handler: HTTP request handler with headers
@@ -33,37 +65,45 @@ def get_client_ip(handler) -> str:
     if handler is None:
         return "unknown"
 
+    remote_ip = ""
+    client_address = getattr(handler, "client_address", None)
+    if client_address and isinstance(client_address, tuple):
+        remote_ip = str(client_address[0])
+
+    remote_ip = _normalize_ip(remote_ip)
+
     # Check for proxy headers
     headers = getattr(handler, "headers", None)
     if headers and hasattr(headers, "get"):
         try:
-            # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
-            forwarded = headers.get("X-Forwarded-For", "")
-            if forwarded and isinstance(forwarded, str):
-                # Take the first (original client) IP
-                return forwarded.split(",")[0].strip()
+            if remote_ip in TRUSTED_PROXIES:
+                # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
+                forwarded = headers.get("X-Forwarded-For") or headers.get("x-forwarded-for") or ""
+                if forwarded and isinstance(forwarded, str):
+                    # Take the first (original client) IP
+                    candidate = forwarded.split(",")[0].strip()
+                    if candidate:
+                        return _normalize_ip(candidate)
 
-            # Also check X-Real-IP (used by nginx)
-            real_ip = headers.get("X-Real-IP", "")
-            if real_ip and isinstance(real_ip, str):
-                return real_ip.strip()
+                # Also check X-Real-IP (used by nginx)
+                real_ip = headers.get("X-Real-IP") or headers.get("x-real-ip") or ""
+                if real_ip and isinstance(real_ip, str):
+                    return _normalize_ip(real_ip.strip())
         except (TypeError, AttributeError):
             # Handle mock objects or unusual header types
             pass
 
-    # Fall back to direct client address
-    client_address = getattr(handler, "client_address", None)
-    if client_address and isinstance(client_address, tuple):
-        return str(client_address[0])
-
+    if remote_ip:
+        return remote_ip
     return "unknown"
 
 
 class RateLimiter:
-    """Thread-safe token bucket rate limiter.
+    """Thread-safe token bucket rate limiter with simple API.
 
-    Tracks request timestamps per key (typically client IP) and
-    enforces a maximum requests-per-minute limit.
+    Provides a simplified `is_allowed(key)` interface for handler code.
+    For the full-featured implementation with Redis, burst support, and
+    rate limit headers, use aragora.server.middleware.rate_limit.
 
     Example:
         limiter = RateLimiter(requests_per_minute=60)
@@ -127,11 +167,7 @@ class RateLimiter:
             return True
 
     def _cleanup_expired(self, now: float) -> None:
-        """Remove empty or fully-expired buckets.
-
-        Args:
-            now: Current timestamp
-        """
+        """Remove empty or fully-expired buckets."""
         cutoff = now - 60
         expired_keys = [
             key
@@ -146,14 +182,7 @@ class RateLimiter:
             logger.debug("Cleaned up %d expired rate limit buckets", len(expired_keys))
 
     def get_remaining(self, key: str) -> int:
-        """Get remaining requests allowed for a key.
-
-        Args:
-            key: Identifier for rate limiting
-
-        Returns:
-            Number of requests remaining in the current window
-        """
+        """Get remaining requests allowed for a key."""
         now = time.time()
         cutoff = now - 60
 
@@ -163,11 +192,7 @@ class RateLimiter:
             return max(0, self.rpm - current)
 
     def reset(self, key: str) -> None:
-        """Reset rate limit for a specific key.
-
-        Args:
-            key: Identifier to reset
-        """
+        """Reset rate limit for a specific key."""
         with self._lock:
             if key in self._buckets:
                 del self._buckets[key]
@@ -184,15 +209,7 @@ _limiters_lock = threading.Lock()
 
 
 def _get_limiter(name: str, rpm: int) -> RateLimiter:
-    """Get or create a named rate limiter.
-
-    Args:
-        name: Limiter name (for sharing across decorated functions)
-        rpm: Requests per minute limit
-
-    Returns:
-        RateLimiter instance
-    """
+    """Get or create a named rate limiter."""
     with _limiters_lock:
         if name not in _limiters:
             _limiters[name] = RateLimiter(requests_per_minute=rpm)
@@ -203,6 +220,8 @@ def rate_limit(
     rpm: int = 60,
     key_func: Optional[Callable[[Any], str]] = None,
     limiter_name: Optional[str] = None,
+    *,
+    requests_per_minute: Optional[int] = None,
 ) -> Callable[[F], F]:
     """Decorator to rate limit handler methods.
 
@@ -211,8 +230,8 @@ def rate_limit(
 
     Args:
         rpm: Maximum requests per minute (default: 60)
+        requests_per_minute: Alias for rpm (for consistency with middleware)
         key_func: Optional function to extract rate limit key from handler
-                  Default uses client IP address
         limiter_name: Optional name to share limiter across decorators
 
     Returns:
@@ -224,26 +243,25 @@ def rate_limit(
             def _list_items(self, handler) -> HandlerResult:
                 ...
 
-            @rate_limit(rpm=10, limiter_name="auth")
+            @rate_limit(requests_per_minute=10, limiter_name="auth")
             def _login(self, handler) -> HandlerResult:
                 ...
     """
+    # Support both rpm and requests_per_minute for compatibility
+    effective_rpm = requests_per_minute if requests_per_minute is not None else rpm
+
     def decorator(func: F) -> F:
-        # Use function name as default limiter name
         name = limiter_name or f"{func.__module__}.{func.__qualname__}"
-        limiter = _get_limiter(name, rpm)
+        limiter = _get_limiter(name, effective_rpm)
 
         @wraps(func)
         def wrapper(self, handler, *args, **kwargs):
-            # Get rate limit key
             if key_func:
                 key = key_func(handler)
             else:
                 key = get_client_ip(handler)
 
-            # Check rate limit
             if not limiter.is_allowed(key):
-                # Import here to avoid circular dependency
                 from aragora.server.handlers.base import error_response
 
                 remaining = limiter.get_remaining(key)
@@ -263,3 +281,17 @@ def rate_limit(
         return wrapper  # type: ignore
 
     return decorator
+
+
+__all__ = [
+    "RateLimiter",
+    "rate_limit",
+    "get_client_ip",
+    "_get_limiter",
+    "_limiters",
+    # Re-exports from middleware for convenience
+    "middleware_rate_limit",
+    "get_middleware_limiter",
+    "RateLimitResult",
+    "rate_limit_headers",
+]

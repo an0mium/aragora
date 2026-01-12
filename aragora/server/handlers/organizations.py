@@ -42,6 +42,10 @@ ROLE_HIERARCHY = {
     "owner": 3,
 }
 
+# Settings validation limits
+MAX_SETTINGS_KEYS = 50  # Maximum number of settings keys
+MAX_SETTINGS_VALUE_SIZE = 10000  # 10KB per value
+
 
 class OrganizationsHandler(BaseHandler):
     """Handler for organization management endpoints."""
@@ -251,7 +255,14 @@ class OrganizationsHandler(BaseHandler):
             updates["name"] = name
 
         if "settings" in body and isinstance(body["settings"], dict):
-            updates["settings"] = body["settings"]
+            settings = body["settings"]
+            # Validate settings size to prevent memory exhaustion
+            if len(settings) > MAX_SETTINGS_KEYS:
+                return error_response(f"Too many settings keys (max {MAX_SETTINGS_KEYS})", 400)
+            for key, value in settings.items():
+                if isinstance(value, str) and len(value) > MAX_SETTINGS_VALUE_SIZE:
+                    return error_response(f"Settings value too large for key '{key}'", 400)
+            updates["settings"] = settings
 
         if not updates:
             return error_response("No valid fields to update", 400)

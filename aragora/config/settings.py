@@ -527,6 +527,8 @@ def reset_settings() -> None:
 
 # Valid agent types (allowlist for security)
 ALLOWED_AGENT_TYPES: FrozenSet[str] = frozenset({
+    # Built-in
+    "demo",
     # CLI-based
     "codex", "claude", "openai", "gemini-cli", "grok-cli",
     "qwen-cli", "deepseek-cli", "kilocode",

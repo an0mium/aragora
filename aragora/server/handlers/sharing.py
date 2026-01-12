@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import secrets
+import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -100,8 +101,11 @@ class ShareSettings:
         )
 
 
+MAX_SHARE_SETTINGS = 10000  # Prevent unbounded memory growth
+
+
 class ShareStore:
-    """In-memory store for sharing settings.
+    """In-memory store for sharing settings (thread-safe).
 
     In production, this would be backed by a database.
     """
@@ -109,69 +113,91 @@ class ShareStore:
     def __init__(self):
         self._settings: Dict[str, ShareSettings] = {}
         self._tokens: Dict[str, str] = {}  # token -> debate_id
+        self._lock = threading.Lock()
 
     def get(self, debate_id: str) -> Optional[ShareSettings]:
-        """Get sharing settings for a debate."""
-        return self._settings.get(debate_id)
+        """Get sharing settings for a debate (thread-safe)."""
+        with self._lock:
+            return self._settings.get(debate_id)
 
     def get_by_token(self, token: str) -> Optional[ShareSettings]:
-        """Get sharing settings by share token."""
-        debate_id = self._tokens.get(token)
-        if debate_id:
-            return self._settings.get(debate_id)
-        return None
+        """Get sharing settings by share token (thread-safe)."""
+        with self._lock:
+            debate_id = self._tokens.get(token)
+            if debate_id:
+                return self._settings.get(debate_id)
+            return None
 
     def save(self, settings: ShareSettings) -> None:
-        """Save sharing settings."""
-        self._settings[settings.debate_id] = settings
-        if settings.share_token:
-            self._tokens[settings.share_token] = settings.debate_id
+        """Save sharing settings (thread-safe with size limit)."""
+        with self._lock:
+            # Enforce max size with LRU eviction (by created_at)
+            if settings.debate_id not in self._settings and len(self._settings) >= MAX_SHARE_SETTINGS:
+                # Remove oldest 10% by created_at
+                sorted_items = sorted(self._settings.items(), key=lambda x: x[1].created_at)
+                remove_count = max(1, len(sorted_items) // 10)
+                for debate_id_to_remove, s in sorted_items[:remove_count]:
+                    del self._settings[debate_id_to_remove]
+                    if s.share_token:
+                        self._tokens.pop(s.share_token, None)
+                logger.debug(f"ShareStore evicted {remove_count} oldest entries")
+
+            self._settings[settings.debate_id] = settings
+            if settings.share_token:
+                self._tokens[settings.share_token] = settings.debate_id
 
     def delete(self, debate_id: str) -> bool:
-        """Delete sharing settings."""
-        settings = self._settings.pop(debate_id, None)
-        if settings and settings.share_token:
-            self._tokens.pop(settings.share_token, None)
-        return settings is not None
+        """Delete sharing settings (thread-safe)."""
+        with self._lock:
+            settings = self._settings.pop(debate_id, None)
+            if settings and settings.share_token:
+                self._tokens.pop(settings.share_token, None)
+            return settings is not None
 
     def revoke_token(self, debate_id: str) -> bool:
-        """Revoke the share token for a debate."""
-        settings = self._settings.get(debate_id)
-        if settings and settings.share_token:
-            self._tokens.pop(settings.share_token, None)
-            settings.share_token = None
-            return True
-        return False
+        """Revoke the share token for a debate (thread-safe)."""
+        with self._lock:
+            settings = self._settings.get(debate_id)
+            if settings and settings.share_token:
+                self._tokens.pop(settings.share_token, None)
+                settings.share_token = None
+                return True
+            return False
 
     def increment_view_count(self, debate_id: str) -> None:
-        """Increment the view count for a shared debate."""
-        settings = self._settings.get(debate_id)
-        if settings:
-            settings.view_count += 1
+        """Increment the view count for a shared debate (thread-safe)."""
+        with self._lock:
+            settings = self._settings.get(debate_id)
+            if settings:
+                settings.view_count += 1
 
 
-# Global store instance
+# Global store instance with thread-safe initialization
 _share_store: Optional[ShareStore] = None
+_share_store_lock = threading.Lock()
 
 
 def get_share_store() -> ShareStore:
-    """Get the global share store instance.
+    """Get the global share store instance (thread-safe).
 
     Uses SQLite-backed ShareLinkStore for production persistence,
     with fallback to in-memory ShareStore if database unavailable.
     """
     global _share_store
     if _share_store is None:
-        try:
-            from aragora.storage.share_store import ShareLinkStore
-            from aragora.config.legacy import DATA_DIR
+        with _share_store_lock:
+            # Double-check after acquiring lock
+            if _share_store is None:
+                try:
+                    from aragora.storage.share_store import ShareLinkStore
+                    from aragora.config.legacy import DATA_DIR
 
-            db_path = DATA_DIR / "share_links.db"
-            _share_store = ShareLinkStore(db_path)
-            logger.info(f"Using SQLite ShareLinkStore: {db_path}")
-        except Exception as e:
-            logger.warning(f"Failed to init ShareLinkStore, using in-memory: {e}")
-            _share_store = ShareStore()
+                    db_path = DATA_DIR / "share_links.db"
+                    _share_store = ShareLinkStore(db_path)
+                    logger.info(f"Using SQLite ShareLinkStore: {db_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to init ShareLinkStore, using in-memory: {e}")
+                    _share_store = ShareStore()
     return _share_store
 
 
@@ -358,6 +384,7 @@ class SharingHandler(BaseHandler):
             "settings": settings.to_dict(),
         })
 
+    @rate_limit(rpm=60, limiter_name="shared_debate_access")
     @handle_errors("get shared debate")
     def _get_shared_debate(self, token: str, query_params: dict) -> HandlerResult:
         """Access a shared debate via token.
@@ -368,6 +395,9 @@ class SharingHandler(BaseHandler):
         settings = self._store.get_by_token(token)
 
         if not settings:
+            # Log failed lookups to detect potential enumeration attacks
+            # Use debug level to avoid log spam from legitimate 404s
+            logger.debug(f"Share token not found: {token[:8]}...")
             return error_response("Share link not found", 404)
 
         if settings.is_expired:
@@ -441,10 +471,8 @@ class SharingHandler(BaseHandler):
     def _get_debate_data(self, debate_id: str) -> Optional[Dict[str, Any]]:
         """Get debate data for sharing.
 
-        This would normally query the debate storage system.
-        For now, returns a placeholder.
+        Fetches the debate artifact from the DebateStorage database.
         """
-        # TODO: Integrate with actual debate storage
         try:
             from aragora.server.storage import get_debates_db
             db = get_debates_db()

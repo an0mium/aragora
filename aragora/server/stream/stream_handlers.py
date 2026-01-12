@@ -601,7 +601,7 @@ class StreamAPIHandlersMixin:
         health = {
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
-            "version": "0.07",
+            "version": "0.8.0",
         }
         return web.json_response(health, headers=self._cors_headers(origin))
 
@@ -853,8 +853,19 @@ class StreamAPIHandlersMixin:
                     headers=self._cors_headers(origin)
                 )
 
+            # Get limit from query params, default 50, max 200
+            try:
+                limit = min(int(request.query.get("limit", "50")), 200)
+            except (ValueError, TypeError):
+                limit = 50
+            max_to_scan = limit * 3  # Scan 3x to account for filtered items
+
             replays = []
+            scanned = 0
             for replay_path in replays_dir.iterdir():
+                if scanned >= max_to_scan:
+                    break
+                scanned += 1
                 if replay_path.is_dir():
                     meta_file = replay_path / "meta.json"
                     if meta_file.exists():
@@ -868,9 +879,11 @@ class StreamAPIHandlersMixin:
                             "topic": meta.get("topic", replay_path.name),
                             "timestamp": meta.get("timestamp", ""),
                         })
+                        if len(replays) >= limit:
+                            break
 
             return web.json_response(
-                {"replays": sorted(replays, key=lambda x: x["id"], reverse=True), "count": len(replays)},
+                {"replays": sorted(replays, key=lambda x: x["id"], reverse=True)[:limit], "count": len(replays)},
                 headers=self._cors_headers(origin)
             )
         except Exception as e:

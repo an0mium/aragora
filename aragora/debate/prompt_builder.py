@@ -616,7 +616,7 @@ and building on others' ideas."""
         if audience_section:
             audience_section = f"\n\n{audience_section}"
 
-        return f"""You are acting as a {agent.role} in a multi-agent debate.{stance_section}{role_section}{persona_section}{flip_section}
+        return f"""You are acting as a {agent.role} in a multi-agent debate (decision stress-test).{stance_section}{role_section}{persona_section}{flip_section}
 {historical_section}{continuum_section}{belief_section}{dissent_section}{patterns_section}{calibration_section}{elo_section}{evidence_section}{audience_section}
 Task: {self.env.task}{context_str}{research_status}
 
@@ -738,7 +738,7 @@ Explain what you changed and why. If you disagree with a critique, explain your 
         if evidence_context:
             evidence_section = f"\n\n{evidence_context}\n"
 
-        return f"""You are the synthesizer/judge in a multi-agent debate.
+        return f"""You are the synthesizer/judge in a multi-agent debate (decision stress-test).
 
 Task: {task}
 {evidence_section}

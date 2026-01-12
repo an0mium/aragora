@@ -28,6 +28,9 @@ from aragora.utils.optional_imports import try_import_class
 
 logger = logging.getLogger(__name__)
 
+# Calibration limits
+MAX_CALIBRATION_AGENTS = 100  # Maximum agents for calibration visualization
+
 # Lazy imports for optional dependencies using centralized utility
 EloSystem, ELO_AVAILABLE = try_import_class("aragora.ranking.elo", "EloSystem")
 CalibrationTracker, CALIBRATION_AVAILABLE = try_import_class(
@@ -253,9 +256,12 @@ class CalibrationHandler(BaseHandler):
             if not all_agents:
                 return json_response(result)
 
+            # Enforce maximum limit to prevent unbounded iteration
+            effective_limit = min(limit, MAX_CALIBRATION_AGENTS)
+
             # Collect data for each agent
             agent_summaries = []
-            for agent in all_agents[:limit]:
+            for agent in all_agents[:effective_limit]:
                 try:
                     summary = tracker.get_calibration_summary(agent)
                     if summary and summary.total_predictions >= 5:

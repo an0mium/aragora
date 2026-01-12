@@ -143,7 +143,9 @@ class DebateStorage:
                 )
 
             # Add is_public for configurable access control (default: private)
-            self._safe_add_column(conn, "debates", "is_public", "BOOLEAN DEFAULT 0")
+            # Using INTEGER since SQLite doesn't have native BOOLEAN and
+            # the _safe_add_column whitelist only allows standard types
+            self._safe_add_column(conn, "debates", "is_public", "INTEGER")
 
             conn.commit()
 
@@ -560,3 +562,42 @@ class DebateStorage:
             updated = cursor.rowcount > 0
             conn.commit()
         return updated
+
+    def get(self, debate_id: str) -> Optional[dict]:
+        """
+        Get debate by ID (alias for get_by_id for interface compatibility).
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Debate artifact dict or None
+        """
+        return self.get_by_id(debate_id)
+
+
+# Global storage instance
+_debate_storage: Optional[DebateStorage] = None
+
+
+def get_debates_db() -> Optional[DebateStorage]:
+    """
+    Get the global DebateStorage instance.
+
+    Returns a singleton DebateStorage backed by SQLite. The storage
+    provides a `get(debate_id)` method for fetching debates by ID.
+
+    Returns:
+        DebateStorage instance, or None if initialization fails
+    """
+    global _debate_storage
+    if _debate_storage is None:
+        try:
+            from aragora.config.legacy import DATA_DIR
+            db_path = DATA_DIR / "aragora_debates.db"
+            _debate_storage = DebateStorage(str(db_path))
+            logger.info(f"Initialized DebateStorage: {db_path}")
+        except Exception as e:
+            logger.warning(f"Failed to initialize DebateStorage: {e}")
+            return None
+    return _debate_storage

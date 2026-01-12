@@ -27,15 +27,104 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
+import os
+import socket
 import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+MAX_WEBHOOK_URL_LENGTH = 2048
+MAX_WEBHOOK_HEADER_COUNT = 20
+MAX_WEBHOOK_HEADER_SIZE = 1024
+BLOCKED_WEBHOOK_SUFFIXES = (".internal", ".local", ".localhost", ".lan")
+BLOCKED_METADATA_HOSTNAMES = frozenset([
+    "169.254.169.254",
+    "metadata.google.internal",
+    "metadata.goog",
+    "instance-data",
+])
+
+
+def validate_webhook_url(url: str) -> tuple[bool, str]:
+    """Validate webhook URL to prevent SSRF and malformed requests."""
+    if not url or not isinstance(url, str):
+        return False, "webhook_url must be a non-empty string"
+    if len(url) > MAX_WEBHOOK_URL_LENGTH:
+        return False, "webhook_url is too long"
+
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False, "Invalid webhook_url format"
+
+    if parsed.scheme not in ("http", "https"):
+        return False, "webhook_url must use http or https"
+    if not parsed.hostname:
+        return False, "webhook_url must include a hostname"
+
+    hostname = parsed.hostname.lower()
+    if hostname in BLOCKED_METADATA_HOSTNAMES:
+        return False, "webhook_url points to a blocked metadata endpoint"
+    if hostname.endswith(BLOCKED_WEBHOOK_SUFFIXES):
+        return False, "webhook_url uses an internal hostname"
+
+    allow_localhost = os.environ.get("ARAGORA_WEBHOOK_ALLOW_LOCALHOST", "").lower() in ("1", "true", "yes")
+    if allow_localhost and hostname in ("localhost", "127.0.0.1", "::1"):
+        return True, ""
+
+    try:
+        ip_obj = ipaddress.ip_address(hostname)
+        if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_reserved or ip_obj.is_multicast or ip_obj.is_unspecified:
+            return False, "webhook_url resolves to a private or local address"
+        return True, ""
+    except ValueError:
+        pass
+
+    try:
+        addr_info = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    except socket.gaierror:
+        return False, "webhook_url hostname could not be resolved"
+
+    for family, _, _, _, sockaddr in addr_info:
+        ip_str = sockaddr[0]
+        try:
+            ip_obj = ipaddress.ip_address(ip_str)
+        except ValueError:
+            continue
+        if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_reserved or ip_obj.is_multicast or ip_obj.is_unspecified:
+            return False, "webhook_url resolves to a private or local address"
+
+    return True, ""
+
+
+def sanitize_webhook_headers(headers: Optional[Dict[str, Any]]) -> tuple[Dict[str, str], Optional[str]]:
+    """Validate and sanitize webhook headers."""
+    if headers is None:
+        return {}, None
+    if not isinstance(headers, dict):
+        return {}, "webhook_headers must be an object"
+
+    sanitized: Dict[str, str] = {}
+    for key, value in headers.items():
+        if len(sanitized) >= MAX_WEBHOOK_HEADER_COUNT:
+            return {}, "webhook_headers exceeds maximum header count"
+        if not isinstance(key, str) or not isinstance(value, str):
+            return {}, "webhook_headers keys and values must be strings"
+        if "\n" in key or "\r" in key or "\n" in value or "\r" in value:
+            return {}, "webhook_headers contains invalid characters"
+        if len(key) > 200 or len(value) > MAX_WEBHOOK_HEADER_SIZE:
+            return {}, "webhook_headers contains oversized values"
+        sanitized[key] = value
+
+    return sanitized, None
 
 
 class BatchStatus(str, Enum):
@@ -102,13 +191,45 @@ class BatchItem:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "BatchItem":
         """Create from dictionary (e.g., parsed JSON)."""
+        question = str(data.get("question", "")).strip()
+        if not question:
+            raise ValueError("question is required")
+        if len(question) > 10000:
+            raise ValueError("question exceeds 10,000 characters")
+
+        agents = data.get("agents", "anthropic-api,openai-api,gemini")
+        if isinstance(agents, list):
+            agents = ",".join(str(a).strip() for a in agents if str(a).strip())
+        elif not isinstance(agents, str):
+            raise ValueError("agents must be a string or list of strings")
+
+        try:
+            rounds = min(max(int(data.get("rounds", 3)), 1), 10)
+        except (TypeError, ValueError):
+            rounds = 3
+
+        consensus = str(data.get("consensus", "majority")).strip()
+        if consensus not in {"majority", "unanimous", "judge", "none"}:
+            raise ValueError("consensus must be one of: majority, unanimous, judge, none")
+
+        try:
+            priority = int(data.get("priority", 0))
+        except (TypeError, ValueError):
+            priority = 0
+
+        metadata = data.get("metadata", {})
+        if metadata is None:
+            metadata = {}
+        if not isinstance(metadata, dict):
+            raise ValueError("metadata must be an object")
+
         return cls(
-            question=data["question"],
-            agents=data.get("agents", "anthropic-api,openai-api,gemini"),
-            rounds=data.get("rounds", 3),
-            consensus=data.get("consensus", "majority"),
-            priority=data.get("priority", 0),
-            metadata=data.get("metadata", {}),
+            question=question,
+            agents=agents or "anthropic-api,openai-api,gemini",
+            rounds=rounds,
+            consensus=consensus,
+            priority=priority,
+            metadata=metadata,
         )
 
 
@@ -322,6 +443,13 @@ class DebateQueue:
                     batch.status = BatchStatus.PROCESSING
                     batch.started_at = time.time()
 
+                if batch.max_parallel:
+                    running_for_batch = sum(
+                        1 for item in batch.items if item.status == ItemStatus.RUNNING
+                    )
+                    if running_for_batch >= batch.max_parallel:
+                        continue
+
                 # Find next queued item
                 for item in batch.items:
                     if item.status == ItemStatus.QUEUED:
@@ -397,9 +525,27 @@ class DebateQueue:
         try:
             import aiohttp
 
+            is_valid, error_msg = validate_webhook_url(batch.webhook_url or "")
+            if not is_valid:
+                logger.warning(
+                    "Webhook skipped for batch %s: %s",
+                    batch.batch_id,
+                    error_msg,
+                )
+                return
+
+            extra_headers, header_error = sanitize_webhook_headers(batch.webhook_headers)
+            if header_error:
+                logger.warning(
+                    "Webhook headers invalid for batch %s: %s",
+                    batch.batch_id,
+                    header_error,
+                )
+                return
+
             payload = batch.to_dict()
             headers = {"Content-Type": "application/json"}
-            headers.update(batch.webhook_headers)
+            headers.update(extra_headers)
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -479,4 +625,6 @@ __all__ = [
     "ItemStatus",
     "get_debate_queue",
     "get_debate_queue_sync",
+    "validate_webhook_url",
+    "sanitize_webhook_headers",
 ]

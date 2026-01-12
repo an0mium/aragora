@@ -366,6 +366,11 @@ class DebateGraph:
     def _invalidate_cache(self) -> None:
         """Invalidate all caches when graph structure changes."""
         self._cache_version += 1
+        # Clear caches to prevent memory accumulation from orphaned entries
+        self._branch_nodes_cache.clear()
+        self._path_cache.clear()
+        self._leaf_nodes_cache = None
+        self._active_branches_cache = None
 
     def add_node(
         self,

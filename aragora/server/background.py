@@ -362,4 +362,70 @@ def setup_default_tasks(
         run_on_startup=False,
     )
 
+    # Memory consolidation - runs every 24 hours
+    def memory_consolidation_task():
+        nonlocal _shared_memory
+        try:
+            # Use shared instance if provided
+            if _shared_memory is not None:
+                memory = _shared_memory
+            else:
+                from aragora.memory.continuum import ContinuumMemory
+                from aragora.config import DB_MEMORY_PATH
+
+                db_path = nomic_dir + "/continuum_memory.db" if nomic_dir else DB_MEMORY_PATH
+                memory = ContinuumMemory(db_path=db_path)
+
+            result = memory.consolidate()
+
+            logger.info(
+                "Memory consolidation: promoted=%d, demoted=%d, evaluated=%d",
+                result.get("promoted", 0),
+                result.get("demoted", 0),
+                result.get("evaluated", 0),
+            )
+        except ImportError:
+            logger.debug("ContinuumMemory not available, skipping consolidation")
+        except Exception as e:
+            logger.warning("Memory consolidation failed: %s", e)
+
+    manager.register_task(
+        name="memory_consolidation",
+        interval_seconds=24 * 3600,  # 24 hours
+        callback=memory_consolidation_task,
+        enabled=True,
+        run_on_startup=False,
+    )
+
+    # Consensus memory cleanup - runs every 24 hours
+    def consensus_cleanup_task():
+        try:
+            from aragora.memory.consensus import ConsensusMemory
+            consensus = ConsensusMemory()
+
+            # Archive records older than 90 days
+            result = consensus.cleanup_old_records(max_age_days=90, archive=True)
+
+            if result.get("archived", 0) > 0 or result.get("deleted", 0) > 0:
+                logger.info(
+                    "Consensus cleanup: archived=%d, deleted=%d",
+                    result.get("archived", 0),
+                    result.get("deleted", 0),
+                )
+        except ImportError:
+            logger.debug("ConsensusMemory not available, skipping cleanup")
+        except AttributeError:
+            # cleanup_old_records not implemented yet - that's a TODO
+            logger.debug("ConsensusMemory.cleanup_old_records not available")
+        except Exception as e:
+            logger.warning("Consensus cleanup failed: %s", e)
+
+    manager.register_task(
+        name="consensus_cleanup",
+        interval_seconds=24 * 3600,  # 24 hours
+        callback=consensus_cleanup_task,
+        enabled=True,
+        run_on_startup=False,
+    )
+
     logger.info("Default background tasks registered")

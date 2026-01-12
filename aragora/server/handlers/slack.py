@@ -872,7 +872,8 @@ class SlackHandler(BaseHandler):
                 store = get_elo_store()
                 agents = store.get_all_ratings() if store else []
                 response_text = f"*Aragora Status*\n• Status: Online\n• Agents: {len(agents)} registered"
-            except Exception:
+            except (ImportError, AttributeError, RuntimeError) as e:
+                logger.debug(f"Failed to fetch status: {e}")
                 response_text = "*Aragora Status*\n• Status: Online\n• Agents: Unknown"
         elif text.lower() == "agents":
             try:
@@ -889,7 +890,8 @@ class SlackHandler(BaseHandler):
                     response_text = "\n".join(lines)
                 else:
                     response_text = "No agents registered yet."
-            except Exception:
+            except (ImportError, AttributeError, RuntimeError) as e:
+                logger.debug(f"Failed to fetch agent list: {e}")
                 response_text = "Could not fetch agent list."
         elif text.lower() == "recent":
             try:
@@ -908,7 +910,8 @@ class SlackHandler(BaseHandler):
                         response_text = "No recent debates found."
                 else:
                     response_text = "Debate history not available."
-            except Exception:
+            except (ImportError, AttributeError, RuntimeError) as e:
+                logger.debug(f"Failed to fetch recent debates: {e}")
                 response_text = "Could not fetch recent debates."
         elif text.lower().startswith("debate "):
             topic = text[7:].strip().strip("\"'")

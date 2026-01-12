@@ -13,6 +13,7 @@ Inspired by ai-counsel's convergence detection system.
 """
 
 import logging
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -92,20 +93,22 @@ class JaccardBackend(SimilarityBackend):
 
     _similarity_cache: dict[tuple[str, str], float] = {}
     _cache_max_size = 256
+    _cache_lock = threading.RLock()
 
     def compute_similarity(self, text1: str, text2: str) -> float:
-        """Compute Jaccard similarity between two texts."""
+        """Compute Jaccard similarity between two texts (thread-safe)."""
         if not text1 or not text2:
             return 0.0
 
         # Normalize key order for symmetric cache hits
         cache_key = (text1, text2) if text1 <= text2 else (text2, text1)
 
-        # Check cache first
-        if cache_key in JaccardBackend._similarity_cache:
-            return JaccardBackend._similarity_cache[cache_key]
+        # Check cache first (with lock)
+        with JaccardBackend._cache_lock:
+            if cache_key in JaccardBackend._similarity_cache:
+                return JaccardBackend._similarity_cache[cache_key]
 
-        # Normalize: lowercase and split into words
+        # Normalize: lowercase and split into words (outside lock)
         words1 = set(text1.lower().split())
         words2 = set(text2.lower().split())
 
@@ -120,19 +123,21 @@ class JaccardBackend(SimilarityBackend):
 
         result = len(intersection) / len(union)
 
-        # Cache result (with simple size limit)
-        if len(JaccardBackend._similarity_cache) >= JaccardBackend._cache_max_size:
-            keys = list(JaccardBackend._similarity_cache.keys())
-            for k in keys[:len(keys) // 2]:
-                del JaccardBackend._similarity_cache[k]
+        # Cache result (with lock and simple size limit)
+        with JaccardBackend._cache_lock:
+            if len(JaccardBackend._similarity_cache) >= JaccardBackend._cache_max_size:
+                keys = list(JaccardBackend._similarity_cache.keys())
+                for k in keys[:len(keys) // 2]:
+                    del JaccardBackend._similarity_cache[k]
+            JaccardBackend._similarity_cache[cache_key] = result
 
-        JaccardBackend._similarity_cache[cache_key] = result
         return result
 
     @classmethod
     def clear_cache(cls) -> None:
-        """Clear the similarity cache."""
-        cls._similarity_cache.clear()
+        """Clear the similarity cache (thread-safe)."""
+        with cls._cache_lock:
+            cls._similarity_cache.clear()
 
 
 # =============================================================================
@@ -156,6 +161,7 @@ class TFIDFBackend(SimilarityBackend):
 
     _similarity_cache: dict[tuple[str, str], float] = {}
     _cache_max_size = 256
+    _cache_lock = threading.RLock()
 
     def __init__(self):
         """Initialize TF-IDF backend."""
@@ -172,34 +178,38 @@ class TFIDFBackend(SimilarityBackend):
             ) from e
 
     def compute_similarity(self, text1: str, text2: str) -> float:
-        """Compute TF-IDF cosine similarity between two texts."""
+        """Compute TF-IDF cosine similarity between two texts (thread-safe)."""
         if not text1 or not text2:
             return 0.0
 
         # Normalize key order for symmetric cache hits
         cache_key = (text1, text2) if text1 <= text2 else (text2, text1)
 
-        # Check cache first
-        if cache_key in TFIDFBackend._similarity_cache:
-            return TFIDFBackend._similarity_cache[cache_key]
+        # Check cache first (with lock)
+        with TFIDFBackend._cache_lock:
+            if cache_key in TFIDFBackend._similarity_cache:
+                return TFIDFBackend._similarity_cache[cache_key]
 
+        # Compute outside lock
         tfidf_matrix = self.vectorizer.fit_transform([text1, text2])
         similarity = self.cosine_similarity(tfidf_matrix[0], tfidf_matrix[1])[0][0]
         result = float(similarity)
 
-        # Cache result (with simple size limit)
-        if len(TFIDFBackend._similarity_cache) >= TFIDFBackend._cache_max_size:
-            keys = list(TFIDFBackend._similarity_cache.keys())
-            for k in keys[:len(keys) // 2]:
-                del TFIDFBackend._similarity_cache[k]
+        # Cache result (with lock and simple size limit)
+        with TFIDFBackend._cache_lock:
+            if len(TFIDFBackend._similarity_cache) >= TFIDFBackend._cache_max_size:
+                keys = list(TFIDFBackend._similarity_cache.keys())
+                for k in keys[:len(keys) // 2]:
+                    del TFIDFBackend._similarity_cache[k]
+            TFIDFBackend._similarity_cache[cache_key] = result
 
-        TFIDFBackend._similarity_cache[cache_key] = result
         return result
 
     @classmethod
     def clear_cache(cls) -> None:
-        """Clear the similarity cache."""
-        cls._similarity_cache.clear()
+        """Clear the similarity cache (thread-safe)."""
+        with cls._cache_lock:
+            cls._similarity_cache.clear()
 
 
 # =============================================================================
@@ -226,6 +236,7 @@ class SentenceTransformerBackend(SimilarityBackend):
     _model_name_cache: Optional[str] = None
     _similarity_cache: dict[tuple[str, str], float] = {}
     _cache_max_size: int = 256
+    _cache_lock = threading.RLock()
 
     model: Any
     cosine_similarity: Any
@@ -258,7 +269,7 @@ class SentenceTransformerBackend(SimilarityBackend):
             ) from e
 
     def compute_similarity(self, text1: str, text2: str) -> float:
-        """Compute semantic similarity using sentence embeddings.
+        """Compute semantic similarity using sentence embeddings (thread-safe).
 
         Results are cached using (text1, text2) as key to avoid
         recomputing similarity for the same text pairs.
@@ -269,31 +280,34 @@ class SentenceTransformerBackend(SimilarityBackend):
         # Normalize key order for symmetric cache hits
         cache_key = (text1, text2) if text1 <= text2 else (text2, text1)
 
-        # Check cache first
-        if cache_key in SentenceTransformerBackend._similarity_cache:
-            return SentenceTransformerBackend._similarity_cache[cache_key]
+        # Check cache first (with lock)
+        with SentenceTransformerBackend._cache_lock:
+            if cache_key in SentenceTransformerBackend._similarity_cache:
+                return SentenceTransformerBackend._similarity_cache[cache_key]
 
-        # Compute similarity
+        # Compute similarity (outside lock)
         embeddings = self.model.encode([text1, text2])
         similarity = self.cosine_similarity(
             embeddings[0].reshape(1, -1), embeddings[1].reshape(1, -1)
         )[0][0]
         result = float(similarity)
 
-        # Cache result (with simple size limit)
-        if len(SentenceTransformerBackend._similarity_cache) >= SentenceTransformerBackend._cache_max_size:
-            # Clear oldest half when full
-            keys = list(SentenceTransformerBackend._similarity_cache.keys())
-            for k in keys[:len(keys) // 2]:
-                del SentenceTransformerBackend._similarity_cache[k]
+        # Cache result (with lock and simple size limit)
+        with SentenceTransformerBackend._cache_lock:
+            if len(SentenceTransformerBackend._similarity_cache) >= SentenceTransformerBackend._cache_max_size:
+                # Clear oldest half when full
+                keys = list(SentenceTransformerBackend._similarity_cache.keys())
+                for k in keys[:len(keys) // 2]:
+                    del SentenceTransformerBackend._similarity_cache[k]
+            SentenceTransformerBackend._similarity_cache[cache_key] = result
 
-        SentenceTransformerBackend._similarity_cache[cache_key] = result
         return result
 
     @classmethod
     def clear_cache(cls) -> None:
-        """Clear the similarity cache."""
-        cls._similarity_cache.clear()
+        """Clear the similarity cache (thread-safe)."""
+        with cls._cache_lock:
+            cls._similarity_cache.clear()
 
     def compute_batch_similarity(self, texts: list[str]) -> float:
         """

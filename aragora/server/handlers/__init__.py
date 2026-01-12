@@ -74,6 +74,7 @@ from .memory_analytics import MemoryAnalyticsHandler
 from .gauntlet import GauntletHandler
 from .reviews import ReviewsHandler
 from .formal_verification import FormalVerificationHandler
+from .slack import SlackHandler
 
 # List of all handler classes for automatic dispatch registration
 # Order matters: more specific handlers should come first
@@ -125,6 +126,7 @@ ALL_HANDLERS = [
     GauntletHandler,
     ReviewsHandler,
     FormalVerificationHandler,
+    SlackHandler,
 ]
 
 # Handler stability classifications
@@ -186,11 +188,10 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "AuditingHandler": Stability.STABLE,  # 55 tests, audit trails
     "PluginsHandler": Stability.STABLE,  # 23 tests, plugin system
     "BroadcastHandler": Stability.STABLE,  # 65 tests, podcast generation
-
-    # Preview - Early access (tests need fixes)
-    "GenesisHandler": Stability.PREVIEW,  # 11 test failures
-    "DocumentHandler": Stability.PREVIEW,  # 4 test failures
-    "BreakpointsHandler": Stability.PREVIEW,  # 4 test failures
+    "GenesisHandler": Stability.STABLE,  # 26 tests, evolution visibility
+    "DocumentHandler": Stability.STABLE,  # 36 tests, document management
+    "BreakpointsHandler": Stability.STABLE,  # 34 tests, debate breakpoints
+    "SlackHandler": Stability.EXPERIMENTAL,  # Slack integration - new
 }
 
 
@@ -267,6 +268,7 @@ __all__ = [
     "GauntletHandler",
     "ReviewsHandler",
     "FormalVerificationHandler",
+    "SlackHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",

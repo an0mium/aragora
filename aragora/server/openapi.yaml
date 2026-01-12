@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: Aragora Debate API
+  title: Aragora API
   description: |
-    Multi-agent debate framework API for orchestrating AI debates,
+    AI red team / decision stress-test API for orchestrating adversarial reviews,
     tracking agent performance, and managing consensus memory.
 
     ## Authentication
@@ -1083,7 +1083,7 @@ paths:
   # =============================================================================
   /api/pulse/trending:
     get:
-      tags: [System]
+      tags: [Pulse]
       summary: Get trending topics
       parameters:
         - name: limit
@@ -1105,6 +1105,341 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/TrendingTopic'
+
+  /api/pulse/debate-topic:
+    post:
+      tags: [Pulse]
+      summary: Start a debate on a trending topic
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [topic]
+              properties:
+                topic:
+                  type: string
+                  description: Topic to debate
+                rounds:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                  default: 3
+                consensus_threshold:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                  default: 0.7
+      responses:
+        '200':
+          description: Debate started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  debate_id:
+                    type: string
+                  topic:
+                    type: string
+                  status:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/pulse/scheduler/status:
+    get:
+      tags: [Pulse]
+      summary: Get pulse scheduler status
+      responses:
+        '200':
+          description: Current scheduler state and metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchedulerStatus'
+
+  /api/pulse/scheduler/start:
+    post:
+      tags: [Pulse]
+      summary: Start the pulse scheduler
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Scheduler started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  run_id:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/pulse/scheduler/stop:
+    post:
+      tags: [Pulse]
+      summary: Stop the pulse scheduler
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Scheduler stopped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/pulse/scheduler/pause:
+    post:
+      tags: [Pulse]
+      summary: Pause the pulse scheduler
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Scheduler paused
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/pulse/scheduler/resume:
+    post:
+      tags: [Pulse]
+      summary: Resume the pulse scheduler
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Scheduler resumed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/pulse/scheduler/config:
+    patch:
+      tags: [Pulse]
+      summary: Update scheduler configuration
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                poll_interval_seconds:
+                  type: integer
+                  minimum: 60
+                  maximum: 3600
+                max_debates_per_hour:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                min_volume_threshold:
+                  type: integer
+                  minimum: 0
+                min_controversy_score:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                dedup_window_hours:
+                  type: integer
+                  minimum: 1
+                  maximum: 168
+      responses:
+        '200':
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  config:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/pulse/scheduler/history:
+    get:
+      tags: [Pulse]
+      summary: Get scheduled debate history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: platform
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scheduled debate history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  history:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScheduledDebateRecord'
+                  total:
+                    type: integer
+
+  # =============================================================================
+  # SLACK INTEGRATION
+  # =============================================================================
+  /api/integrations/slack/status:
+    get:
+      tags: [Integrations]
+      summary: Get Slack integration status
+      responses:
+        '200':
+          description: Slack integration status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  signing_secret_configured:
+                    type: boolean
+                  bot_token_configured:
+                    type: boolean
+                  webhook_configured:
+                    type: boolean
+
+  /api/integrations/slack/commands:
+    post:
+      tags: [Integrations]
+      summary: Handle Slack slash commands
+      description: Endpoint for Slack to POST slash command payloads
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                command:
+                  type: string
+                text:
+                  type: string
+                user_id:
+                  type: string
+                channel_id:
+                  type: string
+                response_url:
+                  type: string
+      responses:
+        '200':
+          description: Command response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response_type:
+                    type: string
+                    enum: [ephemeral, in_channel]
+                  text:
+                    type: string
+                  blocks:
+                    type: array
+                    items:
+                      type: object
+
+  /api/integrations/slack/interactive:
+    post:
+      tags: [Integrations]
+      summary: Handle Slack interactive components
+      description: Endpoint for Slack interactive component callbacks
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                payload:
+                  type: string
+                  description: JSON-encoded interaction payload
+      responses:
+        '200':
+          description: Interaction acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/integrations/slack/events:
+    post:
+      tags: [Integrations]
+      summary: Handle Slack Events API
+      description: Endpoint for Slack event subscriptions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                challenge:
+                  type: string
+                event:
+                  type: object
+      responses:
+        '200':
+          description: Event acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
 
   # =============================================================================
   # PROBES (Capability Testing)
@@ -2107,6 +2442,80 @@ components:
           type: string
         score:
           type: integer
+
+    SchedulerStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: [stopped, running, paused]
+        run_id:
+          type: string
+        config:
+          type: object
+          properties:
+            poll_interval_seconds:
+              type: integer
+            max_debates_per_hour:
+              type: integer
+            min_volume_threshold:
+              type: integer
+            min_controversy_score:
+              type: number
+            dedup_window_hours:
+              type: integer
+        metrics:
+          type: object
+          properties:
+            polls_completed:
+              type: integer
+            topics_evaluated:
+              type: integer
+            topics_filtered:
+              type: integer
+            debates_created:
+              type: integer
+            debates_failed:
+              type: integer
+            duplicates_skipped:
+              type: integer
+            last_poll_at:
+              type: number
+            last_debate_at:
+              type: number
+            uptime_seconds:
+              type: number
+
+    ScheduledDebateRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        topic_hash:
+          type: string
+        topic_text:
+          type: string
+        platform:
+          type: string
+        category:
+          type: string
+        volume:
+          type: integer
+        debate_id:
+          type: string
+          nullable: true
+        created_at:
+          type: number
+        consensus_reached:
+          type: boolean
+          nullable: true
+        confidence:
+          type: number
+          nullable: true
+        rounds_used:
+          type: integer
+        scheduler_run_id:
+          type: string
 
     # =============================================================================
     # Structured Error Response

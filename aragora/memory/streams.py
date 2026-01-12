@@ -367,8 +367,10 @@ class MemoryStream:
                 logger.debug(f"[memory] Embedding similarity failed, using keyword fallback: {e}")
 
         # Keyword matching fallback
+        # Limit to 50 words to prevent O(n*m) CPU exhaustion
+        MAX_QUERY_WORDS = 50
         content_lower = content.lower()
-        query_words = query.lower().split()
+        query_words = query.lower().split()[:MAX_QUERY_WORDS]
 
         matches = sum(1 for word in query_words if word in content_lower)
         return min(1.0, matches / max(len(query_words), 1))

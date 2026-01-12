@@ -19,9 +19,8 @@ import json
 import logging
 import os
 import secrets
-import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 from urllib.parse import urlencode, parse_qs
 from uuid import uuid4
@@ -68,10 +67,17 @@ GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
-# State management (in-memory with TTL - use Redis in production)
-_OAUTH_STATES: dict[str, dict[str, Any]] = {}
-_OAUTH_STATES_LOCK = threading.Lock()  # Protects concurrent access
+# State management - uses Redis in production, falls back to in-memory
+# Import from dedicated state store module
+from aragora.server.oauth_state_store import (
+    generate_oauth_state as _generate_state,
+    validate_oauth_state as _validate_state_internal,
+    get_oauth_state_store,
+)
+
+# Legacy constants for backward compatibility (actual values from oauth_state_store)
 _STATE_TTL_SECONDS = 600  # 10 minutes
+MAX_OAUTH_STATES = 10000  # Prevent memory exhaustion from rapid state generation
 
 
 @dataclass
@@ -83,28 +89,6 @@ class OAuthUserInfo:
     name: str
     picture: Optional[str] = None
     email_verified: bool = False
-
-
-def _cleanup_expired_states() -> None:
-    """Remove expired OAuth states (thread-safe)."""
-    now = time.time()
-    with _OAUTH_STATES_LOCK:
-        expired = [k for k, v in _OAUTH_STATES.items() if v.get("expires_at", 0) < now]
-        for k in expired:
-            del _OAUTH_STATES[k]
-
-
-def _generate_state(user_id: Optional[str] = None, redirect_url: Optional[str] = None) -> str:
-    """Generate a secure state token for CSRF protection (thread-safe)."""
-    _cleanup_expired_states()
-    state = secrets.token_urlsafe(32)
-    with _OAUTH_STATES_LOCK:
-        _OAUTH_STATES[state] = {
-            "user_id": user_id,  # For account linking
-            "redirect_url": redirect_url,
-            "expires_at": time.time() + _STATE_TTL_SECONDS,
-        }
-    return state
 
 
 def _validate_redirect_url(redirect_url: str) -> bool:
@@ -148,12 +132,12 @@ def _validate_redirect_url(redirect_url: str) -> bool:
 
 
 def _validate_state(state: str) -> Optional[dict[str, Any]]:
-    """Validate and consume OAuth state token (thread-safe)."""
-    _cleanup_expired_states()
-    with _OAUTH_STATES_LOCK:
-        if state not in _OAUTH_STATES:
-            return None
-        return _OAUTH_STATES.pop(state)
+    """Validate and consume OAuth state token.
+
+    Uses Redis in production for multi-instance support,
+    falls back to in-memory storage in development.
+    """
+    return _validate_state_internal(state)
 
 
 class OAuthHandler(BaseHandler):

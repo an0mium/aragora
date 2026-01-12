@@ -406,13 +406,17 @@ class GenesisHandler(BaseHandler):
 
             # Add genome summaries
             for genome in population.genomes:
+                # Get top traits and expertise
+                top_traits = genome.get_dominant_traits(3) if hasattr(genome, 'get_dominant_traits') else list(genome.traits.keys())[:3]
+                top_expertise = list(genome.expertise.keys())[:3] if genome.expertise else []
+
                 result["genomes"].append({
                     "genome_id": genome.genome_id,
-                    "agent_name": genome.agent_name,
+                    "agent_name": genome.name,  # Use 'name' not 'agent_name'
                     "fitness_score": genome.fitness_score,
                     "generation": genome.generation,
-                    "personality_traits": genome.personality_traits[:3] if genome.personality_traits else [],
-                    "expertise_domains": genome.expertise_domains[:3] if genome.expertise_domains else [],
+                    "personality_traits": top_traits,
+                    "expertise_domains": top_expertise,
                 })
 
             # Add best genome
@@ -420,7 +424,7 @@ class GenesisHandler(BaseHandler):
             if best:
                 result["best_genome"] = {
                     "genome_id": best.genome_id,
-                    "agent_name": best.agent_name,
+                    "agent_name": best.name,  # Use 'name' not 'agent_name'
                     "fitness_score": best.fitness_score,
                 }
 

@@ -268,7 +268,7 @@ class DocumentHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("document upload")
-    def _upload_document(self, handler) -> HandlerResult:
+    def _upload_document(self, handler, user=None) -> HandlerResult:
         """Handle document upload. Rate limited by IP.
 
         Accepts multipart/form-data or raw file upload with X-Filename header.

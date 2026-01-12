@@ -672,13 +672,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         try:
             self._do_GET_internal(path, query)
-        except (OSError, ConnectionError, BrokenPipeError, TimeoutError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+        except Exception as e:
             # Top-level safety net for GET handlers
             status_code = 500
             logger.exception(f"[request] Unhandled exception in GET {path}: {e}")
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
-            except (OSError, ConnectionError, BrokenPipeError) as send_err:
+            except Exception as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
             duration_ms = (time.time() - start_time) * 1000
@@ -777,13 +777,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         try:
             self._do_POST_internal(path)
-        except (OSError, ConnectionError, BrokenPipeError, TimeoutError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+        except Exception as e:
             # Top-level safety net for POST handlers
             status_code = 500
             logger.exception(f"[request] Unhandled exception in POST {path}: {e}")
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
-            except (OSError, ConnectionError, BrokenPipeError) as send_err:
+            except Exception as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
             duration_ms = (time.time() - start_time) * 1000
@@ -825,13 +825,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         try:
             self._do_DELETE_internal(path)
-        except (OSError, ConnectionError, BrokenPipeError, TimeoutError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+        except Exception as e:
             # Top-level safety net for DELETE handlers
             status_code = 500
             logger.exception(f"[request] Unhandled exception in DELETE {path}: {e}")
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
-            except (OSError, ConnectionError, BrokenPipeError) as send_err:
+            except Exception as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
             duration_ms = (time.time() - start_time) * 1000
@@ -855,13 +855,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         try:
             self._do_PATCH_internal(path)
-        except (OSError, ConnectionError, BrokenPipeError, TimeoutError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+        except Exception as e:
             # Top-level safety net for PATCH handlers
             status_code = 500
             logger.exception(f"[request] Unhandled exception in PATCH {path}: {e}")
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
-            except (OSError, ConnectionError, BrokenPipeError) as send_err:
+            except Exception as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
             duration_ms = (time.time() - start_time) * 1000
@@ -885,13 +885,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
 
         try:
             self._do_PUT_internal(path)
-        except (OSError, ConnectionError, BrokenPipeError, TimeoutError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+        except Exception as e:
             # Top-level safety net for PUT handlers
             status_code = 500
             logger.exception(f"[request] Unhandled exception in PUT {path}: {e}")
             try:
                 self._send_json({"error": "Internal server error"}, status=500)
-            except (OSError, ConnectionError, BrokenPipeError) as send_err:
+            except Exception as send_err:
                 logger.debug(f"Could not send error response (already sent?): {send_err}")
         finally:
             duration_ms = (time.time() - start_time) * 1000
@@ -1395,12 +1395,63 @@ class UnifiedServer:
         try:
             from aragora.server.background import get_background_manager, setup_default_tasks
             nomic_path = str(self.nomic_dir) if self.nomic_dir else None
-            setup_default_tasks(nomic_dir=nomic_path)
+            # Pass the shared continuum_memory instance for efficient cleanup
+            setup_default_tasks(
+                nomic_dir=nomic_path,
+                memory_instance=self.continuum_memory,
+            )
             background_mgr = get_background_manager()
             background_mgr.start()
             logger.info("Background task manager started")
         except (ImportError, RuntimeError, OSError) as e:
             logger.warning("Failed to start background tasks: %s", e)
+
+        # Auto-start pulse scheduler if configured
+        try:
+            from aragora.config.legacy import (
+                PULSE_SCHEDULER_AUTOSTART,
+                PULSE_SCHEDULER_POLL_INTERVAL,
+                PULSE_SCHEDULER_MAX_PER_HOUR,
+            )
+            if PULSE_SCHEDULER_AUTOSTART:
+                from aragora.server.handlers.pulse import get_pulse_scheduler
+                scheduler = get_pulse_scheduler()
+                if scheduler:
+                    # Update config from environment
+                    scheduler.update_config({
+                        "poll_interval_seconds": PULSE_SCHEDULER_POLL_INTERVAL,
+                        "max_debates_per_hour": PULSE_SCHEDULER_MAX_PER_HOUR,
+                    })
+                    # Set up debate creator callback
+                    async def auto_create_debate(topic_text: str, rounds: int, threshold: float):
+                        try:
+                            from aragora import Arena, Environment, DebateProtocol
+                            from aragora.agents import get_agents_by_names
+                            env = Environment(task=topic_text)
+                            agents = get_agents_by_names(["anthropic-api", "openai-api"])
+                            protocol = DebateProtocol(rounds=rounds, consensus="majority")
+                            if not agents:
+                                return None
+                            arena = Arena.from_env(env, agents, protocol)
+                            result = await arena.run()
+                            return {
+                                "debate_id": result.id,
+                                "consensus_reached": result.consensus_reached,
+                                "confidence": result.confidence,
+                                "rounds_used": result.rounds_used,
+                            }
+                        except Exception as e:
+                            logger.error(f"Auto-scheduled debate failed: {e}")
+                            return None
+                    scheduler.set_debate_creator(auto_create_debate)
+                    asyncio.create_task(scheduler.start())
+                    logger.info("Pulse scheduler auto-started (PULSE_SCHEDULER_AUTOSTART=true)")
+                else:
+                    logger.warning("Pulse scheduler not available for autostart")
+        except ImportError as e:
+            logger.debug(f"Pulse scheduler autostart not available: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to auto-start pulse scheduler: {e}")
 
         logger.info("Starting unified server...")
         protocol = "https" if self.ssl_enabled else "http"
@@ -1507,6 +1558,16 @@ class UnifiedServer:
             logger.info("Background tasks stopped")
         except (ImportError, RuntimeError, AttributeError) as e:
             logger.debug(f"Background task shutdown: {e}")
+
+        # 4.5. Stop pulse scheduler if running
+        try:
+            from aragora.server.handlers.pulse import get_pulse_scheduler
+            scheduler = get_pulse_scheduler()
+            if scheduler and scheduler.state.value != "stopped":
+                await scheduler.stop(graceful=True)
+                logger.info("Pulse scheduler stopped")
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug(f"Pulse scheduler shutdown: {e}")
 
         # 5. Close WebSocket connections
         if hasattr(self, 'stream_server') and self.stream_server:
