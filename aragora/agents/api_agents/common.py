@@ -322,7 +322,10 @@ class SSEStreamParser:
 
                 # DoS protection: prevent unbounded buffer growth
                 if len(buffer) > self.max_buffer_size:
-                    raise RuntimeError("Streaming buffer exceeded maximum size")
+                    raise AgentStreamError(
+                        agent_name=agent_name,
+                        message="Streaming buffer exceeded maximum size"
+                    )
 
                 # Process complete SSE lines
                 while '\n' in buffer:
@@ -358,7 +361,10 @@ class SSEStreamParser:
             raise
         except aiohttp.ClientError as e:
             logger.warning(f"[{agent_name}] Streaming connection error: {e}")
-            raise RuntimeError(f"Streaming connection error: {e}")
+            raise AgentConnectionError(
+                agent_name=agent_name,
+                reason=f"Streaming connection error: {e}"
+            ) from e
 
 
 # Pre-configured parsers for common providers

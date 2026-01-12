@@ -19,6 +19,7 @@ from typing import Optional
 import sqlite3
 
 from aragora.config import DB_TIMEOUT_SECONDS, get_api_key, CACHE_TTL_EMBEDDINGS
+from aragora.exceptions import ExternalServiceError
 from aragora.memory.database import MemoryDatabase
 
 logger = logging.getLogger(__name__)
@@ -208,7 +209,11 @@ class OpenAIEmbedding(EmbeddingProvider):
                     if response.status == 429:
                         raise aiohttp.ClientError("Rate limited")
                     if response.status != 200:
-                        raise RuntimeError(f"OpenAI embedding error: {await response.text()}")
+                        raise ExternalServiceError(
+                            service="OpenAI Embedding",
+                            reason=await response.text(),
+                            status_code=response.status
+                        )
                     data = await response.json()
                     return data["data"][0]["embedding"]
 
@@ -230,7 +235,11 @@ class OpenAIEmbedding(EmbeddingProvider):
                     if response.status == 429:
                         raise aiohttp.ClientError("Rate limited")
                     if response.status != 200:
-                        raise RuntimeError(f"OpenAI embedding error: {await response.text()}")
+                        raise ExternalServiceError(
+                            service="OpenAI Embedding",
+                            reason=await response.text(),
+                            status_code=response.status
+                        )
                     data = await response.json()
                     return [d["embedding"] for d in sorted(data["data"], key=lambda x: x["index"])]
 
@@ -265,7 +274,11 @@ class GeminiEmbedding(EmbeddingProvider):
                     if response.status == 429:
                         raise aiohttp.ClientError("Rate limited")
                     if response.status != 200:
-                        raise RuntimeError(f"Gemini embedding error: {await response.text()}")
+                        raise ExternalServiceError(
+                            service="Gemini Embedding",
+                            reason=await response.text(),
+                            status_code=response.status
+                        )
                     data = await response.json()
                     return data["embedding"]["values"]
 
@@ -291,16 +304,23 @@ class OllamaEmbedding(EmbeddingProvider):
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        raise RuntimeError(f"Ollama embedding error: {error_text}")
+                        raise ExternalServiceError(
+                            service="Ollama Embedding",
+                            reason=error_text,
+                            status_code=response.status
+                        )
                     try:
                         data = await response.json()
                         return data["embedding"]
                     except (json.JSONDecodeError, KeyError) as e:
-                        raise RuntimeError(f"Invalid Ollama response format: {e}") from e
+                        raise ExternalServiceError(
+                            service="Ollama Embedding",
+                            reason=f"Invalid response format: {e}"
+                        ) from e
             except aiohttp.ClientConnectorError as e:
-                raise RuntimeError(
-                    f"Cannot connect to Ollama at {self.base_url}. "
-                    "Is Ollama running? Start with: ollama serve"
+                raise ExternalServiceError(
+                    service="Ollama Embedding",
+                    reason=f"Cannot connect to Ollama at {self.base_url}. Is Ollama running? Start with: ollama serve"
                 ) from e
 
 

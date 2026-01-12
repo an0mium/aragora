@@ -14,6 +14,7 @@ from functools import wraps
 from typing import Any, Callable, Dict, Optional, TypeVar
 
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.exceptions import InfrastructureError
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +237,9 @@ def with_retry(
             # Should not reach here
             if last_error:
                 raise last_error
-            raise RuntimeError("Unexpected retry loop exit")
+            raise InfrastructureError(
+                "Unexpected retry loop exit in database resilience layer"
+            )
 
         return wrapper
     return decorator

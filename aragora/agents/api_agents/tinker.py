@@ -20,6 +20,20 @@ from aragora.training.tinker_client import TinkerClient, TinkerConfig, TinkerMod
 logger = logging.getLogger(__name__)
 
 
+def _run_async_in_thread(coro):
+    """Run an async coroutine in a thread-safe manner.
+
+    Creates a new event loop for the thread to avoid RuntimeError when
+    asyncio.run() is called from within a ThreadPoolExecutor.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
 @AgentRegistry.register(
     "tinker",
     default_model="llama-3.3-70b",
@@ -270,11 +284,11 @@ class TinkerAgent(APIAgent):
         # Run async critique in sync context
         loop = asyncio.get_event_loop()
         if loop.is_running():
-            # We're in an async context, create a task
+            # We're in an async context, run in thread with new loop
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
-                    asyncio.run,
+                    _run_async_in_thread,
                     self._async_critique(target_agent, proposal, context)
                 )
                 return future.result()

@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Callable, Iterator, Optional
 
 from aragora.billing.models import Organization, OrganizationInvitation, SubscriptionTier, User
+from aragora.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -259,18 +260,27 @@ class OrganizationStore:
         """Add user to organization."""
         if self._external_update_user:
             return self._external_update_user(user_id, org_id=org_id, role=role)
-        raise RuntimeError("OrganizationStore requires update_user callback for add_user_to_org")
+        raise ConfigurationError(
+            component="OrganizationStore",
+            reason="update_user callback required for add_user_to_org"
+        )
 
     def remove_user_from_org(self, user_id: str) -> bool:
         """Remove user from organization."""
         if self._external_update_user:
             return self._external_update_user(user_id, org_id=None, role="member")
-        raise RuntimeError("OrganizationStore requires update_user callback for remove_user_from_org")
+        raise ConfigurationError(
+            component="OrganizationStore",
+            reason="update_user callback required for remove_user_from_org"
+        )
 
     def get_org_members(self, org_id: str) -> list[User]:
         """Get all members of an organization."""
         if not self._external_row_to_user:
-            raise RuntimeError("OrganizationStore requires row_to_user callback for get_org_members")
+            raise ConfigurationError(
+                component="OrganizationStore",
+                reason="row_to_user callback required for get_org_members"
+            )
 
         with self._transaction() as cursor:
             cursor.execute("SELECT * FROM users WHERE org_id = ?", (org_id,))

@@ -26,6 +26,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Generator, Optional, Union
 
+from aragora.exceptions import DatabaseError
+
 logger = logging.getLogger(__name__)
 
 
@@ -940,7 +942,7 @@ class ConnectionPool:
 
         with self._condition:
             if self._closed:
-                raise RuntimeError("Connection pool is closed")
+                raise DatabaseError("Connection pool is closed")
 
             # Wait for an available connection
             start_time = threading.Event()  # Just for timing

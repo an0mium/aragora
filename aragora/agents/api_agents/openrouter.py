@@ -24,6 +24,7 @@ from aragora.agents.api_agents.common import (
 from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.exceptions import ExternalServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -616,7 +617,11 @@ class KimiAgent(APIAgent):
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    raise RuntimeError(f"Kimi API error {response.status}: {error_text}")
+                    raise ExternalServiceError(
+                        service="Kimi API",
+                        reason=error_text,
+                        status_code=response.status
+                    )
 
                 data = await response.json()
                 return data["choices"][0]["message"]["content"]

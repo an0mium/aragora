@@ -140,6 +140,33 @@ class DebateBatchError(DebateError):
         self.failed_ids = failed_ids or []
 
 
+class DebateExecutionError(DebateError):
+    """Raised when debate execution fails mid-process."""
+
+    def __init__(self, debate_id: str, phase: str, reason: str):
+        super().__init__(
+            f"Debate {debate_id} failed during {phase}: {reason}",
+            {"debate_id": debate_id, "phase": phase, "reason": reason}
+        )
+        self.debate_id = debate_id
+        self.phase = phase
+        self.reason = reason
+
+
+class VoteProcessingError(DebateError):
+    """Raised when vote processing fails."""
+
+    def __init__(self, debate_id: str, reason: str, agent_name: str | None = None):
+        msg = f"Vote processing failed for debate {debate_id}: {reason}"
+        details = {"debate_id": debate_id, "reason": reason}
+        if agent_name:
+            details["agent_name"] = agent_name
+        super().__init__(msg, details)
+        self.debate_id = debate_id
+        self.reason = reason
+        self.agent_name = agent_name
+
+
 # ============================================================================
 # Agent Errors (re-exported from aragora.agents.errors for unified imports)
 # ============================================================================
@@ -172,6 +199,21 @@ class AgentConfigurationError(AragoraError):
     Note: Configuration errors are distinct from runtime AgentErrors.
     """
     pass
+
+
+class ConfigurationError(AragoraError):
+    """Raised when a component's configuration is missing or invalid.
+
+    Used for missing callbacks, invalid settings, or incomplete setup.
+    """
+
+    def __init__(self, component: str, reason: str):
+        super().__init__(
+            f"Configuration error in {component}: {reason}",
+            {"component": component, "reason": reason}
+        )
+        self.component = component
+        self.reason = reason
 
 
 class APIKeyError(AragoraError):
@@ -318,6 +360,19 @@ class EmbeddingError(MemoryError):
         self.reason = reason
 
 
+class MemoryOperationError(MemoryError):
+    """Raised when memory tier operations fail."""
+
+    def __init__(self, tier: str, operation: str, reason: str):
+        super().__init__(
+            f"Memory {tier} {operation} failed: {reason}",
+            {"tier": tier, "operation": operation, "reason": reason}
+        )
+        self.tier = tier
+        self.operation = operation
+        self.reason = reason
+
+
 # ============================================================================
 # Mode Errors
 # ============================================================================
@@ -444,6 +499,19 @@ class ExternalServiceError(InfrastructureError):
         self.service = service
         self.reason = reason
         self.status_code = status_code
+
+
+class CircuitBreakerError(InfrastructureError):
+    """Raised when circuit breaker operations fail."""
+
+    def __init__(self, service: str, state: str, reason: str):
+        super().__init__(
+            f"Circuit breaker for {service} ({state}): {reason}",
+            {"service": service, "state": state, "reason": reason}
+        )
+        self.service = service
+        self.state = state
+        self.reason = reason
 
 
 # ============================================================================
@@ -626,6 +694,38 @@ class StreamTimeoutError(StreamingError):
         )
         self.stream_id = stream_id
         self.timeout_seconds = timeout_seconds
+
+
+# ============================================================================
+# Evidence Errors
+# ============================================================================
+
+class EvidenceError(AragoraError):
+    """Base exception for evidence-related errors."""
+    pass
+
+
+class EvidenceParseError(EvidenceError):
+    """Raised when evidence parsing fails."""
+
+    def __init__(self, source: str, reason: str):
+        super().__init__(
+            f"Failed to parse evidence from {source}: {reason}",
+            {"source": source, "reason": reason}
+        )
+        self.source = source
+        self.reason = reason
+
+
+class EvidenceNotFoundError(EvidenceError):
+    """Raised when requested evidence cannot be found."""
+
+    def __init__(self, evidence_id: str):
+        super().__init__(
+            f"Evidence not found: {evidence_id}",
+            {"evidence_id": evidence_id}
+        )
+        self.evidence_id = evidence_id
 
 
 # ============================================================================
