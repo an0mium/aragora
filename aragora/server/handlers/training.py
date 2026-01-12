@@ -17,7 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-from .base import BaseHandler, HandlerResult, json_response, error_response
+from .base import BaseHandler, HandlerResult, json_response, error_response, require_auth, handle_errors
+from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,9 @@ class TrainingHandler(BaseHandler):
                 return None
         return self._exporters["gauntlet"]
 
+    @require_auth
+    @rate_limit(rpm=10, limiter_name="training_export")
+    @handle_errors("export SFT training data")
     def handle_export_sft(
         self,
         path: str,
@@ -97,6 +101,8 @@ class TrainingHandler(BaseHandler):
     ) -> HandlerResult:
         """
         Export SFT training data.
+
+        Requires authentication. Rate limited to 10 requests per minute.
 
         Query params:
             min_confidence: Minimum debate confidence (default 0.7)
@@ -108,6 +114,11 @@ class TrainingHandler(BaseHandler):
             include_debates: Include debate data (default true)
             format: Output format (json, jsonl) (default json)
         """
+        # Log audit trail
+        user = self.get_current_user(handler)
+        if user:
+            logger.info("training_export_sft user_id=%s", user.id)
+
         exporter = self._get_sft_exporter()
         if exporter is None:
             return error_response(
@@ -181,6 +192,9 @@ class TrainingHandler(BaseHandler):
             logger.error("training_sft_export_failed error=%s", e)
             return error_response(f"Export failed: {e}", 500)
 
+    @require_auth
+    @rate_limit(rpm=10, limiter_name="training_export")
+    @handle_errors("export DPO training data")
     def handle_export_dpo(
         self,
         path: str,
@@ -190,11 +204,18 @@ class TrainingHandler(BaseHandler):
         """
         Export DPO (preference) training data.
 
+        Requires authentication. Rate limited to 10 requests per minute.
+
         Query params:
             min_confidence_diff: Minimum confidence difference for pairs (default 0.1)
             limit: Maximum records (default 500)
             format: Output format (json, jsonl) (default json)
         """
+        # Log audit trail
+        user = self.get_current_user(handler)
+        if user:
+            logger.info("training_export_dpo user_id=%s", user.id)
+
         exporter = self._get_dpo_exporter()
         if exporter is None:
             return error_response(
@@ -249,6 +270,9 @@ class TrainingHandler(BaseHandler):
             logger.error("training_dpo_export_failed error=%s", e)
             return error_response(f"Export failed: {e}", 500)
 
+    @require_auth
+    @rate_limit(rpm=10, limiter_name="training_export")
+    @handle_errors("export Gauntlet training data")
     def handle_export_gauntlet(
         self,
         path: str,
@@ -258,12 +282,19 @@ class TrainingHandler(BaseHandler):
         """
         Export Gauntlet adversarial training data.
 
+        Requires authentication. Rate limited to 10 requests per minute.
+
         Query params:
             persona: Filter by persona (gdpr, hipaa, ai_act, all) (default all)
             min_severity: Minimum severity level (default 0.5)
             limit: Maximum records (default 500)
             format: Output format (json, jsonl) (default json)
         """
+        # Log audit trail
+        user = self.get_current_user(handler)
+        if user:
+            logger.info("training_export_gauntlet user_id=%s persona=%s", user.id, query_params.get("persona", "all"))
+
         exporter = self._get_gauntlet_exporter()
         if exporter is None:
             return error_response(
@@ -325,6 +356,8 @@ class TrainingHandler(BaseHandler):
             logger.error("training_gauntlet_export_failed error=%s", e)
             return error_response(f"Export failed: {e}", 500)
 
+    @rate_limit(rpm=30, limiter_name="training_stats")
+    @handle_errors("get training stats")
     def handle_stats(
         self,
         path: str,
@@ -334,49 +367,46 @@ class TrainingHandler(BaseHandler):
         """
         Get training data statistics.
 
+        Rate limited to 30 requests per minute.
         Returns counts of available training data by type.
         """
-        try:
-            stats = {
-                "available_exporters": [],
-                "export_directory": str(self._export_dir),
-                "exported_files": [],
-            }
+        stats = {
+            "available_exporters": [],
+            "export_directory": str(self._export_dir),
+            "exported_files": [],
+        }
 
-            # Check available exporters
-            if self._get_sft_exporter():
-                stats["available_exporters"].append("sft")
-            if self._get_dpo_exporter():
-                stats["available_exporters"].append("dpo")
-            if self._get_gauntlet_exporter():
-                stats["available_exporters"].append("gauntlet")
+        # Check available exporters
+        if self._get_sft_exporter():
+            stats["available_exporters"].append("sft")
+        if self._get_dpo_exporter():
+            stats["available_exporters"].append("dpo")
+        if self._get_gauntlet_exporter():
+            stats["available_exporters"].append("gauntlet")
 
-            # List exported files
-            if self._export_dir.exists():
-                for f in self._export_dir.glob("*.jsonl"):
-                    file_stat = f.stat()
-                    stats["exported_files"].append({
-                        "name": f.name,
-                        "size_bytes": file_stat.st_size,
-                        "created_at": datetime.fromtimestamp(file_stat.st_ctime).isoformat(),
-                        "modified_at": datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
-                    })
+        # List exported files
+        if self._export_dir.exists():
+            for f in self._export_dir.glob("*.jsonl"):
+                file_stat = f.stat()
+                stats["exported_files"].append({
+                    "name": f.name,
+                    "size_bytes": file_stat.st_size,
+                    "created_at": datetime.fromtimestamp(file_stat.st_ctime).isoformat(),
+                    "modified_at": datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
+                })
 
-            # Get data counts from each exporter
-            sft_exporter = self._get_sft_exporter()
-            if sft_exporter:
-                try:
-                    sft_sample = sft_exporter.export(limit=1)
-                    stats["sft_available"] = len(sft_sample) > 0
-                except Exception:
-                    stats["sft_available"] = False
+        # Get data counts from each exporter
+        sft_exporter = self._get_sft_exporter()
+        if sft_exporter:
+            try:
+                sft_sample = sft_exporter.export(limit=1)
+                stats["sft_available"] = len(sft_sample) > 0
+            except Exception:
+                stats["sft_available"] = False
 
-            return json_response(stats)
+        return json_response(stats)
 
-        except Exception as e:
-            logger.error("training_stats_failed error=%s", e)
-            return error_response(f"Failed to get stats: {e}", 500)
-
+    @rate_limit(rpm=60, limiter_name="training_formats")
     def handle_formats(
         self,
         path: str,
@@ -386,6 +416,7 @@ class TrainingHandler(BaseHandler):
         """
         Get supported training data formats and schemas.
 
+        Rate limited to 60 requests per minute.
         Returns information about export formats and their structure.
         """
         formats = {

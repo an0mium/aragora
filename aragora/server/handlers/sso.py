@@ -22,8 +22,10 @@ import logging
 import os
 from typing import Any, Dict, Optional, Union
 
-from .base import BaseHandler, HandlerResult, json_response, error_response
+from .base import BaseHandler, HandlerResult, json_response, error_response, handle_errors
+from .utils.rate_limit import rate_limit
 from aragora.exceptions import ConfigurationError
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -297,6 +299,16 @@ class SSOHandler(BaseHandler):
 
             # Check if we should redirect
             if relay_state and relay_state.startswith(("http://", "https://")):
+                # SECURITY: Validate redirect URL before redirecting
+                if not self._validate_redirect_url(relay_state):
+                    logger.warning(f"SSO callback: blocked unsafe redirect to {relay_state}")
+                    return self._format_response(handler, error_response(
+                        "Invalid redirect URL",
+                        400,
+                        code="SSO_INVALID_REDIRECT",
+                        suggestion="Redirect URL must be on the allowed hosts list"
+                    ))
+
                 # Redirect with token
                 separator = "&" if "?" in relay_state else "?"
                 redirect_url = f"{relay_state}{separator}token={session_token}"
@@ -481,6 +493,54 @@ class SSOHandler(BaseHandler):
         if isinstance(value, list):
             return value[0] if value else None
         return str(value)
+
+    def _validate_redirect_url(self, url: str) -> bool:
+        """
+        Validate that a redirect URL is safe.
+
+        Prevents open redirect attacks by checking:
+        1. URL uses allowed scheme (http/https)
+        2. URL host is on the allowlist (if configured)
+        3. URL doesn't contain dangerous patterns
+
+        Returns True if URL is safe, False otherwise.
+        """
+        if not url:
+            return True  # No redirect is safe
+
+        try:
+            parsed = urlparse(url)
+
+            # Must be http or https
+            if parsed.scheme not in ("http", "https"):
+                logger.warning(f"SSO redirect blocked: invalid scheme {parsed.scheme}")
+                return False
+
+            # Check for dangerous patterns
+            if "@" in parsed.netloc:  # user:pass@host trick
+                logger.warning("SSO redirect blocked: credentials in URL")
+                return False
+
+            # Get allowed redirect hosts from environment
+            allowed_hosts_str = os.getenv("ARAGORA_SSO_ALLOWED_REDIRECT_HOSTS", "")
+            if allowed_hosts_str:
+                allowed_hosts = [h.strip().lower() for h in allowed_hosts_str.split(",")]
+                host = parsed.netloc.lower().split(":")[0]  # Remove port
+
+                if host not in allowed_hosts:
+                    logger.warning(f"SSO redirect blocked: host {host} not in allowlist")
+                    return False
+
+            # In production, require HTTPS for redirects
+            if os.getenv("ARAGORA_ENV") == "production" and parsed.scheme != "https":
+                logger.warning("SSO redirect blocked: HTTPS required in production")
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.warning(f"SSO redirect validation error: {e}")
+            return False
 
 
 __all__ = ["SSOHandler"]
