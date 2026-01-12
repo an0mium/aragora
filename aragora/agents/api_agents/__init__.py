@@ -28,6 +28,12 @@ from aragora.agents.api_agents.openrouter import (
     KimiAgent,
 )
 from aragora.agents.api_agents.mistral import MistralAPIAgent, CodestralAgent
+from aragora.agents.api_agents.tinker import (
+    TinkerAgent,
+    TinkerLlamaAgent,
+    TinkerQwenAgent,
+    TinkerDeepSeekAgent,
+)
 from aragora.agents.api_agents.rate_limiter import (
     OpenRouterRateLimiter,
     OpenRouterTier,
@@ -63,6 +69,11 @@ __all__ = [
     "QwenMaxAgent",
     "YiAgent",
     "KimiAgent",
+    # Tinker (fine-tuned models)
+    "TinkerAgent",
+    "TinkerLlamaAgent",
+    "TinkerQwenAgent",
+    "TinkerDeepSeekAgent",
     # Rate limiting
     "OpenRouterRateLimiter",
     "OpenRouterTier",

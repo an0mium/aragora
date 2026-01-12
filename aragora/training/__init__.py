@@ -21,8 +21,10 @@ Example:
     await client.train_sft(data, model="llama-3.3-70b")
 """
 
-from aragora.training.tinker_client import TinkerClient, TinkerConfig
+from aragora.training.tinker_client import TinkerClient, TinkerConfig, TinkerModel
 from aragora.training.training_scheduler import TrainingScheduler, TrainingJob
+from aragora.training.evaluator import TinkerEvaluator, ABTestResult, EvaluationMetrics
+from aragora.training.model_registry import ModelRegistry, ModelMetadata, get_registry
 from aragora.training.exporters import (
     SFTExporter,
     DPOExporter,
@@ -31,10 +33,22 @@ from aragora.training.exporters import (
 )
 
 __all__ = [
+    # Client
     "TinkerClient",
     "TinkerConfig",
+    "TinkerModel",
+    # Scheduler
     "TrainingScheduler",
     "TrainingJob",
+    # Evaluator
+    "TinkerEvaluator",
+    "ABTestResult",
+    "EvaluationMetrics",
+    # Model Registry
+    "ModelRegistry",
+    "ModelMetadata",
+    "get_registry",
+    # Exporters
     "SFTExporter",
     "DPOExporter",
     "GauntletExporter",
