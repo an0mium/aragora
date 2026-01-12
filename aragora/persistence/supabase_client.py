@@ -6,6 +6,7 @@ Handles all database operations and real-time subscriptions.
 
 import os
 import asyncio
+import time
 from datetime import datetime
 from typing import Optional, Callable
 import logging
@@ -25,6 +26,25 @@ from aragora.persistence.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Slow query threshold in seconds
+SLOW_QUERY_THRESHOLD = float(os.getenv("ARAGORA_SLOW_QUERY_MS", "500")) / 1000.0
+
+
+def _log_slow_query(operation: str, elapsed: float, context: str = "") -> None:
+    """Log slow database operations for performance monitoring.
+
+    Args:
+        operation: The operation name (e.g., "save_cycle", "list_debates")
+        elapsed: Time taken in seconds
+        context: Optional context (e.g., table name, filter parameters)
+    """
+    if elapsed > SLOW_QUERY_THRESHOLD:
+        ctx = f" [{context}]" if context else ""
+        logger.warning(
+            f"Slow query ({elapsed:.3f}s): {operation}{ctx} "
+            f"(threshold: {SLOW_QUERY_THRESHOLD:.3f}s)"
+        )
 
 
 class SupabaseClient:
@@ -85,6 +105,7 @@ class SupabaseClient:
         if not self.is_configured:
             return None
 
+        start = time.monotonic()
         try:
             data = cycle.to_dict()
             if cycle.id:
@@ -94,10 +115,13 @@ class SupabaseClient:
                 # Insert new
                 result = self.client.table("nomic_cycles").insert(data).execute()
 
+            elapsed = time.monotonic() - start
+            _log_slow_query("save_cycle", elapsed, f"cycle={cycle.cycle_number}")
+
             if result.data:
                 return result.data[0].get("id")
             return None
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to save cycle: {e}")
             return None
 
@@ -117,7 +141,7 @@ class SupabaseClient:
             if result.data:
                 return self._dict_to_cycle(result.data)
             return None
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to get cycle: {e}")
             return None
 
@@ -131,6 +155,7 @@ class SupabaseClient:
         if not self.is_configured:
             return []
 
+        start = time.monotonic()
         try:
             query = self.client.table("nomic_cycles")\
                 .select("*")\
@@ -142,8 +167,11 @@ class SupabaseClient:
                 query = query.eq("loop_id", loop_id)
 
             result = query.execute()
+            elapsed = time.monotonic() - start
+            _log_slow_query("list_cycles", elapsed, f"limit={limit}, loop_id={loop_id}")
+
             return [self._dict_to_cycle(d) for d in result.data]
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to list cycles: {e}")
             return []
 
@@ -192,7 +220,7 @@ class SupabaseClient:
             if result.data:
                 return result.data[0].get("id")
             return None
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to save debate: {e}")
             return None
 
@@ -211,7 +239,7 @@ class SupabaseClient:
             if result.data:
                 return self._dict_to_debate(result.data)
             return None
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to get debate: {e}")
             return None
 
@@ -225,6 +253,7 @@ class SupabaseClient:
         if not self.is_configured:
             return []
 
+        start = time.monotonic()
         try:
             query = self.client.table("debate_artifacts")\
                 .select("*")\
@@ -237,8 +266,11 @@ class SupabaseClient:
                 query = query.eq("phase", phase)
 
             result = query.execute()
+            elapsed = time.monotonic() - start
+            _log_slow_query("list_debates", elapsed, f"limit={limit}, loop_id={loop_id}")
+
             return [self._dict_to_debate(d) for d in result.data]
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to list debates: {e}")
             return []
 
@@ -275,7 +307,7 @@ class SupabaseClient:
             if result.data:
                 return result.data[0].get("id")
             return None
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to save event: {e}")
             return None
 
@@ -288,7 +320,7 @@ class SupabaseClient:
             data = [e.to_dict() for e in events]
             result = self.client.table("stream_events").insert(data).execute()
             return len(result.data) if result.data else 0
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to save events batch: {e}")
             return 0
 
@@ -320,7 +352,7 @@ class SupabaseClient:
 
             result = query.execute()
             return [self._dict_to_event(d) for d in result.data]
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to get events: {e}")
             return []
 
@@ -352,7 +384,7 @@ class SupabaseClient:
             if result.data:
                 return result.data[0].get("id")
             return None
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to save metrics: {e}")
             return None
 
@@ -374,7 +406,7 @@ class SupabaseClient:
                 .execute()
 
             return [self._dict_to_metrics(d) for d in result.data]
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to get agent stats: {e}")
             return []
 
@@ -432,7 +464,7 @@ class SupabaseClient:
 
             logger.info(f"Subscribed to events for loop {loop_id}")
             return channel
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to subscribe to events: {e}")
             return None
 
@@ -472,6 +504,6 @@ class SupabaseClient:
                     for phase in ["debate", "design", "implement", "verify", "commit"]
                 },
             }
-        except (TypeError, ValueError, KeyError, OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except Exception as e:
             logger.error(f"Failed to get loop summary: {e}")
             return {}
