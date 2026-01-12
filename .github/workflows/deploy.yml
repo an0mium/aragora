@@ -201,10 +201,8 @@ jobs:
             if [ -n "${{ secrets.SENTRY_DSN }}" ]; then
               echo "Configuring environment via systemd..."
               sudo mkdir -p /etc/systemd/system/aragora.service.d/
-              sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null << ENVEOF
-[Service]
-Environment="SENTRY_DSN=${{ secrets.SENTRY_DSN }}"
-ENVEOF
+              echo '[Service]' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+              echo 'Environment="SENTRY_DSN=${{ secrets.SENTRY_DSN }}"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
               sudo systemctl daemon-reload
             fi
             echo "Restarting service..."
