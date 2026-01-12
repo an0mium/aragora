@@ -478,6 +478,345 @@ async def list_trending_topics_tool(
     }
 
 
+# === Memory Tools ===
+
+async def query_memory_tool(
+    query: str,
+    tier: str = "all",
+    limit: int = 10,
+    min_importance: float = 0.0,
+) -> Dict[str, Any]:
+    """
+    Query memories from the continuum memory system.
+
+    Args:
+        query: Search query for memory content
+        tier: Memory tier (fast, medium, slow, glacial, all)
+        limit: Max memories to return (1-100)
+        min_importance: Minimum importance score (0-1)
+
+    Returns:
+        Dict with matching memories and count
+    """
+    limit = min(max(limit, 1), 100)
+    memories: List[Dict[str, Any]] = []
+
+    try:
+        from aragora.memory.continuum import ContinuumMemory, MemoryTier
+
+        continuum = ContinuumMemory.get_instance()
+
+        # Parse tier
+        tiers = None
+        if tier != "all":
+            try:
+                tiers = [MemoryTier[tier.upper()]]
+            except KeyError:
+                pass
+
+        results = continuum.retrieve(
+            query=query,
+            tiers=tiers or list(MemoryTier),
+            limit=limit,
+            min_importance=min_importance,
+        )
+
+        for m in results:
+            memories.append({
+                "id": m.id,
+                "tier": m.tier.name.lower(),
+                "content": m.content[:500] + "..." if len(m.content) > 500 else m.content,
+                "importance": round(m.importance, 3),
+                "created_at": str(m.created_at) if hasattr(m, "created_at") else None,
+            })
+
+    except ImportError:
+        logger.warning("Continuum memory not available")
+    except Exception as e:
+        logger.warning(f"Memory query failed: {e}")
+
+    return {
+        "memories": memories,
+        "count": len(memories),
+        "query": query,
+        "tier": tier,
+    }
+
+
+async def store_memory_tool(
+    content: str,
+    tier: str = "medium",
+    importance: float = 0.5,
+    tags: str = "",
+) -> Dict[str, Any]:
+    """
+    Store a memory in the continuum memory system.
+
+    Args:
+        content: Memory content to store
+        tier: Memory tier (fast, medium, slow, glacial)
+        importance: Importance score (0-1)
+        tags: Comma-separated tags
+
+    Returns:
+        Dict with stored memory ID and status
+    """
+    if not content:
+        return {"error": "content is required"}
+
+    try:
+        from aragora.memory.continuum import ContinuumMemory, MemoryTier
+
+        continuum = ContinuumMemory.get_instance()
+
+        # Parse tier
+        try:
+            memory_tier = MemoryTier[tier.upper()]
+        except KeyError:
+            memory_tier = MemoryTier.MEDIUM
+
+        # Store memory
+        memory_id = continuum.store(
+            content=content,
+            tier=memory_tier,
+            importance=min(max(importance, 0.0), 1.0),
+            tags=[t.strip() for t in tags.split(",") if t.strip()],
+        )
+
+        return {
+            "success": True,
+            "memory_id": memory_id,
+            "tier": memory_tier.name.lower(),
+            "importance": importance,
+        }
+
+    except ImportError:
+        return {"error": "Continuum memory not available"}
+    except Exception as e:
+        return {"error": f"Failed to store memory: {e}"}
+
+
+async def get_memory_pressure_tool() -> Dict[str, Any]:
+    """
+    Get current memory pressure and utilization.
+
+    Returns:
+        Dict with pressure score, status, and tier utilization
+    """
+    try:
+        from aragora.memory.continuum import ContinuumMemory
+
+        continuum = ContinuumMemory.get_instance()
+        pressure = continuum.get_memory_pressure()
+        stats = continuum.get_stats()
+
+        # Determine status
+        if pressure < 0.5:
+            status = "normal"
+        elif pressure < 0.8:
+            status = "elevated"
+        elif pressure < 0.9:
+            status = "high"
+        else:
+            status = "critical"
+
+        return {
+            "pressure": round(pressure, 3),
+            "status": status,
+            "total_memories": stats.get("total_memories", 0),
+            "tier_stats": stats.get("by_tier", {}),
+            "cleanup_recommended": pressure > 0.9,
+        }
+
+    except ImportError:
+        return {"error": "Continuum memory not available"}
+    except Exception as e:
+        return {"error": f"Failed to get memory pressure: {e}"}
+
+
+# === Fork Tools ===
+
+async def fork_debate_tool(
+    debate_id: str,
+    branch_point: int = -1,
+    modified_context: str = "",
+) -> Dict[str, Any]:
+    """
+    Fork a debate to explore counterfactual scenarios.
+
+    Args:
+        debate_id: ID of the debate to fork
+        branch_point: Message index to branch from (-1 for last message)
+        modified_context: Optional modified context for the fork
+
+    Returns:
+        Dict with fork ID and inherited message count
+    """
+    if not debate_id:
+        return {"error": "debate_id is required"}
+
+    try:
+        from aragora.debate.counterfactual import CounterfactualBranch
+
+        branch = await CounterfactualBranch.create_fork(
+            parent_debate_id=debate_id,
+            branch_point=branch_point if branch_point >= 0 else None,
+            modified_context=modified_context or None,
+        )
+
+        return {
+            "success": True,
+            "branch_id": branch.branch_id,
+            "parent_debate_id": debate_id,
+            "branch_point": branch.branch_point,
+            "messages_inherited": branch.messages_inherited,
+        }
+
+    except ImportError:
+        return {"error": "Counterfactual branching not available"}
+    except Exception as e:
+        return {"error": f"Failed to create fork: {e}"}
+
+
+async def get_forks_tool(
+    debate_id: str,
+    include_nested: bool = False,
+) -> Dict[str, Any]:
+    """
+    Get all forks of a debate.
+
+    Args:
+        debate_id: ID of the parent debate
+        include_nested: Include forks of forks
+
+    Returns:
+        Dict with list of forks
+    """
+    if not debate_id:
+        return {"error": "debate_id is required"}
+
+    try:
+        from aragora.server.storage import get_debates_db
+
+        db = get_debates_db()
+        if not db:
+            return {"error": "Storage not available"}
+
+        # Get forks from storage
+        forks = []
+        if hasattr(db, "get_forks"):
+            forks = db.get_forks(debate_id, include_nested=include_nested)
+        else:
+            # Fallback: search for debates with parent_id
+            all_debates = db.list(limit=100)
+            for d in all_debates:
+                if d.get("parent_debate_id") == debate_id:
+                    forks.append({
+                        "branch_id": d.get("id"),
+                        "task": d.get("task", ""),
+                        "branch_point": d.get("branch_point", 0),
+                        "created_at": d.get("created_at", ""),
+                    })
+
+        return {
+            "parent_debate_id": debate_id,
+            "forks": forks,
+            "count": len(forks),
+        }
+
+    except Exception as e:
+        return {"error": f"Failed to get forks: {e}"}
+
+
+# === Genesis Tools ===
+
+async def get_agent_lineage_tool(
+    agent_name: str,
+    depth: int = 5,
+) -> Dict[str, Any]:
+    """
+    Get the evolutionary lineage of an agent.
+
+    Args:
+        agent_name: Name of the agent
+        depth: How many generations back to trace
+
+    Returns:
+        Dict with lineage tree
+    """
+    if not agent_name:
+        return {"error": "agent_name is required"}
+
+    depth = min(max(depth, 1), 20)
+
+    try:
+        from aragora.evolution.evolver import AgentEvolver
+
+        evolver = AgentEvolver()
+        lineage = evolver.get_lineage(agent_name, max_depth=depth)
+
+        return {
+            "agent": agent_name,
+            "generation": lineage.get("generation", 0),
+            "fitness": lineage.get("fitness", 0),
+            "ancestors": lineage.get("ancestors", []),
+            "traits": lineage.get("traits", {}),
+            "mutation_history": lineage.get("mutations", [])[:10],
+        }
+
+    except ImportError:
+        return {"error": "Evolution module not available"}
+    except Exception as e:
+        return {"error": f"Failed to get lineage: {e}"}
+
+
+async def breed_agents_tool(
+    parent_a: str,
+    parent_b: str,
+    mutation_rate: float = 0.1,
+) -> Dict[str, Any]:
+    """
+    Breed two agents to create a new offspring agent.
+
+    Args:
+        parent_a: First parent agent name
+        parent_b: Second parent agent name
+        mutation_rate: Mutation rate (0-1)
+
+    Returns:
+        Dict with offspring agent info
+    """
+    if not parent_a or not parent_b:
+        return {"error": "Both parent_a and parent_b are required"}
+
+    mutation_rate = min(max(mutation_rate, 0.0), 1.0)
+
+    try:
+        from aragora.evolution.evolver import AgentEvolver
+
+        evolver = AgentEvolver()
+        offspring = evolver.crossover(
+            parent_a=parent_a,
+            parent_b=parent_b,
+            mutation_rate=mutation_rate,
+        )
+
+        return {
+            "success": True,
+            "offspring_id": offspring.id,
+            "offspring_name": offspring.name,
+            "parents": [parent_a, parent_b],
+            "generation": offspring.generation,
+            "inherited_traits": offspring.traits,
+            "mutations_applied": offspring.mutation_count,
+        }
+
+    except ImportError:
+        return {"error": "Evolution module not available"}
+    except Exception as e:
+        return {"error": f"Failed to breed agents: {e}"}
+
+
 # Tool metadata for registration
 TOOLS_METADATA = [
     {
@@ -559,6 +898,75 @@ TOOLS_METADATA = [
             "limit": {"type": "integer", "default": 10},
         },
     },
+    # Memory tools
+    {
+        "name": "query_memory",
+        "description": "Query memories from the continuum memory system",
+        "function": query_memory_tool,
+        "parameters": {
+            "query": {"type": "string", "required": True},
+            "tier": {"type": "string", "default": "all"},
+            "limit": {"type": "integer", "default": 10},
+            "min_importance": {"type": "number", "default": 0.0},
+        },
+    },
+    {
+        "name": "store_memory",
+        "description": "Store a memory in the continuum memory system",
+        "function": store_memory_tool,
+        "parameters": {
+            "content": {"type": "string", "required": True},
+            "tier": {"type": "string", "default": "medium"},
+            "importance": {"type": "number", "default": 0.5},
+            "tags": {"type": "string", "default": ""},
+        },
+    },
+    {
+        "name": "get_memory_pressure",
+        "description": "Get current memory pressure and utilization",
+        "function": get_memory_pressure_tool,
+        "parameters": {},
+    },
+    # Fork tools
+    {
+        "name": "fork_debate",
+        "description": "Fork a debate to explore counterfactual scenarios",
+        "function": fork_debate_tool,
+        "parameters": {
+            "debate_id": {"type": "string", "required": True},
+            "branch_point": {"type": "integer", "default": -1},
+            "modified_context": {"type": "string", "default": ""},
+        },
+    },
+    {
+        "name": "get_forks",
+        "description": "Get all forks of a debate",
+        "function": get_forks_tool,
+        "parameters": {
+            "debate_id": {"type": "string", "required": True},
+            "include_nested": {"type": "boolean", "default": False},
+        },
+    },
+    # Genesis tools
+    {
+        "name": "get_agent_lineage",
+        "description": "Get the evolutionary lineage of an agent",
+        "function": get_agent_lineage_tool,
+        "parameters": {
+            "agent_name": {"type": "string", "required": True},
+            "depth": {"type": "integer", "default": 5},
+        },
+    },
+    {
+        "name": "breed_agents",
+        "description": "Breed two agents to create a new offspring agent",
+        "function": breed_agents_tool,
+        "parameters": {
+            "parent_a": {"type": "string", "required": True},
+            "parent_b": {"type": "string", "required": True},
+            "mutation_rate": {"type": "number", "default": 0.1},
+        },
+    },
 ]
 
 
@@ -571,5 +979,15 @@ __all__ = [
     "get_agent_history_tool",
     "get_consensus_proofs_tool",
     "list_trending_topics_tool",
+    # Memory tools
+    "query_memory_tool",
+    "store_memory_tool",
+    "get_memory_pressure_tool",
+    # Fork tools
+    "fork_debate_tool",
+    "get_forks_tool",
+    # Genesis tools
+    "get_agent_lineage_tool",
+    "breed_agents_tool",
     "TOOLS_METADATA",
 ]

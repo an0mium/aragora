@@ -463,7 +463,7 @@ class OrganizationStore:
             created_at=datetime.fromisoformat(row["created_at"]),
             expires_at=datetime.fromisoformat(row["expires_at"]) if row["expires_at"] else None,
             accepted_by=row["accepted_by"] if "accepted_by" in row.keys() else None,
-            accepted_at=datetime.fromisoformat(row["accepted_at"]) if row.get("accepted_at") else None,
+            accepted_at=datetime.fromisoformat(row["accepted_at"]) if ("accepted_at" in row.keys() and row["accepted_at"]) else None,
         )
 
     def close(self) -> None:

@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -215,6 +216,11 @@ class EloSystem:
         if self._redteam_integrator is None:
             self._redteam_integrator = RedTeamIntegrator(self)
         return self._redteam_integrator
+
+    def register_agent(self, agent_name: str, model: Optional[str] = None) -> AgentRating:
+        """Ensure an agent exists in the ratings table (legacy compatibility)."""
+        _validate_agent_name(agent_name)
+        return self.get_rating(agent_name, use_cache=False)
 
     def get_rating(self, agent_name: str, use_cache: bool = True) -> AgentRating:
         """Get or create rating for an agent.
@@ -625,19 +631,24 @@ class EloSystem:
 
     def record_match(
         self,
-        debate_id: str,
-        participants: list[str],
-        scores: dict[str, float],
+        debate_id: str | None = None,
+        participants: list[str] | str | None = None,
+        scores: dict[str, float] | None = None,
         domain: str | None = None,
         confidence_weight: float = 1.0,
         calibration_tracker: Optional[object] = None,
+        *,
+        winner: Optional[str] = None,
+        loser: Optional[str] = None,
+        draw: Optional[bool] = None,
+        task: Optional[str] = None,
     ) -> dict[str, float]:
         """
         Record a match result and update ELO ratings.
 
         Args:
-            debate_id: Unique debate identifier
-            participants: List of agent names
+            debate_id: Unique debate identifier (auto-generated if omitted)
+            participants: List of agent names or legacy "loser" string
             scores: Dict of agent -> score (higher is better)
             domain: Optional domain for domain-specific ELO
             confidence_weight: Weight for ELO change (0-1). Lower values reduce
@@ -646,13 +657,54 @@ class EloSystem:
                                agents with poor calibration (overconfident/underconfident)
                                receive higher K-factor multipliers, making their ELO
                                more volatile as an incentive to improve calibration.
+            winner: Legacy winner name (for compatibility)
+            loser: Legacy loser name (for compatibility)
+            draw: Legacy draw flag (for compatibility)
+            task: Legacy task label (used in auto-generated debate_id)
 
         Returns:
             Dict of agent -> ELO change
         """
+        def _build_scores(win: str, lose: str, is_draw: bool) -> dict[str, float]:
+            if is_draw:
+                return {win: 0.5, lose: 0.5}
+            return {win: 1.0, lose: 0.0}
+
+        def _generate_match_id(names: list[str]) -> str:
+            label = "-vs-".join(names) if names else "match"
+            scope = task or domain or "debate"
+            return f"{scope}-{label}-{uuid.uuid4().hex[:8]}"
+
+        # Normalize legacy signatures
+        participants_list: list[str] | None = None
+        if isinstance(participants, str):
+            winner_name = winner or (debate_id or "")
+            loser_name = loser or participants
+            if not winner_name or not loser_name:
+                raise ValueError("winner and loser must be provided for legacy record_match calls")
+            if scores is None or isinstance(scores, bool):
+                draw_flag = draw if draw is not None else bool(scores) if isinstance(scores, bool) else False
+                scores = _build_scores(winner_name, loser_name, draw_flag)
+            participants_list = [winner_name, loser_name]
+            debate_id = _generate_match_id(participants_list)
+        else:
+            participants_list = participants if isinstance(participants, list) else None
+            if scores is None and winner and loser:
+                scores = _build_scores(winner, loser, bool(draw))
+                participants_list = [winner, loser]
+            if scores is None and draw and participants_list:
+                scores = {name: 0.5 for name in participants_list}
+            if participants_list is None and scores is not None:
+                participants_list = list(scores.keys())
+            if debate_id is None:
+                debate_id = _generate_match_id(participants_list or [])
+
+        if not participants_list or scores is None:
+            return {}
+
         # Clamp confidence_weight to valid range
         confidence_weight = max(0.1, min(1.0, confidence_weight))
-        if len(participants) < 2:
+        if len(participants_list) < 2:
             return {}
 
         # Check for duplicate match recording to prevent ELO accumulation bug
@@ -678,14 +730,14 @@ class EloSystem:
             winner = sorted_agents[0][0] if sorted_agents[0][1] > sorted_agents[1][1] else None
 
         # Get current ratings (batch query to avoid N+1)
-        ratings = self.get_ratings_batch(participants)
+        ratings = self.get_ratings_batch(participants_list)
 
         # Compute calibration-based K-factor multipliers
-        k_multipliers = self._compute_calibration_k_multipliers(participants, calibration_tracker)
+        k_multipliers = self._compute_calibration_k_multipliers(participants_list, calibration_tracker)
 
         # Calculate pairwise ELO changes (with calibration adjustments if provided)
         elo_changes = self._calculate_pairwise_elo_changes(
-            participants, scores, ratings, confidence_weight, k_multipliers
+            participants_list, scores, ratings, confidence_weight, k_multipliers
         )
 
         # Apply changes and collect for batch save
@@ -698,7 +750,7 @@ class EloSystem:
         self._record_elo_history_batch(history_entries)
 
         # Save match
-        self._save_match(debate_id, winner, participants, domain, scores, elo_changes)
+        self._save_match(debate_id, winner, participants_list, domain, scores, elo_changes)
 
         # Write JSON snapshot for fast reads (avoids SQLite locking)
         self._write_snapshot()

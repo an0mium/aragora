@@ -22,6 +22,8 @@ interface PluginManifest {
   created_at: string;
   requirements_satisfied?: boolean;
   missing_requirements?: string[];
+  installed_at?: string;
+  user_config?: Record<string, unknown>;
 }
 
 interface BackendConfig {
@@ -65,12 +67,15 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
   const apiBase = backendConfig?.apiUrl || DEFAULT_API_BASE;
 
   const [plugins, setPlugins] = useState<PluginManifest[]>([]);
+  const [installedPlugins, setInstalledPlugins] = useState<Set<string>>(new Set());
   const [selectedPlugin, setSelectedPlugin] = useState<PluginManifest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usingDemoData, setUsingDemoData] = useState(false);
   const [filterCapability, setFilterCapability] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [installingPlugin, setInstallingPlugin] = useState<string | null>(null);
+  const [installError, setInstallError] = useState<string | null>(null);
 
   const fetchPlugins = useCallback(async () => {
     try {
@@ -164,9 +169,83 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
     }
   }, [apiBase]);
 
+  const fetchInstalledPlugins = useCallback(async () => {
+    try {
+      const response = await fetchWithRetry(
+        `${apiBase}/api/plugins/installed`,
+        undefined,
+        { maxRetries: 2 }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const installed = new Set<string>(
+          (data.installed || []).map((p: PluginManifest) => p.name)
+        );
+        setInstalledPlugins(installed);
+      }
+    } catch {
+      // Silently fail - user may not be authenticated
+    }
+  }, [apiBase]);
+
+  const handleInstallPlugin = useCallback(async (pluginName: string) => {
+    setInstallingPlugin(pluginName);
+    setInstallError(null);
+
+    try {
+      const response = await fetch(`${apiBase}/api/plugins/${pluginName}/install`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to install plugin');
+      }
+
+      setInstalledPlugins(prev => new Set([...prev, pluginName]));
+    } catch (err) {
+      setInstallError(err instanceof Error ? err.message : 'Failed to install plugin');
+    } finally {
+      setInstallingPlugin(null);
+    }
+  }, [apiBase]);
+
+  const handleUninstallPlugin = useCallback(async (pluginName: string) => {
+    setInstallingPlugin(pluginName);
+    setInstallError(null);
+
+    try {
+      const response = await fetch(`${apiBase}/api/plugins/${pluginName}/install`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to uninstall plugin');
+      }
+
+      setInstalledPlugins(prev => {
+        const next = new Set(prev);
+        next.delete(pluginName);
+        return next;
+      });
+    } catch (err) {
+      setInstallError(err instanceof Error ? err.message : 'Failed to uninstall plugin');
+    } finally {
+      setInstallingPlugin(null);
+    }
+  }, [apiBase]);
+
   useEffect(() => {
     fetchPlugins();
-  }, [fetchPlugins]);
+    fetchInstalledPlugins();
+  }, [fetchPlugins, fetchInstalledPlugins]);
 
   // Filter plugins
   const filteredPlugins = plugins.filter((plugin) => {
@@ -258,10 +337,14 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
 
       {/* Stats */}
       <div className="card p-4">
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-4 gap-4 text-center">
           <div>
             <div className="text-2xl font-mono text-acid-green">{plugins.length}</div>
             <div className="text-xs font-mono text-text-muted">Total Plugins</div>
+          </div>
+          <div>
+            <div className="text-2xl font-mono text-accent">{installedPlugins.size}</div>
+            <div className="text-xs font-mono text-text-muted">Installed</div>
           </div>
           <div>
             <div className="text-2xl font-mono text-acid-cyan">{allCapabilities.length}</div>
@@ -276,7 +359,9 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
 
       {/* Plugin Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredPlugins.map((plugin) => (
+        {filteredPlugins.map((plugin) => {
+          const isInstalled = installedPlugins.has(plugin.name);
+          return (
           <button
             key={plugin.name}
             onClick={() => {
@@ -285,10 +370,17 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
             }}
             className={`card p-4 text-left transition-all hover:border-acid-green/60 ${
               selectedPlugin?.name === plugin.name ? 'border-acid-green bg-acid-green/5' : ''
-            }`}
+            } ${isInstalled ? 'ring-1 ring-accent/50' : ''}`}
           >
             <div className="flex items-start justify-between mb-2">
-              <h3 className="font-mono text-acid-green font-bold">{plugin.name}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-mono text-acid-green font-bold">{plugin.name}</h3>
+                {isInstalled && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-mono bg-accent/20 text-accent rounded">
+                    INSTALLED
+                  </span>
+                )}
+              </div>
               <span className="text-xs font-mono text-text-muted">v{plugin.version}</span>
             </div>
 
@@ -332,7 +424,8 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
               by {plugin.author}
             </div>
           </button>
-        ))}
+        );
+        })}
       </div>
 
       {filteredPlugins.length === 0 && (
@@ -458,8 +551,15 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
             )}
           </div>
 
+          {/* Install Error */}
+          {installError && (
+            <div className="mt-4 p-3 bg-warning/10 border border-warning/30 rounded text-xs font-mono text-warning">
+              {installError}
+            </div>
+          )}
+
           {/* Actions */}
-          <div className="mt-6 flex gap-4">
+          <div className="mt-6 flex flex-wrap gap-4">
             {selectedPlugin.homepage && (
               <a
                 href={selectedPlugin.homepage}
@@ -470,14 +570,35 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
                 View Documentation
               </a>
             )}
-            <button
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors"
-              onClick={() => {
-                alert('Plugin execution requires authentication. Run via CLI: aragora plugins run ' + selectedPlugin.name);
-              }}
-            >
-              Run Plugin
-            </button>
+            {installedPlugins.has(selectedPlugin.name) ? (
+              <>
+                <button
+                  className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+                  disabled={installingPlugin === selectedPlugin.name}
+                  onClick={() => {
+                    // For now, show CLI command. Future: open run modal
+                    alert(`Run via CLI: aragora plugins run ${selectedPlugin.name}`);
+                  }}
+                >
+                  Run Plugin
+                </button>
+                <button
+                  className="px-4 py-2 bg-warning/20 border border-warning/40 text-warning font-mono text-sm rounded hover:bg-warning/30 transition-colors disabled:opacity-50"
+                  disabled={installingPlugin === selectedPlugin.name}
+                  onClick={() => handleUninstallPlugin(selectedPlugin.name)}
+                >
+                  {installingPlugin === selectedPlugin.name ? 'Uninstalling...' : 'Uninstall'}
+                </button>
+              </>
+            ) : (
+              <button
+                className="px-4 py-2 bg-accent/20 border border-accent/40 text-accent font-mono text-sm rounded hover:bg-accent/30 transition-colors disabled:opacity-50"
+                disabled={installingPlugin === selectedPlugin.name}
+                onClick={() => handleInstallPlugin(selectedPlugin.name)}
+              >
+                {installingPlugin === selectedPlugin.name ? 'Installing...' : 'Install Plugin'}
+              </button>
+            )}
           </div>
         </div>
       )}

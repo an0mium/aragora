@@ -92,6 +92,16 @@ class ContinuumMemoryEntry:
         return self.stability_score > config.demotion_threshold and self.update_count > 10
 
 
+class AwaitableList(list):
+    """List wrapper that can be awaited for async compatibility."""
+
+    def __await__(self):
+        async def _wrap():
+            return self
+
+        return _wrap().__await__()
+
+
 class ContinuumMemory:
     """
     Continuum Memory System with multi-timescale updates.
@@ -121,8 +131,20 @@ class ContinuumMemory:
         db_path: str = DB_MEMORY_PATH,
         tier_manager: Optional[TierManager] = None,
         event_emitter: Any = None,
+        storage_path: Optional[str] = None,
+        base_dir: Optional[str] = None,
     ):
-        self.db_path = Path(db_path)
+        resolved_path = db_path
+        base_path = storage_path or base_dir
+        if base_path:
+            base = Path(base_path)
+            if base.suffix:
+                resolved_path = base
+            else:
+                resolved_path = base / "continuum_memory.db"
+
+        self.db_path = Path(resolved_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
         # Use provided TierManager or get the shared instance
@@ -315,6 +337,24 @@ class ContinuumMemory:
             metadata=metadata or {},
         )
 
+    async def store(
+        self,
+        key: str,
+        content: str,
+        tier: str | MemoryTier = MemoryTier.SLOW,
+        importance: float = 0.5,
+        metadata: Dict[str, Any] | None = None,
+    ) -> ContinuumMemoryEntry:
+        """Async wrapper for add() for compatibility."""
+        normalized_tier = MemoryTier(tier) if isinstance(tier, str) else tier
+        return self.add(
+            id=key,
+            content=content,
+            tier=normalized_tier,
+            importance=importance,
+            metadata=metadata,
+        )
+
     def get(self, id: str) -> Optional[ContinuumMemoryEntry]:
         """Get a memory entry by ID."""
         with get_wal_connection(self.db_path) as conn:
@@ -355,6 +395,7 @@ class ContinuumMemory:
         limit: int = 10,
         min_importance: float = 0.0,
         include_glacial: bool = True,
+        tier: str | MemoryTier | None = None,
     ) -> List[ContinuumMemoryEntry]:
         """
         Retrieve memories ranked by importance, surprise, and recency.
@@ -374,6 +415,15 @@ class ContinuumMemory:
         Returns:
             List of memory entries sorted by retrieval score
         """
+        if tier is not None:
+            target_tier = MemoryTier(tier) if isinstance(tier, str) else tier
+            if query:
+                entry = self.get(query)
+                if entry and entry.tier == target_tier:
+                    return AwaitableList([entry])
+                return AwaitableList([])
+            tiers = [target_tier]
+
         # Build tier filter
         if tiers is None:
             tiers = list(MemoryTier)
@@ -447,7 +497,7 @@ class ContinuumMemory:
             )
             entries.append(entry)
 
-        return entries
+        return AwaitableList(entries)
 
     def update_outcome(
         self,

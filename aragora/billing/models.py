@@ -676,6 +676,7 @@ class OrganizationInvitation:
     expires_at: datetime = field(
         default_factory=lambda: datetime.utcnow() + timedelta(days=7)
     )
+    accepted_by: Optional[str] = None  # User ID who accepted the invitation
     accepted_at: Optional[datetime] = None
 
     @property

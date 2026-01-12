@@ -27,6 +27,12 @@ from .base import (
     handle_errors,
     safe_error_message,
 )
+from .utils.rate_limit import rate_limit, RateLimiter, get_client_ip
+
+# Rate limiters for memory endpoints
+_retrieve_limiter = RateLimiter(requests_per_minute=60)  # Read operations
+_stats_limiter = RateLimiter(requests_per_minute=30)     # Stats operations
+_mutation_limiter = RateLimiter(requests_per_minute=10)  # State-changing operations
 
 # Optional import for memory functionality
 try:
@@ -68,7 +74,12 @@ class MemoryHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route memory requests to appropriate handler methods."""
+        client_ip = get_client_ip(handler)
+
         if path == "/api/memory/continuum/retrieve":
+            # Rate limit: 60/min for retrieve operations
+            if not _retrieve_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._get_continuum_memories(query_params)
 
         # POST-only endpoints - return 405 Method Not Allowed for GET
@@ -80,12 +91,21 @@ class MemoryHandler(BaseHandler):
             )
 
         if path == "/api/memory/tier-stats":
+            # Rate limit: 30/min for stats operations
+            if not _stats_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._get_tier_stats()
 
         if path == "/api/memory/archive-stats":
+            # Rate limit: 30/min for stats operations
+            if not _stats_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._get_archive_stats()
 
         if path == "/api/memory/pressure":
+            # Rate limit: 30/min for stats operations
+            if not _stats_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._get_memory_pressure()
 
         return None
@@ -94,7 +114,12 @@ class MemoryHandler(BaseHandler):
         """Route POST memory requests to state-mutating methods with auth."""
         from aragora.billing.jwt_auth import extract_user_from_request
 
+        client_ip = get_client_ip(handler)
+
         if path == "/api/memory/continuum/consolidate":
+            # Rate limit: 10/min for mutation operations
+            if not _mutation_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
             # Require authentication for state mutation
             user_store = self._get_user_store()
             auth_ctx = extract_user_from_request(handler, user_store)
@@ -103,6 +128,9 @@ class MemoryHandler(BaseHandler):
             return self._trigger_consolidation()
 
         if path == "/api/memory/continuum/cleanup":
+            # Rate limit: 10/min for mutation operations
+            if not _mutation_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
             # Require authentication for state mutation
             user_store = self._get_user_store()
             auth_ctx = extract_user_from_request(handler, user_store)

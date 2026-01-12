@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ErrorWithRetry } from './RetryButton';
 import { fetchWithRetry } from '@/utils/retry';
+import { ForceGraph } from './ForceGraph';
 
 interface DissentRecord {
   topic: string;
@@ -51,9 +52,11 @@ interface GraphNode {
   id: string;
   agent: string;
   content: string;
-  type: string;
+  type: 'argument' | 'rebuttal' | 'synthesis' | 'evidence' | 'root';
   parent_id?: string;
   children?: string[];
+  confidence?: number;
+  branch_id?: string;
 }
 
 interface BackendConfig {
@@ -538,64 +541,35 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
               </p>
             ) : (
               <div className="space-y-4">
-                {/* Simple tree visualization */}
-                <div className="overflow-x-auto">
-                  {graphNodes.map((node, idx) => {
-                    const depth = node.parent_id ? 1 : 0;
-                    return (
-                      <div
-                        key={node.id}
-                        className={`p-3 bg-surface rounded border border-acid-green/20 ${
-                          depth > 0 ? 'ml-8 border-l-2 border-acid-cyan/40' : ''
-                        }`}
-                        style={{ marginTop: idx > 0 ? '0.5rem' : 0 }}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded text-xs font-mono ${
-                              node.type === 'argument' ? 'bg-acid-green/20 text-acid-green' :
-                              node.type === 'rebuttal' ? 'bg-acid-red/20 text-acid-red' :
-                              node.type === 'synthesis' ? 'bg-acid-cyan/20 text-acid-cyan' :
-                              'bg-surface text-text-muted'
-                            }`}>
-                              {node.type}
-                            </span>
-                            <span className="font-mono text-sm text-acid-yellow">
-                              {node.agent}
-                            </span>
-                          </div>
-                          <span className="font-mono text-xs text-text-muted">
-                            {node.id.slice(0, 8)}
-                          </span>
-                        </div>
-                        <p className="font-mono text-sm text-text line-clamp-3">
-                          {node.content}
-                        </p>
-                        {node.children && node.children.length > 0 && (
-                          <div className="mt-2 text-xs font-mono text-text-muted">
-                            {node.children.length} response{node.children.length > 1 ? 's' : ''}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                {/* Interactive D3.js Force Graph */}
+                <ForceGraph
+                  nodes={graphNodes}
+                  width={750}
+                  height={500}
+                  onNodeClick={(node) => {
+                    console.log('Node clicked:', node.id);
+                  }}
+                />
 
                 {/* Legend */}
                 <div className="p-3 bg-surface/50 rounded">
                   <h4 className="font-mono text-xs text-acid-cyan mb-2">Node Types</h4>
                   <div className="flex flex-wrap gap-4 text-xs font-mono">
                     <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded bg-acid-green/40" />
+                      <span className="w-3 h-3 rounded-full bg-acid-green" />
                       <span className="text-text-muted">Argument</span>
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded bg-acid-red/40" />
+                      <span className="w-3 h-3 rounded-full bg-acid-red" />
                       <span className="text-text-muted">Rebuttal</span>
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded bg-acid-cyan/40" />
+                      <span className="w-3 h-3 rounded-full bg-acid-cyan" />
                       <span className="text-text-muted">Synthesis</span>
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded-full bg-acid-yellow" />
+                      <span className="text-text-muted">Evidence</span>
                     </span>
                   </div>
                 </div>

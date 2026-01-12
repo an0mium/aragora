@@ -682,3 +682,222 @@ export interface AnalyticsResponse {
   top_agents: AnalyticsAgentStats[];
   debates_by_day: Array<{ date: string; count: number }>;
 }
+
+// =============================================================================
+// Batch Debate Types
+// =============================================================================
+
+export interface BatchDebateItem {
+  question: string;
+  agents?: string;
+  rounds?: number;
+  consensus?: string;
+  priority?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface BatchDebateRequest {
+  items: BatchDebateItem[];
+  webhook_url?: string;
+  webhook_headers?: Record<string, string>;
+  max_parallel?: number;
+}
+
+export interface BatchDebateResponse {
+  success: boolean;
+  batch_id: string;
+  items_queued: number;
+  estimated_completion_minutes?: number;
+}
+
+export interface BatchStatusItem {
+  question: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  debate_id?: string;
+  error?: string;
+}
+
+export interface BatchStatusResponse {
+  batch_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'partial_failure';
+  total_items: number;
+  completed_items: number;
+  failed_items: number;
+  items: BatchStatusItem[];
+  estimated_completion?: string;
+}
+
+export interface QueueStatusResponse {
+  queue_length: number;
+  processing: number;
+  completed_today: number;
+  failed_today: number;
+  avg_wait_seconds: number;
+  estimated_wait_seconds?: number;
+}
+
+// =============================================================================
+// Extended Debate Types
+// =============================================================================
+
+export interface ImpasseInfo {
+  has_impasse: boolean;
+  impasse_round?: number;
+  disagreement_points?: string[];
+  suggested_resolution?: string;
+}
+
+export interface ConvergenceInfo {
+  convergence_reached: boolean;
+  convergence_round?: number;
+  similarity_score: number;
+  key_agreements: string[];
+  remaining_disagreements?: string[];
+}
+
+export interface Citation {
+  citation_id: string;
+  agent_id: string;
+  text: string;
+  source?: string;
+  url?: string;
+  round: number;
+  verified?: boolean;
+}
+
+export interface DebateCitationsResponse {
+  debate_id: string;
+  citations: Citation[];
+  total: number;
+}
+
+export interface DebateMessagesResponse {
+  debate_id: string;
+  messages: DebateMessage[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface Evidence {
+  evidence_id: string;
+  content: string;
+  source: string;
+  agent_id: string;
+  round: number;
+  confidence?: number;
+  verified?: boolean;
+}
+
+export interface DebateEvidenceResponse {
+  debate_id: string;
+  evidence: Evidence[];
+  total: number;
+}
+
+export interface DebateSummary {
+  debate_id: string;
+  task: string;
+  summary: string;
+  key_points: string[];
+  consensus_reached: boolean;
+  conclusion?: string;
+  duration_seconds: number;
+}
+
+export interface FollowupSuggestion {
+  crux: string;
+  suggested_question: string;
+  priority: 'high' | 'medium' | 'low';
+  reasoning: string;
+}
+
+export interface FollowupSuggestionsResponse {
+  debate_id: string;
+  suggestions: FollowupSuggestion[];
+}
+
+export interface ForkRequest {
+  branch_point: number;
+  modified_context?: string;
+}
+
+export interface ForkResponse {
+  debate_id: string;
+  parent_debate_id: string;
+  branch_point: number;
+  status: string;
+}
+
+export interface FollowupRequest {
+  crux: string;
+  agents?: string[];
+  max_rounds?: number;
+}
+
+export interface FollowupResponse {
+  debate_id: string;
+  parent_debate_id: string;
+  crux: string;
+  status: string;
+}
+
+export interface DebateExportResponse {
+  debate_id: string;
+  format: string;
+  data: string;
+  filename: string;
+}
+
+// =============================================================================
+// Extended Memory Types (Continuum)
+// =============================================================================
+
+export interface ContinuumMemory {
+  memory_id: string;
+  content: string;
+  tier: string;
+  created_at: string;
+  last_accessed?: string;
+  access_count: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ContinuumRetrieveResponse {
+  memories: ContinuumMemory[];
+  tier: string;
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ContinuumConsolidateResponse {
+  success: boolean;
+  memories_consolidated: number;
+  promotions: number;
+  demotions: number;
+}
+
+export interface ContinuumCleanupResponse {
+  success: boolean;
+  memories_removed: number;
+  bytes_freed?: number;
+}
+
+export interface TierStatsResponse {
+  tiers: MemoryTierStats[];
+  total_entries: number;
+}
+
+export interface ArchiveStatsResponse {
+  total_archived: number;
+  size_bytes: number;
+  oldest_entry?: string;
+  newest_entry?: string;
+}
+
+export interface MemoryPressureResponse {
+  pressure_level: 'low' | 'medium' | 'high' | 'critical';
+  utilization_percent: number;
+  recommended_action?: string;
+}

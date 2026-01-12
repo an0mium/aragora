@@ -36,7 +36,15 @@ class DebateProtocol:
     topology_sparsity: float = 0.5  # fraction of possible critique connections (for sparse/random-graph)
     topology_hub_agent: Optional[str] = None  # for star topology, which agent is the hub
     rounds: int = 5  # Increased from 3 for more thorough debates
-    consensus: Literal["majority", "unanimous", "judge", "none"] = "majority"
+    consensus: Literal[
+        "majority",
+        "unanimous",
+        "judge",
+        "none",
+        "weighted",
+        "supermajority",
+        "any",
+    ] = "majority"
     consensus_threshold: float = 0.6  # fraction needed for majority
     allow_abstain: bool = True
     require_reasoning: bool = True
@@ -44,10 +52,18 @@ class DebateProtocol:
     # Role assignments
     proposer_count: int = 1  # how many agents propose initially
     critic_count: int = -1  # -1 means all non-proposers critique
+    critique_required: bool = True  # require critiques before consensus
 
     # Judge selection (for consensus="judge" mode)
     # "elo_ranked" selects highest ELO-rated agent from EloSystem (requires elo_system param)
-    judge_selection: Literal["random", "voted", "last", "elo_ranked"] = "random"
+    judge_selection: Literal[
+        "random",
+        "voted",
+        "last",
+        "elo_ranked",
+        "calibrated",
+        "crux_aware",
+    ] = "random"
 
     # Agreement intensity (0-10): Controls how much agents agree vs disagree
     # 0 = strongly disagree 100% of the time (adversarial)
@@ -117,9 +133,8 @@ class DebateProtocol:
     timeout_seconds: int = DEBATE_TIMEOUT_SECONDS  # Max time for entire debate
 
     # Round timeout should exceed agent timeout (AGENT_TIMEOUT_SECONDS)
-    # to allow all parallel agents to complete. Uses 2x agent timeout for headroom
-    # covering network latency, rate limiting stagger, and processing overhead.
-    round_timeout_seconds: int = AGENT_TIMEOUT_SECONDS * 2  # Per-round timeout
+    # to allow all parallel agents to complete. Adds a fixed margin for overhead.
+    round_timeout_seconds: int = AGENT_TIMEOUT_SECONDS + 60  # Per-round timeout
 
     # Breakpoints: Human-in-the-loop intervention points
     # When enabled, debates can pause at critical moments for human guidance

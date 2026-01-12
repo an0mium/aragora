@@ -325,6 +325,66 @@ class CritiqueStore(SQLiteStore):
         invalidate_cache("memory")
         invalidate_cache("debates")
 
+    def store(self, critique: Critique, debate_id: Optional[str] = None) -> int:
+        """Store a critique record and return the row id."""
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO critiques
+                (debate_id, agent, target_agent, issues, suggestions, severity, reasoning)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    debate_id,
+                    critique.agent,
+                    critique.target_agent,
+                    json.dumps(critique.issues),
+                    json.dumps(critique.suggestions),
+                    critique.severity,
+                    critique.reasoning,
+                ),
+            )
+            conn.commit()
+            row_id = cursor.lastrowid
+
+        invalidate_cache("memory")
+        return int(row_id) if row_id is not None else 0
+
+    def get_recent(self, limit: int = 20) -> list[Critique]:
+        """Return the most recent critiques."""
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT agent, target_agent, issues, suggestions, severity, reasoning
+                FROM critiques
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            rows = cursor.fetchall()
+
+        critiques: list[Critique] = []
+        for row in rows:
+            critiques.append(
+                Critique(
+                    agent=row[0],
+                    target_agent=row[1],
+                    target_content="",
+                    issues=safe_json_loads(row[2], []),
+                    suggestions=safe_json_loads(row[3], []),
+                    severity=row[4] if row[4] is not None else 0.0,
+                    reasoning=row[5] or "",
+                )
+            )
+        return critiques
+
+    def get_relevant(self, issue_type: Optional[str] = None, limit: int = 10) -> list[Pattern]:
+        """Backward-compatible wrapper for retrieve_patterns()."""
+        return self.retrieve_patterns(issue_type=issue_type, min_success=1, limit=limit)
+
     def store_pattern(self, critique: Critique, successful_fix: str) -> None:
         """Store a successful critique pattern."""
         with self.connection() as conn:
@@ -580,7 +640,7 @@ class CritiqueStore(SQLiteStore):
             (surprise, issue_type, pattern_id),
         )
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_CRITIQUE_PATTERNS, key_prefix="critique_patterns", skip_first=True)
+    @ttl_cache(ttl_seconds=CACHE_TTL_CRITIQUE_PATTERNS, key_prefix="critique_patterns", skip_first=False)
     def retrieve_patterns(
         self,
         issue_type: Optional[str] = None,
@@ -641,7 +701,7 @@ class CritiqueStore(SQLiteStore):
 
             return patterns
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_CRITIQUE_STATS, key_prefix="critique_stats", skip_first=True)
+    @ttl_cache(ttl_seconds=CACHE_TTL_CRITIQUE_STATS, key_prefix="critique_stats", skip_first=False)
     def get_stats(self) -> dict:
         """Get statistics about stored patterns and debates.
 
@@ -721,7 +781,7 @@ class CritiqueStore(SQLiteStore):
     # Agent Reputation Tracking
     # =========================================================================
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_REPUTATION, key_prefix="agent_reputation", skip_first=True)
+    @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_REPUTATION, key_prefix="agent_reputation", skip_first=False)
     def get_reputation(self, agent_name: str) -> Optional[AgentReputation]:
         """Get reputation for an agent."""
         with self.connection() as conn:
@@ -899,7 +959,7 @@ class CritiqueStore(SQLiteStore):
 
             conn.commit()
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_ALL_REPUTATIONS, key_prefix="all_reputations", skip_first=True)
+    @ttl_cache(ttl_seconds=CACHE_TTL_ALL_REPUTATIONS, key_prefix="all_reputations", skip_first=False)
     def get_all_reputations(self, limit: int = 500) -> list[AgentReputation]:
         """Get agent reputations, ordered by score.
 

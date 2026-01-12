@@ -14,6 +14,24 @@ import {
   DebateCreateRequest,
   DebateCreateResponse,
   DebateListResponse,
+  // Extended debate types
+  ImpasseInfo,
+  ConvergenceInfo,
+  DebateCitationsResponse,
+  DebateMessagesResponse,
+  DebateEvidenceResponse,
+  DebateSummary,
+  FollowupSuggestionsResponse,
+  ForkRequest,
+  ForkResponse,
+  FollowupRequest,
+  FollowupResponse,
+  DebateExportResponse,
+  // Batch debate types
+  BatchDebateRequest,
+  BatchDebateResponse,
+  BatchStatusResponse,
+  QueueStatusResponse,
   // Graph debate types
   GraphDebate,
   GraphDebateCreateRequest,
@@ -31,6 +49,12 @@ import {
   // Memory types
   MemoryAnalyticsResponse,
   MemorySnapshotResponse,
+  ContinuumRetrieveResponse,
+  ContinuumConsolidateResponse,
+  ContinuumCleanupResponse,
+  TierStatsResponse,
+  ArchiveStatsResponse,
+  MemoryPressureResponse,
   // Agent types
   AgentProfile,
   LeaderboardEntry,
@@ -255,6 +279,151 @@ class DebatesAPI {
       408
     );
   }
+
+  /**
+   * Get impasse information for a debate.
+   */
+  async impasse(debateId: string): Promise<ImpasseInfo> {
+    return this.http.get<ImpasseInfo>(`/api/debates/${debateId}/impasse`);
+  }
+
+  /**
+   * Get convergence information for a debate.
+   */
+  async convergence(debateId: string): Promise<ConvergenceInfo> {
+    return this.http.get<ConvergenceInfo>(`/api/debates/${debateId}/convergence`);
+  }
+
+  /**
+   * Get citations used in a debate.
+   */
+  async citations(debateId: string): Promise<DebateCitationsResponse> {
+    return this.http.get<DebateCitationsResponse>(`/api/debates/${debateId}/citations`);
+  }
+
+  /**
+   * Get paginated messages from a debate.
+   */
+  async messages(
+    debateId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<DebateMessagesResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+
+    const query = params.toString();
+    const path = query
+      ? `/api/debates/${debateId}/messages?${query}`
+      : `/api/debates/${debateId}/messages`;
+    return this.http.get<DebateMessagesResponse>(path);
+  }
+
+  /**
+   * Get evidence collected during a debate.
+   */
+  async evidence(debateId: string): Promise<DebateEvidenceResponse> {
+    return this.http.get<DebateEvidenceResponse>(`/api/debates/${debateId}/evidence`);
+  }
+
+  /**
+   * Get a human-readable summary of a debate.
+   */
+  async summary(debateId: string): Promise<DebateSummary> {
+    return this.http.get<DebateSummary>(`/api/debates/${debateId}/summary`);
+  }
+
+  /**
+   * Get follow-up debate suggestions based on identified cruxes.
+   */
+  async followupSuggestions(debateId: string): Promise<FollowupSuggestionsResponse> {
+    return this.http.get<FollowupSuggestionsResponse>(`/api/debates/${debateId}/followups`);
+  }
+
+  /**
+   * Create a counterfactual fork of a debate at a specific branch point.
+   */
+  async fork(debateId: string, request: ForkRequest): Promise<ForkResponse> {
+    return this.http.post<ForkResponse>(`/api/debates/${debateId}/fork`, request);
+  }
+
+  /**
+   * Create a follow-up debate based on an identified crux.
+   */
+  async followup(debateId: string, request: FollowupRequest): Promise<FollowupResponse> {
+    return this.http.post<FollowupResponse>(`/api/debates/${debateId}/followup`, request);
+  }
+
+  /**
+   * Export a debate in the specified format.
+   */
+  async export(debateId: string, format: 'json' | 'markdown' | 'pdf' = 'json'): Promise<DebateExportResponse> {
+    return this.http.get<DebateExportResponse>(`/api/debates/${debateId}/export/${format}`);
+  }
+}
+
+class BatchDebatesAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Submit a batch of debates for processing.
+   */
+  async submit(request: BatchDebateRequest): Promise<BatchDebateResponse> {
+    return this.http.post<BatchDebateResponse>('/api/debates/batch', request);
+  }
+
+  /**
+   * Get the status of a batch submission.
+   */
+  async status(batchId: string): Promise<BatchStatusResponse> {
+    return this.http.get<BatchStatusResponse>(`/api/debates/batch/${batchId}/status`);
+  }
+
+  /**
+   * Get the current queue status.
+   */
+  async queueStatus(): Promise<QueueStatusResponse> {
+    return this.http.get<QueueStatusResponse>('/api/debates/queue/status');
+  }
+
+  /**
+   * Submit a batch and wait for all debates to complete.
+   */
+  async submitAndWait(
+    request: BatchDebateRequest,
+    options?: { timeout?: number; pollInterval?: number }
+  ): Promise<BatchStatusResponse> {
+    const { batch_id } = await this.submit(request);
+    return this.waitForCompletion(batch_id, options);
+  }
+
+  /**
+   * Wait for a batch to complete.
+   */
+  async waitForCompletion(
+    batchId: string,
+    options?: { timeout?: number; pollInterval?: number }
+  ): Promise<BatchStatusResponse> {
+    const timeout = options?.timeout ?? 600000; // 10 minutes
+    const pollInterval = options?.pollInterval ?? 5000; // 5 seconds
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      const batch = await this.status(batchId);
+
+      if (batch.status === 'completed' || batch.status === 'partial_failure') {
+        return batch;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    }
+
+    throw new AragoraError(
+      `Batch ${batchId} did not complete within timeout`,
+      'TIMEOUT',
+      408
+    );
+  }
 }
 
 class GraphDebatesAPI {
@@ -327,6 +496,81 @@ class MemoryAPI {
 
   async snapshot(): Promise<MemorySnapshotResponse> {
     return this.http.post<MemorySnapshotResponse>('/api/memory/analytics/snapshot', {});
+  }
+
+  // =========================================================================
+  // Continuum Memory Operations
+  // =========================================================================
+
+  /**
+   * Retrieve memories from the continuum.
+   */
+  async retrieve(options?: {
+    tier?: string;
+    limit?: number;
+    offset?: number;
+    query?: string;
+  }): Promise<ContinuumRetrieveResponse> {
+    const params = new URLSearchParams();
+    if (options?.tier) params.set('tier', options.tier);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.query) params.set('query', options.query);
+
+    const query = params.toString();
+    const path = query
+      ? `/api/memory/continuum/retrieve?${query}`
+      : '/api/memory/continuum/retrieve';
+    return this.http.get<ContinuumRetrieveResponse>(path);
+  }
+
+  /**
+   * Trigger memory consolidation across tiers.
+   */
+  async consolidate(): Promise<ContinuumConsolidateResponse> {
+    return this.http.post<ContinuumConsolidateResponse>(
+      '/api/memory/continuum/consolidate',
+      {}
+    );
+  }
+
+  /**
+   * Cleanup expired memories.
+   */
+  async cleanup(options?: { tier?: string; max_age_days?: number }): Promise<ContinuumCleanupResponse> {
+    return this.http.post<ContinuumCleanupResponse>(
+      '/api/memory/continuum/cleanup',
+      options || {}
+    );
+  }
+
+  /**
+   * Get tier statistics for all memory tiers.
+   */
+  async tiers(): Promise<TierStatsResponse> {
+    return this.http.get<TierStatsResponse>('/api/memory/tier-stats');
+  }
+
+  /**
+   * Get archive statistics.
+   */
+  async archiveStats(): Promise<ArchiveStatsResponse> {
+    return this.http.get<ArchiveStatsResponse>('/api/memory/archive-stats');
+  }
+
+  /**
+   * Get current memory pressure and utilization.
+   */
+  async pressure(): Promise<MemoryPressureResponse> {
+    return this.http.get<MemoryPressureResponse>('/api/memory/pressure');
+  }
+
+  /**
+   * Delete a specific memory by ID.
+   */
+  async delete(memoryId: string): Promise<boolean> {
+    await this.http.delete(`/api/memory/continuum/${memoryId}`);
+    return true;
   }
 }
 
@@ -785,6 +1029,7 @@ export class AragoraClient {
   private http: HttpClient;
 
   readonly debates: DebatesAPI;
+  readonly batchDebates: BatchDebatesAPI;
   readonly graphDebates: GraphDebatesAPI;
   readonly matrixDebates: MatrixDebatesAPI;
   readonly verification: VerificationAPI;
@@ -828,6 +1073,7 @@ export class AragoraClient {
     this.http = new HttpClient(options);
 
     this.debates = new DebatesAPI(this.http);
+    this.batchDebates = new BatchDebatesAPI(this.http);
     this.graphDebates = new GraphDebatesAPI(this.http);
     this.matrixDebates = new MatrixDebatesAPI(this.http);
     this.verification = new VerificationAPI(this.http);

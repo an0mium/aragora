@@ -259,13 +259,25 @@ class ConsensusPhase:
 
     async def _execute_consensus(self, ctx: "DebateContext", consensus_mode: str) -> None:
         """Execute the consensus logic for the given mode."""
-        if consensus_mode == "none":
+        normalized = consensus_mode
+        threshold_override: float | None = None
+
+        if consensus_mode == "weighted":
+            normalized = "majority"
+        elif consensus_mode == "supermajority":
+            normalized = "majority"
+            threshold_override = max(getattr(self.protocol, "consensus_threshold", 0.6), 2 / 3)
+        elif consensus_mode == "any":
+            normalized = "majority"
+            threshold_override = 0.0
+
+        if normalized == "none":
             await self._handle_none_consensus(ctx)
-        elif consensus_mode == "majority":
-            await self._handle_majority_consensus(ctx)
-        elif consensus_mode == "unanimous":
+        elif normalized == "majority":
+            await self._handle_majority_consensus(ctx, threshold_override=threshold_override)
+        elif normalized == "unanimous":
             await self._handle_unanimous_consensus(ctx)
-        elif consensus_mode == "judge":
+        elif normalized == "judge":
             await self._handle_judge_consensus(ctx)
         else:
             logger.warning(f"Unknown consensus mode: {consensus_mode}, using none")
@@ -357,7 +369,11 @@ class ConsensusPhase:
         result.consensus_reached = False
         result.confidence = 0.5
 
-    async def _handle_majority_consensus(self, ctx: "DebateContext") -> None:
+    async def _handle_majority_consensus(
+        self,
+        ctx: "DebateContext",
+        threshold_override: float | None = None,
+    ) -> None:
         """Handle 'majority' consensus mode - weighted voting."""
         result = ctx.result
         proposals = ctx.proposals
@@ -395,7 +411,7 @@ class ConsensusPhase:
 
         # Determine winner
         self._determine_majority_winner(
-            ctx, vote_counts, total_weighted, choice_mapping
+            ctx, vote_counts, total_weighted, choice_mapping, threshold_override=threshold_override
         )
 
         # Analyze belief network for cruxes
@@ -1270,6 +1286,7 @@ class ConsensusPhase:
         vote_counts: Counter,
         total_votes: float,
         choice_mapping: dict[str, str],
+        threshold_override: float | None = None,
     ) -> None:
         """Determine winner for majority consensus."""
         result = ctx.result
@@ -1283,7 +1300,10 @@ class ConsensusPhase:
             return
 
         winner_choice, count = most_common[0]
-        threshold = self.protocol.consensus_threshold if self.protocol else 0.5
+        if threshold_override is not None:
+            threshold = threshold_override
+        else:
+            threshold = self.protocol.consensus_threshold if self.protocol else 0.5
 
         # Normalize vote choice to agent name
         # Vote choices might be agent names with different casing/format

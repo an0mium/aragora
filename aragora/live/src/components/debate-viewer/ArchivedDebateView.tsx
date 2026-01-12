@@ -1,11 +1,17 @@
 'use client';
 
+import { useState } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import { TranscriptMessageCard } from './TranscriptMessageCard';
+import { DebateForkPanel } from './DebateForkPanel';
 import { BroadcastPanel } from '@/components/broadcast';
 import type { ArchivedDebateViewProps, TranscriptMessage } from './types';
 
 export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateViewProps) {
+  const [showForkPanel, setShowForkPanel] = useState(false);
+
+  const messageCount = (debate.transcript as unknown as TranscriptMessage[])?.length || 0;
+
   return (
     <div className="space-y-6">
       {/* Debate Header */}
@@ -32,12 +38,24 @@ export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateVi
           </div>
 
           <div className="flex flex-col items-end gap-2">
-            <button
-              onClick={onShare}
-              className="px-3 py-1 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
-            >
-              {copied ? '[COPIED!]' : '[SHARE LINK]'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowForkPanel(!showForkPanel)}
+                className={`px-3 py-1 text-xs font-mono transition-colors ${
+                  showForkPanel
+                    ? 'bg-accent text-bg hover:bg-accent/80'
+                    : 'bg-surface border border-accent/50 text-accent hover:bg-accent/10'
+                }`}
+              >
+                {showForkPanel ? '[HIDE FORK]' : '[FORK]'}
+              </button>
+              <button
+                onClick={onShare}
+                className="px-3 py-1 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+              >
+                {copied ? '[COPIED!]' : '[SHARE LINK]'}
+              </button>
+            </div>
             <div className="text-xs text-text-muted font-mono">
               {new Date(debate.created_at).toLocaleString()}
             </div>
@@ -64,6 +82,22 @@ export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateVi
           )}
         </div>
       </div>
+
+      {/* Fork Panel */}
+      {showForkPanel && (
+        <DebateForkPanel
+          debateId={debate.id}
+          messageCount={messageCount}
+          onForkCreated={(result) => {
+            console.log('Fork created:', result);
+            // Could navigate to the new fork or show a success message
+          }}
+          onFollowupCreated={(result) => {
+            console.log('Follow-up created:', result);
+            // Could navigate to the new follow-up debate
+          }}
+        />
+      )}
 
       {/* Winning Proposal */}
       {debate.winning_proposal && (

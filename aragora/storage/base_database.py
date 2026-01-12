@@ -84,6 +84,10 @@ class BaseDatabase:
         with self._manager.fresh_connection() as conn:
             yield conn
 
+    def _get_connection(self) -> sqlite3.Connection:
+        """Return a managed connection (backward compatibility)."""
+        return self._manager.get_connection()
+
     @contextmanager
     def transaction(self) -> Generator[sqlite3.Connection, None, None]:
         """Explicit transaction context manager.

@@ -13,6 +13,13 @@ if TYPE_CHECKING:
     from aragora.core import Agent, Critique, DebateResult, Environment, Message
 
 
+def _default_environment() -> "Environment":
+    """Create a minimal Environment for tests or standalone usage."""
+    from aragora.core import Environment
+
+    return Environment(task="")
+
+
 @dataclass
 class DebateContext:
     """
@@ -32,7 +39,7 @@ class DebateContext:
     # Immutable Inputs (set once at debate start)
     # =========================================================================
 
-    env: "Environment"
+    env: "Environment" = field(default_factory=_default_environment)
     """The debate environment containing task, context, and configuration."""
 
     agents: list["Agent"] = field(default_factory=list)
@@ -214,12 +221,22 @@ class DebateContext:
 
         if self.result:
             self.result.duration_seconds = time.time() - self.start_time
-            self.result.rounds_used = self.current_round
+            rounds_used = self.current_round or self.result.rounds_used
+            self.result.rounds_used = rounds_used
+            self.result.rounds_completed = rounds_used
             if self.winner_agent:
                 self.result.winner = self.winner_agent
             # Copy novelty tracking data
             self.result.per_agent_novelty = dict(self.per_agent_novelty)
             self.result.avg_novelty = self.avg_novelty
+            self.result.proposals = dict(self.proposals)
+            self.result.participants = [agent.name for agent in self.agents]
+            if self.debate_id:
+                self.result.debate_id = self.debate_id
+                self.result.id = self.debate_id
+            self.result.status = (
+                "consensus_reached" if self.result.consensus_reached else "completed"
+            )
         return self.result
 
     def to_summary_dict(self) -> dict:

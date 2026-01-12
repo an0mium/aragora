@@ -75,6 +75,12 @@ from aragora.server.oauth_state_store import (
     get_oauth_state_store,
 )
 
+_state_store = get_oauth_state_store()
+try:
+    _OAUTH_STATES = _state_store._memory_store._states  # type: ignore[attr-defined]
+except AttributeError:
+    _OAUTH_STATES = {}
+
 # Legacy constants for backward compatibility (actual values from oauth_state_store)
 _STATE_TTL_SECONDS = 600  # 10 minutes
 MAX_OAUTH_STATES = 10000  # Prevent memory exhaustion from rapid state generation

@@ -271,8 +271,8 @@ class CircuitBreaker:
                 breaker.record_failure("agent-1")
     """
 
-    failure_threshold: int = 5  # Consecutive failures before opening circuit (was 3, too aggressive)
-    cooldown_seconds: float = 90.0  # Seconds before attempting recovery (was 60s)
+    failure_threshold: int = 3  # Consecutive failures before opening circuit
+    cooldown_seconds: float = 60.0  # Seconds before attempting recovery
     half_open_success_threshold: int = 2  # Successes needed to fully close
 
     # Internal state (initialized in __post_init__)

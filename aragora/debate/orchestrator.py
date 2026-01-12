@@ -886,6 +886,11 @@ class Arena:
         scorer = JudgeScoringMixin(self.elo_system)
         return scorer.get_calibration_weight(agent_name)
 
+    def _compute_composite_judge_score(self, agent_name: str) -> float:
+        """Compute composite judge score (ELO + calibration)."""
+        scorer = JudgeScoringMixin(self.elo_system)
+        return scorer.compute_composite_score(agent_name)
+
     def _select_critics_for_proposal(self, proposal_agent: str, all_critics: list[Agent]) -> list[Agent]:
         """Select which critics should critique the given proposal based on topology.
 
@@ -1250,7 +1255,7 @@ class Arena:
         # Record token usage for billing (before returning)
         self._record_token_usage(ctx)
 
-        return ctx.result
+        return ctx.finalize_result()
 
     # NOTE: Legacy _run_inner code (1,300+ lines) removed after successful phase integration.
     # The debate execution is now handled by phase classes:

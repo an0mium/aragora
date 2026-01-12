@@ -133,11 +133,16 @@ class DisagreementReport:
 class DebateResult:
     """The result of a multi-agent debate."""
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    debate_id: str = ""
     task: str = ""
     final_answer: str = ""
     confidence: float = 0.0
     consensus_reached: bool = False
     rounds_used: int = 0
+    rounds_completed: int = 0
+    status: str = ""
+    participants: list[str] = field(default_factory=list)
+    proposals: dict[str, str] = field(default_factory=dict)
     messages: list[Message] = field(default_factory=list)
     critiques: list[Critique] = field(default_factory=list)
     votes: list[Vote] = field(default_factory=list)
@@ -167,6 +172,62 @@ class DebateResult:
     avg_novelty: float = 1.0  # Average novelty (1.0 = fresh ideas, 0.0 = repetitive)
     # Formal verification result (from Lean4/Z3)
     formal_verification: Optional[dict[str, Any]] = None  # FormalProofResult.to_dict()
+
+    def __post_init__(self) -> None:
+        if self.debate_id:
+            self.id = self.debate_id
+        else:
+            self.debate_id = self.id
+
+        if self.rounds_completed and not self.rounds_used:
+            self.rounds_used = self.rounds_completed
+        elif self.rounds_used and not self.rounds_completed:
+            self.rounds_completed = self.rounds_used
+        elif self.rounds_completed != self.rounds_used:
+            self.rounds_used = self.rounds_completed
+
+        if not self.status:
+            self.status = "consensus_reached" if self.consensus_reached else "completed"
+
+    @property
+    def history(self) -> list[Message]:
+        """Alias for messages (backward compatibility)."""
+        return self.messages
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize core fields for JSON export."""
+        return {
+            "debate_id": self.debate_id,
+            "task": self.task,
+            "status": self.status,
+            "final_answer": self.final_answer,
+            "consensus_reached": self.consensus_reached,
+            "confidence": self.confidence,
+            "rounds_used": self.rounds_used,
+            "rounds_completed": self.rounds_completed,
+            "participants": list(self.participants),
+            "duration_seconds": self.duration_seconds,
+            "winner": self.winner,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "DebateResult":
+        """Deserialize from a dictionary."""
+        return cls(
+            id=data.get("id") or data.get("debate_id", ""),
+            debate_id=data.get("debate_id", ""),
+            task=data.get("task", ""),
+            status=data.get("status", ""),
+            final_answer=data.get("final_answer", ""),
+            consensus_reached=data.get("consensus_reached", False),
+            confidence=data.get("confidence", 0.0),
+            rounds_used=data.get("rounds_used", data.get("rounds_completed", 0)),
+            rounds_completed=data.get("rounds_completed", data.get("rounds_used", 0)),
+            participants=data.get("participants", []),
+            proposals=data.get("proposals", {}),
+            duration_seconds=data.get("duration_seconds", 0.0),
+            winner=data.get("winner"),
+        )
 
     def summary(self) -> str:
         """Human-readable summary of the debate."""
@@ -282,3 +343,14 @@ REASONING: <brief explanation>"""
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, model={self.model}, role={self.role})"
+
+
+def __getattr__(name: str):
+    if name == "DebateProtocol":
+        from aragora.debate.protocol import DebateProtocol
+        return DebateProtocol
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(list(globals().keys()) + ["DebateProtocol"])

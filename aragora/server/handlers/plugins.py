@@ -5,11 +5,15 @@ Endpoints:
 - GET /api/plugins - List all available plugins
 - GET /api/plugins/{name} - Get details for a specific plugin
 - POST /api/plugins/{name}/run - Run a plugin with provided input
+- GET /api/plugins/installed - List installed plugins for user/org
+- POST /api/plugins/{name}/install - Install a plugin
+- DELETE /api/plugins/{name}/install - Uninstall a plugin
 """
 
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -34,23 +38,31 @@ _plugin_imports, PLUGINS_AVAILABLE = try_import(
 )
 get_registry = _plugin_imports.get("get_registry")
 
+# In-memory store for installed plugins per user/org
+# Structure: {user_id: {plugin_name: {"installed_at": timestamp, "config": {...}}}}
+_installed_plugins: dict[str, dict[str, dict]] = {}
+
 
 class PluginsHandler(BaseHandler):
     """Handler for plugins endpoints."""
 
     ROUTES = [
         "/api/plugins",
+        "/api/plugins/installed",
         "/api/plugins/*",
+        "/api/plugins/*/install",
+        "/api/plugins/*/run",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path == "/api/plugins":
+        if path in ("/api/plugins", "/api/plugins/installed"):
             return True
-        # Match /api/plugins/{name} or /api/plugins/{name}/run
+        # Match /api/plugins/{name}, /api/plugins/{name}/run, /api/plugins/{name}/install
         if path.startswith("/api/plugins/"):
             parts = path.split("/")
-            # /api/plugins/{name} has 4 parts, /api/plugins/{name}/run has 5
+            # /api/plugins/{name} has 4 parts
+            # /api/plugins/{name}/run or /api/plugins/{name}/install has 5 parts
             return len(parts) in (4, 5)
         return False
 
@@ -59,8 +71,11 @@ class PluginsHandler(BaseHandler):
         if path == "/api/plugins":
             return self._list_plugins()
 
+        if path == "/api/plugins/installed":
+            return self._list_installed(handler)
+
         # Get plugin details: /api/plugins/{name}
-        if path.startswith("/api/plugins/") and not path.endswith("/run"):
+        if path.startswith("/api/plugins/") and not path.endswith(("/run", "/install")):
             plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
             if err:
                 return err
@@ -76,6 +91,24 @@ class PluginsHandler(BaseHandler):
             if err:
                 return err
             return self._run_plugin(plugin_name, handler)
+
+        # Install plugin: /api/plugins/{name}/install
+        if path.startswith("/api/plugins/") and path.endswith("/install"):
+            plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
+            if err:
+                return err
+            return self._install_plugin(plugin_name, handler)
+
+        return None
+
+    def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+        """Route DELETE requests to appropriate methods."""
+        # Uninstall plugin: /api/plugins/{name}/install
+        if path.startswith("/api/plugins/") and path.endswith("/install"):
+            plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
+            if err:
+                return err
+            return self._uninstall_plugin(plugin_name, handler)
         return None
 
     @handle_errors("list plugins")
@@ -157,3 +190,123 @@ class PluginsHandler(BaseHandler):
             registry.run_plugin(plugin_name, input_data, config, working_dir)
         )
         return json_response(result.to_dict())
+
+    @require_auth
+    @handle_errors("list installed plugins")
+    def _list_installed(self, handler) -> HandlerResult:
+        """List installed plugins for the authenticated user.
+
+        Returns:
+            List of installed plugins with installation metadata.
+        """
+        user_id = self.get_user_id(handler)
+        if not user_id:
+            return error_response("User ID not found", 401)
+
+        user_plugins = _installed_plugins.get(user_id, {})
+
+        # Enrich with plugin details
+        plugins_list = []
+        if PLUGINS_AVAILABLE and get_registry:
+            registry = get_registry()
+            for name, install_info in user_plugins.items():
+                manifest = registry.get(name)
+                if manifest:
+                    plugins_list.append({
+                        **manifest.to_dict(),
+                        "installed_at": install_info.get("installed_at"),
+                        "user_config": install_info.get("config", {}),
+                    })
+
+        return json_response({
+            "installed": plugins_list,
+            "count": len(plugins_list),
+        })
+
+    @require_auth
+    @rate_limit(requests_per_minute=30, burst=10, limiter_name="plugin_install")
+    @handle_errors("install plugin")
+    def _install_plugin(self, plugin_name: str, handler) -> HandlerResult:
+        """Install a plugin for the authenticated user.
+
+        POST body (optional):
+            config: Initial configuration for the plugin
+
+        Returns:
+            Installation confirmation.
+        """
+        if not PLUGINS_AVAILABLE or not get_registry:
+            return error_response("Plugins module not available", 503)
+
+        user_id = self.get_user_id(handler)
+        if not user_id:
+            return error_response("User ID not found", 401)
+
+        registry = get_registry()
+        manifest = registry.get(plugin_name)
+        if not manifest:
+            return error_response(f"Plugin not found: {plugin_name}", 404)
+
+        # Check requirements
+        runner = registry.get_runner(plugin_name)
+        if runner:
+            valid, missing = runner._validate_requirements()
+            if not valid:
+                return error_response(
+                    f"Missing requirements: {', '.join(missing)}", 400
+                )
+
+        # Read optional config from body
+        body = self.read_json_body(handler) or {}
+        config = body.get("config", {})
+
+        # Initialize user's plugins if needed
+        if user_id not in _installed_plugins:
+            _installed_plugins[user_id] = {}
+
+        # Check if already installed
+        if plugin_name in _installed_plugins[user_id]:
+            return json_response({
+                "success": True,
+                "message": f"Plugin {plugin_name} already installed",
+                "plugin": manifest.to_dict(),
+                "already_installed": True,
+            })
+
+        # Install the plugin
+        _installed_plugins[user_id][plugin_name] = {
+            "installed_at": datetime.now().isoformat(),
+            "config": config,
+        }
+
+        return json_response({
+            "success": True,
+            "message": f"Plugin {plugin_name} installed successfully",
+            "plugin": manifest.to_dict(),
+            "installed_at": _installed_plugins[user_id][plugin_name]["installed_at"],
+        })
+
+    @require_auth
+    @handle_errors("uninstall plugin")
+    def _uninstall_plugin(self, plugin_name: str, handler) -> HandlerResult:
+        """Uninstall a plugin for the authenticated user.
+
+        Returns:
+            Uninstallation confirmation.
+        """
+        user_id = self.get_user_id(handler)
+        if not user_id:
+            return error_response("User ID not found", 401)
+
+        user_plugins = _installed_plugins.get(user_id, {})
+
+        if plugin_name not in user_plugins:
+            return error_response(f"Plugin {plugin_name} not installed", 404)
+
+        # Remove the plugin
+        del _installed_plugins[user_id][plugin_name]
+
+        return json_response({
+            "success": True,
+            "message": f"Plugin {plugin_name} uninstalled successfully",
+        })
