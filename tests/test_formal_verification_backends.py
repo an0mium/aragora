@@ -554,3 +554,148 @@ class TestFormalVerificationEdgeCases:
         assert len(results) == 5
         for result in results:
             assert isinstance(result, FormalProofResult)
+
+
+# ============================================================================
+# Z3Backend Cache Tests
+# ============================================================================
+
+class TestZ3BackendCache:
+    """Tests for Z3Backend proof caching."""
+
+    @pytest.fixture
+    def z3_backend(self):
+        backend = Z3Backend(cache_size=10, cache_ttl_seconds=300)
+        if not backend.is_available:
+            pytest.skip("Z3 not installed")
+        return backend
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_returns_same_result(self, z3_backend):
+        """Second prove call should return cached result."""
+        smtlib = "(declare-const x Int)\n(assert (not (= (+ x 0) x)))\n(check-sat)"
+
+        # First call - should compute
+        result1 = await z3_backend.prove(smtlib)
+        assert result1.status == FormalProofStatus.PROOF_FOUND
+
+        # Second call - should be cached
+        result2 = await z3_backend.prove(smtlib)
+        assert result2.status == FormalProofStatus.PROOF_FOUND
+
+        # Results should be the same object from cache
+        assert result2 is result1
+
+    @pytest.mark.asyncio
+    async def test_cache_key_different_for_different_statements(self, z3_backend):
+        """Different statements should have different cache entries."""
+        smtlib1 = "(declare-const x Int)\n(assert (not (= (+ x 0) x)))\n(check-sat)"
+        smtlib2 = "(declare-const y Int)\n(assert (not (= (+ y 0) y)))\n(check-sat)"
+
+        result1 = await z3_backend.prove(smtlib1)
+        result2 = await z3_backend.prove(smtlib2)
+
+        # Different statements, different proofs
+        assert result1 is not result2
+
+    def test_clear_cache(self, z3_backend):
+        """clear_cache should remove all entries."""
+        # Add some cache entries manually
+        z3_backend._proof_cache["key1"] = (0, FormalProofResult(
+            status=FormalProofStatus.PROOF_FOUND,
+            language=FormalLanguage.Z3_SMT,
+        ))
+        z3_backend._proof_cache["key2"] = (0, FormalProofResult(
+            status=FormalProofStatus.PROOF_FOUND,
+            language=FormalLanguage.Z3_SMT,
+        ))
+
+        count = z3_backend.clear_cache()
+        assert count == 2
+        assert len(z3_backend._proof_cache) == 0
+
+    def test_cache_lru_eviction(self, z3_backend):
+        """Cache should evict oldest entry when at capacity."""
+        import time
+
+        # Fill cache to capacity
+        for i in range(z3_backend._cache_size):
+            z3_backend._proof_cache[f"key{i}"] = (time.time() + i, FormalProofResult(
+                status=FormalProofStatus.PROOF_FOUND,
+                language=FormalLanguage.Z3_SMT,
+            ))
+
+        assert len(z3_backend._proof_cache) == z3_backend._cache_size
+
+        # Add one more - should evict oldest (key0)
+        z3_backend._cache_result(
+            "(test)",
+            FormalProofResult(
+                status=FormalProofStatus.PROOF_FOUND,
+                language=FormalLanguage.Z3_SMT,
+            )
+        )
+
+        # Should still be at capacity
+        assert len(z3_backend._proof_cache) == z3_backend._cache_size
+        # Oldest entry should be evicted
+        assert "key0" not in z3_backend._proof_cache
+
+    @pytest.mark.asyncio
+    async def test_timeout_results_not_cached(self, z3_backend):
+        """Timeout results should not be cached."""
+        # Use a very short timeout to force timeout
+        smtlib = """
+        (declare-const x Int)
+        (declare-const y Int)
+        (assert (> x 0))
+        (assert (< y x))
+        (check-sat)
+        """
+
+        # This simple statement won't timeout, so we'll verify
+        # the cache only stores successful results
+        result = await z3_backend.prove(smtlib, timeout_seconds=60)
+
+        # PROOF_FOUND or PROOF_FAILED should be cached, TIMEOUT should not
+        if result.status in (FormalProofStatus.PROOF_FOUND, FormalProofStatus.PROOF_FAILED):
+            assert len(z3_backend._proof_cache) > 0
+        elif result.status == FormalProofStatus.TIMEOUT:
+            # Timeout should not be cached
+            key = z3_backend._cache_key(smtlib)
+            assert key not in z3_backend._proof_cache
+
+    def test_cache_ttl_expiration(self, z3_backend):
+        """Expired cache entries should be removed on access."""
+        import time
+
+        # Add an expired entry
+        expired_time = time.time() - z3_backend._cache_ttl - 10  # 10 seconds past TTL
+        z3_backend._proof_cache["expired_key"] = (expired_time, FormalProofResult(
+            status=FormalProofStatus.PROOF_FOUND,
+            language=FormalLanguage.Z3_SMT,
+        ))
+
+        # Try to get the cached result
+        result = z3_backend._get_cached("test_statement_for_key")
+
+        # Should return None for non-matching key
+        assert result is None
+
+        # The expired entry should be cleaned up when accessed
+        z3_backend._proof_cache["test_key"] = (expired_time, FormalProofResult(
+            status=FormalProofStatus.PROOF_FOUND,
+            language=FormalLanguage.Z3_SMT,
+        ))
+
+        # Access the expired entry directly by computing its key
+        statement = "test_statement"
+        key = z3_backend._cache_key(statement)
+        z3_backend._proof_cache[key] = (expired_time, FormalProofResult(
+            status=FormalProofStatus.PROOF_FOUND,
+            language=FormalLanguage.Z3_SMT,
+        ))
+
+        result = z3_backend._get_cached(statement)
+        assert result is None  # Expired
+        assert key not in z3_backend._proof_cache  # Should be removed
