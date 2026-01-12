@@ -1,0 +1,162 @@
+{
+  "id": "architecture-stress-test",
+  "name": "Architecture Stress Test",
+  "version": "1.0.0",
+  "description": "Comprehensive architecture review focusing on scalability, reliability, and performance under stress.",
+  "category": "architecture",
+  "estimated_duration_minutes": 40,
+  "intensity_levels": ["quick", "standard", "thorough", "exhaustive"],
+  "default_intensity": "thorough",
+  "personas": [
+    {
+      "name": "system-architect",
+      "role": "evaluator",
+      "description": "Expert in distributed systems and scalability patterns"
+    },
+    {
+      "name": "site-reliability-engineer",
+      "role": "stress-tester",
+      "description": "Focuses on reliability, observability, and incident response"
+    },
+    {
+      "name": "performance-engineer",
+      "role": "analyzer",
+      "description": "Analyzes performance bottlenecks and optimization opportunities"
+    }
+  ],
+  "probe_categories": [
+    {
+      "id": "horizontal-scaling",
+      "name": "Horizontal Scalability",
+      "description": "Tests ability to scale out under load",
+      "probes": [
+        "Can the system scale horizontally by adding more instances?",
+        "Is there a single point of failure in the architecture?",
+        "How does the system handle session state across instances?",
+        "Are database connections pooled appropriately?",
+        "What is the maximum concurrent user capacity?"
+      ],
+      "severity_if_failed": "critical"
+    },
+    {
+      "id": "fault-tolerance",
+      "name": "Fault Tolerance",
+      "description": "Evaluates resilience to failures",
+      "probes": [
+        "How does the system handle database failures?",
+        "Are there circuit breakers for external dependencies?",
+        "What happens when a downstream service is unavailable?",
+        "Is there graceful degradation of functionality?",
+        "How quickly can the system recover from failures?"
+      ],
+      "severity_if_failed": "critical"
+    },
+    {
+      "id": "data-consistency",
+      "name": "Data Consistency",
+      "description": "Checks data integrity under concurrent operations",
+      "probes": [
+        "How is eventual consistency handled?",
+        "Are distributed transactions managed properly?",
+        "What isolation levels are used for database operations?",
+        "How are race conditions prevented?",
+        "Is there potential for data loss during failures?"
+      ],
+      "severity_if_failed": "high"
+    },
+    {
+      "id": "performance-bottlenecks",
+      "name": "Performance Bottlenecks",
+      "description": "Identifies performance limitations",
+      "probes": [
+        "What is the p95 and p99 latency for critical endpoints?",
+        "Are there N+1 query problems?",
+        "Is caching implemented effectively?",
+        "Are there memory leaks or unbounded growth patterns?",
+        "How does performance degrade under load?"
+      ],
+      "severity_if_failed": "high"
+    },
+    {
+      "id": "observability",
+      "name": "Observability",
+      "description": "Assesses monitoring and debugging capabilities",
+      "probes": [
+        "Are structured logs implemented?",
+        "Is distributed tracing available?",
+        "What metrics are collected and monitored?",
+        "Are there alerting rules for critical conditions?",
+        "Can issues be debugged in production safely?"
+      ],
+      "severity_if_failed": "medium"
+    },
+    {
+      "id": "disaster-recovery",
+      "name": "Disaster Recovery",
+      "description": "Evaluates backup and recovery capabilities",
+      "probes": [
+        "What is the RPO (Recovery Point Objective)?",
+        "What is the RTO (Recovery Time Objective)?",
+        "Are backups tested regularly?",
+        "Is there a documented disaster recovery plan?",
+        "Can the system failover to a secondary region?"
+      ],
+      "severity_if_failed": "high"
+    }
+  ],
+  "load_test_scenarios": [
+    {
+      "name": "steady_state",
+      "description": "Normal operating conditions",
+      "users": 100,
+      "duration_minutes": 10
+    },
+    {
+      "name": "ramp_up",
+      "description": "Gradual increase in load",
+      "users_start": 10,
+      "users_end": 500,
+      "duration_minutes": 15
+    },
+    {
+      "name": "spike",
+      "description": "Sudden traffic spike",
+      "users": 1000,
+      "duration_minutes": 5
+    },
+    {
+      "name": "endurance",
+      "description": "Extended high load",
+      "users": 200,
+      "duration_minutes": 60
+    }
+  ],
+  "scoring": {
+    "overall": {
+      "weight": 1.0,
+      "description": "Overall architecture resilience score"
+    },
+    "scalability": {
+      "weight": 0.25,
+      "categories": ["horizontal-scaling"]
+    },
+    "reliability": {
+      "weight": 0.25,
+      "categories": ["fault-tolerance", "disaster-recovery"]
+    },
+    "performance": {
+      "weight": 0.25,
+      "categories": ["performance-bottlenecks"]
+    },
+    "operability": {
+      "weight": 0.25,
+      "categories": ["observability", "data-consistency"]
+    }
+  },
+  "thresholds": {
+    "production_ready": 85,
+    "beta_ready": 70,
+    "needs_work": 50,
+    "not_ready": 0
+  }
+}

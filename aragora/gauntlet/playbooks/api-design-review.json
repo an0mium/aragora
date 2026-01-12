@@ -1,0 +1,140 @@
+{
+  "id": "api-design-review",
+  "name": "API Design Review",
+  "version": "1.0.0",
+  "description": "Comprehensive API design assessment following REST best practices, security standards, and developer experience guidelines.",
+  "category": "architecture",
+  "estimated_duration_minutes": 20,
+  "intensity_levels": ["quick", "standard", "thorough"],
+  "default_intensity": "standard",
+  "personas": [
+    {
+      "name": "api-architect",
+      "role": "evaluator",
+      "description": "Expert in REST API design and microservices architecture"
+    },
+    {
+      "name": "developer-advocate",
+      "role": "ux-reviewer",
+      "description": "Focuses on developer experience and documentation"
+    },
+    {
+      "name": "security-engineer",
+      "role": "security-reviewer",
+      "description": "Reviews API security best practices"
+    }
+  ],
+  "probe_categories": [
+    {
+      "id": "rest-compliance",
+      "name": "REST Compliance",
+      "description": "Evaluates adherence to REST principles",
+      "probes": [
+        "Are resources named using nouns, not verbs?",
+        "Are HTTP methods used correctly (GET for read, POST for create, etc.)?",
+        "Is the API stateless?",
+        "Are resources properly nested (e.g., /users/{id}/posts)?",
+        "Is HATEOAS implemented for discoverability?"
+      ],
+      "severity_if_failed": "medium"
+    },
+    {
+      "id": "versioning",
+      "name": "API Versioning",
+      "description": "Checks versioning strategy",
+      "probes": [
+        "Is API versioning implemented?",
+        "Is the versioning strategy consistent (URL path vs header)?",
+        "Are deprecated endpoints clearly marked?",
+        "Is there a migration path for breaking changes?",
+        "What is the deprecation policy timeline?"
+      ],
+      "severity_if_failed": "high"
+    },
+    {
+      "id": "error-handling",
+      "name": "Error Handling",
+      "description": "Evaluates error response consistency",
+      "probes": [
+        "Are error responses consistent in format?",
+        "Do errors include helpful error codes?",
+        "Are HTTP status codes used correctly?",
+        "Do error messages avoid leaking sensitive information?",
+        "Is there a trace ID for debugging?"
+      ],
+      "severity_if_failed": "medium"
+    },
+    {
+      "id": "authentication",
+      "name": "Authentication & Authorization",
+      "description": "Reviews security implementation",
+      "probes": [
+        "What authentication method is used (OAuth 2.0, API keys, JWT)?",
+        "Is HTTPS enforced for all endpoints?",
+        "Are API keys rotatable?",
+        "Is rate limiting implemented?",
+        "Are sensitive endpoints protected with additional auth?"
+      ],
+      "severity_if_failed": "critical"
+    },
+    {
+      "id": "pagination",
+      "name": "Pagination & Filtering",
+      "description": "Checks data handling for large datasets",
+      "probes": [
+        "Is pagination implemented for list endpoints?",
+        "Is cursor-based or offset pagination used?",
+        "Are filter and search capabilities provided?",
+        "Is sorting supported?",
+        "Are there reasonable default limits?"
+      ],
+      "severity_if_failed": "medium"
+    },
+    {
+      "id": "documentation",
+      "name": "Documentation Quality",
+      "description": "Assesses API documentation",
+      "probes": [
+        "Is OpenAPI/Swagger documentation available?",
+        "Are all endpoints documented with examples?",
+        "Are error responses documented?",
+        "Is there a getting started guide?",
+        "Are SDKs or code samples provided?"
+      ],
+      "severity_if_failed": "low"
+    }
+  ],
+  "scoring": {
+    "overall": {
+      "weight": 1.0,
+      "description": "Overall API design score"
+    },
+    "design": {
+      "weight": 0.3,
+      "categories": ["rest-compliance", "versioning"]
+    },
+    "reliability": {
+      "weight": 0.25,
+      "categories": ["error-handling", "pagination"]
+    },
+    "security": {
+      "weight": 0.25,
+      "categories": ["authentication"]
+    },
+    "developer_experience": {
+      "weight": 0.2,
+      "categories": ["documentation"]
+    }
+  },
+  "thresholds": {
+    "excellent": 90,
+    "good": 75,
+    "needs_improvement": 50,
+    "poor": 0
+  },
+  "references": {
+    "rest_guidelines": "https://restfulapi.net/",
+    "openapi": "https://spec.openapis.org/oas/latest.html",
+    "json_api": "https://jsonapi.org/"
+  }
+}

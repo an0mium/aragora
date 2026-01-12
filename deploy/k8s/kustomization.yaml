@@ -1,0 +1,27 @@
+# Kustomization for Aragora Kubernetes Deployment
+# Usage: kubectl apply -k deploy/k8s/
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: aragora
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - redis/statefulset.yaml
+  - redis/service.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: aragora
+  app.kubernetes.io/managed-by: kustomize
+
+images:
+  - name: aragora
+    newName: your-registry/aragora
+    newTag: latest

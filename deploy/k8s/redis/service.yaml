@@ -1,0 +1,19 @@
+# Redis Service for Aragora
+apiVersion: v1
+kind: Service
+metadata:
+  name: aragora-redis
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora-redis
+    app.kubernetes.io/component: cache
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: aragora-redis
+    app.kubernetes.io/component: cache

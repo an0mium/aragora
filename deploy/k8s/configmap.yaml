@@ -1,0 +1,33 @@
+# Aragora ConfigMap - Non-sensitive configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aragora-config
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: config
+data:
+  # Server settings
+  ARAGORA_HOST: "0.0.0.0"
+  ARAGORA_PORT: "8080"
+
+  # CORS and security
+  ARAGORA_ALLOWED_ORIGINS: "https://aragora.example.com"
+  ARAGORA_TRUSTED_PROXIES: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
+  # Performance tuning
+  ARAGORA_MAX_CONCURRENT_DEBATES: "10"
+  ARAGORA_DEBATE_TIMEOUT: "300"
+
+  # Redis (service name in Kubernetes)
+  REDIS_URL: "redis://aragora-redis:6379"
+
+  # Logging
+  ARAGORA_LOG_LEVEL: "INFO"
+  ARAGORA_LOG_FORMAT: "json"
+
+  # JWT settings
+  JWT_ALGORITHM: "HS256"
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  JWT_REFRESH_TOKEN_EXPIRE_DAYS: "7"

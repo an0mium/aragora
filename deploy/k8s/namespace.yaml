@@ -1,0 +1,8 @@
+# Aragora Kubernetes Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/part-of: aragora

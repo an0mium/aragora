@@ -1,0 +1,149 @@
+# Aragora AI Code Review Template
+# Copy this to your repository's .github/workflows/ directory
+#
+# Prerequisites:
+#   1. Add API key secrets (at least one): ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY
+#   2. Copy this file to: .github/workflows/aragora-review.yml
+#
+# Documentation: https://github.com/an0mium/aragora/blob/main/docs/GITHUB_ACTIONS.md
+
+name: Aragora AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review (for manual runs)'
+        required: true
+
+# Required permissions for commenting on PRs
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  # Customize these settings
+  ARAGORA_AGENTS: "anthropic-api,openai-api"  # Agents to use for review
+  ARAGORA_ROUNDS: "2"                          # Debate rounds (1-3)
+  ARAGORA_FOCUS: "security,performance,quality" # Focus areas
+
+jobs:
+  ai-review:
+    name: AI Red Team Review
+    runs-on: ubuntu-latest
+
+    # Skip forks (no access to secrets) and bot PRs
+    if: |
+      (github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'workflow_dispatch')
+      && github.actor != 'dependabot[bot]'
+      && github.actor != 'renovate[bot]'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Aragora
+        run: pip install aragora
+
+      - name: Check API Keys
+        id: check-keys
+        run: |
+          if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ] || [ -n "${{ secrets.OPENAI_API_KEY }}" ] || [ -n "${{ secrets.OPENROUTER_API_KEY }}" ]; then
+            echo "has_keys=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_keys=false" >> $GITHUB_OUTPUT
+            echo "::warning::No API keys configured. Add ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY to repository secrets."
+          fi
+
+      - name: Get PR Diff
+        if: steps.check-keys.outputs.has_keys == 'true'
+        id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PR_NUMBER="${{ github.event.inputs.pr_number }}"
+          else
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+          fi
+
+          gh pr diff "$PR_NUMBER" > pr.diff
+
+          # Truncate large diffs to 50KB (prioritize security files)
+          DIFF_SIZE=$(wc -c < pr.diff)
+          if [ "$DIFF_SIZE" -gt 50000 ]; then
+            head -c 50000 pr.diff > pr_truncated.diff
+            echo -e "\n\n[... diff truncated to 50KB for review ...]" >> pr_truncated.diff
+            mv pr_truncated.diff pr.diff
+          fi
+
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "DIFF_SIZE=$DIFF_SIZE" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Run AI Review
+        if: steps.check-keys.outputs.has_keys == 'true'
+        id: review
+        run: |
+          mkdir -p ./artifacts
+
+          aragora review \
+            --diff-file pr.diff \
+            --output-format github \
+            --output-dir ./artifacts \
+            --agents "${{ env.ARAGORA_AGENTS }}" \
+            --rounds "${{ env.ARAGORA_ROUNDS }}" \
+            --focus "${{ env.ARAGORA_FOCUS }}" \
+            > ./artifacts/comment.md 2> ./artifacts/review.log || true
+
+          if [ -f "./artifacts/comment.md" ] && [ -s "./artifacts/comment.md" ]; then
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "## AI Review" > ./artifacts/comment.md
+            echo "" >> ./artifacts/comment.md
+            echo "Review could not be completed. Check workflow logs for details." >> ./artifacts/comment.md
+          fi
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+
+      - name: Upload Artifacts
+        if: steps.check-keys.outputs.has_keys == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aragora-review-${{ steps.diff.outputs.PR_NUMBER }}
+          path: ./artifacts/
+          retention-days: 30
+
+      - name: Post Comment
+        if: steps.check-keys.outputs.has_keys == 'true'
+        run: |
+          gh pr comment "${{ steps.diff.outputs.PR_NUMBER }}" --body-file ./artifacts/comment.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Add Label
+        if: steps.check-keys.outputs.has_keys == 'true' && steps.review.outputs.success == 'true'
+        run: |
+          gh pr edit "${{ steps.diff.outputs.PR_NUMBER }}" --add-label "ai-reviewed" 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Skip Notice
+        if: steps.check-keys.outputs.has_keys != 'true'
+        run: |
+          echo "Skipping AI review: No API keys configured"
+          echo "Add one of these secrets to enable: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY"

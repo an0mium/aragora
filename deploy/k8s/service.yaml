@@ -1,0 +1,40 @@
+# Aragora Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: aragora
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: server
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: server
+---
+# Headless service for WebSocket sticky sessions (optional)
+apiVersion: v1
+kind: Service
+metadata:
+  name: aragora-headless
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: server
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: server

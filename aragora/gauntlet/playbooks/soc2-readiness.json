@@ -1,0 +1,250 @@
+{
+  "id": "soc2-readiness",
+  "name": "SOC 2 Readiness Assessment",
+  "version": "1.0.0",
+  "description": "Comprehensive assessment of SOC 2 Type II readiness covering all five Trust Service Criteria.",
+  "category": "compliance",
+  "estimated_duration_minutes": 60,
+  "intensity_levels": ["quick", "standard", "thorough"],
+  "default_intensity": "thorough",
+  "personas": [
+    {
+      "name": "compliance-auditor",
+      "role": "evaluator",
+      "description": "Expert in SOC 2 requirements and audit procedures"
+    },
+    {
+      "name": "security-architect",
+      "role": "technical-reviewer",
+      "description": "Reviews technical security controls"
+    },
+    {
+      "name": "governance-officer",
+      "role": "policy-reviewer",
+      "description": "Evaluates policies and procedures"
+    }
+  ],
+  "trust_service_criteria": [
+    {
+      "id": "security",
+      "name": "Security (Common Criteria)",
+      "description": "Protection of system resources against unauthorized access",
+      "controls": [
+        {
+          "id": "CC1",
+          "name": "Control Environment",
+          "probes": [
+            "Is there a documented information security policy?",
+            "Are security roles and responsibilities defined?",
+            "Is there a security awareness training program?",
+            "Is there a code of conduct for employees?"
+          ]
+        },
+        {
+          "id": "CC2",
+          "name": "Communication and Information",
+          "probes": [
+            "How are security policies communicated to employees?",
+            "Is there a process for reporting security incidents?",
+            "Are third-party agreements reviewed for security requirements?"
+          ]
+        },
+        {
+          "id": "CC3",
+          "name": "Risk Assessment",
+          "probes": [
+            "Is there a formal risk assessment process?",
+            "How often are risk assessments conducted?",
+            "Are risks documented and tracked?",
+            "Is there a risk treatment plan?"
+          ]
+        },
+        {
+          "id": "CC4",
+          "name": "Monitoring Activities",
+          "probes": [
+            "Are security controls monitored continuously?",
+            "Is there vulnerability scanning in place?",
+            "Are penetration tests conducted regularly?",
+            "How are control deficiencies remediated?"
+          ]
+        },
+        {
+          "id": "CC5",
+          "name": "Control Activities",
+          "probes": [
+            "Is there a change management process?",
+            "Are access controls reviewed regularly?",
+            "Is there separation of duties for critical functions?",
+            "Are system configurations managed and documented?"
+          ]
+        },
+        {
+          "id": "CC6",
+          "name": "Logical and Physical Access",
+          "probes": [
+            "Is multi-factor authentication implemented?",
+            "Are access reviews conducted periodically?",
+            "Is there a password policy?",
+            "How is physical access to data centers controlled?"
+          ]
+        },
+        {
+          "id": "CC7",
+          "name": "System Operations",
+          "probes": [
+            "Is there an incident response plan?",
+            "Are backups performed and tested?",
+            "Is there a disaster recovery plan?",
+            "How are security events detected and logged?"
+          ]
+        },
+        {
+          "id": "CC8",
+          "name": "Change Management",
+          "probes": [
+            "Is there a formal change management process?",
+            "Are changes tested before deployment?",
+            "Is there a rollback procedure?",
+            "Are emergency changes documented?"
+          ]
+        },
+        {
+          "id": "CC9",
+          "name": "Risk Mitigation",
+          "probes": [
+            "Are vendors assessed for security risks?",
+            "Is there a business continuity plan?",
+            "Are insurance policies in place for cyber risks?"
+          ]
+        }
+      ],
+      "severity_if_failed": "critical"
+    },
+    {
+      "id": "availability",
+      "name": "Availability",
+      "description": "System availability for operation and use",
+      "controls": [
+        {
+          "id": "A1",
+          "name": "Availability Commitments",
+          "probes": [
+            "Is there a defined SLA for system availability?",
+            "What is the target uptime percentage?",
+            "How is availability monitored?",
+            "Are there redundant systems in place?"
+          ]
+        }
+      ],
+      "severity_if_failed": "high"
+    },
+    {
+      "id": "processing_integrity",
+      "name": "Processing Integrity",
+      "description": "System processing is complete, valid, accurate, and timely",
+      "controls": [
+        {
+          "id": "PI1",
+          "name": "Processing Integrity Commitments",
+          "probes": [
+            "Are data validation controls in place?",
+            "How are processing errors detected and corrected?",
+            "Is there audit logging for data modifications?",
+            "Are data quality checks performed?"
+          ]
+        }
+      ],
+      "severity_if_failed": "high"
+    },
+    {
+      "id": "confidentiality",
+      "name": "Confidentiality",
+      "description": "Information designated as confidential is protected",
+      "controls": [
+        {
+          "id": "C1",
+          "name": "Confidentiality Commitments",
+          "probes": [
+            "Is data classified by sensitivity level?",
+            "Is encryption used for data at rest and in transit?",
+            "Are there data handling procedures for confidential information?",
+            "How is confidential data disposed of?"
+          ]
+        }
+      ],
+      "severity_if_failed": "critical"
+    },
+    {
+      "id": "privacy",
+      "name": "Privacy",
+      "description": "Personal information is collected, used, retained, and disposed of properly",
+      "controls": [
+        {
+          "id": "P1",
+          "name": "Privacy Commitments",
+          "probes": [
+            "Is there a privacy policy?",
+            "Are privacy notices provided to data subjects?",
+            "Can individuals access and correct their data?",
+            "Is consent obtained for data collection?",
+            "Are data retention periods defined?"
+          ]
+        }
+      ],
+      "severity_if_failed": "critical"
+    }
+  ],
+  "documentation_requirements": [
+    "Information Security Policy",
+    "Access Control Policy",
+    "Change Management Policy",
+    "Incident Response Plan",
+    "Business Continuity Plan",
+    "Vendor Management Policy",
+    "Data Classification Policy",
+    "Privacy Policy",
+    "Employee Handbook with Security Policies",
+    "Risk Assessment Documentation"
+  ],
+  "scoring": {
+    "overall": {
+      "weight": 1.0,
+      "description": "Overall SOC 2 readiness score"
+    },
+    "security": {
+      "weight": 0.4,
+      "categories": ["security"]
+    },
+    "availability": {
+      "weight": 0.15,
+      "categories": ["availability"]
+    },
+    "processing_integrity": {
+      "weight": 0.15,
+      "categories": ["processing_integrity"]
+    },
+    "confidentiality": {
+      "weight": 0.15,
+      "categories": ["confidentiality"]
+    },
+    "privacy": {
+      "weight": 0.15,
+      "categories": ["privacy"]
+    }
+  },
+  "thresholds": {
+    "audit_ready": 90,
+    "minor_gaps": 75,
+    "significant_gaps": 50,
+    "not_ready": 0
+  },
+  "timeline_estimate": {
+    "audit_ready_to_type1": "2-3 months",
+    "type1_to_type2": "6-12 months observation period"
+  },
+  "references": {
+    "aicpa": "https://www.aicpa.org/topic/audit-assurance/audit-and-assurance-greater-than-soc-2",
+    "trust_services_criteria": "https://www.aicpa.org/content/dam/aicpa/interestareas/frc/assuranceadvisoryservices/downloadabledocuments/trust-services-criteria.pdf"
+  }
+}

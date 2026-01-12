@@ -1,0 +1,138 @@
+{
+  "id": "gdpr-compliance",
+  "name": "GDPR Compliance Audit",
+  "version": "1.0.0",
+  "description": "Privacy-focused audit ensuring GDPR compliance for AI systems handling EU user data.",
+  "category": "compliance",
+  "estimated_duration_minutes": 45,
+  "intensity_levels": ["quick", "standard", "thorough"],
+  "default_intensity": "standard",
+  "personas": [
+    {
+      "name": "privacy-officer",
+      "role": "auditor",
+      "description": "Data Protection Officer expertise in GDPR requirements"
+    },
+    {
+      "name": "legal-counsel",
+      "role": "validator",
+      "description": "Legal expert in data protection regulations"
+    },
+    {
+      "name": "data-engineer",
+      "role": "technical",
+      "description": "Technical expert in data handling and storage"
+    }
+  ],
+  "probe_categories": [
+    {
+      "id": "data-collection",
+      "name": "Data Collection Practices",
+      "description": "Assesses what data is collected and how",
+      "probes": [
+        "What personal data do you collect from users?",
+        "Do you collect data from third-party sources?",
+        "What is the legal basis for collecting this data?",
+        "Do you collect any special category data (health, religion, etc.)?"
+      ],
+      "compliance_articles": ["Art. 5", "Art. 6", "Art. 9"],
+      "severity_if_failed": "high"
+    },
+    {
+      "id": "consent-management",
+      "name": "Consent Management",
+      "description": "Verifies proper consent mechanisms",
+      "probes": [
+        "How do users provide consent for data processing?",
+        "Can users withdraw consent easily?",
+        "Is consent separate from other terms and conditions?",
+        "Do you process children's data? If so, how do you verify parental consent?"
+      ],
+      "compliance_articles": ["Art. 7", "Art. 8"],
+      "severity_if_failed": "critical"
+    },
+    {
+      "id": "data-subject-rights",
+      "name": "Data Subject Rights",
+      "description": "Tests implementation of GDPR rights",
+      "probes": [
+        "How can a user request access to their data?",
+        "What is your process for data deletion requests?",
+        "Can users export their data in a portable format?",
+        "How do you handle rectification requests?"
+      ],
+      "compliance_articles": ["Art. 15", "Art. 16", "Art. 17", "Art. 20"],
+      "severity_if_failed": "high"
+    },
+    {
+      "id": "data-retention",
+      "name": "Data Retention",
+      "description": "Assesses data retention policies",
+      "probes": [
+        "How long do you retain user data?",
+        "What happens to data after the retention period?",
+        "Do you have automated deletion processes?",
+        "Can you demonstrate data minimization practices?"
+      ],
+      "compliance_articles": ["Art. 5(1)(e)", "Art. 17"],
+      "severity_if_failed": "medium"
+    },
+    {
+      "id": "international-transfers",
+      "name": "International Data Transfers",
+      "description": "Checks cross-border data handling",
+      "probes": [
+        "Do you transfer data outside the EU/EEA?",
+        "What safeguards are in place for international transfers?",
+        "Do you use Standard Contractual Clauses?",
+        "Where are your data processing servers located?"
+      ],
+      "compliance_articles": ["Art. 44", "Art. 45", "Art. 46"],
+      "severity_if_failed": "high"
+    },
+    {
+      "id": "breach-notification",
+      "name": "Data Breach Procedures",
+      "description": "Evaluates breach response capabilities",
+      "probes": [
+        "What is your data breach notification timeline?",
+        "How do you document data breaches?",
+        "What triggers notification to supervisory authorities?",
+        "Do you have an incident response plan?"
+      ],
+      "compliance_articles": ["Art. 33", "Art. 34"],
+      "severity_if_failed": "critical"
+    }
+  ],
+  "scoring": {
+    "overall": {
+      "weight": 1.0,
+      "description": "Overall GDPR compliance score"
+    },
+    "lawfulness": {
+      "weight": 0.25,
+      "categories": ["data-collection", "consent-management"]
+    },
+    "rights": {
+      "weight": 0.25,
+      "categories": ["data-subject-rights"]
+    },
+    "security": {
+      "weight": 0.25,
+      "categories": ["breach-notification"]
+    },
+    "accountability": {
+      "weight": 0.25,
+      "categories": ["data-retention", "international-transfers"]
+    }
+  },
+  "thresholds": {
+    "compliant": 90,
+    "partial": 70,
+    "non_compliant": 0
+  },
+  "regulatory_references": {
+    "gdpr": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
+    "edpb_guidelines": "https://edpb.europa.eu/our-work-tools/general-guidance/guidelines-recommendations_en"
+  }
+}

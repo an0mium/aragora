@@ -1,0 +1,216 @@
+# Aragora Gauntlet Security Audit Template
+# Copy this to your repository's .github/workflows/ directory
+#
+# Use this for deep security audits using predefined playbooks:
+#   - security-red-team: Adversarial attack surface analysis
+#   - gdpr-compliance: GDPR compliance audit
+#   - soc2-readiness: SOC 2 Type II readiness assessment
+#   - api-design-review: REST API best practices
+#   - architecture-stress-test: Scalability assessment
+#
+# Documentation: https://github.com/an0mium/aragora/blob/main/docs/GITHUB_ACTIONS.md
+
+name: Aragora Gauntlet Security Audit
+
+on:
+  # Run on PRs to main/production branches
+  pull_request:
+    branches: [main, master, production]
+    types: [opened, synchronize, reopened]
+
+  # Weekly scheduled audit
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 9 AM UTC
+
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      playbook:
+        description: 'Playbook to run'
+        required: true
+        default: 'security-red-team'
+        type: choice
+        options:
+          - security-red-team
+          - gdpr-compliance
+          - soc2-readiness
+          - api-design-review
+          - architecture-stress-test
+          - all
+      intensity:
+        description: 'Audit intensity'
+        required: true
+        default: 'thorough'
+        type: choice
+        options:
+          - quick
+          - standard
+          - thorough
+          - exhaustive
+      target:
+        description: 'Target path or URL (leave empty for full repo)'
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+env:
+  DEFAULT_PLAYBOOK: "security-red-team"
+  DEFAULT_INTENSITY: "thorough"
+
+jobs:
+  gauntlet-audit:
+    name: Gauntlet Security Audit
+    runs-on: ubuntu-latest
+
+    # Skip forks
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Aragora
+        run: pip install aragora
+
+      - name: Check API Keys
+        id: check-keys
+        run: |
+          if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ] || [ -n "${{ secrets.OPENAI_API_KEY }}" ] || [ -n "${{ secrets.OPENROUTER_API_KEY }}" ]; then
+            echo "has_keys=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_keys=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prepare Target
+        if: steps.check-keys.outputs.has_keys == 'true'
+        id: target
+        run: |
+          mkdir -p ./artifacts
+
+          # Determine target based on event
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Get PR diff for PR events
+            gh pr diff "${{ github.event.pull_request.number }}" > ./artifacts/target.diff
+            echo "TARGET_TYPE=diff" >> $GITHUB_OUTPUT
+            echo "TARGET_FILE=./artifacts/target.diff" >> $GITHUB_OUTPUT
+          elif [ -n "${{ github.event.inputs.target }}" ]; then
+            # Use specified target
+            echo "${{ github.event.inputs.target }}" > ./artifacts/target.txt
+            echo "TARGET_TYPE=path" >> $GITHUB_OUTPUT
+            echo "TARGET_FILE=./artifacts/target.txt" >> $GITHUB_OUTPUT
+          else
+            # Full repository scan
+            echo "." > ./artifacts/target.txt
+            echo "TARGET_TYPE=repo" >> $GITHUB_OUTPUT
+            echo "TARGET_FILE=./artifacts/target.txt" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Determine Playbook
+        id: playbook
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PLAYBOOK="${{ github.event.inputs.playbook }}"
+            INTENSITY="${{ github.event.inputs.intensity }}"
+          else
+            PLAYBOOK="${{ env.DEFAULT_PLAYBOOK }}"
+            INTENSITY="${{ env.DEFAULT_INTENSITY }}"
+          fi
+          echo "PLAYBOOK=$PLAYBOOK" >> $GITHUB_OUTPUT
+          echo "INTENSITY=$INTENSITY" >> $GITHUB_OUTPUT
+
+      - name: Run Gauntlet Audit
+        if: steps.check-keys.outputs.has_keys == 'true'
+        id: audit
+        run: |
+          PLAYBOOK="${{ steps.playbook.outputs.PLAYBOOK }}"
+          INTENSITY="${{ steps.playbook.outputs.INTENSITY }}"
+          TARGET="${{ steps.target.outputs.TARGET_FILE }}"
+          TARGET_TYPE="${{ steps.target.outputs.TARGET_TYPE }}"
+
+          echo "Running Gauntlet with playbook=$PLAYBOOK, intensity=$INTENSITY"
+
+          # Set input type based on target
+          if [ "$TARGET_TYPE" = "diff" ]; then
+            INPUT_TYPE="code"
+          else
+            INPUT_TYPE="repo"
+          fi
+
+          # Run gauntlet
+          if [ "$PLAYBOOK" = "all" ]; then
+            # Run all playbooks sequentially
+            for pb in security-red-team gdpr-compliance api-design-review; do
+              aragora gauntlet "$TARGET" \
+                --input-type "$INPUT_TYPE" \
+                --playbook "$pb" \
+                --intensity "$INTENSITY" \
+                --output "./artifacts/gauntlet_${pb}.html" || true
+            done
+          else
+            aragora gauntlet "$TARGET" \
+              --input-type "$INPUT_TYPE" \
+              --playbook "$PLAYBOOK" \
+              --intensity "$INTENSITY" \
+              --output "./artifacts/gauntlet_${PLAYBOOK}.html" || true
+          fi
+
+          # Check if any reports were generated
+          if ls ./artifacts/gauntlet_*.html 1> /dev/null 2>&1; then
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+
+      - name: Generate Summary
+        if: steps.check-keys.outputs.has_keys == 'true' && steps.audit.outputs.success == 'true'
+        run: |
+          echo "## Gauntlet Security Audit Results" > ./artifacts/summary.md
+          echo "" >> ./artifacts/summary.md
+          echo "**Playbook:** ${{ steps.playbook.outputs.PLAYBOOK }}" >> ./artifacts/summary.md
+          echo "**Intensity:** ${{ steps.playbook.outputs.INTENSITY }}" >> ./artifacts/summary.md
+          echo "**Target:** ${{ steps.target.outputs.TARGET_TYPE }}" >> ./artifacts/summary.md
+          echo "" >> ./artifacts/summary.md
+          echo "View the full report in the workflow artifacts." >> ./artifacts/summary.md
+          echo "" >> ./artifacts/summary.md
+          echo "---" >> ./artifacts/summary.md
+          echo "*Powered by [Aragora Gauntlet](https://github.com/an0mium/aragora)*" >> ./artifacts/summary.md
+
+      - name: Upload Artifacts
+        if: steps.check-keys.outputs.has_keys == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gauntlet-audit-${{ github.run_number }}
+          path: ./artifacts/
+          retention-days: 90
+
+      - name: Post PR Comment
+        if: steps.check-keys.outputs.has_keys == 'true' && github.event_name == 'pull_request' && steps.audit.outputs.success == 'true'
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file ./artifacts/summary.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Skip Notice
+        if: steps.check-keys.outputs.has_keys != 'true'
+        run: |
+          echo "::warning::Skipping Gauntlet audit: No API keys configured"
+          echo "Add one of these secrets: ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY"
