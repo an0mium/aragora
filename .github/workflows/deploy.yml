@@ -68,7 +68,7 @@ jobs:
         run: |
           cd aragora/live
           npm ci
-          npm run build
+          npm run build:export
           wrangler pages deploy out --project-name=aragora --commit-dirty=true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
