@@ -347,7 +347,7 @@ export function CitationsPanel({ events, debateId, apiBase }: CitationsPanelProp
                 <div className="mt-2 pt-2 border-t border-border">
                   {citation.excerpt && (
                     <p className="text-xs text-text-muted italic mb-2">
-                      "{citation.excerpt}"
+                      &quot;{citation.excerpt}&quot;
                     </p>
                   )}
                   <div className="flex items-center gap-2 text-xs">

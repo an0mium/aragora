@@ -66,7 +66,7 @@ export default function ReplaysPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-acid-cyan">&gt;</span>
-                  Use "Fork Here" to create a branch point for exploring alternative debate paths
+                  Use &quot;Fork Here&quot; to create a branch point for exploring alternative debate paths
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-acid-cyan">&gt;</span>

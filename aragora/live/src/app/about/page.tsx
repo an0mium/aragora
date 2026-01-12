@@ -104,8 +104,8 @@ export default function AboutPage() {
             </div>
 
             <blockquote className="mt-8 text-center text-text-muted font-mono italic border-l-4 border-acid-green/50 pl-4 py-2">
-              "In Nomic, the rules can change the rules. aragora applies this to AI -
-              the system debates and implements its own evolution."
+              &quot;In Nomic, the rules can change the rules. aragora applies this to AI -
+              the system debates and implements its own evolution.&quot;
             </blockquote>
           </div>
         </section>
@@ -215,7 +215,7 @@ $ aragora nomic --cycles 3  # Run self-improvement loop
           <div className="container mx-auto max-w-4xl">
             <h2 className="text-2xl font-mono text-acid-green mb-4 text-center">Philosophical Foundations</h2>
             <p className="text-center text-text-muted font-mono italic mb-8">
-              "Truth emerges from the marketplace of ideas, not central authority."
+              &quot;Truth emerges from the marketplace of ideas, not central authority.&quot;
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[

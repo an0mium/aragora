@@ -111,7 +111,7 @@ export function ContraryViewsPanel({ apiBase = '' }: ContraryViewsPanelProps) {
             </p>
             {view.reasoning && (
               <p className="text-xs text-text-muted italic">
-                "{view.reasoning}"
+                &quot;{view.reasoning}&quot;
               </p>
             )}
           </div>
@@ -119,7 +119,7 @@ export function ContraryViewsPanel({ apiBase = '' }: ContraryViewsPanelProps) {
       </div>
 
       <div className="mt-3 text-[10px] text-text-muted font-mono">
-        Dissenting opinions that didn't achieve consensus
+        Dissenting opinions that didn&apos;t achieve consensus
       </div>
     </div>
   );

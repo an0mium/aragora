@@ -134,7 +134,7 @@ export function AgentPanel({ events }: AgentPanelProps) {
           <span className="text-acid-green">[</span>
           <span className="text-xs text-acid-green uppercase tracking-wider">AGENT_STREAM</span>
           <span className="text-acid-green">]</span>
-          <span className="text-text-muted text-xs">// {agentEvents.length} events</span>
+          <span className="text-text-muted text-xs">{'// '}{agentEvents.length} events</span>
         </div>
         <div className="flex gap-1">
           <button

@@ -54,7 +54,7 @@ export function DebateBrowser() {
           <span className="text-acid-green">[</span>
           <span className="panel-title-sm text-acid-green">DEBATE_ARCHIVE</span>
           <span className="text-acid-green">]</span>
-          <span className="text-text-muted text-xs">// {debates.length} recent</span>
+          <span className="text-text-muted text-xs">{'// '}{debates.length} recent</span>
         </div>
       </div>
 

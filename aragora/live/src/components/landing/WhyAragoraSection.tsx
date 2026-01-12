@@ -33,7 +33,7 @@ export function WhyAragoraSection() {
         <SectionHeader title="WHY ARAGORA?" />
 
         <p className="text-text-muted font-mono text-xs text-center mb-8 max-w-xl mx-auto">
-          Most "multi-agent" systems run copies of the same model talking to itself. Aragora is adversarial validation:
+          Most &quot;multi-agent&quot; systems run copies of the same model talking to itself. Aragora is adversarial validation:
           it stress-tests high-stakes decisions and outputs decision receipts, risk heatmaps, and dissent trails.
         </p>
 

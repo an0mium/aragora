@@ -466,7 +466,7 @@ function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateViewProps
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-xs text-text-muted font-mono mb-2">
-              DEBATE // CYCLE {debate.cycle_number} // {debate.phase.toUpperCase()}
+              DEBATE {'// '}CYCLE {debate.cycle_number} {'// '}{debate.phase.toUpperCase()}
             </div>
             <h1 className="text-lg font-mono text-acid-green mb-4">
               {debate.task}
