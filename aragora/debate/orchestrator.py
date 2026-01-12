@@ -691,10 +691,14 @@ class Arena:
     def _init_termination_checker(self) -> None:
         """Initialize the termination checker for early debate termination."""
 
-        async def generate_fn(agent, prompt, ctx):
+        async def generate_fn(
+            agent: Agent, prompt: str, ctx: list[Message]
+        ) -> str:
             return await self.autonomic.generate(agent, prompt, ctx)
 
-        async def select_judge_fn(proposals, context):
+        async def select_judge_fn(
+            proposals: dict[str, str], context: list[Message]
+        ) -> Agent:
             return await self._select_judge(proposals, context)
 
         self.termination_checker = TerminationChecker(
@@ -733,8 +737,7 @@ class Arena:
     def _get_continuum_context(self) -> str:
         """Retrieve relevant memories from ContinuumMemory for debate context.
 
-        Uses the debate task and domain to query for related past learnings.
-        Enhanced with tier-aware retrieval and confidence markers.
+        Delegates to ContextGatherer.get_continuum_context().
         """
         if self._continuum_context_cache:
             return self._continuum_context_cache
@@ -742,51 +745,18 @@ class Arena:
         if not self.continuum_memory:
             return ""
 
-        try:
-            domain = self._extract_debate_domain()
-            query = f"{domain}: {self.env.task[:200]}"
+        domain = self._extract_debate_domain()
+        context, retrieved_ids, retrieved_tiers = self.context_gatherer.get_continuum_context(
+            continuum_memory=self.continuum_memory,
+            domain=domain,
+            task=self.env.task,
+        )
 
-            # Retrieve memories, prioritizing fast/medium tiers (skip glacial for speed)
-            memories = self.continuum_memory.retrieve(
-                query=query,
-                limit=5,
-                min_importance=0.3,  # Only important memories
-            )
-
-            if not memories:
-                return ""
-
-            # Track retrieved memory IDs and tiers for outcome updates and analytics
-            self._continuum_retrieved_ids = [
-                getattr(mem, 'id', None) for mem in memories if getattr(mem, 'id', None)
-            ]
-            self._continuum_retrieved_tiers = {
-                getattr(mem, 'id', None): getattr(mem, 'tier', None)
-                for mem in memories
-                if getattr(mem, 'id', None) and getattr(mem, 'tier', None)
-            }
-
-            # Format memories with confidence markers based on consolidation
-            context_parts = ["[Previous learnings relevant to this debate:]"]
-            for mem in memories[:3]:  # Top 3 most relevant
-                content = mem.content[:200] if hasattr(mem, 'content') else str(mem)[:200]
-                tier = mem.tier.value if hasattr(mem, 'tier') else "unknown"
-                # Consolidation score indicates reliability
-                consolidation = getattr(mem, 'consolidation_score', 0.5)
-                confidence = "high" if consolidation > 0.7 else "medium" if consolidation > 0.4 else "low"
-                context_parts.append(f"- [{tier}|{confidence}] {content}")
-
-            self._continuum_context_cache = "\n".join(context_parts)
-            logger.info(f"  [continuum] Retrieved {len(memories)} relevant memories for domain '{domain}'")
-            return self._continuum_context_cache
-        except (AttributeError, TypeError, ValueError) as e:
-            # Expected errors from memory system
-            logger.warning(f"  [continuum] Memory retrieval error: {e}")
-            return ""
-        except (KeyError, IndexError, RuntimeError, OSError) as e:
-            # Unexpected error - log with more detail but don't crash debate
-            logger.warning(f"  [continuum] Unexpected memory error (type={type(e).__name__}): {e}")
-            return ""
+        # Track retrieved IDs and tiers for outcome updates
+        self._continuum_retrieved_ids = retrieved_ids
+        self._continuum_retrieved_tiers = retrieved_tiers
+        self._continuum_context_cache = context
+        return context
 
     def _store_debate_outcome_as_memory(self, result: "DebateResult") -> None:
         """Store debate outcome in ContinuumMemory for future retrieval."""
@@ -1072,8 +1042,7 @@ class Arena:
     ) -> int:
         """Refresh evidence based on claims made during a debate round.
 
-        Called by DebateRoundsPhase after the critique phase to gather
-        fresh evidence for claims that emerged in proposals and critiques.
+        Delegates to ContextGatherer.refresh_evidence_for_round().
 
         Args:
             combined_text: Combined text from proposals and critiques
@@ -1083,58 +1052,19 @@ class Arena:
         Returns:
             Number of new evidence snippets added
         """
-        if not self.evidence_collector:
-            return 0
+        count, updated_pack = await self.context_gatherer.refresh_evidence_for_round(
+            combined_text=combined_text,
+            evidence_collector=self.evidence_collector,
+            task=self.env.task if self.env else "",
+            evidence_store_callback=self._store_evidence_in_memory,
+        )
 
-        try:
-            # Extract claims from the combined text
-            claims = self.evidence_collector.extract_claims_from_text(combined_text)
-            if not claims:
-                return 0
+        if updated_pack and hasattr(self, 'prompt_builder') and self.prompt_builder:
+            self._research_evidence_pack = updated_pack
+            self.evidence_grounder.set_evidence_pack(updated_pack)
+            self.prompt_builder.set_evidence_pack(updated_pack)
 
-            logger.debug(f"evidence_refresh extracting from {len(claims)} claims")
-
-            # Collect evidence for the claims
-            evidence_pack = await self.evidence_collector.collect_for_claims(claims)
-
-            if not evidence_pack.snippets:
-                return 0
-
-            # Update the prompt builder with supplemental evidence
-            if hasattr(self, 'prompt_builder') and self.prompt_builder:
-                # Add new snippets to existing pack
-                if self._research_evidence_pack:
-                    # Merge with existing, avoiding duplicates by ID
-                    existing_ids = {s.id for s in self._research_evidence_pack.snippets}
-                    new_snippets = [
-                        s for s in evidence_pack.snippets
-                        if s.id not in existing_ids
-                    ]
-                    self._research_evidence_pack.snippets.extend(new_snippets)
-                    self._research_evidence_pack.total_searched += evidence_pack.total_searched
-                else:
-                    self._research_evidence_pack = evidence_pack
-
-                # Update evidence grounder
-                self.evidence_grounder.set_evidence_pack(self._research_evidence_pack)
-
-                # Update prompt builder
-                self.prompt_builder.set_evidence_pack(self._research_evidence_pack)
-
-                # Store in memory for future debates
-                if evidence_pack.snippets:
-                    self._store_evidence_in_memory(
-                        evidence_pack.snippets,
-                        self.env.task if self.env else "",
-                    )
-
-                return len(evidence_pack.snippets)
-
-        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError, OSError, ConnectionError) as e:
-            logger.warning(f"Evidence refresh failed for round {round_num}: {e}")
-            return 0
-
-        return 0
+        return count
 
     def _format_conclusion(self, result: "DebateResult") -> str:
         """Format a clear, readable debate conclusion with full context.
@@ -1424,7 +1354,9 @@ class Arena:
             selector = JudgeSelector.from_protocol(protocol, agents, elo_system, ...)
             judge = await selector.select_judge(proposals, context)
         """
-        async def generate_wrapper(agent, prompt, ctx):
+        async def generate_wrapper(
+            agent: Agent, prompt: str, ctx: list[Message]
+        ) -> str:
             return await agent.generate(prompt, ctx)
 
         selector = JudgeSelector(

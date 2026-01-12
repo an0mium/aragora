@@ -50,10 +50,13 @@ class ContextGatherer:
         self._project_root = project_root or Path(__file__).parent.parent.parent
 
         # Cache for evidence pack (for grounding verdict with citations)
-        self._research_evidence_pack = None
+        self._research_evidence_pack: Optional[Any] = None
 
         # Cache for research context
         self._research_context_cache: Optional[str] = None
+
+        # Cache for continuum memory context
+        self._continuum_context_cache: Optional[str] = None
 
     @property
     def evidence_pack(self) -> Optional[Any]:
@@ -297,3 +300,140 @@ class ContextGatherer:
         """Clear all cached context."""
         self._research_context_cache = None
         self._research_evidence_pack = None
+        self._continuum_context_cache = None
+
+    def get_continuum_context(
+        self,
+        continuum_memory: Any,
+        domain: str,
+        task: str,
+    ) -> tuple[str, list[str], dict[str, Any]]:
+        """Retrieve relevant memories from ContinuumMemory for debate context.
+
+        Uses the debate task and domain to query for related past learnings.
+        Enhanced with tier-aware retrieval and confidence markers.
+
+        Args:
+            continuum_memory: ContinuumMemory instance to query
+            domain: The debate domain (e.g., "programming", "ethics")
+            task: The debate task description
+
+        Returns:
+            Tuple of:
+            - Formatted context string
+            - List of retrieved memory IDs (for outcome tracking)
+            - Dict mapping memory ID to tier (for analytics)
+        """
+        if hasattr(self, '_continuum_context_cache') and self._continuum_context_cache:
+            return self._continuum_context_cache, [], {}
+
+        if not continuum_memory:
+            return "", [], {}
+
+        try:
+            query = f"{domain}: {task[:200]}"
+
+            # Retrieve memories, prioritizing fast/medium tiers (skip glacial for speed)
+            memories = continuum_memory.retrieve(
+                query=query,
+                limit=5,
+                min_importance=0.3,  # Only important memories
+            )
+
+            if not memories:
+                return "", [], {}
+
+            # Track retrieved memory IDs and tiers for outcome updates and analytics
+            retrieved_ids = [
+                getattr(mem, 'id', None) for mem in memories if getattr(mem, 'id', None)
+            ]
+            retrieved_tiers = {
+                getattr(mem, 'id', None): getattr(mem, 'tier', None)
+                for mem in memories
+                if getattr(mem, 'id', None) and getattr(mem, 'tier', None)
+            }
+
+            # Format memories with confidence markers based on consolidation
+            context_parts = ["[Previous learnings relevant to this debate:]"]
+            for mem in memories[:3]:  # Top 3 most relevant
+                content = mem.content[:200] if hasattr(mem, 'content') else str(mem)[:200]
+                tier = mem.tier.value if hasattr(mem, 'tier') else "unknown"
+                # Consolidation score indicates reliability
+                consolidation = getattr(mem, 'consolidation_score', 0.5)
+                confidence = "high" if consolidation > 0.7 else "medium" if consolidation > 0.4 else "low"
+                context_parts.append(f"- [{tier}|{confidence}] {content}")
+
+            context = "\n".join(context_parts)
+            self._continuum_context_cache = context
+            logger.info(f"  [continuum] Retrieved {len(memories)} relevant memories for domain '{domain}'")
+            return context, retrieved_ids, retrieved_tiers
+        except (AttributeError, TypeError, ValueError) as e:
+            # Expected errors from memory system
+            logger.warning(f"  [continuum] Memory retrieval error: {e}")
+            return "", [], {}
+        except (KeyError, IndexError, RuntimeError, OSError) as e:
+            # Unexpected error - log with more detail but don't crash debate
+            logger.warning(f"  [continuum] Unexpected memory error (type={type(e).__name__}): {e}")
+            return "", [], {}
+
+    async def refresh_evidence_for_round(
+        self,
+        combined_text: str,
+        evidence_collector: Any,
+        task: str,
+        evidence_store_callback: Optional[Callable[..., Any]] = None,
+    ) -> tuple[int, Any]:
+        """Refresh evidence based on claims made during a debate round.
+
+        Called after the critique phase to gather fresh evidence for claims
+        that emerged in proposals and critiques.
+
+        Args:
+            combined_text: Combined text from proposals and critiques
+            evidence_collector: EvidenceCollector instance
+            task: The debate task
+            evidence_store_callback: Optional callback to store evidence in memory
+
+        Returns:
+            Tuple of:
+            - Number of new evidence snippets added
+            - Updated evidence pack (or None)
+        """
+        if not evidence_collector:
+            return 0, None
+
+        try:
+            # Extract claims from the combined text
+            claims = evidence_collector.extract_claims_from_text(combined_text)
+            if not claims:
+                return 0, None
+
+            logger.debug(f"evidence_refresh extracting from {len(claims)} claims")
+
+            # Collect evidence for the claims
+            evidence_pack = await evidence_collector.collect_for_claims(claims)
+
+            if not evidence_pack.snippets:
+                return 0, None
+
+            # Merge with existing evidence pack, avoiding duplicates
+            if self._research_evidence_pack:
+                existing_ids = {s.id for s in self._research_evidence_pack.snippets}
+                new_snippets = [
+                    s for s in evidence_pack.snippets
+                    if s.id not in existing_ids
+                ]
+                self._research_evidence_pack.snippets.extend(new_snippets)
+                self._research_evidence_pack.total_searched += evidence_pack.total_searched
+            else:
+                self._research_evidence_pack = evidence_pack
+
+            # Store in memory for future debates
+            if evidence_pack.snippets and evidence_store_callback and callable(evidence_store_callback):
+                evidence_store_callback(evidence_pack.snippets, task)
+
+            return len(evidence_pack.snippets), self._research_evidence_pack
+
+        except Exception as e:
+            logger.warning(f"Evidence refresh failed: {e}")
+            return 0, None
