@@ -23,6 +23,7 @@ import os
 from typing import Any, Dict, Optional
 
 from .base import BaseHandler, HandlerResult, json_response, error_response
+from aragora.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +216,7 @@ class SSOHandler(BaseHandler):
 
             # Generate session token
             if not auth_config:
-                raise RuntimeError("Auth config unavailable")
+                raise ConfigurationError("SSOHandler", "auth_config not initialized")
             session_token = auth_config.generate_token(
                 loop_id=user.id,
                 expires_in=provider.config.session_duration_seconds,
@@ -287,7 +288,7 @@ class SSOHandler(BaseHandler):
         try:
             # Get current user token
             if not auth_config:
-                raise RuntimeError("Auth config unavailable")
+                raise ConfigurationError("SSOHandler", "auth_config not initialized")
 
             token = None
             if hasattr(handler, "headers"):
@@ -301,7 +302,7 @@ class SSOHandler(BaseHandler):
 
             # Get IdP logout URL
             if not SSOUser:
-                raise RuntimeError("SSO user type unavailable")
+                raise ConfigurationError("SSOHandler", "SSOUser type not imported")
             logout_url = await provider.logout(SSOUser(id="", email=""))
 
             if logout_url:

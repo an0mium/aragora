@@ -106,6 +106,8 @@ from .schema import (
     ORG_CREATE_SCHEMA,
     ORG_INVITE_SCHEMA,
     GAUNTLET_RUN_SCHEMA,
+    CHECKOUT_SESSION_SCHEMA,
+    SOCIAL_PUBLISH_SCHEMA,
     validate_against_schema,
 )
 
@@ -175,6 +177,8 @@ __all__ = [
     "ORG_CREATE_SCHEMA",
     "ORG_INVITE_SCHEMA",
     "GAUNTLET_RUN_SCHEMA",
+    "CHECKOUT_SESSION_SCHEMA",
+    "SOCIAL_PUBLISH_SCHEMA",
     "validate_against_schema",
     # Decorators
     "validate_request",

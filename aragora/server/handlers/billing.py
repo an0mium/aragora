@@ -29,6 +29,7 @@ from .base import (
     get_string_param,
     require_permission,
 )
+from aragora.server.validation.schema import validate_against_schema, CHECKOUT_SESSION_SCHEMA
 
 # Module-level imports for test mocking compatibility
 from aragora.billing.models import TIER_LIMITS, SubscriptionTier
@@ -310,14 +311,14 @@ class BillingHandler(BaseHandler):
         if body is None:
             return error_response("Invalid JSON body", 400)
 
+        # Schema validation for input sanitization
+        validation_result = validate_against_schema(body, CHECKOUT_SESSION_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, 400)
+
         tier_str = body.get("tier", "").lower()
         success_url = body.get("success_url", "")
         cancel_url = body.get("cancel_url", "")
-
-        if not tier_str:
-            return error_response("Tier is required", 400)
-        if not success_url or not cancel_url:
-            return error_response("Success and cancel URLs required", 400)
 
         # Validate tier
         try:

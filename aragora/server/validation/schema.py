@@ -100,6 +100,22 @@ GAUNTLET_RUN_SCHEMA = {
     "profile": {"type": "string", "max_length": 100, "required": False},
 }
 
+# Billing checkout schema
+CHECKOUT_SESSION_SCHEMA = {
+    "tier": {"type": "enum", "allowed_values": {"starter", "professional", "enterprise"}, "required": True},
+    "success_url": {"type": "string", "min_length": 1, "max_length": 2000, "required": True},
+    "cancel_url": {"type": "string", "min_length": 1, "max_length": 2000, "required": True},
+}
+
+# Social publishing schema (all optional since body can be empty)
+SOCIAL_PUBLISH_SCHEMA = {
+    "include_audio_link": {"type": "string", "max_length": 10, "required": False},  # "true"/"false"
+    "thread_mode": {"type": "string", "max_length": 10, "required": False},
+    "title": {"type": "string", "max_length": 200, "required": False},
+    "description": {"type": "string", "max_length": 5000, "required": False},
+    "tags": {"type": "list", "max_length": 20, "item_type": str, "required": False},
+}
+
 
 def validate_against_schema(data: dict, schema: dict) -> ValidationResult:
     """Validate data against a schema definition.
