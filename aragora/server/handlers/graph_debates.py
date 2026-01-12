@@ -51,6 +51,10 @@ class GraphDebatesHandler(BaseHandler):
         "/api/debates/graph",
     ]
 
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can process the given path."""
+        return path.startswith("/api/debates/graph")
+
     @handle_errors("graph debates GET")
     async def handle_get(self, handler, path: str, query_params: dict) -> HandlerResult:
         """Handle GET requests for graph debates."""

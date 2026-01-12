@@ -43,6 +43,10 @@ class MatrixDebatesHandler(BaseHandler):
         "/api/debates/matrix",
     ]
 
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can process the given path."""
+        return path.startswith("/api/debates/matrix")
+
     @handle_errors("matrix debates GET")
     async def handle_get(self, handler, path: str, query_params: dict) -> HandlerResult:
         """Handle GET requests for matrix debates."""
