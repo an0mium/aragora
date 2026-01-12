@@ -57,6 +57,7 @@ from .legacy import (
     get_api_key,
     validate_configuration,
     ConfigurationError,
+    resolve_db_path,
     # Authentication
     TOKEN_TTL_SECONDS,
     SHAREABLE_LINK_TTL,
