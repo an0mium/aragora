@@ -33,6 +33,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+from aragora.exceptions import ConfigurationError, ExternalServiceError
+
 logger = logging.getLogger(__name__)
 
 
@@ -302,7 +304,10 @@ class ElevenLabsBackend(TTSBackend):
                 from elevenlabs.client import ElevenLabs
                 self._client = ElevenLabs(api_key=self.config.elevenlabs_api_key)
             except ImportError:
-                raise RuntimeError("elevenlabs package not installed. Run: pip install elevenlabs")
+                raise ConfigurationError(
+                    component="ElevenLabsTTS",
+                    reason="elevenlabs package not installed. Run: pip install elevenlabs"
+                )
         return self._client
 
     def get_voice_id(self, speaker: str) -> str:
@@ -646,7 +651,10 @@ class PollyBackend(TTSBackend):
                 import boto3
                 self._client = boto3.client("polly", region_name=self.config.polly_region)
             except Exception as e:
-                raise RuntimeError(f"Failed to initialize Polly client: {e}") from e
+                raise ExternalServiceError(
+                    service="Amazon Polly",
+                    reason=f"Failed to initialize client: {e}"
+                ) from e
         return self._client
 
     def get_voice_id(self, speaker: str) -> str:
@@ -820,7 +828,10 @@ def get_tts_backend(
         backend = backend_cls(config)
 
         if not backend.is_available():
-            raise RuntimeError(f"Backend '{backend_name}' is not available")
+            raise ConfigurationError(
+                component="TTSBackend",
+                reason=f"Backend '{backend_name}' is not available"
+            )
 
         return backend
 
@@ -836,7 +847,10 @@ def get_tts_backend(
             logger.info(f"Selected TTS backend: {name}")
             return backend
 
-    raise RuntimeError("No TTS backends available")
+    raise ConfigurationError(
+        component="TTSBackend",
+        reason="No TTS backends available. Install at least one: elevenlabs, boto3, edge-tts, or pyttsx3"
+    )
 
 
 class FallbackTTSBackend(TTSBackend):

@@ -17,6 +17,8 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import uuid4
 
+from aragora.exceptions import ConfigurationError
+
 # Try to import bcrypt for secure password hashing
 try:
     import bcrypt
@@ -179,10 +181,11 @@ def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
         return f"{HASH_VERSION_SHA256}{legacy_hash}", salt
     else:
         # Production: fail if bcrypt not available
-        raise RuntimeError(
-            "bcrypt is required for secure password hashing but is not installed. "
-            "Install it with: pip install bcrypt\n"
-            "For development/testing only, set ARAGORA_ALLOW_INSECURE_PASSWORDS=1"
+        raise ConfigurationError(
+            component="Password Hashing",
+            reason="bcrypt is required for secure password hashing but is not installed. "
+                   "Install it with: pip install bcrypt. "
+                   "For development/testing only, set ARAGORA_ALLOW_INSECURE_PASSWORDS=1"
         )
 
 

@@ -23,6 +23,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Generator, Optional, Protocol, Union
 
+from aragora.exceptions import ConfigurationError
+
 logger = logging.getLogger(__name__)
 
 
@@ -363,7 +365,10 @@ class PostgresBackend(DatabaseBackend):
     def connect(self) -> Any:
         """Get a connection from the pool."""
         if not self._initialized or self._sync_pool is None:
-            raise RuntimeError("PostgreSQL backend not initialized")
+            raise ConfigurationError(
+                component="PostgreSQL",
+                reason="Backend not initialized. Call initialize() first"
+            )
 
         return self._sync_pool.getconn()
 
@@ -376,7 +381,10 @@ class PostgresBackend(DatabaseBackend):
     def connection(self) -> Generator[Any, None, None]:
         """Context manager for database connections."""
         if not self._initialized:
-            raise RuntimeError("PostgreSQL backend not initialized")
+            raise ConfigurationError(
+                component="PostgreSQL",
+                reason="Backend not initialized. Call initialize() first"
+            )
 
         conn = self.connect()
         try:

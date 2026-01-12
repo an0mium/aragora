@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
+from aragora.exceptions import ConfigurationError
+
 logger = logging.getLogger(__name__)
 
 
@@ -280,14 +282,16 @@ def _validate_security_config() -> None:
 
     if _is_production():
         if not JWT_SECRET:
-            raise RuntimeError(
-                "ARAGORA_JWT_SECRET must be set in production. "
-                "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            raise ConfigurationError(
+                component="JWT Authentication",
+                reason="ARAGORA_JWT_SECRET must be set in production. "
+                       "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
             )
         if len(JWT_SECRET) < MIN_SECRET_LENGTH:
-            raise RuntimeError(
-                f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters in production. "
-                f"Current length: {len(JWT_SECRET)}"
+            raise ConfigurationError(
+                component="JWT Authentication",
+                reason=f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters in production. "
+                       f"Current length: {len(JWT_SECRET)}"
             )
 
 
@@ -317,18 +321,20 @@ def _get_secret() -> bytes:
             JWT_SECRET = base64.b64encode(os.urandom(32)).decode("utf-8")
             logger.debug("TEST MODE: Using ephemeral JWT secret")
         else:
-            raise RuntimeError(
-                "ARAGORA_JWT_SECRET must be set. "
-                "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            raise ConfigurationError(
+                component="JWT Authentication",
+                reason="ARAGORA_JWT_SECRET must be set. "
+                       "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
             )
 
     if not _validate_secret_strength(JWT_SECRET):
         if running_under_pytest:
             logger.debug(f"TEST MODE: JWT secret is weak (< {MIN_SECRET_LENGTH} chars)")
         else:
-            raise RuntimeError(
-                f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters. "
-                f"Current length: {len(JWT_SECRET)}"
+            raise ConfigurationError(
+                component="JWT Authentication",
+                reason=f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters. "
+                       f"Current length: {len(JWT_SECRET)}"
             )
 
     return JWT_SECRET.encode("utf-8")

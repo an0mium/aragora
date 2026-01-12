@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, Any
 import httpx
 
 from aragora.core import Message, Environment
+from aragora.exceptions import ExternalServiceError
 from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
@@ -487,7 +488,11 @@ class GitHubTrendingIngestor(PulseIngestor):
                     if remaining == "0":
                         reset_time = response.headers.get("X-RateLimit-Reset", "")
                         logger.warning(f"GitHub rate limit exceeded. Reset at: {reset_time}")
-                        raise Exception("GitHub API rate limit exceeded")
+                        raise ExternalServiceError(
+                            service="GitHub API",
+                            reason=f"Rate limit exceeded. Reset at: {reset_time}",
+                            status_code=403
+                        )
 
                 response.raise_for_status()
                 data = response.json()

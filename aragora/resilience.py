@@ -16,6 +16,8 @@ from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Generator, Optional
 
+from aragora.exceptions import ConfigurationError
+
 logger = logging.getLogger(__name__)
 
 
@@ -659,7 +661,10 @@ def _get_cb_connection() -> "sqlite3.Connection":
     import sqlite3
 
     if not _DB_PATH:
-        raise RuntimeError("Circuit breaker persistence not initialized")
+        raise ConfigurationError(
+            component="CircuitBreaker",
+            reason="Persistence not initialized. Call init_circuit_breaker_persistence() first"
+        )
 
     conn = sqlite3.connect(_DB_PATH, timeout=_CB_TIMEOUT_SECONDS)
     # Enable WAL mode for better concurrent write performance
