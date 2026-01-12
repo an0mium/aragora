@@ -1396,9 +1396,10 @@ class UnifiedServer:
             from aragora.server.background import get_background_manager, setup_default_tasks
             nomic_path = str(self.nomic_dir) if self.nomic_dir else None
             # Pass the shared continuum_memory instance for efficient cleanup
+            # Note: continuum_memory is initialized lazily via get_continuum_memory()
             setup_default_tasks(
                 nomic_dir=nomic_path,
-                memory_instance=self.continuum_memory,
+                memory_instance=None,  # Will use shared instance from get_continuum_memory()
             )
             background_mgr = get_background_manager()
             background_mgr.start()
