@@ -99,6 +99,13 @@ from .schema import (
     PROBE_RUN_SCHEMA,
     FORK_REQUEST_SCHEMA,
     MEMORY_CLEANUP_SCHEMA,
+    AGENT_CONFIG_SCHEMA,
+    BATCH_SUBMIT_SCHEMA,
+    USER_REGISTER_SCHEMA,
+    USER_LOGIN_SCHEMA,
+    ORG_CREATE_SCHEMA,
+    ORG_INVITE_SCHEMA,
+    GAUNTLET_RUN_SCHEMA,
     validate_against_schema,
 )
 
@@ -161,6 +168,13 @@ __all__ = [
     "PROBE_RUN_SCHEMA",
     "FORK_REQUEST_SCHEMA",
     "MEMORY_CLEANUP_SCHEMA",
+    "AGENT_CONFIG_SCHEMA",
+    "BATCH_SUBMIT_SCHEMA",
+    "USER_REGISTER_SCHEMA",
+    "USER_LOGIN_SCHEMA",
+    "ORG_CREATE_SCHEMA",
+    "ORG_INVITE_SCHEMA",
+    "GAUNTLET_RUN_SCHEMA",
     "validate_against_schema",
     # Decorators
     "validate_request",

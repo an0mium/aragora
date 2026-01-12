@@ -9,6 +9,7 @@ from .base_database import BaseDatabase
 from .base_store import SQLiteStore
 from .user_store import UserStore
 from .organization_store import OrganizationStore
+from .audit_store import AuditStore
 from .webhook_store import (
     WebhookStoreBackend,
     InMemoryWebhookStore,
@@ -33,6 +34,7 @@ __all__ = [
     "SQLiteStore",
     "UserStore",
     "OrganizationStore",
+    "AuditStore",
     # Webhook idempotency
     "WebhookStoreBackend",
     "InMemoryWebhookStore",

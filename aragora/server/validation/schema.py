@@ -51,6 +51,54 @@ MEMORY_CLEANUP_SCHEMA = {
     "max_age_hours": {"type": "float", "min_value": 0.0, "max_value": 8760.0, "required": False},  # Max 1 year
 }
 
+# Agent configuration schema
+AGENT_CONFIG_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 64, "pattern": SAFE_AGENT_PATTERN, "required": True},
+    "model": {"type": "string", "max_length": 100, "required": False},
+    "temperature": {"type": "float", "min_value": 0.0, "max_value": 2.0, "required": False},
+    "max_tokens": {"type": "int", "min_value": 1, "max_value": 100000, "required": False},
+    "system_prompt": {"type": "string", "max_length": 10000, "required": False},
+}
+
+# Batch debate submission schema
+BATCH_SUBMIT_SCHEMA = {
+    "debates": {"type": "list", "min_length": 1, "max_length": 100, "item_type": dict, "required": True},
+    "priority": {"type": "enum", "allowed_values": {"low", "normal", "high"}, "required": False},
+    "callback_url": {"type": "string", "max_length": 500, "required": False},
+}
+
+# User/auth schemas
+USER_REGISTER_SCHEMA = {
+    "email": {"type": "string", "min_length": 5, "max_length": 255, "required": True},
+    "password": {"type": "string", "min_length": 8, "max_length": 128, "required": True},
+    "name": {"type": "string", "max_length": 100, "required": False},
+}
+
+USER_LOGIN_SCHEMA = {
+    "email": {"type": "string", "min_length": 5, "max_length": 255, "required": True},
+    "password": {"type": "string", "min_length": 1, "max_length": 128, "required": True},
+}
+
+# Organization schemas
+ORG_CREATE_SCHEMA = {
+    "name": {"type": "string", "min_length": 1, "max_length": 100, "required": True},
+    "slug": {"type": "string", "max_length": 100, "required": False},
+}
+
+ORG_INVITE_SCHEMA = {
+    "email": {"type": "string", "min_length": 5, "max_length": 255, "required": True},
+    "role": {"type": "enum", "allowed_values": {"member", "admin"}, "required": False},
+}
+
+# Gauntlet run schema
+GAUNTLET_RUN_SCHEMA = {
+    "input_content": {"type": "string", "min_length": 1, "max_length": 50000, "required": True},
+    "input_type": {"type": "enum", "allowed_values": {"spec", "code", "text", "url", "file"}, "required": False},
+    "agents": {"type": "list", "max_length": 10, "item_type": str, "required": False},
+    "persona": {"type": "string", "max_length": 100, "required": False},
+    "profile": {"type": "string", "max_length": 100, "required": False},
+}
+
 
 def validate_against_schema(data: dict, schema: dict) -> ValidationResult:
     """Validate data against a schema definition.

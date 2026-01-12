@@ -36,6 +36,7 @@ from .base import (
 )
 from .utils.rate_limit import rate_limit
 from aragora.server.validation.entities import validate_gauntlet_id
+from aragora.server.validation.schema import validate_against_schema, GAUNTLET_RUN_SCHEMA
 
 logger = logging.getLogger(__name__)
 
@@ -342,15 +343,17 @@ class GauntletHandler(BaseHandler):
         if data is None:
             return error_response("Invalid or too large request body", 400)
 
-        # Extract parameters
+        # Validate request body against schema
+        validation_result = validate_against_schema(data, GAUNTLET_RUN_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, 400)
+
+        # Extract parameters (already validated)
         input_content = data.get("input_content", "")
         input_type = data.get("input_type", "spec")
         persona = data.get("persona")
         agents = data.get("agents", ["anthropic-api"])
         profile = data.get("profile", "default")
-
-        if not input_content:
-            return error_response("input_content is required", 400)
 
         # Generate gauntlet ID
         gauntlet_id = f"gauntlet-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6]}"
