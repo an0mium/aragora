@@ -817,6 +817,436 @@ async def breed_agents_tool(
         return {"error": f"Failed to breed agents: {e}"}
 
 
+# === Checkpoint Tools ===
+
+async def create_checkpoint_tool(
+    debate_id: str,
+    label: str = "",
+    storage_backend: str = "file",
+) -> Dict[str, Any]:
+    """
+    Create a checkpoint for a debate to enable resume later.
+
+    Args:
+        debate_id: ID of the debate to checkpoint
+        label: Optional label for the checkpoint
+        storage_backend: Storage backend (file, s3, git, database)
+
+    Returns:
+        Dict with checkpoint ID and status
+    """
+    if not debate_id:
+        return {"error": "debate_id is required"}
+
+    try:
+        from aragora.debate.checkpoint import CheckpointManager, StorageBackend
+
+        # Map string to enum
+        backend_map = {
+            "file": StorageBackend.FILE,
+            "s3": StorageBackend.S3,
+            "git": StorageBackend.GIT,
+            "database": StorageBackend.DATABASE,
+        }
+        backend = backend_map.get(storage_backend.lower(), StorageBackend.FILE)
+
+        manager = CheckpointManager(backend=backend)
+        checkpoint = await manager.create(
+            debate_id=debate_id,
+            label=label or None,
+        )
+
+        return {
+            "success": True,
+            "checkpoint_id": checkpoint.id,
+            "debate_id": debate_id,
+            "label": label or "(auto)",
+            "storage_backend": storage_backend,
+            "created_at": str(checkpoint.created_at),
+        }
+
+    except ImportError:
+        return {"error": "Checkpoint module not available"}
+    except Exception as e:
+        return {"error": f"Failed to create checkpoint: {e}"}
+
+
+async def list_checkpoints_tool(
+    debate_id: str = "",
+    include_expired: bool = False,
+    limit: int = 20,
+) -> Dict[str, Any]:
+    """
+    List checkpoints for a debate or all debates.
+
+    Args:
+        debate_id: Optional debate ID to filter by
+        include_expired: Include expired checkpoints
+        limit: Max checkpoints to return
+
+    Returns:
+        Dict with list of checkpoints
+    """
+    limit = min(max(limit, 1), 100)
+
+    try:
+        from aragora.debate.checkpoint import CheckpointManager
+
+        manager = CheckpointManager()
+        checkpoints = await manager.list(
+            debate_id=debate_id or None,
+            include_expired=include_expired,
+            limit=limit,
+        )
+
+        return {
+            "checkpoints": [
+                {
+                    "checkpoint_id": c.id,
+                    "debate_id": c.debate_id,
+                    "label": c.label,
+                    "created_at": str(c.created_at),
+                    "expired": c.is_expired,
+                    "message_count": c.message_count,
+                }
+                for c in checkpoints
+            ],
+            "count": len(checkpoints),
+            "debate_id": debate_id or "(all)",
+        }
+
+    except ImportError:
+        return {"error": "Checkpoint module not available"}
+    except Exception as e:
+        return {"error": f"Failed to list checkpoints: {e}"}
+
+
+async def resume_checkpoint_tool(
+    checkpoint_id: str,
+) -> Dict[str, Any]:
+    """
+    Resume a debate from a checkpoint.
+
+    Args:
+        checkpoint_id: ID of the checkpoint to resume
+
+    Returns:
+        Dict with resumed debate info
+    """
+    if not checkpoint_id:
+        return {"error": "checkpoint_id is required"}
+
+    try:
+        from aragora.debate.checkpoint import CheckpointManager
+
+        manager = CheckpointManager()
+        debate_state = await manager.resume(checkpoint_id)
+
+        return {
+            "success": True,
+            "checkpoint_id": checkpoint_id,
+            "debate_id": debate_state.debate_id,
+            "messages_restored": debate_state.message_count,
+            "round": debate_state.current_round,
+            "phase": debate_state.phase,
+        }
+
+    except ImportError:
+        return {"error": "Checkpoint module not available"}
+    except Exception as e:
+        return {"error": f"Failed to resume checkpoint: {e}"}
+
+
+async def delete_checkpoint_tool(
+    checkpoint_id: str,
+) -> Dict[str, Any]:
+    """
+    Delete a checkpoint.
+
+    Args:
+        checkpoint_id: ID of the checkpoint to delete
+
+    Returns:
+        Dict with deletion status
+    """
+    if not checkpoint_id:
+        return {"error": "checkpoint_id is required"}
+
+    try:
+        from aragora.debate.checkpoint import CheckpointManager
+
+        manager = CheckpointManager()
+        success = await manager.delete(checkpoint_id)
+
+        return {
+            "success": success,
+            "checkpoint_id": checkpoint_id,
+            "message": "Checkpoint deleted" if success else "Checkpoint not found",
+        }
+
+    except ImportError:
+        return {"error": "Checkpoint module not available"}
+    except Exception as e:
+        return {"error": f"Failed to delete checkpoint: {e}"}
+
+
+# === Verification Tools ===
+
+async def verify_consensus_tool(
+    debate_id: str,
+    backend: str = "z3",
+) -> Dict[str, Any]:
+    """
+    Verify the consensus of a completed debate using formal methods.
+
+    Args:
+        debate_id: ID of the debate to verify
+        backend: Verification backend (z3, lean4)
+
+    Returns:
+        Dict with verification result and proof
+    """
+    if not debate_id:
+        return {"error": "debate_id is required"}
+
+    try:
+        from aragora.verification.formal import FormalVerificationManager
+
+        manager = FormalVerificationManager()
+
+        # Get debate data
+        from aragora.server.storage import get_debates_db
+        db = get_debates_db()
+        if not db:
+            return {"error": "Storage not available"}
+
+        debate = db.get(debate_id)
+        if not debate:
+            return {"error": f"Debate {debate_id} not found"}
+
+        # Extract consensus claim
+        consensus = debate.get("final_answer", "")
+        if not consensus:
+            return {"error": "Debate has no consensus to verify"}
+
+        # Verify
+        result = await manager.attempt_formal_verification(
+            claim=consensus,
+            context=f"Debate consensus from {debate_id}",
+        )
+
+        return {
+            "debate_id": debate_id,
+            "status": result.status.value if hasattr(result.status, "value") else str(result.status),
+            "is_verified": result.is_verified,
+            "language": result.language.value if hasattr(result.language, "value") else backend,
+            "formal_statement": result.formal_statement,
+            "proof_hash": result.proof_hash,
+            "translation_time_ms": result.translation_time_ms,
+            "proof_search_time_ms": result.proof_search_time_ms,
+        }
+
+    except ImportError:
+        return {"error": "Verification module not available"}
+    except Exception as e:
+        return {"error": f"Verification failed: {e}"}
+
+
+async def generate_proof_tool(
+    claim: str,
+    output_format: str = "lean4",
+    context: str = "",
+) -> Dict[str, Any]:
+    """
+    Generate a formal proof for a claim without verification.
+
+    Args:
+        claim: The claim to translate to formal language
+        output_format: Output format (lean4, z3_smt)
+        context: Additional context for translation
+
+    Returns:
+        Dict with formal statement and confidence
+    """
+    if not claim:
+        return {"error": "claim is required"}
+
+    try:
+        if output_format == "lean4":
+            from aragora.verification.formal import LeanBackend
+            backend = LeanBackend()
+        else:
+            from aragora.verification.formal import Z3Backend
+            backend = Z3Backend()
+
+        formal_statement = await backend.translate(claim, context)
+
+        return {
+            "success": formal_statement is not None,
+            "claim": claim,
+            "formal_statement": formal_statement,
+            "format": output_format,
+            "confidence": 0.7 if formal_statement else 0.0,
+        }
+
+    except ImportError:
+        return {"error": "Verification module not available"}
+    except Exception as e:
+        return {"error": f"Proof generation failed: {e}"}
+
+
+# === Evidence Tools ===
+
+async def search_evidence_tool(
+    query: str,
+    sources: str = "all",
+    limit: int = 10,
+) -> Dict[str, Any]:
+    """
+    Search for evidence across configured sources.
+
+    Args:
+        query: Search query
+        sources: Comma-separated sources (arxiv, hackernews, reddit, all)
+        limit: Max results per source
+
+    Returns:
+        Dict with evidence results
+    """
+    if not query:
+        return {"error": "query is required"}
+
+    limit = min(max(limit, 1), 50)
+    results: List[Dict[str, Any]] = []
+
+    try:
+        from aragora.evidence.collector import EvidenceCollector
+
+        collector = EvidenceCollector()
+        source_list = None if sources == "all" else [s.strip() for s in sources.split(",")]
+
+        evidence = await collector.search(
+            query=query,
+            sources=source_list,
+            limit=limit,
+        )
+
+        for e in evidence:
+            results.append({
+                "id": e.id,
+                "title": e.title,
+                "source": e.source,
+                "url": e.url,
+                "snippet": e.snippet[:300] if e.snippet else "",
+                "score": e.relevance_score,
+                "published": str(e.published_at) if e.published_at else None,
+            })
+
+    except ImportError:
+        logger.warning("Evidence collector not available")
+    except Exception as e:
+        logger.warning(f"Evidence search failed: {e}")
+
+    return {
+        "query": query,
+        "sources": sources,
+        "results": results,
+        "count": len(results),
+    }
+
+
+async def cite_evidence_tool(
+    debate_id: str,
+    evidence_id: str,
+    message_index: int,
+    citation_text: str = "",
+) -> Dict[str, Any]:
+    """
+    Add a citation to evidence in a debate message.
+
+    Args:
+        debate_id: ID of the debate
+        evidence_id: ID of the evidence to cite
+        message_index: Index of the message to add citation to
+        citation_text: Optional citation text
+
+    Returns:
+        Dict with citation status
+    """
+    if not debate_id or not evidence_id:
+        return {"error": "debate_id and evidence_id are required"}
+
+    try:
+        from aragora.evidence.collector import EvidenceCollector
+        from aragora.server.storage import get_debates_db
+
+        db = get_debates_db()
+        if not db:
+            return {"error": "Storage not available"}
+
+        debate = db.get(debate_id)
+        if not debate:
+            return {"error": f"Debate {debate_id} not found"}
+
+        # Add citation to debate metadata
+        citations = debate.get("citations", [])
+        citation = {
+            "evidence_id": evidence_id,
+            "message_index": message_index,
+            "text": citation_text,
+            "added_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        citations.append(citation)
+
+        # Update debate
+        if hasattr(db, "update"):
+            db.update(debate_id, {"citations": citations})
+
+        return {
+            "success": True,
+            "debate_id": debate_id,
+            "evidence_id": evidence_id,
+            "message_index": message_index,
+            "citation_count": len(citations),
+        }
+
+    except Exception as e:
+        return {"error": f"Failed to add citation: {e}"}
+
+
+async def verify_citation_tool(
+    url: str,
+) -> Dict[str, Any]:
+    """
+    Verify that a citation URL is valid and accessible.
+
+    Args:
+        url: URL to verify
+
+    Returns:
+        Dict with verification status and metadata
+    """
+    if not url:
+        return {"error": "url is required"}
+
+    import aiohttp
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.head(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                return {
+                    "url": url,
+                    "valid": response.status == 200,
+                    "status_code": response.status,
+                    "content_type": response.headers.get("Content-Type", "unknown"),
+                    "accessible": response.status < 400,
+                }
+    except asyncio.TimeoutError:
+        return {"url": url, "valid": False, "error": "Timeout"}
+    except Exception as e:
+        return {"url": url, "valid": False, "error": str(e)}
+
+
 # Tool metadata for registration
 TOOLS_METADATA = [
     {
@@ -967,6 +1397,93 @@ TOOLS_METADATA = [
             "mutation_rate": {"type": "number", "default": 0.1},
         },
     },
+    # Checkpoint tools
+    {
+        "name": "create_checkpoint",
+        "description": "Create a checkpoint for a debate to enable resume later",
+        "function": create_checkpoint_tool,
+        "parameters": {
+            "debate_id": {"type": "string", "required": True},
+            "label": {"type": "string", "default": ""},
+            "storage_backend": {"type": "string", "default": "file"},
+        },
+    },
+    {
+        "name": "list_checkpoints",
+        "description": "List checkpoints for a debate or all debates",
+        "function": list_checkpoints_tool,
+        "parameters": {
+            "debate_id": {"type": "string", "default": ""},
+            "include_expired": {"type": "boolean", "default": False},
+            "limit": {"type": "integer", "default": 20},
+        },
+    },
+    {
+        "name": "resume_checkpoint",
+        "description": "Resume a debate from a checkpoint",
+        "function": resume_checkpoint_tool,
+        "parameters": {
+            "checkpoint_id": {"type": "string", "required": True},
+        },
+    },
+    {
+        "name": "delete_checkpoint",
+        "description": "Delete a checkpoint",
+        "function": delete_checkpoint_tool,
+        "parameters": {
+            "checkpoint_id": {"type": "string", "required": True},
+        },
+    },
+    # Verification tools
+    {
+        "name": "verify_consensus",
+        "description": "Verify the consensus of a completed debate using formal methods",
+        "function": verify_consensus_tool,
+        "parameters": {
+            "debate_id": {"type": "string", "required": True},
+            "backend": {"type": "string", "default": "z3"},
+        },
+    },
+    {
+        "name": "generate_proof",
+        "description": "Generate a formal proof for a claim without verification",
+        "function": generate_proof_tool,
+        "parameters": {
+            "claim": {"type": "string", "required": True},
+            "output_format": {"type": "string", "default": "lean4"},
+            "context": {"type": "string", "default": ""},
+        },
+    },
+    # Evidence tools
+    {
+        "name": "search_evidence",
+        "description": "Search for evidence across configured sources",
+        "function": search_evidence_tool,
+        "parameters": {
+            "query": {"type": "string", "required": True},
+            "sources": {"type": "string", "default": "all"},
+            "limit": {"type": "integer", "default": 10},
+        },
+    },
+    {
+        "name": "cite_evidence",
+        "description": "Add a citation to evidence in a debate message",
+        "function": cite_evidence_tool,
+        "parameters": {
+            "debate_id": {"type": "string", "required": True},
+            "evidence_id": {"type": "string", "required": True},
+            "message_index": {"type": "integer", "required": True},
+            "citation_text": {"type": "string", "default": ""},
+        },
+    },
+    {
+        "name": "verify_citation",
+        "description": "Verify that a citation URL is valid and accessible",
+        "function": verify_citation_tool,
+        "parameters": {
+            "url": {"type": "string", "required": True},
+        },
+    },
 ]
 
 
@@ -989,5 +1506,17 @@ __all__ = [
     # Genesis tools
     "get_agent_lineage_tool",
     "breed_agents_tool",
+    # Checkpoint tools
+    "create_checkpoint_tool",
+    "list_checkpoints_tool",
+    "resume_checkpoint_tool",
+    "delete_checkpoint_tool",
+    # Verification tools
+    "verify_consensus_tool",
+    "generate_proof_tool",
+    # Evidence tools
+    "search_evidence_tool",
+    "cite_evidence_tool",
+    "verify_citation_tool",
     "TOOLS_METADATA",
 ]

@@ -124,6 +124,13 @@ export function SettingsPanel() {
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [slackWebhook, setSlackWebhook] = useState('');
   const [discordWebhook, setDiscordWebhook] = useState('');
+  const [slackNotifications, setSlackNotifications] = useState({
+    notify_on_consensus: true,
+    notify_on_debate_end: true,
+    notify_on_error: true,
+    notify_on_leaderboard: false,
+  });
+  const [slackTestStatus, setSlackTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // Load preferences
@@ -916,14 +923,131 @@ export function SettingsPanel() {
             <p className="font-mono text-xs text-text-muted mb-4">
               Receive debate notifications in your Slack workspace.
             </p>
-            <input
-              type="url"
-              value={slackWebhook}
-              onChange={(e) => setSlackWebhook(e.target.value)}
-              placeholder="https://hooks.slack.com/services/..."
-              className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
-              aria-label="Slack webhook URL"
-            />
+            <div className="space-y-4">
+              <div>
+                <label className="font-mono text-xs text-text-muted block mb-2">Webhook URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={slackWebhook}
+                    onChange={(e) => setSlackWebhook(e.target.value)}
+                    placeholder="https://hooks.slack.com/services/..."
+                    className="flex-1 bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                    aria-label="Slack webhook URL"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!slackWebhook) return;
+                      setSlackTestStatus('testing');
+                      try {
+                        const response = await fetch(`${backendConfig.api}/api/integrations/slack/test`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ webhook_url: slackWebhook }),
+                        });
+                        setSlackTestStatus(response.ok ? 'success' : 'error');
+                      } catch {
+                        setSlackTestStatus('error');
+                      }
+                      setTimeout(() => setSlackTestStatus('idle'), 3000);
+                    }}
+                    disabled={!slackWebhook || slackTestStatus === 'testing'}
+                    className={`px-4 py-2 font-mono text-sm rounded transition-colors disabled:opacity-50 ${
+                      slackTestStatus === 'success' ? 'bg-acid-green/20 border border-acid-green/40 text-acid-green' :
+                      slackTestStatus === 'error' ? 'bg-acid-red/20 border border-acid-red/40 text-acid-red' :
+                      'bg-surface border border-acid-green/30 text-text hover:border-acid-green/50'
+                    }`}
+                  >
+                    {slackTestStatus === 'testing' ? '...' :
+                     slackTestStatus === 'success' ? 'Sent!' :
+                     slackTestStatus === 'error' ? 'Failed' : 'Test'}
+                  </button>
+                </div>
+              </div>
+
+              {slackWebhook && (
+                <div className="pt-4 border-t border-acid-green/20">
+                  <h4 className="font-mono text-xs text-acid-cyan mb-3">NOTIFICATION SETTINGS</h4>
+                  <div className="space-y-3">
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div>
+                        <div className="font-mono text-sm text-text">Consensus Reached</div>
+                        <div className="font-mono text-xs text-text-muted">Alert when debates reach consensus</div>
+                      </div>
+                      <button
+                        role="switch"
+                        aria-checked={slackNotifications.notify_on_consensus}
+                        onClick={() => setSlackNotifications(prev => ({ ...prev, notify_on_consensus: !prev.notify_on_consensus }))}
+                        className={`w-12 h-6 rounded-full transition-colors ${
+                          slackNotifications.notify_on_consensus ? 'bg-acid-green' : 'bg-surface'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          slackNotifications.notify_on_consensus ? 'translate-x-6' : 'translate-x-0.5'
+                        }`} />
+                      </button>
+                    </label>
+
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div>
+                        <div className="font-mono text-sm text-text">Debate Completed</div>
+                        <div className="font-mono text-xs text-text-muted">Post summaries when debates end</div>
+                      </div>
+                      <button
+                        role="switch"
+                        aria-checked={slackNotifications.notify_on_debate_end}
+                        onClick={() => setSlackNotifications(prev => ({ ...prev, notify_on_debate_end: !prev.notify_on_debate_end }))}
+                        className={`w-12 h-6 rounded-full transition-colors ${
+                          slackNotifications.notify_on_debate_end ? 'bg-acid-green' : 'bg-surface'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          slackNotifications.notify_on_debate_end ? 'translate-x-6' : 'translate-x-0.5'
+                        }`} />
+                      </button>
+                    </label>
+
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div>
+                        <div className="font-mono text-sm text-text">Error Alerts</div>
+                        <div className="font-mono text-xs text-text-muted">Notify on debate errors</div>
+                      </div>
+                      <button
+                        role="switch"
+                        aria-checked={slackNotifications.notify_on_error}
+                        onClick={() => setSlackNotifications(prev => ({ ...prev, notify_on_error: !prev.notify_on_error }))}
+                        className={`w-12 h-6 rounded-full transition-colors ${
+                          slackNotifications.notify_on_error ? 'bg-acid-green' : 'bg-surface'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          slackNotifications.notify_on_error ? 'translate-x-6' : 'translate-x-0.5'
+                        }`} />
+                      </button>
+                    </label>
+
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div>
+                        <div className="font-mono text-sm text-text">Leaderboard Updates</div>
+                        <div className="font-mono text-xs text-text-muted">Post agent ranking changes</div>
+                      </div>
+                      <button
+                        role="switch"
+                        aria-checked={slackNotifications.notify_on_leaderboard}
+                        onClick={() => setSlackNotifications(prev => ({ ...prev, notify_on_leaderboard: !prev.notify_on_leaderboard }))}
+                        className={`w-12 h-6 rounded-full transition-colors ${
+                          slackNotifications.notify_on_leaderboard ? 'bg-acid-green' : 'bg-surface'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          slackNotifications.notify_on_leaderboard ? 'translate-x-6' : 'translate-x-0.5'
+                        }`} />
+                      </button>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="card p-6">

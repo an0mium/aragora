@@ -19,7 +19,7 @@ Usage:
 import asyncio
 import logging
 from functools import lru_cache
-from typing import Any, BinaryIO, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, BinaryIO, Callable, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
 
 from aragora.server.versioning import (
     extract_version,
@@ -39,6 +39,10 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Type alias for handler classes that may be None when handlers are unavailable
+# This allows proper type hints without requiring type: ignore comments
+HandlerType = Optional[Type[Any]]
 
 # Import handlers with graceful fallback
 try:
@@ -93,51 +97,52 @@ try:
 except ImportError:
     HANDLERS_AVAILABLE = False
     # Set all handler classes to None for graceful degradation
-    SystemHandler = None  # type: ignore[misc,assignment]
-    DebatesHandler = None  # type: ignore[misc, assignment]
-    AgentsHandler = None  # type: ignore[misc, assignment]
-    PulseHandler = None  # type: ignore[misc, assignment]
-    AnalyticsHandler = None  # type: ignore[misc, assignment]
-    MetricsHandler = None  # type: ignore[misc, assignment]
-    ConsensusHandler = None  # type: ignore[misc, assignment]
-    BeliefHandler = None  # type: ignore[misc, assignment]
-    CritiqueHandler = None  # type: ignore[misc, assignment]
-    GenesisHandler = None  # type: ignore[misc, assignment]
-    ReplaysHandler = None  # type: ignore[misc, assignment]
-    TournamentHandler = None  # type: ignore[misc, assignment]
-    MemoryHandler = None  # type: ignore[misc, assignment]
-    LeaderboardViewHandler = None  # type: ignore[misc, assignment]
-    DocumentHandler = None  # type: ignore[misc, assignment]
-    VerificationHandler = None  # type: ignore[misc, assignment]
-    AuditingHandler = None  # type: ignore[misc, assignment]
-    RelationshipHandler = None  # type: ignore[misc, assignment]
-    MomentsHandler = None  # type: ignore[misc, assignment]
-    PersonaHandler = None  # type: ignore[misc, assignment]
-    DashboardHandler = None  # type: ignore[misc, assignment]
-    IntrospectionHandler = None  # type: ignore[misc, assignment]
-    CalibrationHandler = None  # type: ignore[misc, assignment]
-    RoutingHandler = None  # type: ignore[misc, assignment]
-    EvolutionHandler = None  # type: ignore[misc, assignment]
-    EvolutionABTestingHandler = None  # type: ignore[misc, assignment]
-    PluginsHandler = None  # type: ignore[misc, assignment]
-    BroadcastHandler = None  # type: ignore[misc, assignment]
-    AudioHandler = None  # type: ignore[misc, assignment]
-    SocialMediaHandler = None  # type: ignore[misc, assignment]
-    LaboratoryHandler = None  # type: ignore[misc, assignment]
-    ProbesHandler = None  # type: ignore[misc, assignment]
-    InsightsHandler = None  # type: ignore[misc, assignment]
-    BreakpointsHandler = None  # type: ignore[misc, assignment]
-    LearningHandler = None  # type: ignore[misc, assignment]
-    GalleryHandler = None  # type: ignore[misc, assignment]
-    AuthHandler = None  # type: ignore[misc, assignment]
-    BillingHandler = None  # type: ignore[misc, assignment]
-    GraphDebatesHandler = None  # type: ignore[misc, assignment]
-    MatrixDebatesHandler = None  # type: ignore[misc, assignment]
-    FeaturesHandler = None  # type: ignore[misc, assignment]
-    MemoryAnalyticsHandler = None  # type: ignore[misc, assignment]
-    GauntletHandler = None  # type: ignore[misc, assignment]
-    SlackHandler = None  # type: ignore[misc, assignment]
-    HandlerResult = None  # type: ignore[misc, assignment]
+    # Using HandlerType alias for proper typing without type: ignore
+    SystemHandler: HandlerType = None
+    DebatesHandler: HandlerType = None
+    AgentsHandler: HandlerType = None
+    PulseHandler: HandlerType = None
+    AnalyticsHandler: HandlerType = None
+    MetricsHandler: HandlerType = None
+    ConsensusHandler: HandlerType = None
+    BeliefHandler: HandlerType = None
+    CritiqueHandler: HandlerType = None
+    GenesisHandler: HandlerType = None
+    ReplaysHandler: HandlerType = None
+    TournamentHandler: HandlerType = None
+    MemoryHandler: HandlerType = None
+    LeaderboardViewHandler: HandlerType = None
+    DocumentHandler: HandlerType = None
+    VerificationHandler: HandlerType = None
+    AuditingHandler: HandlerType = None
+    RelationshipHandler: HandlerType = None
+    MomentsHandler: HandlerType = None
+    PersonaHandler: HandlerType = None
+    DashboardHandler: HandlerType = None
+    IntrospectionHandler: HandlerType = None
+    CalibrationHandler: HandlerType = None
+    RoutingHandler: HandlerType = None
+    EvolutionHandler: HandlerType = None
+    EvolutionABTestingHandler: HandlerType = None
+    PluginsHandler: HandlerType = None
+    BroadcastHandler: HandlerType = None
+    AudioHandler: HandlerType = None
+    SocialMediaHandler: HandlerType = None
+    LaboratoryHandler: HandlerType = None
+    ProbesHandler: HandlerType = None
+    InsightsHandler: HandlerType = None
+    BreakpointsHandler: HandlerType = None
+    LearningHandler: HandlerType = None
+    GalleryHandler: HandlerType = None
+    AuthHandler: HandlerType = None
+    BillingHandler: HandlerType = None
+    GraphDebatesHandler: HandlerType = None
+    MatrixDebatesHandler: HandlerType = None
+    FeaturesHandler: HandlerType = None
+    MemoryAnalyticsHandler: HandlerType = None
+    GauntletHandler: HandlerType = None
+    SlackHandler: HandlerType = None
+    HandlerResult: HandlerType = None
 
 
 # Handler class registry - ordered list of (attr_name, handler_class) pairs

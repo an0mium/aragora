@@ -1,0 +1,629 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { fetchWithRetry } from '@/utils/retry';
+
+interface BackendConfig {
+  apiUrl: string;
+  wsUrl: string;
+}
+
+interface BackendStatus {
+  language: string;
+  available: boolean;
+}
+
+interface VerificationStatus {
+  backends: BackendStatus[];
+  any_available: boolean;
+  deepseek_prover_available: boolean;
+}
+
+interface VerificationResult {
+  status: string;
+  language?: string;
+  is_verified?: boolean;
+  formal_statement?: string;
+  proof_hash?: string;
+  translation_time_ms?: number;
+  proof_search_time_ms?: number;
+  error_message?: string;
+  prover_version?: string;
+}
+
+interface BatchResult {
+  results: VerificationResult[];
+  summary: {
+    total: number;
+    verified: number;
+    failed: number;
+    timeout: number;
+  };
+}
+
+interface TranslationResult {
+  success: boolean;
+  formal_statement: string;
+  language: string;
+  model_used: string;
+  confidence: number;
+  translation_time_ms: number;
+  error_message: string;
+}
+
+interface ProofVisualizerPanelProps {
+  backendConfig?: BackendConfig;
+  debateId?: string;
+}
+
+const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+
+const STATUS_COLORS: Record<string, { text: string; bg: string }> = {
+  proof_found: { text: 'text-acid-green', bg: 'bg-acid-green/20' },
+  translation_failed: { text: 'text-acid-red', bg: 'bg-acid-red/20' },
+  proof_failed: { text: 'text-acid-yellow', bg: 'bg-acid-yellow/20' },
+  timeout: { text: 'text-text-muted', bg: 'bg-surface' },
+  error: { text: 'text-acid-red', bg: 'bg-acid-red/20' },
+};
+
+export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualizerPanelProps) {
+  const apiBase = backendConfig?.apiUrl || DEFAULT_API_BASE;
+
+  const [activeTab, setActiveTab] = useState<'single' | 'batch' | 'translate' | 'history'>('single');
+  const [backendStatus, setBackendStatus] = useState<VerificationStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(true);
+
+  // Single verification state
+  const [claim, setClaim] = useState('');
+  const [claimType, setClaimType] = useState('');
+  const [context, setContext] = useState('');
+  const [timeout, setTimeout] = useState(60);
+  const [singleResult, setSingleResult] = useState<VerificationResult | null>(null);
+
+  // Batch verification state
+  const [batchClaims, setBatchClaims] = useState('');
+  const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
+
+  // Translation state
+  const [translateClaim, setTranslateClaim] = useState('');
+  const [targetLanguage, setTargetLanguage] = useState<'lean4' | 'z3_smt'>('lean4');
+  const [translationResult, setTranslationResult] = useState<TranslationResult | null>(null);
+
+  // History state
+  const [history, setHistory] = useState<VerificationResult[]>([]);
+
+  // Fetch backend status
+  const fetchStatus = useCallback(async () => {
+    try {
+      setStatusLoading(true);
+      const response = await fetchWithRetry(`${apiBase}/api/verify/status`, undefined, { maxRetries: 2 });
+      if (response.ok) {
+        const data = await response.json();
+        setBackendStatus(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch verification status:', err);
+    } finally {
+      setStatusLoading(false);
+    }
+  }, [apiBase]);
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  // Single claim verification
+  const handleVerifyClaim = async () => {
+    if (!claim.trim()) return;
+
+    setLoading(true);
+    setSingleResult(null);
+
+    try {
+      const response = await fetch(`${apiBase}/api/verify/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          claim: claim.trim(),
+          claim_type: claimType || undefined,
+          context: context || undefined,
+          timeout,
+        }),
+      });
+
+      const data = await response.json();
+      setSingleResult(data);
+      setHistory(prev => [data, ...prev.slice(0, 19)]);
+    } catch (err) {
+      console.error('Verification failed:', err);
+      setSingleResult({
+        status: 'error',
+        error_message: String(err),
+        is_verified: false,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Batch verification
+  const handleBatchVerify = async () => {
+    const lines = batchClaims.split('\n').filter(l => l.trim());
+    if (lines.length === 0) return;
+
+    setLoading(true);
+    setBatchResult(null);
+
+    try {
+      const claims = lines.map(line => ({ claim: line.trim() }));
+      const response = await fetch(`${apiBase}/api/verify/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          claims,
+          timeout_per_claim: 30,
+          max_concurrent: 3,
+        }),
+      });
+
+      const data = await response.json();
+      setBatchResult(data);
+    } catch (err) {
+      console.error('Batch verification failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Translation
+  const handleTranslate = async () => {
+    if (!translateClaim.trim()) return;
+
+    setLoading(true);
+    setTranslationResult(null);
+
+    try {
+      const response = await fetch(`${apiBase}/api/verify/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          claim: translateClaim.trim(),
+          target_language: targetLanguage,
+        }),
+      });
+
+      const data = await response.json();
+      setTranslationResult(data);
+    } catch (err) {
+      console.error('Translation failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderStatusBadge = (status: string) => {
+    const style = STATUS_COLORS[status] || STATUS_COLORS.error;
+    return (
+      <span className={`px-2 py-0.5 rounded text-xs font-mono ${style.bg} ${style.text}`}>
+        {status.replace('_', ' ').toUpperCase()}
+      </span>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Backend Status */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-mono text-acid-green text-lg">VERIFICATION BACKENDS</h3>
+            <p className="text-xs font-mono text-text-muted mt-1">
+              Available proof backends for formal verification
+            </p>
+          </div>
+          <button
+            onClick={fetchStatus}
+            className="px-3 py-1 text-xs font-mono bg-surface border border-acid-green/30 rounded hover:border-acid-green/50 transition-colors"
+          >
+            [REFRESH]
+          </button>
+        </div>
+
+        {statusLoading ? (
+          <div className="text-acid-green font-mono animate-pulse">Loading status...</div>
+        ) : backendStatus ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {backendStatus.backends.map((backend) => (
+              <div
+                key={backend.language}
+                className={`p-3 rounded border ${
+                  backend.available
+                    ? 'border-acid-green/40 bg-acid-green/10'
+                    : 'border-acid-red/40 bg-acid-red/10'
+                }`}
+              >
+                <div className="font-mono text-sm mb-1">
+                  {backend.language.toUpperCase()}
+                </div>
+                <div
+                  className={`text-xs font-mono ${
+                    backend.available ? 'text-acid-green' : 'text-acid-red'
+                  }`}
+                >
+                  {backend.available ? 'ONLINE' : 'OFFLINE'}
+                </div>
+              </div>
+            ))}
+            <div
+              className={`p-3 rounded border ${
+                backendStatus.deepseek_prover_available
+                  ? 'border-acid-cyan/40 bg-acid-cyan/10'
+                  : 'border-text-muted/40 bg-surface'
+              }`}
+            >
+              <div className="font-mono text-sm mb-1">DEEPSEEK-PROVER</div>
+              <div
+                className={`text-xs font-mono ${
+                  backendStatus.deepseek_prover_available ? 'text-acid-cyan' : 'text-text-muted'
+                }`}
+              >
+                {backendStatus.deepseek_prover_available ? 'ONLINE' : 'OFFLINE'}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-text-muted font-mono">Failed to load status</div>
+        )}
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="flex gap-2 border-b border-acid-green/20 pb-2">
+        {(['single', 'batch', 'translate', 'history'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 font-mono text-sm rounded-t transition-colors ${
+              activeTab === tab
+                ? 'bg-acid-green/20 text-acid-green border-b-2 border-acid-green'
+                : 'text-text-muted hover:text-text'
+            }`}
+          >
+            {tab.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      {/* Single Verification Tab */}
+      {activeTab === 'single' && (
+        <div className="space-y-4">
+          <div className="card p-4">
+            <h4 className="font-mono text-acid-cyan mb-4">VERIFY SINGLE CLAIM</h4>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-mono text-text-muted mb-2">CLAIM</label>
+                <textarea
+                  value={claim}
+                  onChange={(e) => setClaim(e.target.value)}
+                  placeholder="Enter a claim to verify, e.g., 'For all natural numbers n, n + 0 = n'"
+                  className="w-full h-24 bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-mono text-text-muted mb-2">CLAIM TYPE (optional)</label>
+                  <select
+                    value={claimType}
+                    onChange={(e) => setClaimType(e.target.value)}
+                    className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                  >
+                    <option value="">Auto-detect</option>
+                    <option value="MATHEMATICAL">Mathematical</option>
+                    <option value="LOGICAL">Logical</option>
+                    <option value="FACTUAL">Factual</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-text-muted mb-2">TIMEOUT (seconds)</label>
+                  <input
+                    type="number"
+                    value={timeout}
+                    onChange={(e) => setTimeout(Number(e.target.value))}
+                    min={5}
+                    max={300}
+                    className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    onClick={handleVerifyClaim}
+                    disabled={loading || !claim.trim()}
+                    className="w-full px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? '[VERIFYING...]' : '[VERIFY CLAIM]'}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-text-muted mb-2">CONTEXT (optional)</label>
+                <input
+                  type="text"
+                  value={context}
+                  onChange={(e) => setContext(e.target.value)}
+                  placeholder="Additional context for the claim"
+                  className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Single Result */}
+          {singleResult && (
+            <div className="card p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-mono text-acid-cyan">VERIFICATION RESULT</h4>
+                {renderStatusBadge(singleResult.status)}
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div className="p-2 bg-surface rounded">
+                    <div className={`text-lg font-mono ${singleResult.is_verified ? 'text-acid-green' : 'text-acid-red'}`}>
+                      {singleResult.is_verified ? 'YES' : 'NO'}
+                    </div>
+                    <div className="text-xs font-mono text-text-muted">verified</div>
+                  </div>
+                  <div className="p-2 bg-surface rounded">
+                    <div className="text-lg font-mono text-acid-cyan">
+                      {singleResult.language?.toUpperCase() || 'N/A'}
+                    </div>
+                    <div className="text-xs font-mono text-text-muted">language</div>
+                  </div>
+                  <div className="p-2 bg-surface rounded">
+                    <div className="text-lg font-mono text-text">
+                      {singleResult.translation_time_ms?.toFixed(0) || '0'}ms
+                    </div>
+                    <div className="text-xs font-mono text-text-muted">translation</div>
+                  </div>
+                  <div className="p-2 bg-surface rounded">
+                    <div className="text-lg font-mono text-text">
+                      {singleResult.proof_search_time_ms?.toFixed(0) || '0'}ms
+                    </div>
+                    <div className="text-xs font-mono text-text-muted">proof search</div>
+                  </div>
+                </div>
+
+                {singleResult.formal_statement && (
+                  <div>
+                    <label className="block text-xs font-mono text-text-muted mb-2">FORMAL STATEMENT</label>
+                    <pre className="bg-surface p-3 rounded font-mono text-sm overflow-x-auto border border-acid-green/20">
+                      {singleResult.formal_statement}
+                    </pre>
+                  </div>
+                )}
+
+                {singleResult.error_message && (
+                  <div>
+                    <label className="block text-xs font-mono text-acid-red mb-2">ERROR</label>
+                    <pre className="bg-acid-red/10 p-3 rounded font-mono text-sm text-acid-red border border-acid-red/30">
+                      {singleResult.error_message}
+                    </pre>
+                  </div>
+                )}
+
+                {singleResult.proof_hash && (
+                  <div className="text-xs font-mono text-text-muted">
+                    Proof hash: {singleResult.proof_hash}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Batch Verification Tab */}
+      {activeTab === 'batch' && (
+        <div className="space-y-4">
+          <div className="card p-4">
+            <h4 className="font-mono text-acid-cyan mb-4">BATCH VERIFICATION</h4>
+            <p className="text-xs font-mono text-text-muted mb-4">
+              Enter one claim per line (max 20 claims)
+            </p>
+
+            <textarea
+              value={batchClaims}
+              onChange={(e) => setBatchClaims(e.target.value)}
+              placeholder="1 + 1 = 2&#10;For all x, x = x&#10;If A implies B and B implies C, then A implies C"
+              className="w-full h-40 bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green resize-none mb-4"
+            />
+
+            <button
+              onClick={handleBatchVerify}
+              disabled={loading || !batchClaims.trim()}
+              className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? '[VERIFYING...]' : '[VERIFY BATCH]'}
+            </button>
+          </div>
+
+          {/* Batch Results */}
+          {batchResult && (
+            <div className="card p-4">
+              <h4 className="font-mono text-acid-cyan mb-4">BATCH RESULTS</h4>
+
+              {/* Summary */}
+              <div className="grid grid-cols-4 gap-4 mb-6 text-center">
+                <div className="p-2 bg-surface rounded">
+                  <div className="text-lg font-mono text-text">{batchResult.summary.total}</div>
+                  <div className="text-xs font-mono text-text-muted">total</div>
+                </div>
+                <div className="p-2 bg-surface rounded">
+                  <div className="text-lg font-mono text-acid-green">{batchResult.summary.verified}</div>
+                  <div className="text-xs font-mono text-text-muted">verified</div>
+                </div>
+                <div className="p-2 bg-surface rounded">
+                  <div className="text-lg font-mono text-acid-red">{batchResult.summary.failed}</div>
+                  <div className="text-xs font-mono text-text-muted">failed</div>
+                </div>
+                <div className="p-2 bg-surface rounded">
+                  <div className="text-lg font-mono text-acid-yellow">{batchResult.summary.timeout}</div>
+                  <div className="text-xs font-mono text-text-muted">timeout</div>
+                </div>
+              </div>
+
+              {/* Individual Results */}
+              <div className="space-y-2">
+                {batchResult.results.map((result, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-surface rounded">
+                    <span className="font-mono text-sm text-text-muted">Claim {index + 1}</span>
+                    {renderStatusBadge(result.status)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Translation Tab */}
+      {activeTab === 'translate' && (
+        <div className="space-y-4">
+          <div className="card p-4">
+            <h4 className="font-mono text-acid-cyan mb-4">TRANSLATE TO FORMAL LANGUAGE</h4>
+            <p className="text-xs font-mono text-text-muted mb-4">
+              Convert natural language claims to formal notation without verification
+            </p>
+
+            <div className="space-y-4">
+              <textarea
+                value={translateClaim}
+                onChange={(e) => setTranslateClaim(e.target.value)}
+                placeholder="Enter a claim to translate..."
+                className="w-full h-24 bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green resize-none"
+              />
+
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-xs font-mono text-text-muted mb-2">TARGET LANGUAGE</label>
+                  <select
+                    value={targetLanguage}
+                    onChange={(e) => setTargetLanguage(e.target.value as 'lean4' | 'z3_smt')}
+                    className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                  >
+                    <option value="lean4">Lean 4</option>
+                    <option value="z3_smt">Z3 SMT</option>
+                  </select>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    onClick={handleTranslate}
+                    disabled={loading || !translateClaim.trim()}
+                    className="px-4 py-2 bg-acid-cyan/20 border border-acid-cyan/40 text-acid-cyan font-mono text-sm rounded hover:bg-acid-cyan/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? '[TRANSLATING...]' : '[TRANSLATE]'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Translation Result */}
+          {translationResult && (
+            <div className="card p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-mono text-acid-cyan">TRANSLATION RESULT</h4>
+                <span className={`px-2 py-0.5 rounded text-xs font-mono ${
+                  translationResult.success
+                    ? 'bg-acid-green/20 text-acid-green'
+                    : 'bg-acid-red/20 text-acid-red'
+                }`}>
+                  {translationResult.success ? 'SUCCESS' : 'FAILED'}
+                </span>
+              </div>
+
+              {translationResult.formal_statement && (
+                <div className="mb-4">
+                  <label className="block text-xs font-mono text-text-muted mb-2">FORMAL STATEMENT</label>
+                  <pre className="bg-surface p-3 rounded font-mono text-sm overflow-x-auto border border-acid-green/20">
+                    {translationResult.formal_statement}
+                  </pre>
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="p-2 bg-surface rounded">
+                  <div className="text-sm font-mono text-acid-cyan">
+                    {translationResult.language.toUpperCase()}
+                  </div>
+                  <div className="text-xs font-mono text-text-muted">language</div>
+                </div>
+                <div className="p-2 bg-surface rounded">
+                  <div className="text-sm font-mono text-text">
+                    {(translationResult.confidence * 100).toFixed(0)}%
+                  </div>
+                  <div className="text-xs font-mono text-text-muted">confidence</div>
+                </div>
+                <div className="p-2 bg-surface rounded">
+                  <div className="text-sm font-mono text-text">
+                    {translationResult.translation_time_ms.toFixed(0)}ms
+                  </div>
+                  <div className="text-xs font-mono text-text-muted">time</div>
+                </div>
+              </div>
+
+              {translationResult.error_message && (
+                <div className="mt-4">
+                  <pre className="bg-acid-red/10 p-3 rounded font-mono text-sm text-acid-red border border-acid-red/30">
+                    {translationResult.error_message}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* History Tab */}
+      {activeTab === 'history' && (
+        <div className="card p-4">
+          <h4 className="font-mono text-acid-cyan mb-4">VERIFICATION HISTORY</h4>
+
+          {history.length === 0 ? (
+            <div className="text-center py-8 text-text-muted font-mono">
+              No verification history yet. Run some verifications to see them here.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {history.map((result, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-surface rounded border border-acid-green/20"
+                >
+                  <div className="flex-1">
+                    <div className="font-mono text-sm text-text line-clamp-1">
+                      {result.formal_statement?.slice(0, 80) || 'No formal statement'}
+                      {(result.formal_statement?.length || 0) > 80 ? '...' : ''}
+                    </div>
+                    <div className="text-xs font-mono text-text-muted mt-1">
+                      {result.language?.toUpperCase() || 'N/A'} |
+                      {result.translation_time_ms?.toFixed(0) || '0'}ms translation |
+                      {result.proof_search_time_ms?.toFixed(0) || '0'}ms proof
+                    </div>
+                  </div>
+                  {renderStatusBadge(result.status)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
