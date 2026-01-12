@@ -315,8 +315,11 @@ class WebConnector(BaseConnector):
         """
         Resolve hostname to IP and validate it's not private/local.
 
-        This prevents DNS rebinding attacks where an attacker's DNS server
-        returns a public IP initially but a private IP later.
+        Security measures:
+        - Uses getaddrinfo() for IPv4+IPv6 support (not just gethostbyname)
+        - Validates ALL resolved IPs, not just the first one
+        - Blocks on DNS failure (fail-closed, not fail-open)
+        - Checks multicast addresses
 
         Returns:
             Tuple of (is_safe, error_message). If is_safe is False,
@@ -328,6 +331,7 @@ class WebConnector(BaseConnector):
         try:
             parsed = urlparse(url)
             hostname = parsed.hostname
+            port = parsed.port or (443 if parsed.scheme == 'https' else 80)
 
             if not hostname:
                 return False, "No hostname in URL"
@@ -336,24 +340,36 @@ class WebConnector(BaseConnector):
             if hostname in ('localhost', '127.0.0.1', '::1'):
                 return False, "Localhost access blocked"
 
-            # Resolve hostname to IP
+            # Resolve hostname to ALL IPs (IPv4 + IPv6)
             try:
-                ip_str = socket.gethostbyname(hostname)
+                addr_info = socket.getaddrinfo(
+                    hostname, port, socket.AF_UNSPEC, socket.SOCK_STREAM
+                )
             except socket.gaierror as e:
-                # DNS resolution failed - let httpx handle it
-                logger.debug(f"DNS resolution failed for {hostname}: {e}")
-                return True, ""
+                # DNS resolution failed - BLOCK (fail-closed for security)
+                logger.warning(f"DNS resolution failed for {hostname}: {e}")
+                return False, f"DNS resolution failed: {e}"
 
-            # Validate the resolved IP
-            try:
-                ip = ipaddress.ip_address(ip_str)
-                if ip.is_private or ip.is_loopback or ip.is_link_local:
-                    return False, f"Resolved to private IP: {ip_str}"
-                if ip.is_reserved:
-                    return False, f"Resolved to reserved IP: {ip_str}"
-            except ValueError:
-                # Shouldn't happen since gethostbyname returns valid IPs
-                pass
+            if not addr_info:
+                return False, f"DNS resolution returned no results for {hostname}"
+
+            # Validate ALL resolved IPs (prevents DNS rebinding attacks)
+            for family, socktype, proto, canonname, sockaddr in addr_info:
+                ip_str = sockaddr[0]
+                try:
+                    ip = ipaddress.ip_address(ip_str)
+                    if ip.is_private:
+                        return False, f"Resolved to private IP: {ip_str}"
+                    if ip.is_loopback:
+                        return False, f"Resolved to loopback IP: {ip_str}"
+                    if ip.is_link_local:
+                        return False, f"Resolved to link-local IP: {ip_str}"
+                    if ip.is_reserved:
+                        return False, f"Resolved to reserved IP: {ip_str}"
+                    if ip.is_multicast:
+                        return False, f"Resolved to multicast IP: {ip_str}"
+                except ValueError:
+                    return False, f"Invalid IP address format: {ip_str}"
 
             return True, ""
 

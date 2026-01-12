@@ -1536,5 +1536,263 @@ class TestMigration:
         assert hasattr(rating, 'calibration_brier_sum')
 
 
+class TestMultiAgentMatches:
+    """Tests for 3+ agent match scenarios."""
+
+    def test_three_agent_match_scoring(self, elo):
+        """Test scoring with exactly 3 agents."""
+        elo.record_match(
+            debate_id="three_way_1",
+            participants=["first", "second", "third"],
+            scores={"first": 1.0, "second": 0.5, "third": 0.0}
+        )
+
+        # First should have highest ELO (beat both)
+        first_elo = elo.get_rating("first").elo
+        second_elo = elo.get_rating("second").elo
+        third_elo = elo.get_rating("third").elo
+
+        assert first_elo > second_elo > third_elo
+        assert first_elo > 1500
+        assert third_elo < 1500
+
+    def test_four_agent_match_scoring(self, elo):
+        """Test scoring with 4 agents."""
+        elo.record_match(
+            debate_id="four_way",
+            participants=["p1", "p2", "p3", "p4"],
+            scores={"p1": 1.0, "p2": 0.66, "p3": 0.33, "p4": 0.0}
+        )
+
+        # All should have played
+        for p in ["p1", "p2", "p3", "p4"]:
+            assert elo.get_rating(p).games_played == 1
+
+        # Ranking should match scores
+        elos = [elo.get_rating(f"p{i}").elo for i in range(1, 5)]
+        assert elos == sorted(elos, reverse=True)
+
+    def test_multi_agent_all_tied(self, elo):
+        """Test multi-agent match where all tie."""
+        elo.record_match(
+            debate_id="multi_tie",
+            participants=["tied_a", "tied_b", "tied_c"],
+            scores={"tied_a": 0.5, "tied_b": 0.5, "tied_c": 0.5}
+        )
+
+        # All should have played and counted as draws
+        for agent in ["tied_a", "tied_b", "tied_c"]:
+            rating = elo.get_rating(agent)
+            assert rating.games_played == 1
+            # ELOs should all be close to 1500
+            assert abs(rating.elo - 1500) < 10
+
+    def test_multi_agent_two_winners(self, elo):
+        """Test multi-agent match with two equal winners."""
+        elo.record_match(
+            debate_id="two_winners",
+            participants=["winner1", "winner2", "loser1", "loser2"],
+            scores={"winner1": 1.0, "winner2": 1.0, "loser1": 0.0, "loser2": 0.0}
+        )
+
+        # Both winners should gain, both losers should lose
+        w1_elo = elo.get_rating("winner1").elo
+        w2_elo = elo.get_rating("winner2").elo
+        l1_elo = elo.get_rating("loser1").elo
+        l2_elo = elo.get_rating("loser2").elo
+
+        assert w1_elo > 1500
+        assert w2_elo > 1500
+        assert l1_elo < 1500
+        assert l2_elo < 1500
+
+
+class TestCachingEdgeCases:
+    """Tests for cache hit/miss/TTL edge cases."""
+
+    def test_cache_hit_returns_same_result(self, elo):
+        """Test that cache hit returns identical results."""
+        elo.record_match("m1", ["cached_a", "cached_b"], {"cached_a": 1.0, "cached_b": 0.0})
+
+        # First call populates cache
+        rating1 = elo.get_rating("cached_a", use_cache=True)
+        # Second call should hit cache
+        rating2 = elo.get_rating("cached_a", use_cache=True)
+
+        assert rating1.elo == rating2.elo
+        assert rating1.wins == rating2.wins
+
+    def test_cache_miss_after_invalidation(self, elo):
+        """Test that invalidation causes cache miss."""
+        elo.record_match("m1", ["inv_agent", "opp"], {"inv_agent": 1.0, "opp": 0.0})
+
+        # Populate cache
+        elo.get_rating("inv_agent", use_cache=True)
+
+        # Invalidate
+        elo.invalidate_rating_cache("inv_agent")
+
+        # Record another match
+        elo.record_match("m2", ["inv_agent", "opp2"], {"inv_agent": 1.0, "opp2": 0.0})
+
+        # Should get fresh data
+        rating = elo.get_rating("inv_agent", use_cache=False)
+        assert rating.games_played == 2
+
+    def test_cache_stale_after_new_match(self, elo):
+        """Test that cache invalidation happens after new matches."""
+        elo.record_match("m1", ["stale_test", "opp"], {"stale_test": 1.0, "opp": 0.0})
+        initial_elo = elo.get_rating("stale_test").elo
+
+        # Record more matches - should invalidate cache
+        for i in range(3):
+            elo.record_match(f"m{i+2}", ["stale_test", f"opp{i}"], {"stale_test": 1.0, f"opp{i}": 0.0})
+
+        # Should reflect new matches
+        final_elo = elo.get_rating("stale_test").elo
+        assert final_elo > initial_elo
+
+    def test_leaderboard_cache_invalidation(self, elo):
+        """Test leaderboard cache is invalidated after matches."""
+        elo.record_match("lb1", ["lb_a", "lb_b"], {"lb_a": 1.0, "lb_b": 0.0})
+        leaderboard1 = elo.get_cached_leaderboard(limit=10)
+
+        # Record more matches
+        elo.record_match("lb2", ["lb_c", "lb_d"], {"lb_c": 1.0, "lb_d": 0.0})
+
+        # Invalidate and get new leaderboard
+        elo.invalidate_leaderboard_cache()
+        leaderboard2 = elo.get_cached_leaderboard(limit=10)
+
+        # Second leaderboard should have more agents
+        assert len(leaderboard2) >= len(leaderboard1)
+
+    def test_cache_bypass_always_fresh(self, elo):
+        """Test that use_cache=False always gets fresh data."""
+        elo.record_match("m1", ["bypass_agent", "opp"], {"bypass_agent": 1.0, "opp": 0.0})
+
+        # Get rating without cache
+        rating1 = elo.get_rating("bypass_agent", use_cache=False)
+
+        # Record another match
+        elo.record_match("m2", ["bypass_agent", "opp2"], {"bypass_agent": 1.0, "opp2": 0.0})
+
+        # Should get updated data
+        rating2 = elo.get_rating("bypass_agent", use_cache=False)
+        assert rating2.games_played == rating1.games_played + 1
+        assert rating2.elo > rating1.elo
+
+
+class TestHeadToHeadComplex:
+    """Tests for complex head-to-head match histories."""
+
+    def test_head_to_head_many_matches(self, elo):
+        """Test head-to-head with many matches."""
+        # Record 10 matches between same agents
+        # i % 3 != 0: A wins when i = 1,2,4,5,7,8 (6 wins)
+        # i % 3 == 0: B wins when i = 0,3,6,9 (4 wins)
+        for i in range(10):
+            winner = "h2h_a" if i % 3 != 0 else "h2h_b"
+            loser = "h2h_b" if i % 3 != 0 else "h2h_a"
+            elo.record_match(
+                f"h2h_match_{i}",
+                ["h2h_a", "h2h_b"],
+                {winner: 1.0, loser: 0.0}
+            )
+
+        h2h = elo.get_head_to_head("h2h_a", "h2h_b")
+        assert h2h["matches"] == 10
+        assert h2h["h2h_a_wins"] == 6
+        assert h2h["h2h_b_wins"] == 4
+
+    def test_head_to_head_with_draws(self, elo):
+        """Test head-to-head including draws."""
+        # Mix of wins and draws
+        elo.record_match("h2h_1", ["draw_a", "draw_b"], {"draw_a": 1.0, "draw_b": 0.0})
+        elo.record_match("h2h_2", ["draw_a", "draw_b"], {"draw_a": 0.5, "draw_b": 0.5})
+        elo.record_match("h2h_3", ["draw_a", "draw_b"], {"draw_b": 1.0, "draw_a": 0.0})
+        elo.record_match("h2h_4", ["draw_a", "draw_b"], {"draw_a": 0.5, "draw_b": 0.5})
+
+        h2h = elo.get_head_to_head("draw_a", "draw_b")
+        assert h2h["matches"] == 4
+        assert h2h["draw_a_wins"] == 1
+        assert h2h["draw_b_wins"] == 1
+        assert h2h["draws"] == 2
+
+    def test_head_to_head_order_independent(self, elo):
+        """Test that h2h lookup order doesn't matter."""
+        elo.record_match("order_1", ["order_x", "order_y"], {"order_x": 1.0, "order_y": 0.0})
+        elo.record_match("order_2", ["order_x", "order_y"], {"order_y": 1.0, "order_x": 0.0})
+
+        h2h_xy = elo.get_head_to_head("order_x", "order_y")
+        h2h_yx = elo.get_head_to_head("order_y", "order_x")
+
+        # Results should be equivalent
+        assert h2h_xy["matches"] == h2h_yx["matches"]
+        assert h2h_xy["order_x_wins"] == h2h_yx["order_x_wins"]
+        assert h2h_xy["order_y_wins"] == h2h_yx["order_y_wins"]
+
+
+class TestDomainQueries:
+    """Tests for domain-specific leaderboard queries."""
+
+    def test_domain_leaderboard_filters_correctly(self, elo):
+        """Test domain leaderboard only includes domain matches."""
+        # Security expert
+        for i in range(5):
+            elo.record_match(
+                f"sec_{i}",
+                ["sec_expert", f"sec_opp_{i}"],
+                {"sec_expert": 1.0, f"sec_opp_{i}": 0.0},
+                domain="security"
+            )
+
+        # Performance expert
+        for i in range(5):
+            elo.record_match(
+                f"perf_{i}",
+                ["perf_expert", f"perf_opp_{i}"],
+                {"perf_expert": 1.0, f"perf_opp_{i}": 0.0},
+                domain="performance"
+            )
+
+        # Security leaderboard should rank sec_expert high
+        sec_board = elo.get_leaderboard(domain="security", limit=10)
+        sec_agents = [e.agent_name for e in sec_board]
+        assert "sec_expert" in sec_agents
+
+        # Performance leaderboard should rank perf_expert high
+        perf_board = elo.get_leaderboard(domain="performance", limit=10)
+        perf_agents = [e.agent_name for e in perf_board]
+        assert "perf_expert" in perf_agents
+
+    def test_get_top_agents_for_domain_ordering(self, elo):
+        """Test top agents are ordered by domain ELO."""
+        agents = ["dom_a", "dom_b", "dom_c"]
+
+        # Record matches so dom_a > dom_b > dom_c in ethics
+        elo.record_match("d1", ["dom_a", "dom_b"], {"dom_a": 1.0, "dom_b": 0.0}, domain="ethics")
+        elo.record_match("d2", ["dom_a", "dom_c"], {"dom_a": 1.0, "dom_c": 0.0}, domain="ethics")
+        elo.record_match("d3", ["dom_b", "dom_c"], {"dom_b": 1.0, "dom_c": 0.0}, domain="ethics")
+
+        top = elo.get_top_agents_for_domain("ethics", limit=10)
+        top_names = [r.agent_name for r in top]
+
+        # Should be ordered by domain ELO
+        assert top_names.index("dom_a") < top_names.index("dom_b")
+        assert top_names.index("dom_b") < top_names.index("dom_c")
+
+    def test_domain_leaderboard_empty_domain(self, elo):
+        """Test leaderboard for domain with no matches."""
+        # Record matches in one domain
+        elo.record_match("m1", ["a", "b"], {"a": 1.0, "b": 0.0}, domain="known")
+
+        # Query different domain
+        unknown_board = elo.get_leaderboard(domain="unknown_domain", limit=10)
+
+        # Should be empty or have default ratings
+        assert isinstance(unknown_board, list)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

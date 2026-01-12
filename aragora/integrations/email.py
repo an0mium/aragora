@@ -109,6 +109,7 @@ class EmailIntegration:
         self._email_count = 0
         self._last_reset = datetime.now()
         self._pending_digests: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        self._rate_limit_lock = asyncio.Lock()  # Thread-safe rate limiting
 
     def add_recipient(self, recipient: EmailRecipient) -> None:
         """Add an email recipient."""
@@ -122,21 +123,26 @@ class EmailIntegration:
                 return True
         return False
 
-    def _check_rate_limit(self) -> bool:
-        """Check if we're within rate limits."""
-        now = datetime.now()
-        elapsed = (now - self._last_reset).total_seconds()
+    async def _check_rate_limit(self) -> bool:
+        """Check if we're within rate limits (thread-safe).
 
-        if elapsed >= 3600:  # 1 hour
-            self._email_count = 0
-            self._last_reset = now
+        Uses asyncio.Lock to prevent race conditions when multiple
+        coroutines check and increment the counter concurrently.
+        """
+        async with self._rate_limit_lock:
+            now = datetime.now()
+            elapsed = (now - self._last_reset).total_seconds()
 
-        if self._email_count >= self.config.max_emails_per_hour:
-            logger.warning("Email rate limit reached, skipping email")
-            return False
+            if elapsed >= 3600:  # 1 hour
+                self._email_count = 0
+                self._last_reset = now
 
-        self._email_count += 1
-        return True
+            if self._email_count >= self.config.max_emails_per_hour:
+                logger.warning("Email rate limit reached, skipping email")
+                return False
+
+            self._email_count += 1
+            return True
 
     async def _send_email(
         self,
@@ -146,7 +152,7 @@ class EmailIntegration:
         text_body: Optional[str] = None,
     ) -> bool:
         """Send an email with retry logic."""
-        if not self._check_rate_limit():
+        if not await self._check_rate_limit():
             return False
 
         for attempt in range(self.config.max_retries):

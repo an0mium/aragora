@@ -496,3 +496,186 @@ class TestAgentFriendlyMethods:
 
             assert "## Content from: Page Title" in result
             assert "Page content here" in result
+
+
+# =============================================================================
+# SSRF Protection Tests
+# =============================================================================
+
+
+import socket
+
+
+class TestSSRFProtection:
+    """Tests for SSRF (Server-Side Request Forgery) protection."""
+
+    def test_dns_failure_blocks_request(self, temp_dir):
+        """DNS resolution failure should block request (fail-closed)."""
+        connector = WebConnector(cache_dir=str(temp_dir))
+
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            mock_getaddrinfo.side_effect = socket.gaierror(8, "Name resolution failed")
+
+            is_safe, error_msg = connector._resolve_and_validate_ip("http://nonexistent.invalid/")
+
+            assert is_safe is False
+            assert "DNS resolution failed" in error_msg
+
+    def test_ipv6_loopback_blocked(self, temp_dir):
+        """IPv6 loopback address ::1 should be blocked."""
+        connector = WebConnector(cache_dir=str(temp_dir))
+
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            # Return IPv6 loopback
+            mock_getaddrinfo.return_value = [
+                (10, 1, 6, '', ('::1', 80, 0, 0))  # AF_INET6
+            ]
+
+            is_safe, error_msg = connector._resolve_and_validate_ip("http://evil.com/")
+
+            assert is_safe is False
+            # Python's ipaddress classifies ::1 as both loopback AND private
+            assert "::1" in error_msg or "loopback" in error_msg.lower() or "private" in error_msg.lower()
+
+    def test_ipv6_private_blocked(self, temp_dir):
+        """IPv6 private range fc00::/7 should be blocked."""
+        connector = WebConnector(cache_dir=str(temp_dir))
+
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            # Return IPv6 private address
+            mock_getaddrinfo.return_value = [
+                (10, 1, 6, '', ('fd00::1', 80, 0, 0))  # Unique local address
+            ]
+
+            is_safe, error_msg = connector._resolve_and_validate_ip("http://evil.com/")
+
+            assert is_safe is False
+            assert "private" in error_msg.lower()
+
+    def test_ipv6_link_local_blocked(self, temp_dir):
+        """IPv6 link-local fe80::/10 should be blocked."""
+        connector = WebConnector(cache_dir=str(temp_dir))
+
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            # Return IPv6 link-local address
+            mock_getaddrinfo.return_value = [
+                (10, 1, 6, '', ('fe80::1', 80, 0, 0))
+            ]
+
+            is_safe, error_msg = connector._resolve_and_validate_ip("http://evil.com/")
+
+            assert is_safe is False
+            # Python's ipaddress classifies fe80:: as both link-local AND private
+            assert "fe80::1" in error_msg or "link-local" in error_msg.lower() or "private" in error_msg.lower()
+
+    def test_multicast_ipv4_blocked(self, temp_dir):
+        """IPv4 multicast 224.0.0.0/4 should be blocked."""
+        connector = WebConnector(cache_dir=str(temp_dir))
+
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            # Return multicast address
+            mock_getaddrinfo.return_value = [
+                (2, 1, 6, '', ('224.0.0.1', 80))  # AF_INET
+            ]
+
+            is_safe, error_msg = connector._resolve_and_validate_ip("http://evil.com/")
+
+            assert is_safe is False
+            assert "multicast" in error_msg.lower()
+
+    def test_multicast_ipv6_blocked(self, temp_dir):
+        """IPv6 multicast ff00::/8 should be blocked."""
+        connector = WebConnector(cache_dir=str(temp_dir))
+
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            # Return IPv6 multicast address
+            mock_getaddrinfo.return_value = [
+                (10, 1, 6, '', ('ff02::1', 80, 0, 0))
+            ]
+
+            is_safe, error_msg = connector._resolve_and_validate_ip("http://evil.com/")
+
+            assert is_safe is False
+            assert "multicast" in error_msg.lower()
+
+    def test_all_resolved_ips_validated(self, temp_dir):
+        """When multiple IPs are returned, ALL must be validated."""
+        connector = WebConnector(cache_dir=str(temp_dir))
+
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            # Return multiple IPs - one public, one private
+            mock_getaddrinfo.return_value = [
+                (2, 1, 6, '', ('8.8.8.8', 80)),      # Public IP (OK)
+                (2, 1, 6, '', ('192.168.1.1', 80)),  # Private IP (blocked)
+            ]
+
+            is_safe, error_msg = connector._resolve_and_validate_ip("http://mixed-dns.com/")
+
+            assert is_safe is False
+            assert "private" in error_msg.lower()
+
+    def test_mixed_ipv4_ipv6_all_checked(self, temp_dir):
+        """Hosts with both IPv4 and IPv6 must check all addresses."""
+        connector = WebConnector(cache_dir=str(temp_dir))
+
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            # Return both IPv4 public and IPv6 loopback
+            mock_getaddrinfo.return_value = [
+                (2, 1, 6, '', ('1.2.3.4', 80)),      # Public IPv4 (OK)
+                (10, 1, 6, '', ('::1', 80, 0, 0)),   # IPv6 loopback (blocked)
+            ]
+
+            is_safe, error_msg = connector._resolve_and_validate_ip("http://dual-stack.com/")
+
+            assert is_safe is False
+            # Python's ipaddress classifies ::1 as both loopback AND private
+            assert "::1" in error_msg or "loopback" in error_msg.lower() or "private" in error_msg.lower()
+
+    def test_public_ipv4_allowed(self, temp_dir):
+        """Public IPv4 addresses should be allowed."""
+        connector = WebConnector(cache_dir=str(temp_dir))
+
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            mock_getaddrinfo.return_value = [
+                (2, 1, 6, '', ('8.8.8.8', 80)),
+            ]
+
+            is_safe, error_msg = connector._resolve_and_validate_ip("http://google.com/")
+
+            assert is_safe is True
+            assert error_msg == ""
+
+    def test_public_ipv6_allowed(self, temp_dir):
+        """Public IPv6 addresses should be allowed."""
+        connector = WebConnector(cache_dir=str(temp_dir))
+
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            mock_getaddrinfo.return_value = [
+                (10, 1, 6, '', ('2001:4860:4860::8888', 80, 0, 0)),
+            ]
+
+            is_safe, error_msg = connector._resolve_and_validate_ip("http://google.com/")
+
+            assert is_safe is True
+            assert error_msg == ""
+
+    def test_empty_dns_result_blocked(self, temp_dir):
+        """Empty DNS result should be blocked."""
+        connector = WebConnector(cache_dir=str(temp_dir))
+
+        with patch('socket.getaddrinfo') as mock_getaddrinfo:
+            mock_getaddrinfo.return_value = []
+
+            is_safe, error_msg = connector._resolve_and_validate_ip("http://nohost.com/")
+
+            assert is_safe is False
+            assert "no results" in error_msg.lower()
+
+    def test_localhost_string_blocked(self, temp_dir):
+        """Hostname 'localhost' should be blocked before DNS resolution."""
+        connector = WebConnector(cache_dir=str(temp_dir))
+
+        is_safe, error_msg = connector._resolve_and_validate_ip("http://localhost/secret")
+
+        assert is_safe is False
+        assert "localhost" in error_msg.lower()

@@ -891,3 +891,129 @@ class TestDiscordDisabled:
 
         # No request times recorded since we returned early
         assert len(integration._request_times) == 0
+
+
+# =============================================================================
+# Concurrency Tests
+# =============================================================================
+
+
+class TestDiscordConcurrency:
+    """Tests for concurrent webhook operations."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_webhook_sends(self, discord_config, mock_response):
+        """Multiple webhooks can send concurrently."""
+        integration = DiscordIntegration(discord_config)
+
+        # Create mock session
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_session.post = MagicMock(
+            return_value=MockContextManager(mock_response(204))
+        )
+        integration._session = mock_session
+
+        # Send multiple webhooks concurrently
+        embeds = [DiscordEmbed(title=f"Test {i}") for i in range(5)]
+        tasks = [integration._send_webhook([embed]) for embed in embeds]
+
+        results = await asyncio.gather(*tasks)
+
+        # All should succeed
+        assert all(results)
+        # All requests should have been tracked for rate limiting
+        assert len(integration._request_times) == 5
+
+    @pytest.mark.asyncio
+    async def test_session_reuse_under_load(self, discord_config, mock_response):
+        """Session is reused across concurrent requests."""
+        integration = DiscordIntegration(discord_config)
+
+        session_created = [0]
+        original_get_session = integration._get_session
+
+        async def tracked_get_session():
+            session_created[0] += 1
+            return await original_get_session()
+
+        # Set up mock session
+        mock_session = MagicMock()
+        mock_session.closed = False
+        mock_session.post = MagicMock(
+            return_value=MockContextManager(mock_response(204))
+        )
+
+        with patch.object(integration, '_get_session', side_effect=tracked_get_session):
+            integration._session = mock_session
+
+            # Send multiple webhooks concurrently
+            embeds = [DiscordEmbed(title=f"Test {i}") for i in range(10)]
+            tasks = [integration._send_webhook([embed]) for embed in embeds]
+
+            await asyncio.gather(*tasks)
+
+        # All requests completed
+        assert mock_session.post.call_count == 10
+
+    @pytest.mark.asyncio
+    async def test_session_recreation_on_close(self, discord_config, mock_response):
+        """Closed session is recreated on next request."""
+        integration = DiscordIntegration(discord_config)
+
+        # First session (will be closed)
+        closed_session = MagicMock()
+        closed_session.closed = True
+        integration._session = closed_session
+
+        # New session to be created
+        with patch('aiohttp.ClientSession') as mock_cls:
+            new_session = MagicMock()
+            new_session.closed = False
+            new_session.post = MagicMock(
+                return_value=MockContextManager(mock_response(204))
+            )
+            mock_cls.return_value = new_session
+
+            embed = DiscordEmbed(title="Test")
+            result = await integration._send_webhook([embed])
+
+            # Should have created new session
+            mock_cls.assert_called_once()
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_multiple_integrations_parallel(self, mock_response):
+        """Multiple integration instances work in parallel."""
+        configs = [
+            DiscordConfig(
+                webhook_url=f"https://discord.com/api/webhooks/{i}/abc",
+                rate_limit_per_minute=30,
+            )
+            for i in range(3)
+        ]
+        integrations = [DiscordIntegration(config) for config in configs]
+
+        # Set up mock sessions for each integration
+        for integration in integrations:
+            mock_session = MagicMock()
+            mock_session.closed = False
+            mock_session.post = MagicMock(
+                return_value=MockContextManager(mock_response(204))
+            )
+            integration._session = mock_session
+
+        # Send from all integrations concurrently
+        async def send_from_integration(idx):
+            embed = DiscordEmbed(title=f"Integration {idx}")
+            return await integrations[idx]._send_webhook([embed])
+
+        results = await asyncio.gather(*[
+            send_from_integration(i) for i in range(3)
+        ])
+
+        # All should succeed
+        assert all(results)
+        # Each integration should have its own request tracking
+        for integration in integrations:
+            assert len(integration._request_times) == 1
