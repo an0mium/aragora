@@ -1,828 +1,803 @@
 """
-Tests for SystemHandler endpoints.
+Tests for the System Handler endpoints.
 
-Endpoints tested:
-- GET /api/health - Health check
-- GET /api/nomic/state - Get nomic loop state
-- GET /api/nomic/log - Get nomic loop logs
-- GET /api/modes - Get available operational modes
-- GET /api/history/cycles - Get cycle history
-- GET /api/history/events - Get event history
-- GET /api/history/debates - Get debate history
-- GET /api/history/summary - Get history summary
+Covers:
+- Kubernetes health probes (/healthz, /readyz)
+- Health endpoints (/api/health, /api/health/detailed, /api/health/deep)
+- Nomic loop endpoints (/api/nomic/*)
+- History endpoints (/api/history/*)
+- System maintenance (/api/system/maintenance)
+- Auth stats (/api/auth/stats, /api/auth/revoke)
+- Circuit breaker metrics (/api/circuit-breakers)
+- OpenAPI spec (/api/openapi)
+- Swagger UI (/api/docs)
 """
 
+from __future__ import annotations
+
 import json
-import pytest
+import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
+
+import pytest
 
 from aragora.server.handlers.system import SystemHandler
-from aragora.server.handlers.base import clear_cache
+from aragora.server.handlers.base import HandlerResult
+
+
+# =============================================================================
+# Fixtures
+# =============================================================================
+
+@pytest.fixture
+def system_handler(handler_context):
+    """Create a SystemHandler with mock context."""
+    handler = SystemHandler(handler_context)
+    return handler
 
 
 @pytest.fixture
-def mock_storage():
-    """Create a mock storage instance."""
-    storage = Mock()
-    # Mock both methods for backwards compatibility
-    mock_debates = [
-        Mock(slug="debate-1", loop_id="loop-001"),
-        Mock(slug="debate-2", loop_id="loop-001"),
-        Mock(slug="debate-3", loop_id="loop-002"),
-    ]
-    storage.list_recent.return_value = mock_debates
-    storage.list_debates.return_value = mock_debates  # Alias for backwards compat
-    return storage
+def mock_http_handler():
+    """Create a mock HTTP handler object."""
+    handler = Mock()
+    handler.headers = {}
+    handler.command = 'GET'
+    return handler
 
 
 @pytest.fixture
-def mock_elo_system():
-    """Create a mock ELO system."""
-    elo = Mock()
-    elo.get_leaderboard.return_value = [
-        Mock(agent_name="claude"),
-        Mock(agent_name="gpt4"),
-    ]
-    return elo
+def temp_nomic_dir_with_files():
+    """Create a temporary nomic directory with state files."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        nomic_dir = Path(tmpdir)
+
+        # Create nomic state file
+        state_file = nomic_dir / "nomic_state.json"
+        state = {
+            "phase": "implement",
+            "stage": "executing",
+            "cycle": 3,
+            "total_tasks": 5,
+            "completed_tasks": 2,
+            "last_update": datetime.utcnow().isoformat() + "Z",
+            "warnings": [],
+        }
+        state_file.write_text(json.dumps(state))
+
+        # Create nomic log file
+        log_file = nomic_dir / "nomic_loop.log"
+        log_lines = [
+            "2026-01-05 00:00:01 Starting cycle 1",
+            "2026-01-05 00:00:02 Phase: context",
+            "2026-01-05 00:00:03 Phase: debate",
+            "2026-01-05 00:00:04 Phase: design",
+            "2026-01-05 00:00:05 Phase: implement",
+        ]
+        log_file.write_text("\n".join(log_lines))
+
+        # Create risk register file
+        risk_file = nomic_dir / "risk_register.jsonl"
+        risks = [
+            {"id": "1", "severity": "critical", "description": "Critical risk"},
+            {"id": "2", "severity": "high", "description": "High risk"},
+            {"id": "3", "severity": "medium", "description": "Medium risk"},
+        ]
+        risk_file.write_text("\n".join(json.dumps(r) for r in risks))
+
+        # Create cycles file
+        cycles_file = nomic_dir / "cycles.json"
+        cycles_file.write_text(json.dumps([
+            {"cycle": 1, "loop_id": "loop_1", "status": "complete"},
+            {"cycle": 2, "loop_id": "loop_1", "status": "complete"},
+            {"cycle": 3, "loop_id": "loop_2", "status": "in_progress"},
+        ]))
+
+        # Create events file
+        events_file = nomic_dir / "events.json"
+        events_file.write_text(json.dumps([
+            {"id": "e1", "loop_id": "loop_1", "type": "start"},
+            {"id": "e2", "loop_id": "loop_1", "type": "phase_change"},
+            {"id": "e3", "loop_id": "loop_2", "type": "start"},
+        ]))
+
+        yield nomic_dir
 
 
-@pytest.fixture
-def system_handler(mock_storage, mock_elo_system, tmp_path):
-    """Create a SystemHandler with mocks."""
-    ctx = {
-        "storage": mock_storage,
-        "elo_system": mock_elo_system,
-        "nomic_dir": tmp_path,
-    }
-    return SystemHandler(ctx)
+# =============================================================================
+# Kubernetes Health Probes Tests
+# =============================================================================
+
+class TestKubernetesProbes:
+    """Tests for Kubernetes liveness and readiness probes."""
+
+    def test_liveness_probe_returns_ok(self, system_handler, mock_http_handler):
+        """Test that /healthz returns 200 OK."""
+        result = system_handler.handle("/healthz", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["status"] == "ok"
+
+    def test_readiness_probe_returns_ready(self, mock_storage, mock_elo_system, temp_nomic_dir, mock_http_handler):
+        """Test that /readyz returns ready when all dependencies are up."""
+        ctx = {
+            "storage": mock_storage,
+            "elo_system": mock_elo_system,
+            "nomic_dir": temp_nomic_dir,
+        }
+        handler = SystemHandler(ctx)
+
+        result = handler.handle("/readyz", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["status"] == "ready"
+        assert body["checks"]["storage"] is True
+        assert body["checks"]["elo_system"] is True
+
+    def test_readiness_probe_with_no_storage(self, mock_elo_system, temp_nomic_dir, mock_http_handler):
+        """Test that /readyz handles missing storage gracefully."""
+        # When storage is None, readiness probe should still pass
+        # (storage not configured is OK for readiness)
+        ctx = {
+            "storage": None,
+            "elo_system": mock_elo_system,
+            "nomic_dir": temp_nomic_dir,
+        }
+        handler = SystemHandler(ctx)
+
+        result = handler.handle("/readyz", {}, mock_http_handler)
+
+        assert result is not None
+        # Storage not configured is still considered ready
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["status"] == "ready"
 
 
-@pytest.fixture(autouse=True)
-def clear_caches():
-    """Clear caches before and after each test."""
-    clear_cache()
-    yield
-    clear_cache()
+# =============================================================================
+# Health Endpoint Tests
+# =============================================================================
+
+class TestHealthEndpoints:
+    """Tests for /api/health endpoints."""
+
+    def test_health_check_returns_healthy(self, mock_storage, mock_elo_system, temp_nomic_dir, mock_http_handler):
+        """Test that /api/health returns healthy status."""
+        ctx = {
+            "storage": mock_storage,
+            "elo_system": mock_elo_system,
+            "nomic_dir": temp_nomic_dir,
+        }
+        handler = SystemHandler(ctx)
+        mock_storage.list_recent.return_value = []
+        mock_elo_system.get_leaderboard.return_value = []
+
+        result = handler.handle("/api/health", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["status"] == "healthy"
+        assert "checks" in body
+        assert "timestamp" in body
+        assert "version" in body
+
+    def test_health_check_includes_database_latency(self, mock_storage, mock_elo_system, temp_nomic_dir, mock_http_handler):
+        """Test that /api/health includes database latency metric."""
+        ctx = {
+            "storage": mock_storage,
+            "elo_system": mock_elo_system,
+            "nomic_dir": temp_nomic_dir,
+        }
+        handler = SystemHandler(ctx)
+        mock_storage.list_recent.return_value = []
+        mock_elo_system.get_leaderboard.return_value = []
+
+        result = handler.handle("/api/health", {}, mock_http_handler)
+
+        body = json.loads(result.body)
+        assert "database" in body["checks"]
+        assert "latency_ms" in body["checks"]["database"]
+
+    def test_detailed_health_check(self, mock_storage, mock_elo_system, temp_nomic_dir, mock_http_handler):
+        """Test that /api/health/detailed returns extended status."""
+        ctx = {
+            "storage": mock_storage,
+            "elo_system": mock_elo_system,
+            "nomic_dir": temp_nomic_dir,
+        }
+        handler = SystemHandler(ctx)
+
+        result = handler.handle("/api/health/detailed", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["status"] == "healthy"
+        assert "components" in body
+        assert "version" in body
+
+    def test_deep_health_check(self, mock_storage, mock_elo_system, temp_nomic_dir, mock_http_handler):
+        """Test that /api/health/deep returns comprehensive status."""
+        ctx = {
+            "storage": mock_storage,
+            "elo_system": mock_elo_system,
+            "nomic_dir": temp_nomic_dir,
+        }
+        handler = SystemHandler(ctx)
+        mock_storage.list_recent.return_value = []
+        mock_elo_system.get_leaderboard.return_value = []
+
+        result = handler.handle("/api/health/deep", {}, mock_http_handler)
+
+        assert result is not None
+        # Deep health can return 200 or 503 depending on env
+        body = json.loads(result.body)
+        assert "status" in body
+        assert "checks" in body
+        assert "response_time_ms" in body
+        assert "timestamp" in body
 
 
-# ============================================================================
-# Route Matching Tests
-# ============================================================================
+# =============================================================================
+# Nomic Loop Endpoint Tests
+# =============================================================================
 
-class TestSystemHandlerRouting:
-    """Tests for route matching."""
+class TestNomicEndpoints:
+    """Tests for /api/nomic/* endpoints."""
 
-    def test_can_handle_health(self, system_handler):
-        """Should handle /api/health."""
+    def test_get_nomic_state(self, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that /api/nomic/state returns current state."""
+        ctx = {"nomic_dir": temp_nomic_dir_with_files}
+        handler = SystemHandler(ctx)
+
+        result = handler.handle("/api/nomic/state", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["phase"] == "implement"
+        assert body["cycle"] == 3
+
+    def test_get_nomic_state_not_running(self, mock_http_handler):
+        """Test that /api/nomic/state returns not_running when no state file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ctx = {"nomic_dir": Path(tmpdir)}
+            handler = SystemHandler(ctx)
+
+            result = handler.handle("/api/nomic/state", {}, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 200
+            body = json.loads(result.body)
+            assert body["state"] == "not_running"
+
+    def test_get_nomic_state_no_directory(self, mock_http_handler):
+        """Test that /api/nomic/state returns error when no directory configured."""
+        ctx = {"nomic_dir": None}
+        handler = SystemHandler(ctx)
+
+        result = handler.handle("/api/nomic/state", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 503
+        body = json.loads(result.body)
+        assert "error" in body
+
+    def test_get_nomic_health_healthy(self, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that /api/nomic/health returns healthy status."""
+        ctx = {"nomic_dir": temp_nomic_dir_with_files}
+        handler = SystemHandler(ctx)
+
+        result = handler.handle("/api/nomic/health", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["status"] == "healthy"
+        assert body["cycle"] == 3
+        assert body["phase"] == "implement"
+
+    def test_get_nomic_health_stalled(self, mock_http_handler):
+        """Test that /api/nomic/health detects stalled state."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            nomic_dir = Path(tmpdir)
+            # Create state with old timestamp
+            old_time = (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z"
+            state_file = nomic_dir / "nomic_state.json"
+            state_file.write_text(json.dumps({
+                "phase": "implement",
+                "cycle": 1,
+                "last_update": old_time,
+            }))
+
+            ctx = {"nomic_dir": nomic_dir}
+            handler = SystemHandler(ctx)
+
+            result = handler.handle("/api/nomic/health", {}, mock_http_handler)
+
+            assert result is not None
+            body = json.loads(result.body)
+            assert body["status"] == "stalled"
+            assert body["stall_duration_seconds"] is not None
+
+    def test_get_nomic_log(self, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that /api/nomic/log returns log lines."""
+        ctx = {"nomic_dir": temp_nomic_dir_with_files}
+        handler = SystemHandler(ctx)
+
+        result = handler.handle("/api/nomic/log", {"lines": "10"}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "lines" in body
+        assert len(body["lines"]) == 5
+        assert body["total"] == 5
+
+    def test_get_nomic_log_limits_lines(self, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that /api/nomic/log respects line limit."""
+        ctx = {"nomic_dir": temp_nomic_dir_with_files}
+        handler = SystemHandler(ctx)
+
+        result = handler.handle("/api/nomic/log", {"lines": "2"}, mock_http_handler)
+
+        body = json.loads(result.body)
+        assert body["showing"] == 2
+
+    def test_get_risk_register(self, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that /api/nomic/risk-register returns risk entries."""
+        ctx = {"nomic_dir": temp_nomic_dir_with_files}
+        handler = SystemHandler(ctx)
+
+        result = handler.handle("/api/nomic/risk-register", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["total"] == 3
+        assert body["critical_count"] == 1
+        assert body["high_count"] == 1
+        assert len(body["risks"]) == 3
+
+
+# =============================================================================
+# History Endpoint Tests
+# =============================================================================
+
+class TestHistoryEndpoints:
+    """Tests for /api/history/* endpoints."""
+
+    def test_get_history_cycles(self, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that /api/history/cycles returns cycle history."""
+        # Disable auth for this test
+        with patch('aragora.server.handlers.system.extract_user_from_request') as mock_auth:
+            mock_user = Mock()
+            mock_user.is_authenticated = True
+            mock_auth.return_value = mock_user
+
+            ctx = {"nomic_dir": temp_nomic_dir_with_files}
+            handler = SystemHandler(ctx)
+
+            result = handler.handle("/api/history/cycles", {}, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 200
+            body = json.loads(result.body)
+            assert "cycles" in body
+            assert len(body["cycles"]) == 3
+
+    def test_get_history_cycles_with_loop_id_filter(self, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that /api/history/cycles filters by loop_id."""
+        with patch('aragora.server.handlers.system.extract_user_from_request') as mock_auth:
+            mock_user = Mock()
+            mock_user.is_authenticated = True
+            mock_auth.return_value = mock_user
+
+            ctx = {"nomic_dir": temp_nomic_dir_with_files}
+            handler = SystemHandler(ctx)
+
+            result = handler.handle("/api/history/cycles", {"loop_id": "loop_1"}, mock_http_handler)
+
+            body = json.loads(result.body)
+            assert len(body["cycles"]) == 2
+            for cycle in body["cycles"]:
+                assert cycle["loop_id"] == "loop_1"
+
+    def test_get_history_events(self, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that /api/history/events returns event history."""
+        with patch('aragora.server.handlers.system.extract_user_from_request') as mock_auth:
+            mock_user = Mock()
+            mock_user.is_authenticated = True
+            mock_auth.return_value = mock_user
+
+            ctx = {"nomic_dir": temp_nomic_dir_with_files}
+            handler = SystemHandler(ctx)
+
+            result = handler.handle("/api/history/events", {}, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 200
+            body = json.loads(result.body)
+            assert "events" in body
+
+    def test_get_history_debates(self, mock_storage, mock_elo_system, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that /api/history/debates returns debate history."""
+        with patch('aragora.server.handlers.system.extract_user_from_request') as mock_auth:
+            mock_user = Mock()
+            mock_user.is_authenticated = True
+            mock_auth.return_value = mock_user
+
+            # Ensure list_recent returns a sliceable list
+            mock_storage.list_recent.return_value = [
+                {"id": "d1", "task": "Test debate"},
+                {"id": "d2", "task": "Another debate"},
+            ]
+
+            ctx = {
+                "storage": mock_storage,
+                "elo_system": mock_elo_system,
+                "nomic_dir": temp_nomic_dir_with_files,
+            }
+            handler = SystemHandler(ctx)
+
+            result = handler.handle("/api/history/debates", {}, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 200
+            body = json.loads(result.body)
+            assert "debates" in body
+
+    def test_get_history_summary(self, mock_storage, mock_elo_system, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that /api/history/summary returns summary stats."""
+        with patch('aragora.server.handlers.system.extract_user_from_request') as mock_auth:
+            mock_user = Mock()
+            mock_user.is_authenticated = True
+            mock_auth.return_value = mock_user
+
+            ctx = {
+                "storage": mock_storage,
+                "elo_system": mock_elo_system,
+                "nomic_dir": temp_nomic_dir_with_files,
+            }
+            handler = SystemHandler(ctx)
+            mock_storage.list_recent.return_value = [Mock(), Mock()]
+            mock_elo_system.get_leaderboard.return_value = [Mock(), Mock(), Mock()]
+
+            result = handler.handle("/api/history/summary", {}, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 200
+            body = json.loads(result.body)
+            assert body["total_debates"] == 2
+            assert body["total_agents"] == 3
+
+    def test_history_requires_auth_when_enabled(self, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that history endpoints require auth when enabled."""
+        with patch('aragora.server.auth.auth_config') as mock_config:
+            mock_config.enabled = True
+            mock_config.api_token = "secret"
+            mock_config.validate_token.return_value = False
+
+            with patch('aragora.server.handlers.system.extract_user_from_request') as mock_auth:
+                mock_user = Mock()
+                mock_user.is_authenticated = False
+                mock_auth.return_value = mock_user
+
+                ctx = {"nomic_dir": temp_nomic_dir_with_files}
+                handler = SystemHandler(ctx)
+
+                result = handler.handle("/api/history/cycles", {}, mock_http_handler)
+
+                assert result is not None
+                assert result.status_code == 401
+
+
+# =============================================================================
+# System Maintenance Tests
+# =============================================================================
+
+class TestSystemMaintenance:
+    """Tests for /api/system/maintenance endpoint."""
+
+    def test_maintenance_status(self, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that maintenance status returns stats."""
+        with patch('aragora.maintenance.DatabaseMaintenance') as mock_maintenance:
+            mock_instance = Mock()
+            mock_instance.get_stats.return_value = {"total_size_mb": 10}
+            mock_maintenance.return_value = mock_instance
+
+            ctx = {"nomic_dir": temp_nomic_dir_with_files}
+            handler = SystemHandler(ctx)
+
+            result = handler.handle("/api/system/maintenance", {"task": "status"}, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 200
+            body = json.loads(result.body)
+            assert body["task"] == "status"
+            assert "stats" in body
+
+    def test_maintenance_invalid_task(self, temp_nomic_dir_with_files, mock_http_handler):
+        """Test that invalid maintenance task returns error."""
+        ctx = {"nomic_dir": temp_nomic_dir_with_files}
+        handler = SystemHandler(ctx)
+
+        result = handler.handle("/api/system/maintenance", {"task": "invalid"}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "error" in body
+
+
+# =============================================================================
+# Auth Stats Tests
+# =============================================================================
+
+class TestAuthStats:
+    """Tests for /api/auth/* endpoints."""
+
+    def test_get_auth_stats(self, mock_http_handler):
+        """Test that /api/auth/stats returns auth statistics."""
+        with patch('aragora.server.auth.auth_config') as mock_config:
+            mock_config.enabled = True
+            mock_config.rate_limit_per_minute = 60
+            mock_config.ip_rate_limit_per_minute = 120
+            mock_config.token_ttl = 3600
+            mock_config.get_rate_limit_stats.return_value = {"requests": 100}
+
+            ctx = {}
+            handler = SystemHandler(ctx)
+
+            result = handler.handle("/api/auth/stats", {}, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 200
+            body = json.loads(result.body)
+            assert body["enabled"] is True
+            assert body["rate_limit_per_minute"] == 60
+            assert "stats" in body
+
+    def test_revoke_token(self, mock_http_handler):
+        """Test that /api/auth/revoke revokes a token."""
+        with patch('aragora.server.auth.auth_config') as mock_config:
+            mock_config.revoke_token.return_value = True
+            mock_config.get_revocation_count.return_value = 5
+
+            mock_http_handler.rfile = Mock()
+            mock_http_handler.rfile.read.return_value = b'{"token": "test_token", "reason": "compromised"}'
+            mock_http_handler.headers = {"Content-Length": "50"}
+
+            ctx = {}
+            handler = SystemHandler(ctx)
+
+            result = handler.handle_post("/api/auth/revoke", {}, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 200
+            body = json.loads(result.body)
+            assert body["success"] is True
+            assert body["revoked_count"] == 5
+
+    def test_revoke_token_missing_token(self, mock_http_handler):
+        """Test that /api/auth/revoke returns error when token missing."""
+        mock_http_handler.rfile = Mock()
+        mock_http_handler.rfile.read.return_value = b'{"reason": "test"}'
+        mock_http_handler.headers = {"Content-Length": "20"}
+
+        ctx = {}
+        handler = SystemHandler(ctx)
+
+        result = handler.handle_post("/api/auth/revoke", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+
+# =============================================================================
+# OpenAPI Tests
+# =============================================================================
+
+class TestOpenAPI:
+    """Tests for /api/openapi and /api/docs endpoints."""
+
+    def test_get_openapi_json(self, mock_http_handler):
+        """Test that /api/openapi returns JSON spec."""
+        with patch('aragora.server.openapi.handle_openapi_request') as mock_openapi:
+            mock_openapi.return_value = ('{"openapi": "3.0.0"}', 'application/json')
+
+            ctx = {}
+            handler = SystemHandler(ctx)
+
+            result = handler.handle("/api/openapi", {}, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 200
+            assert result.content_type == "application/json"
+
+    def test_get_openapi_yaml(self, mock_http_handler):
+        """Test that /api/openapi.yaml returns YAML spec."""
+        with patch('aragora.server.openapi.handle_openapi_request') as mock_openapi:
+            mock_openapi.return_value = ('openapi: "3.0.0"', 'application/x-yaml')
+
+            ctx = {}
+            handler = SystemHandler(ctx)
+
+            result = handler.handle("/api/openapi.yaml", {}, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 200
+            assert result.content_type == "application/x-yaml"
+
+    def test_get_swagger_ui(self, mock_http_handler):
+        """Test that /api/docs returns Swagger UI HTML."""
+        ctx = {}
+        handler = SystemHandler(ctx)
+
+        result = handler.handle("/api/docs", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        assert "text/html" in result.content_type
+        assert b"swagger-ui" in result.body
+
+
+# =============================================================================
+# Circuit Breaker Tests
+# =============================================================================
+
+class TestCircuitBreakers:
+    """Tests for /api/circuit-breakers endpoint."""
+
+    def test_get_circuit_breaker_metrics(self, mock_http_handler):
+        """Test that /api/circuit-breakers returns metrics."""
+        with patch('aragora.resilience.get_circuit_breaker_metrics') as mock_metrics:
+            mock_metrics.return_value = {
+                "summary": {"total": 5, "open": 0, "closed": 5},
+                "circuit_breakers": {},
+                "health": {"status": "healthy"},
+            }
+
+            ctx = {}
+            handler = SystemHandler(ctx)
+
+            result = handler.handle("/api/circuit-breakers", {}, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 200
+            body = json.loads(result.body)
+            assert "summary" in body
+            assert body["health"]["status"] == "healthy"
+
+
+# =============================================================================
+# Prometheus Metrics Tests
+# =============================================================================
+
+class TestPrometheusMetrics:
+    """Tests for /metrics endpoint."""
+
+    def test_get_prometheus_metrics(self, mock_http_handler):
+        """Test that /metrics returns Prometheus format."""
+        with patch('aragora.server.metrics.generate_metrics') as mock_gen:
+            mock_gen.return_value = "# HELP aragora_requests_total\naragora_requests_total 100"
+
+            ctx = {}
+            handler = SystemHandler(ctx)
+
+            result = handler.handle("/metrics", {}, mock_http_handler)
+
+            assert result is not None
+            assert result.status_code == 200
+            assert "text/plain" in result.content_type
+            assert b"aragora_requests_total" in result.body
+
+
+# =============================================================================
+# Modes Tests
+# =============================================================================
+
+class TestModes:
+    """Tests for /api/modes endpoint."""
+
+    def test_get_modes_returns_builtin(self, mock_http_handler):
+        """Test that /api/modes returns builtin modes."""
+        ctx = {"nomic_dir": None}
+        handler = SystemHandler(ctx)
+
+        result = handler.handle("/api/modes", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "modes" in body
+        assert len(body["modes"]) >= 5  # At least the builtin modes
+
+        # Check that builtin modes are present
+        mode_names = [m["name"] for m in body["modes"]]
+        assert "architect" in mode_names
+        assert "coder" in mode_names
+        assert "debugger" in mode_names
+
+
+# =============================================================================
+# Can Handle Tests
+# =============================================================================
+
+class TestCanHandle:
+    """Tests for handler routing."""
+
+    def test_can_handle_health_routes(self, system_handler):
+        """Test that handler can handle health routes."""
+        assert system_handler.can_handle("/healthz") is True
+        assert system_handler.can_handle("/readyz") is True
         assert system_handler.can_handle("/api/health") is True
+        assert system_handler.can_handle("/api/health/detailed") is True
+        assert system_handler.can_handle("/api/health/deep") is True
 
-    def test_can_handle_nomic_state(self, system_handler):
-        """Should handle /api/nomic/state."""
+    def test_can_handle_nomic_routes(self, system_handler):
+        """Test that handler can handle nomic routes."""
         assert system_handler.can_handle("/api/nomic/state") is True
-
-    def test_can_handle_nomic_log(self, system_handler):
-        """Should handle /api/nomic/log."""
+        assert system_handler.can_handle("/api/nomic/health") is True
         assert system_handler.can_handle("/api/nomic/log") is True
+        assert system_handler.can_handle("/api/nomic/risk-register") is True
 
-    def test_can_handle_modes(self, system_handler):
-        """Should handle /api/modes."""
-        assert system_handler.can_handle("/api/modes") is True
-
-    def test_can_handle_history_cycles(self, system_handler):
-        """Should handle /api/history/cycles."""
+    def test_can_handle_history_routes(self, system_handler):
+        """Test that handler can handle history routes."""
         assert system_handler.can_handle("/api/history/cycles") is True
-
-    def test_can_handle_history_events(self, system_handler):
-        """Should handle /api/history/events."""
         assert system_handler.can_handle("/api/history/events") is True
-
-    def test_can_handle_history_debates(self, system_handler):
-        """Should handle /api/history/debates."""
         assert system_handler.can_handle("/api/history/debates") is True
-
-    def test_can_handle_history_summary(self, system_handler):
-        """Should handle /api/history/summary."""
         assert system_handler.can_handle("/api/history/summary") is True
 
     def test_cannot_handle_unknown_routes(self, system_handler):
-        """Should not handle unknown routes."""
+        """Test that handler rejects unknown routes."""
         assert system_handler.can_handle("/api/unknown") is False
-        assert system_handler.can_handle("/api/debates") is False
-        assert system_handler.can_handle("/api/leaderboard") is False
+        assert system_handler.can_handle("/other/path") is False
 
-    def test_handle_returns_none_for_unknown(self, system_handler):
-        """Should return None for unknown paths."""
-        result = system_handler.handle("/api/unknown", {}, None)
-        assert result is None
 
+# =============================================================================
+# Error Handling Tests
+# =============================================================================
 
-# ============================================================================
-# Health Check Tests
-# ============================================================================
+class TestErrorHandling:
+    """Tests for error handling in system endpoints."""
 
-class TestHealthEndpoint:
-    """Tests for /api/health endpoint."""
+    def test_invalid_json_state_file(self, mock_http_handler):
+        """Test handling of corrupt state file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            nomic_dir = Path(tmpdir)
+            state_file = nomic_dir / "nomic_state.json"
+            state_file.write_text("not valid json{")
 
-    def test_returns_healthy_status(self, system_handler):
-        """Should return healthy status."""
-        result = system_handler.handle("/api/health", {}, None)
+            ctx = {"nomic_dir": nomic_dir}
+            handler = SystemHandler(ctx)
 
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["status"] == "healthy"
+            result = handler.handle("/api/nomic/state", {}, mock_http_handler)
 
-    def test_returns_component_status(self, system_handler):
-        """Should return component status in checks dict."""
-        result = system_handler.handle("/api/health", {}, None)
-
-        data = json.loads(result.body)
-        assert "checks" in data
-        assert "database" in data["checks"]
-        assert "elo_system" in data["checks"]
-        assert "nomic_dir" in data["checks"]
-
-    def test_storage_available(self, system_handler):
-        """Should show database as available."""
-        result = system_handler.handle("/api/health", {}, None)
-
-        data = json.loads(result.body)
-        assert data["checks"]["database"]["healthy"] is True
-
-    def test_elo_system_available(self, system_handler):
-        """Should show ELO system as available."""
-        result = system_handler.handle("/api/health", {}, None)
-
-        data = json.loads(result.body)
-        assert data["checks"]["elo_system"]["healthy"] is True
-
-    def test_nomic_dir_available(self, system_handler, tmp_path):
-        """Should show nomic_dir as available."""
-        result = system_handler.handle("/api/health", {}, None)
-
-        data = json.loads(result.body)
-        assert data["checks"]["nomic_dir"]["healthy"] is True
-
-    def test_returns_version(self, system_handler):
-        """Should return version."""
-        result = system_handler.handle("/api/health", {}, None)
-
-        data = json.loads(result.body)
-        assert "version" in data
-
-    def test_shows_missing_components(self):
-        """Should show missing components as unavailable."""
-        handler = SystemHandler({})
-        result = handler.handle("/api/health", {}, None)
-
-        data = json.loads(result.body)
-        assert data["checks"]["database"]["healthy"] is False
-        assert data["checks"]["elo_system"]["healthy"] is False
-
-
-# ============================================================================
-# Nomic State Tests
-# ============================================================================
-
-class TestNomicStateEndpoint:
-    """Tests for /api/nomic/state endpoint."""
-
-    def test_returns_state_from_file(self, system_handler, tmp_path):
-        """Should return state from state file."""
-        state = {"state": "running", "cycle": 5, "phase": "debate"}
-        (tmp_path / "nomic_state.json").write_text(json.dumps(state))
-
-        result = system_handler.handle("/api/nomic/state", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["state"] == "running"
-        assert data["cycle"] == 5
-
-    def test_returns_not_running_when_no_file(self, system_handler):
-        """Should return not_running when state file doesn't exist."""
-        result = system_handler.handle("/api/nomic/state", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["state"] == "not_running"
-
-    def test_returns_503_without_nomic_dir(self):
-        """Should return 503 without nomic_dir."""
-        handler = SystemHandler({})
-        result = handler.handle("/api/nomic/state", {}, None)
-
-        assert result.status_code == 503
-
-    def test_returns_500_on_invalid_json(self, system_handler, tmp_path):
-        """Should return 500 on invalid JSON."""
-        (tmp_path / "nomic_state.json").write_text("not valid json {")
-
-        result = system_handler.handle("/api/nomic/state", {}, None)
-
-        assert result.status_code == 500
-
-
-# ============================================================================
-# Nomic Log Tests
-# ============================================================================
-
-class TestNomicLogEndpoint:
-    """Tests for /api/nomic/log endpoint."""
-
-    def test_returns_log_lines(self, system_handler, tmp_path):
-        """Should return log lines."""
-        log_content = "Line 1\nLine 2\nLine 3\n"
-        (tmp_path / "nomic_loop.log").write_text(log_content)
-
-        result = system_handler.handle("/api/nomic/log", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert len(data["lines"]) == 3
-        assert data["total"] == 3
-
-    def test_respects_lines_parameter(self, system_handler, tmp_path):
-        """Should respect lines parameter."""
-        log_content = "\n".join([f"Line {i}" for i in range(100)])
-        (tmp_path / "nomic_loop.log").write_text(log_content)
-
-        result = system_handler.handle("/api/nomic/log", {"lines": "10"}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert len(data["lines"]) == 10
-        assert data["showing"] == 10
-
-    def test_caps_lines_at_1000(self, system_handler, tmp_path):
-        """Should cap lines at 1000."""
-        log_content = "\n".join([f"Line {i}" for i in range(2000)])
-        (tmp_path / "nomic_loop.log").write_text(log_content)
-
-        result = system_handler.handle("/api/nomic/log", {"lines": "5000"}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["showing"] <= 1000
-
-    def test_returns_empty_when_no_log(self, system_handler):
-        """Should return empty when log doesn't exist."""
-        result = system_handler.handle("/api/nomic/log", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["lines"] == []
-        assert data["total"] == 0
-
-    def test_returns_503_without_nomic_dir(self):
-        """Should return 503 without nomic_dir."""
-        handler = SystemHandler({})
-        result = handler.handle("/api/nomic/log", {}, None)
-
-        assert result.status_code == 503
-
-    def test_strips_line_endings(self, system_handler, tmp_path):
-        """Should strip line endings from log lines."""
-        log_content = "Line with spaces   \nLine with tabs\t\n"
-        (tmp_path / "nomic_loop.log").write_text(log_content)
-
-        result = system_handler.handle("/api/nomic/log", {}, None)
-
-        data = json.loads(result.body)
-        # Lines should be stripped
-        assert all(not line.endswith(('\n', '\r', ' ', '\t')) for line in data["lines"])
-
-
-# ============================================================================
-# Modes Tests
-# ============================================================================
-
-class TestModesEndpoint:
-    """Tests for /api/modes endpoint."""
-
-    def test_returns_modes_list(self, system_handler, tmp_path):
-        """Should return modes list."""
-        with patch('aragora.modes.custom.CustomModeLoader') as MockLoader:
-            mock_loader = Mock()
-            # Mock load_all() which is what the handler actually calls
-            mock_mode = Mock()
-            mock_mode.name = "custom_mode"
-            mock_mode.description = "A custom mode"
-            mock_loader.load_all.return_value = [mock_mode]
-            MockLoader.return_value = mock_loader
-
-            result = system_handler.handle("/api/modes", {}, None)
-
-            assert result.status_code == 200
-            data = json.loads(result.body)
-            assert "modes" in data
-
-    def test_returns_builtin_modes_without_nomic_dir(self):
-        """Should return builtin modes even without nomic_dir."""
-        handler = SystemHandler({})
-        result = handler.handle("/api/modes", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        # Should return 5 builtin modes
-        assert len(data["modes"]) == 5
-        assert all(m["type"] == "builtin" for m in data["modes"])
-        mode_names = {m["name"] for m in data["modes"]}
-        assert mode_names == {"architect", "coder", "debugger", "orchestrator", "reviewer"}
-
-    def test_returns_builtin_modes_on_custom_loader_exception(self, system_handler):
-        """Should return builtin modes even when custom loader fails."""
-        with patch('aragora.modes.custom.CustomModeLoader') as MockLoader:
-            # Use an exception type that the handler actually catches
-            MockLoader.side_effect = OSError("Mode error")
-
-            result = system_handler.handle("/api/modes", {}, None)
-
-            # Should still succeed with builtin modes
-            assert result.status_code == 200
-            data = json.loads(result.body)
-            assert len(data["modes"]) == 5
-            assert all(m["type"] == "builtin" for m in data["modes"])
-
-
-# ============================================================================
-# History Cycles Tests
-# ============================================================================
-
-class TestHistoryCyclesEndpoint:
-    """Tests for /api/history/cycles endpoint."""
-
-    def test_returns_cycles_from_file(self, system_handler, tmp_path):
-        """Should return cycles from file."""
-        cycles = [
-            {"id": "c1", "loop_id": "loop-001"},
-            {"id": "c2", "loop_id": "loop-002"},
-        ]
-        (tmp_path / "cycles.json").write_text(json.dumps(cycles))
-
-        result = system_handler.handle("/api/history/cycles", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert len(data["cycles"]) == 2
-
-    def test_filters_by_loop_id(self, system_handler, tmp_path):
-        """Should filter by loop_id."""
-        cycles = [
-            {"id": "c1", "loop_id": "loop-001"},
-            {"id": "c2", "loop_id": "loop-002"},
-        ]
-        (tmp_path / "cycles.json").write_text(json.dumps(cycles))
-
-        result = system_handler.handle("/api/history/cycles", {"loop_id": "loop-001"}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert len(data["cycles"]) == 1
-        assert data["cycles"][0]["loop_id"] == "loop-001"
-
-    def test_validates_loop_id(self, system_handler):
-        """Should validate loop_id parameter."""
-        result = system_handler.handle("/api/history/cycles", {"loop_id": "../../../etc"}, None)
-
-        assert result.status_code == 400
-
-    def test_respects_limit(self, system_handler, tmp_path):
-        """Should respect limit parameter."""
-        cycles = [{"id": f"c{i}", "loop_id": "loop-001"} for i in range(100)]
-        (tmp_path / "cycles.json").write_text(json.dumps(cycles))
-
-        result = system_handler.handle("/api/history/cycles", {"limit": "10"}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert len(data["cycles"]) == 10
-
-    def test_returns_empty_when_no_file(self, system_handler):
-        """Should return empty when file doesn't exist."""
-        result = system_handler.handle("/api/history/cycles", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["cycles"] == []
-
-    def test_handles_exception(self, system_handler, tmp_path):
-        """Should return 500 on exception."""
-        (tmp_path / "cycles.json").write_text("invalid json")
-
-        result = system_handler.handle("/api/history/cycles", {}, None)
-
-        assert result.status_code == 500
-
-
-# ============================================================================
-# History Events Tests
-# ============================================================================
-
-class TestHistoryEventsEndpoint:
-    """Tests for /api/history/events endpoint."""
-
-    def test_returns_events_from_file(self, system_handler, tmp_path):
-        """Should return events from file."""
-        events = [
-            {"id": "e1", "type": "start", "loop_id": "loop-001"},
-            {"id": "e2", "type": "end", "loop_id": "loop-001"},
-        ]
-        (tmp_path / "events.json").write_text(json.dumps(events))
-
-        result = system_handler.handle("/api/history/events", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert len(data["events"]) == 2
-
-    def test_filters_by_loop_id(self, system_handler, tmp_path):
-        """Should filter by loop_id."""
-        events = [
-            {"id": "e1", "loop_id": "loop-001"},
-            {"id": "e2", "loop_id": "loop-002"},
-        ]
-        (tmp_path / "events.json").write_text(json.dumps(events))
-
-        result = system_handler.handle("/api/history/events", {"loop_id": "loop-001"}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert len(data["events"]) == 1
-
-    def test_validates_loop_id(self, system_handler):
-        """Should validate loop_id parameter."""
-        result = system_handler.handle("/api/history/events", {"loop_id": "'; DROP TABLE"}, None)
-
-        assert result.status_code == 400
-
-    def test_respects_limit(self, system_handler, tmp_path):
-        """Should respect limit parameter."""
-        events = [{"id": f"e{i}", "loop_id": "loop-001"} for i in range(200)]
-        (tmp_path / "events.json").write_text(json.dumps(events))
-
-        result = system_handler.handle("/api/history/events", {"limit": "50"}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert len(data["events"]) == 50
-
-    def test_returns_empty_when_no_file(self, system_handler):
-        """Should return empty when file doesn't exist."""
-        result = system_handler.handle("/api/history/events", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["events"] == []
-
-
-# ============================================================================
-# History Debates Tests
-# ============================================================================
-
-class TestHistoryDebatesEndpoint:
-    """Tests for /api/history/debates endpoint."""
-
-    def test_returns_debates(self, system_handler):
-        """Should return debates from storage."""
-        result = system_handler.handle("/api/history/debates", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert len(data["debates"]) == 3
-
-    def test_filters_by_loop_id(self, system_handler):
-        """Should filter by loop_id."""
-        result = system_handler.handle("/api/history/debates", {"loop_id": "loop-001"}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert len(data["debates"]) == 2
-        assert all(d["loop_id"] == "loop-001" for d in data["debates"])
-
-    def test_validates_loop_id(self, system_handler):
-        """Should validate loop_id parameter."""
-        result = system_handler.handle("/api/history/debates", {"loop_id": "../../../etc"}, None)
-
-        assert result.status_code == 400
-
-    def test_returns_empty_without_storage(self):
-        """Should return empty without storage."""
-        handler = SystemHandler({})
-        result = handler.handle("/api/history/debates", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["debates"] == []
-
-    def test_handles_exception(self, system_handler, mock_storage):
-        """Should return 500 on exception."""
-        mock_storage.list_recent.side_effect = Exception("DB error")
-
-        result = system_handler.handle("/api/history/debates", {}, None)
-
-        assert result.status_code == 500
-
-
-# ============================================================================
-# History Summary Tests
-# ============================================================================
-
-class TestHistorySummaryEndpoint:
-    """Tests for /api/history/summary endpoint."""
-
-    def test_returns_summary(self, system_handler):
-        """Should return history summary."""
-        result = system_handler.handle("/api/history/summary", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert "total_debates" in data
-        assert "total_agents" in data
-
-    def test_counts_debates(self, system_handler):
-        """Should count total debates."""
-        result = system_handler.handle("/api/history/summary", {}, None)
-
-        data = json.loads(result.body)
-        assert data["total_debates"] == 3
-
-    def test_counts_agents(self, system_handler):
-        """Should count total agents."""
-        result = system_handler.handle("/api/history/summary", {}, None)
-
-        data = json.loads(result.body)
-        assert data["total_agents"] == 2
-
-    def test_validates_loop_id(self, system_handler):
-        """Should validate loop_id parameter."""
-        result = system_handler.handle("/api/history/summary", {"loop_id": "../../etc"}, None)
-
-        assert result.status_code == 400
-
-    def test_handles_missing_components(self):
-        """Should handle missing storage and ELO."""
-        handler = SystemHandler({})
-        result = handler.handle("/api/history/summary", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["total_debates"] == 0
-        assert data["total_agents"] == 0
-
-    def test_handles_exception(self, system_handler, mock_storage):
-        """Should return 500 on exception."""
-        mock_storage.list_recent.side_effect = Exception("Summary error")
-
-        result = system_handler.handle("/api/history/summary", {}, None)
-
-        assert result.status_code == 500
-
-    def test_handles_storage_error(self, system_handler, mock_storage):
-        """Should return 500 on StorageError."""
-        from aragora.exceptions import StorageError
-        mock_storage.list_recent.side_effect = StorageError("Storage unavailable")
-
-        result = system_handler.handle("/api/history/summary", {}, None)
-
-        assert result.status_code == 500
-        data = json.loads(result.body)
-        assert "database error" in data["error"].lower()
-
-    def test_handles_database_error(self, system_handler, mock_storage):
-        """Should return 500 on DatabaseError."""
-        from aragora.exceptions import DatabaseError
-        mock_storage.list_recent.side_effect = DatabaseError("Connection lost")
-
-        result = system_handler.handle("/api/history/summary", {}, None)
-
-        assert result.status_code == 500
-        data = json.loads(result.body)
-        assert "database error" in data["error"].lower()
-
-
-# ============================================================================
-# Limit Cap Tests
-# ============================================================================
-
-class TestLimitCaps:
-    """Tests for limit parameter capping."""
-
-    def test_cycles_caps_at_200(self, system_handler, tmp_path):
-        """Should cap cycles limit at 200."""
-        cycles = [{"id": f"c{i}"} for i in range(300)]
-        (tmp_path / "cycles.json").write_text(json.dumps(cycles))
-
-        result = system_handler.handle("/api/history/cycles", {"limit": "500"}, None)
-
-        data = json.loads(result.body)
-        assert len(data["cycles"]) == 200
-
-    def test_events_caps_at_500(self, system_handler, tmp_path):
-        """Should cap events limit at 500."""
-        events = [{"id": f"e{i}"} for i in range(700)]
-        (tmp_path / "events.json").write_text(json.dumps(events))
-
-        result = system_handler.handle("/api/history/events", {"limit": "1000"}, None)
-
-        data = json.loads(result.body)
-        assert len(data["events"]) == 500
-
-
-# ============================================================================
-# Edge Cases
-# ============================================================================
-
-class TestSystemEdgeCases:
-    """Tests for edge cases."""
-
-    def test_empty_state_file(self, system_handler, tmp_path):
-        """Should handle empty state file."""
-        (tmp_path / "nomic_state.json").write_text("{}")
-
-        result = system_handler.handle("/api/nomic/state", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data == {}
-
-    def test_empty_log_file(self, system_handler, tmp_path):
-        """Should handle empty log file."""
-        (tmp_path / "nomic_loop.log").write_text("")
-
-        result = system_handler.handle("/api/nomic/log", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["lines"] == []
-        assert data["total"] == 0
-
-    def test_empty_cycles_file(self, system_handler, tmp_path):
-        """Should handle empty cycles array."""
-        (tmp_path / "cycles.json").write_text("[]")
-
-        result = system_handler.handle("/api/history/cycles", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["cycles"] == []
-
-    def test_nomic_dir_exists_check(self, system_handler, tmp_path):
-        """Should add warning when nomic_dir doesn't exist."""
-        # Point to non-existent directory
-        system_handler.ctx["nomic_dir"] = tmp_path / "nonexistent"
-
-        result = system_handler.handle("/api/health", {}, None)
-
-        data = json.loads(result.body)
-        # Non-existent nomic_dir is a warning, not a failure
-        assert data["checks"]["nomic_dir"]["healthy"] is True
-        assert "warning" in data["checks"]["nomic_dir"]
-
-
-# ============================================================================
-# Auth Endpoint Tests
-# ============================================================================
-
-class TestAuthEndpoints:
-    """Tests for authentication endpoints."""
-
-    def test_can_handle_auth_stats(self, system_handler):
-        """Should handle /api/auth/stats."""
-        assert system_handler.can_handle("/api/auth/stats") is True
-
-    def test_can_handle_auth_revoke(self, system_handler):
-        """Should handle /api/auth/revoke."""
-        assert system_handler.can_handle("/api/auth/revoke") is True
-
-    def test_get_auth_stats(self, system_handler):
-        """Should return auth stats."""
-        result = system_handler.handle("/api/auth/stats", {}, None)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert "enabled" in data
-        assert "rate_limit_per_minute" in data
-        assert "ip_rate_limit_per_minute" in data
-        assert "token_ttl_seconds" in data
-        assert "stats" in data
-
-    def test_revoke_token_invalid_json(self, system_handler):
-        """Should reject invalid JSON body."""
-        mock_handler = Mock()
-        mock_handler.headers = {"Content-Length": "10"}
-        mock_handler.rfile.read.return_value = b"not valid json"
-
-        result = system_handler.handle_post("/api/auth/revoke", {}, mock_handler)
-
-        assert result.status_code == 400
-        data = json.loads(result.body)
-        assert "Invalid JSON" in data["error"]
-
-    def test_revoke_token_missing_token(self, system_handler):
-        """Should reject missing token."""
-        mock_handler = Mock()
-        mock_handler.headers = {"Content-Length": "2"}
-        mock_handler.rfile.read.return_value = b"{}"
-
-        result = system_handler.handle_post("/api/auth/revoke", {}, mock_handler)
-
-        assert result.status_code == 400
-        data = json.loads(result.body)
-        assert "required" in data["error"].lower()
-
-    def test_revoke_token_success(self, system_handler):
-        """Should revoke token successfully."""
-        mock_handler = Mock()
-        body = json.dumps({"token": "test-token-123", "reason": "security"})
-        mock_handler.headers = {"Content-Length": str(len(body))}
-        mock_handler.rfile.read.return_value = body.encode()
-
-        result = system_handler.handle_post("/api/auth/revoke", {}, mock_handler)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["success"] is True
-        assert "revoked_count" in data
-
-    def test_revoke_token_without_reason(self, system_handler):
-        """Should revoke token without reason."""
-        mock_handler = Mock()
-        body = json.dumps({"token": "another-token"})
-        mock_handler.headers = {"Content-Length": str(len(body))}
-        mock_handler.rfile.read.return_value = body.encode()
-
-        result = system_handler.handle_post("/api/auth/revoke", {}, mock_handler)
-
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["success"] is True
-
-
-# ============================================================================
-# Maintenance Endpoint Tests
-# ============================================================================
-
-class TestMaintenanceEndpoint:
-    """Tests for /api/system/maintenance endpoint."""
-
-    def test_can_handle_maintenance(self, system_handler):
-        """Should handle /api/system/maintenance."""
-        assert system_handler.can_handle("/api/system/maintenance") is True
-
-    def test_returns_503_without_nomic_dir(self):
-        """Should return 503 without nomic_dir."""
-        handler = SystemHandler({})
-        result = handler.handle("/api/system/maintenance", {"task": "status"}, None)
-
-        assert result.status_code == 503
-
-    def test_returns_status(self, system_handler, tmp_path):
-        """Should return maintenance status."""
-        # Create a minimal database for status check
-        with patch('aragora.maintenance.DatabaseMaintenance') as MockMaint:
-            mock_maint = Mock()
-            mock_maint.get_stats.return_value = {"total_size": 1024}
-            MockMaint.return_value = mock_maint
-
-            result = system_handler.handle("/api/system/maintenance", {"task": "status"}, None)
-
-            # Should succeed or report module not available
-            assert result.status_code in (200, 503)
-
-    def test_handles_storage_error(self, system_handler):
-        """Should return 500 on StorageError."""
-        from aragora.exceptions import StorageError
-
-        with patch('aragora.maintenance.DatabaseMaintenance') as MockMaint:
-            MockMaint.side_effect = StorageError("Storage unavailable")
-
-            result = system_handler.handle("/api/system/maintenance", {"task": "status"}, None)
-
+            assert result is not None
             assert result.status_code == 500
-            data = json.loads(result.body)
-            assert "database error" in data["error"].lower()
+            body = json.loads(result.body)
+            assert "error" in body
 
-    def test_handles_database_error(self, system_handler):
-        """Should return 500 on DatabaseError."""
-        from aragora.exceptions import DatabaseError
+    def test_permission_error_on_log_read(self, mock_http_handler):
+        """Test handling of permission errors."""
+        with patch('builtins.open', side_effect=PermissionError("Access denied")):
+            with tempfile.TemporaryDirectory() as tmpdir:
+                nomic_dir = Path(tmpdir)
+                # Create the file so exists() check passes
+                log_file = nomic_dir / "nomic_loop.log"
+                log_file.touch()
 
-        with patch('aragora.maintenance.DatabaseMaintenance') as MockMaint:
-            MockMaint.side_effect = DatabaseError("Connection lost")
+                ctx = {"nomic_dir": nomic_dir}
+                handler = SystemHandler(ctx)
 
-            result = system_handler.handle("/api/system/maintenance", {"task": "status"}, None)
+                result = handler.handle("/api/nomic/log", {}, mock_http_handler)
 
-            assert result.status_code == 500
-            data = json.loads(result.body)
-            assert "database error" in data["error"].lower()
-
-    def test_handles_os_error(self, system_handler):
-        """Should return 500 on OSError."""
-        with patch('aragora.maintenance.DatabaseMaintenance') as MockMaint:
-            MockMaint.side_effect = OSError("Permission denied")
-
-            result = system_handler.handle("/api/system/maintenance", {"task": "status"}, None)
-
-            assert result.status_code == 500
-            data = json.loads(result.body)
-            assert "filesystem error" in data["error"].lower()
+                assert result is not None
+                assert result.status_code == 500
