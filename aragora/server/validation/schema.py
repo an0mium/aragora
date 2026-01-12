@@ -63,9 +63,9 @@ AGENT_CONFIG_SCHEMA = {
 
 # Batch debate submission schema
 BATCH_SUBMIT_SCHEMA = {
-    "debates": {"type": "list", "min_length": 1, "max_length": 100, "item_type": dict, "required": True},
-    "priority": {"type": "enum", "allowed_values": {"low", "normal", "high"}, "required": False},
-    "callback_url": {"type": "string", "max_length": 500, "required": False},
+    "items": {"type": "list", "min_length": 1, "max_length": 1000, "item_type": dict, "required": True},
+    "webhook_url": {"type": "string", "max_length": 2000, "required": False},
+    "max_parallel": {"type": "int", "min_value": 1, "max_value": 50, "required": False},
 }
 
 # User/auth schemas
@@ -114,6 +114,19 @@ SOCIAL_PUBLISH_SCHEMA = {
     "title": {"type": "string", "max_length": 200, "required": False},
     "description": {"type": "string", "max_length": 5000, "required": False},
     "tags": {"type": "list", "max_length": 20, "item_type": str, "required": False},
+}
+
+# Plugin execution schema
+PLUGIN_RUN_SCHEMA = {
+    "input": {"type": "string", "max_length": 100000, "required": False},  # Can also be dict
+    "config": {"type": "string", "max_length": 10000, "required": False},  # Config dict
+    "working_dir": {"type": "string", "max_length": 500, "required": False},
+}
+
+# Plugin install schema
+PLUGIN_INSTALL_SCHEMA = {
+    "config": {"type": "string", "max_length": 10000, "required": False},
+    "enabled": {"type": "string", "max_length": 10, "required": False},  # "true"/"false"
 }
 
 

@@ -108,6 +108,8 @@ from .schema import (
     GAUNTLET_RUN_SCHEMA,
     CHECKOUT_SESSION_SCHEMA,
     SOCIAL_PUBLISH_SCHEMA,
+    PLUGIN_RUN_SCHEMA,
+    PLUGIN_INSTALL_SCHEMA,
     validate_against_schema,
 )
 
@@ -179,6 +181,8 @@ __all__ = [
     "GAUNTLET_RUN_SCHEMA",
     "CHECKOUT_SESSION_SCHEMA",
     "SOCIAL_PUBLISH_SCHEMA",
+    "PLUGIN_RUN_SCHEMA",
+    "PLUGIN_INSTALL_SCHEMA",
     "validate_against_schema",
     # Decorators
     "validate_request",

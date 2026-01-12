@@ -20,6 +20,7 @@ from typing import Optional
 from aragora.utils.optional_imports import try_import
 from aragora.server.http_utils import run_async
 from aragora.server.middleware.rate_limit import rate_limit
+from aragora.server.validation.schema import validate_against_schema, PLUGIN_RUN_SCHEMA
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -168,6 +169,11 @@ class PluginsHandler(BaseHandler):
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body or body too large", 400)
+
+        # Schema validation for input sanitization
+        validation_result = validate_against_schema(body, PLUGIN_RUN_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, 400)
 
         input_data = body.get("input", {})
         config = body.get("config", {})

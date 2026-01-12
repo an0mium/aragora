@@ -20,6 +20,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.entities import validate_path_segment, SAFE_ID_PATTERN
+from aragora.server.validation.schema import validate_against_schema, BATCH_SUBMIT_SCHEMA
 from aragora.exceptions import DebateStartError
 
 if TYPE_CHECKING:
@@ -73,6 +74,11 @@ class BatchOperationsMixin:
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid or missing JSON body", 400)
+
+        # Schema validation for input sanitization
+        validation_result = validate_against_schema(body, BATCH_SUBMIT_SCHEMA)
+        if not validation_result.is_valid:
+            return error_response(validation_result.error, 400)
 
         items_data = body.get("items", [])
         if not items_data:
