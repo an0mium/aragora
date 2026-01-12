@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useApi } from '@/hooks/useApi';
+import { useBackend } from '@/components/BackendSelector';
 
 interface ForkResult {
   success: boolean;
@@ -62,7 +62,8 @@ export function DebateForkPanel({
   const [followupResult, setFollowupResult] = useState<FollowupResult | null>(null);
   const [followupError, setFollowupError] = useState<string | null>(null);
 
-  const { apiUrl } = useApi();
+  const { config: backendConfig } = useBackend();
+  const apiUrl = backendConfig.api;
 
   const handleFork = useCallback(async () => {
     setIsForking(true);

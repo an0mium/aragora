@@ -169,7 +169,7 @@ export function EvolutionPanel({ backendConfig }: EvolutionPanelProps) {
   }, [fetchAll]);
 
   if (error) {
-    return <ErrorWithRetry message={error} onRetry={fetchAll} />;
+    return <ErrorWithRetry error={error} onRetry={fetchAll} />;
   }
 
   const tabs = [

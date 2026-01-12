@@ -3,6 +3,8 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import * as d3 from 'd3-force';
 import * as d3Select from 'd3-selection';
+import { zoom as d3Zoom, type ZoomBehavior } from 'd3-zoom';
+import { drag as d3Drag, type DragBehavior } from 'd3-drag';
 
 interface GraphNode {
   id: string;
@@ -162,7 +164,7 @@ export function ForceGraph({ nodes, width = 800, height = 500, onNodeClick }: Fo
     });
 
     // Zoom behavior
-    const zoom = d3Select.zoom<SVGSVGElement, unknown>()
+    const zoom = d3Zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.2, 4])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
@@ -189,7 +191,7 @@ export function ForceGraph({ nodes, width = 800, height = 500, onNodeClick }: Fo
         event.subject.fy = null;
       }
 
-      return d3Select.drag()
+      return d3Drag()
         .on('start', dragstarted)
         .on('drag', dragged)
         .on('end', dragended);

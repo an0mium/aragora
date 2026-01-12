@@ -1,10 +1,16 @@
 'use client';
 
 import { EvolutionPanel } from '@/components/EvolutionPanel';
-import { useBackendConfig } from '@/hooks/useBackendConfig';
+import { useBackend } from '@/components/BackendSelector';
 
 export default function EvolutionPage() {
-  const backendConfig = useBackendConfig();
+  const { config } = useBackend();
+
+  // Map BackendSelector config to EvolutionPanel expected format
+  const backendConfig = {
+    apiUrl: config.api,
+    wsUrl: config.ws,
+  };
 
   return (
     <div className="min-h-screen bg-bg text-text p-6">
