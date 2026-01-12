@@ -24,6 +24,10 @@ interface SubscriptionData {
   is_active: boolean;
   current_period_end?: string;
   cancel_at_period_end?: boolean;
+  trial_start?: string;
+  trial_end?: string;
+  is_trialing?: boolean;
+  payment_failed?: boolean;
   limits?: {
     debates_per_month: number;
     users_per_org: number;
@@ -142,6 +146,12 @@ export default function BillingPage() {
     ? Math.min(100, (usage.debates_used / usage.debates_limit) * 100)
     : 0;
 
+  // Calculate trial days remaining
+  const trialDaysRemaining = subscription?.trial_end
+    ? Math.max(0, Math.ceil((new Date(subscription.trial_end).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const isInTrial = subscription?.is_trialing && trialDaysRemaining > 0;
+
   return (
     <ProtectedRoute>
       <Scanlines opacity={0.02} />
@@ -199,6 +209,69 @@ export default function BillingPage() {
             </div>
           )}
 
+          {/* Trial Banner */}
+          {isInTrial && (
+            <div className="mb-6 p-4 border border-acid-cyan/50 bg-acid-cyan/10 text-acid-cyan text-sm font-mono">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-bold">TRIAL PERIOD ACTIVE</span>
+                  <span className="ml-2">
+                    {trialDaysRemaining} {trialDaysRemaining === 1 ? 'day' : 'days'} remaining
+                  </span>
+                </div>
+                <Link
+                  href="/pricing"
+                  className="px-3 py-1 bg-acid-cyan/20 hover:bg-acid-cyan/30 border border-acid-cyan/50 transition-colors"
+                >
+                  UPGRADE NOW
+                </Link>
+              </div>
+              {trialDaysRemaining <= 3 && (
+                <div className="mt-2 text-xs text-warning">
+                  Your trial is ending soon. Upgrade to keep your full access.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Payment Failed Banner */}
+          {subscription?.payment_failed && (
+            <div className="mb-6 p-4 border border-warning/50 bg-warning/10 text-warning text-sm font-mono">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-bold">PAYMENT FAILED</span>
+                  <span className="ml-2">Please update your payment method to avoid service interruption.</span>
+                </div>
+                <button
+                  onClick={handleManageBilling}
+                  disabled={portalLoading}
+                  className="px-3 py-1 bg-warning/20 hover:bg-warning/30 border border-warning/50 transition-colors disabled:opacity-50"
+                >
+                  UPDATE PAYMENT
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Past Due Status */}
+          {subscription?.status === 'past_due' && !subscription?.payment_failed && (
+            <div className="mb-6 p-4 border border-warning/50 bg-warning/10 text-warning text-sm font-mono">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-bold">PAYMENT PAST DUE</span>
+                  <span className="ml-2">Your subscription payment is overdue.</span>
+                </div>
+                <button
+                  onClick={handleManageBilling}
+                  disabled={portalLoading}
+                  className="px-3 py-1 bg-warning/20 hover:bg-warning/30 border border-warning/50 transition-colors disabled:opacity-50"
+                >
+                  RESOLVE NOW
+                </button>
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div className="text-center py-12 font-mono text-text-muted">
               Loading billing data...
@@ -213,14 +286,26 @@ export default function BillingPage() {
                 <div className="mb-4">
                   <div className="text-2xl font-mono text-acid-green uppercase">
                     {subscription?.tier || 'FREE'}
+                    {isInTrial && (
+                      <span className="ml-2 text-sm text-acid-cyan">(TRIAL)</span>
+                    )}
                   </div>
                   <div className="text-sm font-mono text-text-muted">
-                    Status: {subscription?.is_active ? (
+                    Status: {isInTrial ? (
+                      <span className="text-acid-cyan">Trialing</span>
+                    ) : subscription?.status === 'past_due' ? (
+                      <span className="text-warning">Past Due</span>
+                    ) : subscription?.is_active ? (
                       <span className="text-acid-green">Active</span>
                     ) : (
                       <span className="text-warning">Inactive</span>
                     )}
                   </div>
+                  {isInTrial && (
+                    <div className="text-sm font-mono text-acid-cyan mt-1">
+                      Trial ends: {new Date(subscription!.trial_end!).toLocaleDateString()}
+                    </div>
+                  )}
                   {subscription?.cancel_at_period_end && (
                     <div className="text-sm font-mono text-warning mt-1">
                       Cancels at period end

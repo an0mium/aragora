@@ -115,6 +115,31 @@ class EarlyStopError(DebateError):
         self.round_stopped = round_stopped
 
 
+class DebateStartError(DebateError):
+    """Raised when a debate fails to start."""
+
+    def __init__(self, debate_id: str, reason: str):
+        super().__init__(
+            f"Failed to start debate {debate_id}: {reason}",
+            {"debate_id": debate_id, "reason": reason}
+        )
+        self.debate_id = debate_id
+        self.reason = reason
+
+
+class DebateBatchError(DebateError):
+    """Raised when a batch debate operation fails."""
+
+    def __init__(self, operation: str, reason: str, failed_ids: list[str] | None = None):
+        super().__init__(
+            f"Batch operation '{operation}' failed: {reason}",
+            {"operation": operation, "reason": reason, "failed_ids": failed_ids or []}
+        )
+        self.operation = operation
+        self.reason = reason
+        self.failed_ids = failed_ids or []
+
+
 # ============================================================================
 # Agent Errors (re-exported from aragora.agents.errors for unified imports)
 # ============================================================================
@@ -378,6 +403,47 @@ class RateLimitExceededError(AuthError):
         )
         self.limit = limit
         self.window_seconds = window_seconds
+
+
+class OAuthStateError(AuthError):
+    """Raised when OAuth state validation fails."""
+
+    def __init__(self, reason: str):
+        super().__init__(f"OAuth state validation failed: {reason}", {"reason": reason})
+        self.reason = reason
+
+
+# ============================================================================
+# Infrastructure Errors
+# ============================================================================
+
+class InfrastructureError(AragoraError):
+    """Base exception for infrastructure-related errors."""
+    pass
+
+
+class RedisUnavailableError(InfrastructureError):
+    """Raised when Redis is not available."""
+
+    def __init__(self, operation: str | None = None):
+        msg = "Redis not available"
+        if operation:
+            msg = f"Redis not available for {operation}"
+        super().__init__(msg, {"operation": operation})
+        self.operation = operation
+
+
+class ExternalServiceError(InfrastructureError):
+    """Raised when an external service call fails."""
+
+    def __init__(self, service: str, reason: str, status_code: int | None = None):
+        super().__init__(
+            f"External service '{service}' failed: {reason}",
+            {"service": service, "reason": reason, "status_code": status_code}
+        )
+        self.service = service
+        self.reason = reason
+        self.status_code = status_code
 
 
 # ============================================================================

@@ -2,6 +2,55 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useBackend } from '@/components/BackendSelector';
+
+interface FeatureConfig {
+  // Feature toggles
+  calibration: boolean;
+  trickster: boolean;
+  rhetorical: boolean;
+  insights: boolean;
+  moments: boolean;
+  crux: boolean;
+  evolution: boolean;
+  continuum_memory: boolean;
+  consensus_memory: boolean;
+  laboratory: boolean;
+  // Display
+  show_advanced_metrics: boolean;
+  compact_mode: boolean;
+  theme: string;
+  // Debate defaults
+  default_mode: string;
+  default_rounds: number;
+  default_agents: string;
+  // Notifications
+  telegram_enabled: boolean;
+  email_digest: string;
+  consensus_alert_threshold: number;
+}
+
+const DEFAULT_FEATURE_CONFIG: FeatureConfig = {
+  calibration: true,
+  trickster: false,
+  rhetorical: true,
+  insights: true,
+  moments: true,
+  crux: true,
+  evolution: true,
+  continuum_memory: true,
+  consensus_memory: true,
+  laboratory: true,
+  show_advanced_metrics: false,
+  compact_mode: false,
+  theme: 'system',
+  default_mode: 'standard',
+  default_rounds: 3,
+  default_agents: 'claude,gemini,gpt4',
+  telegram_enabled: false,
+  email_digest: 'none',
+  consensus_alert_threshold: 0.7,
+};
 
 interface UserPreferences {
   theme: 'dark' | 'light' | 'system';
@@ -48,7 +97,11 @@ function storePreferences(prefs: Partial<UserPreferences>): void {
 
 export function SettingsPanel() {
   const { user, isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<'appearance' | 'notifications' | 'api' | 'integrations' | 'account'>('appearance');
+  const { config: backendConfig } = useBackend();
+  const [activeTab, setActiveTab] = useState<'features' | 'debate' | 'appearance' | 'notifications' | 'api' | 'integrations' | 'account'>('features');
+  const [featureConfig, setFeatureConfig] = useState<FeatureConfig>(DEFAULT_FEATURE_CONFIG);
+  const [featureLoading, setFeatureLoading] = useState(true);
+  const [featureSaveStatus, setFeatureSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [preferences, setPreferences] = useState<UserPreferences>({
     theme: 'dark',
     notifications: {
@@ -191,7 +244,56 @@ export function SettingsPanel() {
     }, 500);
   }, [slackWebhook, discordWebhook]);
 
+  // Fetch feature config from backend
+  useEffect(() => {
+    async function fetchFeatureConfig() {
+      try {
+        setFeatureLoading(true);
+        const response = await fetch(`${backendConfig.api}/api/features/config`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.preferences) {
+            setFeatureConfig(prev => ({ ...prev, ...data.preferences }));
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch feature config:', error);
+      } finally {
+        setFeatureLoading(false);
+      }
+    }
+    fetchFeatureConfig();
+  }, [backendConfig.api]);
+
+  const updateFeatureConfig = useCallback(async (key: keyof FeatureConfig, value: boolean | string | number) => {
+    const newConfig = { ...featureConfig, [key]: value };
+    setFeatureConfig(newConfig);
+
+    // Save to backend
+    setFeatureSaveStatus('saving');
+    try {
+      const response = await fetch(`${backendConfig.api}/api/features/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      });
+
+      if (response.ok) {
+        setFeatureSaveStatus('saved');
+        setTimeout(() => setFeatureSaveStatus('idle'), 1500);
+      } else {
+        setFeatureSaveStatus('error');
+        setTimeout(() => setFeatureSaveStatus('idle'), 2000);
+      }
+    } catch {
+      setFeatureSaveStatus('error');
+      setTimeout(() => setFeatureSaveStatus('idle'), 2000);
+    }
+  }, [featureConfig, backendConfig.api]);
+
   const tabs = [
+    { id: 'features', label: 'FEATURES' },
+    { id: 'debate', label: 'DEBATE' },
     { id: 'appearance', label: 'APPEARANCE' },
     { id: 'notifications', label: 'NOTIFICATIONS' },
     { id: 'api', label: 'API KEYS' },
@@ -218,7 +320,325 @@ export function SettingsPanel() {
             {tab.label}
           </button>
         ))}
+        {/* Save Status Indicator */}
+        {featureSaveStatus !== 'idle' && (
+          <span className={`ml-2 text-xs font-mono ${
+            featureSaveStatus === 'saving' ? 'text-acid-cyan' :
+            featureSaveStatus === 'saved' ? 'text-acid-green' :
+            'text-acid-red'
+          }`}>
+            {featureSaveStatus === 'saving' ? '...' :
+             featureSaveStatus === 'saved' ? '✓' : '✗'}
+          </span>
+        )}
       </div>
+
+      {/* Features Tab */}
+      {activeTab === 'features' && (
+        <div className="space-y-6">
+          {featureLoading ? (
+            <div className="card p-6 animate-pulse">
+              <div className="h-32 bg-surface rounded" />
+            </div>
+          ) : (
+            <>
+              <div className="card p-6">
+                <h3 className="font-mono text-acid-green mb-4">Analysis Features</h3>
+                <div className="space-y-4">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="font-mono text-sm text-text">Calibration Tracking</div>
+                      <div className="font-mono text-xs text-text-muted">Track agent prediction accuracy over time</div>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={featureConfig.calibration}
+                      onClick={() => updateFeatureConfig('calibration', !featureConfig.calibration)}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        featureConfig.calibration ? 'bg-acid-green' : 'bg-surface'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        featureConfig.calibration ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </label>
+
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="font-mono text-sm text-text">Trickster (Hollow Consensus)</div>
+                      <div className="font-mono text-xs text-text-muted">Detect and challenge artificial agreement</div>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={featureConfig.trickster}
+                      onClick={() => updateFeatureConfig('trickster', !featureConfig.trickster)}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        featureConfig.trickster ? 'bg-acid-green' : 'bg-surface'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        featureConfig.trickster ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </label>
+
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="font-mono text-sm text-text">Rhetorical Observer</div>
+                      <div className="font-mono text-xs text-text-muted">Detect rhetorical patterns like concession and rebuttal</div>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={featureConfig.rhetorical}
+                      onClick={() => updateFeatureConfig('rhetorical', !featureConfig.rhetorical)}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        featureConfig.rhetorical ? 'bg-acid-green' : 'bg-surface'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        featureConfig.rhetorical ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </label>
+
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="font-mono text-sm text-text">Crux Analysis</div>
+                      <div className="font-mono text-xs text-text-muted">Identify key points of disagreement</div>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={featureConfig.crux}
+                      onClick={() => updateFeatureConfig('crux', !featureConfig.crux)}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        featureConfig.crux ? 'bg-acid-green' : 'bg-surface'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        featureConfig.crux ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </label>
+                </div>
+              </div>
+
+              <div className="card p-6">
+                <h3 className="font-mono text-acid-green mb-4">Learning & Memory</h3>
+                <div className="space-y-4">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="font-mono text-sm text-text">Continuum Memory</div>
+                      <div className="font-mono text-xs text-text-muted">Multi-tier memory with surprise-based consolidation</div>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={featureConfig.continuum_memory}
+                      onClick={() => updateFeatureConfig('continuum_memory', !featureConfig.continuum_memory)}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        featureConfig.continuum_memory ? 'bg-acid-green' : 'bg-surface'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        featureConfig.continuum_memory ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </label>
+
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="font-mono text-sm text-text">Consensus Memory</div>
+                      <div className="font-mono text-xs text-text-muted">Store historical debate outcomes</div>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={featureConfig.consensus_memory}
+                      onClick={() => updateFeatureConfig('consensus_memory', !featureConfig.consensus_memory)}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        featureConfig.consensus_memory ? 'bg-acid-green' : 'bg-surface'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        featureConfig.consensus_memory ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </label>
+
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="font-mono text-sm text-text">Prompt Evolution</div>
+                      <div className="font-mono text-xs text-text-muted">Learn from debates to improve agent prompts</div>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={featureConfig.evolution}
+                      onClick={() => updateFeatureConfig('evolution', !featureConfig.evolution)}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        featureConfig.evolution ? 'bg-acid-green' : 'bg-surface'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        featureConfig.evolution ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </label>
+                </div>
+              </div>
+
+              <div className="card p-6">
+                <h3 className="font-mono text-acid-green mb-4">Panels & UI</h3>
+                <div className="space-y-4">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="font-mono text-sm text-text">Insights Panel</div>
+                      <div className="font-mono text-xs text-text-muted">Show extracted learnings and patterns</div>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={featureConfig.insights}
+                      onClick={() => updateFeatureConfig('insights', !featureConfig.insights)}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        featureConfig.insights ? 'bg-acid-green' : 'bg-surface'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        featureConfig.insights ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </label>
+
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="font-mono text-sm text-text">Moments Timeline</div>
+                      <div className="font-mono text-xs text-text-muted">Detect significant narrative moments</div>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={featureConfig.moments}
+                      onClick={() => updateFeatureConfig('moments', !featureConfig.moments)}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        featureConfig.moments ? 'bg-acid-green' : 'bg-surface'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        featureConfig.moments ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </label>
+
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="font-mono text-sm text-text">Persona Laboratory</div>
+                      <div className="font-mono text-xs text-text-muted">Agent personality trait detection</div>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={featureConfig.laboratory}
+                      onClick={() => updateFeatureConfig('laboratory', !featureConfig.laboratory)}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        featureConfig.laboratory ? 'bg-acid-green' : 'bg-surface'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        featureConfig.laboratory ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </label>
+
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="font-mono text-sm text-text">Show Advanced Metrics</div>
+                      <div className="font-mono text-xs text-text-muted">Display detailed telemetry in panels</div>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={featureConfig.show_advanced_metrics}
+                      onClick={() => updateFeatureConfig('show_advanced_metrics', !featureConfig.show_advanced_metrics)}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        featureConfig.show_advanced_metrics ? 'bg-acid-green' : 'bg-surface'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        featureConfig.show_advanced_metrics ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </label>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Debate Tab */}
+      {activeTab === 'debate' && (
+        <div className="space-y-6">
+          <div className="card p-6">
+            <h3 className="font-mono text-acid-green mb-4">Default Debate Settings</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="font-mono text-sm text-text block mb-2">Default Mode</label>
+                <select
+                  value={featureConfig.default_mode}
+                  onChange={(e) => updateFeatureConfig('default_mode', e.target.value)}
+                  className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                >
+                  <option value="standard">Standard</option>
+                  <option value="graph">Graph</option>
+                  <option value="matrix">Matrix</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-mono text-sm text-text block mb-2">Default Rounds</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={featureConfig.default_rounds}
+                  onChange={(e) => updateFeatureConfig('default_rounds', parseInt(e.target.value) || 3)}
+                  className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                />
+              </div>
+
+              <div>
+                <label className="font-mono text-sm text-text block mb-2">Default Agents</label>
+                <input
+                  type="text"
+                  value={featureConfig.default_agents}
+                  onChange={(e) => updateFeatureConfig('default_agents', e.target.value)}
+                  placeholder="claude,gemini,gpt4,grok"
+                  className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                />
+                <p className="font-mono text-xs text-text-muted mt-1">Comma-separated list of agents</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <h3 className="font-mono text-acid-green mb-4">Alert Thresholds</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="font-mono text-sm text-text block mb-2">
+                  Consensus Alert Threshold: {(featureConfig.consensus_alert_threshold * 100).toFixed(0)}%
+                </label>
+                <input
+                  type="range"
+                  min={0.5}
+                  max={1.0}
+                  step={0.05}
+                  value={featureConfig.consensus_alert_threshold}
+                  onChange={(e) => updateFeatureConfig('consensus_alert_threshold', parseFloat(e.target.value))}
+                  className="w-full accent-acid-green"
+                />
+                <p className="font-mono text-xs text-text-muted mt-1">
+                  Notify when consensus confidence exceeds this threshold
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Appearance Tab */}
       {activeTab === 'appearance' && (

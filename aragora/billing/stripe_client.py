@@ -97,9 +97,20 @@ class StripeSubscription:
     current_period_start: datetime
     current_period_end: datetime
     cancel_at_period_end: bool = False
+    trial_start: Optional[datetime] = None
+    trial_end: Optional[datetime] = None
+
+    @property
+    def is_trialing(self) -> bool:
+        """Check if subscription is in trial period."""
+        if self.status != "trialing":
+            return False
+        if self.trial_end is None:
+            return False
+        return datetime.utcnow() < self.trial_end
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "id": self.id,
             "customer_id": self.customer_id,
             "status": self.status,
@@ -108,6 +119,12 @@ class StripeSubscription:
             "current_period_end": self.current_period_end.isoformat(),
             "cancel_at_period_end": self.cancel_at_period_end,
         }
+        if self.trial_start:
+            result["trial_start"] = self.trial_start.isoformat()
+        if self.trial_end:
+            result["trial_end"] = self.trial_end.isoformat()
+        result["is_trialing"] = self.is_trialing
+        return result
 
 
 @dataclass
@@ -533,6 +550,14 @@ class StripeClient:
         if items:
             price_id = items[0].get("price", {}).get("id", "")
 
+        # Parse trial dates if present
+        trial_start = None
+        trial_end = None
+        if data.get("trial_start"):
+            trial_start = datetime.fromtimestamp(data["trial_start"])
+        if data.get("trial_end"):
+            trial_end = datetime.fromtimestamp(data["trial_end"])
+
         return StripeSubscription(
             id=data["id"],
             customer_id=data["customer"],
@@ -545,6 +570,8 @@ class StripeClient:
                 data.get("current_period_end", 0)
             ),
             cancel_at_period_end=data.get("cancel_at_period_end", False),
+            trial_start=trial_start,
+            trial_end=trial_end,
         )
 
 

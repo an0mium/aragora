@@ -1,11 +1,13 @@
 'use client';
 
-import { Component, ReactNode } from 'react';
+import { Component, type ReactNode, type ErrorInfo } from 'react';
 
 interface Props {
   children: ReactNode;
   panelName: string;
   onRetry?: () => void;
+  /** Callback when an error is caught (for external error tracking like Sentry) */
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
@@ -16,6 +18,23 @@ interface State {
 /**
  * Granular error boundary for individual panels.
  * Prevents one panel crash from taking down the entire dashboard.
+ *
+ * @example
+ * ```tsx
+ * <PanelErrorBoundary panelName="Leaderboard">
+ *   <LeaderboardPanel />
+ * </PanelErrorBoundary>
+ * ```
+ *
+ * @example With error tracking
+ * ```tsx
+ * <PanelErrorBoundary
+ *   panelName="Agent Panel"
+ *   onError={(error, info) => logToSentry(error, info)}
+ * >
+ *   <AgentPanel />
+ * </PanelErrorBoundary>
+ * ```
  */
 export class PanelErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -27,8 +46,10 @@ export class PanelErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error(`[${this.props.panelName}] Error:`, error, errorInfo);
+    // Call optional error callback for external error tracking
+    this.props.onError?.(error, errorInfo);
   }
 
   handleRetry = () => {
@@ -39,9 +60,13 @@ export class PanelErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="bg-surface border border-red-500/30 rounded-lg p-4">
+        <div
+          className="bg-surface border border-red-500/30 rounded-lg p-4"
+          role="alert"
+          aria-live="assertive"
+        >
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-red-400 text-lg">⚠</span>
+            <span className="text-red-400 text-lg" aria-hidden="true">!</span>
             <h3 className="text-sm font-medium text-red-400">
               {this.props.panelName} Error
             </h3>
@@ -62,6 +87,7 @@ export class PanelErrorBoundary extends Component<Props, State> {
           <button
             onClick={this.handleRetry}
             className="px-3 py-1 text-xs bg-surface border border-border rounded hover:bg-surface-hover text-text transition-colors"
+            aria-label={`Retry loading ${this.props.panelName}`}
           >
             Try Again
           </button>

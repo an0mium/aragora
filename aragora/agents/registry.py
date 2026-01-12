@@ -33,6 +33,21 @@ _agent_cache: dict[tuple[str, str, str, str | None, str | None], "Agent"] = {}
 _CACHE_MAX_SIZE = 32
 
 
+def _run_async_in_thread(coro):
+    """Run an async coroutine in a thread-safe manner.
+
+    Creates a new event loop for the thread to avoid RuntimeError when
+    asyncio.run() is called from within a ThreadPoolExecutor.
+    """
+    import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
 @dataclass(frozen=True)
 class AgentSpec:
     """Specification for a registered agent type."""
@@ -327,7 +342,7 @@ class AgentRegistry:
             # Already in async context - create new event loop in thread
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, detector.detect_all())
+                future = pool.submit(_run_async_in_thread, detector.detect_all())
                 status = future.result(timeout=10)
         else:
             status = asyncio.run(detector.detect_all())
@@ -365,7 +380,7 @@ class AgentRegistry:
         if loop and loop.is_running():
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, detector.detect_all())
+                future = pool.submit(_run_async_in_thread, detector.detect_all())
                 status = future.result(timeout=10)
         else:
             status = asyncio.run(detector.detect_all())

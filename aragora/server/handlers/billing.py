@@ -32,8 +32,17 @@ from .base import (
 
 # Module-level imports for test mocking compatibility
 from aragora.billing.models import TIER_LIMITS, SubscriptionTier
-from aragora.billing.stripe_client import get_stripe_client
+from aragora.billing.stripe_client import (
+    get_stripe_client,
+    StripeError,
+    StripeConfigError,
+    StripeAPIError,
+)
 from aragora.billing.jwt_auth import extract_user_from_request
+from aragora.server.handlers.exceptions import (
+    HandlerExternalServiceError,
+    HandlerNotFoundError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -263,8 +272,24 @@ class BillingHandler(BaseHandler):
                         subscription_data["cancel_at_period_end"] = (
                             stripe_sub.cancel_at_period_end
                         )
-                except Exception as e:
-                    logger.warning(f"Failed to get Stripe subscription: {e}")
+                        # Include trial information
+                        if stripe_sub.trial_start:
+                            subscription_data["trial_start"] = (
+                                stripe_sub.trial_start.isoformat()
+                            )
+                        if stripe_sub.trial_end:
+                            subscription_data["trial_end"] = (
+                                stripe_sub.trial_end.isoformat()
+                            )
+                        subscription_data["is_trialing"] = stripe_sub.is_trialing
+                        # Check for payment failures (past_due status)
+                        subscription_data["payment_failed"] = (
+                            stripe_sub.status == "past_due"
+                        )
+                except StripeError as e:
+                    # Log Stripe errors but continue with partial subscription data
+                    # This allows the endpoint to degrade gracefully when Stripe is unavailable
+                    logger.warning(f"Failed to get Stripe subscription: {type(e).__name__}: {e}")
 
         return json_response({"subscription": subscription_data})
 
@@ -718,9 +743,13 @@ class BillingHandler(BaseHandler):
         except StripeConfigError as e:
             logger.error(f"Stripe invoices failed: {type(e).__name__}: {e}")
             return error_response("Payment service unavailable", 503)
-        except Exception as e:
-            logger.error(f"Failed to get invoices: {type(e).__name__}: {e}")
-            return error_response("Failed to retrieve invoices", 500)
+        except StripeAPIError as e:
+            logger.error(f"Stripe API error getting invoices: {type(e).__name__}: {e}")
+            return error_response("Failed to retrieve invoices from payment provider", 502)
+        except StripeError as e:
+            # Catch any other Stripe errors
+            logger.error(f"Stripe error getting invoices: {type(e).__name__}: {e}")
+            return error_response("Payment service error", 500)
 
     @handle_errors("cancel subscription")
     @log_request("cancel subscription")
@@ -776,8 +805,14 @@ class BillingHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
-            logger.error(f"Failed to cancel subscription: {e}")
+        except StripeConfigError as e:
+            logger.error(f"Stripe config error canceling subscription: {type(e).__name__}: {e}")
+            return error_response("Payment service unavailable", 503)
+        except StripeAPIError as e:
+            logger.error(f"Stripe API error canceling subscription: {type(e).__name__}: {e}")
+            return error_response("Failed to cancel subscription with payment provider", 502)
+        except StripeError as e:
+            logger.error(f"Stripe error canceling subscription: {type(e).__name__}: {e}")
             return error_response("Failed to cancel subscription", 500)
 
     @handle_errors("resume subscription")
@@ -814,8 +849,14 @@ class BillingHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
-            logger.error(f"Failed to resume subscription: {e}")
+        except StripeConfigError as e:
+            logger.error(f"Stripe config error resuming subscription: {type(e).__name__}: {e}")
+            return error_response("Payment service unavailable", 503)
+        except StripeAPIError as e:
+            logger.error(f"Stripe API error resuming subscription: {type(e).__name__}: {e}")
+            return error_response("Failed to resume subscription with payment provider", 502)
+        except StripeError as e:
+            logger.error(f"Stripe error resuming subscription: {type(e).__name__}: {e}")
             return error_response("Failed to resume subscription", 500)
 
     @handle_errors("stripe webhook")
@@ -1055,26 +1096,46 @@ class BillingHandler(BaseHandler):
 
     def _handle_invoice_failed(self, event, user_store) -> HandlerResult:
         """Handle invoice.payment_failed event."""
+        from aragora.billing.notifications import get_billing_notifier
+
         invoice = event.object
         customer_id = invoice.get("customer")
         subscription_id = invoice.get("subscription")
         attempt_count = invoice.get("attempt_count", 1)
+        hosted_invoice_url = invoice.get("hosted_invoice_url")
 
         logger.warning(
             f"Invoice payment failed: customer={customer_id}, "
             f"subscription={subscription_id}, attempt={attempt_count}"
         )
 
-        # After multiple failed attempts, consider downgrading
-        # Stripe typically retries 3-4 times over ~3 weeks
-        if user_store and customer_id and attempt_count >= 3:
+        # Send notification to organization owner
+        if user_store and customer_id:
             org = user_store.get_organization_by_stripe_customer(customer_id)
             if org:
-                # Mark org with payment issue (could add a flag field)
-                logger.warning(
-                    f"Org {org.id} has repeated payment failures, "
-                    f"consider downgrade after grace period"
-                )
+                # Get owner email
+                owner = user_store.get_organization_owner(org.id)
+                if owner and owner.email:
+                    notifier = get_billing_notifier()
+                    result = notifier.notify_payment_failed(
+                        org_id=org.id,
+                        org_name=org.name,
+                        email=owner.email,
+                        attempt_count=attempt_count,
+                        invoice_url=hosted_invoice_url,
+                    )
+                    logger.info(
+                        f"Payment failure notification sent to {owner.email}: "
+                        f"method={result.method}, success={result.success}"
+                    )
+
+                # After multiple failed attempts, consider downgrading
+                # Stripe typically retries 3-4 times over ~3 weeks
+                if attempt_count >= 3:
+                    logger.warning(
+                        f"Org {org.id} has repeated payment failures, "
+                        f"consider downgrade after grace period"
+                    )
 
         return json_response({"received": True})
 

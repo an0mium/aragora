@@ -1,0 +1,802 @@
+"""
+Evidence Store.
+
+Provides persistence for evidence snippets including:
+- SQLite-based local storage
+- Save, retrieve, and search evidence
+- Debate-specific evidence tracking
+- Evidence deduplication
+"""
+
+import hashlib
+import json
+import logging
+import os
+import sqlite3
+import threading
+from contextlib import contextmanager
+from dataclasses import asdict
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+from aragora.evidence.metadata import EnrichedMetadata, MetadataEnricher, Provenance, SourceType
+from aragora.evidence.quality import QualityContext, QualityScorer, QualityScores
+
+logger = logging.getLogger(__name__)
+
+
+class EvidenceStore:
+    """SQLite-based evidence persistence store."""
+
+    DEFAULT_DB_PATH = Path.home() / ".aragora" / "evidence.db"
+
+    def __init__(
+        self,
+        db_path: Optional[Path] = None,
+        enricher: Optional[MetadataEnricher] = None,
+        scorer: Optional[QualityScorer] = None,
+    ):
+        """Initialize the evidence store.
+
+        Args:
+            db_path: Path to SQLite database (default: ~/.aragora/evidence.db)
+            enricher: Optional metadata enricher
+            scorer: Optional quality scorer
+        """
+        self.db_path = db_path or self.DEFAULT_DB_PATH
+        self.enricher = enricher or MetadataEnricher()
+        self.scorer = scorer or QualityScorer()
+
+        # Thread-local storage for connections
+        self._local = threading.local()
+
+        # Ensure directory exists
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Initialize database
+        self._init_db()
+
+    def _get_connection(self) -> sqlite3.Connection:
+        """Get thread-local database connection."""
+        if not hasattr(self._local, "connection") or self._local.connection is None:
+            self._local.connection = sqlite3.connect(
+                str(self.db_path),
+                detect_types=sqlite3.PARSE_DECLTYPES,
+            )
+            self._local.connection.row_factory = sqlite3.Row
+        return self._local.connection
+
+    @contextmanager
+    def _cursor(self):
+        """Context manager for database cursor with automatic commit."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            yield cursor
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            cursor.close()
+
+    def _init_db(self) -> None:
+        """Initialize database schema."""
+        with self._cursor() as cursor:
+            # Main evidence table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS evidence (
+                    id TEXT PRIMARY KEY,
+                    content_hash TEXT UNIQUE NOT NULL,
+                    source TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    snippet TEXT NOT NULL,
+                    url TEXT,
+                    reliability_score REAL DEFAULT 0.5,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    metadata_json TEXT,
+                    enriched_metadata_json TEXT,
+                    quality_scores_json TEXT
+                )
+            """)
+
+            # Debate-evidence association table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS debate_evidence (
+                    debate_id TEXT NOT NULL,
+                    evidence_id TEXT NOT NULL,
+                    round_number INTEGER,
+                    relevance_score REAL DEFAULT 0.5,
+                    used_in_consensus BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (debate_id, evidence_id),
+                    FOREIGN KEY (evidence_id) REFERENCES evidence(id)
+                )
+            """)
+
+            # Search index table for full-text search
+            cursor.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS evidence_fts
+                USING fts5(
+                    evidence_id,
+                    title,
+                    snippet,
+                    topics,
+                    content=''
+                )
+            """)
+
+            # Create indexes
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_evidence_source
+                ON evidence(source)
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_evidence_created
+                ON evidence(created_at)
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_debate_evidence_debate
+                ON debate_evidence(debate_id)
+            """)
+
+    def save_evidence(
+        self,
+        evidence_id: str,
+        source: str,
+        title: str,
+        snippet: str,
+        url: str = "",
+        reliability_score: float = 0.5,
+        metadata: Optional[Dict[str, Any]] = None,
+        debate_id: Optional[str] = None,
+        round_number: Optional[int] = None,
+        enrich: bool = True,
+        score_quality: bool = True,
+    ) -> str:
+        """Save evidence to the store.
+
+        Args:
+            evidence_id: Unique evidence ID
+            source: Source name (e.g., "github", "web")
+            title: Evidence title
+            snippet: Evidence content
+            url: Source URL
+            reliability_score: Base reliability score
+            metadata: Additional metadata
+            debate_id: Optional debate to associate with
+            round_number: Optional round number
+            enrich: Whether to enrich metadata
+            score_quality: Whether to score quality
+
+        Returns:
+            The evidence ID (may be deduplicated)
+        """
+        # Compute content hash for deduplication
+        content_hash = hashlib.sha256(snippet.encode()).hexdigest()[:32]
+
+        # Check for existing evidence with same content
+        with self._cursor() as cursor:
+            cursor.execute(
+                "SELECT id FROM evidence WHERE content_hash = ?",
+                (content_hash,),
+            )
+            existing = cursor.fetchone()
+            if existing:
+                evidence_id = existing["id"]
+                logger.debug(f"Evidence deduplicated: {evidence_id}")
+            else:
+                # Enrich metadata if requested
+                enriched_metadata = None
+                if enrich:
+                    enriched_metadata = self.enricher.enrich(
+                        content=snippet,
+                        url=url,
+                        source=source,
+                        existing_metadata=metadata,
+                    )
+
+                # Score quality if requested
+                quality_scores = None
+                if score_quality:
+                    quality_scores = self.scorer.score(
+                        content=snippet,
+                        metadata=enriched_metadata,
+                        url=url,
+                        source=source,
+                    )
+
+                # Insert new evidence
+                cursor.execute(
+                    """
+                    INSERT INTO evidence (
+                        id, content_hash, source, title, snippet, url,
+                        reliability_score, metadata_json, enriched_metadata_json,
+                        quality_scores_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        evidence_id,
+                        content_hash,
+                        source,
+                        title,
+                        snippet,
+                        url,
+                        reliability_score,
+                        json.dumps(metadata) if metadata else None,
+                        json.dumps(enriched_metadata.to_dict()) if enriched_metadata else None,
+                        json.dumps(quality_scores.to_dict()) if quality_scores else None,
+                    ),
+                )
+
+                # Update FTS index
+                topics = ",".join(enriched_metadata.topics) if enriched_metadata else ""
+                cursor.execute(
+                    """
+                    INSERT INTO evidence_fts (evidence_id, title, snippet, topics)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (evidence_id, title, snippet, topics),
+                )
+
+            # Associate with debate if provided
+            if debate_id:
+                relevance = quality_scores.relevance_score if quality_scores else 0.5
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO debate_evidence (
+                        debate_id, evidence_id, round_number, relevance_score
+                    ) VALUES (?, ?, ?, ?)
+                    """,
+                    (debate_id, evidence_id, round_number, relevance),
+                )
+
+        return evidence_id
+
+    def save_evidence_snippet(
+        self,
+        snippet: Any,  # EvidenceSnippet
+        debate_id: Optional[str] = None,
+        round_number: Optional[int] = None,
+    ) -> str:
+        """Save an EvidenceSnippet object.
+
+        Args:
+            snippet: EvidenceSnippet object
+            debate_id: Optional debate to associate with
+            round_number: Optional round number
+
+        Returns:
+            The evidence ID
+        """
+        return self.save_evidence(
+            evidence_id=snippet.id,
+            source=snippet.source,
+            title=snippet.title,
+            snippet=snippet.snippet,
+            url=snippet.url,
+            reliability_score=snippet.reliability_score,
+            metadata=snippet.metadata,
+            debate_id=debate_id,
+            round_number=round_number,
+        )
+
+    def save_evidence_pack(
+        self,
+        pack: Any,  # EvidencePack
+        debate_id: str,
+        round_number: Optional[int] = None,
+    ) -> List[str]:
+        """Save all evidence from an EvidencePack.
+
+        Args:
+            pack: EvidencePack object
+            debate_id: Debate ID to associate with
+            round_number: Optional round number
+
+        Returns:
+            List of saved evidence IDs
+        """
+        saved_ids = []
+        for snippet in pack.snippets:
+            evidence_id = self.save_evidence_snippet(
+                snippet=snippet,
+                debate_id=debate_id,
+                round_number=round_number,
+            )
+            saved_ids.append(evidence_id)
+        return saved_ids
+
+    def get_evidence(self, evidence_id: str) -> Optional[Dict[str, Any]]:
+        """Get evidence by ID.
+
+        Args:
+            evidence_id: Evidence ID
+
+        Returns:
+            Evidence data or None if not found
+        """
+        with self._cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT * FROM evidence WHERE id = ?
+                """,
+                (evidence_id,),
+            )
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            return self._row_to_dict(row)
+
+    def get_debate_evidence(
+        self,
+        debate_id: str,
+        round_number: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get all evidence for a debate.
+
+        Args:
+            debate_id: Debate ID
+            round_number: Optional specific round
+
+        Returns:
+            List of evidence data
+        """
+        with self._cursor() as cursor:
+            if round_number is not None:
+                cursor.execute(
+                    """
+                    SELECT e.*, de.round_number, de.relevance_score as debate_relevance,
+                           de.used_in_consensus
+                    FROM evidence e
+                    JOIN debate_evidence de ON e.id = de.evidence_id
+                    WHERE de.debate_id = ? AND de.round_number = ?
+                    ORDER BY de.relevance_score DESC
+                    """,
+                    (debate_id, round_number),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT e.*, de.round_number, de.relevance_score as debate_relevance,
+                           de.used_in_consensus
+                    FROM evidence e
+                    JOIN debate_evidence de ON e.id = de.evidence_id
+                    WHERE de.debate_id = ?
+                    ORDER BY de.round_number, de.relevance_score DESC
+                    """,
+                    (debate_id,),
+                )
+
+            return [self._row_to_dict(row) for row in cursor.fetchall()]
+
+    def search_evidence(
+        self,
+        query: str,
+        limit: int = 20,
+        source_filter: Optional[str] = None,
+        min_reliability: float = 0.0,
+        context: Optional[QualityContext] = None,
+    ) -> List[Dict[str, Any]]:
+        """Search evidence using full-text search.
+
+        Args:
+            query: Search query
+            limit: Maximum results
+            source_filter: Optional source filter
+            min_reliability: Minimum reliability score
+            context: Optional quality context for scoring
+
+        Returns:
+            List of matching evidence data
+        """
+        with self._cursor() as cursor:
+            # Use FTS for search
+            base_query = """
+                SELECT e.*,
+                       bm25(evidence_fts) as fts_rank
+                FROM evidence_fts
+                JOIN evidence e ON evidence_fts.evidence_id = e.id
+                WHERE evidence_fts MATCH ?
+            """
+            params: List[Any] = [query]
+
+            if source_filter:
+                base_query += " AND e.source = ?"
+                params.append(source_filter)
+
+            if min_reliability > 0:
+                base_query += " AND e.reliability_score >= ?"
+                params.append(min_reliability)
+
+            base_query += " ORDER BY fts_rank LIMIT ?"
+            params.append(limit)
+
+            cursor.execute(base_query, params)
+            results = [self._row_to_dict(row) for row in cursor.fetchall()]
+
+            # Re-score with quality scorer if context provided
+            if context:
+                for result in results:
+                    scores = self.scorer.score(
+                        content=result["snippet"],
+                        url=result.get("url"),
+                        source=result["source"],
+                        context=context,
+                    )
+                    result["quality_scores"] = scores.to_dict()
+
+                # Re-sort by quality
+                results.sort(
+                    key=lambda x: x.get("quality_scores", {}).get("overall_score", 0),
+                    reverse=True,
+                )
+
+            return results
+
+    def search_similar(
+        self,
+        content: str,
+        limit: int = 10,
+        exclude_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Find similar evidence based on content.
+
+        Uses a simple keyword-based similarity search.
+
+        Args:
+            content: Content to find similar evidence for
+            limit: Maximum results
+            exclude_id: Optional ID to exclude
+
+        Returns:
+            List of similar evidence data
+        """
+        # Extract keywords from content
+        import re
+        words = re.findall(r'\b\w{4,}\b', content.lower())
+        # Remove common words
+        stop_words = {'this', 'that', 'with', 'from', 'have', 'been', 'were', 'they', 'their', 'which', 'would', 'could', 'should'}
+        keywords = [w for w in words if w not in stop_words][:10]
+
+        if not keywords:
+            return []
+
+        # Build FTS query
+        query = " OR ".join(keywords)
+
+        with self._cursor() as cursor:
+            base_query = """
+                SELECT e.*,
+                       bm25(evidence_fts) as fts_rank
+                FROM evidence_fts
+                JOIN evidence e ON evidence_fts.evidence_id = e.id
+                WHERE evidence_fts MATCH ?
+            """
+            params: List[Any] = [query]
+
+            if exclude_id:
+                base_query += " AND e.id != ?"
+                params.append(exclude_id)
+
+            base_query += " ORDER BY fts_rank LIMIT ?"
+            params.append(limit)
+
+            cursor.execute(base_query, params)
+            return [self._row_to_dict(row) for row in cursor.fetchall()]
+
+    def mark_used_in_consensus(
+        self,
+        debate_id: str,
+        evidence_ids: List[str],
+    ) -> None:
+        """Mark evidence as used in consensus.
+
+        Args:
+            debate_id: Debate ID
+            evidence_ids: List of evidence IDs used
+        """
+        with self._cursor() as cursor:
+            cursor.executemany(
+                """
+                UPDATE debate_evidence
+                SET used_in_consensus = TRUE
+                WHERE debate_id = ? AND evidence_id = ?
+                """,
+                [(debate_id, eid) for eid in evidence_ids],
+            )
+
+    def delete_evidence(self, evidence_id: str) -> bool:
+        """Delete evidence by ID.
+
+        Args:
+            evidence_id: Evidence ID
+
+        Returns:
+            True if deleted, False if not found
+        """
+        with self._cursor() as cursor:
+            # Delete from FTS
+            cursor.execute(
+                "DELETE FROM evidence_fts WHERE evidence_id = ?",
+                (evidence_id,),
+            )
+
+            # Delete associations
+            cursor.execute(
+                "DELETE FROM debate_evidence WHERE evidence_id = ?",
+                (evidence_id,),
+            )
+
+            # Delete evidence
+            cursor.execute(
+                "DELETE FROM evidence WHERE id = ?",
+                (evidence_id,),
+            )
+
+            return cursor.rowcount > 0
+
+    def delete_debate_evidence(self, debate_id: str) -> int:
+        """Delete all evidence associations for a debate.
+
+        Does not delete the evidence itself, only the association.
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Number of associations deleted
+        """
+        with self._cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM debate_evidence WHERE debate_id = ?",
+                (debate_id,),
+            )
+            return cursor.rowcount
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get store statistics.
+
+        Returns:
+            Dictionary of statistics
+        """
+        with self._cursor() as cursor:
+            # Total evidence count
+            cursor.execute("SELECT COUNT(*) as count FROM evidence")
+            total_count = cursor.fetchone()["count"]
+
+            # Count by source
+            cursor.execute("""
+                SELECT source, COUNT(*) as count
+                FROM evidence
+                GROUP BY source
+                ORDER BY count DESC
+            """)
+            by_source = {row["source"]: row["count"] for row in cursor.fetchall()}
+
+            # Average reliability
+            cursor.execute("""
+                SELECT AVG(reliability_score) as avg_reliability
+                FROM evidence
+            """)
+            avg_reliability = cursor.fetchone()["avg_reliability"] or 0.0
+
+            # Debate associations
+            cursor.execute("SELECT COUNT(*) as count FROM debate_evidence")
+            debate_associations = cursor.fetchone()["count"]
+
+            # Unique debates
+            cursor.execute("SELECT COUNT(DISTINCT debate_id) as count FROM debate_evidence")
+            unique_debates = cursor.fetchone()["count"]
+
+            return {
+                "total_evidence": total_count,
+                "by_source": by_source,
+                "average_reliability": avg_reliability,
+                "debate_associations": debate_associations,
+                "unique_debates": unique_debates,
+            }
+
+    def _row_to_dict(self, row: sqlite3.Row) -> Dict[str, Any]:
+        """Convert a database row to dictionary."""
+        data = dict(row)
+
+        # Parse JSON fields
+        if data.get("metadata_json"):
+            data["metadata"] = json.loads(data["metadata_json"])
+            del data["metadata_json"]
+        else:
+            data["metadata"] = {}
+
+        if data.get("enriched_metadata_json"):
+            data["enriched_metadata"] = json.loads(data["enriched_metadata_json"])
+            del data["enriched_metadata_json"]
+
+        if data.get("quality_scores_json"):
+            data["quality_scores"] = json.loads(data["quality_scores_json"])
+            del data["quality_scores_json"]
+
+        return data
+
+    def close(self) -> None:
+        """Close the database connection."""
+        if hasattr(self._local, "connection") and self._local.connection:
+            self._local.connection.close()
+            self._local.connection = None
+
+
+class InMemoryEvidenceStore:
+    """In-memory evidence store for testing and ephemeral use."""
+
+    def __init__(
+        self,
+        enricher: Optional[MetadataEnricher] = None,
+        scorer: Optional[QualityScorer] = None,
+    ):
+        """Initialize in-memory store."""
+        self.enricher = enricher or MetadataEnricher()
+        self.scorer = scorer or QualityScorer()
+        self._evidence: Dict[str, Dict[str, Any]] = {}
+        self._debate_evidence: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        self._content_hashes: Dict[str, str] = {}  # hash -> evidence_id
+
+    def save_evidence(
+        self,
+        evidence_id: str,
+        source: str,
+        title: str,
+        snippet: str,
+        url: str = "",
+        reliability_score: float = 0.5,
+        metadata: Optional[Dict[str, Any]] = None,
+        debate_id: Optional[str] = None,
+        round_number: Optional[int] = None,
+        enrich: bool = True,
+        score_quality: bool = True,
+    ) -> str:
+        """Save evidence to memory."""
+        content_hash = hashlib.sha256(snippet.encode()).hexdigest()[:32]
+
+        # Check for deduplication
+        if content_hash in self._content_hashes:
+            evidence_id = self._content_hashes[content_hash]
+        else:
+            enriched_metadata = None
+            if enrich:
+                enriched_metadata = self.enricher.enrich(
+                    content=snippet,
+                    url=url,
+                    source=source,
+                    existing_metadata=metadata,
+                )
+
+            quality_scores = None
+            if score_quality:
+                quality_scores = self.scorer.score(
+                    content=snippet,
+                    metadata=enriched_metadata,
+                    url=url,
+                    source=source,
+                )
+
+            self._evidence[evidence_id] = {
+                "id": evidence_id,
+                "content_hash": content_hash,
+                "source": source,
+                "title": title,
+                "snippet": snippet,
+                "url": url,
+                "reliability_score": reliability_score,
+                "metadata": metadata or {},
+                "enriched_metadata": enriched_metadata.to_dict() if enriched_metadata else None,
+                "quality_scores": quality_scores.to_dict() if quality_scores else None,
+                "created_at": datetime.now().isoformat(),
+            }
+            self._content_hashes[content_hash] = evidence_id
+
+        # Associate with debate
+        if debate_id:
+            if debate_id not in self._debate_evidence:
+                self._debate_evidence[debate_id] = {}
+            self._debate_evidence[debate_id][evidence_id] = {
+                "round_number": round_number,
+                "relevance_score": 0.5,
+                "used_in_consensus": False,
+            }
+
+        return evidence_id
+
+    def get_evidence(self, evidence_id: str) -> Optional[Dict[str, Any]]:
+        """Get evidence by ID."""
+        return self._evidence.get(evidence_id)
+
+    def get_debate_evidence(
+        self,
+        debate_id: str,
+        round_number: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get evidence for a debate."""
+        if debate_id not in self._debate_evidence:
+            return []
+
+        results = []
+        for eid, assoc in self._debate_evidence[debate_id].items():
+            if round_number is not None and assoc.get("round_number") != round_number:
+                continue
+            evidence = self._evidence.get(eid)
+            if evidence:
+                result = {**evidence, **assoc}
+                results.append(result)
+
+        return sorted(results, key=lambda x: x.get("relevance_score", 0), reverse=True)
+
+    def search_evidence(
+        self,
+        query: str,
+        limit: int = 20,
+        source_filter: Optional[str] = None,
+        min_reliability: float = 0.0,
+        context: Optional[QualityContext] = None,
+    ) -> List[Dict[str, Any]]:
+        """Search evidence by keyword."""
+        query_lower = query.lower()
+        results = []
+
+        for evidence in self._evidence.values():
+            if source_filter and evidence["source"] != source_filter:
+                continue
+            if evidence["reliability_score"] < min_reliability:
+                continue
+
+            # Simple keyword matching
+            text = f"{evidence['title']} {evidence['snippet']}".lower()
+            if query_lower in text:
+                results.append(evidence)
+
+        # Sort by reliability and limit
+        results.sort(key=lambda x: x["reliability_score"], reverse=True)
+        return results[:limit]
+
+    def delete_evidence(self, evidence_id: str) -> bool:
+        """Delete evidence."""
+        if evidence_id in self._evidence:
+            # Remove content hash mapping
+            content_hash = self._evidence[evidence_id].get("content_hash")
+            if content_hash in self._content_hashes:
+                del self._content_hashes[content_hash]
+
+            del self._evidence[evidence_id]
+
+            # Remove debate associations
+            for debate_id in list(self._debate_evidence.keys()):
+                if evidence_id in self._debate_evidence[debate_id]:
+                    del self._debate_evidence[debate_id][evidence_id]
+
+            return True
+        return False
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get store statistics."""
+        by_source: Dict[str, int] = {}
+        total_reliability = 0.0
+
+        for evidence in self._evidence.values():
+            source = evidence["source"]
+            by_source[source] = by_source.get(source, 0) + 1
+            total_reliability += evidence["reliability_score"]
+
+        return {
+            "total_evidence": len(self._evidence),
+            "by_source": by_source,
+            "average_reliability": total_reliability / len(self._evidence) if self._evidence else 0.0,
+            "debate_associations": sum(len(d) for d in self._debate_evidence.values()),
+            "unique_debates": len(self._debate_evidence),
+        }
+
+    def close(self) -> None:
+        """No-op for in-memory store."""
+        pass

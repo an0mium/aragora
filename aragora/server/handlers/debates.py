@@ -39,6 +39,16 @@ from .debates_batch import BatchOperationsMixin
 from .debates_fork import ForkOperationsMixin
 from .utils.rate_limit import rate_limit
 from aragora.server.validation import validate_debate_id
+from aragora.exceptions import (
+    StorageError,
+    DatabaseError,
+    RecordNotFoundError,
+    ValidationError,
+)
+from aragora.server.handlers.exceptions import (
+    HandlerNotFoundError,
+    HandlerDatabaseError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +64,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
     # Route patterns this handler manages
     ROUTES = [
+        "/api/debate",  # POST - create new debate (legacy endpoint)
         "/api/debates",
         "/api/debates/",  # With trailing slash
         "/api/debates/batch",  # POST - batch debate submission
@@ -225,6 +236,8 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
+        if path == "/api/debate":
+            return True  # POST - create debate
         if path == "/api/debates":
             return True
         if path == "/api/search":
@@ -426,9 +439,12 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 "limit": limit,
                 "has_more": offset + len(results) < total,
             })
-        except Exception as e:
+        except (StorageError, DatabaseError) as e:
             logger.error("Search failed for query '%s': %s: %s", query, type(e).__name__, e, exc_info=True)
-            return error_response(safe_error_message(e, "search debates"), 500)
+            return error_response("Database error during search", 500)
+        except ValueError as e:
+            logger.warning("Invalid search query '%s': %s", query, e)
+            return error_response(f"Invalid search query: {e}", 400)
 
     @require_storage
     @handle_errors("get debate by slug")
@@ -573,9 +589,15 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             else:  # format == "html"
                 return self._format_html(debate)
 
-        except Exception as e:
+        except RecordNotFoundError as e:
+            logger.info("Export failed - debate not found: %s", debate_id)
+            return error_response(f"Debate not found: {debate_id}", 404)
+        except (StorageError, DatabaseError) as e:
             logger.error("Export failed for %s (format=%s): %s: %s", debate_id, format, type(e).__name__, e, exc_info=True)
-            return error_response(safe_error_message(e, "export debate"), 500)
+            return error_response("Database error during export", 500)
+        except ValueError as e:
+            logger.warning("Export failed for %s - invalid format: %s", debate_id, e)
+            return error_response(f"Invalid export format: {e}", 400)
 
     def _format_csv(self, debate: dict, table: str) -> HandlerResult:
         """Format debate as CSV for the specified table type."""
@@ -651,9 +673,12 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 "verdict": grounded_verdict.get("verdict", ""),
             })
 
-        except Exception as e:
+        except RecordNotFoundError as e:
+            logger.info("Citations failed - debate not found: %s", debate_id)
+            return error_response(f"Debate not found: {debate_id}", 404)
+        except (StorageError, DatabaseError) as e:
             logger.error("Failed to get citations for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(safe_error_message(e, "get citations"), 500)
+            return error_response("Database error retrieving citations", 500)
 
     @require_storage
     def _get_evidence(self, handler, debate_id: str) -> HandlerResult:
@@ -735,9 +760,12 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
             return json_response(response)
 
-        except Exception as e:
-            logger.exception(f"Failed to get evidence for {debate_id}")
-            return error_response(safe_error_message(e, "get evidence"), 500)
+        except RecordNotFoundError as e:
+            logger.info("Evidence failed - debate not found: %s", debate_id)
+            return error_response(f"Debate not found: {debate_id}", 404)
+        except (StorageError, DatabaseError) as e:
+            logger.error("Failed to get evidence for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            return error_response("Database error retrieving evidence", 500)
 
     @require_storage
     def _get_debate_messages(self, debate_id: str, limit: int = 50, offset: int = 0) -> HandlerResult:
@@ -793,9 +821,12 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 "has_more": offset + len(paginated_messages) < total,
             })
 
-        except Exception as e:
+        except RecordNotFoundError as e:
+            logger.info("Messages failed - debate not found: %s", debate_id)
+            return error_response(f"Debate not found: {debate_id}", 404)
+        except (StorageError, DatabaseError) as e:
             logger.error("Failed to get messages for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(safe_error_message(e, "get messages"), 500)
+            return error_response("Database error retrieving messages", 500)
 
     def _get_meta_critique(self, debate_id: str) -> HandlerResult:
         """Get meta-level analysis of a debate (repetition, circular arguments, etc)."""
@@ -837,9 +868,15 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 ],
                 "recommendations": critique.recommendations,
             })
-        except Exception as e:
+        except RecordNotFoundError as e:
+            logger.info("Meta critique failed - debate not found: %s", debate_id)
+            return error_response(f"Debate not found: {debate_id}", 404)
+        except (StorageError, DatabaseError) as e:
             logger.error("Failed to get meta critique for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(safe_error_message(e, "get meta critique"), 500)
+            return error_response("Database error retrieving meta critique", 500)
+        except ValueError as e:
+            logger.warning("Invalid meta critique request for %s: %s", debate_id, e)
+            return error_response(f"Invalid request: {e}", 400)
 
     def _get_graph_stats(self, debate_id: str) -> HandlerResult:
         """Get argument graph statistics for a debate.
@@ -896,9 +933,15 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             stats = cartographer.get_statistics()
             return json_response(stats)
 
-        except Exception as e:
+        except RecordNotFoundError as e:
+            logger.info("Graph stats failed - debate not found: %s", debate_id)
+            return error_response(f"Debate not found: {debate_id}", 404)
+        except (StorageError, DatabaseError) as e:
             logger.error("Failed to get graph stats for %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(safe_error_message(e, "get graph stats"), 500)
+            return error_response("Database error retrieving graph stats", 500)
+        except ValueError as e:
+            logger.warning("Invalid graph stats request for %s: %s", debate_id, e)
+            return error_response(f"Invalid request: {e}", 400)
 
     def _build_graph_from_replay(self, debate_id: str, replay_path) -> HandlerResult:
         """Build graph stats from replay events file."""
@@ -940,12 +983,22 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
             stats = cartographer.get_statistics()
             return json_response(stats)
-        except Exception as e:
+        except FileNotFoundError as e:
+            logger.info("Build graph failed - replay file not found: %s", replay_path)
+            return error_response(f"Replay file not found: {debate_id}", 404)
+        except (StorageError, DatabaseError) as e:
             logger.error("Failed to build graph from replay %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
-            return error_response(safe_error_message(e, "build graph from replay"), 500)
+            return error_response("Database error building graph", 500)
+        except ValueError as e:
+            logger.warning("Invalid replay data for %s: %s", debate_id, e)
+            return error_response(f"Invalid replay data: {e}", 400)
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
+        # Create debate endpoint (POST /api/debate)
+        if path == "/api/debate":
+            return self._create_debate(handler)
+
         # Batch submission endpoint
         if path in ("/api/debates/batch", "/api/debates/batch/"):
             return self._submit_batch(handler)
@@ -972,6 +1025,113 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 return self._create_followup_debate(handler, debate_id)
 
         return None
+
+    def _create_debate(self, handler) -> HandlerResult:
+        """Start an ad-hoc debate with specified question.
+
+        Accepts JSON body with:
+            question: The topic/question to debate (required)
+            agents: Comma-separated agent list (optional, default varies)
+            rounds: Number of debate rounds (optional, default: 3)
+            consensus: Consensus method (optional, default: "majority")
+            auto_select: Whether to auto-select agents (optional, default: False)
+            use_trending: Whether to use trending topic (optional, default: False)
+
+        Rate limited: requires auth when enabled.
+        """
+        logger.info("[_create_debate] Called via DebatesHandler")
+
+        # Rate limit expensive debate creation
+        try:
+            if hasattr(handler, '_check_rate_limit') and not handler._check_rate_limit():
+                logger.info("[_create_debate] Rate limit check failed")
+                return error_response("Rate limit exceeded", 429)
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
+            logger.exception(f"[_create_debate] Rate limit check error: {e}")
+            return error_response(f"Rate limit check failed: {e}", 500)
+
+        logger.info("[_create_debate] Rate limit passed")
+
+        # Tier-aware rate limiting based on subscription
+        try:
+            if hasattr(handler, '_check_tier_rate_limit') and not handler._check_tier_rate_limit():
+                return error_response("Tier rate limit exceeded", 429)
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
+            logger.warning(f"Tier rate limit check failed, proceeding: {e}")
+
+        # Quota enforcement - check org usage limits
+        user_store = getattr(handler.__class__, 'user_store', None)
+        if user_store:
+            try:
+                from aragora.billing.jwt_auth import extract_user_from_request
+                auth_ctx = extract_user_from_request(handler, user_store)
+                if auth_ctx.is_authenticated and auth_ctx.org_id:
+                    org = user_store.get_organization_by_id(auth_ctx.org_id)
+                    if org and org.is_at_limit:
+                        return error_response({
+                            "error": "Monthly debate quota exceeded",
+                            "code": "quota_exceeded",
+                            "limit": org.limits.debates_per_month,
+                            "used": org.debates_used_this_month,
+                            "remaining": 0,
+                            "tier": org.tier.value,
+                            "upgrade_url": "/pricing",
+                            "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Upgrade to increase your limit.",
+                        }, 429)
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, ImportError) as e:
+                logger.warning(f"Quota check failed, proceeding without enforcement: {e}")
+
+        # Check if debate orchestrator is available
+        debate_available = False
+        try:
+            from aragora.debate.orchestrator import Arena
+            debate_available = True
+        except ImportError:
+            pass
+
+        if not debate_available:
+            return error_response("Debate orchestrator not available", 500)
+
+        stream_emitter = getattr(handler, 'stream_emitter', None)
+        if not stream_emitter:
+            return error_response("Event streaming not configured", 500)
+
+        # Read and validate request body
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid or missing JSON body", 400)
+
+        if not body:
+            return error_response("No content provided", 400)
+
+        # Parse and validate request using DebateRequest
+        try:
+            from aragora.server.debate_queue import DebateRequest
+            request = DebateRequest.from_dict(body)
+        except ValueError as e:
+            return error_response(str(e), 400)
+
+        # Get debate controller and start debate
+        try:
+            controller = handler._get_debate_controller()
+            response = controller.start_debate(request)
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
+            logger.exception(f"Failed to start debate: {e}")
+            return error_response(f"Failed to start debate: {str(e)}", 500)
+
+        # Increment usage on successful debate creation
+        if response.status_code < 400 and user_store:
+            try:
+                from aragora.billing.jwt_auth import extract_user_from_request
+                auth_ctx = extract_user_from_request(handler, user_store)
+                if auth_ctx.is_authenticated and auth_ctx.org_id:
+                    user_store.increment_usage(auth_ctx.org_id)
+                    logger.info(f"Incremented debate usage for org {auth_ctx.org_id}")
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, ImportError) as e:
+                logger.warning(f"Usage increment failed: {e}")
+
+        # Return response as HandlerResult
+        return json_response(response.to_dict(), status=response.status_code)
 
     def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route PATCH requests to appropriate methods."""
@@ -1053,8 +1213,14 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                     "tags": debate.get("tags", []),
                 }
             })
-        except Exception as e:
-            logger.error(f"Failed to update debate {debate_id}: {e}")
-            return error_response(safe_error_message(e, "update debate"), 500)
+        except RecordNotFoundError as e:
+            logger.info("Update failed - debate not found: %s", debate_id)
+            return error_response(f"Debate not found: {debate_id}", 404)
+        except (StorageError, DatabaseError) as e:
+            logger.error("Failed to update debate %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True)
+            return error_response("Database error updating debate", 500)
+        except ValueError as e:
+            logger.warning("Invalid update request for %s: %s", debate_id, e)
+            return error_response(f"Invalid update data: {e}", 400)
 
 

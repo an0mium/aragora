@@ -80,6 +80,8 @@ class FeedbackPhase:
         prompt_evolver: Any = None,  # PromptEvolver for extracting winning patterns
         # Insight store for tracking applied insights
         insight_store: Any = None,  # InsightStore for insight usage tracking
+        # Training data export for Tinker integration
+        training_exporter: Any = None,  # TrainingExporter callback for fine-tuning data
     ):
         """
         Initialize the feedback phase.
@@ -107,6 +109,7 @@ class FeedbackPhase:
             pulse_manager: Optional PulseManager for trending topic analytics
             prompt_evolver: Optional PromptEvolver for extracting winning patterns
             insight_store: Optional InsightStore for insight usage tracking
+            training_exporter: Optional callback for exporting training data to Tinker
         """
         self.elo_system = elo_system
         self.persona_manager = persona_manager
@@ -126,6 +129,7 @@ class FeedbackPhase:
         self.pulse_manager = pulse_manager
         self.prompt_evolver = prompt_evolver
         self.insight_store = insight_store
+        self.training_exporter = training_exporter
 
         # Callbacks
         self._emit_moment_event = emit_moment_event
@@ -200,6 +204,9 @@ class FeedbackPhase:
 
         # 19. Record insight usage for learning loop (B2)
         await self._record_insight_usage(ctx)
+
+        # 20. Emit training data for Tinker fine-tuning
+        await self._emit_training_data(ctx)
 
     def _assess_risks(self, ctx: "DebateContext") -> None:
         """Assess domain-specific risks and emit RISK_WARNING events.

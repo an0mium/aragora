@@ -42,11 +42,39 @@ logger = logging.getLogger(__name__)
 
 # In-memory storage for in-flight gauntlet runs (pending/running)
 # Completed runs are persisted to GauntletStorage
-_gauntlet_runs: dict[str, dict[str, Any]] = {}
+# Using OrderedDict for FIFO eviction when memory limit reached
+from collections import OrderedDict
+import threading
+_gauntlet_runs: OrderedDict[str, dict[str, Any]] = OrderedDict()
 
 # Memory management for gauntlet runs
 MAX_GAUNTLET_RUNS_IN_MEMORY = 500
 _GAUNTLET_COMPLETED_TTL = 3600  # Keep completed runs for 1 hour
+_GAUNTLET_MAX_AGE_SECONDS = 7200  # Max 2 hours for any entry regardless of status
+
+# Lock for atomic quota check-and-increment (prevents TOCTOU race)
+_quota_lock = threading.Lock()
+
+
+def _handle_task_exception(task: asyncio.Task, task_name: str) -> None:
+    """Handle exceptions from fire-and-forget async tasks."""
+    if task.cancelled():
+        logger.debug(f"Task {task_name} was cancelled")
+    elif task.exception():
+        exc = task.exception()
+        logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
+
+
+def create_tracked_task(coro, name: str) -> asyncio.Task:
+    """Create an async task with exception logging.
+
+    Use this instead of raw asyncio.create_task() for fire-and-forget tasks
+    to ensure exceptions are logged rather than silently ignored.
+    """
+    task = asyncio.create_task(coro, name=name)
+    task.add_done_callback(lambda t: _handle_task_exception(t, name))
+    return task
+
 
 # Persistent storage singleton
 _storage: Optional["GauntletStorage"] = None
@@ -71,15 +99,45 @@ def _get_storage() -> "GauntletStorage":
 
 
 def _cleanup_gauntlet_runs() -> None:
-    """Remove old completed runs from memory (persisted ones are in storage)."""
-    global _gauntlet_runs
-    if len(_gauntlet_runs) <= MAX_GAUNTLET_RUNS_IN_MEMORY:
-        return
+    """Remove old runs from memory to prevent unbounded growth.
 
+    Cleanup strategy:
+    1. Remove any entry older than MAX_AGE (regardless of status)
+    2. Remove completed entries older than COMPLETED_TTL
+    3. If still over limit, evict oldest entries (FIFO)
+    """
+    global _gauntlet_runs
     now = time.time()
-    # Find completed runs older than TTL
     to_remove = []
+
     for run_id, run in _gauntlet_runs.items():
+        created_at = run.get("created_at")
+
+        # Try to get creation time from various fields
+        entry_time = None
+        if isinstance(created_at, (int, float)):
+            entry_time = created_at
+        elif isinstance(created_at, str):
+            try:
+                entry_time = datetime.fromisoformat(created_at).timestamp()
+            except (ValueError, TypeError):
+                pass
+
+        # If no valid timestamp, check completed_at
+        if entry_time is None:
+            completed_at = run.get("completed_at")
+            if completed_at:
+                try:
+                    entry_time = datetime.fromisoformat(completed_at).timestamp()
+                except (ValueError, TypeError):
+                    pass
+
+        # Remove entries older than MAX_AGE regardless of status
+        if entry_time and (now - entry_time) > _GAUNTLET_MAX_AGE_SECONDS:
+            to_remove.append(run_id)
+            continue
+
+        # Remove completed entries older than TTL
         if run.get("status") == "completed":
             completed_at = run.get("completed_at")
             if completed_at:
@@ -92,6 +150,10 @@ def _cleanup_gauntlet_runs() -> None:
 
     for run_id in to_remove:
         _gauntlet_runs.pop(run_id, None)
+
+    # If still over limit, evict oldest entries (FIFO via OrderedDict)
+    while len(_gauntlet_runs) > MAX_GAUNTLET_RUNS_IN_MEMORY:
+        _gauntlet_runs.popitem(last=False)  # Remove oldest
 
 
 class GauntletHandler(BaseHandler):
@@ -249,21 +311,31 @@ class GauntletHandler(BaseHandler):
 
         user_ctx = extract_user_from_request(handler, user_store) if user_store else None
 
+        # Atomic quota check-and-increment to prevent TOCTOU race condition
+        # Lock ensures no concurrent requests can pass quota check simultaneously
         if user_ctx and user_ctx.is_authenticated and user_ctx.org_id:
             if user_store and hasattr(user_store, 'get_organization_by_id'):
-                org = user_store.get_organization_by_id(user_ctx.org_id)
-                if org:
-                    if org.is_at_limit:
-                        return json_response({
-                            "error": "Monthly debate quota exceeded",
-                            "code": "quota_exceeded",
-                            "limit": org.limits.debates_per_month,
-                            "used": org.debates_used_this_month,
-                            "remaining": 0,
-                            "tier": org.tier.value,
-                            "upgrade_url": "/pricing",
-                            "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Gauntlet runs count as debates. Upgrade to increase your limit.",
-                        }, status=429)
+                with _quota_lock:
+                    org = user_store.get_organization_by_id(user_ctx.org_id)
+                    if org:
+                        if org.is_at_limit:
+                            return json_response({
+                                "error": "Monthly debate quota exceeded",
+                                "code": "quota_exceeded",
+                                "limit": org.limits.debates_per_month,
+                                "used": org.debates_used_this_month,
+                                "remaining": 0,
+                                "tier": org.tier.value,
+                                "upgrade_url": "/pricing",
+                                "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Gauntlet runs count as debates. Upgrade to increase your limit.",
+                            }, status=429)
+                        # Increment immediately while holding lock to prevent race
+                        if hasattr(user_store, 'increment_usage'):
+                            try:
+                                user_store.increment_usage(user_ctx.org_id, 1)
+                                logger.info(f"Incremented gauntlet usage for org {user_ctx.org_id}")
+                            except Exception as ue:
+                                logger.warning(f"Usage increment failed for org {user_ctx.org_id}: {ue}")
 
         # Parse request body (with Content-Length validation)
         data = self.read_json_body(handler)
@@ -302,20 +374,14 @@ class GauntletHandler(BaseHandler):
 
         # In a production system, this would be queued for async processing
         # For now, we'll run it synchronously in a background task
-        asyncio.create_task(self._run_gauntlet_async(
-            gauntlet_id, input_content, input_type, persona, agents, profile
-        ))
+        create_tracked_task(
+            self._run_gauntlet_async(
+                gauntlet_id, input_content, input_type, persona, agents, profile
+            ),
+            name=f"gauntlet-{gauntlet_id}"
+        )
 
-        # Increment usage on successful gauntlet start
-        if user_ctx and user_ctx.is_authenticated and user_ctx.org_id:
-            if user_store and hasattr(user_store, 'increment_usage'):
-                try:
-                    user_store.increment_usage(user_ctx.org_id, 1)
-                    logger.info(
-                        f"Incremented gauntlet usage for org {user_ctx.org_id}"
-                    )
-                except Exception as ue:
-                    logger.warning(f"Usage increment failed for org {user_ctx.org_id}: {ue}")
+        # Note: Usage increment moved to atomic check-and-increment section above
 
         return json_response({
             "gauntlet_id": gauntlet_id,

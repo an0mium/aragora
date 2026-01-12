@@ -578,6 +578,28 @@ class TestHistorySummaryEndpoint:
 
         assert result.status_code == 500
 
+    def test_handles_storage_error(self, system_handler, mock_storage):
+        """Should return 500 on StorageError."""
+        from aragora.exceptions import StorageError
+        mock_storage.list_recent.side_effect = StorageError("Storage unavailable")
+
+        result = system_handler.handle("/api/history/summary", {}, None)
+
+        assert result.status_code == 500
+        data = json.loads(result.body)
+        assert "database error" in data["error"].lower()
+
+    def test_handles_database_error(self, system_handler, mock_storage):
+        """Should return 500 on DatabaseError."""
+        from aragora.exceptions import DatabaseError
+        mock_storage.list_recent.side_effect = DatabaseError("Connection lost")
+
+        result = system_handler.handle("/api/history/summary", {}, None)
+
+        assert result.status_code == 500
+        data = json.loads(result.body)
+        assert "database error" in data["error"].lower()
+
 
 # ============================================================================
 # Limit Cap Tests
@@ -735,3 +757,72 @@ class TestAuthEndpoints:
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["success"] is True
+
+
+# ============================================================================
+# Maintenance Endpoint Tests
+# ============================================================================
+
+class TestMaintenanceEndpoint:
+    """Tests for /api/system/maintenance endpoint."""
+
+    def test_can_handle_maintenance(self, system_handler):
+        """Should handle /api/system/maintenance."""
+        assert system_handler.can_handle("/api/system/maintenance") is True
+
+    def test_returns_503_without_nomic_dir(self):
+        """Should return 503 without nomic_dir."""
+        handler = SystemHandler({})
+        result = handler.handle("/api/system/maintenance", {"task": "status"}, None)
+
+        assert result.status_code == 503
+
+    def test_returns_status(self, system_handler, tmp_path):
+        """Should return maintenance status."""
+        # Create a minimal database for status check
+        with patch('aragora.maintenance.DatabaseMaintenance') as MockMaint:
+            mock_maint = Mock()
+            mock_maint.get_stats.return_value = {"total_size": 1024}
+            MockMaint.return_value = mock_maint
+
+            result = system_handler.handle("/api/system/maintenance", {"task": "status"}, None)
+
+            # Should succeed or report module not available
+            assert result.status_code in (200, 503)
+
+    def test_handles_storage_error(self, system_handler):
+        """Should return 500 on StorageError."""
+        from aragora.exceptions import StorageError
+
+        with patch('aragora.maintenance.DatabaseMaintenance') as MockMaint:
+            MockMaint.side_effect = StorageError("Storage unavailable")
+
+            result = system_handler.handle("/api/system/maintenance", {"task": "status"}, None)
+
+            assert result.status_code == 500
+            data = json.loads(result.body)
+            assert "database error" in data["error"].lower()
+
+    def test_handles_database_error(self, system_handler):
+        """Should return 500 on DatabaseError."""
+        from aragora.exceptions import DatabaseError
+
+        with patch('aragora.maintenance.DatabaseMaintenance') as MockMaint:
+            MockMaint.side_effect = DatabaseError("Connection lost")
+
+            result = system_handler.handle("/api/system/maintenance", {"task": "status"}, None)
+
+            assert result.status_code == 500
+            data = json.loads(result.body)
+            assert "database error" in data["error"].lower()
+
+    def test_handles_os_error(self, system_handler):
+        """Should return 500 on OSError."""
+        with patch('aragora.maintenance.DatabaseMaintenance') as MockMaint:
+            MockMaint.side_effect = OSError("Permission denied")
+
+            result = system_handler.handle("/api/system/maintenance", {"task": "status"}, None)
+
+            assert result.status_code == 500
+            data = json.loads(result.body)
+            assert "filesystem error" in data["error"].lower()

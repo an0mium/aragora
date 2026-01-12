@@ -360,7 +360,24 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
               <label id="debate-mode-label" className="block text-xs font-mono text-text-muted mb-2">
                 DEBATE MODE
               </label>
-              <div className="flex gap-2" role="tablist" aria-labelledby="debate-mode-label">
+              <div
+                className="flex gap-2"
+                role="tablist"
+                aria-labelledby="debate-mode-label"
+                onKeyDown={(e) => {
+                  const modes = Object.keys(DEBATE_MODES) as DebateMode[];
+                  const currentIndex = modes.indexOf(debateMode);
+                  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const nextIndex = (currentIndex + 1) % modes.length;
+                    setDebateMode(modes[nextIndex]);
+                  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const prevIndex = (currentIndex - 1 + modes.length) % modes.length;
+                    setDebateMode(modes[prevIndex]);
+                  }
+                }}
+              >
                 {(Object.keys(DEBATE_MODES) as DebateMode[]).map((mode) => (
                   <button
                     key={mode}
@@ -368,6 +385,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
                     role="tab"
                     aria-selected={debateMode === mode}
                     aria-label={`${DEBATE_MODES[mode].label} mode: ${DEBATE_MODES[mode].description}`}
+                    tabIndex={debateMode === mode ? 0 : -1}
                     onClick={() => setDebateMode(mode)}
                     className={`flex-1 px-3 py-2 text-xs font-mono border transition-colors ${
                       debateMode === mode

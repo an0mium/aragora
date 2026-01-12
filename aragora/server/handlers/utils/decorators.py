@@ -95,6 +95,15 @@ _EXCEPTION_STATUS_MAP = {
     "VerificationTimeoutError": 504,
     "Z3NotAvailableError": 503,
     "ConvergenceBackendError": 503,
+    # Handler-specific exceptions (from aragora.server.handlers.exceptions)
+    "HandlerError": 500,
+    "HandlerValidationError": 400,
+    "HandlerNotFoundError": 404,
+    "HandlerAuthorizationError": 403,
+    "HandlerConflictError": 409,
+    "HandlerRateLimitError": 429,
+    "HandlerExternalServiceError": 502,
+    "HandlerDatabaseError": 500,
 }
 
 
@@ -276,11 +285,13 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
     Decorator for structured request/response logging.
 
     Logs request start, completion time, and status code for debugging
-    and observability.
+    and observability. Use on POST/PUT handlers where detailed logging
+    is valuable.
 
     Args:
-        context: Description of the operation
-        log_response: If True, also log response body
+        context: Description of the operation (e.g., "debate creation")
+        log_response: If True, also log response body (use cautiously for
+                     privacy/size reasons)
 
     Returns:
         Decorator function that wraps handler methods with logging.
@@ -294,33 +305,33 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
 
             try:
                 result = func(*args, **kwargs)
+                duration_ms = round((time.time() - start_time) * 1000, 2)
 
-                elapsed_ms = (time.time() - start_time) * 1000
-                status = result.get("status", 200) if isinstance(result, dict) else 200
+                # Extract status code from result (supports HandlerResult and dicts)
+                status_code = getattr(result, 'status_code', 200) if result else 200
+                if isinstance(result, dict):
+                    status_code = result.get("status", 200)
 
-                if log_response and isinstance(result, dict):
-                    # Truncate large responses
-                    body_preview = str(result.get("body", ""))[:200]
-                    logger.info(
-                        f"[{trace_id}] {context}: completed status={status} "
-                        f"duration_ms={elapsed_ms:.1f} body={body_preview}"
-                    )
+                log_msg = f"[{trace_id}] {context}: {status_code} in {duration_ms}ms"
+                if status_code >= 400:
+                    logger.warning(log_msg)
                 else:
-                    logger.info(
-                        f"[{trace_id}] {context}: completed status={status} "
-                        f"duration_ms={elapsed_ms:.1f}"
-                    )
+                    logger.info(log_msg)
+
+                if log_response and result:
+                    body = getattr(result, 'body', b'')
+                    if body and len(body) < 1000:  # Only log small responses
+                        logger.debug(f"[{trace_id}] Response: {body.decode('utf-8', errors='ignore')[:500]}")
 
                 return result
 
             except Exception as e:
-                elapsed_ms = (time.time() - start_time) * 1000
+                duration_ms = round((time.time() - start_time) * 1000, 2)
                 logger.error(
-                    f"[{trace_id}] {context}: failed duration_ms={elapsed_ms:.1f} "
-                    f"error={type(e).__name__}: {e}"
+                    f"[{trace_id}] {context}: failed in {duration_ms}ms - {type(e).__name__}: {e}",
+                    exc_info=True,
                 )
                 raise
-
         return wrapper
     return decorator
 
@@ -330,27 +341,42 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
 # =============================================================================
 
 # Role-Based Access Control permission matrix
-PERMISSION_MATRIX = {
-    # Debate operations
+# Permission -> list of roles that have access
+# Role hierarchy: owner > admin > member (higher roles inherit lower permissions)
+PERMISSION_MATRIX: dict[str, list[str]] = {
+    # Debate permissions
     "debates:read": ["member", "admin", "owner"],
     "debates:create": ["member", "admin", "owner"],
+    "debates:update": ["admin", "owner"],
     "debates:delete": ["admin", "owner"],
     "debates:export": ["member", "admin", "owner"],
-    # Organization operations
+    # Agent permissions
+    "agents:read": ["member", "admin", "owner"],
+    "agents:create": ["admin", "owner"],
+    "agents:update": ["admin", "owner"],
+    "agents:delete": ["admin", "owner"],
+    # Organization permissions
     "org:read": ["member", "admin", "owner"],
     "org:settings": ["admin", "owner"],
-    "org:billing": ["admin", "owner"],
     "org:members": ["admin", "owner"],
+    "org:invite": ["admin", "owner"],
+    "org:billing": ["owner"],
     "org:delete": ["owner"],
-    # Plugin operations
+    # Plugin permissions
     "plugins:read": ["member", "admin", "owner"],
+    "plugins:install": ["admin", "owner"],
+    "plugins:configure": ["admin", "owner"],
+    "plugins:uninstall": ["admin", "owner"],
+    "plugins:run": ["member", "admin", "owner"],
     "plugins:execute": ["admin", "owner"],
     "plugins:manage": ["admin", "owner"],
     # Laboratory (experimental features)
     "laboratory:read": ["member", "admin", "owner"],
     "laboratory:execute": ["admin", "owner"],
-    # Admin operations
+    # Admin permissions
     "admin:*": ["owner"],
+    "admin:audit": ["admin", "owner"],
+    "admin:system": ["owner"],
     "admin:metrics": ["admin", "owner"],
     "admin:users": ["owner"],
     # API key management

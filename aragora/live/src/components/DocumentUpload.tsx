@@ -276,6 +276,7 @@ export function DocumentUpload({ onDocumentsChange, apiBase = '' }: DocumentUplo
                   }}
                   className="text-text-muted hover:text-crimson transition-colors p-1"
                   title="Remove document"
+                  aria-label={`Remove document: ${doc.filename}`}
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"

@@ -632,3 +632,253 @@ class TestErrorHandling:
         result = billing_handler._get_usage(mock_handler)
 
         assert result.status_code == 404
+
+
+# ============================================================================
+# Stripe Exception Handling Tests
+# ============================================================================
+
+class TestStripeExceptionHandling:
+    """Tests for Stripe exception handling in billing handler.
+
+    These tests verify that Stripe exceptions are properly caught and
+    mapped to appropriate HTTP status codes.
+
+    Note: The tests patch at the source module (aragora.billing.jwt_auth)
+    since the decorator imports extract_user_from_request at runtime.
+    """
+
+    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_get_subscription_handles_stripe_error(
+        self, mock_extract, mock_stripe,
+        billing_handler, mock_handler, mock_org
+    ):
+        """Test _get_subscription gracefully handles StripeError."""
+        from aragora.billing.stripe_client import StripeError
+
+        user_ctx = Mock(
+            is_authenticated=True,
+            user_id="user-123",
+            role="owner",
+        )
+        mock_extract.return_value = user_ctx
+        mock_org.stripe_subscription_id = "sub_123"
+
+        # Make Stripe client raise error
+        mock_stripe.return_value.get_subscription.side_effect = StripeError("Connection failed")
+
+        result = billing_handler._get_subscription(mock_handler, user=user_ctx)
+
+        # Should succeed with partial data (graceful degradation)
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert "subscription" in data
+        # The Stripe-specific fields won't be populated
+
+    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.server.handlers.billing.extract_user_from_request")
+    def test_get_invoices_handles_stripe_config_error(
+        self, mock_extract, mock_stripe,
+        billing_handler, mock_handler, mock_org
+    ):
+        """Test _get_invoices returns 503 on StripeConfigError."""
+        from aragora.billing.stripe_client import StripeConfigError
+
+        user_ctx = Mock(
+            is_authenticated=True,
+            user_id="user-123",
+            role="owner",
+        )
+        mock_extract.return_value = user_ctx
+        mock_org.stripe_customer_id = "cus_123"
+
+        # Mock query param extraction
+        mock_handler.path = "/api/billing/invoices"
+        mock_handler.headers = {"Authorization": "Bearer test"}
+
+        mock_stripe.return_value.list_invoices.side_effect = StripeConfigError("Not configured")
+
+        with patch("aragora.server.handlers.billing.get_string_param", return_value="10"):
+            result = billing_handler._get_invoices(mock_handler)
+
+        assert result.status_code == 503
+        data = json.loads(result.body)
+        assert "unavailable" in data["error"].lower()
+
+    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.server.handlers.billing.extract_user_from_request")
+    def test_get_invoices_handles_stripe_api_error(
+        self, mock_extract, mock_stripe,
+        billing_handler, mock_handler, mock_org
+    ):
+        """Test _get_invoices returns 502 on StripeAPIError."""
+        from aragora.billing.stripe_client import StripeAPIError
+
+        user_ctx = Mock(
+            is_authenticated=True,
+            user_id="user-123",
+            role="owner",
+        )
+        mock_extract.return_value = user_ctx
+        mock_org.stripe_customer_id = "cus_123"
+
+        mock_stripe.return_value.list_invoices.side_effect = StripeAPIError("API error", code="api_error")
+
+        with patch("aragora.server.handlers.billing.get_string_param", return_value="10"):
+            result = billing_handler._get_invoices(mock_handler)
+
+        assert result.status_code == 502
+        data = json.loads(result.body)
+        assert "payment provider" in data["error"].lower()
+
+    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.server.handlers.billing.extract_user_from_request")
+    def test_get_invoices_handles_generic_stripe_error(
+        self, mock_extract, mock_stripe,
+        billing_handler, mock_handler, mock_org
+    ):
+        """Test _get_invoices returns 500 on generic StripeError."""
+        from aragora.billing.stripe_client import StripeError
+
+        user_ctx = Mock(
+            is_authenticated=True,
+            user_id="user-123",
+            role="owner",
+        )
+        mock_extract.return_value = user_ctx
+        mock_org.stripe_customer_id = "cus_123"
+
+        mock_stripe.return_value.list_invoices.side_effect = StripeError("Unknown error")
+
+        with patch("aragora.server.handlers.billing.get_string_param", return_value="10"):
+            result = billing_handler._get_invoices(mock_handler)
+
+        assert result.status_code == 500
+        data = json.loads(result.body)
+        assert "error" in data["error"].lower()
+
+    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_cancel_subscription_handles_stripe_config_error(
+        self, mock_extract, mock_stripe,
+        billing_handler, mock_handler, mock_org
+    ):
+        """Test _cancel_subscription returns 503 on StripeConfigError."""
+        from aragora.billing.stripe_client import StripeConfigError
+
+        user_ctx = Mock(
+            is_authenticated=True,
+            user_id="user-123",
+            role="owner",
+        )
+        mock_extract.return_value = user_ctx
+        mock_org.stripe_subscription_id = "sub_123"
+
+        mock_stripe.return_value.cancel_subscription.side_effect = StripeConfigError("Not configured")
+
+        result = billing_handler._cancel_subscription(mock_handler, user=user_ctx)
+
+        assert result.status_code == 503
+        data = json.loads(result.body)
+        assert "unavailable" in data["error"].lower()
+
+    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_cancel_subscription_handles_stripe_api_error(
+        self, mock_extract, mock_stripe,
+        billing_handler, mock_handler, mock_org
+    ):
+        """Test _cancel_subscription returns 502 on StripeAPIError."""
+        from aragora.billing.stripe_client import StripeAPIError
+
+        user_ctx = Mock(
+            is_authenticated=True,
+            user_id="user-123",
+            role="owner",
+        )
+        mock_extract.return_value = user_ctx
+        mock_org.stripe_subscription_id = "sub_123"
+
+        mock_stripe.return_value.cancel_subscription.side_effect = StripeAPIError("Subscription not found", code="resource_missing")
+
+        result = billing_handler._cancel_subscription(mock_handler, user=user_ctx)
+
+        assert result.status_code == 502
+        data = json.loads(result.body)
+        assert "payment provider" in data["error"].lower()
+
+    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_resume_subscription_handles_stripe_config_error(
+        self, mock_extract, mock_stripe,
+        billing_handler, mock_handler, mock_org
+    ):
+        """Test _resume_subscription returns 503 on StripeConfigError."""
+        from aragora.billing.stripe_client import StripeConfigError
+
+        user_ctx = Mock(
+            is_authenticated=True,
+            user_id="user-123",
+            role="owner",
+        )
+        mock_extract.return_value = user_ctx
+        mock_org.stripe_subscription_id = "sub_123"
+
+        mock_stripe.return_value.resume_subscription.side_effect = StripeConfigError("Not configured")
+
+        result = billing_handler._resume_subscription(mock_handler, user=user_ctx)
+
+        assert result.status_code == 503
+        data = json.loads(result.body)
+        assert "unavailable" in data["error"].lower()
+
+    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_resume_subscription_handles_stripe_api_error(
+        self, mock_extract, mock_stripe,
+        billing_handler, mock_handler, mock_org
+    ):
+        """Test _resume_subscription returns 502 on StripeAPIError."""
+        from aragora.billing.stripe_client import StripeAPIError
+
+        user_ctx = Mock(
+            is_authenticated=True,
+            user_id="user-123",
+            role="owner",
+        )
+        mock_extract.return_value = user_ctx
+        mock_org.stripe_subscription_id = "sub_123"
+
+        mock_stripe.return_value.resume_subscription.side_effect = StripeAPIError("Cannot resume", code="subscription_status_invalid")
+
+        result = billing_handler._resume_subscription(mock_handler, user=user_ctx)
+
+        assert result.status_code == 502
+        data = json.loads(result.body)
+        assert "payment provider" in data["error"].lower()
+
+    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_resume_subscription_handles_generic_stripe_error(
+        self, mock_extract, mock_stripe,
+        billing_handler, mock_handler, mock_org
+    ):
+        """Test _resume_subscription returns 500 on generic StripeError."""
+        from aragora.billing.stripe_client import StripeError
+
+        user_ctx = Mock(
+            is_authenticated=True,
+            user_id="user-123",
+            role="owner",
+        )
+        mock_extract.return_value = user_ctx
+        mock_org.stripe_subscription_id = "sub_123"
+
+        mock_stripe.return_value.resume_subscription.side_effect = StripeError("Unknown error")
+
+        result = billing_handler._resume_subscription(mock_handler, user=user_ctx)
+
+        assert result.status_code == 500
+        data = json.loads(result.body)
+        assert "resume" in data["error"].lower()

@@ -8,6 +8,7 @@ Supports both SQLite (default) and PostgreSQL (for production scale).
 from .base_database import BaseDatabase
 from .base_store import SQLiteStore
 from .user_store import UserStore
+from .organization_store import OrganizationStore
 from .webhook_store import (
     WebhookStoreBackend,
     InMemoryWebhookStore,
@@ -31,6 +32,7 @@ __all__ = [
     "BaseDatabase",
     "SQLiteStore",
     "UserStore",
+    "OrganizationStore",
     # Webhook idempotency
     "WebhookStoreBackend",
     "InMemoryWebhookStore",

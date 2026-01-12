@@ -41,7 +41,9 @@ from .base import (
     validate_path_segment, SAFE_ID_PATTERN,
     ttl_cache, safe_error_message, handle_errors,
 )
+from .utils.rate_limit import rate_limit
 from aragora.billing.jwt_auth import extract_user_from_request
+from aragora.exceptions import StorageError, DatabaseError
 
 # Cache TTLs for system endpoints (in seconds)
 CACHE_TTL_NOMIC_STATE = 10  # Short TTL for state (changes frequently)
@@ -186,7 +188,7 @@ class SystemHandler(BaseHandler):
                 if not is_valid:
                     return error_response(err, 400)
             limit = get_clamped_int_param(query_params, 'limit', 50, 1, 200)
-            return self._get_history_cycles(loop_id, limit)
+            return self._get_history_cycles(handler, loop_id, limit)
 
         if path == "/api/history/events":
             # Require auth for history endpoints
@@ -199,7 +201,7 @@ class SystemHandler(BaseHandler):
                 if not is_valid:
                     return error_response(err, 400)
             limit = get_clamped_int_param(query_params, 'limit', 100, 1, 500)
-            return self._get_history_events(loop_id, limit)
+            return self._get_history_events(handler, loop_id, limit)
 
         if path == "/api/history/debates":
             # Require auth for history endpoints
@@ -212,7 +214,7 @@ class SystemHandler(BaseHandler):
                 if not is_valid:
                     return error_response(err, 400)
             limit = get_clamped_int_param(query_params, 'limit', 50, 1, 200)
-            return self._get_history_debates(loop_id, limit)
+            return self._get_history_debates(handler, loop_id, limit)
 
         if path == "/api/history/summary":
             # Require auth for history endpoints
@@ -224,7 +226,7 @@ class SystemHandler(BaseHandler):
                 is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
-            return self._get_history_summary(loop_id)
+            return self._get_history_summary(handler, loop_id)
 
         if path == "/api/system/maintenance":
             task = get_string_param(query_params, 'task', 'status')
@@ -1077,9 +1079,10 @@ class SystemHandler(BaseHandler):
         else:
             return data[:limit]
 
+    @rate_limit(rpm=30, limiter_name="history_cycles")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_cycles", skip_first=True)
     @handle_errors("get cycles")
-    def _get_history_cycles(self, loop_id: Optional[str], limit: int) -> HandlerResult:
+    def _get_history_cycles(self, handler, loop_id: Optional[str], limit: int) -> HandlerResult:
         """Get cycle history from Supabase or local storage."""
         nomic_dir = self.get_nomic_dir()
         if nomic_dir:
@@ -1089,9 +1092,10 @@ class SystemHandler(BaseHandler):
 
         return json_response({"cycles": []})
 
+    @rate_limit(rpm=30, limiter_name="history_events")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_events", skip_first=True)
     @handle_errors("get events")
-    def _get_history_events(self, loop_id: Optional[str], limit: int) -> HandlerResult:
+    def _get_history_events(self, handler, loop_id: Optional[str], limit: int) -> HandlerResult:
         """Get event history."""
         nomic_dir = self.get_nomic_dir()
         if nomic_dir:
@@ -1101,9 +1105,10 @@ class SystemHandler(BaseHandler):
 
         return json_response({"events": []})
 
+    @rate_limit(rpm=20, limiter_name="history_debates")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_debates", skip_first=True)
     @handle_errors("get debates")
-    def _get_history_debates(self, loop_id: Optional[str], limit: int) -> HandlerResult:
+    def _get_history_debates(self, handler, loop_id: Optional[str], limit: int) -> HandlerResult:
         """Get debate history."""
         storage = self.get_storage()
         if not storage:
@@ -1127,8 +1132,9 @@ class SystemHandler(BaseHandler):
 
         return json_response({"debates": debates})
 
+    @rate_limit(rpm=30, limiter_name="history_summary")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_summary", skip_first=True)
-    def _get_history_summary(self, loop_id: Optional[str]) -> HandlerResult:
+    def _get_history_summary(self, handler, loop_id: Optional[str]) -> HandlerResult:
         """Get history summary statistics."""
         storage = self.get_storage()
         elo = self.get_elo_system()
@@ -1149,6 +1155,9 @@ class SystemHandler(BaseHandler):
                 summary["total_agents"] = len(rankings)
 
             return json_response(summary)
+        except (StorageError, DatabaseError) as e:
+            logger.error("Database error getting history summary: %s: %s", type(e).__name__, e)
+            return error_response("Database error retrieving history summary", 500)
         except Exception as e:
             logger.error("Failed to get history summary: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get summary"), 500)
@@ -1198,6 +1207,12 @@ class SystemHandler(BaseHandler):
 
         except ImportError:
             return error_response("Maintenance module not available", 503)
+        except (StorageError, DatabaseError) as e:
+            logger.error("Database error during maintenance '%s': %s: %s", task, type(e).__name__, e)
+            return error_response(f"Database error during maintenance task '{task}'", 500)
+        except OSError as e:
+            logger.error("Filesystem error during maintenance '%s': %s", task, e)
+            return error_response(f"Filesystem error during maintenance task '{task}'", 500)
         except Exception as e:
             logger.exception(f"Maintenance task '{task}' failed: {e}")
             return error_response(safe_error_message(e, "maintenance"), 500)

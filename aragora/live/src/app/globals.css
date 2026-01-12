@@ -276,13 +276,73 @@ body {
 
 /* Panel error state */
 .panel-error {
-  padding: 0.5rem;
+  padding: 0.75rem;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 0.375rem;
   color: #f87171;
   font-size: 0.75rem;
   font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.panel-error-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.panel-error-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.2);
+  border-radius: 50%;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.panel-error-message {
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-error-title {
+  font-weight: 600;
+  font-size: 0.8rem;
+  margin: 0 0 0.25rem 0;
+}
+
+.panel-error-details {
+  margin: 0;
+  opacity: 0.8;
+  word-break: break-word;
+}
+
+.panel-error-retry {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #f87171;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.65rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-self: flex-start;
+}
+
+.panel-error-retry:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #f87171;
+}
+
+.panel-error-retry:focus-visible {
+  outline: 2px solid #f87171;
+  outline-offset: 2px;
 }
 
 /* Panel list items */

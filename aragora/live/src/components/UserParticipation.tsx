@@ -174,6 +174,11 @@ export function UserParticipation({ events, onVote, onSuggest, onAck, onError }:
               value={intensity}
               onChange={(e) => setIntensity(parseInt(e.target.value))}
               className="w-full h-2 bg-border rounded-lg appearance-none cursor-pointer accent-accent"
+              aria-label="Vote confidence level"
+              aria-valuemin={1}
+              aria-valuemax={10}
+              aria-valuenow={intensity}
+              aria-valuetext={`${intensity} - ${getConvictionLabel(intensity)}`}
             />
             <div className="flex justify-between text-xs text-text-muted mt-1">
               <span>1 - Unsure</span>

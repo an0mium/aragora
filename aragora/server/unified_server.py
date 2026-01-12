@@ -12,6 +12,7 @@ import atexit
 import json
 import re
 import sqlite3
+from collections import deque
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from threading import Thread
@@ -272,10 +273,12 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     _debate_factory: Optional[DebateFactory] = None
 
     # Upload rate limiting (IP-based, independent of auth)
-    _upload_counts: Dict[str, list] = {}  # IP -> list of upload timestamps
+    # Uses deque with maxlen to prevent unbounded memory growth
+    _upload_counts: Dict[str, deque] = {}  # IP -> deque of upload timestamps
     _upload_counts_lock = threading.Lock()
     MAX_UPLOADS_PER_MINUTE = 5  # Maximum uploads per IP per minute
     MAX_UPLOADS_PER_HOUR = 30  # Maximum uploads per IP per hour
+    _MAX_UPLOAD_TIMESTAMPS = 30  # Max timestamps to keep per IP (matches hourly limit)
 
     # Request logging for observability
     _request_log_enabled = True  # Can be disabled via environment
@@ -478,6 +481,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         """Check IP-based upload rate limit. Returns True if allowed, False if blocked.
 
         Uses sliding window rate limiting per IP address.
+        Deques with maxlen prevent unbounded memory growth.
         """
         import time
 
@@ -497,17 +501,28 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         one_hour_ago = now - 3600
 
         with UnifiedHandler._upload_counts_lock:
-            # Get or create upload history for this IP
+            # Get or create upload history for this IP (bounded deque)
             if client_ip not in UnifiedHandler._upload_counts:
-                UnifiedHandler._upload_counts[client_ip] = []
-
-            # Clean up old entries
-            UnifiedHandler._upload_counts[client_ip] = [
-                ts for ts in UnifiedHandler._upload_counts[client_ip]
-                if ts > one_hour_ago
-            ]
+                UnifiedHandler._upload_counts[client_ip] = deque(
+                    maxlen=UnifiedHandler._MAX_UPLOAD_TIMESTAMPS
+                )
 
             timestamps = UnifiedHandler._upload_counts[client_ip]
+
+            # Clean up old entries (rebuild deque with only recent timestamps)
+            recent_timestamps = [ts for ts in timestamps if ts > one_hour_ago]
+            timestamps.clear()
+            timestamps.extend(recent_timestamps)
+
+            # Periodically clean up stale IPs (those with no recent uploads)
+            # Do this occasionally to avoid overhead on every request
+            if len(UnifiedHandler._upload_counts) > 100:
+                stale_ips = [
+                    ip for ip, ts_deque in UnifiedHandler._upload_counts.items()
+                    if not ts_deque or max(ts_deque) < one_hour_ago
+                ]
+                for ip in stale_ips:
+                    del UnifiedHandler._upload_counts[ip]
 
             # Check per-minute limit
             recent_minute = sum(1 for ts in timestamps if ts > one_minute_ago)
@@ -527,7 +542,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
                 return False
 
             # Record this upload
-            UnifiedHandler._upload_counts[client_ip].append(now)
+            timestamps.append(now)
 
         return True
 
@@ -812,11 +827,10 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
                 # Continue to legacy handlers
 
         # NOTE: /api/documents/upload is now handled by DocumentHandler
+        # NOTE: /api/debate is now handled by DebatesHandler
         if path == '/api/debug/post-test':
             # Simple diagnostic endpoint
             self._send_json({"status": "ok", "message": "POST handling works"})
-        elif path == '/api/debate':
-            self._start_debate()
         # NOTE: Broadcast, publishing, laboratory, routing, verification, probes,
         # plugins, insights routes are NOW HANDLED BY modular handlers (BroadcastHandler,
         # LaboratoryHandler, RoutingHandler, VerificationHandler, ProbesHandler,
@@ -919,124 +933,7 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         self.send_error(404, f"Unknown PUT endpoint: {path}")
 
     # NOTE: _upload_document moved to handlers/documents.py (DocumentHandler)
-
-    def _start_debate(self) -> None:
-        """Start an ad-hoc debate with specified question.
-
-        Accepts JSON body with:
-            question: The topic/question to debate (required)
-            agents: Comma-separated agent list (optional, default varies)
-            rounds: Number of debate rounds (optional, default: 3)
-            consensus: Consensus method (optional, default: "majority")
-            auto_select: Whether to auto-select agents (optional, default: False)
-            use_trending: Whether to use trending topic (optional, default: False)
-
-        Rate limited: requires auth when enabled.
-        """
-        logger.info("[_start_debate] Called")
-
-        # Rate limit expensive debate creation
-        try:
-            if not self._check_rate_limit():
-                logger.info("[_start_debate] Rate limit check failed")
-                return
-        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-            logger.exception(f"[_start_debate] Rate limit check error: {e}")
-            self._send_json({"error": f"Rate limit check failed: {e}"}, status=500)
-            return
-
-        logger.info("[_start_debate] Rate limit passed")
-
-        # Tier-aware rate limiting based on subscription
-        try:
-            if not self._check_tier_rate_limit():
-                return
-        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-            logger.warning(f"Tier rate limit check failed, proceeding: {e}")
-
-        # Quota enforcement - check org usage limits
-        if UnifiedHandler.user_store:
-            try:
-                from aragora.billing.jwt_auth import extract_user_from_request
-                auth_ctx = extract_user_from_request(self, UnifiedHandler.user_store)
-                if auth_ctx.is_authenticated and auth_ctx.org_id:
-                    org = UnifiedHandler.user_store.get_organization_by_id(auth_ctx.org_id)
-                    if org and org.is_at_limit:
-                        self._send_json({
-                            "error": "Monthly debate quota exceeded",
-                            "code": "quota_exceeded",
-                            "limit": org.limits.debates_per_month,
-                            "used": org.debates_used_this_month,
-                            "remaining": 0,
-                            "tier": org.tier.value,
-                            "upgrade_url": "/pricing",
-                            "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Upgrade to increase your limit.",
-                        }, status=429)
-                        return
-            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, ImportError) as e:
-                logger.warning(f"Quota check failed, proceeding without enforcement: {e}")
-
-        if not DEBATE_AVAILABLE:
-            self._send_json({"error": "Debate orchestrator not available"}, status=500)
-            return
-
-        if not self.stream_emitter:
-            self._send_json({"error": "Event streaming not configured"}, status=500)
-            return
-
-        # Parse JSON body with size validation
-        try:
-            content_length = int(self.headers.get('Content-Length', '0'))
-        except ValueError:
-            self._send_json({"error": "Invalid Content-Length header"}, status=400)
-            return
-
-        if content_length == 0:
-            self._send_json({"error": "No content provided"}, status=400)
-            return
-
-        # Limit debate request size to 1MB
-        if content_length > 1024 * 1024:
-            self._send_json({"error": "Request too large"}, status=413)
-            return
-
-        try:
-            body = self.rfile.read(content_length)
-            data = json.loads(body.decode('utf-8'))
-        except json.JSONDecodeError:
-            self._send_json({"error": "Invalid JSON"}, status=400)
-            return
-
-        # Parse and validate request using DebateRequest
-        try:
-            request = DebateRequest.from_dict(data)
-        except ValueError as e:
-            self._send_json({"error": str(e)}, status=400)
-            return
-
-        # Get or create debate controller and start debate
-        try:
-            controller = self._get_debate_controller()
-            response = controller.start_debate(request)
-        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
-            logger.exception(f"Failed to start debate: {e}")
-            self._send_json({"error": f"Failed to start debate: {str(e)}"}, status=500)
-            return
-
-        # Increment usage on successful debate creation
-        if response.status_code < 400 and UnifiedHandler.user_store:
-            try:
-                from aragora.billing.jwt_auth import extract_user_from_request
-                auth_ctx = extract_user_from_request(self, UnifiedHandler.user_store)
-                if auth_ctx.is_authenticated and auth_ctx.org_id:
-                    UnifiedHandler.user_store.increment_usage(auth_ctx.org_id)
-                    logger.info(f"Incremented debate usage for org {auth_ctx.org_id}")
-            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, ImportError) as e:
-                logger.warning(f"Usage increment failed: {e}")
-
-        # Send response
-        self._send_json(response.to_dict(), status=response.status_code)
-
+    # NOTE: _start_debate moved to handlers/debates.py (DebatesHandler)
     # NOTE: _list_documents moved to handlers/documents.py (DocumentHandler)
     # NOTE: Insights methods moved to handlers/insights.py (InsightsHandler)
     # NOTE: _run_capability_probe moved to handlers/probes.py (ProbesHandler)
@@ -1407,6 +1304,34 @@ class UnifiedServer:
         except ImportError:
             pass  # sentry-sdk not installed
 
+        # Initialize OpenTelemetry tracing (if OTEL_ENABLED=true)
+        try:
+            from aragora.observability.tracing import get_tracer
+            from aragora.observability.config import is_tracing_enabled
+            if is_tracing_enabled():
+                tracer = get_tracer()
+                logger.info("OpenTelemetry tracing enabled")
+            else:
+                logger.debug("OpenTelemetry tracing disabled (set OTEL_ENABLED=true to enable)")
+        except ImportError as e:
+            logger.debug(f"OpenTelemetry not available: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to initialize OpenTelemetry: {e}")
+
+        # Initialize Prometheus metrics (if METRICS_ENABLED=true)
+        try:
+            from aragora.observability.metrics import start_metrics_server
+            from aragora.observability.config import is_metrics_enabled
+            if is_metrics_enabled():
+                # Note: start_metrics_server starts a separate HTTP server on METRICS_PORT (default 9090)
+                # The /metrics endpoint at /api path uses aragora.server.metrics instead
+                start_metrics_server()
+                logger.info("Prometheus metrics server started")
+        except ImportError as e:
+            logger.debug(f"Prometheus metrics not available: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to start metrics server: {e}")
+
         # Initialize circuit breaker persistence
         try:
             from aragora.resilience import (
@@ -1581,6 +1506,14 @@ class UnifiedServer:
                 logger.info(f"Persisted {count} circuit breaker state(s)")
         except (ImportError, OSError, RuntimeError) as e:
             logger.warning(f"Failed to persist circuit breaker states: {e}")
+
+        # 3.5 Shutdown OpenTelemetry tracer (flushes pending spans)
+        try:
+            from aragora.observability.tracing import shutdown as shutdown_tracing
+            shutdown_tracing()
+            logger.info("OpenTelemetry tracer shutdown complete")
+        except (ImportError, RuntimeError) as e:
+            logger.debug(f"Tracer shutdown: {e}")
 
         # 4. Stop background tasks
         try:

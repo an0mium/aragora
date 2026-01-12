@@ -12,6 +12,7 @@ import logging
 import time
 from collections import deque
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Optional
 
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
@@ -57,6 +58,32 @@ except ImportError:
     PROMPT_EVOLVER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=256)
+def _compute_domain_from_task(task_lower: str) -> str:
+    """Compute domain from lowercased task string.
+
+    Module-level cached helper to avoid O(n) string matching
+    for repeated task strings across debate instances.
+    """
+    if any(w in task_lower for w in ("security", "hack", "vulnerability", "auth", "encrypt")):
+        return "security"
+    if any(w in task_lower for w in ("performance", "speed", "optimize", "cache", "latency")):
+        return "performance"
+    if any(w in task_lower for w in ("test", "testing", "coverage", "regression")):
+        return "testing"
+    if any(w in task_lower for w in ("design", "architecture", "pattern", "structure")):
+        return "architecture"
+    if any(w in task_lower for w in ("bug", "error", "fix", "crash", "exception")):
+        return "debugging"
+    if any(w in task_lower for w in ("api", "endpoint", "rest", "graphql")):
+        return "api"
+    if any(w in task_lower for w in ("database", "sql", "query", "schema")):
+        return "database"
+    if any(w in task_lower for w in ("ui", "frontend", "react", "css", "layout")):
+        return "frontend"
+    return "general"
 
 
 class Arena:
@@ -806,35 +833,17 @@ class Arena:
         """Extract domain from the debate task for calibration tracking.
 
         Uses heuristics to categorize the debate topic.
-        Result is cached since the task doesn't change during a debate.
+        Result is cached at both instance level (for this debate) and
+        module level (for repeated tasks across debates).
         """
-        # Return cached domain if available
+        # Return instance-level cached domain if available
         if self._debate_domain_cache is not None:
             return self._debate_domain_cache
 
-        task_lower = self.env.task.lower()
+        # Use module-level LRU cache for the actual computation
+        domain = _compute_domain_from_task(self.env.task.lower())
 
-        # Domain detection heuristics
-        if any(w in task_lower for w in ["security", "hack", "vulnerability", "auth", "encrypt"]):
-            domain = "security"
-        elif any(w in task_lower for w in ["performance", "speed", "optimize", "cache", "latency"]):
-            domain = "performance"
-        elif any(w in task_lower for w in ["test", "testing", "coverage", "regression"]):
-            domain = "testing"
-        elif any(w in task_lower for w in ["design", "architecture", "pattern", "structure"]):
-            domain = "architecture"
-        elif any(w in task_lower for w in ["bug", "error", "fix", "crash", "exception"]):
-            domain = "debugging"
-        elif any(w in task_lower for w in ["api", "endpoint", "rest", "graphql"]):
-            domain = "api"
-        elif any(w in task_lower for w in ["database", "sql", "query", "schema"]):
-            domain = "database"
-        elif any(w in task_lower for w in ["ui", "frontend", "react", "css", "layout"]):
-            domain = "frontend"
-        else:
-            domain = "general"
-
-        # Cache and return
+        # Cache at instance level and return
         self._debate_domain_cache = domain
         return domain
 

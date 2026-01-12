@@ -15,6 +15,7 @@ from typing import Optional, Dict, Any
 
 from aragora.config import TOKEN_TTL_SECONDS, DEFAULT_RATE_LIMIT, IP_RATE_LIMIT, SHAREABLE_LINK_TTL, get_settings
 from aragora.server.cors_config import cors_config
+from aragora.exceptions import AuthenticationError
 
 
 class AuthConfig:
@@ -65,7 +66,7 @@ class AuthConfig:
                 "Authentication is required in production mode. "
                 "Set ARAGORA_API_TOKEN or use ARAGORA_ENV=development for testing."
             )
-            raise RuntimeError(
+            raise AuthenticationError(
                 "Authentication required in production mode. "
                 "Set ARAGORA_API_TOKEN environment variable."
             )

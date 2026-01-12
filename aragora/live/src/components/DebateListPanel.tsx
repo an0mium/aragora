@@ -151,6 +151,15 @@ export function DebateListPanel({ onSelectDebate, limit = 20 }: DebateListPanelP
               <div
                 key={debate.id}
                 onClick={() => onSelectDebate?.(debate.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectDebate?.(debate.id);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Select debate: ${debate.task}`}
                 className="p-3 mb-2 bg-zinc-50 dark:bg-zinc-900 rounded border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 cursor-pointer transition-colors"
               >
                 <div className="flex items-start justify-between">

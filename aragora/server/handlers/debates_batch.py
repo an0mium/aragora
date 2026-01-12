@@ -20,6 +20,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.entities import validate_path_segment, SAFE_ID_PATTERN
+from aragora.exceptions import DebateStartError
 
 if TYPE_CHECKING:
     from aragora.server.handlers.debates import DebatesHandler
@@ -255,7 +256,10 @@ class BatchOperationsMixin:
                     "debate_id": response.debate_id,
                 }
             else:
-                raise Exception(response.error or "Debate failed to start")
+                raise DebateStartError(
+                    debate_id=response.debate_id or "unknown",
+                    reason=response.error or "Debate failed to start"
+                )
 
         return execute_debate
 

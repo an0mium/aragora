@@ -563,7 +563,8 @@ class TestDebatesErrorHandling:
 
     def test_export_exception_returns_500(self, debates_handler, mock_storage):
         """Should return 500 on export exceptions."""
-        mock_storage.get_debate.side_effect = Exception("Export failed")
+        from aragora.exceptions import StorageError
+        mock_storage.get_debate.side_effect = StorageError("Export failed")
 
         result = debates_handler.handle("/api/debates/debate-001/export/json", {}, None)
 
@@ -1101,7 +1102,8 @@ class TestRouteHandlerEdgeCases:
 
     def test_handle_citations_exception(self, debates_handler, mock_storage):
         """Should handle exception in citations lookup."""
-        mock_storage.get_debate.side_effect = Exception("Citations lookup failed")
+        from aragora.exceptions import StorageError
+        mock_storage.get_debate.side_effect = StorageError("Citations lookup failed")
 
         result = debates_handler.handle("/api/debates/debate-001/citations", {}, None)
 
@@ -1375,3 +1377,212 @@ class TestBuildGraphFromReplay:
         )
 
         assert result is not None
+
+
+# ============================================================================
+# Specific Exception Handling Tests
+# ============================================================================
+
+class TestSpecificExceptionHandling:
+    """Tests for specific exception type handling (Round 22 refactoring)."""
+
+    def test_search_storage_error_returns_500(self, debates_handler, mock_storage):
+        """Search with StorageError should return 500."""
+        from aragora.exceptions import StorageError
+        # Search uses list_recent internally
+        mock_storage.list_recent.side_effect = StorageError("Storage unavailable")
+
+        result = debates_handler.handle("/api/search", {"q": "test"}, None)
+
+        assert result is not None
+        assert result.status_code == 500
+        data = json.loads(result.body)
+        assert "error" in data
+
+    def test_search_database_error_returns_500(self, debates_handler, mock_storage):
+        """Search with DatabaseError should return 500."""
+        from aragora.exceptions import DatabaseError
+        # Search uses list_recent internally
+        mock_storage.list_recent.side_effect = DatabaseError("DB connection lost")
+
+        result = debates_handler.handle("/api/search", {"q": "test"}, None)
+
+        assert result is not None
+        assert result.status_code == 500
+        data = json.loads(result.body)
+        assert "error" in data
+
+    def test_search_value_error_returns_400(self, debates_handler, mock_storage):
+        """Search with ValueError should return 400."""
+        # Search uses list_recent internally, but ValueError is caught too
+        mock_storage.list_recent.side_effect = ValueError("Invalid search pattern")
+
+        result = debates_handler.handle("/api/search", {"q": "test"}, None)
+
+        assert result is not None
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "error" in data
+
+    def test_export_record_not_found_returns_404(self, debates_handler, mock_storage):
+        """Export with RecordNotFoundError should return 404."""
+        from aragora.exceptions import RecordNotFoundError
+        mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
+
+        result = debates_handler.handle("/api/debates/test-id/export/json", {}, None)
+
+        assert result.status_code == 404
+        data = json.loads(result.body)
+        assert "not found" in data["error"].lower()
+
+    def test_export_storage_error_returns_500(self, debates_handler, mock_storage):
+        """Export with StorageError should return 500."""
+        from aragora.exceptions import StorageError
+        mock_storage.get_debate.side_effect = StorageError("Storage failure")
+
+        result = debates_handler.handle("/api/debates/test-id/export/json", {}, None)
+
+        assert result.status_code == 500
+        data = json.loads(result.body)
+        assert "error" in data
+
+    def test_export_database_error_returns_500(self, debates_handler, mock_storage):
+        """Export with DatabaseError should return 500."""
+        from aragora.exceptions import DatabaseError
+        mock_storage.get_debate.side_effect = DatabaseError("Database error")
+
+        result = debates_handler.handle("/api/debates/test-id/export/json", {}, None)
+
+        assert result.status_code == 500
+        data = json.loads(result.body)
+        assert "error" in data
+
+    def test_citations_record_not_found_returns_404(self, debates_handler, mock_storage):
+        """Citations with RecordNotFoundError should return 404."""
+        from aragora.exceptions import RecordNotFoundError
+        mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
+
+        result = debates_handler.handle("/api/debates/test-id/citations", {}, None)
+
+        assert result.status_code == 404
+        data = json.loads(result.body)
+        assert "not found" in data["error"].lower()
+
+    def test_citations_storage_error_returns_500(self, debates_handler, mock_storage):
+        """Citations with StorageError should return 500."""
+        from aragora.exceptions import StorageError
+        mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
+
+        result = debates_handler.handle("/api/debates/test-id/citations", {}, None)
+
+        assert result.status_code == 500
+        data = json.loads(result.body)
+        assert "error" in data
+
+    def test_evidence_record_not_found_returns_404(self, debates_handler, mock_storage):
+        """Evidence with RecordNotFoundError should return 404."""
+        from aragora.exceptions import RecordNotFoundError
+        mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
+
+        result = debates_handler.handle("/api/debates/test-id/evidence", {}, None)
+
+        assert result.status_code == 404
+        data = json.loads(result.body)
+        assert "not found" in data["error"].lower()
+
+    def test_evidence_storage_error_returns_500(self, debates_handler, mock_storage):
+        """Evidence with StorageError should return 500."""
+        from aragora.exceptions import StorageError
+        mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
+
+        result = debates_handler.handle("/api/debates/test-id/evidence", {}, None)
+
+        assert result.status_code == 500
+        data = json.loads(result.body)
+        assert "error" in data
+
+    def test_messages_record_not_found_returns_404(self, debates_handler, mock_storage):
+        """Messages with RecordNotFoundError should return 404."""
+        from aragora.exceptions import RecordNotFoundError
+        mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
+
+        result = debates_handler.handle("/api/debates/test-id/messages", {}, None)
+
+        assert result.status_code == 404
+        data = json.loads(result.body)
+        assert "not found" in data["error"].lower()
+
+    def test_messages_storage_error_returns_500(self, debates_handler, mock_storage):
+        """Messages with StorageError should return 500."""
+        from aragora.exceptions import StorageError
+        mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
+
+        result = debates_handler.handle("/api/debates/test-id/messages", {}, None)
+
+        assert result.status_code == 500
+        data = json.loads(result.body)
+        assert "error" in data
+
+    def test_meta_critique_record_not_found_returns_404(self, debates_handler, mock_storage):
+        """Meta-critique with RecordNotFoundError should return 404."""
+        from aragora.exceptions import RecordNotFoundError
+        mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
+
+        result = debates_handler.handle("/api/debates/test-id/meta-critique", {}, None)
+
+        # May return 404 or 503 if nomic dir not configured
+        if result is not None:
+            assert result.status_code in (404, 503)
+
+    def test_meta_critique_storage_error_returns_500(self, debates_handler, mock_storage):
+        """Meta-critique with StorageError should return 500 or 503."""
+        from aragora.exceptions import StorageError
+        mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
+
+        result = debates_handler.handle("/api/debates/test-id/meta-critique", {}, None)
+
+        if result is not None:
+            # 503 is valid if nomic dir not configured (checked first)
+            assert result.status_code in (500, 503)
+
+    def test_graph_stats_record_not_found_returns_404(self, debates_handler, mock_storage):
+        """Graph stats with RecordNotFoundError should return 404."""
+        from aragora.exceptions import RecordNotFoundError
+        mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
+
+        result = debates_handler.handle("/api/debates/test-id/graph/stats", {}, None)
+
+        if result is not None:
+            # 503 if nomic dir not configured
+            assert result.status_code in (404, 503)
+
+    def test_graph_stats_storage_error_returns_500(self, debates_handler, mock_storage):
+        """Graph stats with StorageError should return 500 or 503."""
+        from aragora.exceptions import StorageError
+        mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
+
+        result = debates_handler.handle("/api/debates/test-id/graph/stats", {}, None)
+
+        if result is not None:
+            # 503 is valid if nomic dir not configured
+            assert result.status_code in (500, 503)
+
+    def test_build_graph_record_not_found_returns_404(self, debates_handler, mock_storage):
+        """Build graph with RecordNotFoundError should return 404."""
+        from aragora.exceptions import RecordNotFoundError
+        mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
+
+        result = debates_handler.handle("/api/debates/test-id/graph", {}, None)
+
+        if result is not None:
+            assert result.status_code == 404
+
+    def test_build_graph_storage_error_returns_500(self, debates_handler, mock_storage):
+        """Build graph with StorageError should return 500."""
+        from aragora.exceptions import StorageError
+        mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
+
+        result = debates_handler.handle("/api/debates/test-id/graph", {}, None)
+
+        if result is not None:
+            assert result.status_code == 500

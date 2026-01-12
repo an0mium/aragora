@@ -100,6 +100,20 @@ from .exception_handler import (
     is_retryable,
     is_authentication_error,
 )
+from .structured_logging import (
+    configure_structured_logging,
+    get_logger,
+    log_context,
+    set_log_context,
+    clear_log_context,
+    get_log_context,
+    redact_sensitive,
+    RequestLoggingMiddleware,
+    JsonFormatter,
+    TextFormatter,
+    LogContext,
+    setup_logging,
+)
 
 __all__ = [
     # Auth
@@ -174,4 +188,17 @@ __all__ = [
     "is_server_error",
     "is_retryable",
     "is_authentication_error",
+    # Structured logging
+    "configure_structured_logging",
+    "get_logger",
+    "log_context",
+    "set_log_context",
+    "clear_log_context",
+    "get_log_context",
+    "redact_sensitive",
+    "RequestLoggingMiddleware",
+    "JsonFormatter",
+    "TextFormatter",
+    "LogContext",
+    "setup_logging",
 ]

@@ -20,6 +20,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from aragora.exceptions import RedisUnavailableError
+
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -208,7 +210,7 @@ class RedisOAuthStateStore(OAuthStateStore):
         """Generate and store a new state token in Redis."""
         redis_client = self._get_redis()
         if not redis_client:
-            raise RuntimeError("Redis not available")
+            raise RedisUnavailableError("OAuth state storage")
 
         import json
         state_token = secrets.token_urlsafe(32)
@@ -235,7 +237,7 @@ class RedisOAuthStateStore(OAuthStateStore):
         """Validate and consume state token from Redis (atomic operation)."""
         redis_client = self._get_redis()
         if not redis_client:
-            raise RuntimeError("Redis not available")
+            raise RedisUnavailableError("OAuth state storage")
 
         import json
         key = self._key(state)

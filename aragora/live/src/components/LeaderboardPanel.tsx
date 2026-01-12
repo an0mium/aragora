@@ -367,9 +367,13 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
       )}
 
       {/* Tab Navigation */}
-      <div className="panel-tabs mb-4">
+      <div className="panel-tabs mb-4" role="tablist" aria-label="Leaderboard views">
         <button
           onClick={() => setActiveTab('rankings')}
+          role="tab"
+          aria-selected={activeTab === 'rankings'}
+          aria-controls="rankings-panel"
+          tabIndex={activeTab === 'rankings' ? 0 : -1}
           className={`px-3 py-1 rounded text-sm transition-colors whitespace-nowrap ${
             activeTab === 'rankings'
               ? 'bg-accent text-bg font-medium'
@@ -380,6 +384,10 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
         </button>
         <button
           onClick={() => setActiveTab('matches')}
+          role="tab"
+          aria-selected={activeTab === 'matches'}
+          aria-controls="matches-panel"
+          tabIndex={activeTab === 'matches' ? 0 : -1}
           className={`px-3 py-1 rounded text-sm transition-colors whitespace-nowrap ${
             activeTab === 'matches'
               ? 'bg-accent text-bg font-medium'
@@ -390,6 +398,10 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
         </button>
         <button
           onClick={() => setActiveTab('reputation')}
+          role="tab"
+          aria-selected={activeTab === 'reputation'}
+          aria-controls="reputation-panel"
+          tabIndex={activeTab === 'reputation' ? 0 : -1}
           className={`px-3 py-1 rounded text-sm transition-colors whitespace-nowrap ${
             activeTab === 'reputation'
               ? 'bg-accent text-bg font-medium'
@@ -400,6 +412,10 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
         </button>
         <button
           onClick={() => setActiveTab('teams')}
+          role="tab"
+          aria-selected={activeTab === 'teams'}
+          aria-controls="teams-panel"
+          tabIndex={activeTab === 'teams' ? 0 : -1}
           className={`px-3 py-1 rounded text-sm transition-colors whitespace-nowrap ${
             activeTab === 'teams'
               ? 'bg-accent text-bg font-medium'

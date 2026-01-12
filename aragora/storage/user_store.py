@@ -265,6 +265,11 @@ class UserStore:
             cursor.execute("ALTER TABLE users ADD COLUMN last_failed_login_at TEXT")
             logger.info("Migration: Added last_failed_login_at column")
 
+        # User preferences (JSON storage for feature toggles and settings)
+        if "preferences" not in existing_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN preferences TEXT DEFAULT '{}'")
+            logger.info("Migration: Added preferences column")
+
     def migrate_plaintext_api_keys(self) -> int:
         """
         Migrate existing plaintext API keys to hashed storage.
@@ -513,6 +518,49 @@ class UserStore:
         """Delete a user."""
         with self._transaction() as cursor:
             cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            return cursor.rowcount > 0
+
+    def get_user_preferences(self, user_id: str) -> Optional[dict]:
+        """
+        Get user preferences (feature toggles, settings).
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            Dict of preferences, or None if user not found
+        """
+        conn = self._get_connection()
+        cursor = conn.execute(
+            "SELECT preferences FROM users WHERE id = ?",
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        if row and row[0]:
+            try:
+                return json.loads(row[0])
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid preferences JSON for user {user_id}")
+                return {}
+        return {} if row else None
+
+    def set_user_preferences(self, user_id: str, preferences: dict) -> bool:
+        """
+        Set user preferences (feature toggles, settings).
+
+        Args:
+            user_id: User ID
+            preferences: Dict of preferences to store
+
+        Returns:
+            True if preferences were saved
+        """
+        prefs_json = json.dumps(preferences)
+        with self._transaction() as cursor:
+            cursor.execute(
+                "UPDATE users SET preferences = ?, updated_at = ? WHERE id = ?",
+                (prefs_json, datetime.utcnow().isoformat(), user_id),
+            )
             return cursor.rowcount > 0
 
     def increment_token_version(self, user_id: str) -> int:

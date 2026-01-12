@@ -179,6 +179,22 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         install_hint="Enable in DebateProtocol: enable_trickster=True",
         category="analysis",
     ),
+    "plugins": FeatureInfo(
+        name="Plugin System",
+        description="Install and manage plugins for extended functionality",
+        requires=["plugin_runner"],
+        endpoints=["/api/plugins/available", "/api/plugins/installed", "/api/plugins/install"],
+        install_hint="Plugin system is enabled by default.",
+        category="system",
+    ),
+    "memory": FeatureInfo(
+        name="Memory System",
+        description="Multi-tier memory with inspection and exploration",
+        requires=["memory_manager"],
+        endpoints=["/api/memory/stats", "/api/memory/search", "/api/memory/tiers"],
+        install_hint="Memory system is enabled by default.",
+        category="memory",
+    ),
 }
 
 
@@ -485,7 +501,34 @@ class FeaturesHandler(BaseHandler):
         "/api/features/available": "_get_available",
         "/api/features/all": "_get_all_features",
         "/api/features/handlers": "_get_handler_stability",
+        "/api/features/config": "_handle_config",  # User preferences
         "/api/features/{feature_id}": "_get_feature_status",
+    }
+
+    # Default feature preferences (all toggleable features)
+    DEFAULT_PREFERENCES = {
+        "calibration": True,  # Agent calibration tracking
+        "trickster": False,  # Hollow consensus detection (can be noisy)
+        "rhetorical": True,  # Rhetorical pattern analysis
+        "insights": True,  # Debate insights extraction
+        "moments": True,  # Moment detection
+        "crux": True,  # Crux analysis
+        "evolution": True,  # Prompt evolution
+        "continuum_memory": True,  # Multi-tier memory
+        "consensus_memory": True,  # Consensus history
+        "laboratory": True,  # Persona laboratory
+        # Display preferences
+        "show_advanced_metrics": False,
+        "compact_mode": False,
+        "theme": "system",  # light, dark, system
+        # Debate preferences
+        "default_mode": "standard",  # standard, graph, matrix
+        "default_rounds": 3,
+        "default_agents": "claude,gemini,gpt4",
+        # Notification preferences
+        "telegram_enabled": False,
+        "email_digest": "none",  # none, daily, weekly
+        "consensus_alert_threshold": 0.7,
     }
 
     def __init__(self, server_context: dict):
@@ -506,12 +549,15 @@ class FeaturesHandler(BaseHandler):
         return False
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
-        """Route GET requests to appropriate methods."""
+        """Route GET/POST requests to appropriate methods."""
         # Direct route match
         if path in self.ROUTES:
             method_name = self.ROUTES[path]
             method = getattr(self, method_name, None)
             if method:
+                # Config endpoint needs handler for auth and POST body
+                if method_name == "_handle_config":
+                    return method(handler)
                 return method()
 
         # Parameterized route: /api/features/{feature_id}
@@ -631,6 +677,131 @@ class FeaturesHandler(BaseHandler):
             "counts": {level: len(handlers) for level, handlers in by_stability.items()},
             "total": len(ALL_HANDLERS),
         })
+
+    def _handle_config(self, handler=None) -> HandlerResult:
+        """Handle feature configuration requests (GET/POST).
+
+        GET: Returns user's feature preferences
+        POST: Updates user's feature preferences
+
+        For authenticated users, preferences are stored in users.db.
+        For guests, returns defaults (frontend should use localStorage).
+        """
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        method = getattr(handler, 'command', 'GET') if handler else 'GET'
+
+        # Get user context if authenticated
+        user_store = self.ctx.get('user_store')
+        user_ctx = None
+        if user_store and handler:
+            user_ctx = extract_user_from_request(handler, user_store)
+
+        if method == 'GET':
+            return self._get_config(user_ctx, user_store)
+        elif method == 'POST':
+            return self._update_config(handler, user_ctx, user_store)
+        else:
+            return error_response(f"Method {method} not allowed", status=405)
+
+    def _get_config(self, user_ctx, user_store) -> HandlerResult:
+        """Get user's feature configuration."""
+        preferences = dict(self.DEFAULT_PREFERENCES)
+
+        # If authenticated, try to load user preferences
+        if user_ctx and user_ctx.is_authenticated and user_store:
+            try:
+                user_prefs = user_store.get_user_preferences(user_ctx.user_id)
+                if user_prefs:
+                    # Merge with defaults (user prefs override)
+                    preferences.update(user_prefs)
+            except Exception as e:
+                logger.warning(f"Failed to load user preferences: {e}")
+
+        # Get feature availability for context
+        features = get_all_features()
+        feature_toggles = []
+
+        for feature_id, info in features.items():
+            if feature_id in preferences:
+                feature_toggles.append({
+                    "id": feature_id,
+                    "name": info["name"],
+                    "description": info["description"],
+                    "category": info["category"],
+                    "available": info["available"],
+                    "enabled": preferences.get(feature_id, False) if info["available"] else False,
+                    "install_hint": info.get("install_hint"),
+                })
+
+        return json_response({
+            "preferences": preferences,
+            "feature_toggles": feature_toggles,
+            "is_authenticated": user_ctx.is_authenticated if user_ctx else False,
+            "defaults": self.DEFAULT_PREFERENCES,
+        })
+
+    def _update_config(self, handler, user_ctx, user_store) -> HandlerResult:
+        """Update user's feature configuration."""
+        import json as json_module
+
+        # Parse request body
+        try:
+            content_length = int(handler.headers.get('Content-Length', 0))
+            body = handler.rfile.read(content_length) if content_length > 0 else b'{}'
+            updates = json_module.loads(body.decode('utf-8'))
+        except (json_module.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON body: {e}", status=400)
+
+        # Validate updates
+        valid_keys = set(self.DEFAULT_PREFERENCES.keys())
+        invalid_keys = set(updates.keys()) - valid_keys
+        if invalid_keys:
+            return error_response(
+                f"Invalid preference keys: {', '.join(invalid_keys)}",
+                status=400,
+                code="INVALID_KEYS",
+                details={"valid_keys": list(valid_keys)},
+            )
+
+        # Validate value types
+        for key, value in updates.items():
+            expected_type = type(self.DEFAULT_PREFERENCES[key])
+            if not isinstance(value, expected_type):
+                return error_response(
+                    f"Invalid type for '{key}': expected {expected_type.__name__}",
+                    status=400,
+                )
+
+        # If authenticated, persist to user store
+        if user_ctx and user_ctx.is_authenticated and user_store:
+            try:
+                # Get existing preferences and merge
+                existing = user_store.get_user_preferences(user_ctx.user_id) or {}
+                existing.update(updates)
+                user_store.set_user_preferences(user_ctx.user_id, existing)
+                logger.info(f"Updated preferences for user {user_ctx.user_id}")
+            except Exception as e:
+                logger.error(f"Failed to save user preferences: {e}")
+                return error_response(
+                    "Failed to save preferences",
+                    status=500,
+                    code="SAVE_FAILED",
+                )
+
+            return json_response({
+                "success": True,
+                "updated": list(updates.keys()),
+                "message": "Preferences saved to account",
+            })
+        else:
+            # For guests, just acknowledge (frontend handles localStorage)
+            return json_response({
+                "success": True,
+                "updated": list(updates.keys()),
+                "message": "Preferences acknowledged (save locally for guests)",
+                "is_authenticated": False,
+            })
 
 
 # Export for use by other handlers

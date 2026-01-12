@@ -25,8 +25,30 @@ from typing import Any, Dict, Optional
 from urllib.parse import parse_qs
 
 from aragora.server.http_utils import run_async
+import asyncio
 
 logger = logging.getLogger(__name__)
+
+
+def _handle_task_exception(task: asyncio.Task, task_name: str) -> None:
+    """Handle exceptions from fire-and-forget async tasks."""
+    if task.cancelled():
+        logger.debug(f"Task {task_name} was cancelled")
+    elif task.exception():
+        exc = task.exception()
+        logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
+
+
+def create_tracked_task(coro, name: str) -> asyncio.Task:
+    """Create an async task with exception logging.
+
+    Use this instead of raw asyncio.create_task() for fire-and-forget tasks
+    to ensure exceptions are logged rather than silently swallowed.
+    """
+    task = asyncio.create_task(coro, name=name)
+    task.add_done_callback(lambda t: _handle_task_exception(t, name))
+    return task
+
 
 from .base import (
     BaseHandler,
@@ -378,9 +400,9 @@ class SlackHandler(BaseHandler):
 
         # Queue the debate creation asynchronously
         if response_url:
-            import asyncio
-            asyncio.create_task(
-                self._create_debate_async(topic, response_url, user_id, channel_id)
+            create_tracked_task(
+                self._create_debate_async(topic, response_url, user_id, channel_id),
+                name=f"slack-debate-{topic[:30]}"
             )
 
         return self._slack_blocks_response(
@@ -792,9 +814,9 @@ class SlackHandler(BaseHandler):
 
         # Post reply using Web API if bot token is available
         if SLACK_BOT_TOKEN:
-            import asyncio
-            asyncio.create_task(
-                self._post_message_async(channel, response_text, thread_ts=event.get("ts"))
+            create_tracked_task(
+                self._post_message_async(channel, response_text, thread_ts=event.get("ts")),
+                name=f"slack-reply-{channel}"
             )
 
         return json_response({"ok": True})
@@ -923,18 +945,18 @@ class SlackHandler(BaseHandler):
                 response_text = f"Starting debate on: _{topic}_\n\n_This may take a few minutes..._"
                 # Queue the debate creation
                 if SLACK_BOT_TOKEN:
-                    import asyncio
-                    asyncio.create_task(
-                        self._create_dm_debate_async(topic, channel, user)
+                    create_tracked_task(
+                        self._create_dm_debate_async(topic, channel, user),
+                        name=f"slack-dm-debate-{topic[:30]}"
                     )
         else:
             response_text = f"I don't understand: `{text[:30]}`. Send `help` for available commands."
 
         # Send response
         if SLACK_BOT_TOKEN:
-            import asyncio
-            asyncio.create_task(
-                self._post_message_async(channel, response_text)
+            create_tracked_task(
+                self._post_message_async(channel, response_text),
+                name=f"slack-dm-response-{channel}"
             )
 
         return json_response({"ok": True})

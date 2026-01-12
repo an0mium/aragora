@@ -201,6 +201,47 @@ const MemoryAnalyticsPanel = dynamic(() => import('@/components/MemoryAnalyticsP
   loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
 });
 
+// Additional panels - wired for feature exposure
+const UncertaintyPanel = dynamic(() => import('@/components/UncertaintyPanel').then(m => ({ default: m.UncertaintyPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const MoodTrackerPanel = dynamic(() => import('@/components/MoodTrackerPanel').then(m => ({ default: m.MoodTrackerPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const GauntletPanel = dynamic(() => import('@/components/GauntletPanel').then(m => ({ default: m.GauntletPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const ReviewsPanel = dynamic(() => import('@/components/ReviewsPanel').then(m => ({ default: m.ReviewsPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const TournamentViewerPanel = dynamic(() => import('@/components/TournamentViewerPanel').then(m => ({ default: m.TournamentViewerPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const PluginMarketplacePanel = dynamic(() => import('@/components/PluginMarketplacePanel').then(m => ({ default: m.PluginMarketplacePanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const MemoryExplorerPanel = dynamic(() => import('@/components/MemoryExplorerPanel').then(m => ({ default: m.MemoryExplorerPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
+const EvidenceVisualizerPanel = dynamic(() => import('@/components/EvidenceVisualizerPanel').then(m => ({ default: m.EvidenceVisualizerPanel })), {
+  ssr: false,
+  loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
+});
+
 type ViewMode = 'tabs' | 'stream' | 'deep-audit';
 type SiteMode = 'landing' | 'dashboard' | 'loading';
 
@@ -649,6 +690,9 @@ export default function Home() {
               <PanelErrorBoundary panelName="Agent Network">
                 <AgentNetworkPanel apiBase={apiBase} />
               </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Mood Tracker">
+                <MoodTrackerPanel events={events} />
+              </PanelErrorBoundary>
               <PanelErrorBoundary panelName="Leaderboard">
                 <LeaderboardPanel wsMessages={events} loopId={effectiveLoopId} apiBase={apiBase} />
               </PanelErrorBoundary>
@@ -661,6 +705,9 @@ export default function Home() {
                 <PanelErrorBoundary panelName="Tournament">
                   <TournamentPanel apiBase={apiBase} events={events} />
                 </PanelErrorBoundary>
+                <PanelErrorBoundary panelName="Tournament Viewer">
+                  <TournamentViewerPanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} />
+                </PanelErrorBoundary>
               </FeatureGuard>
             </CollapsibleSection>
 
@@ -668,6 +715,12 @@ export default function Home() {
             <CollapsibleSection id="insights-learning" title="INSIGHTS & LEARNING">
               <PanelErrorBoundary panelName="Moments Timeline">
                 <MomentsTimeline apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Uncertainty Analysis">
+                <UncertaintyPanel events={events} debateId={currentDebateId || undefined} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Evidence Visualizer">
+                <EvidenceVisualizerPanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} />
               </PanelErrorBoundary>
               <PanelErrorBoundary panelName="Consensus Quality">
                 <ConsensusQualityDashboard apiBase={apiBase} />
@@ -703,6 +756,17 @@ export default function Home() {
               <PanelErrorBoundary panelName="Red Team">
                 <RedTeamAnalysisPanel apiBase={apiBase} />
               </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Gauntlet Results">
+                <GauntletPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Code Reviews">
+                <ReviewsPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <FeatureGuard featureId="plugins">
+                <PanelErrorBoundary panelName="Plugin Marketplace">
+                  <PluginMarketplacePanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
               <FeatureGuard featureId="laboratory">
                 <PanelErrorBoundary panelName="Laboratory">
                   <LaboratoryPanel apiBase={apiBase} events={events} />
@@ -727,6 +791,9 @@ export default function Home() {
               <FeatureGuard featureId="memory">
                 <PanelErrorBoundary panelName="Memory Inspector">
                   <MemoryInspector apiBase={apiBase} />
+                </PanelErrorBoundary>
+                <PanelErrorBoundary panelName="Memory Explorer">
+                  <MemoryExplorerPanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} />
                 </PanelErrorBoundary>
               </FeatureGuard>
               <PanelErrorBoundary panelName="Memory Analytics">

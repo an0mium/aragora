@@ -156,7 +156,7 @@ class AuthHandler(BaseHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    @rate_limit(rpm=5, limiter_name="auth_register")
+    @rate_limit(rpm=2, limiter_name="auth_register")
     @handle_errors("user registration")
     @log_request("user registration")
     def _handle_register(self, handler) -> HandlerResult:
@@ -237,7 +237,7 @@ class AuthHandler(BaseHandler):
             status=201,
         )
 
-    @rate_limit(rpm=10, limiter_name="auth_login")
+    @rate_limit(rpm=3, limiter_name="auth_login")
     @handle_errors("user login")
     @log_request("user login")
     def _handle_login(self, handler) -> HandlerResult:
@@ -371,13 +371,19 @@ class AuthHandler(BaseHandler):
             return error_response("Account is disabled", 403)
 
         # Revoke the old refresh token to prevent reuse
-        # Use both in-memory (fast) and persistent (multi-instance) blacklists
+        # IMPORTANT: Persist first, then in-memory. This ensures atomic revocation:
+        # If persistent fails, in-memory stays valid (fail-safe)
+        # If persistent succeeds but in-memory fails, persistent check catches it
+        from aragora.billing.jwt_auth import revoke_token_persistent
+        try:
+            revoke_token_persistent(refresh_token)
+        except Exception as e:
+            logger.error(f"Failed to persist token revocation: {e}")
+            return error_response("Token revocation failed, please try again", 500)
+
+        # Now update in-memory blacklist (fast local checks)
         blacklist = get_token_blacklist()
         blacklist.revoke_token(refresh_token)
-
-        # Also persist revocation for multi-instance consistency
-        from aragora.billing.jwt_auth import revoke_token_persistent
-        revoke_token_persistent(refresh_token)
 
         # Create new token pair
         tokens = create_token_pair(
@@ -404,22 +410,23 @@ class AuthHandler(BaseHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
-        # Revoke the current token using both in-memory and persistent blacklists
+        # Revoke the current token using both persistent and in-memory blacklists
+        # IMPORTANT: Persist first, then in-memory for atomic revocation
         token = extract_token(handler)
         if token:
-            # In-memory for fast local checks
+            # Persistent first for multi-instance consistency
+            persistent_ok = revoke_token_persistent(token)
+
+            # In-memory second for fast local checks
             blacklist = get_token_blacklist()
             in_memory_ok = blacklist.revoke_token(token)
 
-            # Persistent for multi-instance consistency
-            persistent_ok = revoke_token_persistent(token)
-
-            if in_memory_ok and persistent_ok:
-                logger.info(f"User logged out and token revoked (in-memory + persistent): {auth_ctx.user_id}")
-            elif in_memory_ok:
-                logger.warning(f"User logged out, in-memory revoked but persistent failed: {auth_ctx.user_id}")
+            if persistent_ok and in_memory_ok:
+                logger.info(f"User logged out and token revoked (persistent + in-memory): {auth_ctx.user_id}")
+            elif persistent_ok:
+                logger.warning(f"User logged out, persistent revoked but in-memory failed: {auth_ctx.user_id}")
             else:
-                logger.warning(f"User logged out but token revocation failed: {auth_ctx.user_id}")
+                logger.warning(f"User logged out but persistent revocation failed: {auth_ctx.user_id}")
         else:
             logger.info(f"User logged out (no token to revoke): {auth_ctx.user_id}")
 

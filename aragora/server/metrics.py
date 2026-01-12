@@ -295,6 +295,29 @@ WEBSOCKET_CONNECTIONS = Gauge(
 
 
 # =============================================================================
+# Security Metrics
+# =============================================================================
+
+AUTH_FAILURES = Counter(
+    name="aragora_auth_failures_total",
+    help="Authentication failures by reason and endpoint",
+    label_names=["reason", "endpoint"],
+)
+
+RATE_LIMIT_HITS = Counter(
+    name="aragora_rate_limit_hits_total",
+    help="Rate limit hits by endpoint and limit type",
+    label_names=["endpoint", "limit_type"],
+)
+
+SECURITY_VIOLATIONS = Counter(
+    name="aragora_security_violations_total",
+    help="Security violations by type (path_traversal, xss_attempt, etc)",
+    label_names=["type"],
+)
+
+
+# =============================================================================
 # Agent Metrics
 # =============================================================================
 
@@ -332,8 +355,9 @@ def track_request(
     status = "success"
     try:
         yield
-    except BaseException:
-        # Catch BaseException to also track KeyboardInterrupt, SystemExit
+    except Exception:
+        # Track application errors, but let KeyboardInterrupt/SystemExit propagate
+        # without being marked as "error" (they're intentional terminations)
         status = "error"
         raise
     finally:
@@ -367,6 +391,35 @@ def track_agent_call(
     AGENT_TOKENS.inc(tokens_out, agent=agent, direction="output")
 
 
+def track_auth_failure(reason: str, endpoint: str = "unknown") -> None:
+    """Track an authentication failure.
+
+    Args:
+        reason: Why authentication failed (invalid_token, expired, wrong_password, etc)
+        endpoint: The endpoint where the failure occurred
+    """
+    AUTH_FAILURES.inc(reason=reason, endpoint=endpoint)
+
+
+def track_rate_limit_hit(endpoint: str, limit_type: str = "request") -> None:
+    """Track when a rate limit is hit.
+
+    Args:
+        endpoint: The rate-limited endpoint
+        limit_type: Type of limit (request, upload, etc)
+    """
+    RATE_LIMIT_HITS.inc(endpoint=endpoint, limit_type=limit_type)
+
+
+def track_security_violation(violation_type: str) -> None:
+    """Track a security violation attempt.
+
+    Args:
+        violation_type: Type of violation (path_traversal, xss_attempt, sql_injection, etc)
+    """
+    SECURITY_VIOLATIONS.inc(type=violation_type)
+
+
 # =============================================================================
 # Prometheus Format Export
 # =============================================================================
@@ -381,7 +434,12 @@ def _format_labels(labels: dict) -> str:
 
 
 def generate_metrics() -> str:
-    """Generate Prometheus-format metrics output."""
+    """Generate Prometheus-format metrics output.
+
+    This combines:
+    1. Built-in server metrics (billing, API, agent)
+    2. Observability metrics from aragora.observability.metrics (if available)
+    """
     lines = []
 
     # All metrics to export
@@ -394,6 +452,10 @@ def generate_metrics() -> str:
         API_REQUESTS,
         AGENT_REQUESTS,
         AGENT_TOKENS,
+        # Security metrics
+        AUTH_FAILURES,
+        RATE_LIMIT_HITS,
+        SECURITY_VIOLATIONS,
     ]
 
     gauges = [
@@ -443,6 +505,19 @@ def generate_metrics() -> str:
             )
         lines.append("")
 
+    # Include observability metrics if prometheus_client is available
+    try:
+        from prometheus_client import generate_latest, REGISTRY
+        observability_metrics = generate_latest(REGISTRY).decode("utf-8")
+        if observability_metrics.strip():
+            lines.append("# Observability metrics (from prometheus_client)")
+            lines.append(observability_metrics)
+    except ImportError:
+        # prometheus_client not installed, skip observability metrics
+        pass
+    except Exception as e:
+        lines.append(f"# Error collecting observability metrics: {e}")
+
     return "\n".join(lines)
 
 
@@ -463,6 +538,10 @@ __all__ = [
     "API_LATENCY",
     "ACTIVE_DEBATES",
     "WEBSOCKET_CONNECTIONS",
+    # Security metrics
+    "AUTH_FAILURES",
+    "RATE_LIMIT_HITS",
+    "SECURITY_VIOLATIONS",
     # Agent metrics
     "AGENT_REQUESTS",
     "AGENT_LATENCY",
@@ -473,6 +552,9 @@ __all__ = [
     "track_debate",
     "track_tokens",
     "track_agent_call",
+    "track_auth_failure",
+    "track_rate_limit_hit",
+    "track_security_violation",
     # Export
     "generate_metrics",
 ]
