@@ -16,6 +16,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     handle_errors,
     safe_error_message,
+    require_quota,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.entities import validate_path_segment, SAFE_ID_PATTERN
@@ -109,6 +110,47 @@ class BatchOperationsMixin:
                 400
             )
 
+        # Check quota before proceeding
+        batch_size = len(items)
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        user_store = None
+        if hasattr(handler, 'user_store'):
+            user_store = handler.user_store
+        elif hasattr(handler.__class__, 'user_store'):
+            user_store = handler.__class__.user_store
+
+        user_ctx = extract_user_from_request(handler, user_store) if user_store else None
+
+        if user_ctx and user_ctx.is_authenticated and user_ctx.org_id:
+            if user_store and hasattr(user_store, 'get_organization_by_id'):
+                org = user_store.get_organization_by_id(user_ctx.org_id)
+                if org:
+                    if org.is_at_limit:
+                        return json_response({
+                            "error": "Monthly debate quota exceeded",
+                            "code": "quota_exceeded",
+                            "limit": org.limits.debates_per_month,
+                            "used": org.debates_used_this_month,
+                            "remaining": 0,
+                            "tier": org.tier.value,
+                            "upgrade_url": "/pricing",
+                            "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Upgrade to increase your limit.",
+                        }, status=429)
+
+                    remaining = org.limits.debates_per_month - org.debates_used_this_month
+                    if batch_size > remaining:
+                        return json_response({
+                            "error": f"Insufficient quota: requested {batch_size} debates but only {remaining} remaining",
+                            "code": "quota_insufficient",
+                            "limit": org.limits.debates_per_month,
+                            "used": org.debates_used_this_month,
+                            "remaining": remaining,
+                            "requested": batch_size,
+                            "tier": org.tier.value,
+                            "upgrade_url": "/pricing",
+                        }, status=429)
+
         webhook_url = body.get("webhook_url")
         if webhook_url:
             is_valid, error_msg = validate_webhook_url(str(webhook_url))
@@ -156,6 +198,17 @@ class BatchOperationsMixin:
             logger.info(
                 f"Batch {batch_id} submitted with {len(items)} items"
             )
+
+            # Increment usage on successful batch submission
+            if user_ctx and user_ctx.is_authenticated and user_ctx.org_id:
+                if user_store and hasattr(user_store, 'increment_usage'):
+                    try:
+                        user_store.increment_usage(user_ctx.org_id, batch_size)
+                        logger.info(
+                            f"Incremented batch usage for org {user_ctx.org_id} by {batch_size}"
+                        )
+                    except Exception as ue:
+                        logger.warning(f"Usage increment failed for org {user_ctx.org_id}: {ue}")
 
             return json_response({
                 "success": True,

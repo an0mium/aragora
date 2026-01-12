@@ -1,5 +1,5 @@
 """
-Shared type definitions for the Aragora multi-agent debate framework.
+Shared type definitions for the Aragora adversarial validation platform (multi-agent debate engine).
 
 This module provides type aliases and NewTypes for common patterns
 across the codebase, improving type safety and IDE support.

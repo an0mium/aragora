@@ -30,21 +30,25 @@ export function HeroSection({
 
       <h1 className="text-2xl sm:text-3xl font-mono text-center mb-3">
         <span className="text-acid-green">The Self-Evolving</span>{' '}
-        <span className="text-text">Debate Arena</span>
+        <span className="text-text">Red Team Arena</span>
       </h1>
 
       <p className="text-acid-cyan font-mono text-sm sm:text-base text-center mb-2">
-        Claude vs GPT vs Gemini vs Grok vs DeepSeek
+        Claude vs GPT vs Gemini vs Mistral vs Grok vs DeepSeek vs Qwen vs Kimi
       </p>
 
       <p className="text-text-muted font-mono text-xs sm:text-sm text-center mb-10 max-w-lg">
-        Real AI models. Adversarial reasoning. Verified consensus.
+        Real AI models. Adversarial reasoning. Decision receipts.
       </p>
 
       {error && (
         <div className="w-full max-w-3xl mb-6 bg-warning/10 border border-warning/30 p-4 flex items-center justify-between">
           <span className="text-warning font-mono text-sm">{error}</span>
-          <button onClick={onDismissError} className="text-warning hover:text-warning/80">
+          <button
+            onClick={onDismissError}
+            className="text-warning hover:text-warning/80"
+            aria-label="Dismiss error"
+          >
             ✕
           </button>
         </div>
@@ -54,7 +58,7 @@ export function HeroSection({
         <div className="w-full max-w-3xl mb-6 bg-acid-green/10 border border-acid-green/30 p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 bg-acid-green rounded-full animate-pulse"></span>
-            <span className="text-acid-green font-mono text-sm font-bold">DEBATE IN PROGRESS</span>
+            <span className="text-acid-green font-mono text-sm font-bold">STRESS-TEST IN PROGRESS</span>
           </div>
           <p className="text-text font-mono text-sm truncate">{activeQuestion}</p>
           <p className="text-text-muted font-mono text-xs mt-2">

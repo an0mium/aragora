@@ -40,9 +40,8 @@ def _validate_agent_name(agent_name: str) -> None:
         )
 
 
-def _escape_like_pattern(value: str) -> str:
-    """Escape special characters in SQL LIKE patterns."""
-    return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+# Import from centralized location (defined here for backwards compatibility)
+from aragora.utils.sql_helpers import _escape_like_pattern
 
 
 class LeaderboardEngine:

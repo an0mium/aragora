@@ -404,6 +404,11 @@ def register_all_agents() -> None:
         pass
 
     try:
+        from aragora.agents import demo_agent  # noqa: F401
+    except ImportError:
+        pass
+
+    try:
         from aragora.agents import api_agents  # noqa: F401
     except ImportError:
         pass

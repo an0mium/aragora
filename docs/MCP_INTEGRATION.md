@@ -1,6 +1,6 @@
 # MCP Integration Guide
 
-Aragora provides a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that allows Claude Desktop and other MCP-compatible clients to run debates and gauntlet stress-tests directly from conversations.
+Aragora provides a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that allows Claude Desktop and other MCP-compatible clients to run decision stress-tests and gauntlet red-team runs directly from conversations.
 
 ## Overview
 
@@ -8,7 +8,7 @@ The MCP server exposes Aragora's core capabilities as tools:
 
 | Tool | Description |
 |------|-------------|
-| `run_debate` | Run a multi-agent AI debate on a topic |
+| `run_debate` | Run a decision stress-test (debate engine) on a topic |
 | `run_gauntlet` | Stress-test content through adversarial analysis |
 | `list_agents` | List available AI agents |
 | `get_debate` | Retrieve results of a previous debate |
@@ -57,12 +57,12 @@ Restart Claude Desktop to load the MCP server. You should see "aragora" in the a
 
 ### run_debate
 
-Run a multi-agent debate on any topic.
+Run a decision stress-test (debate engine) on any topic.
 
 **Parameters:**
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `question` | string | (required) | The question or topic to debate |
+| `question` | string | (required) | The question or topic to stress-test |
 | `agents` | string | `"anthropic-api,openai-api"` | Comma-separated agent IDs |
 | `rounds` | integer | `3` | Number of debate rounds (1-10) |
 | `consensus` | string | `"majority"` | Consensus mechanism |
@@ -74,7 +74,7 @@ Run a multi-agent debate on any topic.
 
 **Example usage in Claude:**
 ```
-Use the run_debate tool to debate "Should we use microservices or a monolith for a 5-person startup?"
+Use the run_debate tool to stress-test "Should we use microservices or a monolith for a 5-person startup?"
 with agents anthropic-api,openai-api,gemini for 3 rounds.
 ```
 

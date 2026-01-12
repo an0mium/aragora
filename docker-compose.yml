@@ -2,6 +2,22 @@
 # Docker Compose Configuration
 
 services:
+  # Redis for session state, caching, and multi-instance coordination
+  redis:
+    image: redis:7-alpine
+    container_name: aragora-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy volatile-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
   aragora:
     build:
       context: .
@@ -9,6 +25,9 @@ services:
     container_name: aragora
     ports:
       - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
     environment:
       # Required: At least one AI provider key
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -23,6 +42,8 @@ services:
       - ARAGORA_TRUSTED_PROXIES=${ARAGORA_TRUSTED_PROXIES:-127.0.0.1,::1}
       # Performance
       - ARAGORA_MAX_CONCURRENT_DEBATES=${ARAGORA_MAX_CONCURRENT_DEBATES:-5}
+      # Redis (for OAuth state, session management, and caching)
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       # Stripe billing
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
@@ -49,6 +70,37 @@ services:
       retries: 3
       start_period: 10s
 
+  # Debate queue workers (for horizontal scaling)
+  debate-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m scripts.queue_worker --concurrency 3
+    depends_on:
+      redis:
+        condition: service_healthy
+      aragora:
+        condition: service_healthy
+    environment:
+      # AI provider keys
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - XAI_API_KEY=${XAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # Redis for queue
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      # Queue settings
+      - ARAGORA_QUEUE_RETRY_MAX=${ARAGORA_QUEUE_RETRY_MAX:-3}
+      - ARAGORA_QUEUE_CLAIM_IDLE_MS=${ARAGORA_QUEUE_CLAIM_IDLE_MS:-60000}
+    volumes:
+      - aragora-data:/app/data
+    restart: unless-stopped
+    deploy:
+      replicas: 2  # Scale horizontally
+    profiles:
+      - with-workers
+
   # Optional: Frontend (when built)
   frontend:
     build:
@@ -69,3 +121,4 @@ volumes:
   aragora-data:
   aragora-nomic:
   aragora-logs:
+  redis-data:

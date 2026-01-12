@@ -157,12 +157,14 @@ class TestGetPendingBreakpoints:
         assert data["count"] == 0
 
     def test_pending_without_manager(self, handler):
-        """Test 503 when breakpoint manager not available."""
+        """Test graceful degradation when breakpoint manager not available."""
         result = handler.handle("/api/breakpoints/pending", {}, None)
 
-        assert result.status_code == 503
+        # Handler gracefully returns empty list instead of error
+        assert result.status_code == 200
         data = json.loads(result.body)
-        assert "not available" in data["error"].lower()
+        assert data["breakpoints"] == []
+        assert data["count"] == 0
 
     def test_pending_handles_exception(self, handler_with_manager, mock_breakpoint_manager):
         """Test error handling when manager raises exception."""
@@ -229,10 +231,11 @@ class TestGetBreakpointStatus:
         assert "not found" in data["error"].lower()
 
     def test_get_status_without_manager(self, handler):
-        """Test 503 when manager not available."""
+        """Test 404 when manager not available (breakpoint not found)."""
         result = handler.handle("/api/breakpoints/bp-001/status", {}, None)
 
-        assert result.status_code == 503
+        # Returns 404 because breakpoint can't be found without manager
+        assert result.status_code == 404
 
     def test_get_status_resolved_breakpoint(self, handler_with_manager, mock_breakpoint):
         """Test status of resolved breakpoint."""
@@ -359,11 +362,12 @@ class TestResolveBreakpoint:
         assert result.status_code == 404
 
     def test_resolve_without_manager(self, handler):
-        """Test 503 when manager not available."""
+        """Test 404 when manager not available (breakpoint not found)."""
         body = {"action": "continue"}
         result = handler.handle_post("/api/breakpoints/bp-001/resolve", body, None)
 
-        assert result.status_code == 503
+        # Returns 404 because breakpoint can't be resolved without manager
+        assert result.status_code == 404
 
     def test_resolve_with_reviewer_id(self, handler_with_manager, mock_breakpoint_manager):
         """Test resolution includes reviewer ID."""
@@ -433,10 +437,12 @@ class TestBreakpointsErrorHandling:
     """Tests for error handling scenarios."""
 
     def test_manager_import_error_handled(self, handler):
-        """Test graceful handling when breakpoint module unavailable."""
-        # Handler without manager should return 503
+        """Test graceful degradation when breakpoint module unavailable."""
+        # Handler without manager gracefully returns empty list
         result = handler.handle("/api/breakpoints/pending", {}, None)
-        assert result.status_code == 503
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["breakpoints"] == []
 
     def test_exception_during_resolve(self, handler_with_manager, mock_breakpoint_manager):
         """Test error handling during resolve."""

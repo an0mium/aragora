@@ -19,8 +19,15 @@ Scheduler endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import sqlite3
 from typing import Optional
+
+try:
+    import httpx
+except ImportError:
+    httpx = None  # type: ignore[assignment]
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.server.http_utils import run_async
@@ -84,7 +91,7 @@ def get_scheduled_debate_store():
                     from aragora.config.legacy import DATA_DIR
                     db_path = DATA_DIR / "scheduled_debates.db"
                     _shared_debate_store = ScheduledDebateStore(db_path)
-                except Exception as e:
+                except (ImportError, OSError, sqlite3.Error) as e:
                     logger.warning(f"Failed to initialize ScheduledDebateStore: {e}")
                     return None
     return _shared_debate_store
@@ -107,7 +114,7 @@ def get_pulse_scheduler():
                     if manager and store:
                         _shared_scheduler = PulseDebateScheduler(manager, store)
                         logger.info("PulseDebateScheduler singleton created")
-                except Exception as e:
+                except (ImportError, OSError, sqlite3.Error, RuntimeError) as e:
                     logger.warning(f"Failed to initialize PulseDebateScheduler: {e}")
                     return None
     return _shared_scheduler
@@ -179,7 +186,7 @@ class PulseHandler(BaseHandler):
         """
         try:
             return run_async(coro_factory())
-        except Exception as e:
+        except (asyncio.TimeoutError, RuntimeError, OSError) as e:
             logger.warning("Async fetch failed: %s", e)
             return []
 
@@ -237,7 +244,7 @@ class PulseHandler(BaseHandler):
                 "sources": list(manager.ingestors.keys()),
             })
 
-        except Exception as e:
+        except (asyncio.TimeoutError, RuntimeError, ValueError, KeyError) as e:
             return error_response(safe_error_message(e, "fetch trending topics"), 500)
 
     @ttl_cache(ttl_seconds=300, key_prefix="pulse_suggest")
@@ -290,7 +297,7 @@ class PulseHandler(BaseHandler):
                 "volume": selected.volume,
             })
 
-        except Exception as e:
+        except (asyncio.TimeoutError, RuntimeError, ValueError, KeyError) as e:
             return error_response(safe_error_message(e, "suggest debate topic"), 500)
 
     @ttl_cache(ttl_seconds=60, key_prefix="pulse_analytics")
@@ -447,7 +454,7 @@ class PulseHandler(BaseHandler):
                         category="user_submitted",
                     )
                     manager.record_debate_outcome(tracking_topic, result)
-                except Exception as e:
+                except (ValueError, TypeError, AttributeError) as e:
                     logger.warning(f"Failed to record debate outcome: {e}")
 
             return json_response({
@@ -461,7 +468,7 @@ class PulseHandler(BaseHandler):
                 "rounds_used": result.rounds_used,
             })
 
-        except Exception as e:
+        except (RuntimeError, asyncio.TimeoutError, ValueError, KeyError) as e:
             logger.error(f"Failed to run debate on topic: {e}")
             return error_response(safe_error_message(e, "start debate"), 500)
 
@@ -527,7 +534,7 @@ class PulseHandler(BaseHandler):
                         "confidence": result.confidence,
                         "rounds_used": result.rounds_used,
                     }
-                except Exception as e:
+                except (ImportError, RuntimeError, asyncio.TimeoutError) as e:
                     logger.error(f"Scheduled debate creation failed: {e}")
                     return None
 

@@ -6,6 +6,7 @@ Endpoints:
 - GET /readyz - Kubernetes readiness probe (checks dependencies)
 - GET /api/health - Health check
 - GET /api/health/detailed - Detailed health check with component status
+- GET /api/health/deep - Deep health check with all external dependencies
 - GET /api/nomic/state - Get nomic loop state
 - GET /api/nomic/health - Get nomic loop health with stall detection
 - GET /api/nomic/log - Get nomic loop logs
@@ -21,6 +22,7 @@ Endpoints:
 - GET /api/docs - Swagger UI interactive documentation
 - GET /api/auth/stats - Get authentication statistics
 - POST /api/auth/revoke - Revoke a token to invalidate it
+- GET /api/circuit-breakers - Circuit breaker metrics for monitoring cascading failures
 """
 
 from __future__ import annotations
@@ -35,9 +37,11 @@ from typing import Any, Dict, Optional
 logger = logging.getLogger(__name__)
 from .base import (
     BaseHandler, HandlerResult, json_response, error_response,
-    get_int_param, get_string_param, validate_path_segment, SAFE_ID_PATTERN,
+    get_int_param, get_string_param, get_clamped_int_param,
+    validate_path_segment, SAFE_ID_PATTERN,
     ttl_cache, safe_error_message, handle_errors,
 )
+from aragora.billing.jwt_auth import extract_user_from_request
 
 # Cache TTLs for system endpoints (in seconds)
 CACHE_TTL_NOMIC_STATE = 10  # Short TTL for state (changes frequently)
@@ -57,6 +61,7 @@ class SystemHandler(BaseHandler):
         # API health endpoints
         "/api/health",
         "/api/health/detailed",
+        "/api/health/deep",
         "/api/nomic/state",
         "/api/nomic/health",
         "/api/nomic/log",
@@ -75,13 +80,56 @@ class SystemHandler(BaseHandler):
         "/api/docs/",
         "/api/auth/stats",
         "/api/auth/revoke",
+        # Resilience monitoring
+        "/api/circuit-breakers",
         # Prometheus metrics
         "/metrics",
+    ]
+
+    # History endpoints require authentication (can expose debate data)
+    HISTORY_ENDPOINTS = [
+        "/api/history/cycles",
+        "/api/history/events",
+        "/api/history/debates",
+        "/api/history/summary",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         return path in self.ROUTES
+
+    def _check_history_auth(self, handler) -> Optional[HandlerResult]:
+        """Check authentication for history endpoints.
+
+        History endpoints can expose sensitive debate data and require
+        authentication when auth is enabled.
+
+        Returns:
+            None if auth passes or is disabled, HandlerResult with 401 if auth fails.
+        """
+        from aragora.server.auth import auth_config
+
+        # If auth is disabled globally, allow access
+        if not auth_config.enabled:
+            return None
+
+        # Try JWT/API key auth first
+        user_store = getattr(self.__class__, 'user_store', None)
+        if user_store is None:
+            user_store = self.ctx.get('user_store')
+
+        user_ctx = extract_user_from_request(handler, user_store)
+        if user_ctx.is_authenticated:
+            return None
+
+        # Fall back to legacy API token
+        if auth_config.api_token:
+            auth_header = handler.headers.get('Authorization', '') if hasattr(handler, 'headers') else ''
+            token = auth_header[7:] if auth_header.startswith('Bearer ') else None
+            if token and auth_config.validate_token(token):
+                return None
+
+        return error_response("Authentication required for history endpoints", 401)
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route system requests to appropriate methods."""
@@ -107,6 +155,9 @@ class SystemHandler(BaseHandler):
         if path == "/api/health/detailed":
             return self._detailed_health_check()
 
+        if path == "/api/health/deep":
+            return self._deep_health_check()
+
         if path == "/api/nomic/state":
             return self._get_nomic_state()
 
@@ -125,33 +176,49 @@ class SystemHandler(BaseHandler):
             return self._get_modes()
 
         if path == "/api/history/cycles":
+            # Require auth for history endpoints
+            auth_error = self._check_history_auth(handler)
+            if auth_error:
+                return auth_error
             loop_id = get_string_param(query_params, 'loop_id')
             if loop_id:
                 is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
-            limit = get_int_param(query_params, 'limit', 50)
-            return self._get_history_cycles(loop_id, max(1, min(limit, 200)))
+            limit = get_clamped_int_param(query_params, 'limit', 50, 1, 200)
+            return self._get_history_cycles(loop_id, limit)
 
         if path == "/api/history/events":
+            # Require auth for history endpoints
+            auth_error = self._check_history_auth(handler)
+            if auth_error:
+                return auth_error
             loop_id = get_string_param(query_params, 'loop_id')
             if loop_id:
                 is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
-            limit = get_int_param(query_params, 'limit', 100)
-            return self._get_history_events(loop_id, max(1, min(limit, 500)))
+            limit = get_clamped_int_param(query_params, 'limit', 100, 1, 500)
+            return self._get_history_events(loop_id, limit)
 
         if path == "/api/history/debates":
+            # Require auth for history endpoints
+            auth_error = self._check_history_auth(handler)
+            if auth_error:
+                return auth_error
             loop_id = get_string_param(query_params, 'loop_id')
             if loop_id:
                 is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
-            limit = get_int_param(query_params, 'limit', 50)
-            return self._get_history_debates(loop_id, max(1, min(limit, 200)))
+            limit = get_clamped_int_param(query_params, 'limit', 50, 1, 200)
+            return self._get_history_debates(loop_id, limit)
 
         if path == "/api/history/summary":
+            # Require auth for history endpoints
+            auth_error = self._check_history_auth(handler)
+            if auth_error:
+                return auth_error
             loop_id = get_string_param(query_params, 'loop_id')
             if loop_id:
                 is_valid, err = validate_path_segment(loop_id, "loop_id", SAFE_ID_PATTERN)
@@ -179,6 +246,9 @@ class SystemHandler(BaseHandler):
 
         if path == "/metrics":
             return self._get_prometheus_metrics()
+
+        if path == "/api/circuit-breakers":
+            return self._get_circuit_breaker_metrics()
 
         return None
 
@@ -571,6 +641,190 @@ class SystemHandler(BaseHandler):
             health["handler_cache"] = {"status": "error", "error": f"{type(e).__name__}: {str(e)[:80]}"}
 
         return json_response(health)
+
+    def _deep_health_check(self) -> HandlerResult:
+        """Deep health check - verifies all external dependencies.
+
+        This is the most comprehensive health check, suitable for:
+        - Pre-deployment validation
+        - Debugging connectivity issues
+        - Monitoring dashboards
+
+        Checks:
+        - All basic health checks
+        - Supabase connectivity
+        - User store database
+        - Billing system
+        - Disk space
+        - Memory usage
+        - CPU load
+        """
+        all_healthy = True
+        checks: Dict[str, Dict[str, Any]] = {}
+        start_time = time.time()
+        warnings: list[str] = []
+
+        # 1. Database/Storage
+        try:
+            storage = self.get_storage()
+            if storage is not None:
+                storage.list_recent(limit=1)
+                checks["storage"] = {"healthy": True, "status": "connected"}
+            else:
+                checks["storage"] = {"healthy": True, "status": "not_configured"}
+        except Exception as e:
+            checks["storage"] = {"healthy": False, "error": f"{type(e).__name__}: {str(e)[:80]}"}
+            all_healthy = False
+
+        # 2. ELO System
+        try:
+            elo = self.get_elo_system()
+            if elo is not None:
+                elo.get_leaderboard(limit=1)
+                checks["elo_system"] = {"healthy": True, "status": "connected"}
+            else:
+                checks["elo_system"] = {"healthy": True, "status": "not_configured"}
+        except Exception as e:
+            checks["elo_system"] = {"healthy": False, "error": f"{type(e).__name__}: {str(e)[:80]}"}
+            all_healthy = False
+
+        # 3. Supabase
+        try:
+            from aragora.persistence.supabase_client import get_supabase_client
+            client = get_supabase_client()
+            if client is not None:
+                # Try a simple query to verify connectivity
+                ping_start = time.time()
+                # Use a lightweight query
+                result = client.table("debates").select("id").limit(1).execute()
+                ping_latency = round((time.time() - ping_start) * 1000, 2)
+                checks["supabase"] = {
+                    "healthy": True,
+                    "status": "connected",
+                    "latency_ms": ping_latency,
+                }
+            else:
+                checks["supabase"] = {"healthy": True, "status": "not_configured"}
+        except ImportError:
+            checks["supabase"] = {"healthy": True, "status": "module_not_available"}
+        except Exception as e:
+            error_msg = str(e)[:80]
+            # Supabase not critical for all deployments
+            checks["supabase"] = {"healthy": True, "status": "error", "warning": error_msg}
+            warnings.append(f"Supabase: {error_msg}")
+
+        # 4. User Store
+        try:
+            user_store = getattr(self.__class__, 'user_store', None) or self.ctx.get('user_store')
+            if user_store is not None:
+                # Verify database connectivity
+                from aragora.storage.user_store import UserStore
+                if isinstance(user_store, UserStore):
+                    # Try a simple query
+                    user_store.get_user_by_email("__health_check_nonexistent__")
+                    checks["user_store"] = {"healthy": True, "status": "connected"}
+            else:
+                checks["user_store"] = {"healthy": True, "status": "not_configured"}
+        except Exception as e:
+            checks["user_store"] = {"healthy": False, "error": f"{type(e).__name__}: {str(e)[:80]}"}
+            all_healthy = False
+
+        # 5. Billing System
+        try:
+            from aragora.billing.stripe_client import StripeClient
+            stripe_client = StripeClient()
+            if stripe_client.is_configured():
+                checks["billing"] = {"healthy": True, "status": "configured"}
+            else:
+                checks["billing"] = {"healthy": True, "status": "not_configured"}
+        except ImportError:
+            checks["billing"] = {"healthy": True, "status": "module_not_available"}
+        except Exception as e:
+            checks["billing"] = {"healthy": True, "status": "error", "warning": str(e)[:80]}
+
+        # 6. Redis
+        checks["redis"] = self._check_redis_health()
+        if checks["redis"].get("configured") and not checks["redis"].get("healthy", True):
+            all_healthy = False
+
+        # 7. AI Providers
+        checks["ai_providers"] = self._check_ai_providers_health()
+        if not checks["ai_providers"].get("any_available", False):
+            warnings.append("No AI providers configured")
+
+        # 8. Filesystem
+        checks["filesystem"] = self._check_filesystem_health()
+        if not checks["filesystem"]["healthy"]:
+            all_healthy = False
+
+        # 9. System Resources
+        try:
+            import psutil
+
+            # Memory
+            memory = psutil.virtual_memory()
+            memory_percent = memory.percent
+            checks["memory"] = {
+                "healthy": memory_percent < 90,
+                "used_percent": round(memory_percent, 1),
+                "available_gb": round(memory.available / (1024**3), 2),
+            }
+            if memory_percent >= 90:
+                all_healthy = False
+                warnings.append(f"High memory usage: {memory_percent:.1f}%")
+            elif memory_percent >= 80:
+                warnings.append(f"Elevated memory usage: {memory_percent:.1f}%")
+
+            # CPU
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            checks["cpu"] = {
+                "healthy": cpu_percent < 90,
+                "used_percent": round(cpu_percent, 1),
+                "core_count": psutil.cpu_count(),
+            }
+            if cpu_percent >= 90:
+                warnings.append(f"High CPU usage: {cpu_percent:.1f}%")
+
+            # Disk
+            nomic_dir = self.get_nomic_dir()
+            disk_path = str(nomic_dir) if nomic_dir else "/"
+            disk = psutil.disk_usage(disk_path)
+            disk_percent = disk.percent
+            checks["disk"] = {
+                "healthy": disk_percent < 90,
+                "used_percent": round(disk_percent, 1),
+                "free_gb": round(disk.free / (1024**3), 2),
+                "path": disk_path,
+            }
+            if disk_percent >= 90:
+                all_healthy = False
+                warnings.append(f"Low disk space: {disk_percent:.1f}% used")
+            elif disk_percent >= 80:
+                warnings.append(f"Disk space warning: {disk_percent:.1f}% used")
+
+        except ImportError:
+            checks["system_resources"] = {"healthy": True, "status": "psutil_not_available"}
+        except Exception as e:
+            checks["system_resources"] = {"healthy": True, "warning": str(e)[:80]}
+
+        # Calculate response time
+        response_time_ms = round((time.time() - start_time) * 1000, 2)
+
+        status = "healthy" if all_healthy else "degraded"
+        if not all_healthy:
+            status = "degraded"
+        elif warnings:
+            status = "healthy_with_warnings"
+
+        return json_response({
+            "status": status,
+            "healthy": all_healthy,
+            "checks": checks,
+            "warnings": warnings,
+            "response_time_ms": response_time_ms,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "version": "1.0.0",
+        }, status=200 if all_healthy else 503)
 
     def _get_nomic_state(self) -> HandlerResult:
         """Get current nomic loop state."""
@@ -1125,3 +1379,30 @@ class SystemHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Metrics generation failed: {e}")
             return error_response(safe_error_message(e, "metrics"), 500)
+
+    def _get_circuit_breaker_metrics(self) -> HandlerResult:
+        """Get circuit breaker metrics for monitoring.
+
+        Returns comprehensive metrics for all registered circuit breakers:
+        - summary: Aggregate counts (total, open, closed, half-open)
+        - circuit_breakers: Per-circuit-breaker details with timing info
+        - health: Overall health status and warnings for cascading failure detection
+
+        Health status values:
+        - healthy: All circuits closed
+        - degraded: 1-2 circuits open
+        - critical: 3+ circuits open (potential cascading failure)
+
+        Returns:
+            JSON metrics suitable for Prometheus/Grafana integration
+        """
+        try:
+            from aragora.resilience import get_circuit_breaker_metrics
+
+            metrics = get_circuit_breaker_metrics()
+            return json_response(metrics)
+        except ImportError:
+            return error_response("Resilience module not available", 503)
+        except Exception as e:
+            logger.exception(f"Circuit breaker metrics failed: {e}")
+            return error_response(safe_error_message(e, "circuit breaker metrics"), 500)

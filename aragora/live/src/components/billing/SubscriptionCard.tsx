@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 
@@ -28,20 +28,13 @@ export function SubscriptionCard({
   const { isAuthenticated, tokens } = useAuth();
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const accessToken = tokens?.access_token;
 
-  useEffect(() => {
-    if (isAuthenticated && tokens?.access_token) {
-      fetchSubscription();
-    } else {
-      setLoading(false);
-    }
-  }, [isAuthenticated, tokens]);
-
-  const fetchSubscription = async () => {
+  const fetchSubscription = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/billing/subscription`, {
         headers: {
-          'Authorization': `Bearer ${tokens?.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
       });
       if (res.ok) {
@@ -53,7 +46,15 @@ export function SubscriptionCard({
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (isAuthenticated && accessToken) {
+      fetchSubscription();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated, accessToken, fetchSubscription]);
 
   if (!isAuthenticated) return null;
 

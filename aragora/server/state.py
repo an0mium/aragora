@@ -290,9 +290,9 @@ class StateManager:
                 return
             self._cleanup_counter = 0
 
-        self._cleanup_stale_debates()
+        self.cleanup_stale_debates()
 
-    def _cleanup_stale_debates(self, max_age_seconds: float = 3600) -> int:
+    def cleanup_stale_debates(self, max_age_seconds: float = 3600) -> int:
         """
         Remove debates that have been running too long.
 

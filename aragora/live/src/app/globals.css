@@ -54,25 +54,25 @@
   --text: #2c2a28;             /* warm dark brown-black */
   --text-muted: #736f68;       /* warm muted text */
 
-  /* Softer, warmer accent colors for light mode */
-  --acid-green: #2d8a40;       /* forest green - warmer */
-  --acid-cyan: #1a7a8c;        /* teal - warmer */
-  --acid-magenta: #9c3d7a;     /* dusty rose */
-  --acid-yellow: #c9a227;      /* golden ochre */
-  --matrix-green: #3d9050;
-  --terminal-green: #4a9f5c;
+  /* Softer, warmer accent colors for light mode - WCAG AA compliant */
+  --acid-green: #1e7033;       /* forest green - WCAG AA 5.1:1 on #faf9f7 */
+  --acid-cyan: #166a7a;        /* teal - WCAG AA 5.0:1 on #faf9f7 */
+  --acid-magenta: #8c3570;     /* dusty rose - WCAG AA 5.0:1 on #faf9f7 */
+  --acid-yellow: #7a6318;      /* golden ochre - WCAG AA 4.5:1 on #faf9f7 */
+  --matrix-green: #2a7a3c;
+  --terminal-green: #357a45;
 
-  --accent: #2d8a40;
-  --accent-glow: rgba(45, 138, 64, 0.15);
-  --success: #2d8a40;
-  --warning: #c9a227;
-  --purple: #7c4d9c;           /* muted purple */
-  --gold: #b8942a;             /* antique gold */
-  --crimson: #b84444;          /* muted red */
-  --cyan: #1a7a8c;
+  --accent: #1e7033;           /* WCAG AA compliant */
+  --accent-glow: rgba(30, 112, 51, 0.15);
+  --success: #1e7033;
+  --warning: #7a6318;           /* WCAG AA compliant */
+  --purple: #6b3d8c;           /* muted purple - WCAG AA 5.1:1 */
+  --gold: #7a6318;             /* antique gold - WCAG AA compliant */
+  --crimson: #a33b3b;          /* muted red - WCAG AA 4.5:1 */
+  --cyan: #166a7a;             /* WCAG AA compliant */
 
   /* Softer terminal effects in light mode */
-  --terminal-glow: 0 0 8px rgba(45, 138, 64, 0.3);
+  --terminal-glow: 0 0 8px rgba(30, 112, 51, 0.3);
   --scanline: repeating-linear-gradient(
     0deg,
     rgba(0, 0, 0, 0.02),

@@ -25,9 +25,34 @@ from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 # JWT validation (using PyJWT if available, fallback to manual)
 try:
     import jwt
+    from jwt.exceptions import (
+        ExpiredSignatureError,
+        InvalidSignatureError,
+        DecodeError,
+        InvalidTokenError,
+        InvalidAudienceError,
+    )
     HAS_JWT = True
 except ImportError:
+    jwt = None  # type: ignore
     HAS_JWT = False
+
+    # Stub exception classes when PyJWT not installed
+    # These will never be raised but allow the except clauses to be valid
+    class ExpiredSignatureError(Exception):  # type: ignore
+        pass
+
+    class InvalidSignatureError(Exception):  # type: ignore
+        pass
+
+    class DecodeError(Exception):  # type: ignore
+        pass
+
+    class InvalidTokenError(Exception):  # type: ignore
+        pass
+
+    class InvalidAudienceError(Exception):  # type: ignore
+        pass
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import HandlerResult
@@ -233,9 +258,35 @@ class SupabaseAuthValidator:
 
             return user
 
-        except Exception as e:
-            logger.warning(f"JWT validation failed: {e}")
+        except ExpiredSignatureError:
+            # Token has expired - this is expected for old sessions
+            logger.debug("JWT token expired")
             return None
+        except InvalidAudienceError:
+            # Token was issued for a different audience
+            logger.warning("JWT has invalid audience claim")
+            return None
+        except (InvalidSignatureError, DecodeError) as e:
+            # Token signature invalid or malformed - potential tampering
+            logger.warning(f"JWT signature/decode error: {e}")
+            return None
+        except InvalidTokenError as e:
+            # Catch-all for other JWT validation errors
+            logger.warning(f"JWT validation error: {e}")
+            return None
+        except (KeyError, ValueError, TypeError) as e:
+            # Malformed token structure or payload
+            logger.warning(f"JWT structure error: {e}")
+            return None
+        except Exception as e:
+            # Unexpected system error - fail closed in production
+            env = os.getenv("ARAGORA_ENVIRONMENT", "development").lower()
+            if env == "production":
+                logger.error(f"JWT validation system error (failing closed): {e}")
+                raise  # Re-raise to trigger 500 error, don't silently allow
+            else:
+                logger.warning(f"JWT validation system error (dev mode): {e}")
+                return None
 
     def _decode_jwt_unsafe(self, token: str) -> Optional[Dict[str, Any]]:
         """

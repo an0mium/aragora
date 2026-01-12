@@ -2,13 +2,17 @@
 Tests for GauntletHandler endpoints.
 
 Endpoints tested:
-- GET /api/gauntlet/templates - List available Gauntlet templates
-- GET /api/gauntlet/templates/{id} - Get template details
-- POST /api/gauntlet/run - Run a Gauntlet validation
-- GET /api/gauntlet/results/{id} - Get Gauntlet result
-- GET /api/gauntlet/results/{id}/receipt - Get Decision Receipt
+- GET /api/gauntlet/personas - List available personas
+- POST /api/gauntlet/run - Start a gauntlet stress-test
+- GET /api/gauntlet/results - List recent results with pagination
+- GET /api/gauntlet/{id} - Get gauntlet status/results
+- GET /api/gauntlet/{id}/receipt - Get decision receipt
+- GET /api/gauntlet/{id}/heatmap - Get risk heatmap
+- GET /api/gauntlet/{id}/compare/{id2} - Compare two gauntlet runs
+- DELETE /api/gauntlet/{id} - Delete a gauntlet result
 """
 
+import asyncio
 import json
 import pytest
 from unittest.mock import Mock, MagicMock, patch, AsyncMock
@@ -18,55 +22,69 @@ from aragora.server.handlers import GauntletHandler, HandlerResult
 from aragora.server.handlers.base import clear_cache
 import aragora.server.handlers.gauntlet as gauntlet_module
 
+# Import rate limiting module for clearing between tests
+import importlib
+_rate_limit_mod = importlib.import_module('aragora.server.handlers.utils.rate_limit')
+
+
+def run_async(coro):
+    """Helper to run async handler methods synchronously in tests."""
+    return asyncio.get_event_loop().run_until_complete(coro)
+
+
+def mock_handler_with_query(path: str, query_params: dict = None) -> Mock:
+    """Create a mock handler with path containing query params."""
+    mock_handler = Mock()
+    if query_params:
+        query_str = "&".join(f"{k}={v}" for k, v in query_params.items())
+        mock_handler.path = f"{path}?{query_str}"
+    else:
+        mock_handler.path = path
+    return mock_handler
+
 
 # ============================================================================
 # Mock Classes for Gauntlet Types
 # ============================================================================
 
 @dataclass
-class MockGauntletFinding:
-    """Mock finding for tests."""
-    id: str = "finding-001"
-    title: str = "Test Finding"
-    description: str = "A test finding description"
-    severity: str = "medium"
+class MockGauntletRun:
+    """Mock in-memory gauntlet run."""
+    gauntlet_id: str = "gauntlet-20260111120000-abc123"
+    status: str = "completed"
+    input_type: str = "spec"
+    input_summary: str = "Test input content..."
+    input_hash: str = "abc123def456"
+    persona: str = "gdpr"
+    profile: str = "default"
+    created_at: str = "2026-01-11T12:00:00"
+    result: dict = field(default_factory=lambda: {
+        "gauntlet_id": "gauntlet-20260111120000-abc123",
+        "verdict": "PASS",
+        "confidence": 0.85,
+        "risk_score": 0.15,
+        "robustness_score": 0.9,
+        "coverage_score": 0.75,
+        "total_findings": 3,
+        "critical_count": 0,
+        "high_count": 1,
+        "medium_count": 2,
+        "low_count": 0,
+        "findings": [],
+    })
 
 
-@dataclass
-class MockGauntletResult:
-    """Mock GauntletResult for tests."""
-    id: str = "result-001"
-    passed: bool = True
-    confidence: float = 0.85
-    verdict_summary: str = "PASS: No critical issues"
-    robustness_score: float = 0.9
-    risk_score: float = 0.1
-    total_duration_ms: int = 1500
-    findings: list = field(default_factory=list)
-    severity_counts: dict = field(default_factory=lambda: {"critical": 0, "high": 0, "medium": 1, "low": 0})
-    critical_findings: list = field(default_factory=list)
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "passed": self.passed,
-            "confidence": self.confidence,
-            "verdict_summary": self.verdict_summary,
-            "robustness_score": self.robustness_score,
-            "risk_score": self.risk_score,
-            "total_duration_ms": self.total_duration_ms,
-            "findings_count": len(self.findings),
-            "severity_counts": self.severity_counts,
-        }
-
-
-@dataclass
 class MockDecisionReceipt:
     """Mock DecisionReceipt for tests."""
-    receipt_id: str = "receipt-001"
-    gauntlet_id: str = "result-001"
-    verdict: str = "PASS"
-    confidence: float = 0.85
+
+    def __init__(self, **kwargs):
+        self.receipt_id = kwargs.get("receipt_id", "receipt-abc123")
+        self.gauntlet_id = kwargs.get("gauntlet_id", "gauntlet-20260111120000-abc123")
+        self.verdict = kwargs.get("verdict", "PASS")
+        self.confidence = kwargs.get("confidence", 0.85)
+        # Accept any other kwargs
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
     def to_dict(self):
         return {
@@ -83,42 +101,31 @@ class MockDecisionReceipt:
         return f"<h1>Decision Receipt</h1><p>Verdict: {self.verdict}</p>"
 
     @classmethod
-    def from_gauntlet_result(cls, result):
-        return cls(gauntlet_id=result.id, confidence=result.confidence)
+    def from_mode_result(cls, result, input_hash=None):
+        return cls(gauntlet_id=result.get("gauntlet_id", "unknown") if isinstance(result, dict) else "unknown")
 
 
 @dataclass
-class MockGauntletConfig:
-    """Mock GauntletConfig for tests."""
-    attack_rounds: int = 2
-    probe_categories: list = field(default_factory=list)
+class MockRiskHeatmap:
+    """Mock RiskHeatmap for tests."""
+    cells: list = field(default_factory=list)
+    categories: list = field(default_factory=list)
+    severities: list = field(default_factory=lambda: ["critical", "high", "medium", "low"])
+    total_findings: int = 0
 
     def to_dict(self):
         return {
-            "attack_rounds": self.attack_rounds,
-            "probe_categories": self.probe_categories,
+            "cells": self.cells,
+            "categories": self.categories,
+            "severities": self.severities,
+            "total_findings": self.total_findings,
         }
 
-    @classmethod
-    def from_dict(cls, data):
-        return cls(**data)
+    def to_svg(self):
+        return "<svg></svg>"
 
-
-def mock_list_templates():
-    """Mock list_templates function."""
-    return [
-        {"id": "quick", "name": "Quick Validation", "description": "Fast stress-test"},
-        {"id": "thorough", "name": "Thorough Validation", "description": "Comprehensive analysis"},
-        {"id": "security", "name": "Security Assessment", "description": "Security-focused"},
-    ]
-
-
-def mock_get_template(template_id: str):
-    """Mock get_template function."""
-    templates = {"quick": MockGauntletConfig(), "thorough": MockGauntletConfig(), "security": MockGauntletConfig()}
-    if template_id not in templates:
-        raise ValueError(f"Unknown template: {template_id}")
-    return templates[template_id]
+    def to_ascii(self):
+        return "Heatmap"
 
 
 # ============================================================================
@@ -126,38 +133,63 @@ def mock_get_template(template_id: str):
 # ============================================================================
 
 @pytest.fixture
-def mock_gauntlet_module():
-    """Create mock gauntlet module components."""
+def mock_gauntlet_run():
+    """Create a mock gauntlet run."""
     return {
-        "templates": [
-            {"id": "quick", "name": "Quick Validation", "description": "Fast stress-test"},
-            {"id": "thorough", "name": "Thorough Validation", "description": "Comprehensive analysis"},
-            {"id": "security", "name": "Security Assessment", "description": "Security-focused"},
-        ],
-        "config": MockGauntletConfig(),
-        "result": MockGauntletResult(),
-        "receipt": MockDecisionReceipt(),
+        "gauntlet_id": "gauntlet-20260111120000-abc123",
+        "status": "completed",
+        "input_type": "spec",
+        "input_summary": "Test input content...",
+        "input_hash": "abc123def456",
+        "persona": "gdpr",
+        "profile": "default",
+        "created_at": "2026-01-11T12:00:00",
+        "completed_at": "2026-01-11T12:05:00",
+        "result": {
+            "gauntlet_id": "gauntlet-20260111120000-abc123",
+            "verdict": "PASS",
+            "confidence": 0.85,
+            "risk_score": 0.15,
+            "robustness_score": 0.9,
+            "coverage_score": 0.75,
+            "total_findings": 3,
+            "critical_count": 0,
+            "high_count": 1,
+            "medium_count": 2,
+            "low_count": 0,
+            "findings": [],
+        },
     }
 
 
 @pytest.fixture
-def gauntlet_handler(mock_gauntlet_module):
+def gauntlet_handler(mock_gauntlet_run):
     """Create a GauntletHandler with mocked dependencies."""
     ctx = {"nomic_dir": "/tmp/nomic"}
     handler = GauntletHandler(ctx)
 
-    # Cache a mock result for retrieval tests
-    handler._results_cache["result-001"] = MockGauntletResult()
+    # Add a mock result to the module-level in-memory storage
+    gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
 
     return handler
 
 
 @pytest.fixture(autouse=True)
 def clear_caches():
-    """Clear caches before and after each test."""
+    """Clear caches and rate limits before and after each test."""
     clear_cache()
+    gauntlet_module._gauntlet_runs.clear()
+    # Clear all rate limiters
+    with _rate_limit_mod._limiters_lock:
+        for limiter in _rate_limit_mod._limiters.values():
+            limiter.clear()
     yield
     clear_cache()
+    gauntlet_module._gauntlet_runs.clear()
+    # Clear all rate limiters
+    with _rate_limit_mod._limiters_lock:
+        for limiter in _rate_limit_mod._limiters.values():
+            limiter.clear()
 
 
 # ============================================================================
@@ -167,443 +199,418 @@ def clear_caches():
 class TestGauntletHandlerRouting:
     """Tests for route matching."""
 
-    def test_can_handle_templates_list(self, gauntlet_handler):
-        """Should handle /api/gauntlet/templates."""
-        assert gauntlet_handler.can_handle("/api/gauntlet/templates") is True
-
-    def test_can_handle_template_by_id(self, gauntlet_handler):
-        """Should handle /api/gauntlet/templates/{id}."""
-        assert gauntlet_handler.can_handle("/api/gauntlet/templates/quick") is True
-
     def test_can_handle_run(self, gauntlet_handler):
-        """Should handle /api/gauntlet/run."""
-        assert gauntlet_handler.can_handle("/api/gauntlet/run") is True
+        """Should handle POST /api/gauntlet/run."""
+        assert gauntlet_handler.can_handle("/api/gauntlet/run", "POST") is True
 
-    def test_can_handle_results(self, gauntlet_handler):
-        """Should handle /api/gauntlet/results/{id}."""
-        assert gauntlet_handler.can_handle("/api/gauntlet/results/result-001") is True
+    def test_can_handle_personas(self, gauntlet_handler):
+        """Should handle GET /api/gauntlet/personas."""
+        assert gauntlet_handler.can_handle("/api/gauntlet/personas", "GET") is True
+
+    def test_can_handle_results_list(self, gauntlet_handler):
+        """Should handle GET /api/gauntlet/results."""
+        assert gauntlet_handler.can_handle("/api/gauntlet/results", "GET") is True
+
+    def test_can_handle_status(self, gauntlet_handler):
+        """Should handle GET /api/gauntlet/{id}."""
+        assert gauntlet_handler.can_handle("/api/gauntlet/gauntlet-12345-abc", "GET") is True
 
     def test_can_handle_receipt(self, gauntlet_handler):
-        """Should handle /api/gauntlet/results/{id}/receipt."""
-        assert gauntlet_handler.can_handle("/api/gauntlet/results/result-001/receipt") is True
+        """Should handle GET /api/gauntlet/{id}/receipt."""
+        assert gauntlet_handler.can_handle("/api/gauntlet/gauntlet-12345-abc/receipt", "GET") is True
+
+    def test_can_handle_heatmap(self, gauntlet_handler):
+        """Should handle GET /api/gauntlet/{id}/heatmap."""
+        assert gauntlet_handler.can_handle("/api/gauntlet/gauntlet-12345-abc/heatmap", "GET") is True
+
+    def test_can_handle_delete(self, gauntlet_handler):
+        """Should handle DELETE /api/gauntlet/{id}."""
+        assert gauntlet_handler.can_handle("/api/gauntlet/gauntlet-12345-abc", "DELETE") is True
 
     def test_cannot_handle_unknown_route(self, gauntlet_handler):
         """Should not handle unknown routes."""
-        assert gauntlet_handler.can_handle("/api/debates") is False
-        assert gauntlet_handler.can_handle("/api/unknown") is False
+        assert gauntlet_handler.can_handle("/api/debates", "GET") is False
+        assert gauntlet_handler.can_handle("/api/unknown", "GET") is False
 
 
 # ============================================================================
-# Template List Tests
+# Personas Endpoint Tests
 # ============================================================================
 
-class TestGauntletTemplates:
-    """Tests for /api/gauntlet/templates endpoint."""
+class TestGauntletPersonas:
+    """Tests for GET /api/gauntlet/personas endpoint."""
 
-    def test_list_templates_returns_all(self, gauntlet_handler):
-        """Should return list of templates."""
-        # The handler uses _init_gauntlet() which sets up list_templates
-        # If gauntlet module is available, it will return real templates
-        result = gauntlet_handler.handle("/api/gauntlet/templates", {}, None)
+    def test_list_personas_returns_list(self, gauntlet_handler):
+        """Should return list of personas."""
+        result = run_async(gauntlet_handler.handle("/api/gauntlet/personas", "GET", None))
 
-        # Either 200 with templates or 503 if module unavailable
-        if result.status_code == 200:
-            data = json.loads(result.body)
-            assert "templates" in data
-            assert "count" in data
-            assert isinstance(data["templates"], list)
-        else:
-            assert result.status_code == 503
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert "personas" in data
+        assert "count" in data
+        assert isinstance(data["personas"], list)
 
-    def test_list_templates_with_mocked_init(self, gauntlet_handler):
-        """Should return templates when gauntlet is available."""
-        # Inject mock functions
-        gauntlet_module.list_templates = mock_list_templates
-        gauntlet_module.get_template = mock_get_template
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
+    def test_list_personas_structure(self, gauntlet_handler):
+        """Should return properly structured personas."""
+        with patch('aragora.gauntlet.personas.list_personas', return_value=['gdpr', 'hipaa']):
+            mock_persona = Mock()
+            mock_persona.name = "GDPR"
+            mock_persona.description = "GDPR compliance"
+            mock_persona.regulation = "GDPR"
+            mock_persona.attack_prompts = []
 
-        try:
-            result = gauntlet_handler.handle("/api/gauntlet/templates", {}, None)
+            with patch('aragora.gauntlet.personas.get_persona', return_value=mock_persona):
+                result = run_async(gauntlet_handler.handle("/api/gauntlet/personas", "GET", None))
 
-            assert result.status_code == 200
-            data = json.loads(result.body)
-            assert "templates" in data
-            assert len(data["templates"]) == 3
-        finally:
-            # Reset
-            gauntlet_module._gauntlet_initialized = False
+                assert result.status_code == 200
+                data = json.loads(result.body)
+                assert data["count"] == 2
 
-    def test_list_templates_unavailable(self):
-        """Should return 503 when gauntlet not available."""
-        # Reset initialization to force unavailable state
-        original_init = gauntlet_module._gauntlet_initialized
-        original_available = gauntlet_module.GAUNTLET_AVAILABLE
-        gauntlet_module._gauntlet_initialized = True
-        gauntlet_module.GAUNTLET_AVAILABLE = False
 
-        try:
-            handler = GauntletHandler({})
-            result = handler.handle("/api/gauntlet/templates", {}, None)
+# ============================================================================
+# Results List Tests
+# ============================================================================
 
-            assert result.status_code == 503
-            data = json.loads(result.body)
-            assert "not available" in data["error"]
-        finally:
-            gauntlet_module._gauntlet_initialized = original_init
-            gauntlet_module.GAUNTLET_AVAILABLE = original_available
+class TestGauntletResultsList:
+    """Tests for GET /api/gauntlet/results endpoint."""
 
-    def test_get_template_success(self, gauntlet_handler):
-        """Should return template details."""
-        # Inject mock
-        gauntlet_module.get_template = mock_get_template
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
+    def test_list_results_empty(self, gauntlet_handler):
+        """Should return empty list when no results."""
+        with patch.object(gauntlet_module, '_get_storage') as mock_storage:
+            mock_store = Mock()
+            mock_store.list_recent.return_value = []
+            mock_store.count.return_value = 0
+            mock_storage.return_value = mock_store
 
-        try:
-            result = gauntlet_handler.handle("/api/gauntlet/templates/quick", {}, None)
+            result = run_async(gauntlet_handler.handle("/api/gauntlet/results", "GET", None))
 
             assert result.status_code == 200
             data = json.loads(result.body)
-            assert data["id"] == "quick"
-            assert "config" in data
-        finally:
-            gauntlet_module._gauntlet_initialized = False
+            assert data["results"] == []
+            assert data["total"] == 0
 
-    def test_get_template_not_found(self, gauntlet_handler):
-        """Should return 404 for unknown template."""
-        gauntlet_module.get_template = mock_get_template
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
+    def test_list_results_with_pagination(self, gauntlet_handler):
+        """Should support pagination params."""
+        mock_handler = mock_handler_with_query("/api/gauntlet/results", {"limit": "10", "offset": "5"})
 
-        try:
-            result = gauntlet_handler.handle("/api/gauntlet/templates/nonexistent", {}, None)
+        with patch.object(gauntlet_module, '_get_storage') as mock_storage:
+            mock_store = Mock()
+            mock_store.list_recent.return_value = []
+            mock_store.count.return_value = 0
+            mock_storage.return_value = mock_store
+
+            result = run_async(gauntlet_handler.handle("/api/gauntlet/results", "GET", mock_handler))
+
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert data["limit"] == 10
+            assert data["offset"] == 5
+
+
+# ============================================================================
+# Status Endpoint Tests
+# ============================================================================
+
+class TestGauntletStatus:
+    """Tests for GET /api/gauntlet/{id} endpoint."""
+
+    def test_get_status_from_memory(self, gauntlet_handler, mock_gauntlet_run):
+        """Should return status from in-memory storage."""
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+
+        result = run_async(gauntlet_handler.handle(
+            "/api/gauntlet/gauntlet-20260111120000-abc123", "GET", None
+        ))
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["gauntlet_id"] == "gauntlet-20260111120000-abc123"
+        assert data["status"] == "completed"
+
+    def test_get_status_not_found(self, gauntlet_handler):
+        """Should return 404 for unknown gauntlet."""
+        with patch.object(gauntlet_module, '_get_storage') as mock_storage:
+            mock_store = Mock()
+            mock_store.get.return_value = None
+            mock_storage.return_value = mock_store
+
+            result = run_async(gauntlet_handler.handle(
+                "/api/gauntlet/gauntlet-nonexistent-000000", "GET", None
+            ))
+
             assert result.status_code == 404
-        finally:
-            gauntlet_module._gauntlet_initialized = False
+
+    def test_get_status_invalid_id(self, gauntlet_handler):
+        """Should return 400 for invalid gauntlet ID."""
+        result = run_async(gauntlet_handler.handle(
+            "/api/gauntlet/invalid-id-format", "GET", None
+        ))
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "Invalid gauntlet ID" in data["error"]
 
 
 # ============================================================================
-# Run Gauntlet Tests
+# Receipt Endpoint Tests
+# ============================================================================
+
+class TestGauntletReceipt:
+    """Tests for GET /api/gauntlet/{id}/receipt endpoint."""
+
+    def test_get_receipt_json(self, gauntlet_handler, mock_gauntlet_run):
+        """Should return receipt as JSON (default)."""
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+
+        with patch('aragora.gauntlet.receipt.DecisionReceipt', MockDecisionReceipt):
+            result = run_async(gauntlet_handler.handle(
+                "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
+                "GET",
+                None
+            ))
+
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert "receipt_id" in data
+
+    def test_get_receipt_markdown(self, gauntlet_handler, mock_gauntlet_run):
+        """Should return receipt as markdown."""
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+        mock_handler = mock_handler_with_query(
+            "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
+            {"format": "md"}
+        )
+
+        with patch('aragora.gauntlet.receipt.DecisionReceipt', MockDecisionReceipt):
+            result = run_async(gauntlet_handler.handle(
+                "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
+                "GET",
+                mock_handler
+            ))
+
+            # Result is a tuple (body, status, headers) for non-JSON
+            if isinstance(result, tuple):
+                assert result[1] == 200
+                assert "markdown" in result[2].get("Content-Type", "")
+            else:
+                assert result.status_code == 200
+
+    def test_get_receipt_html(self, gauntlet_handler, mock_gauntlet_run):
+        """Should return receipt as HTML."""
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+        mock_handler = mock_handler_with_query(
+            "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
+            {"format": "html"}
+        )
+
+        with patch('aragora.gauntlet.receipt.DecisionReceipt', MockDecisionReceipt):
+            result = run_async(gauntlet_handler.handle(
+                "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
+                "GET",
+                mock_handler
+            ))
+
+            # Result is a tuple (body, status, headers) for non-JSON
+            if isinstance(result, tuple):
+                assert result[1] == 200
+                assert "html" in result[2].get("Content-Type", "")
+            else:
+                assert result.status_code == 200
+
+    def test_get_receipt_not_found(self, gauntlet_handler):
+        """Should return 404 for unknown gauntlet."""
+        with patch.object(gauntlet_module, '_get_storage') as mock_storage:
+            mock_store = Mock()
+            mock_store.get.return_value = None
+            mock_storage.return_value = mock_store
+
+            result = run_async(gauntlet_handler.handle(
+                "/api/gauntlet/gauntlet-nonexistent-000000/receipt",
+                "GET",
+                None
+            ))
+
+            assert result.status_code == 404
+
+    def test_get_receipt_invalid_id(self, gauntlet_handler):
+        """Should return 400 for invalid gauntlet ID."""
+        result = run_async(gauntlet_handler.handle(
+            "/api/gauntlet/invalid-format/receipt",
+            "GET",
+            None
+        ))
+
+        assert result.status_code == 400
+
+
+# ============================================================================
+# Heatmap Endpoint Tests
+# ============================================================================
+
+class TestGauntletHeatmap:
+    """Tests for GET /api/gauntlet/{id}/heatmap endpoint."""
+
+    def test_get_heatmap_json(self, gauntlet_handler, mock_gauntlet_run):
+        """Should return heatmap as JSON (default)."""
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+
+        with patch('aragora.gauntlet.heatmap.RiskHeatmap', MockRiskHeatmap):
+            with patch('aragora.gauntlet.heatmap.HeatmapCell', Mock):
+                result = run_async(gauntlet_handler.handle(
+                    "/api/gauntlet/gauntlet-20260111120000-abc123/heatmap",
+                    "GET",
+                    None
+                ))
+
+                assert result.status_code == 200
+
+    def test_get_heatmap_invalid_id(self, gauntlet_handler):
+        """Should return 400 for invalid gauntlet ID."""
+        result = run_async(gauntlet_handler.handle(
+            "/api/gauntlet/invalid-format/heatmap",
+            "GET",
+            None
+        ))
+
+        assert result.status_code == 400
+
+
+# ============================================================================
+# Run Endpoint Tests (POST)
 # ============================================================================
 
 class TestGauntletRun:
     """Tests for POST /api/gauntlet/run endpoint."""
 
-    def test_run_requires_input_text(self):
-        """Should require input_text in body."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
+    def test_run_requires_input_content(self, gauntlet_handler):
+        """Should require input_content in body."""
+        mock_handler = Mock()
+        mock_handler.path = "/api/gauntlet/run"
 
-        try:
-            handler = GauntletHandler({})
-            # Pre-set orchestrator to avoid lazy loading issues
-            mock_orch = MagicMock()
-            handler._orchestrator = mock_orch
-
-            result = handler.handle_post("/api/gauntlet/run", {}, None)
+        # Mock read_json_body to return empty dict
+        with patch.object(gauntlet_handler, 'read_json_body', return_value={}):
+            result = run_async(gauntlet_handler.handle("/api/gauntlet/run", "POST", mock_handler))
 
             assert result.status_code == 400
             data = json.loads(result.body)
-            assert "input_text" in data["error"].lower()
-        finally:
-            gauntlet_module._gauntlet_initialized = False
+            assert "input_content" in data["error"].lower()
 
-    def test_run_input_too_large(self):
-        """Should reject input over 50KB."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
+    def test_run_returns_accepted(self, gauntlet_handler):
+        """Should return 202 Accepted with gauntlet ID."""
+        mock_handler = Mock()
+        mock_handler.path = "/api/gauntlet/run"
 
-        try:
-            handler = GauntletHandler({})
-            mock_orch = MagicMock()
-            handler._orchestrator = mock_orch
+        with patch.object(gauntlet_handler, 'read_json_body', return_value={
+            "input_content": "Test content to validate",
+            "input_type": "spec",
+        }):
+            result = run_async(gauntlet_handler.handle("/api/gauntlet/run", "POST", mock_handler))
 
-            large_input = "x" * 60000  # 60KB
-
-            result = handler.handle_post(
-                "/api/gauntlet/run",
-                {"input_text": large_input},
-                None
-            )
-
-            assert result.status_code == 400
+            assert result.status_code == 202
             data = json.loads(result.body)
-            assert "too large" in data["error"].lower()
-        finally:
-            gauntlet_module._gauntlet_initialized = False
-
-    def test_run_with_invalid_template(self):
-        """Should return 400 for invalid template."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
-        gauntlet_module.get_template = lambda x: (_ for _ in ()).throw(ValueError("Unknown template"))
-
-        try:
-            handler = GauntletHandler({})
-            mock_orch = MagicMock()
-            handler._orchestrator = mock_orch
-
-            result = handler.handle_post(
-                "/api/gauntlet/run",
-                {"input_text": "test input", "template": "nonexistent"},
-                None
-            )
-
-            assert result.status_code == 400
-        finally:
-            gauntlet_module._gauntlet_initialized = False
-
-    def test_run_unavailable(self):
-        """Should return 503 when gauntlet not available."""
-        gauntlet_module._gauntlet_initialized = True
-        gauntlet_module.GAUNTLET_AVAILABLE = False
-
-        try:
-            handler = GauntletHandler({})
-            result = handler.handle_post(
-                "/api/gauntlet/run",
-                {"input_text": "test"},
-                None
-            )
-
-            assert result.status_code == 503
-        finally:
-            gauntlet_module._gauntlet_initialized = False
-
-    def test_run_with_template_success(self):
-        """Should run gauntlet with template and return result."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
-        gauntlet_module.get_template = mock_get_template
-
-        try:
-            mock_result = MockGauntletResult()
-            mock_orch = MagicMock()
-
-            # Mock the async run to return result directly
-            async def mock_run(**kwargs):
-                return mock_result
-            mock_orch.run = mock_run
-
-            handler = GauntletHandler({})
-            handler._orchestrator = mock_orch
-
-            result = handler.handle_post(
-                "/api/gauntlet/run",
-                {"input_text": "Test code to validate", "template": "quick"},
-                None
-            )
-
-            assert result.status_code == 201
-            data = json.loads(result.body)
-            assert "id" in data
-            assert "passed" in data
-            assert "confidence" in data
-        finally:
-            gauntlet_module._gauntlet_initialized = False
+            assert "gauntlet_id" in data
+            assert data["status"] == "pending"
 
 
 # ============================================================================
-# Results Tests
+# Delete Endpoint Tests
 # ============================================================================
 
-class TestGauntletResults:
-    """Tests for /api/gauntlet/results/{id} endpoint."""
+class TestGauntletDelete:
+    """Tests for DELETE /api/gauntlet/{id} endpoint."""
 
-    def test_get_result_success(self, gauntlet_handler):
-        """Should return cached result."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
+    def test_delete_from_memory(self, gauntlet_handler, mock_gauntlet_run):
+        """Should delete from in-memory storage."""
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
 
-        try:
-            result = gauntlet_handler.handle("/api/gauntlet/results/result-001", {}, None)
+        with patch.object(gauntlet_module, '_get_storage') as mock_storage:
+            mock_store = Mock()
+            mock_store.delete.return_value = True
+            mock_storage.return_value = mock_store
+
+            result = run_async(gauntlet_handler.handle(
+                "/api/gauntlet/gauntlet-20260111120000-abc123", "DELETE", None
+            ))
 
             assert result.status_code == 200
             data = json.loads(result.body)
-            assert data["id"] == "result-001"
-            assert data["passed"] is True
-        finally:
-            gauntlet_module._gauntlet_initialized = False
+            assert data["deleted"] is True
 
-    def test_get_result_not_found(self, gauntlet_handler):
-        """Should return 404 for unknown result."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
+    def test_delete_not_found(self, gauntlet_handler):
+        """Should return 404 for unknown gauntlet."""
+        with patch.object(gauntlet_module, '_get_storage') as mock_storage:
+            mock_store = Mock()
+            mock_store.delete.return_value = False
+            mock_storage.return_value = mock_store
 
-        try:
-            result = gauntlet_handler.handle("/api/gauntlet/results/nonexistent", {}, None)
+            result = run_async(gauntlet_handler.handle(
+                "/api/gauntlet/gauntlet-nonexistent-000000", "DELETE", None
+            ))
 
             assert result.status_code == 404
-            data = json.loads(result.body)
-            assert "not found" in data["error"].lower()
-        finally:
-            gauntlet_module._gauntlet_initialized = False
 
-    def test_get_result_validates_id(self, gauntlet_handler):
-        """Should validate result ID format."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
+    def test_delete_invalid_id(self, gauntlet_handler):
+        """Should return 400 for invalid gauntlet ID."""
+        result = run_async(gauntlet_handler.handle(
+            "/api/gauntlet/invalid-format", "DELETE", None
+        ))
 
-        try:
-            result = gauntlet_handler.handle("/api/gauntlet/results/<script>", {}, None)
-            assert result.status_code == 400
-        finally:
-            gauntlet_module._gauntlet_initialized = False
+        assert result.status_code == 400
 
 
 # ============================================================================
-# Receipt Tests
-# ============================================================================
-
-class TestGauntletReceipt:
-    """Tests for /api/gauntlet/results/{id}/receipt endpoint."""
-
-    def test_get_receipt_json(self, gauntlet_handler):
-        """Should return receipt as JSON."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
-        gauntlet_module.DecisionReceipt = MockDecisionReceipt
-
-        try:
-            result = gauntlet_handler.handle(
-                "/api/gauntlet/results/result-001/receipt",
-                {"format": "json"},
-                None
-            )
-
-            assert result.status_code == 200
-            assert result.content_type == "application/json"
-            data = json.loads(result.body)
-            assert "receipt_id" in data
-        finally:
-            gauntlet_module._gauntlet_initialized = False
-
-    def test_get_receipt_markdown(self, gauntlet_handler):
-        """Should return receipt as markdown."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
-        gauntlet_module.DecisionReceipt = MockDecisionReceipt
-
-        try:
-            result = gauntlet_handler.handle(
-                "/api/gauntlet/results/result-001/receipt",
-                {"format": "markdown"},
-                None
-            )
-
-            assert result.status_code == 200
-            assert result.content_type == "text/markdown"
-            assert b"Decision Receipt" in result.body
-        finally:
-            gauntlet_module._gauntlet_initialized = False
-
-    def test_get_receipt_html(self, gauntlet_handler):
-        """Should return receipt as HTML."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
-        gauntlet_module.DecisionReceipt = MockDecisionReceipt
-
-        try:
-            result = gauntlet_handler.handle(
-                "/api/gauntlet/results/result-001/receipt",
-                {"format": "html"},
-                None
-            )
-
-            assert result.status_code == 200
-            assert result.content_type == "text/html"
-            assert b"<h1>" in result.body
-        finally:
-            gauntlet_module._gauntlet_initialized = False
-
-    def test_get_receipt_result_not_found(self, gauntlet_handler):
-        """Should return 404 for unknown result."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
-
-        try:
-            result = gauntlet_handler.handle(
-                "/api/gauntlet/results/nonexistent/receipt",
-                {},
-                None
-            )
-            assert result.status_code == 404
-        finally:
-            gauntlet_module._gauntlet_initialized = False
-
-
-# ============================================================================
-# Edge Cases and Security Tests
+# Security Tests
 # ============================================================================
 
 class TestGauntletSecurity:
     """Security and edge case tests."""
 
-    def test_path_traversal_in_template_id(self, gauntlet_handler):
+    def test_path_traversal_in_id(self, gauntlet_handler):
         """Should reject path traversal attempts."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
-        gauntlet_module.get_template = mock_get_template
+        result = run_async(gauntlet_handler.handle(
+            "/api/gauntlet/../../../etc/passwd",
+            "GET",
+            None
+        ))
 
-        try:
-            # This tests validate_path_segment
-            result = gauntlet_handler.handle("/api/gauntlet/templates/../../../etc/passwd", {}, None)
+        # Should return 400 for invalid ID format
+        assert result.status_code == 400
 
-            # Should return 400 for path traversal or None if not matching
-            assert result is None or result.status_code in [400, 404]
-        finally:
-            gauntlet_module._gauntlet_initialized = False
+    def test_invalid_format_param_defaults_to_json(self, gauntlet_handler, mock_gauntlet_run):
+        """Should default to JSON for invalid format parameter."""
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+        mock_handler = mock_handler_with_query(
+            "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
+            {"format": "<script>alert(1)</script>"}
+        )
 
-    def test_path_traversal_in_result_id(self, gauntlet_handler):
-        """Should reject path traversal in result ID."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
-
-        try:
-            result = gauntlet_handler.handle("/api/gauntlet/results/../sensitive", {}, None)
-
-            # Should return 400 for path traversal or None if not matching
-            assert result is None or result.status_code in [400, 404]
-        finally:
-            gauntlet_module._gauntlet_initialized = False
-
-    def test_xss_in_format_param(self, gauntlet_handler):
-        """Should sanitize format parameter."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
-        gauntlet_module.DecisionReceipt = MockDecisionReceipt
-
-        try:
-            result = gauntlet_handler.handle(
-                "/api/gauntlet/results/result-001/receipt",
-                {"format": "<script>alert(1)</script>"},
-                None
-            )
+        with patch('aragora.gauntlet.receipt.DecisionReceipt', MockDecisionReceipt):
+            result = run_async(gauntlet_handler.handle(
+                "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
+                "GET",
+                mock_handler
+            ))
 
             # Should default to JSON for invalid format
             assert result.status_code == 200
-            assert result.content_type == "application/json"
-        finally:
-            gauntlet_module._gauntlet_initialized = False
 
-    def test_long_format_param_truncated(self, gauntlet_handler):
-        """Should truncate overly long format parameter."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
-        gauntlet_module.DecisionReceipt = MockDecisionReceipt
+    def test_long_format_param(self, gauntlet_handler, mock_gauntlet_run):
+        """Should handle overly long format parameter."""
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+        mock_handler = mock_handler_with_query(
+            "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
+            {"format": "x" * 100}
+        )
 
-        try:
-            result = gauntlet_handler.handle(
-                "/api/gauntlet/results/result-001/receipt",
-                {"format": "x" * 100},
-                None
-            )
+        with patch('aragora.gauntlet.receipt.DecisionReceipt', MockDecisionReceipt):
+            result = run_async(gauntlet_handler.handle(
+                "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
+                "GET",
+                mock_handler
+            ))
 
             # Should default to JSON
             assert result.status_code == 200
-        finally:
-            gauntlet_module._gauntlet_initialized = False
 
 
 # ============================================================================
@@ -613,41 +620,45 @@ class TestGauntletSecurity:
 class TestGauntletIntegration:
     """Integration tests for full workflows."""
 
-    def test_full_template_workflow(self, gauntlet_handler):
-        """Test listing then fetching template."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
-        gauntlet_module.list_templates = mock_list_templates
-        gauntlet_module.get_template = mock_get_template
+    def test_run_then_get_status(self, gauntlet_handler):
+        """Test running gauntlet then getting status."""
+        mock_handler = Mock()
+        mock_handler.path = "/api/gauntlet/run"
 
-        try:
-            # List templates
-            list_result = gauntlet_handler.handle("/api/gauntlet/templates", {}, None)
-            assert list_result.status_code == 200
+        with patch.object(gauntlet_handler, 'read_json_body', return_value={
+            "input_content": "Test content",
+            "input_type": "spec",
+        }):
+            run_result = run_async(gauntlet_handler.handle("/api/gauntlet/run", "POST", mock_handler))
 
-            # Get specific template
-            get_result = gauntlet_handler.handle("/api/gauntlet/templates/quick", {}, None)
-            assert get_result.status_code == 200
-        finally:
-            gauntlet_module._gauntlet_initialized = False
+            assert run_result.status_code == 202
+            data = json.loads(run_result.body)
+            gauntlet_id = data["gauntlet_id"]
 
-    def test_result_to_receipt_workflow(self, gauntlet_handler):
-        """Test getting result then its receipt."""
-        gauntlet_module.GAUNTLET_AVAILABLE = True
-        gauntlet_module._gauntlet_initialized = True
-        gauntlet_module.DecisionReceipt = MockDecisionReceipt
+            # Status should be available immediately
+            status_result = run_async(gauntlet_handler.handle(
+                f"/api/gauntlet/{gauntlet_id}", "GET", None
+            ))
 
-        try:
-            # Get result
-            result_resp = gauntlet_handler.handle("/api/gauntlet/results/result-001", {}, None)
-            assert result_resp.status_code == 200
+            assert status_result.status_code == 200
+            status_data = json.loads(status_result.body)
+            assert status_data["gauntlet_id"] == gauntlet_id
 
-            # Get receipt
-            receipt_resp = gauntlet_handler.handle(
-                "/api/gauntlet/results/result-001/receipt",
-                {},
+    def test_status_to_receipt_workflow(self, gauntlet_handler, mock_gauntlet_run):
+        """Test getting status then receipt."""
+        gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+
+        # Get status
+        status_result = run_async(gauntlet_handler.handle(
+            "/api/gauntlet/gauntlet-20260111120000-abc123", "GET", None
+        ))
+        assert status_result.status_code == 200
+
+        # Get receipt
+        with patch('aragora.gauntlet.receipt.DecisionReceipt', MockDecisionReceipt):
+            receipt_result = run_async(gauntlet_handler.handle(
+                "/api/gauntlet/gauntlet-20260111120000-abc123/receipt",
+                "GET",
                 None
-            )
-            assert receipt_resp.status_code == 200
-        finally:
-            gauntlet_module._gauntlet_initialized = False
+            ))
+            assert receipt_result.status_code == 200

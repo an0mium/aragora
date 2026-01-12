@@ -15,7 +15,7 @@ Enables:
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Optional
 import hashlib
@@ -885,7 +885,17 @@ class ConsensusMemory:
             cursor = conn.cursor()
 
             # Check if archive table exists; create if needed
+            # NOTE: Archive table schema matches main table schema (not extended columns)
             if archive:
+                # Drop old archive tables if they have wrong schema (migration)
+                # Check if consensus_archive has 'timestamp' column
+                cursor.execute("PRAGMA table_info(consensus_archive)")
+                columns = {row[1] for row in cursor.fetchall()}
+                if columns and 'timestamp' not in columns:
+                    logger.info("Migrating consensus_archive table to new schema")
+                    cursor.execute("DROP TABLE IF EXISTS consensus_archive")
+                    cursor.execute("DROP TABLE IF EXISTS dissent_archive")
+
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS consensus_archive (
                         id TEXT PRIMARY KEY,
@@ -896,11 +906,8 @@ class ConsensusMemory:
                         confidence REAL,
                         domain TEXT,
                         tags TEXT,
-                        debate_id TEXT,
-                        agent_votes TEXT,
-                        supersedes TEXT,
-                        superseded_by TEXT,
-                        created_at TEXT,
+                        timestamp TEXT,
+                        data TEXT NOT NULL,
                         archived_at TEXT DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
@@ -908,36 +915,35 @@ class ConsensusMemory:
                     CREATE TABLE IF NOT EXISTS dissent_archive (
                         id TEXT PRIMARY KEY,
                         debate_id TEXT NOT NULL,
-                        agent TEXT NOT NULL,
-                        content TEXT NOT NULL,
+                        agent_id TEXT NOT NULL,
                         dissent_type TEXT NOT NULL,
-                        rationale TEXT,
-                        created_at TEXT,
+                        content TEXT NOT NULL,
+                        confidence REAL,
+                        timestamp TEXT,
+                        data TEXT NOT NULL,
                         archived_at TEXT DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
 
-                # Archive old consensus records
+                # Archive old consensus records (select columns that exist in main table)
                 cursor.execute("""
                     INSERT OR IGNORE INTO consensus_archive
                         (id, topic, topic_hash, conclusion, strength, confidence,
-                         domain, tags, debate_id, agent_votes, supersedes,
-                         superseded_by, created_at)
+                         domain, tags, timestamp, data)
                     SELECT id, topic, topic_hash, conclusion, strength, confidence,
-                           domain, tags, debate_id, agent_votes, supersedes,
-                           superseded_by, created_at
+                           domain, tags, timestamp, data
                     FROM consensus
-                    WHERE datetime(created_at) < datetime(?)
+                    WHERE datetime(timestamp) < datetime(?)
                 """, (cutoff,))
                 archived_consensus = cursor.rowcount
 
-                # Archive old dissent records
+                # Archive old dissent records (select columns that exist in main table)
                 cursor.execute("""
                     INSERT OR IGNORE INTO dissent_archive
-                        (id, debate_id, agent, content, dissent_type, rationale, created_at)
-                    SELECT id, debate_id, agent, content, dissent_type, rationale, created_at
+                        (id, debate_id, agent_id, dissent_type, content, confidence, timestamp, data)
+                    SELECT id, debate_id, agent_id, dissent_type, content, confidence, timestamp, data
                     FROM dissent
-                    WHERE datetime(created_at) < datetime(?)
+                    WHERE datetime(timestamp) < datetime(?)
                 """, (cutoff,))
                 archived_dissent = cursor.rowcount
 
@@ -945,13 +951,13 @@ class ConsensusMemory:
 
             # Delete old records from main tables
             cursor.execute(
-                "DELETE FROM consensus WHERE datetime(created_at) < datetime(?)",
+                "DELETE FROM consensus WHERE datetime(timestamp) < datetime(?)",
                 (cutoff,)
             )
             deleted_consensus = cursor.rowcount
 
             cursor.execute(
-                "DELETE FROM dissent WHERE datetime(created_at) < datetime(?)",
+                "DELETE FROM dissent WHERE datetime(timestamp) < datetime(?)",
                 (cutoff,)
             )
             deleted_dissent = cursor.rowcount

@@ -43,19 +43,8 @@ def _validate_sql_identifier(name: str, max_length: int = 64) -> bool:
     return bool(re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name))
 
 
-def _escape_like_pattern(pattern: str) -> str:
-    """Escape special characters for SQL LIKE patterns.
-
-    LIKE metacharacters:
-    - % matches any sequence of characters
-    - _ matches any single character
-    """
-    # Escape backslash first (escape character itself)
-    pattern = pattern.replace("\\", "\\\\")
-    # Escape LIKE metacharacters
-    pattern = pattern.replace("%", "\\%")
-    pattern = pattern.replace("_", "\\_")
-    return pattern
+# Import from centralized location (defined here for backwards compatibility)
+from aragora.utils.sql_helpers import _escape_like_pattern
 
 
 @dataclass

@@ -87,6 +87,7 @@ config.local.yaml
 **/.env
 **/.env.local
 **/.env.production
+**/.env.*
 **/.env.*.local
 !**/.env.example
 !**/.env.local.example

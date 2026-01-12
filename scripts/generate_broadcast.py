@@ -9,6 +9,7 @@ Usage:
 
 import argparse
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -28,12 +29,26 @@ async def main():
     parser.add_argument("--db", default="aragora_traces.db", help="Trace database path")
     parser.add_argument("--output", required=True, help="Output MP3 file path")
     parser.add_argument("--temp_dir", help="Temporary directory for audio segments")
+    parser.add_argument(
+        "--tts-backend",
+        help="Force TTS backend (elevenlabs, polly, xtts, edge-tts, pyttsx3)",
+    )
+    parser.add_argument(
+        "--tts-order",
+        help="Comma-separated backend priority order",
+    )
 
     args = parser.parse_args()
 
     if not args.trace_id and not args.trace_file:
         print("Error: Must specify --trace_id or --trace_file")
         return 1
+
+    if args.tts_backend:
+        os.environ["ARAGORA_TTS_BACKEND"] = args.tts_backend
+        os.environ.setdefault("TTS_BACKEND", args.tts_backend)
+    if args.tts_order:
+        os.environ["ARAGORA_TTS_ORDER"] = args.tts_order
 
     # Load trace
     if args.trace_file:

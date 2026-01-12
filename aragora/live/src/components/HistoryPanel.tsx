@@ -74,8 +74,9 @@ export function HistoryPanel() {
       {/* Loop selector - only for Supabase mode */}
       {useSupabase && (
         <div className="mb-4">
-          <label className="text-xs text-text-muted block mb-1 font-mono">SELECT_LOOP</label>
+          <label htmlFor="loop-selector" className="text-xs text-text-muted block mb-1 font-mono">SELECT_LOOP</label>
           <select
+            id="loop-selector"
             value={selectedLoopId || ''}
             onChange={(e) => selectLoop(e.target.value)}
             className="w-full bg-bg border border-border px-2 py-1 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
@@ -110,11 +111,17 @@ export function HistoryPanel() {
       {/* Cycles list */}
       {cycles.length > 0 && (
         <div className="mb-4">
-          <h4 className="text-xs font-mono text-text-muted mb-2">PHASES</h4>
-          <div className="space-y-1 max-h-40 overflow-y-auto">
+          <h4 id="phases-heading" className="text-xs font-mono text-text-muted mb-2">PHASES</h4>
+          <div
+            role="list"
+            aria-labelledby="phases-heading"
+            className="space-y-1 max-h-40 overflow-y-auto"
+          >
             {cycles.map((cycle) => (
               <div
                 key={cycle.id}
+                role="listitem"
+                aria-label={`Cycle ${cycle.cycle_number}: ${cycle.phase}, status: ${cycle.success === true ? 'success' : cycle.success === false ? 'failed' : 'in progress'}`}
                 className="flex items-center justify-between text-xs font-mono bg-bg border border-border px-2 py-1"
               >
                 <span className="text-text">
@@ -128,6 +135,7 @@ export function HistoryPanel() {
                       ? 'text-crimson'
                       : 'text-warning'
                   }
+                  aria-hidden="true"
                 >
                   {cycle.success === true
                     ? '[OK]'
@@ -144,10 +152,15 @@ export function HistoryPanel() {
       {/* Recent events */}
       {events.length > 0 && (
         <div>
-          <h4 className="text-xs font-mono text-text-muted mb-2">
+          <h4 id="events-heading" className="text-xs font-mono text-text-muted mb-2">
             EVENTS ({events.length})
           </h4>
-          <div className="space-y-1 max-h-40 overflow-y-auto text-xs font-mono">
+          <div
+            role="log"
+            aria-labelledby="events-heading"
+            aria-live="polite"
+            className="space-y-1 max-h-40 overflow-y-auto text-xs font-mono"
+          >
             {events.slice(-100).map((event) => (
               <div
                 key={event.id}
@@ -170,11 +183,17 @@ export function HistoryPanel() {
       {/* Debates preview */}
       {debates.length > 0 && (
         <div className="mt-4">
-          <h4 className="text-xs font-mono text-text-muted mb-2">DEBATES</h4>
-          <div className="space-y-2 max-h-40 overflow-y-auto">
+          <h4 id="debates-heading" className="text-xs font-mono text-text-muted mb-2">DEBATES</h4>
+          <div
+            role="list"
+            aria-labelledby="debates-heading"
+            className="space-y-2 max-h-40 overflow-y-auto"
+          >
             {debates.map((debate) => (
-              <div
+              <article
                 key={debate.id}
+                role="listitem"
+                aria-label={`${debate.phase} debate in cycle ${debate.cycle_number}, ${debate.consensus_reached ? `consensus reached with ${(debate.confidence * 100).toFixed(0)}% confidence` : 'no consensus'}`}
                 className="bg-bg border border-border p-2 text-xs font-mono"
               >
                 <div className="flex items-center justify-between mb-1">
@@ -187,6 +206,7 @@ export function HistoryPanel() {
                         ? 'text-acid-green'
                         : 'text-warning'
                     }
+                    aria-hidden="true"
                   >
                     {debate.consensus_reached
                       ? `[${(debate.confidence * 100).toFixed(0)}%]`
@@ -199,7 +219,7 @@ export function HistoryPanel() {
                 <div className="text-text-muted opacity-50 mt-1">
                   agents: {debate.agents.join(', ')}
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         </div>

@@ -122,6 +122,7 @@ class TestArgumentParser:
         ask_parser.add_argument("--consensus", "-c", default="majority")
         ask_parser.add_argument("--context")
         ask_parser.add_argument("--no-learn", dest="learn", action="store_false")
+        ask_parser.add_argument("--demo", action="store_true")
 
         # Stats command
         subparsers.add_parser("stats")
@@ -181,6 +182,12 @@ class TestArgumentParser:
         """Should default to learning enabled."""
         args = parser.parse_args(["ask", "Task"])
         assert args.learn is True
+        assert args.demo is False
+
+    def test_parse_ask_demo(self, parser):
+        """Should parse --demo flag."""
+        args = parser.parse_args(["ask", "Task", "--demo"])
+        assert args.demo is True
 
     def test_parse_stats_command(self, parser):
         """Should parse stats command."""
@@ -260,6 +267,7 @@ class TestCommandHandlers:
             learn=False,
             db="test.db",
             verbose=False,
+            demo=False,
         )
 
         with patch("aragora.cli.main.asyncio.run") as mock_run:

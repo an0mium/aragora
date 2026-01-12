@@ -26,7 +26,7 @@ import threading
 import time
 from collections import OrderedDict
 from functools import wraps
-from typing import Any, Callable, Generic, Optional, TypeVar
+from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
 
 from aragora.config import CACHE_TTL_METHOD, CACHE_TTL_QUERY
 
@@ -357,7 +357,7 @@ def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first:
     """
     import asyncio
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @wraps(func)
         async def wrapper(*args, **kwargs) -> T:
             # Skip 'self' when building cache key for methods

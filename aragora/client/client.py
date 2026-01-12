@@ -260,6 +260,102 @@ class DebatesAPI:
 
         raise TimeoutError(f"Debate {debate_id} did not complete within {timeout}s")
 
+    def wait_for_completion(
+        self,
+        debate_id: str,
+        timeout: int = 600,
+        poll_interval: float = 2.0,
+    ) -> Debate:
+        """
+        Wait for an existing debate to complete.
+
+        Args:
+            debate_id: The debate ID to wait for.
+            timeout: Maximum wait time in seconds (default: 600).
+            poll_interval: Time between status checks in seconds (default: 2.0).
+
+        Returns:
+            Completed Debate with full results.
+
+        Raises:
+            TimeoutError: If debate doesn't complete within timeout.
+        """
+        import time
+
+        start = time.time()
+        while time.time() - start < timeout:
+            debate = self.get(debate_id)
+            if debate.status in (DebateStatus.COMPLETED, DebateStatus.FAILED):
+                return debate
+            time.sleep(poll_interval)
+
+        raise TimeoutError(f"Debate {debate_id} did not complete within {timeout}s")
+
+    async def wait_for_completion_async(
+        self,
+        debate_id: str,
+        timeout: int = 600,
+        poll_interval: float = 2.0,
+    ) -> Debate:
+        """
+        Async version of wait_for_completion().
+
+        Args:
+            debate_id: The debate ID to wait for.
+            timeout: Maximum wait time in seconds (default: 600).
+            poll_interval: Time between status checks in seconds (default: 2.0).
+
+        Returns:
+            Completed Debate with full results.
+
+        Raises:
+            TimeoutError: If debate doesn't complete within timeout.
+        """
+        import asyncio
+
+        start = asyncio.get_event_loop().time()
+        while asyncio.get_event_loop().time() - start < timeout:
+            debate = await self.get_async(debate_id)
+            if debate.status in (DebateStatus.COMPLETED, DebateStatus.FAILED):
+                return debate
+            await asyncio.sleep(poll_interval)
+
+        raise TimeoutError(f"Debate {debate_id} did not complete within {timeout}s")
+
+    def compare(
+        self,
+        debate_ids: list[str],
+    ) -> list[Debate]:
+        """
+        Get multiple debates for side-by-side comparison.
+
+        Args:
+            debate_ids: List of debate IDs to compare.
+
+        Returns:
+            List of Debate objects.
+        """
+        return [self.get(debate_id) for debate_id in debate_ids]
+
+    async def compare_async(
+        self,
+        debate_ids: list[str],
+    ) -> list[Debate]:
+        """
+        Async version of compare().
+
+        Args:
+            debate_ids: List of debate IDs to compare.
+
+        Returns:
+            List of Debate objects.
+        """
+        import asyncio
+
+        return await asyncio.gather(
+            *[self.get_async(debate_id) for debate_id in debate_ids]
+        )
+
 
 class AgentsAPI:
     """API interface for agents."""

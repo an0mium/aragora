@@ -8,6 +8,9 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserParticipation } from '@/components/UserParticipation';
 import { CitationsPanel } from '@/components/CitationsPanel';
+import { MoodTrackerPanel } from '@/components/MoodTrackerPanel';
+import { UncertaintyPanel } from '@/components/UncertaintyPanel';
+import { TokenStreamViewer } from '@/components/TokenStreamViewer';
 import { getAgentColors } from '@/utils/agentColors';
 import { useDebateWebSocket, type TranscriptMessage } from '@/hooks/useDebateWebSocket';
 import { logger } from '@/utils/logger';
@@ -422,6 +425,11 @@ function LiveDebateView({
         </div>
       )}
 
+      {/* Live Analysis Panels - Show during streaming */}
+      {status === 'streaming' && streamEvents.length > 0 && (
+        <LiveAnalysisPanels events={streamEvents} agents={agents} debateId={debateId} />
+      )}
+
       {/* Footer - show when complete */}
       {status === 'complete' && (
         <div className="text-center text-xs font-mono text-text-muted py-2 border-t border-acid-green/20">
@@ -605,6 +613,64 @@ function StreamingMessageCard({ message }: { message: { agent: string; content: 
         {message.content}
         <span className="inline-block w-2 h-4 bg-acid-cyan ml-1 animate-pulse">▌</span>
       </div>
+    </div>
+  );
+}
+
+// Live Analysis Panels - collapsible section for mood, uncertainty, and token tracking
+interface LiveAnalysisPanelsProps {
+  events: import('@/types/events').StreamEvent[];
+  agents: string[];
+  debateId: string;
+}
+
+function LiveAnalysisPanels({ events, agents, debateId }: LiveAnalysisPanelsProps) {
+  const [showAnalysis, setShowAnalysis] = useState(false);
+
+  return (
+    <div className="bg-surface border border-purple-500/30">
+      <button
+        onClick={() => setShowAnalysis(!showAnalysis)}
+        className="w-full px-4 py-3 border-b border-purple-500/20 bg-bg/50 flex items-center justify-between hover:bg-purple-500/5 transition-colors"
+      >
+        <span className="text-xs font-mono text-purple-400 uppercase tracking-wider">
+          {'>'} LIVE ANALYSIS
+        </span>
+        <span className="text-xs font-mono text-text-muted">
+          {showAnalysis ? '[-]' : '[+]'}
+        </span>
+      </button>
+
+      {showAnalysis && (
+        <div className="p-4 space-y-4">
+          {/* Grid layout for analysis panels */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Mood Tracker */}
+            <div className="bg-bg/50 border border-purple-500/20 p-3">
+              <div className="text-xs font-mono text-purple-400 mb-2 uppercase">
+                Agent Mood
+              </div>
+              <MoodTrackerPanel events={events} agents={agents} />
+            </div>
+
+            {/* Uncertainty Analysis */}
+            <div className="bg-bg/50 border border-purple-500/20 p-3">
+              <div className="text-xs font-mono text-purple-400 mb-2 uppercase">
+                Uncertainty & Cruxes
+              </div>
+              <UncertaintyPanel events={events} debateId={debateId} />
+            </div>
+
+            {/* Token Stream */}
+            <div className="bg-bg/50 border border-purple-500/20 p-3">
+              <div className="text-xs font-mono text-purple-400 mb-2 uppercase">
+                Token Usage
+              </div>
+              <TokenStreamViewer events={events} agents={agents} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

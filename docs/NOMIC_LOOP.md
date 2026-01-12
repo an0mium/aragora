@@ -65,6 +65,14 @@ NOMIC_AUTO_COMMIT=1 python scripts/nomic_loop.py --cycles 10 --auto
 | `--human-approval` | Require human approval for commits | False |
 | `--skip-genesis` | Skip codebase analysis | False |
 
+### Safety Gates (Environment)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NOMIC_AUTO_COMMIT` | Allow `--auto` commits (must be `1` to enable) | `0` |
+| `NOMIC_AUTO_CONTINUE` | Auto-continue non-interactive runs | `1` |
+| `ARAGORA_ENABLE_FORKING` | Enable parallel forked debates in the nomic loop | `0` |
+
 ### Live Dashboard
 
 The streaming version provides real-time visibility:

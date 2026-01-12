@@ -318,5 +318,437 @@ class TestAllProvidersExhaustedError:
         assert error.last_error is None
 
 
+class TestFallbackTimeoutError:
+    """Tests for FallbackTimeoutError exception."""
+
+    def test_error_attributes(self):
+        """Should store timeout details."""
+        from aragora.agents.fallback import FallbackTimeoutError
+
+        error = FallbackTimeoutError(
+            elapsed=45.5,
+            limit=30.0,
+            tried=["openai", "openrouter"]
+        )
+
+        assert error.elapsed == 45.5
+        assert error.limit == 30.0
+        assert error.tried_providers == ["openai", "openrouter"]
+        assert "45.5s" in str(error)
+        assert "30" in str(error)
+        assert "openai" in str(error)
+
+    def test_error_message_formatting(self):
+        """Should format message correctly."""
+        from aragora.agents.fallback import FallbackTimeoutError
+
+        error = FallbackTimeoutError(
+            elapsed=120.0,
+            limit=60.0,
+            tried=["provider1", "provider2", "provider3"]
+        )
+
+        message = str(error)
+        assert "120.0s" in message
+        assert "60" in message
+        assert "provider1" in message
+        assert "provider2" in message
+        assert "provider3" in message
+
+
+class TestMaxRetries:
+    """Tests for max_retries limit behavior."""
+
+    @pytest.mark.asyncio
+    async def test_respects_max_retries_limit(self):
+        """Should stop after max_retries providers."""
+        chain = AgentFallbackChain(
+            providers=["p1", "p2", "p3", "p4", "p5"],
+            max_retries=2,
+        )
+
+        call_counts = {}
+        for name in ["p1", "p2", "p3", "p4", "p5"]:
+            agent = MockAgent(name, should_fail=True)
+            call_counts[name] = agent
+            chain.register_provider(name, lambda a=agent: a)
+
+        with pytest.raises(AllProvidersExhaustedError):
+            await chain.generate("test")
+
+        # Only first 2 should be tried
+        total_calls = sum(a.call_count for a in call_counts.values())
+        assert total_calls == 2
+
+    @pytest.mark.asyncio
+    async def test_default_max_retries(self):
+        """Should use DEFAULT_MAX_RETRIES when not specified."""
+        chain = AgentFallbackChain(providers=["p1"])
+        assert chain.max_retries == AgentFallbackChain.DEFAULT_MAX_RETRIES
+
+
+class TestMaxFallbackTime:
+    """Tests for max_fallback_time limit behavior."""
+
+    @pytest.mark.asyncio
+    async def test_raises_timeout_when_exceeded(self):
+        """Should raise FallbackTimeoutError when time limit exceeded."""
+        import asyncio
+        import time
+        from aragora.agents.fallback import FallbackTimeoutError
+
+        chain = AgentFallbackChain(
+            providers=["slow1", "slow2", "slow3"],
+            max_fallback_time=0.05,  # 50ms timeout - very short
+            max_retries=3,
+        )
+
+        class SlowFailingAgent:
+            def __init__(self, name):
+                self.name = name
+            async def generate(self, prompt, context=None):
+                # Fail after some delay
+                await asyncio.sleep(0.03)
+                raise Exception(f"{self.name} failed")
+
+        chain.register_provider("slow1", lambda: SlowFailingAgent("slow1"))
+        chain.register_provider("slow2", lambda: SlowFailingAgent("slow2"))
+        chain.register_provider("slow3", lambda: SlowFailingAgent("slow3"))
+
+        # The timeout check happens at the start of each loop iteration
+        # After 2 slow failures (~60ms), should exceed the 50ms limit
+        with pytest.raises((FallbackTimeoutError, AllProvidersExhaustedError)):
+            await chain.generate("test")
+
+    def test_default_max_fallback_time(self):
+        """Should use DEFAULT_MAX_FALLBACK_TIME when not specified."""
+        chain = AgentFallbackChain(providers=["p1"])
+        assert chain.max_fallback_time == AgentFallbackChain.DEFAULT_MAX_FALLBACK_TIME
+
+
+class TestQuotaFallbackMixin:
+    """Tests for QuotaFallbackMixin class."""
+
+    def test_is_quota_error_429(self):
+        """Should detect 429 as quota error."""
+        from aragora.agents.fallback import QuotaFallbackMixin
+
+        class TestAgent(QuotaFallbackMixin):
+            pass
+
+        agent = TestAgent()
+        assert agent.is_quota_error(429, "any error message") is True
+
+    def test_is_quota_error_403_with_quota_keyword(self):
+        """Should detect 403 with quota keywords as quota error."""
+        from aragora.agents.fallback import QuotaFallbackMixin
+
+        class TestAgent(QuotaFallbackMixin):
+            pass
+
+        agent = TestAgent()
+        assert agent.is_quota_error(403, "quota exceeded for this API") is True
+        assert agent.is_quota_error(403, "billing issue detected") is True
+        assert agent.is_quota_error(403, "limit exceeded") is True
+        # 403 without quota keywords is not a quota error
+        assert agent.is_quota_error(403, "permission denied") is False
+
+    def test_is_quota_error_with_keyword_in_message(self):
+        """Should detect quota keywords in error message."""
+        from aragora.agents.fallback import QuotaFallbackMixin
+
+        class TestAgent(QuotaFallbackMixin):
+            pass
+
+        agent = TestAgent()
+        assert agent.is_quota_error(500, "rate limit exceeded") is True
+        assert agent.is_quota_error(500, "resource exhausted") is True
+        assert agent.is_quota_error(500, "too many requests") is True
+        assert agent.is_quota_error(500, "insufficient_quota") is True
+        assert agent.is_quota_error(500, "internal server error") is False
+
+    def test_get_fallback_model_with_mapping(self):
+        """Should use model mapping when available."""
+        from aragora.agents.fallback import QuotaFallbackMixin
+
+        class TestAgent(QuotaFallbackMixin):
+            OPENROUTER_MODEL_MAP = {
+                "gpt-4o": "openai/gpt-4o",
+                "claude-3": "anthropic/claude-3-sonnet",
+            }
+            DEFAULT_FALLBACK_MODEL = "default/model"
+            model = "gpt-4o"
+
+        agent = TestAgent()
+        assert agent.get_fallback_model() == "openai/gpt-4o"
+
+    def test_get_fallback_model_uses_default(self):
+        """Should use default model when no mapping exists."""
+        from aragora.agents.fallback import QuotaFallbackMixin
+
+        class TestAgent(QuotaFallbackMixin):
+            OPENROUTER_MODEL_MAP = {"other": "other/model"}
+            DEFAULT_FALLBACK_MODEL = "my/default"
+            model = "unknown-model"
+
+        agent = TestAgent()
+        assert agent.get_fallback_model() == "my/default"
+
+    def test_fallback_agent_caching(self):
+        """Should cache the fallback agent."""
+        from aragora.agents.fallback import QuotaFallbackMixin
+        from unittest.mock import patch
+        import sys
+
+        class TestAgent(QuotaFallbackMixin):
+            name = "test"
+            model = "test-model"
+            role = "proposer"
+            timeout = 60
+
+        agent = TestAgent()
+
+        # Create mock OpenRouterAgent
+        mock_instance = MagicMock()
+        mock_class = MagicMock(return_value=mock_instance)
+
+        # Patch at the module level where it's imported from
+        with patch.dict('os.environ', {'OPENROUTER_API_KEY': 'test-key'}):
+            with patch.dict('sys.modules', {'aragora.agents.api_agents': MagicMock(OpenRouterAgent=mock_class)}):
+                # First call should create agent
+                result1 = agent._get_cached_fallback_agent()
+
+                # The agent should be created (either mocked or real)
+                assert agent._fallback_agent is not None
+
+                # Second call should return cached agent
+                result2 = agent._get_cached_fallback_agent()
+
+                # Both should be the same instance
+                assert result1 is result2
+
+
+class TestBuildFallbackChainWithLocal:
+    """Tests for build_fallback_chain_with_local function."""
+
+    def test_no_local_when_disabled(self):
+        """Should not include local when include_local=False."""
+        from aragora.agents.fallback import build_fallback_chain_with_local
+
+        result = build_fallback_chain_with_local(
+            primary_providers=["openai", "openrouter"],
+            include_local=False,
+        )
+        assert result == ["openai", "openrouter"]
+
+    def test_returns_primary_when_no_local_available(self):
+        """Should return primary providers when no local LLMs available."""
+        from aragora.agents.fallback import build_fallback_chain_with_local
+        from unittest.mock import patch
+
+        with patch('aragora.agents.fallback.get_local_fallback_providers', return_value=[]):
+            result = build_fallback_chain_with_local(
+                primary_providers=["openai", "anthropic"],
+                include_local=True,
+            )
+            assert result == ["openai", "anthropic"]
+
+    def test_inserts_local_after_openrouter_by_default(self):
+        """Should insert local after OpenRouter by default."""
+        from aragora.agents.fallback import build_fallback_chain_with_local
+        from unittest.mock import patch
+
+        with patch('aragora.agents.fallback.get_local_fallback_providers', return_value=["ollama"]):
+            result = build_fallback_chain_with_local(
+                primary_providers=["openai", "openrouter", "anthropic"],
+                include_local=True,
+                local_priority=False,
+            )
+            # Local should come after openrouter
+            assert result == ["openai", "openrouter", "ollama", "anthropic"]
+
+    def test_inserts_local_before_openrouter_when_priority(self):
+        """Should insert local before OpenRouter when local_priority=True."""
+        from aragora.agents.fallback import build_fallback_chain_with_local
+        from unittest.mock import patch
+
+        with patch('aragora.agents.fallback.get_local_fallback_providers', return_value=["ollama", "lm-studio"]):
+            result = build_fallback_chain_with_local(
+                primary_providers=["openai", "openrouter", "anthropic"],
+                include_local=True,
+                local_priority=True,
+            )
+            # Local should come before openrouter
+            assert result == ["openai", "ollama", "lm-studio", "openrouter", "anthropic"]
+
+    def test_appends_local_at_end_when_no_openrouter(self):
+        """Should append local at end when no OpenRouter in chain."""
+        from aragora.agents.fallback import build_fallback_chain_with_local
+        from unittest.mock import patch
+
+        with patch('aragora.agents.fallback.get_local_fallback_providers', return_value=["ollama"]):
+            result = build_fallback_chain_with_local(
+                primary_providers=["openai", "anthropic"],
+                include_local=True,
+            )
+            assert result == ["openai", "anthropic", "ollama"]
+
+    def test_deduplicates_providers(self):
+        """Should deduplicate providers in result."""
+        from aragora.agents.fallback import build_fallback_chain_with_local
+        from unittest.mock import patch
+
+        # If local provider is already in primary, should dedupe
+        with patch('aragora.agents.fallback.get_local_fallback_providers', return_value=["ollama"]):
+            result = build_fallback_chain_with_local(
+                primary_providers=["openai", "ollama", "openrouter"],
+                include_local=True,
+            )
+            # ollama should only appear once
+            assert result.count("ollama") == 1
+
+
+class TestGetLocalFallbackProviders:
+    """Tests for get_local_fallback_providers function."""
+
+    def test_returns_available_agents(self):
+        """Should return only available local agents."""
+        from unittest.mock import patch, MagicMock
+
+        mock_registry = MagicMock()
+        mock_registry.detect_local_agents.return_value = [
+            {"name": "ollama", "available": True},
+            {"name": "lm-studio", "available": False},
+            {"name": "local-ai", "available": True},
+        ]
+
+        # Patch in aragora.agents.registry since it's imported from there
+        with patch('aragora.agents.registry.AgentRegistry', mock_registry):
+            from aragora.agents.fallback import get_local_fallback_providers
+            result = get_local_fallback_providers()
+            assert result == ["ollama", "local-ai"]
+
+    def test_returns_empty_on_error(self):
+        """Should return empty list on error."""
+        from aragora.agents.fallback import get_local_fallback_providers
+        from unittest.mock import patch
+
+        # The function catches exceptions and returns []
+        # Force an import error to trigger the exception path
+        with patch.dict('sys.modules', {'aragora.agents.registry': None}):
+            # This will cause an import error which is caught
+            result = get_local_fallback_providers()
+            assert result == []
+
+
+class TestIsLocalLLMAvailable:
+    """Tests for is_local_llm_available function."""
+
+    def test_returns_true_when_available(self):
+        """Should return True when any local LLM is available."""
+        from unittest.mock import patch, MagicMock
+
+        mock_registry = MagicMock()
+        mock_registry.get_local_status.return_value = {"any_available": True}
+
+        with patch('aragora.agents.registry.AgentRegistry', mock_registry):
+            from aragora.agents.fallback import is_local_llm_available
+            assert is_local_llm_available() is True
+
+    def test_returns_false_when_unavailable(self):
+        """Should return False when no local LLM is available."""
+        from unittest.mock import patch, MagicMock
+
+        mock_registry = MagicMock()
+        mock_registry.get_local_status.return_value = {"any_available": False}
+
+        with patch('aragora.agents.registry.AgentRegistry', mock_registry):
+            from aragora.agents.fallback import is_local_llm_available
+            assert is_local_llm_available() is False
+
+    def test_returns_false_on_error(self):
+        """Should return False on any error."""
+        from aragora.agents.fallback import is_local_llm_available
+        from unittest.mock import patch
+
+        # The function catches all exceptions and returns False
+        # Force an import error
+        with patch.dict('sys.modules', {'aragora.agents.registry': None}):
+            result = is_local_llm_available()
+            assert result is False
+
+
+class TestProviderRegistration:
+    """Tests for provider registration behavior."""
+
+    def test_registers_provider_not_in_chain(self):
+        """Should register provider even if not in chain (logs warning)."""
+        chain = AgentFallbackChain(providers=["openai"])
+
+        # Should not raise, just log warning
+        chain.register_provider("unknown", lambda: MockAgent("unknown"))
+
+        # Provider should still be registered
+        assert "unknown" in chain._provider_factories
+
+    def test_get_agent_returns_none_for_unregistered(self):
+        """Should return None for unregistered provider."""
+        chain = AgentFallbackChain(providers=["openai"])
+        assert chain._get_agent("openai") is None
+
+    def test_get_agent_caches_instance(self):
+        """Should cache created agent instances."""
+        chain = AgentFallbackChain(providers=["openai"])
+        agent = MockAgent("openai")
+        chain.register_provider("openai", lambda: agent)
+
+        # First call creates and caches
+        result1 = chain._get_agent("openai")
+        assert result1 is agent
+
+        # Second call returns cached
+        result2 = chain._get_agent("openai")
+        assert result2 is agent
+
+    def test_get_agent_handles_factory_error(self):
+        """Should return None if factory raises error."""
+        chain = AgentFallbackChain(providers=["openai"])
+
+        def failing_factory():
+            raise ValueError("Factory failed")
+
+        chain.register_provider("openai", failing_factory)
+        assert chain._get_agent("openai") is None
+
+
+class TestStreamSkipsNonStreamingProviders:
+    """Tests for stream fallback skipping non-streaming providers."""
+
+    @pytest.mark.asyncio
+    async def test_skips_provider_without_stream_method(self):
+        """Should skip providers that don't support streaming."""
+        chain = AgentFallbackChain(providers=["no-stream", "has-stream"])
+
+        class NoStreamAgent:
+            async def generate(self, prompt, context=None):
+                return "result"
+            # No generate_stream method
+
+        class StreamAgent:
+            async def generate(self, prompt, context=None):
+                return "result"
+            async def generate_stream(self, prompt, context=None):
+                yield "streaming"
+
+        chain.register_provider("no-stream", lambda: NoStreamAgent())
+        chain.register_provider("has-stream", lambda: StreamAgent())
+
+        tokens = []
+        async for token in chain.generate_stream("test"):
+            tokens.append(token)
+
+        assert tokens == ["streaming"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

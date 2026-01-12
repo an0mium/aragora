@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import os
 import platform
+import sqlite3
 import threading
 import time
 from datetime import datetime
@@ -174,7 +175,7 @@ class MetricsHandler(BaseHandler):
                 content_type=content_type,
                 body=content.encode("utf-8"),
             )
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError) as e:
             logger.error("Failed to get Prometheus metrics: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get Prometheus metrics"), 500)
 
@@ -225,7 +226,7 @@ class MetricsHandler(BaseHandler):
             }
 
             return json_response(metrics)
-        except Exception as e:
+        except (RuntimeError, OSError, sqlite3.Error) as e:
             logger.error("Failed to get operational metrics: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get metrics"), 500)
 
@@ -278,7 +279,7 @@ class MetricsHandler(BaseHandler):
             status_code = 200 if health["status"] == "healthy" else 503
 
             return json_response(health, status=status_code)
-        except Exception as e:
+        except (RuntimeError, OSError, sqlite3.Error) as e:
             logger.error("Health check failed: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "health check"), 500)
 
@@ -317,7 +318,7 @@ class MetricsHandler(BaseHandler):
             }
 
             return json_response(stats)
-        except Exception as e:
+        except (KeyError, TypeError, RuntimeError) as e:
             logger.error("Failed to get cache stats: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get cache stats"), 500)
 
@@ -333,7 +334,7 @@ class MetricsHandler(BaseHandler):
         try:
             stats = get_verification_stats()
             return json_response(stats)
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             logger.error("Failed to get verification stats: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get verification stats"), 500)
 
@@ -362,7 +363,7 @@ class MetricsHandler(BaseHandler):
                 info["memory"] = {"available": False, "reason": "psutil not installed"}
 
             return json_response(info)
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.error("Failed to get system info: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get system info"), 500)
 
@@ -380,7 +381,7 @@ class MetricsHandler(BaseHandler):
                 "tasks": {},
                 "message": "Background task manager not available",
             })
-        except Exception as e:
+        except (RuntimeError, AttributeError) as e:
             logger.error("Failed to get background stats: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get background stats"), 500)
 

@@ -85,10 +85,14 @@ class MockWebhookEvent:
     data: dict
     metadata: dict = None
     subscription_id: Optional[str] = None
+    event_id: Optional[str] = None
 
     def __post_init__(self):
         if self.metadata is None:
             self.metadata = {}
+        # Generate event_id from data if not provided
+        if self.event_id is None:
+            self.event_id = self.data.get("id", f"evt_mock_{id(self)}")
 
 
 def create_mock_http_handler(payload: bytes, signature: str = "valid_sig"):

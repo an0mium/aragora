@@ -1511,7 +1511,7 @@ from aragora.debate.security_barrier import SecurityBarrier
 barrier = SecurityBarrier()
 
 # Redact sensitive content
-safe_text = barrier.redact("My API key is sk-ant-1234567890")
+safe_text = barrier.redact("My API key is sk-ant-TESTKEY12345678901234567890")
 # Returns: "My API key is [REDACTED]"
 
 # Check if content is sensitive

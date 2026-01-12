@@ -101,7 +101,7 @@ class DebateBeliefAnalyzer:
 
         try:
             # Build belief network from messages
-            network = BN()
+            network = BN(max_iterations=self.propagation_iterations)
             claim_count = 0
 
             for msg in messages:
@@ -120,7 +120,7 @@ class DebateBeliefAnalyzer:
 
             if result.network_size > 0:
                 # Run belief propagation
-                network.propagate(iterations=self.propagation_iterations)
+                network.propagate()
 
                 # Identify cruxes
                 analyzer = BPA(network)

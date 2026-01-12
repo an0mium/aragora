@@ -8,14 +8,14 @@ const CARDS = [
     accent: 'acid-green',
     indicator: 'acid-cyan',
     content:
-      "7+ distinct AI providers compete in the same debate. Claude's caution vs GPT's creativity vs Gemini's speed. Real diversity. Real disagreement. Real signal.",
+      "7+ distinct AI providers act as adversaries, not echoes. Claude's caution vs GPT's creativity vs Gemini's speed, with Mistral bringing an EU perspective and Chinese models like DeepSeek, Qwen, and Kimi bringing a Chinese perspective. Real diversity. Real disagreement. Real risk signal.",
   },
   {
     title: 'SELF-IMPROVING FRAMEWORK',
     accent: 'acid-cyan',
     indicator: 'acid-green',
     content:
-      'Aragora runs the "Nomic Loop" — agents debate improvements to their own framework, implement code, verify changes. The arena evolves through its own debates.',
+      'Aragora runs the "Nomic Loop" -- agents red-team improvements to their own framework, implement code, verify changes. The arena evolves through its own critiques (sandboxed + human-reviewed).',
   },
   {
     title: 'CALIBRATED TRUST',
@@ -33,7 +33,8 @@ export function WhyAragoraSection() {
         <SectionHeader title="WHY ARAGORA?" />
 
         <p className="text-text-muted font-mono text-xs text-center mb-8 max-w-xl mx-auto">
-          Most &quot;multi-agent&quot; systems run copies of the same model talking to itself. Aragora is different:
+          Most "multi-agent" systems run copies of the same model talking to itself. Aragora is adversarial validation:
+          it stress-tests high-stakes decisions and outputs decision receipts, risk heatmaps, and dissent trails.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">

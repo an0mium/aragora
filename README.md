@@ -52,12 +52,12 @@ The **nomic loop** (self-modifying rules) mirrors this internal engine by debati
 ### Core Capabilities
 - **Gauntlet Mode (Decision Stress-Test)**: Red-team attacks, probes, and scenario tests for specs, policies, and architectures
 - **Decision Receipts**: Audit-ready artifacts with evidence chains and dissent tracking
-- **Heterogeneous Agents**: Mix Claude, GPT, Gemini, Grok, Mistral, DeepSeek, and local models in the same debate
+- **Heterogeneous Agents**: Mix Claude, GPT, Gemini, Grok, Mistral (EU perspective), and Chinese models like DeepSeek, Qwen, and Kimi, plus local models in the same debate
 - **Structured Debate Protocol**: Propose → Critique → Revise loop with configurable rounds
 - **Multiple Consensus Mechanisms**: Majority voting, unanimous, judge-based, or none
 - **Self-Improvement**: SQLite-based pattern store learns from successful critiques
 - **CLI Interface**: One command, multiple agents working behind the scenes
-- **12+ Model Providers**: Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, Qwen, and more via OpenRouter
+- **12+ Model Providers**: Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, Qwen, Kimi, and more via OpenRouter
 
 ### Nomic Loop (Self-Improving System)
 The **Nomic Loop** is aragora's autonomous self-improvement system—a society of AI agents that debates and implements improvements to its own codebase:
@@ -240,7 +240,8 @@ OPENAI_API_KEY=sk-xxx           # For GPT models
 GEMINI_API_KEY=AIzaSy...        # For Gemini 2.5
 XAI_API_KEY=xai-xxx             # For Grok 4
 MISTRAL_API_KEY=xxx             # For Mistral Large, Codestral
-OPENROUTER_API_KEY=sk-or-xxx    # For DeepSeek, Llama, Qwen, Yi (multi-model access)
+OPENROUTER_API_KEY=sk-or-xxx    # For DeepSeek, Qwen, Yi (multi-model access)
+KIMI_API_KEY=xxx                # For Kimi (Moonshot, China perspective)
 ```
 
 **CLI Agents (Optional):** For local CLI-based agents, install the corresponding tools:

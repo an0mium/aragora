@@ -3,6 +3,10 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import type { StreamEvent } from '@/types/events';
+import * as d3Force from 'd3-force';
+import * as d3Selection from 'd3-selection';
+import { Skeleton } from './Skeleton';
+import { useGraphDebateWebSocket } from '@/hooks/useGraphDebateWebSocket';
 
 // Types from the backend graph.py
 interface DebateNode {
@@ -71,69 +75,132 @@ interface GraphDebate {
   branch_count: number;
 }
 
-// Simple layout calculation
+// D3 Force simulation types
+interface SimulationNode extends d3Force.SimulationNodeDatum {
+  id: string;
+  node: DebateNode;
+  depth: number;
+  fx?: number | null;
+  fy?: number | null;
+}
+
+interface SimulationLink extends d3Force.SimulationLinkDatum<SimulationNode> {
+  source: SimulationNode | string;
+  target: SimulationNode | string;
+  branchId: string;
+}
+
 interface NodePosition {
   x: number;
   y: number;
   node: DebateNode;
+  vx?: number;
+  vy?: number;
 }
 
-function calculateLayout(
+// Calculate node depths using BFS
+function calculateNodeDepths(
   nodes: Record<string, DebateNode>,
-  rootId: string | null,
-  branches: Record<string, Branch>
-): NodePosition[] {
-  if (!rootId || !nodes[rootId]) return [];
+  rootId: string | null
+): Map<string, number> {
+  const depths = new Map<string, number>();
+  if (!rootId || !nodes[rootId]) return depths;
 
-  const positions: NodePosition[] = [];
   const visited = new Set<string>();
-  const levelNodes: Map<number, string[]> = new Map();
-
-  // BFS to assign levels
-  const queue: Array<{ id: string; level: number }> = [{ id: rootId, level: 0 }];
+  const queue: Array<{ id: string; depth: number }> = [{ id: rootId, depth: 0 }];
 
   while (queue.length > 0) {
-    const { id, level } = queue.shift()!;
+    const { id, depth } = queue.shift()!;
     if (visited.has(id)) continue;
     visited.add(id);
-
-    if (!levelNodes.has(level)) {
-      levelNodes.set(level, []);
-    }
-    levelNodes.get(level)!.push(id);
+    depths.set(id, depth);
 
     const node = nodes[id];
     if (node) {
       for (const childId of node.child_ids) {
         if (!visited.has(childId)) {
-          queue.push({ id: childId, level: level + 1 });
+          queue.push({ id: childId, depth: depth + 1 });
         }
       }
     }
   }
 
-  // Assign positions
-  const levelHeight = 120;
-  const nodeSpacing = 180;
+  return depths;
+}
 
-  levelNodes.forEach((nodeIds, level) => {
-    const y = level * levelHeight + 60;
-    const totalWidth = (nodeIds.length - 1) * nodeSpacing;
-    const startX = -totalWidth / 2;
+// Create force simulation for graph layout
+function createForceSimulation(
+  nodes: Record<string, DebateNode>,
+  rootId: string | null,
+  width: number,
+  height: number
+): { nodes: SimulationNode[]; links: SimulationLink[]; simulation: d3Force.Simulation<SimulationNode, SimulationLink> } {
+  const depths = calculateNodeDepths(nodes, rootId);
+  const maxDepth = Math.max(...Array.from(depths.values()), 0);
+  const levelHeight = height / (maxDepth + 2);
 
-    nodeIds.forEach((nodeId, idx) => {
-      const node = nodes[nodeId];
-      if (node) {
-        positions.push({
-          x: startX + idx * nodeSpacing + 400,
-          y,
-          node,
+  // Create simulation nodes
+  const simNodes: SimulationNode[] = Object.values(nodes).map((node) => ({
+    id: node.id,
+    node,
+    depth: depths.get(node.id) || 0,
+    x: width / 2 + (Math.random() - 0.5) * 100,
+    y: (depths.get(node.id) || 0) * levelHeight + 60,
+  }));
+
+  // Create links from parent-child relationships
+  const simLinks: SimulationLink[] = [];
+  Object.values(nodes).forEach((node) => {
+    node.parent_ids.forEach((parentId) => {
+      if (nodes[parentId]) {
+        simLinks.push({
+          source: parentId,
+          target: node.id,
+          branchId: node.branch_id || 'main',
         });
       }
     });
   });
 
-  return positions;
+  // Create D3 force simulation
+  const simulation = d3Force.forceSimulation<SimulationNode, SimulationLink>(simNodes)
+    .force('link', d3Force.forceLink<SimulationNode, SimulationLink>(simLinks)
+      .id((d) => d.id)
+      .distance(100)
+      .strength(0.8))
+    .force('charge', d3Force.forceManyBody<SimulationNode>()
+      .strength(-300)
+      .distanceMax(400))
+    .force('collide', d3Force.forceCollide<SimulationNode>()
+      .radius(50)
+      .strength(0.7))
+    .force('x', d3Force.forceX<SimulationNode>(width / 2).strength(0.05))
+    .force('y', d3Force.forceY<SimulationNode>((d) => d.depth * levelHeight + 60).strength(0.3))
+    .alphaDecay(0.02)
+    .velocityDecay(0.4);
+
+  // Run simulation for initial layout
+  simulation.tick(150);
+  simulation.stop();
+
+  return { nodes: simNodes, links: simLinks, simulation };
+}
+
+// Legacy layout calculation (fallback)
+function calculateLayout(
+  nodes: Record<string, DebateNode>,
+  rootId: string | null,
+  _branches: Record<string, Branch>
+): NodePosition[] {
+  if (!rootId || !nodes[rootId]) return [];
+
+  const { nodes: simNodes } = createForceSimulation(nodes, rootId, 800, 600);
+
+  return simNodes.map((simNode) => ({
+    x: simNode.x || 400,
+    y: simNode.y || 60,
+    node: simNode.node,
+  }));
 }
 
 // Branch color mapping
@@ -251,6 +318,7 @@ function NodeDetailPanel({ node, onClose }: { node: DebateNode; onClose: () => v
         <button
           onClick={onClose}
           className="text-text-muted hover:text-acid-green text-xs font-mono"
+          aria-label="Close node details"
         >
           [X]
         </button>
@@ -326,20 +394,73 @@ function GraphVisualization({
   onBranchHover,
 }: GraphVisualizationProps) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [positions, setPositions] = useState<NodePosition[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [draggedNode, setDraggedNode] = useState<string | null>(null);
+  const simulationRef = useRef<d3Force.Simulation<SimulationNode, SimulationLink> | null>(null);
+  const nodesRef = useRef<SimulationNode[]>([]);
+  const linksRef = useRef<SimulationLink[]>([]);
 
-  const positions = useMemo(
-    () => calculateLayout(graph.nodes, graph.root_id, graph.branches),
-    [graph.nodes, graph.root_id, graph.branches]
-  );
+  // Initialize force simulation
+  useEffect(() => {
+    if (!graph.root_id || Object.keys(graph.nodes).length === 0) {
+      setPositions([]);
+      return;
+    }
+
+    const width = 800;
+    const height = 600;
+    const { nodes: simNodes, links: simLinks, simulation } = createForceSimulation(
+      graph.nodes,
+      graph.root_id,
+      width,
+      height
+    );
+
+    nodesRef.current = simNodes;
+    linksRef.current = simLinks;
+    simulationRef.current = simulation;
+
+    // Update positions from simulation
+    const updatePositions = () => {
+      setPositions(
+        nodesRef.current.map((simNode) => ({
+          x: simNode.x || 400,
+          y: simNode.y || 60,
+          node: simNode.node,
+        }))
+      );
+    };
+
+    // Initial positions
+    updatePositions();
+
+    // Re-run simulation with animation on mount
+    setIsSimulating(true);
+    simulation.alpha(0.3).restart();
+
+    simulation.on('tick', () => {
+      updatePositions();
+    });
+
+    simulation.on('end', () => {
+      setIsSimulating(false);
+    });
+
+    return () => {
+      simulation.stop();
+    };
+  }, [graph.nodes, graph.root_id]);
 
   // Calculate SVG dimensions
-  const minX = Math.min(...positions.map((p) => p.x)) - 60;
-  const maxX = Math.max(...positions.map((p) => p.x)) + 60;
-  const maxY = Math.max(...positions.map((p) => p.y)) + 80;
+  const minX = positions.length > 0 ? Math.min(...positions.map((p) => p.x)) - 60 : 0;
+  const maxX = positions.length > 0 ? Math.max(...positions.map((p) => p.x)) + 60 : 800;
+  const maxY = positions.length > 0 ? Math.max(...positions.map((p) => p.y)) + 80 : 400;
 
   const baseWidth = Math.max(800, maxX - minX);
   const baseHeight = Math.max(400, maxY);
@@ -378,6 +499,19 @@ function GraphVisualization({
     setPan({ x: 0, y: 0 });
   };
 
+  // Reheat simulation
+  const handleReheat = useCallback(() => {
+    if (simulationRef.current) {
+      setIsSimulating(true);
+      // Release all fixed positions
+      nodesRef.current.forEach((node) => {
+        node.fx = null;
+        node.fy = null;
+      });
+      simulationRef.current.alpha(0.5).restart();
+    }
+  }, []);
+
   // Pan handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button === 0 && e.shiftKey) {
@@ -408,13 +542,86 @@ function GraphVisualization({
     }
   };
 
+  // Node drag handlers
+  const handleNodeDragStart = useCallback((nodeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDraggedNode(nodeId);
+
+    if (simulationRef.current) {
+      simulationRef.current.alphaTarget(0.3).restart();
+    }
+
+    const simNode = nodesRef.current.find((n) => n.id === nodeId);
+    if (simNode) {
+      simNode.fx = simNode.x;
+      simNode.fy = simNode.y;
+    }
+  }, []);
+
+  const handleNodeDrag = useCallback((nodeId: string, e: React.MouseEvent) => {
+    if (draggedNode !== nodeId) return;
+
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const rect = svg.getBoundingClientRect();
+    const svgX = (e.clientX - rect.left - pan.x) / zoom + minX;
+    const svgY = (e.clientY - rect.top - pan.y) / zoom;
+
+    const simNode = nodesRef.current.find((n) => n.id === nodeId);
+    if (simNode) {
+      simNode.fx = svgX;
+      simNode.fy = svgY;
+    }
+  }, [draggedNode, pan.x, pan.y, zoom, minX]);
+
+  const handleNodeDragEnd = useCallback(() => {
+    setDraggedNode(null);
+
+    if (simulationRef.current) {
+      simulationRef.current.alphaTarget(0);
+    }
+  }, []);
+
+  // Global mouse move/up for drag
+  useEffect(() => {
+    if (!draggedNode) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      const svg = svgRef.current;
+      if (!svg) return;
+
+      const rect = svg.getBoundingClientRect();
+      const svgX = (e.clientX - rect.left - pan.x) / zoom + minX;
+      const svgY = (e.clientY - rect.top - pan.y) / zoom;
+
+      const simNode = nodesRef.current.find((n) => n.id === draggedNode);
+      if (simNode) {
+        simNode.fx = svgX;
+        simNode.fy = svgY;
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      handleNodeDragEnd();
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [draggedNode, pan.x, pan.y, zoom, minX, handleNodeDragEnd]);
+
   const isNodeInHighlightedBranch = (branchId: string | null) => {
     if (!highlightedBranch) return true;
     return branchId === highlightedBranch || branchId === null;
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       {/* Zoom controls */}
       <div className="absolute top-2 left-2 z-10 flex gap-1">
         <button
@@ -438,6 +645,15 @@ function GraphVisualization({
         >
           RESET
         </button>
+        <button
+          onClick={handleReheat}
+          className={`px-2 h-8 bg-surface border border-acid-cyan/30 text-acid-cyan font-mono text-xs hover:bg-acid-cyan/20 ${
+            isSimulating ? 'animate-pulse' : ''
+          }`}
+          title="Re-run force simulation"
+        >
+          {isSimulating ? 'SIMULATING...' : 'RELAYOUT'}
+        </button>
         <span className="h-8 flex items-center px-2 text-xs font-mono text-text-muted">
           {Math.round(zoom * 100)}%
         </span>
@@ -445,7 +661,7 @@ function GraphVisualization({
 
       {/* Pan hint */}
       <div className="absolute top-2 right-2 z-10 text-xs font-mono text-text-muted/50">
-        Shift+drag to pan | Ctrl+scroll to zoom
+        Drag nodes | Shift+drag to pan | Ctrl+scroll to zoom
       </div>
 
       <svg
@@ -453,7 +669,7 @@ function GraphVisualization({
         width="100%"
         height={baseHeight}
         viewBox={`${minX - pan.x / zoom} ${-pan.y / zoom} ${baseWidth / zoom} ${baseHeight / zoom}`}
-        className={`bg-bg/50 ${isPanning ? 'cursor-grabbing' : 'cursor-default'}`}
+        className={`bg-bg/50 ${isPanning ? 'cursor-grabbing' : draggedNode ? 'cursor-grabbing' : 'cursor-default'}`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -500,7 +716,7 @@ function GraphVisualization({
               strokeWidth={isHighlighted ? 3 : 2}
               strokeOpacity={isDimmed ? 0.2 : isHighlighted ? 1 : 0.6}
               markerEnd={isHighlighted ? 'url(#arrowhead-highlighted)' : 'url(#arrowhead)'}
-              className="transition-all duration-200"
+              className="transition-all duration-100"
               onMouseEnter={() => onBranchHover(edge.branchId)}
               onMouseLeave={() => onBranchHover(null)}
             />
@@ -510,17 +726,22 @@ function GraphVisualization({
         {/* Nodes */}
         {positions.map((pos) => {
           const nodeInBranch = isNodeInHighlightedBranch(pos.node.branch_id);
+          const isDragging = draggedNode === pos.node.id;
 
           return (
             <g
               key={pos.node.id}
-              style={{ opacity: nodeInBranch ? 1 : 0.3 }}
+              style={{
+                opacity: nodeInBranch ? 1 : 0.3,
+                cursor: isDragging ? 'grabbing' : 'grab',
+              }}
               className="transition-opacity duration-200"
+              onMouseDown={(e) => handleNodeDragStart(pos.node.id, e)}
             >
               <GraphNode
                 position={pos}
-                isSelected={selectedNodeId === pos.node.id}
-                onClick={() => onNodeSelect(pos.node.id)}
+                isSelected={selectedNodeId === pos.node.id || isDragging}
+                onClick={() => !isDragging && onNodeSelect(pos.node.id)}
               />
             </g>
           );
@@ -532,9 +753,10 @@ function GraphVisualization({
 
 interface GraphDebateBrowserProps {
   events?: StreamEvent[];
+  initialDebateId?: string | null;
 }
 
-export function GraphDebateBrowser({ events = [] }: GraphDebateBrowserProps) {
+export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebateBrowserProps) {
   const [debates, setDebates] = useState<GraphDebate[]>([]);
   const [selectedDebate, setSelectedDebate] = useState<GraphDebate | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -544,7 +766,18 @@ export function GraphDebateBrowser({ events = [] }: GraphDebateBrowserProps) {
   const [newDebateTask, setNewDebateTask] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // Listen for graph debate events
+  // WebSocket connection for real-time updates
+  const {
+    isConnected: wsConnected,
+    lastEvent: wsLastEvent,
+    status: wsStatus,
+    reconnect: wsReconnect,
+  } = useGraphDebateWebSocket({
+    debateId: selectedDebate?.debate_id,
+    enabled: !!selectedDebate,
+  });
+
+  // Listen for graph debate events from props
   const latestGraphEvent = useMemo(() => {
     const relevant = events.filter(e =>
       e.type === 'debate_branch' ||
@@ -554,7 +787,33 @@ export function GraphDebateBrowser({ events = [] }: GraphDebateBrowserProps) {
     return relevant[relevant.length - 1];
   }, [events]);
 
-  // Refresh on graph events
+  // Refresh debate on WebSocket events
+  useEffect(() => {
+    if (!wsLastEvent || !selectedDebate) return;
+
+    // Re-fetch the selected debate to get updated graph
+    const refreshDebate = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+        const response = await fetch(
+          `${apiUrl}/api/debates/graph/${selectedDebate.debate_id}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setSelectedDebate(data);
+          // Also update in list
+          setDebates(prev =>
+            prev.map(d => d.debate_id === data.debate_id ? data : d)
+          );
+        }
+      } catch (e) {
+        // Ignore refresh errors
+      }
+    };
+    refreshDebate();
+  }, [wsLastEvent, selectedDebate]);
+
+  // Refresh on graph events from props (fallback)
   useEffect(() => {
     if (latestGraphEvent && selectedDebate) {
       // Re-fetch the selected debate to get updated graph
@@ -599,6 +858,36 @@ export function GraphDebateBrowser({ events = [] }: GraphDebateBrowserProps) {
     fetchDebates();
   }, [fetchDebates]);
 
+  // Auto-fetch and select debate when initialDebateId is provided
+  useEffect(() => {
+    if (!initialDebateId) return;
+
+    const fetchInitialDebate = async () => {
+      try {
+        setLoading(true);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+        const response = await fetch(`${apiUrl}/api/debates/graph/${initialDebateId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setSelectedDebate(data);
+          // Add to debates list if not already present
+          setDebates((prev) => {
+            const exists = prev.some((d) => d.debate_id === data.debate_id);
+            return exists ? prev : [data, ...prev];
+          });
+        } else {
+          setError(`Failed to load debate: ${initialDebateId}`);
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load debate');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInitialDebate();
+  }, [initialDebateId]);
+
   const handleCreateDebate = async () => {
     if (!newDebateTask.trim()) return;
 
@@ -639,7 +928,34 @@ export function GraphDebateBrowser({ events = [] }: GraphDebateBrowserProps) {
       {/* Header */}
       <div className="bg-surface border border-acid-green/30 p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-mono text-acid-green">{'>'} GRAPH DEBATES</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-mono text-acid-green">{'>'} GRAPH DEBATES</h2>
+            {/* WebSocket Status Indicator */}
+            {selectedDebate && (
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    wsConnected
+                      ? 'bg-acid-green animate-pulse'
+                      : wsStatus === 'connecting'
+                      ? 'bg-gold animate-pulse'
+                      : 'bg-crimson'
+                  }`}
+                />
+                <span className="text-[10px] font-mono text-text-muted">
+                  {wsConnected ? 'LIVE' : wsStatus === 'connecting' ? 'CONNECTING' : 'OFFLINE'}
+                </span>
+                {!wsConnected && wsStatus !== 'connecting' && (
+                  <button
+                    onClick={wsReconnect}
+                    className="text-[10px] font-mono text-acid-cyan hover:text-acid-green"
+                  >
+                    [RECONNECT]
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           <span className="text-xs font-mono text-text-muted">
             Branching & counterfactual exploration
           </span>
@@ -684,8 +1000,16 @@ export function GraphDebateBrowser({ events = [] }: GraphDebateBrowserProps) {
 
           <div className="max-h-[400px] overflow-y-auto">
             {loading && (
-              <div className="p-4 text-xs font-mono text-text-muted animate-pulse">
-                Loading debates...
+              <div className="p-4 space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="p-3 border-b border-border">
+                    <Skeleton width="70%" height={14} className="mb-2" />
+                    <div className="flex items-center gap-2">
+                      <Skeleton width={60} height={10} />
+                      <Skeleton width={60} height={10} />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 

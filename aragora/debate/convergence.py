@@ -13,6 +13,7 @@ Inspired by ai-counsel's convergence detection system.
 """
 
 import logging
+import os
 import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -20,6 +21,26 @@ from functools import lru_cache
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+_ENV_SIMILARITY_BACKEND = "ARAGORA_SIMILARITY_BACKEND"
+_ENV_CONVERGENCE_BACKEND = "ARAGORA_CONVERGENCE_BACKEND"
+_BACKEND_ALIASES = {
+    "sentence-transformers": "sentence-transformer",
+    "sentence_transformers": "sentence-transformer",
+    "sentence": "sentence-transformer",
+    "tf-idf": "tfidf",
+    "tf_idf": "tfidf",
+}
+_VALID_BACKENDS = {"auto", "sentence-transformer", "tfidf", "jaccard"}
+
+
+def _normalize_backend_name(value: str) -> str | None:
+    if not value:
+        return None
+    key = value.strip().lower()
+    key = key.replace("_", "-")
+    key = _BACKEND_ALIASES.get(key, key)
+    return key if key in _VALID_BACKENDS else None
 
 
 # =============================================================================
@@ -869,6 +890,19 @@ class ConvergenceDetector:
 
         Tries: SentenceTransformer -> TF-IDF -> Jaccard
         """
+        env_override = _normalize_backend_name(
+            os.getenv(_ENV_CONVERGENCE_BACKEND, "")
+        )
+        if env_override:
+            try:
+                backend = get_similarity_backend(env_override)
+                logger.info(f"Using {env_override} backend via {_ENV_CONVERGENCE_BACKEND}")
+                return backend
+            except Exception as e:
+                logger.warning(
+                    f"{_ENV_CONVERGENCE_BACKEND}={env_override} failed: {e}. Falling back to auto."
+                )
+
         # Try sentence transformers (best)
         try:
             backend: SimilarityBackend = SentenceTransformerBackend()
@@ -990,6 +1024,17 @@ def get_similarity_backend(preferred: str = "auto") -> SimilarityBackend:
     Returns:
         Requested backend instance
     """
+    if preferred == "auto":
+        env_override = _normalize_backend_name(
+            os.getenv(_ENV_SIMILARITY_BACKEND, "")
+        )
+        if env_override:
+            preferred = env_override
+        elif os.getenv(_ENV_SIMILARITY_BACKEND):
+            logger.warning(
+                f"{_ENV_SIMILARITY_BACKEND} value is invalid; using auto selection."
+            )
+
     if preferred == "jaccard":
         return JaccardBackend()
 

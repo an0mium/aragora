@@ -1,10 +1,32 @@
 'use client';
 
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { GraphDebateBrowser } from '@/components/GraphDebateBrowser';
+
+function GraphDebatesContent() {
+  const searchParams = useSearchParams();
+  const initialDebateId = searchParams.get('id');
+
+  return (
+    <div className="container mx-auto px-4 py-6">
+      {/* Breadcrumb */}
+      <div className="mb-4 text-xs font-mono text-text-muted">
+        <Link href="/debates" className="hover:text-acid-green">
+          Debates
+        </Link>
+        <span className="mx-2">/</span>
+        <span className="text-acid-green">Graph</span>
+      </div>
+
+      <GraphDebateBrowser initialDebateId={initialDebateId} />
+    </div>
+  );
+}
 
 export default function GraphDebatesPage() {
   return (
@@ -38,18 +60,13 @@ export default function GraphDebatesPage() {
           </div>
         </header>
 
-        <div className="container mx-auto px-4 py-6">
-          {/* Breadcrumb */}
-          <div className="mb-4 text-xs font-mono text-text-muted">
-            <Link href="/debates" className="hover:text-acid-green">
-              Debates
-            </Link>
-            <span className="mx-2">/</span>
-            <span className="text-acid-green">Graph</span>
+        <Suspense fallback={
+          <div className="container mx-auto px-4 py-6">
+            <div className="animate-pulse text-acid-green font-mono">Loading graph debate...</div>
           </div>
-
-          <GraphDebateBrowser />
-        </div>
+        }>
+          <GraphDebatesContent />
+        </Suspense>
 
         {/* Footer */}
         <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">

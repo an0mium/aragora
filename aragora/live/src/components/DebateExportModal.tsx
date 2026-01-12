@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface DebateExportModalProps {
   debateId: string;
@@ -39,6 +40,11 @@ export function DebateExportModal({
   const [selectedTable, setSelectedTable] = useState<ExportTable>('summary');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const focusTrapRef = useFocusTrap<HTMLDivElement>({
+    isActive: isOpen,
+    onEscape: onClose,
+  });
 
   const handleExport = useCallback(async () => {
     setLoading(true);
@@ -89,12 +95,12 @@ export function DebateExportModal({
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       onClick={onClose}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="export-modal-title"
     >
       <div
+        ref={focusTrapRef}
         className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 max-w-md w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
@@ -103,11 +109,14 @@ export function DebateExportModal({
         {/* Format Selection */}
         <div className="mb-4">
           <label className="block text-sm text-zinc-400 mb-2">Format</label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Export format">
             {(['json', 'csv', 'dot', 'html'] as ExportFormat[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFormat(f)}
+                role="radio"
+                aria-checked={format === f}
+                aria-label={`Export as ${f.toUpperCase()}: ${FORMAT_DESCRIPTIONS[f]}`}
                 className={`p-3 rounded border text-left ${
                   format === f
                     ? 'border-blue-500 bg-blue-500/10 text-blue-400'
@@ -126,8 +135,9 @@ export function DebateExportModal({
         {/* CSV Table Selection */}
         {format === 'csv' && (
           <div className="mb-4">
-            <label className="block text-sm text-zinc-400 mb-2">Table</label>
+            <label htmlFor="csv-table-select" className="block text-sm text-zinc-400 mb-2">Table</label>
             <select
+              id="csv-table-select"
               value={selectedTable}
               onChange={(e) => setSelectedTable(e.target.value as ExportTable)}
               className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-zinc-300"
@@ -154,12 +164,14 @@ export function DebateExportModal({
             onClick={onClose}
             className="px-4 py-2 text-zinc-400 hover:text-zinc-300"
             disabled={loading}
+            aria-label="Cancel export"
           >
             Cancel
           </button>
           <button
             onClick={handleExport}
             disabled={loading}
+            aria-label={loading ? 'Exporting debate data' : 'Export debate data'}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
           >
             {loading ? 'Exporting...' : 'Export'}

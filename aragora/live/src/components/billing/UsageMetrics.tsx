@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
@@ -23,20 +23,13 @@ export function UsageMetrics({ compact = false, className = '' }: UsageMetricsPr
   const { isAuthenticated, tokens } = useAuth();
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(true);
+  const accessToken = tokens?.access_token;
 
-  useEffect(() => {
-    if (isAuthenticated && tokens?.access_token) {
-      fetchUsage();
-    } else {
-      setLoading(false);
-    }
-  }, [isAuthenticated, tokens]);
-
-  const fetchUsage = async () => {
+  const fetchUsage = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/billing/usage`, {
         headers: {
-          'Authorization': `Bearer ${tokens?.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
       });
       if (res.ok) {
@@ -48,7 +41,15 @@ export function UsageMetrics({ compact = false, className = '' }: UsageMetricsPr
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (isAuthenticated && accessToken) {
+      fetchUsage();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated, accessToken, fetchUsage]);
 
   if (!isAuthenticated) return null;
 

@@ -158,6 +158,8 @@ class CritiqueMixin:
 
 
 AgentType = Literal[
+    # Built-in
+    "demo",
     # CLI-based
     "codex", "claude", "openai", "gemini-cli", "grok-cli", "qwen-cli", "deepseek-cli", "kilocode",
     # API-based (direct)

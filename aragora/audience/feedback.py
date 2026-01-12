@@ -12,15 +12,13 @@ Features:
 - Identify high-value contributors
 """
 
-import sqlite3
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from typing import Optional, Any
 
-from aragora.config import DB_TIMEOUT_SECONDS
-from aragora.audience.database import AudienceDatabase
+from aragora.config import resolve_db_path
+from aragora.storage.base_store import SQLiteStore
 
 
 @dataclass
@@ -74,7 +72,7 @@ class ContributorStats:
         return self.suggestions_in_consensus / self.total_suggestions
 
 
-class SuggestionFeedbackTracker:
+class SuggestionFeedbackTracker(SQLiteStore):
     """
     Tracks suggestion effectiveness and contributor reputation.
 
@@ -91,54 +89,42 @@ class SuggestionFeedbackTracker:
         stats = tracker.get_contributor_stats(user_id)
     """
 
+    SCHEMA_NAME = "suggestion_feedback"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS suggestion_injections (
+            id TEXT PRIMARY KEY,
+            debate_id TEXT NOT NULL,
+            suggestion_text TEXT NOT NULL,
+            cluster_count INTEGER DEFAULT 1,
+            user_ids TEXT,
+            injected_at TEXT,
+            debate_completed INTEGER DEFAULT 0,
+            consensus_reached INTEGER DEFAULT 0,
+            consensus_confidence REAL DEFAULT 0.0,
+            duration_seconds REAL DEFAULT 0.0,
+            effectiveness_score REAL DEFAULT 0.0
+        );
+
+        CREATE TABLE IF NOT EXISTS contributor_stats (
+            user_id TEXT PRIMARY KEY,
+            total_suggestions INTEGER DEFAULT 0,
+            suggestions_in_consensus INTEGER DEFAULT 0,
+            avg_effectiveness REAL DEFAULT 0.0,
+            reputation_score REAL DEFAULT 0.5,
+            updated_at TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_injection_debate
+        ON suggestion_injections(debate_id);
+
+        CREATE INDEX IF NOT EXISTS idx_injection_completed
+        ON suggestion_injections(debate_completed);
+    """
+
     def __init__(self, db_path: str = "suggestion_feedback.db"):
-        self.db_path = Path(db_path)
-        self.db = AudienceDatabase(db_path)
-        self._init_db()
-
-    def _init_db(self) -> None:
-        """Initialize database tables."""
-        with self.db.connection() as conn:
-            cursor = conn.cursor()
-
-            # Suggestion injections table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS suggestion_injections (
-                    id TEXT PRIMARY KEY,
-                    debate_id TEXT NOT NULL,
-                    suggestion_text TEXT NOT NULL,
-                    cluster_count INTEGER DEFAULT 1,
-                    user_ids TEXT,
-                    injected_at TEXT,
-                    debate_completed INTEGER DEFAULT 0,
-                    consensus_reached INTEGER DEFAULT 0,
-                    consensus_confidence REAL DEFAULT 0.0,
-                    duration_seconds REAL DEFAULT 0.0,
-                    effectiveness_score REAL DEFAULT 0.0
-                )
-            """)
-
-            # Contributor stats table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS contributor_stats (
-                    user_id TEXT PRIMARY KEY,
-                    total_suggestions INTEGER DEFAULT 0,
-                    suggestions_in_consensus INTEGER DEFAULT 0,
-                    avg_effectiveness REAL DEFAULT 0.0,
-                    reputation_score REAL DEFAULT 0.5,
-                    updated_at TEXT
-                )
-            """)
-
-            # Indexes
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_injection_debate ON suggestion_injections(debate_id)"
-            )
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_injection_completed ON suggestion_injections(debate_completed)"
-            )
-
-            conn.commit()
+        super().__init__(resolve_db_path(db_path))
 
     def record_injection(
         self,
@@ -158,7 +144,7 @@ class SuggestionFeedbackTracker:
         import uuid
         injection_ids = []
 
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             for cluster in clusters:
@@ -214,7 +200,7 @@ class SuggestionFeedbackTracker:
         Returns:
             Number of suggestions updated
         """
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Get all injections for this debate
@@ -319,7 +305,7 @@ class SuggestionFeedbackTracker:
 
     def get_contributor_stats(self, user_id: str) -> Optional[ContributorStats]:
         """Get stats for a specific contributor."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT user_id, total_suggestions, suggestions_in_consensus, avg_effectiveness, reputation_score "
@@ -341,7 +327,7 @@ class SuggestionFeedbackTracker:
 
     def get_top_contributors(self, limit: int = 10) -> list[ContributorStats]:
         """Get top contributors by reputation."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT user_id, total_suggestions, suggestions_in_consensus, avg_effectiveness, reputation_score
@@ -365,7 +351,7 @@ class SuggestionFeedbackTracker:
 
     def get_debate_suggestions(self, debate_id: str) -> list[SuggestionRecord]:
         """Get all suggestions for a debate."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT * FROM suggestion_injections WHERE debate_id = ?",
@@ -392,7 +378,7 @@ class SuggestionFeedbackTracker:
 
     def get_effectiveness_stats(self) -> dict[str, Any]:
         """Get overall suggestion effectiveness statistics."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             stats = {}
@@ -460,7 +446,7 @@ class SuggestionFeedbackTracker:
         Returns:
             Filtered and sorted suggestions (high rep first)
         """
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             filtered = []

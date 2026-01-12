@@ -39,6 +39,9 @@ export function CollapsibleSection({
     <div className="border border-acid-green/20 rounded-lg overflow-hidden mb-3 bg-surface/30">
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-controls={`section-${id}-content`}
+        aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${title} section`}
         className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-acid-green/5 transition-colors group"
       >
         <div className="flex items-center gap-2">
@@ -64,6 +67,7 @@ export function CollapsibleSection({
       </button>
 
       <div
+        id={`section-${id}-content`}
         className={`transition-all duration-200 ease-in-out overflow-hidden ${
           isOpen ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
         }`}

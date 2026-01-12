@@ -118,7 +118,7 @@ class ProofSandbox:
     def __del__(self):
         """Destructor - fallback cleanup if context manager not used."""
         try:
-            if not self._closed:
+            if not self._closed and self.config.cleanup_on_exit:
                 self._cleanup_temp_dirs()
         except Exception:
             pass  # Suppress errors during garbage collection
@@ -402,12 +402,6 @@ class ProofSandbox:
                 status=SandboxStatus.SETUP_FAILED,
                 error_message=f"Unknown language: {language}. Supported: z3, lean",
             )
-
-    def __del__(self):
-        """Cleanup on destruction."""
-        if self.config.cleanup_on_exit:
-            self._cleanup_temp_dirs()
-
 
 # Convenience function
 async def run_sandboxed(

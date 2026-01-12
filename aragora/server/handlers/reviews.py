@@ -22,7 +22,7 @@ class ReviewsHandler(BaseHandler):
 
     prefix = "/api/reviews"
 
-    def can_handle(self, path: str, method: str) -> bool:
+    def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the request."""
         return path.startswith(self.prefix)
 

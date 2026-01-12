@@ -19,6 +19,7 @@ from aragora.agents.api_agents.common import (
     get_api_key,
     _sanitize_error_message,
     create_openai_sse_parser,
+    create_client_session,
 )
 from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
@@ -131,12 +132,11 @@ class OpenRouterAgent(APIAgent):
                 )
 
             try:
-                async with aiohttp.ClientSession() as session:
+                async with create_client_session(timeout=self.timeout) as session:
                     async with session.post(
                         url,
                         headers=headers,
                         json=payload,
-                        timeout=aiohttp.ClientTimeout(total=self.timeout),
                     ) as response:
                         # Update rate limit state from headers
                         limiter.update_from_headers(dict(response.headers))
@@ -262,12 +262,11 @@ class OpenRouterAgent(APIAgent):
                 )
 
             try:
-                async with aiohttp.ClientSession() as session:
+                async with create_client_session(timeout=self.timeout) as session:
                     async with session.post(
                         url,
                         headers=headers,
                         json=payload,
-                        timeout=aiohttp.ClientTimeout(total=self.timeout),
                     ) as response:
                         # Update rate limit state from headers
                         limiter.update_from_headers(dict(response.headers))
@@ -609,12 +608,11 @@ class KimiAgent(APIAgent):
             "temperature": 0.7,
         }
 
-        async with aiohttp.ClientSession() as session:
+        async with create_client_session(timeout=self.timeout) as session:
             async with session.post(
                 f"{self.base_url}/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=120),
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()

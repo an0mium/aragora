@@ -36,13 +36,19 @@ class AragoraMCPServer:
     MCP Server for Aragora.
 
     Exposes the following tools:
-    - run_debate: Run a multi-agent debate on a topic
+    - run_debate: Run a decision stress-test (debate engine) on a topic
     - run_gauntlet: Stress-test a document/spec
     - list_agents: List available agents
     - get_debate: Get results of a past debate
+    - search_debates: Search debates by topic, date, agents
+    - get_agent_history: Get agent debate history and stats
+    - get_consensus_proofs: Retrieve formal proofs from debates
+    - list_trending_topics: Get trending topics from Pulse
 
     And the following resources:
     - debate://{id}: Access debate results
+    - agent://{name}/stats: Access agent statistics
+    - trending://topics: Access trending topics
     """
 
     def __init__(self):
@@ -54,6 +60,7 @@ class AragoraMCPServer:
         self.server = Server("aragora")
         self._setup_handlers()
         self._debates_cache: Dict[str, Dict[str, Any]] = {}
+        self._agents_cache: Dict[str, Dict[str, Any]] = {}
 
     def _setup_handlers(self) -> None:
         """Set up MCP request handlers."""
@@ -64,13 +71,16 @@ class AragoraMCPServer:
             return [
                 Tool(
                     name="run_debate",
-                    description="Run a multi-agent AI debate on a topic. Multiple AI agents will discuss, critique, and converge on an answer.",
+                    description=(
+                        "Run a decision stress-test (debate engine). "
+                        "Multiple AI agents will critique and converge on a hardened answer."
+                    ),
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "question": {
                                 "type": "string",
-                                "description": "The question or topic to debate",
+                                "description": "The question or topic to stress-test",
                             },
                             "agents": {
                                 "type": "string",
@@ -142,6 +152,120 @@ class AragoraMCPServer:
                         "required": ["debate_id"],
                     },
                 ),
+                Tool(
+                    name="search_debates",
+                    description="Search debates by topic, date range, or participating agents.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search query for topic text",
+                            },
+                            "agent": {
+                                "type": "string",
+                                "description": "Filter by agent name",
+                            },
+                            "start_date": {
+                                "type": "string",
+                                "description": "Start date (YYYY-MM-DD)",
+                            },
+                            "end_date": {
+                                "type": "string",
+                                "description": "End date (YYYY-MM-DD)",
+                            },
+                            "consensus_only": {
+                                "type": "boolean",
+                                "description": "Only return debates that reached consensus",
+                                "default": False,
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max results (1-100). Default: 20",
+                                "default": 20,
+                                "minimum": 1,
+                                "maximum": 100,
+                            },
+                        },
+                    },
+                ),
+                Tool(
+                    name="get_agent_history",
+                    description="Get an agent's debate history, ELO rating, and performance stats.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "agent_name": {
+                                "type": "string",
+                                "description": "The agent name (e.g., 'anthropic-api', 'openai-api')",
+                            },
+                            "include_debates": {
+                                "type": "boolean",
+                                "description": "Include recent debate summaries",
+                                "default": True,
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max debates to include. Default: 10",
+                                "default": 10,
+                            },
+                        },
+                        "required": ["agent_name"],
+                    },
+                ),
+                Tool(
+                    name="get_consensus_proofs",
+                    description="Retrieve formal verification proofs from debates.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "debate_id": {
+                                "type": "string",
+                                "description": "Specific debate ID to get proofs for",
+                            },
+                            "proof_type": {
+                                "type": "string",
+                                "enum": ["z3", "lean", "all"],
+                                "description": "Type of proofs to retrieve. Default: all",
+                                "default": "all",
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max proofs to return. Default: 10",
+                                "default": 10,
+                            },
+                        },
+                    },
+                ),
+                Tool(
+                    name="list_trending_topics",
+                    description="Get trending topics from Pulse that could make good debates.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "platform": {
+                                "type": "string",
+                                "enum": ["hackernews", "reddit", "arxiv", "all"],
+                                "description": "Source platform. Default: all",
+                                "default": "all",
+                            },
+                            "category": {
+                                "type": "string",
+                                "description": "Topic category filter (e.g., 'tech', 'science', 'ai')",
+                            },
+                            "min_score": {
+                                "type": "number",
+                                "description": "Minimum topic score (0-1). Default: 0.5",
+                                "default": 0.5,
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max topics to return. Default: 10",
+                                "default": 10,
+                            },
+                        },
+                    },
+                ),
             ]
 
         @self.server.call_tool()
@@ -156,6 +280,14 @@ class AragoraMCPServer:
                     result = await self._list_agents()
                 elif name == "get_debate":
                     result = await self._get_debate(arguments)
+                elif name == "search_debates":
+                    result = await self._search_debates(arguments)
+                elif name == "get_agent_history":
+                    result = await self._get_agent_history(arguments)
+                elif name == "get_consensus_proofs":
+                    result = await self._get_consensus_proofs(arguments)
+                elif name == "list_trending_topics":
+                    result = await self._list_trending_topics(arguments)
                 else:
                     result = {"error": f"Unknown tool: {name}"}
 
@@ -193,6 +325,18 @@ class AragoraMCPServer:
                     description="Access a debate result by ID",
                     mimeType="application/json",
                 ),
+                ResourceTemplate(
+                    uriTemplate="agent://{agent_name}/stats",
+                    name="Agent Statistics",
+                    description="Access agent ELO rating and performance statistics",
+                    mimeType="application/json",
+                ),
+                ResourceTemplate(
+                    uriTemplate="trending://topics",
+                    name="Trending Topics",
+                    description="Access current trending topics from Pulse",
+                    mimeType="application/json",
+                ),
             ]
 
         @self.server.read_resource()
@@ -203,7 +347,20 @@ class AragoraMCPServer:
                 debate_data = self._debates_cache.get(debate_id)
                 if debate_data:
                     return json.dumps(debate_data, indent=2)
-                return json.dumps({"error": f"Debate {debate_id} not found"})
+                # Try storage
+                result = await self._get_debate({"debate_id": debate_id})
+                return json.dumps(result, indent=2)
+
+            elif uri.startswith("agent://") and uri.endswith("/stats"):
+                # Extract agent name from agent://{name}/stats
+                agent_name = uri.replace("agent://", "").replace("/stats", "")
+                result = await self._get_agent_history({"agent_name": agent_name})
+                return json.dumps(result, indent=2)
+
+            elif uri == "trending://topics":
+                result = await self._list_trending_topics({})
+                return json.dumps(result, indent=2)
+
             return json.dumps({"error": f"Unknown resource: {uri}"})
 
     async def _run_debate(self, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -381,6 +538,265 @@ class AragoraMCPServer:
             logger.warning(f"Could not fetch debate from storage: {e}")
 
         return {"error": f"Debate {debate_id} not found"}
+
+    async def _search_debates(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Search debates by topic, date, or agents."""
+        from datetime import datetime
+
+        query = args.get("query", "")
+        agent_filter = args.get("agent", "")
+        start_date = args.get("start_date", "")
+        end_date = args.get("end_date", "")
+        consensus_only = args.get("consensus_only", False)
+        limit = min(max(args.get("limit", 20), 1), 100)
+
+        results = []
+
+        # Search cache first
+        for debate_id, debate_data in self._debates_cache.items():
+            # Apply filters
+            if query and query.lower() not in debate_data.get("task", "").lower():
+                continue
+            if agent_filter:
+                agents = debate_data.get("agents", [])
+                if not any(agent_filter.lower() in a.lower() for a in agents):
+                    continue
+            if consensus_only and not debate_data.get("consensus_reached", False):
+                continue
+            if start_date:
+                debate_ts = debate_data.get("timestamp", "")
+                if debate_ts < start_date:
+                    continue
+            if end_date:
+                debate_ts = debate_data.get("timestamp", "")
+                if debate_ts > end_date:
+                    continue
+
+            results.append({
+                "debate_id": debate_id,
+                "task": debate_data.get("task", "")[:100],
+                "consensus_reached": debate_data.get("consensus_reached", False),
+                "confidence": debate_data.get("confidence", 0),
+                "timestamp": debate_data.get("timestamp", ""),
+            })
+
+        # Try storage for more results
+        try:
+            from aragora.server.storage import get_debates_db
+            db = get_debates_db()
+            if db and hasattr(db, "search"):
+                stored = db.search(
+                    query=query,
+                    agent=agent_filter,
+                    consensus_only=consensus_only,
+                    limit=limit,
+                )
+                for debate in stored:
+                    if debate.get("debate_id") not in [r["debate_id"] for r in results]:
+                        results.append(debate)
+        except Exception as e:
+            logger.debug(f"Storage search unavailable: {e}")
+
+        # Sort by timestamp (newest first) and limit
+        results.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        results = results[:limit]
+
+        return {
+            "debates": results,
+            "count": len(results),
+            "query": query or "(all)",
+            "filters": {
+                "agent": agent_filter or None,
+                "consensus_only": consensus_only,
+                "date_range": f"{start_date or '*'} to {end_date or '*'}",
+            },
+        }
+
+    async def _get_agent_history(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Get agent debate history and stats."""
+        agent_name = args.get("agent_name", "")
+        include_debates = args.get("include_debates", True)
+        limit = args.get("limit", 10)
+
+        if not agent_name:
+            return {"error": "agent_name is required"}
+
+        result: Dict[str, Any] = {
+            "agent_name": agent_name,
+            "elo_rating": 1500,  # Default
+            "total_debates": 0,
+            "consensus_rate": 0.0,
+            "win_rate": 0.0,
+        }
+
+        # Try to get ELO rating
+        try:
+            from aragora.ranking.elo import ELOSystem
+            elo = ELOSystem()
+            rating = elo.get_rating(agent_name)
+            if rating:
+                result["elo_rating"] = rating.rating
+                result["elo_deviation"] = rating.deviation
+        except Exception as e:
+            logger.debug(f"Could not get ELO: {e}")
+
+        # Try to get performance stats
+        try:
+            from aragora.server.storage import get_debates_db
+            db = get_debates_db()
+            if db and hasattr(db, "get_agent_stats"):
+                stats = db.get_agent_stats(agent_name)
+                if stats:
+                    result.update({
+                        "total_debates": stats.get("total_debates", 0),
+                        "consensus_rate": stats.get("consensus_rate", 0.0),
+                        "win_rate": stats.get("win_rate", 0.0),
+                        "avg_confidence": stats.get("avg_confidence", 0.0),
+                    })
+        except Exception as e:
+            logger.debug(f"Could not get agent stats: {e}")
+
+        # Get recent debates from cache
+        if include_debates:
+            agent_debates = []
+            for debate_id, debate_data in self._debates_cache.items():
+                agents = debate_data.get("agents", [])
+                if any(agent_name.lower() in a.lower() for a in agents):
+                    agent_debates.append({
+                        "debate_id": debate_id,
+                        "task": debate_data.get("task", "")[:80],
+                        "consensus_reached": debate_data.get("consensus_reached", False),
+                        "timestamp": debate_data.get("timestamp", ""),
+                    })
+
+            agent_debates.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            result["recent_debates"] = agent_debates[:limit]
+            result["total_debates"] = max(result["total_debates"], len(agent_debates))
+
+        return result
+
+    async def _get_consensus_proofs(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Get formal verification proofs from debates."""
+        debate_id = args.get("debate_id", "")
+        proof_type = args.get("proof_type", "all")
+        limit = args.get("limit", 10)
+
+        proofs: List[Dict[str, Any]] = []
+
+        # If specific debate requested, get proofs from that debate
+        if debate_id:
+            debate_data = self._debates_cache.get(debate_id)
+            if not debate_data:
+                # Try storage
+                try:
+                    from aragora.server.storage import get_debates_db
+                    db = get_debates_db()
+                    if db:
+                        debate_data = db.get(debate_id)
+                except Exception as e:
+                    logger.debug(f"Failed to fetch debate {debate_id} from storage: {e}")
+
+            if debate_data and "proofs" in debate_data:
+                for proof in debate_data["proofs"]:
+                    if proof_type == "all" or proof.get("type") == proof_type:
+                        proofs.append(proof)
+        else:
+            # Get proofs from all cached debates
+            for did, ddata in self._debates_cache.items():
+                if "proofs" in ddata:
+                    for proof in ddata["proofs"]:
+                        if proof_type == "all" or proof.get("type") == proof_type:
+                            proof_entry = {**proof, "debate_id": did}
+                            proofs.append(proof_entry)
+
+        # Try to get from verification storage
+        try:
+            from aragora.server.storage import get_proofs_db
+            proofs_db = get_proofs_db()
+            if proofs_db:
+                stored_proofs = proofs_db.list(
+                    debate_id=debate_id or None,
+                    proof_type=proof_type if proof_type != "all" else None,
+                    limit=limit,
+                )
+                for p in stored_proofs:
+                    if p not in proofs:
+                        proofs.append(p)
+        except Exception as e:
+            logger.debug(f"Proofs storage unavailable: {e}")
+
+        # Limit results
+        proofs = proofs[:limit]
+
+        return {
+            "proofs": proofs,
+            "count": len(proofs),
+            "debate_id": debate_id or "(all debates)",
+            "proof_type": proof_type,
+        }
+
+    async def _list_trending_topics(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Get trending topics from Pulse."""
+        platform = args.get("platform", "all")
+        category = args.get("category", "")
+        min_score = args.get("min_score", 0.5)
+        limit = args.get("limit", 10)
+
+        topics: List[Dict[str, Any]] = []
+
+        try:
+            from aragora.pulse import get_trending_topics, TrendingTopic
+            from aragora.pulse.scheduler import TopicSelector
+
+            # Get trending topics
+            raw_topics = await get_trending_topics(
+                platforms=[platform] if platform != "all" else None,
+                limit=limit * 2,  # Get more, then filter
+            )
+
+            # Score and filter topics
+            selector = TopicSelector()
+
+            for topic in raw_topics:
+                # Apply platform filter
+                if platform != "all" and topic.platform != platform:
+                    continue
+
+                # Apply category filter
+                if category and topic.category.lower() != category.lower():
+                    continue
+
+                # Score the topic
+                score = selector.score_topic(topic)
+
+                if score >= min_score:
+                    topics.append({
+                        "topic": topic.topic,
+                        "platform": topic.platform,
+                        "category": topic.category,
+                        "score": round(score, 3),
+                        "volume": topic.volume,
+                        "debate_potential": "high" if score > 0.7 else "medium",
+                    })
+
+            # Sort by score and limit
+            topics.sort(key=lambda x: x["score"], reverse=True)
+            topics = topics[:limit]
+
+        except ImportError:
+            logger.warning("Pulse module not available")
+            topics = []
+        except Exception as e:
+            logger.warning(f"Could not fetch trending topics: {e}")
+            topics = []
+
+        return {
+            "topics": topics,
+            "count": len(topics),
+            "platform": platform,
+            "category": category or "(all)",
+            "min_score": min_score,
+        }
 
     async def run(self) -> None:
         """Run the MCP server."""

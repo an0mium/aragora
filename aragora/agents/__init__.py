@@ -18,6 +18,7 @@ from aragora.agents.cli_agents import (
     DeepseekCLIAgent,
     KiloCodeAgent,
 )
+from aragora.agents.demo_agent import DemoAgent
 from aragora.agents.api_agents import (
     GeminiAgent,
     OllamaAgent,
@@ -92,6 +93,8 @@ __all__ = [
     "QwenCLIAgent",
     "DeepseekCLIAgent",
     "KiloCodeAgent",
+    # Built-in
+    "DemoAgent",
     # API-based (direct)
     "GeminiAgent",
     "OllamaAgent",

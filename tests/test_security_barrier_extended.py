@@ -82,9 +82,9 @@ class TestSecurityBarrierBypassAttempts:
         barrier = SecurityBarrier()
 
         test_cases = [
-            "sk-abc123def456ghi789jkl012mno345pqr678",  # Old format
+            "sk-TESTKEY123456789012345678901234",  # Old format
             "sk-proj-abc123def456ghi789jkl012mno345",  # Project key
-            "sk-ant-abc123def456ghi789jkl012mno345",  # Anthropic-style
+            "sk-ant-TESTKEY12345678901234567890",  # Anthropic-style
             "sk-svc-abc123def456ghi789jkl012mno345",  # Service key
         ]
 
@@ -98,8 +98,8 @@ class TestSecurityBarrierBypassAttempts:
 
         # Google API keys start with AIza followed by 35 chars
         test_keys = [
-            "AIzaSyDaGmWKa4JsXZ-HjGw7ISLn_3namBGewQe",  # Example format
-            "AIzaSyB1234567890abcdefghijklmnopqrstuvwx",
+            "AIzaTESTKEYEXAMPLE1234567890123456789AB",  # Example format
+            "AIzaTESTKEYEXAMPLE1234567890123456789ABwx",
         ]
 
         for key in test_keys:
@@ -493,7 +493,7 @@ MIIEpQIBAAKCAQEA0Z3...
         barrier = SecurityBarrier()
 
         content = """-----BEGIN PRIVATE KEY-----
-MIIEvQIBADANBgkqhk...
+<REDACTED_PRIVATE_KEY>
 -----END PRIVATE KEY-----"""
 
         result = barrier.redact(content)

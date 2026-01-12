@@ -9,15 +9,13 @@ Stores and retrieves insights with:
 
 import asyncio
 import logging
-import sqlite3
 import json
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 
-from aragora.config import DB_INSIGHTS_PATH, DB_TIMEOUT_SECONDS
-from aragora.insights.database import InsightsDatabase
+from aragora.config import DB_INSIGHTS_PATH, resolve_db_path
 from aragora.insights.extractor import Insight, InsightType, DebateInsights
+from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager
 from aragora.utils.json_helpers import safe_json_loads
 
@@ -26,21 +24,105 @@ logger = logging.getLogger(__name__)
 # Schema version for InsightStore migrations
 INSIGHT_STORE_SCHEMA_VERSION = 2
 
+INSIGHT_INITIAL_SCHEMA = """
+    -- Insights table
+    CREATE TABLE IF NOT EXISTS insights (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        confidence REAL DEFAULT 0.5,
+        debate_id TEXT NOT NULL,
+        agents_involved TEXT,  -- JSON array
+        evidence TEXT,  -- JSON array
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        metadata TEXT  -- JSON object
+    );
+
+    -- Debate summaries table
+    CREATE TABLE IF NOT EXISTS debate_summaries (
+        debate_id TEXT PRIMARY KEY,
+        task TEXT,
+        consensus_reached INTEGER,
+        duration_seconds REAL,
+        total_insights INTEGER,
+        key_takeaway TEXT,
+        agent_performances TEXT,  -- JSON array
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Agent performance history
+    CREATE TABLE IF NOT EXISTS agent_performance_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        agent_name TEXT NOT NULL,
+        debate_id TEXT NOT NULL,
+        proposals_made INTEGER DEFAULT 0,
+        critiques_given INTEGER DEFAULT 0,
+        critiques_received INTEGER DEFAULT 0,
+        proposal_accepted INTEGER DEFAULT 0,
+        vote_aligned INTEGER DEFAULT 0,
+        avg_critique_severity REAL DEFAULT 0.0,
+        contribution_score REAL DEFAULT 0.5,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (debate_id) REFERENCES debate_summaries(debate_id)
+    );
+
+    -- Pattern clusters (aggregated from pattern insights)
+    CREATE TABLE IF NOT EXISTS pattern_clusters (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT NOT NULL,
+        pattern_text TEXT NOT NULL,
+        occurrence_count INTEGER DEFAULT 1,
+        avg_severity REAL DEFAULT 0.5,
+        debate_ids TEXT,  -- JSON array
+        first_seen TEXT,
+        last_seen TEXT,
+        UNIQUE(category, pattern_text)
+    );
+
+    -- Indexes
+    CREATE INDEX IF NOT EXISTS idx_insights_type ON insights(type);
+    CREATE INDEX IF NOT EXISTS idx_insights_debate ON insights(debate_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_perf_name ON agent_performance_history(agent_name);
+    CREATE INDEX IF NOT EXISTS idx_pattern_category ON pattern_clusters(category);
+"""
+
+INSIGHT_INDEX_MIGRATION = """
+    -- Index for confidence-based queries (filtering high-confidence insights)
+    CREATE INDEX IF NOT EXISTS idx_insights_confidence
+    ON insights(confidence DESC);
+
+    -- Composite index for type + confidence filtering
+    CREATE INDEX IF NOT EXISTS idx_insights_type_confidence
+    ON insights(type, confidence DESC);
+
+    -- Index for agent performance by debate (join optimization)
+    CREATE INDEX IF NOT EXISTS idx_agent_perf_debate
+    ON agent_performance_history(debate_id);
+
+    -- Composite index for agent performance lookups
+    CREATE INDEX IF NOT EXISTS idx_agent_perf_name_debate
+    ON agent_performance_history(agent_name, debate_id);
+
+    -- Index for time-based queries on debate summaries
+    CREATE INDEX IF NOT EXISTS idx_debate_summaries_created
+    ON debate_summaries(created_at DESC);
+
+    -- Index for pattern recency queries
+    CREATE INDEX IF NOT EXISTS idx_pattern_last_seen
+    ON pattern_clusters(last_seen DESC);
+"""
+
 # Explicit column list for SELECT queries - must match _row_to_insight() order
 INSIGHT_COLUMNS = """id, type, title, description, confidence,
     debate_id, agents_involved, evidence, created_at, metadata"""
 
 
-def _escape_like_pattern(value: str) -> str:
-    """Escape special characters in SQL LIKE patterns to prevent injection.
-
-    SQLite LIKE uses % and _ as wildcards. This escapes them using backslash.
-    """
-    # Escape backslash first, then LIKE special characters
-    return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+# Import from centralized location (defined here for backwards compatibility)
+from aragora.utils.sql_helpers import _escape_like_pattern
 
 
-class InsightStore:
+class InsightStore(SQLiteStore):
     """
     SQLite-based storage for debate insights.
 
@@ -61,120 +143,25 @@ class InsightStore:
         patterns = await store.get_common_patterns(min_occurrences=3)
     """
 
+    SCHEMA_NAME = "insight_store"
+    SCHEMA_VERSION = INSIGHT_STORE_SCHEMA_VERSION
+    INITIAL_SCHEMA = INSIGHT_INITIAL_SCHEMA
+
     def __init__(self, db_path: str = DB_INSIGHTS_PATH):
-        self.db_path = Path(db_path)
-        self.db = InsightsDatabase(db_path)
-        self._init_db()
+        super().__init__(resolve_db_path(db_path))
 
-    def _init_db(self) -> None:
-        """Initialize the database schema using SchemaManager."""
-        with self.db.connection() as conn:
-            # Use SchemaManager for version tracking and migrations
-            manager = SchemaManager(
-                conn, "insight_store", current_version=INSIGHT_STORE_SCHEMA_VERSION
-            )
-
-            # Initial schema (v1)
-            initial_schema = """
-                -- Insights table
-                CREATE TABLE IF NOT EXISTS insights (
-                    id TEXT PRIMARY KEY,
-                    type TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    description TEXT,
-                    confidence REAL DEFAULT 0.5,
-                    debate_id TEXT NOT NULL,
-                    agents_involved TEXT,  -- JSON array
-                    evidence TEXT,  -- JSON array
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    metadata TEXT  -- JSON object
-                );
-
-                -- Debate summaries table
-                CREATE TABLE IF NOT EXISTS debate_summaries (
-                    debate_id TEXT PRIMARY KEY,
-                    task TEXT,
-                    consensus_reached INTEGER,
-                    duration_seconds REAL,
-                    total_insights INTEGER,
-                    key_takeaway TEXT,
-                    agent_performances TEXT,  -- JSON array
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-
-                -- Agent performance history
-                CREATE TABLE IF NOT EXISTS agent_performance_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    agent_name TEXT NOT NULL,
-                    debate_id TEXT NOT NULL,
-                    proposals_made INTEGER DEFAULT 0,
-                    critiques_given INTEGER DEFAULT 0,
-                    critiques_received INTEGER DEFAULT 0,
-                    proposal_accepted INTEGER DEFAULT 0,
-                    vote_aligned INTEGER DEFAULT 0,
-                    avg_critique_severity REAL DEFAULT 0.0,
-                    contribution_score REAL DEFAULT 0.5,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (debate_id) REFERENCES debate_summaries(debate_id)
-                );
-
-                -- Pattern clusters (aggregated from pattern insights)
-                CREATE TABLE IF NOT EXISTS pattern_clusters (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    category TEXT NOT NULL,
-                    pattern_text TEXT NOT NULL,
-                    occurrence_count INTEGER DEFAULT 1,
-                    avg_severity REAL DEFAULT 0.5,
-                    debate_ids TEXT,  -- JSON array
-                    first_seen TEXT,
-                    last_seen TEXT,
-                    UNIQUE(category, pattern_text)
-                );
-
-                -- Indexes
-                CREATE INDEX IF NOT EXISTS idx_insights_type ON insights(type);
-                CREATE INDEX IF NOT EXISTS idx_insights_debate ON insights(debate_id);
-                CREATE INDEX IF NOT EXISTS idx_agent_perf_name ON agent_performance_history(agent_name);
-                CREATE INDEX IF NOT EXISTS idx_pattern_category ON pattern_clusters(category);
-            """
-
-            # Register v2 migration: Add performance indexes
-            manager.register_migration(
-                from_version=1,
-                to_version=2,
-                sql="""
-                    -- Index for confidence-based queries (filtering high-confidence insights)
-                    CREATE INDEX IF NOT EXISTS idx_insights_confidence
-                    ON insights(confidence DESC);
-
-                    -- Composite index for type + confidence filtering
-                    CREATE INDEX IF NOT EXISTS idx_insights_type_confidence
-                    ON insights(type, confidence DESC);
-
-                    -- Index for agent performance by debate (join optimization)
-                    CREATE INDEX IF NOT EXISTS idx_agent_perf_debate
-                    ON agent_performance_history(debate_id);
-
-                    -- Composite index for agent performance lookups
-                    CREATE INDEX IF NOT EXISTS idx_agent_perf_name_debate
-                    ON agent_performance_history(agent_name, debate_id);
-
-                    -- Index for time-based queries on debate summaries
-                    CREATE INDEX IF NOT EXISTS idx_debate_summaries_created
-                    ON debate_summaries(created_at DESC);
-
-                    -- Index for pattern recency queries
-                    CREATE INDEX IF NOT EXISTS idx_pattern_last_seen
-                    ON pattern_clusters(last_seen DESC);
-                """,
-                description="Add performance indexes for common query patterns",
-            )
-
-            manager.ensure_schema(initial_schema=initial_schema)
+    def register_migrations(self, manager: SchemaManager) -> None:
+        """Register InsightStore schema migrations."""
+        manager.register_migration(
+            from_version=1,
+            to_version=2,
+            sql=INSIGHT_INDEX_MIGRATION,
+            description="Add performance indexes for common query patterns",
+        )
 
     def _sync_store_debate_insights(self, insights: DebateInsights) -> int:
         """Sync helper: Store debate insights."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Store debate summary
@@ -303,7 +290,7 @@ class InsightStore:
 
     def _sync_get_insight(self, insight_id: str) -> Optional[tuple]:
         """Sync helper: Retrieve insight row by ID."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(f"SELECT {INSIGHT_COLUMNS} FROM insights WHERE id = ?", (insight_id,))
             return cursor.fetchone()
@@ -323,7 +310,7 @@ class InsightStore:
         limit: int,
     ) -> list[tuple]:
         """Sync helper: Search insights."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             sql = f"SELECT {INSIGHT_COLUMNS} FROM insights WHERE 1=1"
@@ -377,7 +364,7 @@ class InsightStore:
         self, min_occurrences: int, category: Optional[str], limit: int
     ) -> list[tuple]:
         """Sync helper: Get common patterns."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             sql = """
@@ -425,7 +412,7 @@ class InsightStore:
 
     def _sync_get_agent_stats(self, agent_name: str) -> Optional[tuple]:
         """Sync helper: Get agent stats."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -468,7 +455,7 @@ class InsightStore:
 
     def _sync_get_all_agent_rankings(self) -> list[tuple]:
         """Sync helper: Get agent rankings."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -505,7 +492,7 @@ class InsightStore:
 
     def _sync_get_recent_insights(self, limit: int) -> list[tuple]:
         """Sync helper: Get recent insights."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 f"SELECT {INSIGHT_COLUMNS} FROM insights ORDER BY created_at DESC LIMIT ?",
@@ -520,7 +507,7 @@ class InsightStore:
 
     def _sync_get_stats(self) -> dict:
         """Sync helper: Get overall stats."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             stats = {}
@@ -581,7 +568,7 @@ class InsightStore:
 
     def _ensure_wisdom_table(self) -> None:
         """Ensure the wisdom_submissions table exists."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS wisdom_submissions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -612,7 +599,7 @@ class InsightStore:
         """
         self._ensure_wisdom_table()
 
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -653,7 +640,7 @@ class InsightStore:
         """
         self._ensure_wisdom_table()
 
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -681,7 +668,7 @@ class InsightStore:
         """Mark a wisdom submission as used."""
         self._ensure_wisdom_table()
 
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             conn.execute(
                 "UPDATE wisdom_submissions SET used = 1 WHERE id = ?",
                 (wisdom_id,)
@@ -715,7 +702,7 @@ class InsightStore:
         limit: int,
     ) -> list[tuple]:
         """Sync helper: Get high-confidence insights for a domain."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             sql = f"""
@@ -776,7 +763,7 @@ class InsightStore:
         was_successful: bool,
     ) -> None:
         """Sync helper: Record that an insight was applied to a debate."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             # Ensure usage tracking table exists
@@ -842,7 +829,7 @@ class InsightStore:
 
     def _sync_get_insight_usage_stats(self, insight_id: str) -> dict:
         """Sync helper: Get usage statistics for an insight."""
-        with self.db.connection() as conn:
+        with self.connection() as conn:
             cursor = conn.cursor()
 
             cursor.execute(

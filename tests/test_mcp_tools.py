@@ -27,14 +27,23 @@ from aragora.mcp.tools import (
 class TestToolsMetadata:
     """Test TOOLS_METADATA structure."""
 
-    def test_metadata_has_four_tools(self):
-        """Test that metadata defines all four tools."""
-        assert len(TOOLS_METADATA) == 4
+    def test_metadata_has_eight_tools(self):
+        """Test that metadata defines all eight tools."""
+        assert len(TOOLS_METADATA) == 8
 
     def test_metadata_tool_names(self):
         """Test tool names in metadata."""
         names = {t["name"] for t in TOOLS_METADATA}
-        assert names == {"run_debate", "run_gauntlet", "list_agents", "get_debate"}
+        assert names == {
+            "run_debate",
+            "run_gauntlet",
+            "list_agents",
+            "get_debate",
+            "search_debates",
+            "get_agent_history",
+            "get_consensus_proofs",
+            "list_trending_topics",
+        }
 
     def test_run_debate_metadata(self):
         """Test run_debate metadata structure."""

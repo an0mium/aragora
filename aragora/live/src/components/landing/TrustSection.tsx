@@ -7,7 +7,7 @@ const TRUST_POINTS = [
     title: 'TRANSPARENCY',
     accent: 'acid-green',
     content:
-      'Every debate is fully auditable. See exact prompts, responses, critiques, and votes. No black boxes.',
+      'Every stress-test is fully auditable. See exact prompts, responses, critiques, and votes. No black boxes.',
   },
   {
     title: 'DISSENT PRESERVED',
@@ -25,7 +25,7 @@ const TRUST_POINTS = [
     title: 'TRACK RECORDS',
     accent: 'acid-cyan',
     content:
-      "Agent personas built from verified debate outcomes. Not self-reported traits — empirical performance.",
+      "Agent personas built from verified stress-test outcomes. Not self-reported traits — empirical performance.",
   },
 ];
 

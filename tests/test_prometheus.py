@@ -338,7 +338,7 @@ class TestSetServerInfo:
     def test_set_server_info(self):
         """Set server information."""
         set_server_info(
-            version="0.07",
+            version="0.8.0",
             python_version="3.11.0",
             start_time=1704067200.0,
         )

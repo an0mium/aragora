@@ -21,6 +21,7 @@ import json
 import logging
 import math
 import sqlite3
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -150,6 +151,9 @@ class ContinuumMemory:
 
         # Sync tier manager settings with hyperparams
         self._tier_manager.promotion_cooldown_hours = float(self.hyperparams["promotion_cooldown_hours"])  # type: ignore[arg-type]
+
+        # Lock for atomic tier transitions (prevents TOCTOU race in promote/demote)
+        self._tier_lock = threading.Lock()
 
     @property
     def tier_manager(self) -> TierManager:
@@ -576,10 +580,11 @@ class ContinuumMemory:
         Promote a memory to a faster tier.
 
         Uses TierManager for decision logic and records metrics.
+        Thread-safe: uses lock to prevent TOCTOU race conditions.
 
         Returns the new tier if promoted, None otherwise.
         """
-        with get_wal_connection(self.db_path) as conn:
+        with self._tier_lock, get_wal_connection(self.db_path) as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -651,10 +656,11 @@ class ContinuumMemory:
         Demote a memory to a slower tier.
 
         Uses TierManager for decision logic and records metrics.
+        Thread-safe: uses lock to prevent TOCTOU race conditions.
 
         Returns the new tier if demoted, None otherwise.
         """
-        with get_wal_connection(self.db_path) as conn:
+        with self._tier_lock, get_wal_connection(self.db_path) as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -751,8 +757,18 @@ class ContinuumMemory:
                     "surprise_score": surprise_score,
                 }
             ))
-        except Exception as e:
-            logger.debug(f"[memory] Event emission error: {e}")
+        except ImportError:
+            # Stream module not available - expected in minimal installations
+            logger.debug("[memory] Stream module not available for tier event emission")
+        except (AttributeError, TypeError) as e:
+            # event_emitter not properly configured or emit() signature mismatch
+            logger.debug(f"[memory] Event emitter configuration error: {e}")
+        except (ValueError, KeyError) as e:
+            # Invalid event data or missing StreamEventType
+            logger.warning(f"[memory] Invalid tier event data: {e}")
+        except (ConnectionError, OSError) as e:
+            # Network/IO errors during event emission - non-critical
+            logger.debug(f"[memory] Event emission network error: {e}")
 
     def _promote_batch(
         self,
@@ -764,6 +780,7 @@ class ContinuumMemory:
         Batch promote memories from one tier to another.
 
         Uses executemany for efficient batch updates instead of N+1 queries.
+        Thread-safe: uses lock to prevent race conditions with single-item operations.
 
         Args:
             from_tier: Source tier
@@ -780,7 +797,7 @@ class ContinuumMemory:
         cooldown_hours = float(self.hyperparams["promotion_cooldown_hours"])  # type: ignore[arg-type]
         cutoff_time = (datetime.now() - timedelta(hours=cooldown_hours)).isoformat()
 
-        with get_wal_connection(self.db_path) as conn:
+        with self._tier_lock, get_wal_connection(self.db_path) as conn:
             cursor = conn.cursor()
 
             # Batch UPDATE with cooldown check
@@ -843,6 +860,7 @@ class ContinuumMemory:
         Batch demote memories from one tier to another.
 
         Uses executemany for efficient batch updates instead of N+1 queries.
+        Thread-safe: uses lock to prevent race conditions with single-item operations.
 
         Args:
             from_tier: Source tier
@@ -857,7 +875,7 @@ class ContinuumMemory:
 
         now = datetime.now().isoformat()
 
-        with get_wal_connection(self.db_path) as conn:
+        with self._tier_lock, get_wal_connection(self.db_path) as conn:
             cursor = conn.cursor()
 
             # Batch UPDATE - update_count check is already done in candidate selection

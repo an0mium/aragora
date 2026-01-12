@@ -1,13 +1,14 @@
 """
-aragora (Agent Agora): A Multi-Agent Debate Framework
+aragora (Agent Agora): AI Red Team for Decision Stress-Testing
 
-A society of heterogeneous AI agents that discuss, critique, improve
-each other's responses, and learn from successful patterns.
+A society of heterogeneous AI agents that adversarially stress-test
+high-stakes specs, architectures, policies, and code. Debate is the
+engine; the product is a defensible decision record.
 
 === CORE FEATURES (v0.8.0) ===
 
-DEBATE ENGINE:
-- Multi-agent debate with propose/critique/synthesize protocol
+DECISION STRESS-TEST ENGINE:
+- Multi-agent debate with propose/critique/synthesize protocol (engine)
 - CLI agents: claude, codex, gemini, grok, qwen, deepseek
 - Agreement intensity modulation (0-10 scale)
 - Asymmetric debate roles (affirmative/negative/neutral stances)

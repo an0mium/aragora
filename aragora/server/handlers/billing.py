@@ -27,6 +27,7 @@ from .base import (
     json_response,
     log_request,
     get_string_param,
+    require_permission,
 )
 
 # Module-level imports for test mocking compatibility
@@ -158,26 +159,25 @@ class BillingHandler(BaseHandler):
         return json_response({"plans": plans})
 
     @handle_errors("get usage")
-    def _get_usage(self, handler) -> HandlerResult:
-        """Get usage for authenticated user."""
-        # Get current user
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
+    @require_permission("org:billing")
+    def _get_usage(self, handler, user=None) -> HandlerResult:
+        """Get usage for authenticated user.
 
+        Requires org:billing permission (owner only).
+        """
         # Get user store
+        user_store = self._get_user_store()
         if not user_store:
             return error_response("Service unavailable", 503)
 
-        # Get user and organization
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user:
+        # Get user and organization from user context
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user:
             return error_response("User not found", 404)
 
         org = None
-        if user.org_id:
-            org = user_store.get_organization_by_id(user.org_id)
+        if db_user.org_id:
+            org = user_store.get_organization_by_id(db_user.org_id)
 
         # Get usage tracker
         usage_tracker = self._get_usage_tracker()
@@ -199,9 +199,9 @@ class BillingHandler(BaseHandler):
             usage_data["period_start"] = org.billing_cycle_start.isoformat()
 
         # Get detailed usage from tracker if available
-        if usage_tracker and user.org_id:
+        if usage_tracker and db_user.org_id:
             summary = usage_tracker.get_summary(
-                org_id=user.org_id,
+                org_id=db_user.org_id,
                 start_time=org.billing_cycle_start if org else None,
             )
             if summary:
@@ -212,26 +212,25 @@ class BillingHandler(BaseHandler):
         return json_response({"usage": usage_data})
 
     @handle_errors("get subscription")
-    def _get_subscription(self, handler) -> HandlerResult:
-        """Get current subscription for authenticated user."""
-        # Get current user
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
+    @require_permission("org:billing")
+    def _get_subscription(self, handler, user=None) -> HandlerResult:
+        """Get current subscription for authenticated user.
 
+        Requires org:billing permission (owner only).
+        """
         # Get user store
+        user_store = self._get_user_store()
         if not user_store:
             return error_response("Service unavailable", 503)
 
-        # Get user and organization
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user:
+        # Get user and organization from user context
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user:
             return error_response("User not found", 404)
 
         org = None
-        if user.org_id:
-            org = user_store.get_organization_by_id(user.org_id)
+        if db_user.org_id:
+            org = user_store.get_organization_by_id(db_user.org_id)
 
         subscription_data = {
             "tier": "free",
@@ -271,15 +270,15 @@ class BillingHandler(BaseHandler):
 
     @handle_errors("create checkout")
     @log_request("create checkout session")
-    def _create_checkout(self, handler) -> HandlerResult:
-        """Create Stripe checkout session."""
+    @require_permission("org:billing")
+    def _create_checkout(self, handler, user=None) -> HandlerResult:
+        """Create Stripe checkout session.
+
+        Requires org:billing permission (owner only).
+        """
         from aragora.billing.stripe_client import StripeConfigError
 
-        # Get current user
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
+        # User is authenticated and has billing permission
 
         # Parse request body
         body = self.read_json_body(handler)
@@ -304,20 +303,20 @@ class BillingHandler(BaseHandler):
         if tier == SubscriptionTier.FREE:
             return error_response("Cannot checkout free tier", 400)
 
-        # Get user store
+        # Get user store and user
+        user_store = self._get_user_store()
         if not user_store:
             return error_response("Service unavailable", 503)
 
-        # Get user
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user:
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user:
             return error_response("User not found", 404)
 
         # Get or create Stripe customer
         org = None
         customer_id = None
-        if user.org_id:
-            org = user_store.get_organization_by_id(user.org_id)
+        if db_user.org_id:
+            org = user_store.get_organization_by_id(db_user.org_id)
             if org:
                 customer_id = org.stripe_customer_id
 
@@ -327,19 +326,19 @@ class BillingHandler(BaseHandler):
             # Create checkout session
             session = stripe.create_checkout_session(
                 tier=tier,
-                customer_email=user.email,
+                customer_email=db_user.email,
                 success_url=success_url,
                 cancel_url=cancel_url,
                 customer_id=customer_id,
                 metadata={
-                    "user_id": user.id,
-                    "org_id": user.org_id or "",
+                    "user_id": db_user.id,
+                    "org_id": db_user.org_id or "",
                     "tier": tier.value,
                 },
             )
 
             logger.info(
-                f"Created checkout session {session.id} for user {user.email}"
+                f"Created checkout session {session.id} for user {db_user.email}"
             )
 
             return json_response({"checkout": session.to_dict()})
@@ -349,15 +348,15 @@ class BillingHandler(BaseHandler):
             return error_response("Payment service unavailable", 503)
 
     @handle_errors("create portal")
-    def _create_portal(self, handler) -> HandlerResult:
-        """Create Stripe billing portal session."""
+    @require_permission("org:billing")
+    def _create_portal(self, handler, user=None) -> HandlerResult:
+        """Create Stripe billing portal session.
+
+        Requires org:billing permission (owner only).
+        """
         from aragora.billing.stripe_client import StripeConfigError
 
-        # Get current user
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
+        # User is authenticated and has billing permission
 
         # Parse request body
         body = self.read_json_body(handler)
@@ -369,15 +368,16 @@ class BillingHandler(BaseHandler):
             return error_response("Return URL required", 400)
 
         # Get user store
+        user_store = self._get_user_store()
         if not user_store:
             return error_response("Service unavailable", 503)
 
-        # Get user and organization
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user or not user.org_id:
+        # Get user and organization from user context
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user or not db_user.org_id:
             return error_response("No organization found", 404)
 
-        org = user_store.get_organization_by_id(user.org_id)
+        org = user_store.get_organization_by_id(db_user.org_id)
         if not org or not org.stripe_customer_id:
             return error_response("No billing account found", 404)
 
@@ -435,22 +435,22 @@ class BillingHandler(BaseHandler):
             logger.warning(f"Failed to log audit event: {e}")
 
     @handle_errors("get audit log")
-    def _get_audit_log(self, handler) -> HandlerResult:
-        """Get billing audit log for organization (Enterprise feature)."""
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
+    @require_permission("admin:audit")
+    def _get_audit_log(self, handler, user=None) -> HandlerResult:
+        """Get billing audit log for organization (Enterprise feature).
 
+        Requires admin:audit permission (admin/owner only).
+        """
+        user_store = self._get_user_store()
         if not user_store:
             return error_response("Service unavailable", 503)
 
         # Get organization and check tier
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user or not user.org_id:
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user or not db_user.org_id:
             return error_response("No organization found", 404)
 
-        org = user_store.get_organization_by_id(user.org_id)
+        org = user_store.get_organization_by_id(db_user.org_id)
         if not org:
             return error_response("Organization not found", 404)
 
@@ -724,28 +724,23 @@ class BillingHandler(BaseHandler):
 
     @handle_errors("cancel subscription")
     @log_request("cancel subscription")
-    def _cancel_subscription(self, handler) -> HandlerResult:
-        """Cancel subscription at end of billing period."""
-        # Get current user
+    @require_permission("org:billing")
+    def _cancel_subscription(self, handler, user=None) -> HandlerResult:
+        """Cancel subscription at end of billing period.
+
+        Requires org:billing permission (owner only).
+        """
+        # User is authenticated and has billing permission
         user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
-
-        # Only org owners/admins can cancel
-        if auth_ctx.role not in ("owner", "admin"):
-            return error_response("Only organization owners can cancel", 403)
-
-        # Get user store
         if not user_store:
             return error_response("Service unavailable", 503)
 
-        # Get organization
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user or not user.org_id:
+        # Get organization from user context
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user or not db_user.org_id:
             return error_response("No organization found", 404)
 
-        org = user_store.get_organization_by_id(user.org_id)
+        org = user_store.get_organization_by_id(db_user.org_id)
         if not org or not org.stripe_subscription_id:
             return error_response("No active subscription", 404)
 
@@ -758,7 +753,7 @@ class BillingHandler(BaseHandler):
 
             logger.info(
                 f"Subscription canceled for org {org.id} "
-                f"(user: {user.email})"
+                f"(user: {db_user.email})"
             )
 
             # Log audit event
@@ -767,7 +762,7 @@ class BillingHandler(BaseHandler):
                 action="subscription.canceled",
                 resource_type="subscription",
                 resource_id=org.stripe_subscription_id,
-                user_id=auth_ctx.user_id,
+                user_id=user.user_id,
                 org_id=org.id,
                 old_value={"tier": org.tier.value, "status": "active"},
                 new_value={"tier": org.tier.value, "status": "canceling"},
@@ -786,28 +781,23 @@ class BillingHandler(BaseHandler):
             return error_response("Failed to cancel subscription", 500)
 
     @handle_errors("resume subscription")
-    def _resume_subscription(self, handler) -> HandlerResult:
-        """Resume a canceled subscription."""
-        # Get current user
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-        if not auth_ctx.is_authenticated:
-            return error_response("Not authenticated", 401)
+    @require_permission("org:billing")
+    def _resume_subscription(self, handler, user=None) -> HandlerResult:
+        """Resume a canceled subscription.
 
-        if auth_ctx.role not in ("owner", "admin"):
-            return error_response("Only organization owners can resume", 403)
-
-        # Get user store
+        Requires org:billing permission (owner only).
+        """
+        # User is authenticated and has billing permission
         user_store = self._get_user_store()
         if not user_store:
             return error_response("Service unavailable", 503)
 
-        # Get organization
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user or not user.org_id:
+        # Get organization from user context
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user or not db_user.org_id:
             return error_response("No organization found", 404)
 
-        org = user_store.get_organization_by_id(user.org_id)
+        org = user_store.get_organization_by_id(db_user.org_id)
         if not org or not org.stripe_subscription_id:
             return error_response("No subscription to resume", 404)
 
@@ -815,7 +805,7 @@ class BillingHandler(BaseHandler):
             stripe = get_stripe_client()
             subscription = stripe.resume_subscription(org.stripe_subscription_id)
 
-            logger.info(f"Subscription resumed for org {org.id}")
+            logger.info(f"Subscription resumed for org {org.id} (user: {db_user.email})")
 
             return json_response(
                 {

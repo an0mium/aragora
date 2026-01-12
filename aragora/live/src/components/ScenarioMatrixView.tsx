@@ -223,6 +223,7 @@ function ScenarioBuilder({
             <button
               onClick={() => onRemove(idx)}
               className="px-2 py-1 text-xs font-mono text-crimson hover:bg-crimson/10"
+              aria-label={`Remove scenario ${scenario.name}`}
             >
               [X]
             </button>
@@ -495,9 +496,10 @@ interface FilterState {
 
 interface ScenarioMatrixViewProps {
   events?: StreamEvent[];
+  initialMatrixId?: string | null;
 }
 
-export function ScenarioMatrixView({ events = [] }: ScenarioMatrixViewProps) {
+export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMatrixViewProps) {
   const [task, setTask] = useState('');
   const [scenarios, setScenarios] = useState<ScenarioInput[]>([
     { name: 'Baseline', parameters: {}, constraints: [], is_baseline: true },
@@ -522,6 +524,32 @@ export function ScenarioMatrixView({ events = [] }: ScenarioMatrixViewProps) {
     );
     return relevant[relevant.length - 1];
   }, [events]);
+
+  // Auto-fetch matrix when initialMatrixId is provided
+  useEffect(() => {
+    if (!initialMatrixId) return;
+
+    const fetchInitialMatrix = async () => {
+      try {
+        setLoading(true);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+        const response = await fetch(`${apiUrl}/api/debates/matrix/${initialMatrixId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setResult(data);
+          setTask(data.task || '');
+        } else {
+          setError(`Failed to load matrix: ${initialMatrixId}`);
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load matrix');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInitialMatrix();
+  }, [initialMatrixId]);
 
   // Refresh on matrix events
   useEffect(() => {

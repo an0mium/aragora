@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -34,21 +34,20 @@ export default function OrganizationMembersPage() {
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
   const [inviting, setInviting] = useState(false);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const orgId = organization?.id;
+  const accessToken = tokens?.access_token;
 
-  useEffect(() => {
-    if (organization?.id && tokens?.access_token) {
-      fetchData();
+  const fetchData = useCallback(async () => {
+    if (!orgId || !accessToken) {
+      return;
     }
-  }, [organization, tokens]);
-
-  const fetchData = async () => {
     try {
       const [membersRes, orgRes] = await Promise.all([
-        fetch(`${API_BASE}/api/org/${organization?.id}/members`, {
-          headers: { 'Authorization': `Bearer ${tokens?.access_token}` },
+        fetch(`${API_BASE}/api/org/${orgId}/members`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` },
         }),
-        fetch(`${API_BASE}/api/org/${organization?.id}`, {
-          headers: { 'Authorization': `Bearer ${tokens?.access_token}` },
+        fetch(`${API_BASE}/api/org/${orgId}`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` },
         }),
       ]);
 
@@ -68,7 +67,13 @@ export default function OrganizationMembersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId, accessToken]);
+
+  useEffect(() => {
+    if (orgId && accessToken) {
+      fetchData();
+    }
+  }, [orgId, accessToken, fetchData]);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,11 +84,11 @@ export default function OrganizationMembersPage() {
     setInviteSuccess(null);
 
     try {
-      const response = await fetch(`${API_BASE}/api/org/${organization?.id}/invite`, {
+      const response = await fetch(`${API_BASE}/api/org/${orgId}/invite`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tokens?.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
       });
@@ -108,12 +113,12 @@ export default function OrganizationMembersPage() {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/org/${organization?.id}/members/${memberId}/role`,
+        `${API_BASE}/api/org/${orgId}/members/${memberId}/role`,
         {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${tokens?.access_token}`,
+            'Authorization': `Bearer ${accessToken}`,
           },
           body: JSON.stringify({ role: newRole }),
         }
@@ -137,10 +142,10 @@ export default function OrganizationMembersPage() {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/org/${organization?.id}/members/${memberId}`,
+        `${API_BASE}/api/org/${orgId}/members/${memberId}`,
         {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${tokens?.access_token}` },
+          headers: { 'Authorization': `Bearer ${accessToken}` },
         }
       );
 

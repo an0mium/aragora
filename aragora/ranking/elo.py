@@ -15,17 +15,15 @@ from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from aragora.storage.schema import SchemaManager, safe_add_column
 from aragora.config import (
     DB_ELO_PATH,
-    DB_TIMEOUT_SECONDS,
+    resolve_db_path,
     ELO_INITIAL_RATING,
     ELO_K_FACTOR,
     ELO_CALIBRATION_MIN_COUNT,
@@ -63,18 +61,14 @@ __all__ = [
     "VulnerabilitySummary",
 ]
 
-# Schema version - increment when making schema changes
-ELO_SCHEMA_VERSION = 2
-
 # Use centralized config values (can be overridden via environment variables)
 DEFAULT_ELO = ELO_INITIAL_RATING
 K_FACTOR = ELO_K_FACTOR
 CALIBRATION_MIN_COUNT = ELO_CALIBRATION_MIN_COUNT
 
 
-def _escape_like_pattern(value: str) -> str:
-    """Escape special characters in SQL LIKE patterns to prevent injection."""
-    return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+# Import from centralized location (defined here for backwards compatibility)
+from aragora.utils.sql_helpers import _escape_like_pattern
 
 
 # Maximum agent name length (matches SAFE_AGENT_PATTERN in validation/entities.py)
@@ -187,9 +181,9 @@ class EloSystem:
     _calibration_cache: TTLCache[list] = TTLCache(maxsize=20, ttl_seconds=CACHE_TTL_CALIBRATION_LB)
 
     def __init__(self, db_path: str = DB_ELO_PATH):
-        self.db_path = Path(db_path)
-        self._db = EloDatabase(db_path)
-        self._init_db()
+        resolved_path = resolve_db_path(db_path)
+        self.db_path = Path(resolved_path)
+        self._db = EloDatabase(resolved_path)
 
         # Delegate to extracted modules (lazy initialization)
         self._relationship_tracker: RelationshipTracker | None = None
@@ -205,8 +199,8 @@ class EloSystem:
         )
 
         # Calibration engines for tournament and domain-specific calibration
-        self._calibration_engine = CalibrationEngine(db_path=db_path, elo_system=self)
-        self._domain_calibration_engine = DomainCalibrationEngine(db_path=db_path, elo_system=self)
+        self._calibration_engine = CalibrationEngine(db_path=resolved_path, elo_system=self)
+        self._domain_calibration_engine = DomainCalibrationEngine(db_path=resolved_path, elo_system=self)
 
     @property
     def relationship_tracker(self) -> RelationshipTracker:
@@ -221,132 +215,6 @@ class EloSystem:
         if self._redteam_integrator is None:
             self._redteam_integrator = RedTeamIntegrator(self)
         return self._redteam_integrator
-
-    def _init_db(self) -> None:
-        """Initialize database schema using SchemaManager."""
-        with self._db.connection() as conn:
-            manager = SchemaManager(conn, "elo", current_version=ELO_SCHEMA_VERSION)
-
-            # Register migration from v1 to v2: add calibration columns
-            manager.register_migration(
-                from_version=1,
-                to_version=2,
-                function=self._migrate_v1_to_v2,
-                description="Add calibration columns to ratings table",
-            )
-
-            # Initial schema (v1)
-            initial_schema = """
-                -- Agent ratings
-                CREATE TABLE IF NOT EXISTS ratings (
-                    agent_name TEXT PRIMARY KEY,
-                    elo REAL DEFAULT 1500,
-                    domain_elos TEXT,
-                    wins INTEGER DEFAULT 0,
-                    losses INTEGER DEFAULT 0,
-                    draws INTEGER DEFAULT 0,
-                    debates_count INTEGER DEFAULT 0,
-                    critiques_accepted INTEGER DEFAULT 0,
-                    critiques_total INTEGER DEFAULT 0,
-                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-
-                -- Match history
-                CREATE TABLE IF NOT EXISTS matches (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    debate_id TEXT UNIQUE,
-                    winner TEXT,
-                    participants TEXT,
-                    domain TEXT,
-                    scores TEXT,
-                    elo_changes TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-
-                -- ELO history for tracking progression
-                CREATE TABLE IF NOT EXISTS elo_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    agent_name TEXT NOT NULL,
-                    elo REAL NOT NULL,
-                    debate_id TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-
-                -- Calibration predictions table
-                CREATE TABLE IF NOT EXISTS calibration_predictions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    tournament_id TEXT NOT NULL,
-                    predictor_agent TEXT NOT NULL,
-                    predicted_winner TEXT NOT NULL,
-                    confidence REAL NOT NULL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(tournament_id, predictor_agent)
-                );
-
-                -- Domain-specific calibration tracking
-                CREATE TABLE IF NOT EXISTS domain_calibration (
-                    agent_name TEXT NOT NULL,
-                    domain TEXT NOT NULL,
-                    total_predictions INTEGER DEFAULT 0,
-                    total_correct INTEGER DEFAULT 0,
-                    brier_sum REAL DEFAULT 0.0,
-                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (agent_name, domain)
-                );
-
-                -- Calibration by confidence bucket
-                CREATE TABLE IF NOT EXISTS calibration_buckets (
-                    agent_name TEXT NOT NULL,
-                    domain TEXT NOT NULL,
-                    bucket_key TEXT NOT NULL,
-                    predictions INTEGER DEFAULT 0,
-                    correct INTEGER DEFAULT 0,
-                    brier_sum REAL DEFAULT 0.0,
-                    PRIMARY KEY (agent_name, domain, bucket_key)
-                );
-
-                -- Agent relationships tracking
-                CREATE TABLE IF NOT EXISTS agent_relationships (
-                    agent_a TEXT NOT NULL,
-                    agent_b TEXT NOT NULL,
-                    debate_count INTEGER DEFAULT 0,
-                    agreement_count INTEGER DEFAULT 0,
-                    critique_count_a_to_b INTEGER DEFAULT 0,
-                    critique_count_b_to_a INTEGER DEFAULT 0,
-                    critique_accepted_a_to_b INTEGER DEFAULT 0,
-                    critique_accepted_b_to_a INTEGER DEFAULT 0,
-                    position_changes_a_after_b INTEGER DEFAULT 0,
-                    position_changes_b_after_a INTEGER DEFAULT 0,
-                    a_wins_over_b INTEGER DEFAULT 0,
-                    b_wins_over_a INTEGER DEFAULT 0,
-                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (agent_a, agent_b),
-                    CHECK (agent_a < agent_b)
-                );
-
-                -- Performance indexes
-                CREATE INDEX IF NOT EXISTS idx_elo_history_agent ON elo_history(agent_name);
-                CREATE INDEX IF NOT EXISTS idx_elo_history_created ON elo_history(created_at);
-                CREATE INDEX IF NOT EXISTS idx_elo_history_debate ON elo_history(debate_id);
-                CREATE INDEX IF NOT EXISTS idx_matches_winner ON matches(winner);
-                CREATE INDEX IF NOT EXISTS idx_matches_created ON matches(created_at);
-                CREATE INDEX IF NOT EXISTS idx_matches_domain ON matches(domain);
-                CREATE INDEX IF NOT EXISTS idx_domain_cal_agent ON domain_calibration(agent_name);
-                CREATE INDEX IF NOT EXISTS idx_domain_cal_agent_domain ON domain_calibration(agent_name, domain);
-                CREATE INDEX IF NOT EXISTS idx_relationships_a ON agent_relationships(agent_a);
-                CREATE INDEX IF NOT EXISTS idx_relationships_b ON agent_relationships(agent_b);
-                CREATE INDEX IF NOT EXISTS idx_calibration_pred_tournament ON calibration_predictions(tournament_id);
-                CREATE INDEX IF NOT EXISTS idx_ratings_agent ON ratings(agent_name);
-            """
-
-            manager.ensure_schema(initial_schema=initial_schema)
-
-    def _migrate_v1_to_v2(self, conn: sqlite3.Connection) -> None:
-        """Migration: Add calibration columns to ratings table."""
-        safe_add_column(conn, "ratings", "calibration_correct", "INTEGER", default="0")
-        safe_add_column(conn, "ratings", "calibration_total", "INTEGER", default="0")
-        safe_add_column(conn, "ratings", "calibration_brier_sum", "REAL", default="0.0")
-
 
     def get_rating(self, agent_name: str, use_cache: bool = True) -> AgentRating:
         """Get or create rating for an agent.

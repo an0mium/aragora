@@ -47,9 +47,10 @@ class TestUserModel:
         user.set_password("securepassword123")
 
         assert user.password_hash
-        assert user.password_salt
-        assert len(user.password_hash) == 64  # SHA-256 hex
-        assert len(user.password_salt) == 64
+        # bcrypt embeds salt in hash, so password_salt is empty
+        # Hash format: "bcrypt:$2b$12$..."
+        assert user.password_hash.startswith("bcrypt:")
+        assert len(user.password_hash) > 20  # bcrypt hashes are long
 
     def test_verify_password(self):
         from aragora.billing.models import User
@@ -69,7 +70,11 @@ class TestUserModel:
 
         assert api_key.startswith("ara_")
         assert len(api_key) > 10
-        assert user.api_key == api_key
+        # Plaintext key is NOT stored (security best practice)
+        # Only hash and prefix are stored for verification
+        assert user.api_key is None  # Plaintext not stored
+        assert user.api_key_hash is not None  # Hash stored
+        assert user.api_key_prefix == api_key[:12]  # Prefix stored
         assert user.api_key_created_at is not None
 
     def test_revoke_api_key(self):
@@ -98,11 +103,17 @@ class TestUserModel:
         from aragora.billing.models import User
 
         user = User(email="test@example.com")
-        user.generate_api_key()
+        api_key = user.generate_api_key()
         data = user.to_dict(include_sensitive=True)
 
+        # Sensitive mode includes api_key field (None for new secure storage)
+        # and api_key_prefix for identification
         assert "api_key" in data
-        assert data["api_key"].startswith("ara_")
+        assert "api_key_prefix" in data
+        assert data["api_key_prefix"].startswith("ara_")
+        # The hash is NOT exposed in to_dict for security
+        # api_key is None because plaintext is not stored
+        assert data["api_key"] is None
 
     def test_user_from_dict(self):
         from aragora.billing.models import User
@@ -303,18 +314,22 @@ class TestJWTAuth:
             decode_jwt,
         )
 
-        # Create token that expires immediately
+        # Create a token with minimum expiry (1 hour)
+        # Note: expiry_hours=0 gets capped to 1 hour for security
         token = create_access_token(
             user_id="user-123",
             email="test@example.com",
-            expiry_hours=0,  # Expires immediately
+            expiry_hours=1,  # Minimum allowed
         )
 
-        # Wait a tiny bit to ensure expiration
-        time.sleep(0.1)
-
-        payload = decode_jwt(token)
-        assert payload is None  # Expired
+        # Mock time.time() to simulate 2 hours in the future
+        original_time = time.time
+        try:
+            time.time = lambda: original_time() + 7200  # 2 hours later
+            payload = decode_jwt(token)
+            assert payload is None  # Expired
+        finally:
+            time.time = original_time
 
     def test_invalid_token_format(self):
         from aragora.billing.jwt_auth import decode_jwt

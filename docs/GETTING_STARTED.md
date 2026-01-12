@@ -61,7 +61,7 @@ Environment:
 Status: Ready
 ```
 
-### 4. Run Your First Debate
+### 4. Run Your First Stress-Test
 
 ```bash
 aragora ask "Should we use microservices or monolith?" \
@@ -101,6 +101,8 @@ aragora ask "<your question>" --agents <agent1>,<agent2>
 | `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` |
 | `mistral` | Mistral | `MISTRAL_API_KEY` |
 | `ollama` | Local models | None (local) |
+
+Note: Mistral adds an EU perspective, and Chinese models like DeepSeek, Qwen, and Kimi are available for a Chinese perspective (via OpenRouter or the direct Kimi API).
 
 ### Common Options
 
@@ -469,6 +471,10 @@ pip install -e .
 | `OPENAI_API_KEY` | GPT-4 API key | - |
 | `GEMINI_API_KEY` | Gemini API key | - |
 | `XAI_API_KEY` | Grok API key | - |
+| `MISTRAL_API_KEY` | Mistral API key (EU perspective) | - |
+| `DEEPSEEK_API_KEY` | DeepSeek API key | - |
+| `OPENROUTER_API_KEY` | OpenRouter key (Qwen/DeepSeek/Yi) | - |
+| `KIMI_API_KEY` | Kimi (Moonshot) API key | - |
 | `ARAGORA_DEBATE_TIMEOUT` | Debate timeout (seconds) | 600 |
 | `ARAGORA_API_PORT` | Server port | 8080 |
 

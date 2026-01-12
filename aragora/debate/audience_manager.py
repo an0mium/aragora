@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Callable, Optional
 from aragora.config import USER_EVENT_QUEUE_SIZE
 
 if TYPE_CHECKING:
-    from aragora.server.stream import StreamEventType
+    from aragora.server.stream.events import StreamEventType
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ class AudienceManager:
         Args:
             event: Event with type and data attributes
         """
-        from aragora.server.stream import StreamEventType
+        from aragora.server.stream.events import StreamEventType
 
         # Ignore events from other loops to prevent cross-contamination
         event_loop_id = getattr(event, "loop_id", None)
@@ -128,7 +128,7 @@ class AudienceManager:
         Returns:
             Number of events processed
         """
-        from aragora.server.stream import StreamEventType
+        from aragora.server.stream.events import StreamEventType
 
         drained_count = 0
         while True:

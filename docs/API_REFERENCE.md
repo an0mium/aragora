@@ -1,6 +1,6 @@
 # Aragora API Reference
 
-This document describes the HTTP and WebSocket APIs for the Aragora debate platform.
+This document describes the HTTP and WebSocket APIs for the Aragora AI red team / decision stress-test platform.
 
 ## Endpoint Usage Status
 
@@ -668,6 +668,178 @@ Get trending topics from social media platforms.
   "count": 5
 }
 ```
+
+#### POST /api/pulse/debate-topic
+Start a debate on a trending topic.
+
+**Request Body:**
+```json
+{
+  "topic": "Should AI be regulated?",
+  "rounds": 3,
+  "consensus_threshold": 0.7
+}
+```
+
+**Response:**
+```json
+{
+  "debate_id": "pulse-1234567890-abc123",
+  "topic": "Should AI be regulated?",
+  "status": "started"
+}
+```
+
+### Pulse Scheduler
+
+Automated debate creation from trending topics.
+
+#### GET /api/pulse/scheduler/status
+Get current scheduler state and metrics.
+
+**Response:**
+```json
+{
+  "state": "running",
+  "run_id": "run-1234567890-abc123",
+  "config": {
+    "poll_interval_seconds": 300,
+    "max_debates_per_hour": 6,
+    "min_volume_threshold": 100,
+    "min_controversy_score": 0.3,
+    "dedup_window_hours": 24
+  },
+  "metrics": {
+    "polls_completed": 15,
+    "topics_evaluated": 120,
+    "debates_created": 8,
+    "duplicates_skipped": 5,
+    "uptime_seconds": 3600
+  }
+}
+```
+
+#### POST /api/pulse/scheduler/start
+Start the pulse debate scheduler.
+
+**Response:**
+```json
+{
+  "status": "started",
+  "run_id": "run-1234567890-abc123"
+}
+```
+
+#### POST /api/pulse/scheduler/stop
+Stop the pulse debate scheduler.
+
+**Response:**
+```json
+{
+  "status": "stopped"
+}
+```
+
+#### POST /api/pulse/scheduler/pause
+Pause the scheduler (maintains state but stops polling).
+
+**Response:**
+```json
+{
+  "status": "paused"
+}
+```
+
+#### POST /api/pulse/scheduler/resume
+Resume a paused scheduler.
+
+**Response:**
+```json
+{
+  "status": "running"
+}
+```
+
+#### PATCH /api/pulse/scheduler/config
+Update scheduler configuration.
+
+**Request Body:**
+```json
+{
+  "max_debates_per_hour": 10,
+  "min_controversy_score": 0.4
+}
+```
+
+**Response:**
+```json
+{
+  "status": "updated",
+  "config": { ... }
+}
+```
+
+#### GET /api/pulse/scheduler/history
+Get history of scheduled debates.
+
+**Parameters:**
+- `limit` (int, default=50): Maximum records to return
+- `offset` (int, default=0): Pagination offset
+- `platform` (string, optional): Filter by platform
+- `category` (string, optional): Filter by category
+
+**Response:**
+```json
+{
+  "history": [
+    {
+      "id": "sched-123",
+      "topic_text": "AI ethics debate",
+      "platform": "hackernews",
+      "category": "tech",
+      "debate_id": "pulse-456",
+      "created_at": 1704067200,
+      "consensus_reached": true,
+      "confidence": 0.85
+    }
+  ],
+  "total": 100
+}
+```
+
+---
+
+### Slack Integration
+
+Slack bot integration for debate notifications and commands.
+
+#### GET /api/integrations/slack/status
+Get Slack integration status.
+
+**Response:**
+```json
+{
+  "enabled": true,
+  "signing_secret_configured": true,
+  "bot_token_configured": false,
+  "webhook_configured": true
+}
+```
+
+#### POST /api/integrations/slack/commands
+Handle Slack slash commands (called by Slack).
+
+**Supported Commands:**
+- `/aragora help` - Show available commands
+- `/aragora status` - Get system status
+- `/aragora debate "topic"` - Start a debate
+- `/aragora agents` - List top agents by ELO
+
+#### POST /api/integrations/slack/interactive
+Handle Slack interactive components (buttons, menus).
+
+#### POST /api/integrations/slack/events
+Handle Slack Events API callbacks.
 
 ---
 
@@ -2651,7 +2823,7 @@ Get tournament standings and bracket.
 
 ### Modes
 
-Available debate and interaction modes.
+Available stress-test and interaction modes.
 
 #### GET /api/modes
 List available modes.
@@ -2660,7 +2832,7 @@ List available modes.
 ```json
 {
   "modes": [
-    {"name": "standard", "description": "Standard multi-agent debate"},
+    {"name": "standard", "description": "Standard decision stress-test (multi-agent debate engine)"},
     {"name": "adversarial", "description": "Red-team adversarial mode"},
     {"name": "consensus", "description": "Consensus-building mode"}
   ]

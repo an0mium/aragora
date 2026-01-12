@@ -18,6 +18,17 @@ from aragora.integrations.discord import (
     discord_manager,
     create_discord_integration,
 )
+from aragora.integrations.telegram import (
+    TelegramIntegration,
+    TelegramConfig,
+    TelegramMessage,
+    InlineButton,
+)
+from aragora.integrations.email import (
+    EmailIntegration,
+    EmailConfig,
+    EmailRecipient,
+)
 
 __all__ = [
     # Webhooks
@@ -35,4 +46,13 @@ __all__ = [
     "DiscordWebhookManager",
     "discord_manager",
     "create_discord_integration",
+    # Telegram
+    "TelegramIntegration",
+    "TelegramConfig",
+    "TelegramMessage",
+    "InlineButton",
+    # Email
+    "EmailIntegration",
+    "EmailConfig",
+    "EmailRecipient",
 ]

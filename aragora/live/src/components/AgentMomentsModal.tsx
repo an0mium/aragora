@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface Moment {
   id: string;
@@ -24,6 +25,11 @@ export function AgentMomentsModal({ agentName, onClose, apiBase = DEFAULT_API_BA
   const [moments, setMoments] = useState<Moment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const focusTrapRef = useFocusTrap<HTMLDivElement>({
+    isActive: true, // Modal is always active when rendered
+    onEscape: onClose,
+  });
 
   useEffect(() => {
     async function fetchMoments() {
@@ -71,12 +77,12 @@ export function AgentMomentsModal({ agentName, onClose, apiBase = DEFAULT_API_BA
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       onClick={onClose}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="moments-modal-title"
     >
       <div
+        ref={focusTrapRef}
         className="bg-surface border border-border rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -149,6 +155,7 @@ export function AgentMomentsModal({ agentName, onClose, apiBase = DEFAULT_API_BA
         <div className="mt-4 pt-4 border-t border-border flex justify-end">
           <button
             onClick={onClose}
+            aria-label="Close moments timeline"
             className="px-4 py-2 bg-surface border border-border rounded text-sm text-text hover:bg-surface-hover"
           >
             Close

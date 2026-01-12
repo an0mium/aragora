@@ -277,7 +277,7 @@ class FeedbackPhase:
 
                 # Record the prediction with correct parameter names
                 self.calibration_tracker.record_prediction(
-                    agent=vote.voter,
+                    agent=vote.agent,
                     confidence=confidence,
                     correct=correct,
                     debate_id=getattr(result, 'debate_id', ''),

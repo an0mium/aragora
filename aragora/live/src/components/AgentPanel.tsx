@@ -139,12 +139,14 @@ export function AgentPanel({ events }: AgentPanelProps) {
         <div className="flex gap-1">
           <button
             onClick={expandAll}
+            aria-label="Expand all events"
             className="text-xs text-text-muted hover:text-acid-green px-2 py-0.5 border border-transparent hover:border-acid-green/30 transition-colors"
           >
             [+ALL]
           </button>
           <button
             onClick={collapseAll}
+            aria-label="Collapse all events"
             className="text-xs text-text-muted hover:text-acid-green px-2 py-0.5 border border-transparent hover:border-acid-green/30 transition-colors"
           >
             [-ALL]
@@ -180,6 +182,7 @@ export function AgentPanel({ events }: AgentPanelProps) {
               scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
             }
           }}
+          aria-label="Scroll to new messages"
           className="absolute bottom-4 right-4 bg-acid-green text-bg px-3 py-1 text-xs font-mono shadow-glow"
         >
           [NEW MESSAGES]
@@ -257,6 +260,8 @@ function EventCard({ id, event, isExpanded, onToggle }: EventCardProps) {
     >
       <button
         onClick={() => onToggle(id)}
+        aria-expanded={isExpanded}
+        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${agentName} event details`}
         className="w-full text-left p-2 flex items-start gap-2 hover:bg-white/5 transition-colors"
       >
         {/* Terminal-style role icon */}

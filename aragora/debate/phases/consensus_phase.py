@@ -613,6 +613,21 @@ class ConsensusPhase:
         task = ctx.env.task if ctx.env else ""
 
         async def cast_vote(agent):
+            """Cast a vote for a single agent with timeout protection.
+
+            Requests a vote from the given agent, applying complexity-scaled
+            timeout to prevent slow agents from blocking consensus.
+
+            Args:
+                agent: The Agent instance to request a vote from.
+
+            Returns:
+                Tuple of (agent, vote_result) where vote_result is either
+                a Vote object on success or an Exception if voting failed.
+
+            Note:
+                Never raises - failures captured in return tuple for partial collection.
+            """
             logger.debug(f"agent_voting agent={agent.name}")
             try:
                 # Use complexity-scaled timeout from governor
@@ -634,6 +649,18 @@ class ConsensusPhase:
                 return (agent, e)
 
         async def collect_all_votes():
+            """Collect votes from all agents concurrently with as-completed processing.
+
+            Creates parallel vote tasks for all agents and processes results as they
+            complete. This ensures faster agents don't wait for slower ones, and
+            allows partial vote collection if the outer timeout is reached.
+
+            Successful votes are appended to the enclosing scope's `votes` list.
+            Failed votes are logged but don't block other agents.
+
+            Raises:
+                asyncio.CancelledError: Re-raised if the task is cancelled.
+            """
             vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in ctx.agents]
 
             for completed_task in asyncio.as_completed(vote_tasks):
@@ -685,6 +712,21 @@ class ConsensusPhase:
         task = ctx.env.task if ctx.env else ""
 
         async def cast_vote(agent):
+            """Cast a vote for unanimous consensus with timeout protection.
+
+            Similar to cast_vote in _collect_votes(), but used specifically for
+            unanimous consensus mode where error tracking is important.
+
+            Args:
+                agent: The Agent instance to request a vote from.
+
+            Returns:
+                Tuple of (agent, vote_result) where vote_result is either
+                a Vote object on success or an Exception if voting failed.
+
+            Note:
+                Uses complexity-scaled timeout from ComplexityGovernor.
+            """
             logger.debug(f"agent_voting_unanimous agent={agent.name}")
             try:
                 # Use complexity-scaled timeout from governor
@@ -706,6 +748,21 @@ class ConsensusPhase:
                 return (agent, e)
 
         async def collect_all_votes():
+            """Collect votes from all agents with error counting for unanimity checks.
+
+            Similar to collect_all_votes in _collect_votes(), but increments the
+            nonlocal `voting_errors` counter for each failed vote. This is critical
+            for unanimous consensus mode where we need to know exactly how many
+            agents failed to vote.
+
+            Modifies:
+                voting_errors: Incremented for each vote failure (timeout, exception,
+                    None result).
+                votes: Successful Vote objects are appended to this enclosing list.
+
+            Raises:
+                asyncio.CancelledError: Re-raised to allow proper task cancellation.
+            """
             nonlocal voting_errors
             vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in ctx.agents]
 
@@ -1436,7 +1493,7 @@ class ConsensusPhase:
             return
 
         try:
-            network = BN()
+            network = BN(max_iterations=3)
             for msg in result.messages:
                 if msg.role in ("proposer", "critic"):
                     network.add_claim(
@@ -1447,7 +1504,7 @@ class ConsensusPhase:
                     )
 
             if network.nodes:
-                network.propagate(iterations=3)
+                network.propagate()
                 analyzer = BPA(network)
                 result.debate_cruxes = analyzer.identify_debate_cruxes(top_k=3)
                 result.evidence_suggestions = analyzer.suggest_evidence_targets()[:3]

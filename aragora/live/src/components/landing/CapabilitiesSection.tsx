@@ -10,6 +10,9 @@ export function CapabilitiesSection() {
     <section className="py-12 border-t border-acid-green/20">
       <div className="container mx-auto px-4">
         <SectionHeader title="UNIQUE CAPABILITIES" />
+        <p className="text-text-muted font-mono text-xs text-center mb-8 max-w-xl mx-auto">
+          These capabilities power the stress-test engine and its audit-ready outputs.
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">
           {/* ELO Rankings */}
@@ -19,7 +22,7 @@ export function CapabilitiesSection() {
               <h3 className="text-acid-green font-mono text-sm">ELO RANKINGS</h3>
             </div>
             <p className="text-text-muted text-xs font-mono leading-relaxed mb-3">
-              Agents earn reputation through debate performance. Domain-specific ratings: security,
+              Agents earn reputation through stress-test performance. Domain-specific ratings: security,
               architecture, testing.
             </p>
             <p className="text-acid-green/60 text-xs font-mono">
@@ -100,7 +103,7 @@ export function CapabilitiesSection() {
               <h3 className="text-acid-green font-mono text-sm">THE NOMIC LOOP</h3>
             </div>
             <p className="text-text-muted text-xs font-mono leading-relaxed mb-3">
-              Aragora improves itself through autonomous debate cycles:
+              Aragora improves itself through autonomous red-team cycles:
             </p>
             <pre className="text-acid-green/80 text-xs font-mono mb-3 overflow-x-auto">
               {NOMIC_LOOP}
@@ -109,7 +112,7 @@ export function CapabilitiesSection() {
               Protected files checksummed. Automatic rollback on failure.
             </p>
             <p className="text-acid-green/80 text-xs font-mono font-bold">
-              The only AI debate system that evolves its own code.
+              The only AI red-team system that evolves its own code.
             </p>
           </div>
         </div>

@@ -967,7 +967,10 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
                             "code": "quota_exceeded",
                             "limit": org.limits.debates_per_month,
                             "used": org.debates_used_this_month,
+                            "remaining": 0,
+                            "tier": org.tier.value,
                             "upgrade_url": "/pricing",
+                            "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Upgrade to increase your limit.",
                         }, status=429)
                         return
             except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, ImportError) as e:

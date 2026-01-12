@@ -50,6 +50,12 @@ ACTIVE_DEBATES: Any = None
 CONSENSUS_RATE: Any = None
 MEMORY_OPERATIONS: Any = None
 WEBSOCKET_CONNECTIONS: Any = None
+DEBATE_DURATION: Any = None
+DEBATE_ROUNDS: Any = None
+DEBATE_PHASE_DURATION: Any = None
+AGENT_PARTICIPATION: Any = None
+CACHE_HITS: Any = None
+CACHE_MISSES: Any = None
 
 
 def _init_metrics() -> bool:
@@ -122,6 +128,51 @@ def _init_metrics() -> bool:
             "Number of active WebSocket connections",
         )
 
+        # Debate-specific metrics
+        global DEBATE_DURATION, DEBATE_ROUNDS, DEBATE_PHASE_DURATION, AGENT_PARTICIPATION
+
+        DEBATE_DURATION = Histogram(
+            "aragora_debate_duration_seconds",
+            "Debate duration in seconds",
+            ["outcome"],  # consensus, no_consensus, error
+            buckets=[1, 5, 10, 30, 60, 120, 300, 600, 1200],
+        )
+
+        DEBATE_ROUNDS = Histogram(
+            "aragora_debate_rounds_total",
+            "Number of rounds per debate",
+            ["outcome"],
+            buckets=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        )
+
+        DEBATE_PHASE_DURATION = Histogram(
+            "aragora_debate_phase_duration_seconds",
+            "Duration of each debate phase",
+            ["phase"],  # propose, critique, vote, consensus
+            buckets=[0.5, 1, 2, 5, 10, 30, 60],
+        )
+
+        AGENT_PARTICIPATION = Counter(
+            "aragora_agent_participation_total",
+            "Agent participation in debates",
+            ["agent", "phase"],
+        )
+
+        # Cache metrics
+        global CACHE_HITS, CACHE_MISSES
+
+        CACHE_HITS = Counter(
+            "aragora_cache_hits_total",
+            "Cache hit count",
+            ["cache_name"],
+        )
+
+        CACHE_MISSES = Counter(
+            "aragora_cache_misses_total",
+            "Cache miss count",
+            ["cache_name"],
+        )
+
         _initialized = True
         logger.info("Prometheus metrics initialized")
         return True
@@ -145,6 +196,8 @@ def _init_noop_metrics() -> None:
     """Initialize no-op metrics for when prometheus is disabled."""
     global REQUEST_COUNT, REQUEST_LATENCY, AGENT_CALLS, AGENT_LATENCY
     global ACTIVE_DEBATES, CONSENSUS_RATE, MEMORY_OPERATIONS, WEBSOCKET_CONNECTIONS
+    global DEBATE_DURATION, DEBATE_ROUNDS, DEBATE_PHASE_DURATION, AGENT_PARTICIPATION
+    global CACHE_HITS, CACHE_MISSES
 
     class NoOpMetric:
         def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
@@ -170,6 +223,12 @@ def _init_noop_metrics() -> None:
     CONSENSUS_RATE = NoOpMetric()
     MEMORY_OPERATIONS = NoOpMetric()
     WEBSOCKET_CONNECTIONS = NoOpMetric()
+    DEBATE_DURATION = NoOpMetric()
+    DEBATE_ROUNDS = NoOpMetric()
+    DEBATE_PHASE_DURATION = NoOpMetric()
+    AGENT_PARTICIPATION = NoOpMetric()
+    CACHE_HITS = NoOpMetric()
+    CACHE_MISSES = NoOpMetric()
 
 
 def start_metrics_server() -> Optional[Any]:
@@ -375,3 +434,93 @@ def _normalize_endpoint(endpoint: str) -> str:
     endpoint = re.sub(r"/[A-Za-z0-9_-]{20,}", "/:token", endpoint)
 
     return endpoint
+
+
+# =============================================================================
+# Debate-Specific Metrics
+# =============================================================================
+
+
+def record_debate_completion(
+    duration_seconds: float,
+    rounds: int,
+    outcome: str,
+) -> None:
+    """Record metrics when a debate completes.
+
+    Args:
+        duration_seconds: Total debate duration in seconds
+        rounds: Number of rounds completed
+        outcome: Debate outcome ("consensus", "no_consensus", "error")
+    """
+    _init_metrics()
+    DEBATE_DURATION.labels(outcome=outcome).observe(duration_seconds)
+    DEBATE_ROUNDS.labels(outcome=outcome).observe(rounds)
+
+
+def record_phase_duration(phase: str, duration_seconds: float) -> None:
+    """Record the duration of a debate phase.
+
+    Args:
+        phase: Phase name ("propose", "critique", "vote", "consensus")
+        duration_seconds: Phase duration in seconds
+    """
+    _init_metrics()
+    DEBATE_PHASE_DURATION.labels(phase=phase).observe(duration_seconds)
+
+
+def record_agent_participation(agent: str, phase: str) -> None:
+    """Record agent participation in a debate phase.
+
+    Args:
+        agent: Agent name
+        phase: Phase name
+    """
+    _init_metrics()
+    AGENT_PARTICIPATION.labels(agent=agent, phase=phase).inc()
+
+
+@contextmanager
+def track_phase(phase: str) -> Generator[None, None, None]:
+    """Context manager to track phase duration.
+
+    Args:
+        phase: Phase name
+
+    Example:
+        with track_phase("propose"):
+            # Phase is running
+            await run_propose_phase()
+    """
+    _init_metrics()
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        duration = time.perf_counter() - start
+        DEBATE_PHASE_DURATION.labels(phase=phase).observe(duration)
+
+
+# =============================================================================
+# Cache Metrics
+# =============================================================================
+
+
+def record_cache_hit(cache_name: str) -> None:
+    """Record a cache hit.
+
+    Args:
+        cache_name: Name of the cache
+    """
+    _init_metrics()
+    CACHE_HITS.labels(cache_name=cache_name).inc()
+
+
+def record_cache_miss(cache_name: str) -> None:
+    """Record a cache miss.
+
+    Args:
+        cache_name: Name of the cache
+    """
+    _init_metrics()
+    CACHE_MISSES.labels(cache_name=cache_name).inc()

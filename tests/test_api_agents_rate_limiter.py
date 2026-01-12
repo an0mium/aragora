@@ -556,3 +556,501 @@ class TestRateLimiterIntegration:
         # Retry should succeed
         result = await limiter.acquire(timeout=0.1)
         assert result is True
+
+
+# =============================================================================
+# ExponentialBackoff Tests
+# =============================================================================
+
+
+class TestExponentialBackoff:
+    """Tests for ExponentialBackoff class."""
+
+    def test_initial_state(self):
+        """Should start with zero failures."""
+        from aragora.agents.api_agents.rate_limiter import ExponentialBackoff
+
+        backoff = ExponentialBackoff()
+        assert backoff.failure_count == 0
+        assert backoff.is_backing_off is False
+
+    def test_get_delay_initial(self):
+        """Initial delay should be approximately base_delay."""
+        from aragora.agents.api_agents.rate_limiter import ExponentialBackoff
+
+        backoff = ExponentialBackoff(base_delay=1.0, jitter=0.1)
+        delay = backoff.get_delay()
+        # With 0 failures, delay is base_delay (1.0) + up to 10% jitter
+        assert 1.0 <= delay <= 1.1
+
+    def test_record_failure_increments_count(self):
+        """Recording failure should increment failure count."""
+        from aragora.agents.api_agents.rate_limiter import ExponentialBackoff
+
+        backoff = ExponentialBackoff()
+        assert backoff.failure_count == 0
+
+        backoff.record_failure()
+        assert backoff.failure_count == 1
+        assert backoff.is_backing_off is True
+
+        backoff.record_failure()
+        assert backoff.failure_count == 2
+
+    def test_exponential_increase(self):
+        """Delay should double with each failure."""
+        from aragora.agents.api_agents.rate_limiter import ExponentialBackoff
+
+        backoff = ExponentialBackoff(base_delay=1.0, max_delay=100.0, jitter=0.0)
+
+        # After 1 failure: 2^1 * 1.0 = 2.0
+        backoff.record_failure()
+        assert backoff.get_delay() == 2.0
+
+        # After 2 failures: 2^2 * 1.0 = 4.0
+        backoff.record_failure()
+        assert backoff.get_delay() == 4.0
+
+        # After 3 failures: 2^3 * 1.0 = 8.0
+        backoff.record_failure()
+        assert backoff.get_delay() == 8.0
+
+    def test_max_delay_cap(self):
+        """Delay should not exceed max_delay."""
+        from aragora.agents.api_agents.rate_limiter import ExponentialBackoff
+
+        backoff = ExponentialBackoff(base_delay=1.0, max_delay=10.0, jitter=0.0)
+
+        # Record many failures to exceed max
+        for _ in range(10):
+            backoff.record_failure()
+
+        # Delay should be capped at max_delay
+        assert backoff.get_delay() == 10.0
+
+    def test_reset_clears_failure_count(self):
+        """Reset should clear failure count."""
+        from aragora.agents.api_agents.rate_limiter import ExponentialBackoff
+
+        backoff = ExponentialBackoff()
+        backoff.record_failure()
+        backoff.record_failure()
+        assert backoff.failure_count == 2
+
+        backoff.reset()
+        assert backoff.failure_count == 0
+        assert backoff.is_backing_off is False
+
+    def test_jitter_adds_variance(self):
+        """Jitter should add random variance to delay."""
+        from aragora.agents.api_agents.rate_limiter import ExponentialBackoff
+
+        backoff = ExponentialBackoff(base_delay=10.0, jitter=0.1)
+
+        # Collect multiple delay samples
+        delays = [backoff.get_delay() for _ in range(20)]
+
+        # With 10% jitter, delays should be in range [10.0, 11.0]
+        assert all(10.0 <= d <= 11.0 for d in delays)
+
+        # Delays should not all be identical (very unlikely with jitter)
+        assert len(set(delays)) > 1
+
+    def test_thread_safety(self):
+        """Backoff operations should be thread-safe."""
+        from aragora.agents.api_agents.rate_limiter import ExponentialBackoff
+        import concurrent.futures
+
+        backoff = ExponentialBackoff()
+        num_threads = 10
+        iterations = 100
+
+        def record_failures():
+            for _ in range(iterations):
+                backoff.record_failure()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+            futures = [executor.submit(record_failures) for _ in range(num_threads)]
+            concurrent.futures.wait(futures)
+
+        # All failures should be recorded
+        assert backoff.failure_count == num_threads * iterations
+
+
+# =============================================================================
+# ProviderRateLimiter Tests
+# =============================================================================
+
+
+class TestProviderRateLimiter:
+    """Tests for ProviderRateLimiter class."""
+
+    def test_initialization_with_defaults(self):
+        """Should use default tier config for known provider."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="anthropic")
+        assert limiter.provider == "anthropic"
+        assert limiter.requests_per_minute > 0
+        assert limiter.burst_size > 0
+
+    def test_initialization_with_custom_values(self):
+        """Should allow custom rpm and burst."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="custom", rpm=100, burst=20)
+        assert limiter.requests_per_minute == 100
+        assert limiter.burst_size == 20
+
+    def test_initialization_with_unknown_provider(self):
+        """Should use default values for unknown provider."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="unknown_provider_xyz")
+        assert limiter.provider == "unknown_provider_xyz"
+        # Should use default values
+        assert limiter.requests_per_minute == 100
+        assert limiter.burst_size == 10
+
+    def test_provider_name_normalized_to_lowercase(self):
+        """Provider name should be normalized to lowercase."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="ANTHROPIC")
+        assert limiter.provider == "anthropic"
+
+    @patch.dict(os.environ, {"ARAGORA_TESTPROV_RPM": "500", "ARAGORA_TESTPROV_BURST": "50"})
+    def test_environment_variable_override(self):
+        """Should use env vars to override rate limits."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="testprov")
+        assert limiter.requests_per_minute == 500
+        assert limiter.burst_size == 50
+
+    @pytest.mark.asyncio
+    async def test_acquire_success(self):
+        """Should successfully acquire token."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="test", rpm=60, burst=10)
+        result = await limiter.acquire(timeout=0.1)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_acquire_exhausts_burst(self):
+        """Should exhaust burst tokens."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        # Use very low RPM (1 per minute = 0.017 per second) to minimize refill
+        # during the test. With burst=3, exhausting tokens should be reliable.
+        limiter = ProviderRateLimiter(provider="test", rpm=1, burst=3)
+
+        # Exhaust all tokens
+        for _ in range(3):
+            result = await limiter.acquire(timeout=0.1)
+            assert result is True
+
+        # Next acquire should timeout (not enough time for refill at 1 RPM)
+        result = await limiter.acquire(timeout=0.1)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_token_refill(self):
+        """Should refill tokens over time."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="test", rpm=60, burst=5)
+
+        # Exhaust tokens
+        for _ in range(5):
+            await limiter.acquire(timeout=0.1)
+
+        # Simulate time passing (1 minute = 60 tokens at 60 RPM)
+        limiter._last_refill = time.monotonic() - 60
+
+        # Should be able to acquire again
+        result = await limiter.acquire(timeout=0.1)
+        assert result is True
+
+    def test_record_success_resets_backoff(self):
+        """Record success should reset backoff state."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="test", rpm=60, burst=10)
+
+        # Create some backoff state
+        limiter._backoff.record_failure()
+        limiter._backoff.record_failure()
+        assert limiter._backoff.is_backing_off is True
+
+        # Record success
+        limiter.record_success()
+        assert limiter._backoff.is_backing_off is False
+
+    def test_record_rate_limit_triggers_backoff(self):
+        """Recording rate limit should trigger backoff."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="test", rpm=60, burst=10)
+        assert limiter._backoff.is_backing_off is False
+
+        limiter.record_rate_limit_error()
+        assert limiter._backoff.is_backing_off is True
+
+    def test_release_on_error_returns_token(self):
+        """Release on error should return token to pool."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="test", rpm=60, burst=10)
+        initial_tokens = limiter._tokens
+
+        # Consume one token manually
+        with limiter._lock:
+            limiter._tokens -= 1
+
+        tokens_after_consume = limiter._tokens
+        assert tokens_after_consume == initial_tokens - 1
+
+        # Release on error
+        limiter.release_on_error()
+
+        # Token should be returned (capped at burst)
+        assert limiter._tokens == min(tokens_after_consume + 1, limiter.burst_size)
+
+    def test_update_from_headers(self):
+        """Should parse rate limit headers."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="test", rpm=60, burst=10)
+
+        headers = {
+            "X-RateLimit-Limit": "100",
+            "X-RateLimit-Remaining": "95",
+            "X-RateLimit-Reset": str(int(time.time()) + 60),
+        }
+        limiter.update_from_headers(headers)
+
+        assert limiter._api_limit == 100
+        assert limiter._api_remaining == 95
+        assert limiter._api_reset is not None
+
+    def test_update_from_headers_case_insensitive(self):
+        """Should handle various header casing."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="test", rpm=60, burst=10)
+
+        # Lowercase headers
+        headers = {
+            "x-ratelimit-limit": "100",
+            "x-ratelimit-remaining": "95",
+        }
+        limiter.update_from_headers(headers)
+
+        assert limiter._api_limit == 100
+        assert limiter._api_remaining == 95
+
+    def test_stats_property(self):
+        """Should return rate limiter statistics."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="test", rpm=60, burst=10)
+        stats = limiter.stats
+
+        assert "provider" in stats
+        assert "rpm_limit" in stats
+        assert "burst_size" in stats
+        assert "tokens_available" in stats
+        assert stats["provider"] == "test"
+        assert stats["rpm_limit"] == 60
+        assert stats["burst_size"] == 10
+
+
+# =============================================================================
+# ProviderRateLimiterRegistry Tests
+# =============================================================================
+
+
+class TestProviderRateLimiterRegistry:
+    """Tests for ProviderRateLimiterRegistry class."""
+
+    def test_registry_initialization(self):
+        """Should initialize with empty limiters dict."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiterRegistry
+
+        registry = ProviderRateLimiterRegistry()
+        assert registry.providers() == []
+
+    def test_get_creates_limiter_on_demand(self):
+        """Should create limiter on first access."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiterRegistry
+
+        registry = ProviderRateLimiterRegistry()
+        limiter = registry.get("test_provider")
+
+        assert limiter is not None
+        assert limiter.provider == "test_provider"
+        assert "test_provider" in registry.providers()
+
+    def test_get_returns_same_instance(self):
+        """Should return same limiter instance for same provider."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiterRegistry
+
+        registry = ProviderRateLimiterRegistry()
+
+        limiter1 = registry.get("test_provider")
+        limiter2 = registry.get("test_provider")
+
+        assert limiter1 is limiter2
+
+    def test_get_normalizes_provider_name(self):
+        """Should normalize provider name to lowercase."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiterRegistry
+
+        registry = ProviderRateLimiterRegistry()
+
+        limiter1 = registry.get("TestProvider")
+        limiter2 = registry.get("testprovider")
+        limiter3 = registry.get("TESTPROVIDER")
+
+        assert limiter1 is limiter2 is limiter3
+
+    def test_get_with_custom_rpm_burst(self):
+        """Should create limiter with custom rpm/burst on first access."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiterRegistry
+
+        registry = ProviderRateLimiterRegistry()
+        limiter = registry.get("custom_prov", rpm=200, burst=40)
+
+        assert limiter.requests_per_minute == 200
+        assert limiter.burst_size == 40
+
+    def test_reset_single_provider(self):
+        """Should reset only specified provider."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiterRegistry
+
+        registry = ProviderRateLimiterRegistry()
+        registry.get("provider1")
+        registry.get("provider2")
+
+        assert len(registry.providers()) == 2
+
+        registry.reset("provider1")
+
+        assert "provider1" not in registry.providers()
+        assert "provider2" in registry.providers()
+
+    def test_reset_all_providers(self):
+        """Should reset all providers when no provider specified."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiterRegistry
+
+        registry = ProviderRateLimiterRegistry()
+        registry.get("provider1")
+        registry.get("provider2")
+        registry.get("provider3")
+
+        assert len(registry.providers()) == 3
+
+        registry.reset()
+
+        assert registry.providers() == []
+
+    def test_stats_returns_all_limiter_stats(self):
+        """Should return stats for all registered limiters."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiterRegistry
+
+        registry = ProviderRateLimiterRegistry()
+        registry.get("provider1")
+        registry.get("provider2")
+
+        stats = registry.stats()
+
+        assert "provider1" in stats
+        assert "provider2" in stats
+        assert "provider" in stats["provider1"]
+        assert "provider" in stats["provider2"]
+
+    def test_thread_safety(self):
+        """Registry operations should be thread-safe."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiterRegistry
+        import concurrent.futures
+
+        registry = ProviderRateLimiterRegistry()
+        num_threads = 10
+
+        def get_limiter(provider_idx):
+            # Each thread gets multiple limiters
+            for i in range(10):
+                registry.get(f"provider_{provider_idx}_{i}")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+            futures = [executor.submit(get_limiter, i) for i in range(num_threads)]
+            concurrent.futures.wait(futures)
+
+        # All limiters should be created
+        assert len(registry.providers()) == num_threads * 10
+
+
+# =============================================================================
+# Global Functions Tests
+# =============================================================================
+
+
+class TestGlobalProviderFunctions:
+    """Tests for global provider rate limiter functions."""
+
+    @pytest.fixture(autouse=True)
+    def reset_global_registry(self):
+        """Reset global registry between tests."""
+        import aragora.agents.api_agents.rate_limiter as module
+        with module._provider_registry_lock:
+            module._provider_registry = None
+        yield
+        with module._provider_registry_lock:
+            module._provider_registry = None
+
+    def test_get_provider_limiter(self):
+        """Should return a provider rate limiter."""
+        from aragora.agents.api_agents.rate_limiter import get_provider_limiter
+
+        limiter = get_provider_limiter("test_provider")
+        assert limiter is not None
+        assert limiter.provider == "test_provider"
+
+    def test_get_provider_limiter_singleton(self):
+        """Should return same limiter for same provider."""
+        from aragora.agents.api_agents.rate_limiter import get_provider_limiter
+
+        limiter1 = get_provider_limiter("test_provider")
+        limiter2 = get_provider_limiter("test_provider")
+
+        assert limiter1 is limiter2
+
+    def test_get_provider_registry(self):
+        """Should return the global registry."""
+        from aragora.agents.api_agents.rate_limiter import get_provider_registry
+
+        registry = get_provider_registry()
+        assert registry is not None
+
+    def test_reset_provider_limiters(self):
+        """Should reset all provider limiters."""
+        from aragora.agents.api_agents.rate_limiter import (
+            get_provider_limiter,
+            reset_provider_limiters,
+            get_provider_registry,
+        )
+
+        # Create some limiters
+        get_provider_limiter("provider1")
+        get_provider_limiter("provider2")
+
+        registry = get_provider_registry()
+        assert len(registry.providers()) == 2
+
+        # Reset
+        reset_provider_limiters()
+
+        # Registry should be cleared
+        assert len(registry.providers()) == 0

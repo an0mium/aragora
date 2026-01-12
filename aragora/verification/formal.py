@@ -579,16 +579,27 @@ class Z3Backend:
     3. Fall back to pattern-based translation for simple claims
     """
 
-    def __init__(self, llm_translator: Optional[Any] = None):
+    def __init__(
+        self,
+        llm_translator: Optional[Any] = None,
+        cache_size: int = 100,
+        cache_ttl_seconds: float = 3600.0,
+    ):
         """
         Initialize Z3 backend.
 
         Args:
             llm_translator: Optional async callable(claim, context) -> str
                            for LLM-assisted translation to SMT-LIB2
+            cache_size: Maximum number of proof results to cache
+            cache_ttl_seconds: Time-to-live for cached results (default: 1 hour)
         """
         self._llm_translator = llm_translator
         self._z3_version: Optional[str] = None
+        self._cache_size = cache_size
+        self._cache_ttl = cache_ttl_seconds
+        # Cache: hash -> (timestamp, FormalProofResult)
+        self._proof_cache: dict[str, tuple[float, FormalProofResult]] = {}
 
     @property
     def language(self) -> FormalLanguage:
@@ -649,6 +660,47 @@ class Z3Backend:
             return True
 
         return False
+
+    def _cache_key(self, formal_statement: str) -> str:
+        """Generate cache key from formal statement."""
+        return hashlib.sha256(formal_statement.encode()).hexdigest()[:16]
+
+    def _get_cached(self, formal_statement: str) -> Optional[FormalProofResult]:
+        """Get cached proof result if valid and not expired."""
+        import time
+
+        key = self._cache_key(formal_statement)
+        if key not in self._proof_cache:
+            return None
+
+        timestamp, result = self._proof_cache[key]
+        if time.time() - timestamp > self._cache_ttl:
+            # Expired, remove from cache
+            del self._proof_cache[key]
+            return None
+
+        logger.debug(f"Z3 proof cache hit for key {key}")
+        return result
+
+    def _cache_result(self, formal_statement: str, result: FormalProofResult) -> None:
+        """Cache a proof result with LRU eviction."""
+        import time
+
+        key = self._cache_key(formal_statement)
+
+        # LRU eviction if at capacity
+        if len(self._proof_cache) >= self._cache_size:
+            # Remove oldest entry
+            oldest_key = min(self._proof_cache.keys(), key=lambda k: self._proof_cache[k][0])
+            del self._proof_cache[oldest_key]
+
+        self._proof_cache[key] = (time.time(), result)
+
+    def clear_cache(self) -> int:
+        """Clear the proof cache. Returns number of entries cleared."""
+        count = len(self._proof_cache)
+        self._proof_cache.clear()
+        return count
 
     def _is_smtlib2(self, text: str) -> bool:
         """Check if text is already in SMT-LIB2 format."""
@@ -778,8 +830,15 @@ Return ONLY the SMT-LIB2 code, no explanation."""
         The statement should be in SMT-LIB2 format with the claim negated.
         If Z3 returns 'unsat', the original claim is proven.
         If Z3 returns 'sat', a counterexample exists.
+
+        Results are cached by statement hash with configurable TTL.
         """
         import time
+
+        # Check cache first
+        cached = self._get_cached(formal_statement)
+        if cached is not None:
+            return cached
 
         if not self.is_available:
             return FormalProofResult(
@@ -820,7 +879,7 @@ Return ONLY the SMT-LIB2 code, no explanation."""
                 proof_text = "QED (negation is unsatisfiable)"
                 proof_hash = hashlib.sha256(formal_statement.encode()).hexdigest()[:16]
 
-                return FormalProofResult(
+                proof_result = FormalProofResult(
                     status=FormalProofStatus.PROOF_FOUND,
                     language=FormalLanguage.Z3_SMT,
                     formal_statement=formal_statement,
@@ -829,13 +888,15 @@ Return ONLY the SMT-LIB2 code, no explanation."""
                     proof_search_time_ms=elapsed_ms,
                     prover_version=self.z3_version,
                 )
+                self._cache_result(formal_statement, proof_result)
+                return proof_result
 
             elif result == z3.sat:
                 # Counterexample found
                 model = solver.model()
                 counterexample = f"COUNTEREXAMPLE: {model}"
 
-                return FormalProofResult(
+                proof_result = FormalProofResult(
                     status=FormalProofStatus.PROOF_FAILED,
                     language=FormalLanguage.Z3_SMT,
                     formal_statement=formal_statement,
@@ -844,9 +905,11 @@ Return ONLY the SMT-LIB2 code, no explanation."""
                     error_message="Claim is false - counterexample found",
                     prover_version=self.z3_version,
                 )
+                self._cache_result(formal_statement, proof_result)
+                return proof_result
 
             else:
-                # Unknown (timeout or undecidable)
+                # Unknown (timeout or undecidable) - don't cache timeouts
                 return FormalProofResult(
                     status=FormalProofStatus.TIMEOUT,
                     language=FormalLanguage.Z3_SMT,

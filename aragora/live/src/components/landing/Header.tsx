@@ -23,6 +23,24 @@ export function Header() {
               [ABOUT]
             </a>
             <a
+              href="/memory"
+              className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+            >
+              [MEMORY]
+            </a>
+            <a
+              href="/evidence"
+              className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+            >
+              [EVIDENCE]
+            </a>
+            <a
+              href="/tournaments"
+              className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+            >
+              [TOURNAMENTS]
+            </a>
+            <a
               href="https://live.aragora.ai"
               className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
             >
@@ -57,6 +75,24 @@ export function Header() {
               className="block text-sm font-mono text-text-muted hover:text-acid-green transition-colors py-2"
             >
               [ABOUT]
+            </a>
+            <a
+              href="/memory"
+              className="block text-sm font-mono text-text-muted hover:text-acid-green transition-colors py-2"
+            >
+              [MEMORY]
+            </a>
+            <a
+              href="/evidence"
+              className="block text-sm font-mono text-text-muted hover:text-acid-green transition-colors py-2"
+            >
+              [EVIDENCE]
+            </a>
+            <a
+              href="/tournaments"
+              className="block text-sm font-mono text-text-muted hover:text-acid-green transition-colors py-2"
+            >
+              [TOURNAMENTS]
             </a>
             <a
               href="https://live.aragora.ai"

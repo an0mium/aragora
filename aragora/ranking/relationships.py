@@ -22,6 +22,9 @@ from aragora.ranking.database import EloDatabase
 
 logger = logging.getLogger(__name__)
 
+# Maximum relationship query limit to prevent resource exhaustion
+MAX_RELATIONSHIP_LIMIT = 1000
+
 
 @dataclass
 class RelationshipStats:
@@ -302,11 +305,14 @@ class RelationshipTracker:
 
         Args:
             agent_name: The agent to get relationships for
-            limit: Maximum number of relationships to return (default 100)
+            limit: Maximum number of relationships to return (default 100, max 1000)
 
         Returns:
             List of RelationshipStats, ordered by debate_count descending
         """
+        # Enforce maximum limit to prevent resource exhaustion
+        limit = min(limit, MAX_RELATIONSHIP_LIMIT)
+
         with self._db.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(

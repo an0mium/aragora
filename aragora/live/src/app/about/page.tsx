@@ -116,7 +116,7 @@ export default function AboutPage() {
             <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Core Features</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
-                { title: 'Heterogeneous Agents', desc: 'Mix Claude, GPT, Gemini, Grok, Qwen, Deepseek, and local models. Different biases create stronger consensus.' },
+                { title: 'Heterogeneous Agents', desc: 'Mix Claude, GPT, Gemini, Mistral (EU perspective), Grok, and Chinese models like DeepSeek, Qwen, and Kimi, plus local models. Different biases create stronger adversarial coverage.' },
                 { title: 'Structured Debate', desc: 'Propose, Critique, Revise loop. Configurable rounds and consensus mechanisms (majority, unanimous, judge).' },
                 { title: 'Evidence Provenance', desc: 'Cryptographic chain tracking sources. Every claim linked to evidence with reliability scoring.' },
                 { title: 'Formal Verification', desc: 'Z3-powered proof checking. Verify logical claims with SMT solver integration.' },
@@ -132,10 +132,10 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* Why Multi-Agent Debate */}
+        {/* Why Adversarial Stress-Testing */}
         <section className="py-16 px-4 bg-surface/30">
           <div className="container mx-auto max-w-4xl">
-            <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Why Multi-Agent Debate?</h2>
+            <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Why Adversarial Stress-Testing?</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               <div className="border border-warning/30 p-6 bg-warning/5">
                 <h3 className="text-warning font-mono mb-4">Single Model</h3>
@@ -148,12 +148,12 @@ export default function AboutPage() {
                 </ul>
               </div>
               <div className="border border-acid-green/30 p-6 bg-acid-green/5">
-                <h3 className="text-acid-green font-mono mb-4">Aragora (Multi-Agent)</h3>
+                <h3 className="text-acid-green font-mono mb-4">Aragora (AI Red Team)</h3>
                 <ul className="space-y-2 text-text-muted text-sm font-mono">
                   <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Heterogeneous viewpoints</li>
-                  <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Agents critique each other</li>
-                  <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Transparent debate transcript</li>
-                  <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Consensus requires agreement</li>
+                  <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Adversarial critique baked in</li>
+                  <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Audit-ready stress-test transcript</li>
+                  <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Decision receipts with dissent</li>
                   <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Minority views preserved</li>
                 </ul>
               </div>
@@ -193,12 +193,12 @@ $ aragora nomic --cycles 3  # Run self-improvement loop
             <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Use Cases</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {[
-                { icon: '🔍', title: 'Code Review', desc: 'Multi-agent security & quality analysis' },
-                { icon: '🛠', title: 'System Design', desc: 'Debate architectural decisions' },
-                { icon: '🔥', title: 'Incident Response', desc: 'Rapid multi-perspective RCA' },
-                { icon: '📚', title: 'Research Synthesis', desc: 'Combine findings, challenge claims' },
-                { icon: '🔒', title: 'Security Testing', desc: 'Red-team your proposals' },
-                { icon: '✅', title: 'Decision Making', desc: 'Scenario analysis with dissent tracking' },
+                { icon: '🔍', title: 'Code Review', desc: 'Adversarial security & quality analysis' },
+                { icon: '🛠', title: 'System Design', desc: 'Stress-test architectural decisions' },
+                { icon: '🔥', title: 'Incident Response', desc: 'Red-team RCA and mitigations' },
+                { icon: '📚', title: 'Research Synthesis', desc: 'Challenge claims, surface risks' },
+                { icon: '🔒', title: 'Security Testing', desc: 'AI red-team your proposals' },
+                { icon: '✅', title: 'Decision Making', desc: 'Decision receipts with dissent tracking' },
               ].map((useCase) => (
                 <div key={useCase.title} className="border border-acid-green/20 p-4 bg-bg/50 text-center">
                   <div className="text-2xl mb-2">{useCase.icon}</div>

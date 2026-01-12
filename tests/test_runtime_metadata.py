@@ -171,7 +171,7 @@ class TestDebateMetadata(unittest.TestCase):
     def test_environment_defaults(self):
         """Should capture environment info."""
         meta = DebateMetadata(debate_id="test")
-        self.assertEqual(meta.aragora_version, "0.07")
+        self.assertEqual(meta.aragora_version, "0.8.0")
         self.assertIn(".", meta.python_version)  # e.g., "3.10.13"
         self.assertTrue(len(meta.platform_info) > 0)
 

@@ -16,16 +16,24 @@ import threading
 import time
 from collections import OrderedDict
 from functools import wraps
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+# Type alias for cache metric function
+CacheMetricFunc = Callable[[str], None]
+
 # Lazy import to avoid circular dependency
-_record_cache_hit = None
-_record_cache_miss = None
+_record_cache_hit: Optional[CacheMetricFunc] = None
+_record_cache_miss: Optional[CacheMetricFunc] = None
 
 
-def _get_metrics() -> tuple:
+def _noop_metric(x: str) -> None:
+    """No-op metric function for when metrics are unavailable."""
+    pass
+
+
+def _get_metrics() -> tuple[CacheMetricFunc, CacheMetricFunc]:
     """Lazy load metrics functions."""
     global _record_cache_hit, _record_cache_miss
     if _record_cache_hit is None:
@@ -34,8 +42,8 @@ def _get_metrics() -> tuple:
             _record_cache_hit = record_cache_hit
             _record_cache_miss = record_cache_miss
         except ImportError:
-            _record_cache_hit = lambda x: None
-            _record_cache_miss = lambda x: None
+            _record_cache_hit = _noop_metric
+            _record_cache_miss = _noop_metric
     return _record_cache_hit, _record_cache_miss
 
 

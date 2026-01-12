@@ -34,9 +34,11 @@ Async Usage:
     asyncio.run(main())
 
 Gauntlet Usage:
+    from pathlib import Path
+
     # Stress-test a policy document
     receipt = client.gauntlet.run_and_wait(
-        input_content=open("policy.md").read(),
+        input_content=Path("policy.md").read_text(),
         input_type="policy",
         persona="gdpr",
         profile="thorough",
@@ -54,12 +56,26 @@ from .client import (
     AgentsAPI,
     LeaderboardAPI,
     GauntletAPI,
+    GraphDebatesAPI,
+    MatrixDebatesAPI,
+    VerificationAPI,
+    MemoryAPI,
+    ReplayAPI,
+)
+from .websocket import (
+    DebateStream,
+    DebateEvent,
+    DebateEventType,
+    WebSocketOptions,
+    stream_debate,
 )
 from .models import (
     # Enums
     DebateStatus,
     ConsensusType,
     GauntletVerdict,
+    VerificationStatus,
+    VerificationBackend,
     # Debate models
     Debate,
     DebateRound,
@@ -68,6 +84,33 @@ from .models import (
     AgentMessage,
     Vote,
     ConsensusResult,
+    # Graph debate models
+    GraphDebate,
+    GraphDebateNode,
+    GraphDebateBranch,
+    GraphDebateCreateRequest,
+    GraphDebateCreateResponse,
+    # Matrix debate models
+    MatrixDebate,
+    MatrixScenario,
+    MatrixScenarioResult,
+    MatrixConclusion,
+    MatrixDebateCreateRequest,
+    MatrixDebateCreateResponse,
+    # Verification models
+    VerifyClaimRequest,
+    VerifyClaimResponse,
+    VerifyStatusResponse,
+    VerificationBackendStatus,
+    # Memory models
+    MemoryTierStats,
+    MemoryRecommendation,
+    MemoryAnalyticsResponse,
+    MemorySnapshotResponse,
+    # Replay models
+    Replay,
+    ReplaySummary,
+    ReplayEvent,
     # Agent models
     AgentProfile,
     LeaderboardEntry,
@@ -90,10 +133,23 @@ __all__ = [
     "AgentsAPI",
     "LeaderboardAPI",
     "GauntletAPI",
+    "GraphDebatesAPI",
+    "MatrixDebatesAPI",
+    "VerificationAPI",
+    "MemoryAPI",
+    "ReplayAPI",
+    # WebSocket
+    "DebateStream",
+    "DebateEvent",
+    "DebateEventType",
+    "WebSocketOptions",
+    "stream_debate",
     # Enums
     "DebateStatus",
     "ConsensusType",
     "GauntletVerdict",
+    "VerificationStatus",
+    "VerificationBackend",
     # Debate models
     "Debate",
     "DebateRound",
@@ -102,6 +158,33 @@ __all__ = [
     "AgentMessage",
     "Vote",
     "ConsensusResult",
+    # Graph debate models
+    "GraphDebate",
+    "GraphDebateNode",
+    "GraphDebateBranch",
+    "GraphDebateCreateRequest",
+    "GraphDebateCreateResponse",
+    # Matrix debate models
+    "MatrixDebate",
+    "MatrixScenario",
+    "MatrixScenarioResult",
+    "MatrixConclusion",
+    "MatrixDebateCreateRequest",
+    "MatrixDebateCreateResponse",
+    # Verification models
+    "VerifyClaimRequest",
+    "VerifyClaimResponse",
+    "VerifyStatusResponse",
+    "VerificationBackendStatus",
+    # Memory models
+    "MemoryTierStats",
+    "MemoryRecommendation",
+    "MemoryAnalyticsResponse",
+    "MemorySnapshotResponse",
+    # Replay models
+    "Replay",
+    "ReplaySummary",
+    "ReplayEvent",
     # Agent models
     "AgentProfile",
     "LeaderboardEntry",

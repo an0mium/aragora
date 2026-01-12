@@ -1,6 +1,8 @@
 # Agent Selection Guide
 
-This guide helps you choose the right AI agents for your Aragora debates based on task type, cost, and capability requirements.
+This guide helps you choose the right AI agents for your Aragora stress-tests based on task type, cost, and capability requirements.
+
+Perspective coverage note: Mistral adds an EU lens, and Chinese models like DeepSeek, Qwen, and Kimi provide a Chinese perspective (use the providers and keys listed below).
 
 ## Available Agents
 
@@ -126,7 +128,7 @@ export OPENROUTER_API_KEY=your_key
 aragora review --agents deepseek-api,qwen-api
 ```
 
-Estimated costs per 10K token debate:
+Estimated costs per 10K token stress-test:
 - `anthropic-api,openai-api`: ~$0.30
 - `deepseek-api,qwen-api`: ~$0.03 (10x cheaper)
 

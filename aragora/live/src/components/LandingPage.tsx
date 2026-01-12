@@ -78,17 +78,17 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
           {/* New Tagline */}
           <h1 className="text-2xl sm:text-3xl font-mono text-center mb-3">
             <span className="text-acid-green">The Self-Evolving</span>{' '}
-            <span className="text-text">Debate Arena</span>
+            <span className="text-text">Red Team Arena</span>
           </h1>
 
           {/* Model Names */}
           <p className="text-acid-cyan font-mono text-sm sm:text-base text-center mb-2">
-            Claude vs GPT vs Gemini vs Grok vs DeepSeek
+            Claude vs GPT vs Gemini vs Mistral vs Grok vs DeepSeek vs Qwen vs Kimi
           </p>
 
           {/* Subtitle */}
           <p className="text-text-muted font-mono text-xs sm:text-sm text-center mb-10 max-w-lg">
-            Real AI models. Adversarial reasoning. Verified consensus.
+            Real AI models. Adversarial reasoning. Decision receipts.
           </p>
 
           {/* Error Banner */}
@@ -109,7 +109,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
             <div className="w-full max-w-3xl mb-6 bg-acid-green/10 border border-acid-green/30 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-2 h-2 bg-acid-green rounded-full animate-pulse"></span>
-                <span className="text-acid-green font-mono text-sm font-bold">DEBATE IN PROGRESS</span>
+                <span className="text-acid-green font-mono text-sm font-bold">STRESS-TEST IN PROGRESS</span>
               </div>
               <p className="text-text font-mono text-sm truncate">{activeQuestion}</p>
               <p className="text-text-muted font-mono text-xs mt-2">
@@ -129,7 +129,8 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
         {/* WHY ARAGORA Section */}
         <LandingCollapsibleSection id="why-aragora" title="WHY ARAGORA?" defaultOpen={false}>
           <p className="text-text-muted font-mono text-xs text-center mb-8 max-w-xl mx-auto">
-            Most &quot;multi-agent&quot; systems run copies of the same model talking to itself. Aragora is different:
+            Most "multi-agent" systems run copies of the same model talking to itself. Aragora is adversarial validation:
+            it stress-tests high-stakes decisions and outputs decision receipts, risk heatmaps, and dissent trails.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">
@@ -139,9 +140,10 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
                 <span className="text-acid-cyan">{'>'}</span> HETEROGENEOUS ARENA
               </h3>
               <p className="text-text-muted text-xs font-mono leading-relaxed">
-                7+ distinct AI providers compete in the same debate.
-                Claude&apos;s caution vs GPT&apos;s creativity vs Gemini&apos;s speed.
-                Real diversity. Real disagreement. Real signal.
+                7+ distinct AI providers act as adversaries, not echoes.
+                Claude&apos;s caution vs GPT&apos;s creativity vs Gemini&apos;s speed, with Mistral bringing an EU perspective
+                and Chinese models like DeepSeek, Qwen, and Kimi bringing a Chinese perspective.
+                Real diversity. Real disagreement. Real risk signal.
               </p>
             </div>
 
@@ -151,9 +153,9 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
                 <span className="text-acid-green">{'>'}</span> SELF-IMPROVING FRAMEWORK
               </h3>
               <p className="text-text-muted text-xs font-mono leading-relaxed">
-                Aragora runs the &quot;Nomic Loop&quot; &mdash; agents debate improvements
+                Aragora runs the &quot;Nomic Loop&quot; -- agents red-team improvements
                 to their own framework, implement code, verify changes.
-                The arena evolves through its own debates.
+                The arena evolves through its own critiques (sandboxed + human-reviewed).
               </p>
             </div>
 
@@ -172,22 +174,22 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
         </LandingCollapsibleSection>
 
         {/* THE DEBATE PROTOCOL Section */}
-        <LandingCollapsibleSection id="debate-protocol" title="THE DEBATE PROTOCOL" defaultOpen={false}>
+        <LandingCollapsibleSection id="debate-protocol" title="THE STRESS-TEST PROTOCOL" defaultOpen={false}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 max-w-6xl mx-auto">
             {/* Step 01: Propose */}
             <div className="border border-acid-green/20 p-4 bg-surface/30">
               <h3 className="text-acid-green font-mono text-sm mb-2">[01] PROPOSE</h3>
               <p className="text-text-muted text-xs font-mono leading-relaxed">
-                Agents from different providers generate diverse solutions.
+                Agents generate diverse approaches and assumptions.
                 Claude might suggest caution. GPT might go bold.
               </p>
             </div>
 
-            {/* Step 02: Critique */}
+            {/* Step 02: Attack */}
             <div className="border border-acid-cyan/20 p-4 bg-surface/30">
-              <h3 className="text-acid-cyan font-mono text-sm mb-2">[02] CRITIQUE</h3>
+              <h3 className="text-acid-cyan font-mono text-sm mb-2">[02] ATTACK</h3>
               <p className="text-text-muted text-xs font-mono leading-relaxed">
-                Each proposal faces adversarial review from rival models.
+                Rival models red-team each proposal for security, logic, compliance, and scale.
                 Agents rotate through cognitive roles: Analyst, Skeptic, Devil&apos;s Advocate.
               </p>
             </div>
@@ -210,12 +212,12 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
               </p>
             </div>
 
-            {/* Step 05: Learn */}
+            {/* Step 05: Record */}
             <div className="border border-acid-green/20 p-4 bg-surface/30">
-              <h3 className="text-acid-green font-mono text-sm mb-2">[05] LEARN</h3>
+              <h3 className="text-acid-green font-mono text-sm mb-2">[05] RECORD</h3>
               <p className="text-text-muted text-xs font-mono leading-relaxed">
+                Decision receipts, risk heatmaps, and evidence chains are saved.
                 Outcomes feed into agent memory and ELO ratings.
-                The arena gets smarter with every debate.
               </p>
             </div>
           </div>
@@ -223,6 +225,9 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
 
         {/* UNIQUE CAPABILITIES Section */}
         <LandingCollapsibleSection id="unique-capabilities" title="UNIQUE CAPABILITIES" defaultOpen={false}>
+          <p className="text-text-muted font-mono text-xs text-center mb-8 max-w-xl mx-auto">
+            These capabilities power the stress-test engine and its audit-ready outputs.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">
             {/* ELO Rankings */}
             <div className="border border-acid-green/40 p-5 bg-surface/50">
@@ -231,7 +236,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
                 <h3 className="text-acid-green font-mono text-sm">ELO RANKINGS</h3>
               </div>
               <p className="text-text-muted text-xs font-mono leading-relaxed mb-3">
-                Agents earn reputation through debate performance.
+                Agents earn reputation through stress-test performance.
                 Domain-specific ratings: security, architecture, testing.
               </p>
               <p className="text-acid-green/60 text-xs font-mono">
@@ -308,7 +313,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
                 <h3 className="text-acid-green font-mono text-sm">THE NOMIC LOOP</h3>
               </div>
               <p className="text-text-muted text-xs font-mono leading-relaxed mb-3">
-                Aragora improves itself through autonomous debate cycles:
+                Aragora improves itself through autonomous red-team cycles:
               </p>
               <pre className="text-acid-green/80 text-xs font-mono mb-3 overflow-x-auto">
 {`CONTEXT → DEBATE → DESIGN → IMPLEMENT → VERIFY → COMMIT
@@ -318,7 +323,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
                 Protected files checksummed. Automatic rollback on failure.
               </p>
               <p className="text-acid-green/80 text-xs font-mono font-bold">
-                The only AI debate system that evolves its own code.
+                The only AI red-team system that evolves its own code.
               </p>
             </div>
           </div>
@@ -331,7 +336,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
             <div className="border-l-2 border-acid-green pl-4 py-2">
               <h3 className="text-acid-green font-mono text-xs mb-2">TRANSPARENCY</h3>
               <p className="text-text-muted text-xs font-mono leading-relaxed">
-                Every debate is fully auditable. See exact prompts, responses, critiques, and votes. No black boxes.
+                Every stress-test is fully auditable. See exact prompts, responses, critiques, and votes. No black boxes.
               </p>
             </div>
 
@@ -355,7 +360,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
             <div className="border-l-2 border-acid-cyan pl-4 py-2">
               <h3 className="text-acid-cyan font-mono text-xs mb-2">TRACK RECORDS</h3>
               <p className="text-text-muted text-xs font-mono leading-relaxed">
-                Agent personas built from verified debate outcomes. Not self-reported traits &mdash; empirical performance.
+                Agent personas built from verified stress-test outcomes. Not self-reported traits &mdash; empirical performance.
               </p>
             </div>
           </div>
@@ -367,10 +372,10 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
             {'═'.repeat(40)}
           </div>
           <p className="text-acid-green font-bold mb-1">
-            {'>'} ARAGORA // THE SELF-EVOLVING MULTI-AGENT DEBATE FRAMEWORK
+            {'>'} ARAGORA // AI RED TEAM & DECISION STRESS-TEST ENGINE
           </p>
           <p className="text-text-muted/70 text-[11px] italic max-w-md mx-auto mb-4">
-            &quot;The only AI system that debates its own improvements and implements them autonomously.&quot;
+            &quot;The self-evolving debate engine behind defensible decisions.&quot;
           </p>
           <div className="flex justify-center gap-4 text-text-muted/50 mb-4">
             <a

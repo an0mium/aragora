@@ -1,6 +1,6 @@
 # Broadcast Module - Debate Podcast Generation
 
-The broadcast module converts multi-agent debates into audio podcasts, complete with text-to-speech synthesis, audio mixing, and podcast distribution via RSS feeds.
+The broadcast module converts decision stress-test debates into audio podcasts, complete with text-to-speech synthesis, audio mixing, and podcast distribution via RSS feeds.
 
 ## Quick Start
 
@@ -93,7 +93,7 @@ segments = generate_script(trace)
 
 ### Audio Engine (`audio_engine.py`)
 
-Text-to-speech synthesis using configurable backends (ElevenLabs, Coqui XTTS v2, edge-tts) with fallbacks.
+Text-to-speech synthesis using configurable backends (ElevenLabs, Amazon Polly, Coqui XTTS v2, edge-tts) with fallbacks.
 
 ```python
 from aragora.broadcast.audio_engine import AudioEngine
@@ -104,6 +104,7 @@ audio_path = await engine.generate_audio("Hello world", "narrator")
 
 **Features:**
 - Primary: `elevenlabs` (highest quality, diverse voices)
+- Secondary: `polly` (AWS neural voices, SSML + lexicons)
 - Secondary: `xtts` (Coqui XTTS v2, local, GPU recommended)
 - Fallback: `edge-tts` (Microsoft neural voices)
 - Final fallback: `pyttsx3` (offline, lower quality)
@@ -126,13 +127,22 @@ audio_path = await engine.generate_audio("Hello world", "narrator")
 Install optional providers:
 ```bash
 pip install "aragora[broadcast-elevenlabs]"  # ElevenLabs (cloud)
+pip install "aragora[broadcast-polly]"       # Amazon Polly (cloud, AWS)
 pip install "aragora[broadcast-xtts]"        # Coqui XTTS v2 (local)
 ```
 
 Backend selection and ordering:
 ```bash
-export ARAGORA_TTS_ORDER=elevenlabs,xtts,edge-tts,pyttsx3
+export ARAGORA_TTS_ORDER=elevenlabs,polly,xtts,edge-tts,pyttsx3
 export ARAGORA_TTS_BACKEND=elevenlabs  # force a backend
+```
+
+CLI overrides (one-off runs):
+```bash
+python scripts/generate_broadcast.py --trace_id trace-123 \
+  --output debate.mp3 \
+  --tts-backend elevenlabs \
+  --tts-order elevenlabs,xtts,edge-tts
 ```
 
 ElevenLabs (cloud, best quality):
@@ -151,6 +161,18 @@ export ARAGORA_XTTS_LANGUAGE=en
 export ARAGORA_XTTS_MODEL_PATH=tts_models/multilingual/multi-dataset/xtts_v2
 # Optional per-agent speaker WAVs (JSON)
 export ARAGORA_XTTS_SPEAKER_WAV_MAP='{"narrator":"/path/to/narrator.wav"}'
+```
+
+Amazon Polly (cloud, AWS):
+```bash
+export AWS_REGION=us-east-1
+export ARAGORA_POLLY_ENGINE=neural
+export ARAGORA_POLLY_TEXT_TYPE=text  # or ssml
+export ARAGORA_POLLY_VOICE_ID=Joanna
+# Optional per-agent map (JSON)
+export ARAGORA_POLLY_VOICE_MAP='{"narrator":"Joanna","claude-visionary":"Matthew"}'
+# Optional lexicons (comma-separated)
+export ARAGORA_POLLY_LEXICONS=product-terms,brand-names
 ```
 
 ### Audio Mixer (`mixer.py`)

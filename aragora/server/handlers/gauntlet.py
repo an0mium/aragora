@@ -32,6 +32,7 @@ from .base import (
     get_bool_param,
     get_int_param,
     safe_json_parse,
+    require_quota,
 )
 from .utils.rate_limit import rate_limit
 from aragora.server.validation.entities import validate_gauntlet_id
@@ -118,8 +119,11 @@ class GauntletHandler(BaseHandler):
         if emitter and hasattr(emitter, "emit"):
             set_gauntlet_broadcast_fn(emitter.emit)
 
-    def can_handle(self, path: str, method: str) -> bool:
+    def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the request."""
+        # When called without method (e.g., from route index), just check path prefix
+        if method == "GET" and path.startswith("/api/gauntlet/"):
+            return True
         if path == "/api/gauntlet/run" and method == "POST":
             return True
         if path == "/api/gauntlet/personas" and method == "GET":
@@ -234,6 +238,33 @@ class GauntletHandler(BaseHandler):
 
     async def _start_gauntlet(self, handler: Any) -> HandlerResult:
         """Start a new gauntlet stress-test."""
+        # Check quota before proceeding
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        user_store = None
+        if hasattr(handler, 'user_store'):
+            user_store = handler.user_store
+        elif hasattr(handler.__class__, 'user_store'):
+            user_store = handler.__class__.user_store
+
+        user_ctx = extract_user_from_request(handler, user_store) if user_store else None
+
+        if user_ctx and user_ctx.is_authenticated and user_ctx.org_id:
+            if user_store and hasattr(user_store, 'get_organization_by_id'):
+                org = user_store.get_organization_by_id(user_ctx.org_id)
+                if org:
+                    if org.is_at_limit:
+                        return json_response({
+                            "error": "Monthly debate quota exceeded",
+                            "code": "quota_exceeded",
+                            "limit": org.limits.debates_per_month,
+                            "used": org.debates_used_this_month,
+                            "remaining": 0,
+                            "tier": org.tier.value,
+                            "upgrade_url": "/pricing",
+                            "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Gauntlet runs count as debates. Upgrade to increase your limit.",
+                        }, status=429)
+
         # Parse request body (with Content-Length validation)
         data = self.read_json_body(handler)
         if data is None:
@@ -274,6 +305,17 @@ class GauntletHandler(BaseHandler):
         asyncio.create_task(self._run_gauntlet_async(
             gauntlet_id, input_content, input_type, persona, agents, profile
         ))
+
+        # Increment usage on successful gauntlet start
+        if user_ctx and user_ctx.is_authenticated and user_ctx.org_id:
+            if user_store and hasattr(user_store, 'increment_usage'):
+                try:
+                    user_store.increment_usage(user_ctx.org_id, 1)
+                    logger.info(
+                        f"Incremented gauntlet usage for org {user_ctx.org_id}"
+                    )
+                except Exception as ue:
+                    logger.warning(f"Usage increment failed for org {user_ctx.org_id}: {ue}")
 
         return json_response({
             "gauntlet_id": gauntlet_id,

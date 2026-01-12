@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -63,20 +63,13 @@ export default function BillingPage() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices'>('overview');
+  const accessToken = tokens?.access_token;
 
-  useEffect(() => {
-    if (!authLoading && isAuthenticated && tokens?.access_token) {
-      fetchBillingData();
-    } else if (!authLoading && !isAuthenticated) {
-      setLoading(false);
-    }
-  }, [authLoading, isAuthenticated, tokens]);
-
-  const fetchBillingData = async () => {
+  const fetchBillingData = useCallback(async () => {
     try {
       const headers = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${tokens?.access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
       };
 
       const [usageRes, subRes, invoicesRes, forecastRes] = await Promise.all([
@@ -110,7 +103,15 @@ export default function BillingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && accessToken) {
+      fetchBillingData();
+    } else if (!authLoading && !isAuthenticated) {
+      setLoading(false);
+    }
+  }, [authLoading, isAuthenticated, accessToken, fetchBillingData]);
 
   const handleManageBilling = async () => {
     setPortalLoading(true);

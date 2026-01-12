@@ -3,9 +3,10 @@ TTS Backend Abstraction Layer.
 
 Provides multiple text-to-speech backends with fallback support:
 1. ElevenLabs - Highest quality, most voice variety (cloud, paid)
-2. Coqui XTTS v2 - High quality local TTS (GPU recommended)
-3. Edge-TTS - Free Microsoft TTS (cloud, free)
-4. pyttsx3 - Offline fallback (low quality)
+2. Amazon Polly - High quality neural voices (cloud, AWS)
+3. Coqui XTTS v2 - High quality local TTS (GPU recommended)
+4. Edge-TTS - Free Microsoft TTS (cloud, free)
+5. pyttsx3 - Offline fallback (low quality)
 
 Usage:
     from aragora.broadcast.tts_backends import get_tts_backend, TTSConfig
@@ -61,6 +62,9 @@ def _normalize_backend_name(name: str) -> str:
         "eleven": "elevenlabs",
         "11labs": "elevenlabs",
         "edge": "edge-tts",
+        "aws": "polly",
+        "aws-polly": "polly",
+        "amazon-polly": "polly",
         "coqui": "xtts",
         "xtts-v2": "xtts",
         "fallback": "pyttsx3",
@@ -74,7 +78,7 @@ class TTSConfig:
 
     # Backend priority (first available is used)
     backend_priority: List[str] = field(
-        default_factory=lambda: ["elevenlabs", "xtts", "edge-tts", "pyttsx3"]
+        default_factory=lambda: ["elevenlabs", "polly", "xtts", "edge-tts", "pyttsx3"]
     )
 
     # ElevenLabs settings
@@ -89,6 +93,14 @@ class TTSConfig:
     xtts_language: str = "en"
     xtts_speaker_wav: Optional[str] = None
     xtts_speaker_wav_map: Dict[str, str] = field(default_factory=dict)
+
+    # Amazon Polly settings
+    polly_region: Optional[str] = None
+    polly_engine: str = "neural"  # neural or standard
+    polly_text_type: str = "text"  # text or ssml
+    polly_voice_map: Dict[str, str] = field(default_factory=dict)
+    polly_default_voice_id: Optional[str] = None
+    polly_lexicons: Optional[List[str]] = None
 
     # Cache settings
     cache_dir: Optional[Path] = None
@@ -122,6 +134,12 @@ class TTSConfig:
         if not isinstance(speaker_wav_map, dict):
             speaker_wav_map = {}
 
+        polly_voice_map = _parse_json_env("ARAGORA_POLLY_VOICE_MAP") or {}
+        if not isinstance(polly_voice_map, dict):
+            polly_voice_map = {}
+
+        polly_lexicons = _parse_csv(os.getenv("ARAGORA_POLLY_LEXICONS"))
+
         return cls(
             backend_priority=parsed_backend or cls().backend_priority,
             elevenlabs_api_key=os.getenv("ARAGORA_ELEVENLABS_API_KEY") or os.getenv("ELEVENLABS_API_KEY"),
@@ -137,6 +155,19 @@ class TTSConfig:
             xtts_language=os.getenv("ARAGORA_XTTS_LANGUAGE", os.getenv("XTTS_LANGUAGE", "en")),
             xtts_speaker_wav=os.getenv("ARAGORA_XTTS_SPEAKER_WAV") or os.getenv("XTTS_SPEAKER_WAV"),
             xtts_speaker_wav_map=speaker_wav_map,
+            polly_region=(
+                os.getenv("ARAGORA_POLLY_REGION")
+                or os.getenv("AWS_REGION")
+                or os.getenv("AWS_DEFAULT_REGION")
+            ),
+            polly_engine=os.getenv("ARAGORA_POLLY_ENGINE", "neural"),
+            polly_text_type=os.getenv("ARAGORA_POLLY_TEXT_TYPE", "text"),
+            polly_voice_map=polly_voice_map,
+            polly_default_voice_id=(
+                os.getenv("ARAGORA_POLLY_VOICE_ID")
+                or os.getenv("ARAGORA_POLLY_DEFAULT_VOICE_ID")
+            ),
+            polly_lexicons=polly_lexicons,
             cache_dir=Path(os.getenv("ARAGORA_TTS_CACHE_DIR", os.getenv("TTS_CACHE_DIR", ".cache/tts"))),
         )
 
@@ -175,6 +206,16 @@ EDGE_TTS_VOICES: Dict[str, str] = {
     "grok-lateral-thinker": "en-US-ChristopherNeural",
     "narrator": "en-US-AriaNeural",
     "default": "en-US-AriaNeural",
+}
+
+# Amazon Polly voices (AWS)
+POLLY_VOICES: Dict[str, str] = {
+    "claude-visionary": "Matthew",
+    "codex-engineer": "Joanna",
+    "gemini-visionary": "Salli",
+    "grok-lateral-thinker": "Joey",
+    "narrator": "Joanna",
+    "default": "Joanna",
 }
 
 
@@ -344,7 +385,7 @@ class XTTSBackend(TTSBackend):
     def __init__(self, config: Optional[TTSConfig] = None):
         self.config = config or TTSConfig.from_env()
         self._model = None
-        self._device = None
+        self._device: Optional[str] = None
 
     def is_available(self) -> bool:
         """Check if XTTS is available."""
@@ -566,6 +607,114 @@ class EdgeTTSBackend(TTSBackend):
 
 
 # =============================================================================
+# Amazon Polly Backend
+# =============================================================================
+
+class PollyBackend(TTSBackend):
+    """
+    Amazon Polly TTS backend.
+
+    High-quality neural voices via AWS. Requires AWS credentials.
+    """
+
+    name = "polly"
+
+    def __init__(self, config: Optional[TTSConfig] = None):
+        self.config = config or TTSConfig.from_env()
+        self._client = None
+
+    def is_available(self) -> bool:
+        """Check if Amazon Polly is available and configured."""
+        try:
+            import boto3
+        except ImportError:
+            return False
+
+        try:
+            session = boto3.Session(region_name=self.config.polly_region)
+            creds = session.get_credentials()
+            if creds is None:
+                return False
+        except Exception:
+            return False
+        return True
+
+    def _get_client(self):
+        """Get or create Amazon Polly client."""
+        if self._client is None:
+            try:
+                import boto3
+                self._client = boto3.client("polly", region_name=self.config.polly_region)
+            except Exception as e:
+                raise RuntimeError(f"Failed to initialize Polly client: {e}") from e
+        return self._client
+
+    def get_voice_id(self, speaker: str) -> str:
+        """Get Polly voice ID for speaker."""
+        if speaker in self.config.polly_voice_map:
+            return self.config.polly_voice_map[speaker]
+        if speaker in POLLY_VOICES:
+            return POLLY_VOICES[speaker]
+        if self.config.polly_default_voice_id:
+            return self.config.polly_default_voice_id
+        return speaker or POLLY_VOICES["default"]
+
+    async def synthesize(
+        self,
+        text: str,
+        voice: str = "default",
+        output_path: Optional[Path] = None,
+        **kwargs,
+    ) -> Optional[Path]:
+        """Synthesize speech using Amazon Polly."""
+        if not self.is_available():
+            return None
+
+        try:
+            client = self._get_client()
+            voice_id = self.get_voice_id(voice)
+            engine = (self.config.polly_engine or "neural").lower()
+            text_type = (self.config.polly_text_type or "text").lower()
+            if text_type not in ("text", "ssml"):
+                text_type = "text"
+
+            if output_path is None:
+                text_hash = hashlib.sha256(text.encode()).hexdigest()[:12]
+                output_path = Path(tempfile.gettempdir()) / f"polly_{voice}_{text_hash}.mp3"
+
+            def _generate():
+                params: Dict[str, Any] = {
+                    "Text": text,
+                    "VoiceId": voice_id,
+                    "OutputFormat": "mp3",
+                    "Engine": engine,
+                    "TextType": text_type,
+                }
+                if self.config.polly_lexicons:
+                    params["LexiconNames"] = self.config.polly_lexicons
+
+                response = client.synthesize_speech(**params)
+                stream = response.get("AudioStream")
+                if stream is None:
+                    return None
+                with open(output_path, "wb") as f:
+                    f.write(stream.read())
+                return output_path
+
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, _generate)
+
+            if result and result.exists():
+                logger.debug(f"Polly generated: {result}")
+                return result
+
+        except Exception as e:
+            logger.warning(f"Polly synthesis failed: {e}")
+
+        return None
+
+
+# =============================================================================
 # pyttsx3 Backend (Offline Fallback)
 # =============================================================================
 
@@ -635,6 +784,7 @@ class Pyttsx3Backend(TTSBackend):
 # Registry of available backends
 BACKEND_REGISTRY: Dict[str, type] = {
     "elevenlabs": ElevenLabsBackend,
+    "polly": PollyBackend,
     "xtts": XTTSBackend,
     "edge-tts": EdgeTTSBackend,
     "pyttsx3": Pyttsx3Backend,

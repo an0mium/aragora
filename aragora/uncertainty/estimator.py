@@ -110,6 +110,7 @@ class ConfidenceEstimator:
         self.agent_confidences: Dict[str, List[ConfidenceScore]] = {}
         self.calibration_history: Dict[str, List[Tuple[float, bool]]] = {}  # (confidence, was_correct)
         self.brier_scores: Dict[str, float] = {}  # Calibration quality metric
+        self.disagreement_analyzer = DisagreementAnalyzer()
 
     async def collect_confidences(
         self,
@@ -202,6 +203,15 @@ class ConfidenceEstimator:
         # Keep recent history
         if len(self.calibration_history[agent_name]) > 50:
             self.calibration_history[agent_name] = self.calibration_history[agent_name][-25:]
+
+    def analyze_disagreement(
+        self,
+        messages: List[Message],
+        votes: List[Vote],
+        proposals: Dict[str, str],
+    ) -> UncertaintyMetrics:
+        """Analyze disagreement using the shared analyzer."""
+        return self.disagreement_analyzer.analyze_disagreement(messages, votes, proposals)
 
 
 class DisagreementAnalyzer:

@@ -1840,9 +1840,17 @@ class NomicLoop:
         # Phase 8: DebateForker for parallel exploration (P30)
         # Note: DebateForker is created per-debate
         self.fork_debate_enabled = False
+        self.execute_forks = False
         if DEBATE_FORKER_AVAILABLE and DebateForker:
-            self.fork_debate_enabled = True
-            print(f"[forking] Parallel branch exploration enabled")
+            if os.environ.get("ARAGORA_ENABLE_FORKING", "0") == "1":
+                self.fork_debate_enabled = True
+                self.execute_forks = True
+                print(f"[forking] Parallel branch exploration enabled (ARAGORA_ENABLE_FORKING=1)")
+            else:
+                print(
+                    "[forking] Forking available but disabled. "
+                    "Set ARAGORA_ENABLE_FORKING=1 to enable."
+                )
 
         # Setup streaming (optional)
         self.stream_emitter = stream_emitter

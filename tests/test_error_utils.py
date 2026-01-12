@@ -9,14 +9,14 @@ class TestSanitizeErrorText:
 
     def test_redacts_openai_api_key(self):
         """Test OpenAI API key patterns are redacted."""
-        text = "Error with key sk-abc123def456ghijklmnopqrstuvwxyz"
+        text = "Error with key sk-TESTKEY123456789012345678901234"
         result = sanitize_error_text(text)
         assert "sk-" not in result
         assert "<REDACTED_KEY>" in result
 
     def test_redacts_google_api_key(self):
         """Test Google API key patterns are redacted."""
-        text = "Error with key AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz12345678"
+        text = "Error with key AIzaTESTKEYEXAMPLE1234567890123456789AB8"
         result = sanitize_error_text(text)
         assert "AIza" not in result
         assert "<REDACTED_KEY>" in result

@@ -395,7 +395,7 @@ class TestPreflightHealthCheckProviderLight:
         """Test that valid API key passes."""
         for env_var, _, _ in PreflightHealthCheck.PROVIDER_CHECKS:
             monkeypatch.delenv(env_var, raising=False)
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-api03-valid-key-here")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-TESTKEY12345678901234567890")
 
         results = await check._check_providers_light()
 
@@ -710,7 +710,7 @@ class TestPreflightIntegration:
         for env_var, _, _ in PreflightHealthCheck.PROVIDER_CHECKS:
             monkeypatch.delenv(env_var, raising=False)
         # Set multiple keys
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key-very-long")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-TESTKEY12345678901234567890")
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key-also-very-long")
 
         check = PreflightHealthCheck(min_required_agents=1)

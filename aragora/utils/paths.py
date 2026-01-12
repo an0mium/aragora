@@ -52,6 +52,17 @@ def safe_path(
         >>> safe_path("/data", "subdir/../other")  # Normalized, stays in base
         PosixPath('/data/other')
     """
+    raw_path = str(user_path)
+    if raw_path.startswith(("\\\\", "//")):
+        logger.warning(f"Path traversal blocked: {user_path}")
+        raise PathTraversalError(f"Path traversal blocked: {user_path}")
+    if len(raw_path) >= 2 and raw_path[1] == ":" and raw_path[0].isalpha():
+        logger.warning(f"Path traversal blocked: {user_path}")
+        raise PathTraversalError(f"Path traversal blocked: {user_path}")
+
+    if isinstance(user_path, str):
+        user_path = raw_path.replace("\\", "/")
+
     base = Path(base_dir).resolve()
     combined = (base / user_path).resolve()
 

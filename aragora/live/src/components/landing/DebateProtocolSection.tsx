@@ -7,13 +7,14 @@ const STEPS = [
     id: '01',
     title: 'PROPOSE',
     accent: 'acid-green',
-    content: 'Agents from different providers generate diverse solutions. Claude might suggest caution. GPT might go bold.',
+    content: 'Agents generate diverse approaches and assumptions. Claude might suggest caution. GPT might go bold.',
   },
   {
     id: '02',
-    title: 'CRITIQUE',
+    title: 'ATTACK',
     accent: 'acid-cyan',
-    content: "Each proposal faces adversarial review from rival models. Agents rotate through cognitive roles: Analyst, Skeptic, Devil's Advocate.",
+    content:
+      "Rival models red-team each proposal for security, logic, compliance, and scale. Agents rotate through cognitive roles: Analyst, Skeptic, Devil's Advocate.",
   },
   {
     id: '03',
@@ -29,9 +30,10 @@ const STEPS = [
   },
   {
     id: '05',
-    title: 'LEARN',
+    title: 'RECORD',
     accent: 'acid-green',
-    content: 'Outcomes feed into agent memory and ELO ratings. The arena gets smarter with every debate.',
+    content:
+      'Decision receipts, risk heatmaps, and evidence chains are saved. Outcomes feed into agent memory and ELO ratings.',
   },
 ];
 
@@ -39,7 +41,7 @@ export function DebateProtocolSection() {
   return (
     <section className="py-12 border-t border-acid-green/20">
       <div className="container mx-auto px-4">
-        <SectionHeader title="THE DEBATE PROTOCOL" />
+        <SectionHeader title="THE STRESS-TEST PROTOCOL" />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 max-w-6xl mx-auto">
           {STEPS.map((step) => (

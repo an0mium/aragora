@@ -1,6 +1,6 @@
 # Custom Agent Development Guide
 
-Build your own agents for Aragora debates. This guide covers creating API agents, CLI agents, and integrating with the registry.
+Build your own agents for Aragora stress-tests. This guide covers creating API agents, CLI agents, and integrating with the registry.
 
 ## Agent Architecture
 
@@ -28,7 +28,7 @@ Create `aragora/agents/api_agents/my_provider.py`:
 """
 MyProvider API Agent.
 
-Integrates with MyProvider's API for debate participation.
+Integrates with MyProvider's API for adversarial stress-tests.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
     default_model="my-model-v1",
     agent_type="API",
     env_vars="MY_PROVIDER_API_KEY",
-    description="MyProvider AI for multi-agent debates",
+    description="MyProvider AI for adversarial stress-tests",
     accepts_api_key=True,
 )
 class MyProviderAgent(APIAgent):
@@ -98,7 +98,7 @@ class MyProviderAgent(APIAgent):
 
     async def critique(self, content: str, context: dict = None) -> str:
         """Critique another agent's content."""
-        critique_prompt = f"""You are a critical reviewer in a multi-agent debate.
+        critique_prompt = f"""You are an adversarial reviewer in a decision stress-test.
 
 Analyze the following content and provide constructive criticism:
 
@@ -120,9 +120,9 @@ Be specific and actionable in your critique."""
 
         # System message based on role
         system_prompts = {
-            "proposer": "You are a thoughtful proposer in a multi-agent debate. Make clear, well-reasoned arguments.",
-            "critic": "You are a critical analyst. Find flaws, risks, and missing considerations.",
-            "synthesizer": "You synthesize multiple perspectives into a balanced conclusion.",
+            "proposer": "You are a thoughtful proposer in a decision stress-test. Make clear, risk-aware arguments.",
+            "critic": "You are a critical analyst. Red-team the proposal and surface flaws, risks, and missing considerations.",
+            "synthesizer": "You synthesize multiple perspectives into a balanced, defensible conclusion.",
         }
         messages.append({
             "role": "system",

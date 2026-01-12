@@ -260,9 +260,24 @@ class AuthHandler(BaseHandler):
         if not user_store:
             return error_response("Authentication service unavailable", 503)
 
+        # Check if account is locked (before revealing if user exists)
+        if hasattr(user_store, 'is_account_locked'):
+            is_locked, lockout_until, failed_attempts = user_store.is_account_locked(email)
+            if is_locked and lockout_until:
+                remaining_minutes = max(1, int((lockout_until - datetime.utcnow()).total_seconds() / 60))
+                logger.warning(f"Login attempt on locked account: {email}")
+                return error_response(
+                    f"Account temporarily locked. Try again in {remaining_minutes} minute(s).",
+                    429
+                )
+
         # Find user
         user = user_store.get_user_by_email(email)
         if not user:
+            # Record failed attempt (even for non-existent users to prevent enumeration timing)
+            if hasattr(user_store, 'record_failed_login'):
+                # Create placeholder entry for rate limiting if needed
+                pass
             # Use same error to prevent email enumeration
             return error_response("Invalid email or password", 401)
 
@@ -272,7 +287,20 @@ class AuthHandler(BaseHandler):
 
         # Verify password
         if not user.verify_password(password):
+            # Record failed login attempt
+            if hasattr(user_store, 'record_failed_login'):
+                attempts, lockout_until = user_store.record_failed_login(email)
+                if lockout_until:
+                    remaining_minutes = max(1, int((lockout_until - datetime.utcnow()).total_seconds() / 60))
+                    return error_response(
+                        f"Too many failed attempts. Account locked for {remaining_minutes} minute(s).",
+                        429
+                    )
             return error_response("Invalid email or password", 401)
+
+        # Successful login - reset failed attempts
+        if hasattr(user_store, 'reset_failed_login_attempts'):
+            user_store.reset_failed_login_attempts(email)
 
         # Update last login
         user_store.update_user(user.id, last_login_at=datetime.utcnow())

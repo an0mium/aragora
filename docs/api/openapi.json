@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Aragora API",
-    "description": "Multi-agent debate framework API for Aragora LiveWire. Provides endpoints for debate management, agent rankings, consensus tracking, and real-time collaboration.",
+    "description": "AI red team / decision stress-test API for Aragora LiveWire. Provides endpoints for gauntlet runs, debate-backed decision receipts, agent rankings, consensus tracking, and real-time collaboration.",
     "version": "1.0.0",
     "contact": {
       "name": "Aragora Team"

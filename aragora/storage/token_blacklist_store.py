@@ -63,6 +63,9 @@ class BlacklistBackend(ABC):
         return -1  # Not supported by default
 
 
+MAX_BLACKLIST_SIZE = 100000  # Prevent unbounded memory growth
+
+
 class InMemoryBlacklist(BlacklistBackend):
     """
     Thread-safe in-memory token blacklist.
@@ -84,8 +87,26 @@ class InMemoryBlacklist(BlacklistBackend):
         self._last_cleanup = time.time()
 
     def add(self, token_jti: str, expires_at: float) -> None:
-        """Add token to blacklist."""
+        """Add token to blacklist (with size limit enforcement)."""
         with self._lock:
+            # Enforce max size - evict oldest expired first, then oldest entries
+            if len(self._blacklist) >= MAX_BLACKLIST_SIZE:
+                now = time.time()
+                # First try to remove expired entries
+                expired = [k for k, v in self._blacklist.items() if v < now]
+                if expired:
+                    remove_count = max(1, len(expired) // 2)
+                    for k in expired[:remove_count]:
+                        del self._blacklist[k]
+                    logger.debug(f"InMemoryBlacklist evicted {remove_count} expired entries")
+                else:
+                    # No expired entries - remove oldest 10% by expiration time
+                    sorted_items = sorted(self._blacklist.items(), key=lambda x: x[1])
+                    remove_count = max(1, len(sorted_items) // 10)
+                    for k, _ in sorted_items[:remove_count]:
+                        del self._blacklist[k]
+                    logger.debug(f"InMemoryBlacklist evicted {remove_count} oldest entries")
+
             self._blacklist[token_jti] = expires_at
             self._maybe_cleanup()
 

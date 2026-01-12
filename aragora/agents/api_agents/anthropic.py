@@ -19,6 +19,7 @@ from aragora.agents.api_agents.common import (
     get_api_key,
     _sanitize_error_message,
     create_anthropic_sse_parser,
+    create_client_session,
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
@@ -114,12 +115,11 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         if self.system_prompt:
             payload["system"] = self.system_prompt
 
-        async with aiohttp.ClientSession() as session:
+        async with create_client_session(timeout=self.timeout) as session:
             async with session.post(
                 url,
                 headers=headers,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=self.timeout),
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
@@ -187,12 +187,11 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         if self.system_prompt:
             payload["system"] = self.system_prompt
 
-        async with aiohttp.ClientSession() as session:
+        async with create_client_session(timeout=self.timeout) as session:
             async with session.post(
                 url,
                 headers=headers,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=self.timeout),
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()

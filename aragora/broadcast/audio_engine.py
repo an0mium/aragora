@@ -3,15 +3,17 @@ Audio generation engine for Aragora Broadcast.
 
 Supports multiple TTS backends with automatic fallback:
 1. ElevenLabs - Highest quality (cloud, paid)
-2. Coqui XTTS v2 - High quality local (GPU recommended)
-3. Edge-TTS - Good quality (cloud, free)
-4. pyttsx3 - Offline fallback (low quality)
+2. Amazon Polly - High quality neural voices (cloud, AWS)
+3. Coqui XTTS v2 - High quality local (GPU recommended)
+4. Edge-TTS - Good quality (cloud, free)
+5. pyttsx3 - Offline fallback (low quality)
 
 Configure via environment:
-    ARAGORA_TTS_ORDER - Comma-separated backend priority (elevenlabs, xtts, edge-tts, pyttsx3)
+    ARAGORA_TTS_ORDER - Comma-separated backend priority (elevenlabs, polly, xtts, edge-tts, pyttsx3)
     ARAGORA_TTS_BACKEND - Force a specific backend
     ARAGORA_ELEVENLABS_API_KEY - Enable ElevenLabs (best quality)
     ARAGORA_XTTS_MODEL_PATH - Optional Coqui XTTS model override
+    ARAGORA_POLLY_REGION - AWS region for Polly (fallback to AWS_REGION)
 """
 
 import asyncio

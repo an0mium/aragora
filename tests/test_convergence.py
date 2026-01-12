@@ -14,18 +14,19 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-# Check if sentence_transformers is actually usable (not just installed)
-try:
-    import sentence_transformers
-    HAS_SENTENCE_TRANSFORMERS = True
-except (ImportError, RuntimeError):
-    # RuntimeError occurs when Keras 3 is installed without tf-keras
-    HAS_SENTENCE_TRANSFORMERS = False
 
-requires_sentence_transformers = pytest.mark.skipif(
-    not HAS_SENTENCE_TRANSFORMERS,
-    reason="sentence-transformers not available or Keras 3 compatibility issue"
-)
+@pytest.fixture(scope="module")
+def sentence_transformers_module():
+    """Import sentence-transformers lazily to avoid heavy import at collection."""
+    try:
+        import sentence_transformers
+    except (ImportError, RuntimeError):
+        # RuntimeError occurs when Keras 3 is installed without tf-keras
+        pytest.skip("sentence-transformers not available or Keras 3 compatibility issue")
+    return sentence_transformers
+
+
+requires_sentence_transformers = pytest.mark.usefixtures("sentence_transformers_module")
 
 from aragora.debate.convergence import (
     JaccardBackend,

@@ -283,7 +283,9 @@ class RedisOAuthStateStore(OAuthStateStore):
                 if cursor == 0:
                     break
             return count
-        except Exception:
+        except Exception as e:
+            # Log but don't fail - size() is for metrics only
+            logger.debug(f"Redis size() query failed: {e}")
             return 0
 
 

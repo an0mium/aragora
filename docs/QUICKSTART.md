@@ -3,7 +3,7 @@
 Get started with Aragora in under 5 minutes.
 
 **Aragora** is an **Adversarial Validation Engine** that stress-tests high-stakes decisions through multi-agent debate. Use it to:
-- Run debates between AI agents on any topic
+- Run decision stress-tests on any topic
 - Stress-test policies, specs, and code with the **Gauntlet**
 - Generate compliance-ready Decision Receipts
 
@@ -33,6 +33,11 @@ ANTHROPIC_API_KEY=sk-ant-xxx     # Claude
 OPENAI_API_KEY=sk-xxx            # GPT-4
 GEMINI_API_KEY=AIzaSy...         # Gemini
 XAI_API_KEY=xai-xxx              # Grok
+
+# Optional perspective coverage:
+MISTRAL_API_KEY=xxx              # Mistral (EU perspective)
+OPENROUTER_API_KEY=sk-or-xxx     # DeepSeek/Qwen via OpenRouter (China perspective)
+KIMI_API_KEY=xxx                 # Kimi (Moonshot, China perspective)
 ```
 
 ## 3. Run Your First Debate

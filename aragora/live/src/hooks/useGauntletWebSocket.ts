@@ -108,62 +108,35 @@ export function useGauntletWebSocket({
   const startTimeRef = useRef<number | null>(null);
   const elapsedIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const connect = useCallback(() => {
-    if (!enabled || !gauntletId) return;
+  const toGauntletFinding = useCallback((payload: Record<string, unknown>): GauntletFinding | null => {
+    const findingId = typeof payload.finding_id === 'string' ? payload.finding_id : null;
+    const severity = typeof payload.severity === 'string' ? payload.severity.toUpperCase() : null;
+    const category = typeof payload.category === 'string' ? payload.category : null;
+    const title = typeof payload.title === 'string' ? payload.title : null;
+    const description = typeof payload.description === 'string' ? payload.description : null;
+    const source = typeof payload.source === 'string' ? payload.source : null;
 
-    try {
-      const url = wsUrl.endsWith('/') ? wsUrl.slice(0, -1) : wsUrl;
-      logger.info(`Connecting to Gauntlet WebSocket: ${url}`);
-
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
-      setStatus('connecting');
-      setError(null);
-
-      ws.onopen = () => {
-        logger.info('Gauntlet WebSocket connected');
-        setStatus('streaming');
-        startTimeRef.current = Date.now();
-
-        // Start elapsed time counter
-        elapsedIntervalRef.current = setInterval(() => {
-          if (startTimeRef.current) {
-            setElapsedSeconds((Date.now() - startTimeRef.current) / 1000);
-          }
-        }, 1000);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data) as GauntletEvent;
-          handleEvent(data);
-        } catch (err) {
-          logger.error('Failed to parse Gauntlet event:', err);
-        }
-      };
-
-      ws.onerror = (err) => {
-        logger.error('Gauntlet WebSocket error:', err);
-        setError('Connection error');
-        setStatus('error');
-      };
-
-      ws.onclose = () => {
-        logger.info('Gauntlet WebSocket closed');
-        if (status !== 'complete') {
-          setStatus('error');
-        }
-        // Clean up interval
-        if (elapsedIntervalRef.current) {
-          clearInterval(elapsedIntervalRef.current);
-        }
-      };
-    } catch (err) {
-      logger.error('Failed to create Gauntlet WebSocket:', err);
-      setError(err instanceof Error ? err.message : 'Connection failed');
-      setStatus('error');
+    if (
+      !findingId ||
+      !severity ||
+      !category ||
+      !title ||
+      !description ||
+      !source ||
+      !['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(severity)
+    ) {
+      return null;
     }
-  }, [enabled, gauntletId, wsUrl, status]);
+
+    return {
+      finding_id: findingId,
+      severity: severity as GauntletFinding['severity'],
+      category,
+      title,
+      description,
+      source,
+    };
+  }, []);
 
   const handleEvent = useCallback((event: GauntletEvent) => {
     if (!event.type.startsWith('gauntlet_')) {
@@ -258,8 +231,12 @@ export function useGauntletWebSocket({
       }
 
       case 'gauntlet_finding': {
-        const data = event.data as GauntletFinding;
-        setFindings(prev => [...prev, data]);
+        const data = toGauntletFinding(event.data);
+        if (data) {
+          setFindings(prev => [...prev, data]);
+        } else {
+          logger.warn('Gauntlet finding payload malformed:', event.data);
+        }
         break;
       }
 
@@ -304,7 +281,64 @@ export function useGauntletWebSocket({
         break;
       }
     }
-  }, [gauntletId]);
+  }, [gauntletId, toGauntletFinding]);
+
+  const connect = useCallback(() => {
+    if (!enabled || !gauntletId) return;
+
+    try {
+      const url = wsUrl.endsWith('/') ? wsUrl.slice(0, -1) : wsUrl;
+      logger.debug(`Connecting to Gauntlet WebSocket: ${url}`);
+
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+      setStatus('connecting');
+      setError(null);
+
+      ws.onopen = () => {
+        logger.debug('Gauntlet WebSocket connected');
+        setStatus('streaming');
+        startTimeRef.current = Date.now();
+
+        // Start elapsed time counter
+        elapsedIntervalRef.current = setInterval(() => {
+          if (startTimeRef.current) {
+            setElapsedSeconds((Date.now() - startTimeRef.current) / 1000);
+          }
+        }, 1000);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data) as GauntletEvent;
+          handleEvent(data);
+        } catch (err) {
+          logger.error('Failed to parse Gauntlet event:', err);
+        }
+      };
+
+      ws.onerror = (err) => {
+        logger.error('Gauntlet WebSocket error:', err);
+        setError('Connection error');
+        setStatus('error');
+      };
+
+      ws.onclose = () => {
+        logger.debug('Gauntlet WebSocket closed');
+        if (status !== 'complete') {
+          setStatus('error');
+        }
+        // Clean up interval
+        if (elapsedIntervalRef.current) {
+          clearInterval(elapsedIntervalRef.current);
+        }
+      };
+    } catch (err) {
+      logger.error('Failed to create Gauntlet WebSocket:', err);
+      setError(err instanceof Error ? err.message : 'Connection failed');
+      setStatus('error');
+    }
+  }, [enabled, gauntletId, wsUrl, status, handleEvent]);
 
   const reconnect = useCallback(() => {
     if (wsRef.current) {

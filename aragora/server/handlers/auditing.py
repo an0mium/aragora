@@ -28,6 +28,7 @@ from .base import (
     invalidate_leaderboard_cache,
     SAFE_SLUG_PATTERN,
     safe_error_message,
+    require_permission,
 )
 from aragora.server.validation import validate_agent_name, validate_id
 from aragora.utils.optional_imports import try_import_class
@@ -409,8 +410,11 @@ class AuditingHandler(BaseHandler):
         else:
             return "robustness"
 
-    def _run_capability_probe(self, handler) -> HandlerResult:
+    @require_permission("admin:audit")
+    def _run_capability_probe(self, handler, user=None) -> HandlerResult:
         """Run capability probes on an agent to find vulnerabilities.
+
+        Requires admin:audit permission (admin/owner only).
 
         POST body:
             agent_name: Name of agent to probe (required)
@@ -550,8 +554,11 @@ class AuditingHandler(BaseHandler):
         return by_type_transformed
 
     @rate_limit(requests_per_minute=5, burst=2, limiter_name="deep_audit")
-    def _run_deep_audit(self, handler) -> HandlerResult:
+    @require_permission("admin:audit")
+    def _run_deep_audit(self, handler, user=None) -> HandlerResult:
         """Run a deep audit (Heavy3-inspired intensive multi-round debate protocol).
+
+        Requires admin:audit permission (admin/owner only).
 
         POST body:
             task: The question/decision to audit (required)
@@ -776,8 +783,11 @@ class AuditingHandler(BaseHandler):
         return findings
 
     @rate_limit(requests_per_minute=5, burst=2, limiter_name="red_team")
-    def _run_red_team_analysis(self, debate_id: str, handler) -> HandlerResult:
+    @require_permission("admin:audit")
+    def _run_red_team_analysis(self, debate_id: str, handler, user=None) -> HandlerResult:
         """Run adversarial red-team analysis on a debate.
+
+        Requires admin:audit permission (admin/owner only).
 
         POST body:
             attack_types: List of attack types (optional)

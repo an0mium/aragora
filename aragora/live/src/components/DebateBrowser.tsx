@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
 import { getAgentTextColor as getAgentColor } from '@/utils/agentColors';
 import { logger } from '@/utils/logger';
+import { DebateListSkeleton } from './Skeleton';
 
 export function DebateBrowser() {
   const [debates, setDebates] = useState<DebateArtifact[]>([]);
@@ -58,11 +59,7 @@ export function DebateBrowser() {
       </div>
 
       <div className="p-4 space-y-2 max-h-80 overflow-y-auto">
-        {loading && (
-          <div className="text-center text-text-muted py-4 text-xs">
-            <span className="animate-pulse">{'>'}</span> Loading debates...
-          </div>
-        )}
+        {loading && <DebateListSkeleton count={4} />}
 
         {!loading && debates.length === 0 && (
           <div className="text-center text-text-muted py-4 text-xs">

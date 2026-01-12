@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -28,18 +28,17 @@ export default function OrganizationPage() {
   const [editMode, setEditMode] = useState(false);
   const [editName, setEditName] = useState('');
   const [saving, setSaving] = useState(false);
+  const orgId = organization?.id;
+  const accessToken = tokens?.access_token;
 
-  useEffect(() => {
-    if (organization?.id && tokens?.access_token) {
-      fetchOrgDetails();
+  const fetchOrgDetails = useCallback(async () => {
+    if (!orgId || !accessToken) {
+      return;
     }
-  }, [organization, tokens]);
-
-  const fetchOrgDetails = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/org/${organization?.id}`, {
+      const response = await fetch(`${API_BASE}/api/org/${orgId}`, {
         headers: {
-          'Authorization': `Bearer ${tokens?.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
       });
 
@@ -55,7 +54,13 @@ export default function OrganizationPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId, accessToken]);
+
+  useEffect(() => {
+    if (orgId && accessToken) {
+      fetchOrgDetails();
+    }
+  }, [orgId, accessToken, fetchOrgDetails]);
 
   const handleSave = async () => {
     if (!editName.trim()) {
@@ -67,11 +72,11 @@ export default function OrganizationPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/api/org/${organization?.id}`, {
+      const response = await fetch(`${API_BASE}/api/org/${orgId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tokens?.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ name: editName.trim() }),
       });

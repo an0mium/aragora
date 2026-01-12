@@ -4,6 +4,22 @@
 version: '3.8'
 
 services:
+  # Redis for session state, caching, and multi-instance coordination
+  redis:
+    image: redis:7-alpine
+    container_name: aragora-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy volatile-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
   aragora:
     build:
       context: ..
@@ -11,10 +27,16 @@ services:
     ports:
       - "8080:8080"   # HTTP API
       - "8765:8765"   # WebSocket
+    depends_on:
+      redis:
+        condition: service_healthy
     volumes:
       - aragora-data:/app/.nomic
     env_file:
       - ../.env
+    environment:
+      # Redis URL (can be overridden in .env)
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
@@ -24,4 +46,6 @@ services:
 
 volumes:
   aragora-data:
+    driver: local
+  redis-data:
     driver: local

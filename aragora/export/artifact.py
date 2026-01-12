@@ -100,7 +100,7 @@ class DebateArtifact:
 
     # Versioning
     version: str = "1.0"
-    generator: str = "aragora v0.07"
+    generator: str = "aragora v0.8.0"
 
     @property
     def content_hash(self) -> str:

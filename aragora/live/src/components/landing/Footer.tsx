@@ -11,10 +11,10 @@ export function Footer() {
     <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-auto">
       <div className="text-acid-green/50 mb-2">{'═'.repeat(40)}</div>
       <p className="text-acid-green font-bold mb-1">
-        {'>'} ARAGORA // THE SELF-EVOLVING MULTI-AGENT DEBATE FRAMEWORK
+        {'>'} ARAGORA // AI RED TEAM & DECISION STRESS-TEST ENGINE
       </p>
       <p className="text-text-muted/70 text-[11px] italic max-w-md mx-auto mb-4">
-        &quot;The only AI system that debates its own improvements and implements them autonomously.&quot;
+        &quot;The self-evolving debate engine behind defensible decisions.&quot;
       </p>
       <div className="flex justify-center gap-4 text-text-muted/50 mb-4">
         {FOOTER_LINKS.map((link, idx) => (

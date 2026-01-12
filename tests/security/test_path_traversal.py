@@ -11,6 +11,9 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from aragora.utils.paths import PathTraversalError, safe_path, validate_path_component
+from aragora.server.validation.entities import validate_debate_id, validate_gauntlet_id
+
 
 # =============================================================================
 # Path Validation Tests
@@ -24,11 +27,11 @@ class TestPathTraversalPrevention:
         """Should reject ../../../etc/passwd style attacks."""
         def is_safe_path(base_dir: str, requested_path: str) -> bool:
             """Check if requested path stays within base directory."""
-            # Normalize backslashes to forward slashes for cross-platform
-            requested_path = requested_path.replace("\\", "/")
-            base = Path(base_dir).resolve()
-            target = (base / requested_path).resolve()
-            return str(target).startswith(str(base))
+            try:
+                safe_path(base_dir, requested_path)
+                return True
+            except PathTraversalError:
+                return False
 
         base_dir = "/var/www/static"
 
@@ -50,10 +53,11 @@ class TestPathTraversalPrevention:
         def normalize_and_check(base_dir: str, path: str) -> bool:
             # Decode URL encoding (decode twice to catch double-encoding)
             decoded = unquote(unquote(path))
-            # Check for traversal after decoding
-            base = Path(base_dir).resolve()
-            target = (base / decoded).resolve()
-            return str(target).startswith(str(base))
+            try:
+                safe_path(base_dir, decoded)
+                return True
+            except PathTraversalError:
+                return False
 
         base_dir = "/var/www/static"
 
@@ -65,30 +69,21 @@ class TestPathTraversalPrevention:
 
     def test_rejects_null_byte_injection(self):
         """Should reject null byte injection attempts."""
-        def sanitize_path(path: str) -> str:
-            """Remove null bytes and validate."""
-            if "\x00" in path or "\0" in path:
-                raise ValueError("Null byte in path")
-            return path
+        with pytest.raises(PathTraversalError):
+            validate_path_component("file.txt\x00.jpg")
 
-        with pytest.raises(ValueError):
-            sanitize_path("file.txt\x00.jpg")
-
-        with pytest.raises(ValueError):
-            sanitize_path("../../etc/passwd\x00.txt")
+        with pytest.raises(PathTraversalError):
+            validate_path_component("../../etc/passwd\x00.txt")
 
     def test_rejects_absolute_paths(self):
         """Should reject attempts to use absolute paths."""
         def validate_relative_path(path: str) -> bool:
             """Ensure path is relative, not absolute."""
-            if path.startswith("/"):
+            try:
+                safe_path("/var/www/static", path)
+                return True
+            except PathTraversalError:
                 return False
-            if path.startswith("\\"):
-                return False
-            # Windows drive letters
-            if len(path) > 1 and path[1] == ":":
-                return False
-            return True
 
         assert validate_relative_path("style.css") is True
         assert validate_relative_path("js/app.js") is True
@@ -115,14 +110,10 @@ class TestPathTraversalPrevention:
             try:
                 symlink.symlink_to(outside_file)
 
-                def is_safe_with_symlink_check(base: Path, path: str) -> bool:
-                    target = (base / path).resolve()
-                    # resolve() follows symlinks
-                    return str(target).startswith(str(base.resolve()))
-
                 # Symlink should be rejected
-                assert is_safe_with_symlink_check(base_dir, "safe.txt") is True
-                assert is_safe_with_symlink_check(base_dir, "link") is False
+                safe_path(base_dir, "safe.txt")  # Should not raise
+                with pytest.raises(PathTraversalError):
+                    safe_path(base_dir, "link")
 
             except OSError:
                 # Symlinks may not be supported on all systems
@@ -139,33 +130,17 @@ class TestFileUploadPathSecurity:
 
     def test_sanitize_uploaded_filename(self):
         """Uploaded filenames should be sanitized."""
-        def sanitize_filename(filename: str) -> str:
-            """Sanitize uploaded filename."""
-            # Remove path separators
-            filename = filename.replace("/", "_").replace("\\", "_")
-            # Remove null bytes
-            filename = filename.replace("\x00", "")
-            # Remove leading dots (hidden files)
-            filename = filename.lstrip(".")
-            # Limit length
-            if len(filename) > 255:
-                filename = filename[:255]
-            # Only allow alphanumeric, dash, underscore, dot
-            import re
-            filename = re.sub(r"[^a-zA-Z0-9._-]", "_", filename)
-            return filename or "unnamed"
-
         # Normal filenames
-        assert sanitize_filename("document.pdf") == "document.pdf"
-        assert sanitize_filename("my-file_v2.txt") == "my-file_v2.txt"
+        assert validate_path_component("document.pdf") == "document.pdf"
+        assert validate_path_component("my-file_v2.txt") == "my-file_v2.txt"
 
         # Attack attempts
-        # ../../../etc/passwd -> .._.._.._etc_passwd (4 slashes) -> _.._.._etc_passwd (lstrip dots)
-        assert sanitize_filename("../../../etc/passwd") == "_.._.._etc_passwd"
-        assert sanitize_filename("/etc/passwd") == "_etc_passwd"
-        assert sanitize_filename(".htaccess") == "htaccess"
-        assert sanitize_filename("file.txt\x00.jpg") == "file.txt.jpg"
-        assert sanitize_filename("<script>alert(1)</script>.txt") == "_script_alert_1___script_.txt"
+        with pytest.raises(PathTraversalError):
+            validate_path_component("../../../etc/passwd")
+        with pytest.raises(PathTraversalError):
+            validate_path_component("/etc/passwd")
+        with pytest.raises(PathTraversalError):
+            validate_path_component("file.txt\x00.jpg")
 
     def test_unique_upload_paths(self):
         """Uploaded files should get unique paths to prevent overwriting."""
@@ -190,20 +165,8 @@ class TestFileUploadPathSecurity:
             upload_dir.mkdir()
 
             def safe_upload(upload_dir: Path, filename: str, content: bytes) -> Path:
-                # Reject filenames with path traversal attempts
-                if ".." in filename or filename.startswith("/"):
-                    raise ValueError("Path traversal attempt")
-
-                # Sanitize filename - only keep the base name
-                safe_name = Path(filename).name
-                if not safe_name or safe_name.startswith("."):
-                    raise ValueError("Invalid filename")
-
-                target = (upload_dir / safe_name).resolve()
-
-                # Verify target is within upload_dir
-                if not str(target).startswith(str(upload_dir.resolve())):
-                    raise ValueError("Path traversal attempt")
+                safe_name = validate_path_component(Path(filename).name)
+                target = safe_path(upload_dir, safe_name)
 
                 target.write_bytes(content)
                 return target
@@ -213,9 +176,10 @@ class TestFileUploadPathSecurity:
             # Compare resolved paths (macOS uses /private/var symlink)
             assert result.parent.resolve() == upload_dir.resolve()
 
-            # Attack attempt
-            with pytest.raises(ValueError):
-                safe_upload(upload_dir, "../../../etc/passwd", b"malicious")
+            # Attack attempt - should be neutralized to basename
+            result = safe_upload(upload_dir, "../../../etc/passwd", b"malicious")
+            assert result.parent.resolve() == upload_dir.resolve()
+            assert result.name == "passwd"
 
 
 # =============================================================================
@@ -241,17 +205,9 @@ class TestStaticFileServingSecurity:
 
             def serve_static(static_dir: Path, requested_path: str) -> tuple[int, str]:
                 """Simulate static file serving."""
-                # Normalize and validate path
-                requested = Path(requested_path)
-
-                # Remove leading slashes
-                if requested.is_absolute():
-                    return (403, "Forbidden")
-
-                target = (static_dir / requested).resolve()
-
-                # Must be within static_dir
-                if not str(target).startswith(str(static_dir.resolve())):
+                try:
+                    target = safe_path(static_dir, requested_path)
+                except PathTraversalError:
                     return (403, "Forbidden")
 
                 if not target.exists():
@@ -307,19 +263,11 @@ class TestArchiveExtractionSecurity:
 
         def safe_extract_member(zip_file: zipfile.ZipFile, member: str, target_dir: Path) -> bool:
             """Safely extract a single zip member."""
-            # Check for path traversal
-            member_path = Path(member)
-            if member_path.is_absolute():
+            try:
+                safe_path(target_dir, member)
+                return True
+            except PathTraversalError:
                 return False
-            if ".." in member_path.parts:
-                return False
-
-            # Resolve and check
-            target = (target_dir / member).resolve()
-            if not str(target).startswith(str(target_dir.resolve())):
-                return False
-
-            return True
 
         with tempfile.TemporaryDirectory() as tmpdir:
             target_dir = Path(tmpdir) / "extracted"
@@ -383,37 +331,23 @@ class TestAPIPathParameterSecurity:
 
     def test_debate_id_validation(self):
         """Debate IDs should be validated."""
-        import re
-
-        def is_valid_debate_id(debate_id: str) -> bool:
-            """Validate debate ID format."""
-            # Only allow alphanumeric, dash, underscore
-            pattern = r"^[a-zA-Z0-9_-]{1,64}$"
-            return bool(re.match(pattern, debate_id))
-
         # Valid IDs
-        assert is_valid_debate_id("debate-123") is True
-        assert is_valid_debate_id("abc_xyz_456") is True
-        assert is_valid_debate_id("a" * 64) is True
+        assert validate_debate_id("debate-123")[0] is True
+        assert validate_debate_id("abc_xyz_456")[0] is True
+        assert validate_debate_id("a" * 64)[0] is True
 
         # Invalid IDs
-        assert is_valid_debate_id("../../../etc/passwd") is False
-        assert is_valid_debate_id("<script>") is False
-        assert is_valid_debate_id("") is False
-        assert is_valid_debate_id("a" * 65) is False  # Too long
-        assert is_valid_debate_id("id with spaces") is False
+        assert validate_debate_id("../../../etc/passwd")[0] is False
+        assert validate_debate_id("<script>")[0] is False
+        assert validate_debate_id("")[0] is False
+        assert validate_debate_id("a" * 129)[0] is False  # Too long
+        assert validate_debate_id("id with spaces")[0] is False
 
     def test_gauntlet_id_validation(self):
         """Gauntlet IDs should be validated."""
-        import re
+        assert validate_gauntlet_id("gauntlet-abc123def456")[0] is True
+        assert validate_gauntlet_id("gauntlet-12345678")[0] is True
 
-        def is_valid_gauntlet_id(gauntlet_id: str) -> bool:
-            pattern = r"^gauntlet-[a-f0-9]{8,32}$"
-            return bool(re.match(pattern, gauntlet_id))
-
-        assert is_valid_gauntlet_id("gauntlet-abc123def456") is True
-        assert is_valid_gauntlet_id("gauntlet-12345678") is True
-
-        assert is_valid_gauntlet_id("../etc/passwd") is False
-        assert is_valid_gauntlet_id("gauntlet-<script>") is False
-        assert is_valid_gauntlet_id("notgauntlet-123") is False
+        assert validate_gauntlet_id("../etc/passwd")[0] is False
+        assert validate_gauntlet_id("gauntlet-<script>")[0] is False
+        assert validate_gauntlet_id("notgauntlet-123")[0] is False

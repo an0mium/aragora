@@ -1,10 +1,32 @@
 'use client';
 
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ScenarioMatrixView } from '@/components/ScenarioMatrixView';
+
+function MatrixDebatesContent() {
+  const searchParams = useSearchParams();
+  const initialMatrixId = searchParams.get('id');
+
+  return (
+    <div className="container mx-auto px-4 py-6">
+      {/* Breadcrumb */}
+      <div className="mb-4 text-xs font-mono text-text-muted">
+        <Link href="/debates" className="hover:text-acid-green">
+          Debates
+        </Link>
+        <span className="mx-2">/</span>
+        <span className="text-acid-green">Matrix</span>
+      </div>
+
+      <ScenarioMatrixView initialMatrixId={initialMatrixId} />
+    </div>
+  );
+}
 
 export default function MatrixDebatesPage() {
   return (
@@ -44,18 +66,13 @@ export default function MatrixDebatesPage() {
           </div>
         </header>
 
-        <div className="container mx-auto px-4 py-6">
-          {/* Breadcrumb */}
-          <div className="mb-4 text-xs font-mono text-text-muted">
-            <Link href="/debates" className="hover:text-acid-green">
-              Debates
-            </Link>
-            <span className="mx-2">/</span>
-            <span className="text-acid-green">Matrix</span>
+        <Suspense fallback={
+          <div className="container mx-auto px-4 py-6">
+            <div className="animate-pulse text-acid-green font-mono">Loading matrix debate...</div>
           </div>
-
-          <ScenarioMatrixView />
-        </div>
+        }>
+          <MatrixDebatesContent />
+        </Suspense>
 
         {/* Footer */}
         <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">

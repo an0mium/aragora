@@ -356,3 +356,132 @@ def shutdown() -> None:
             logger.info("OpenTelemetry tracer shutdown complete")
         except Exception as e:
             logger.error(f"Error shutting down tracer: {e}")
+
+
+# =============================================================================
+# Debate-Specific Tracing
+# =============================================================================
+
+
+def trace_debate(debate_id: str) -> Callable[[F], F]:
+    """Decorator to trace an entire debate lifecycle.
+
+    Args:
+        debate_id: The debate ID (can be a function arg name to extract)
+
+    Returns:
+        Decorated async function with debate tracing
+
+    Example:
+        @trace_debate("debate_id")
+        async def run_debate(self, debate_id: str) -> DebateResult:
+            ...
+    """
+
+    def decorator(func: F) -> F:
+        @wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            tracer = get_tracer()
+            # Try to get debate_id from kwargs or args
+            did = kwargs.get(debate_id) or (
+                args[1] if len(args) > 1 and isinstance(args[1], str) else debate_id
+            )
+
+            with tracer.start_as_current_span("debate") as span:
+                span.set_attribute("debate.id", str(did))
+
+                try:
+                    result = await func(*args, **kwargs)
+
+                    # Record result attributes
+                    if hasattr(result, "consensus_reached"):
+                        span.set_attribute("debate.consensus_reached", result.consensus_reached)
+                    if hasattr(result, "rounds_used"):
+                        span.set_attribute("debate.rounds", result.rounds_used)
+                    if hasattr(result, "confidence"):
+                        span.set_attribute("debate.confidence", result.confidence)
+
+                    return result
+                except Exception as e:
+                    span.record_exception(e)
+                    _set_error_status(span)
+                    raise
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator
+
+
+@contextmanager
+def trace_debate_phase(phase_name: str, debate_id: str, round_num: Optional[int] = None) -> Iterator[Any]:
+    """Context manager for tracing a debate phase.
+
+    Args:
+        phase_name: Name of the phase (propose, critique, vote, etc.)
+        debate_id: The debate ID
+        round_num: Optional round number
+
+    Yields:
+        The span object
+
+    Example:
+        with trace_debate_phase("propose", debate_id, round_num=1) as span:
+            proposal = await agent.generate(prompt)
+            span.set_attribute("proposal.length", len(proposal))
+    """
+    tracer = get_tracer()
+    with tracer.start_as_current_span(f"debate.phase.{phase_name}") as span:
+        span.set_attribute("debate.id", debate_id)
+        span.set_attribute("debate.phase", phase_name)
+        if round_num is not None:
+            span.set_attribute("debate.round", round_num)
+        yield span
+
+
+@contextmanager
+def trace_consensus_check(debate_id: str, round_num: int) -> Iterator[Any]:
+    """Context manager for tracing consensus checking.
+
+    Args:
+        debate_id: The debate ID
+        round_num: Current round number
+
+    Yields:
+        The span object
+    """
+    tracer = get_tracer()
+    with tracer.start_as_current_span("debate.consensus_check") as span:
+        span.set_attribute("debate.id", debate_id)
+        span.set_attribute("debate.round", round_num)
+        yield span
+
+
+def trace_memory_operation(operation: str, tier: str) -> Callable[[F], F]:
+    """Decorator to trace memory operations.
+
+    Args:
+        operation: Operation type (store, query, promote, demote)
+        tier: Memory tier (fast, medium, slow, glacial)
+
+    Returns:
+        Decorated function with tracing
+    """
+
+    def decorator(func: F) -> F:
+        @wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            tracer = get_tracer()
+            with tracer.start_as_current_span(f"memory.{operation}") as span:
+                span.set_attribute("memory.operation", operation)
+                span.set_attribute("memory.tier", tier)
+                try:
+                    result = await func(*args, **kwargs)
+                    return result
+                except Exception as e:
+                    span.record_exception(e)
+                    _set_error_status(span)
+                    raise
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator

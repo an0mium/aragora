@@ -414,7 +414,8 @@ class DatabaseManager:
     _instances_lock = threading.Lock()
 
     # Default pool size for connection pooling
-    DEFAULT_POOL_SIZE = 5
+    # Increased from 5 to 20 for better production concurrency
+    DEFAULT_POOL_SIZE = 20
 
     def __init__(
         self,
@@ -430,7 +431,7 @@ class DatabaseManager:
         Args:
             db_path: Path to the SQLite database file
             timeout: Connection timeout in seconds
-            pool_size: Maximum number of pooled connections (default 5)
+            pool_size: Maximum number of pooled connections (default 20)
         """
         self.db_path = str(Path(db_path).resolve())
         self.timeout = timeout

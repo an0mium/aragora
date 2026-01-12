@@ -3,7 +3,21 @@
 import json
 import pytest
 from collections import OrderedDict
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
+
+
+@pytest.fixture(autouse=True)
+def mock_auth():
+    """Mock auth to return a valid user context for all tests."""
+    mock_user = Mock()
+    mock_user.user_id = "test-user-123"
+    mock_user.org_id = "test-org-456"
+    mock_user.email = "test@example.com"
+    mock_user.is_authenticated = True
+    mock_user.error_reason = None
+    # Patch the jwt_auth module that gets imported at runtime
+    with patch('aragora.billing.jwt_auth.extract_user_from_request', return_value=mock_user):
+        yield
 
 
 class TestDocumentHandlerRouting:

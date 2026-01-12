@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { DEFAULT_AGENTS, DEFAULT_ROUNDS, AGENT_DISPLAY_NAMES } from '@/config';
 
 interface DebateInputProps {
@@ -59,6 +60,7 @@ function detectDomain(text: string): string {
 }
 
 export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputProps) {
+  const router = useRouter();
   const [question, setQuestion] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -205,8 +207,18 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
 
       const data = await response.json();
 
-      if (data.success && data.debate_id) {
-        onDebateStarted?.(data.debate_id, trimmedQuestion);
+      if (data.success && (data.debate_id || data.matrix_id)) {
+        const debateId = data.debate_id || data.matrix_id;
+
+        // Navigate to visualization page for Graph/Matrix modes
+        if (debateMode === 'graph') {
+          router.push(`/debates/graph?id=${debateId}`);
+        } else if (debateMode === 'matrix') {
+          router.push(`/debates/matrix?id=${data.matrix_id || debateId}`);
+        }
+
+        // Always call onDebateStarted for tracking/notification
+        onDebateStarted?.(debateId, trimmedQuestion);
         setQuestion('');
       } else {
         onError?.(data.error || 'Failed to start debate');
@@ -295,6 +307,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
             <button
               type="button"
               onClick={applyRecommendations}
+              aria-label="Use recommended agents"
               className="ml-auto text-xs font-mono text-acid-green hover:text-acid-green/80 transition-colors"
             >
               [USE]
@@ -307,6 +320,9 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
+            aria-expanded={showAdvanced}
+            aria-controls="advanced-options"
+            aria-label={showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
             className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
           >
             {showAdvanced ? '[-] Hide options' : '[+] Show options'}
@@ -315,6 +331,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
           <button
             type="submit"
             disabled={isDisabled}
+            aria-label="Start debate"
             className="px-8 py-3 bg-acid-green text-bg font-mono font-bold text-lg
                        hover:bg-acid-green/80 transition-colors
                        disabled:bg-text-muted disabled:cursor-not-allowed
@@ -337,7 +354,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
 
         {/* Advanced Options */}
         {showAdvanced && (
-          <div className="border border-acid-green/30 p-4 space-y-4 bg-surface/50">
+          <div id="advanced-options" className="border border-acid-green/30 p-4 space-y-4 bg-surface/50">
             {/* Debate Mode Selector */}
             <div>
               <label id="debate-mode-label" className="block text-xs font-mono text-text-muted mb-2">

@@ -70,6 +70,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         "/api/debates/*/followup",  # POST - crux-driven follow-up debate
         "/api/debates/*/followups",  # GET - list follow-up suggestions
         "/api/debates/*/verification-report",  # Verification feedback
+        "/api/debates/*/summary",  # GET - human-readable summary
         "/api/search",  # Cross-debate search
     ]
 
@@ -105,6 +106,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         ("/graph/stats", "_get_graph_stats", True, None),
         ("/verification-report", "_get_verification_report", True, None),
         ("/followups", "_get_followup_suggestions", True, None),
+        ("/summary", "_get_summary", True, None),
     ]
 
     def _check_auth(self, handler) -> Optional[HandlerResult]:
@@ -215,7 +217,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                     return method(handler, debate_id, **extra)
                 else:
                     # Methods like _get_meta_critique only take debate_id
-                    if method_name in ("_get_meta_critique", "_get_graph_stats"):
+                    if method_name in ("_get_meta_critique", "_get_graph_stats", "_get_followup_suggestions"):
                         return method(debate_id)
                     return method(handler, debate_id)
 
@@ -518,6 +520,37 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             },
             "winner": debate.get("winner"),
             "consensus_reached": debate.get("consensus_reached", False),
+        })
+
+    @require_storage
+    @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_summary", skip_first=True)
+    @handle_errors("get summary")
+    def _get_summary(self, handler, debate_id: str) -> HandlerResult:
+        """Get human-readable summary for a debate.
+
+        Returns a structured summary with:
+        - One-liner verdict
+        - Key points and conclusions
+        - Agreement and disagreement areas
+        - Confidence assessment
+        - Actionable next steps
+        """
+        from aragora.debate.summarizer import summarize_debate
+
+        storage = self.get_storage()
+        debate = storage.get_debate(debate_id)
+        if not debate:
+            return error_response(f"Debate not found: {debate_id}", 404)
+
+        # Generate summary
+        summary = summarize_debate(debate)
+
+        return json_response({
+            "debate_id": debate_id,
+            "summary": summary.to_dict(),
+            "task": debate.get("task", ""),
+            "consensus_reached": debate.get("consensus_reached", False),
+            "confidence": debate.get("confidence", 0.0),
         })
 
     @require_storage

@@ -1,10 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import type { StreamEvent } from '@/types/events';
 
 interface VerdictCardProps {
   events: StreamEvent[];
+  debateId?: string;
+  apiUrl?: string;
 }
 
 interface Verdict {
@@ -19,8 +21,55 @@ interface Verdict {
   timestamp: number;
 }
 
-export function VerdictCard({ events }: VerdictCardProps) {
+interface DebateSummary {
+  one_liner: string;
+  key_points: string[];
+  agreement_areas: string[];
+  disagreement_areas: string[];
+  confidence: number;
+  confidence_label: string;
+  consensus_strength: string;
+  next_steps: string[];
+  caveats: string[];
+  rounds_used: number;
+  agents_participated: number;
+  duration_seconds: number;
+}
+
+export function VerdictCard({ events, debateId, apiUrl }: VerdictCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [summary, setSummary] = useState<DebateSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  // Fetch summary when debate is complete and we have a debateId
+  useEffect(() => {
+    if (!debateId) return;
+
+    // Check if debate is complete (has verdict/consensus event)
+    const isComplete = events.some(
+      (e) => e.type === 'grounded_verdict' || e.type === 'verdict' || e.type === 'consensus' || e.type === 'debate_end'
+    );
+
+    if (!isComplete) return;
+
+    const fetchSummary = async () => {
+      setSummaryLoading(true);
+      try {
+        const baseUrl = apiUrl || '';
+        const response = await fetch(`${baseUrl}/api/debates/${debateId}/summary`);
+        if (response.ok) {
+          const data = await response.json();
+          setSummary(data.summary);
+        }
+      } catch (error) {
+        console.error('Failed to fetch debate summary:', error);
+      } finally {
+        setSummaryLoading(false);
+      }
+    };
+
+    fetchSummary();
+  }, [debateId, apiUrl, events]);
 
   // Extract verdict from consensus/verdict events
   const verdict = useMemo<Verdict | null>(() => {
@@ -202,6 +251,109 @@ export function VerdictCard({ events }: VerdictCardProps) {
               {verdict.crossExamination.length > 500 && '...'}
             </div>
           </details>
+        )}
+
+        {/* AI Summary Section */}
+        {(summary || summaryLoading) && (
+          <div className="mt-4 pt-4 border-t border-accent/20">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-accent mb-3 flex items-center gap-2">
+              <span>📋</span>
+              Summary
+              {summaryLoading && <span className="animate-pulse text-text-muted">(loading...)</span>}
+            </h4>
+
+            {summary && (
+              <div className="space-y-3">
+                {/* One-liner */}
+                {summary.one_liner && (
+                  <p className="text-sm text-text font-medium border-l-2 border-accent/50 pl-3">
+                    {summary.one_liner}
+                  </p>
+                )}
+
+                {/* Key Points */}
+                {summary.key_points.length > 0 && (
+                  <div>
+                    <span className="text-xs font-medium text-accent">Key Points:</span>
+                    <ul className="mt-1 space-y-1">
+                      {summary.key_points.slice(0, 3).map((point, i) => (
+                        <li key={i} className="text-xs text-text-muted flex items-start gap-2">
+                          <span className="text-accent">•</span>
+                          <span>{point}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Agreement/Disagreement */}
+                <div className="flex gap-4 text-xs">
+                  {summary.agreement_areas.length > 0 && (
+                    <div className="flex-1">
+                      <span className="font-medium text-green-400">✓ Agreements:</span>
+                      <ul className="mt-1 text-text-muted">
+                        {summary.agreement_areas.slice(0, 2).map((area, i) => (
+                          <li key={i} className="truncate">• {area}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {summary.disagreement_areas.length > 0 && (
+                    <div className="flex-1">
+                      <span className="font-medium text-yellow-400">⚠ Disagreements:</span>
+                      <ul className="mt-1 text-text-muted">
+                        {summary.disagreement_areas.slice(0, 2).map((area, i) => (
+                          <li key={i} className="truncate">• {area}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                {/* Next Steps */}
+                {summary.next_steps.length > 0 && (
+                  <div>
+                    <span className="text-xs font-medium text-accent">Next Steps:</span>
+                    <ul className="mt-1 space-y-1">
+                      {summary.next_steps.slice(0, 3).map((step, i) => (
+                        <li key={i} className="text-xs text-text-muted flex items-start gap-2">
+                          <span className="text-blue-400">→</span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Caveats */}
+                {summary.caveats.length > 0 && (
+                  <div className="bg-orange-500/10 border border-orange-500/20 rounded p-2">
+                    <span className="text-xs font-medium text-orange-400">⚠ Caveats:</span>
+                    <ul className="mt-1">
+                      {summary.caveats.map((caveat, i) => (
+                        <li key={i} className="text-xs text-orange-300/80">• {caveat}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Metadata */}
+                <div className="flex gap-4 text-xs text-text-muted pt-2 border-t border-accent/10">
+                  <span>{summary.agents_participated} agents</span>
+                  <span>{summary.rounds_used} rounds</span>
+                  <span>{summary.duration_seconds.toFixed(1)}s</span>
+                  {summary.consensus_strength !== 'none' && (
+                    <span className={
+                      summary.consensus_strength === 'strong' ? 'text-green-400' :
+                      summary.consensus_strength === 'medium' ? 'text-yellow-400' : 'text-text-muted'
+                    }>
+                      {summary.consensus_strength} consensus
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

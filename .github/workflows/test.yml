@@ -61,6 +61,61 @@ jobs:
           verbose: true
         continue-on-error: true
 
+  smoke:
+    name: CLI Smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Smoke - demo ask
+        run: |
+          aragora ask "Smoke test a demo debate" --demo --rounds 1
+
+      - name: Smoke - demo gauntlet
+        run: |
+          cat > /tmp/aragora_demo_spec.md <<'EOF'
+          # Demo Spec
+          Build a simple HTTP service that returns "ok" to GET /health.
+          EOF
+          if ! aragora gauntlet /tmp/aragora_demo_spec.md \
+            --input-type spec \
+            --agents demo,demo \
+            --profile quick \
+            --no-probing \
+            --no-audit \
+            --timeout 30 \
+            --output /tmp/aragora_gauntlet_demo.json; then
+            echo "Gauntlet exited non-zero (possible needs-review/reject verdict)."
+          fi
+          test -s /tmp/aragora_gauntlet_demo.json
+
+      - name: Smoke - boot server
+        run: |
+          set -e
+          aragora serve --api-port 8090 --ws-port 8766 --host 127.0.0.1 >/tmp/aragora-server.log 2>&1 &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID" EXIT
+          for i in {1..10}; do
+            if curl -fsS http://127.0.0.1:8090/api/health >/dev/null; then
+              echo "Server is healthy."
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8090/api/health >/dev/null
+
   benchmark:
     name: Performance Benchmarks
     runs-on: ubuntu-latest

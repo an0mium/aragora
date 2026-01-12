@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sqlite3
 import threading
 import time
 from dataclasses import dataclass, field
@@ -414,11 +415,10 @@ def setup_default_tasks(
                 )
         except ImportError:
             logger.debug("ConsensusMemory not available, skipping cleanup")
-        except AttributeError:
-            # cleanup_old_records not implemented yet - that's a TODO
-            logger.debug("ConsensusMemory.cleanup_old_records not available")
-        except Exception as e:
-            logger.warning("Consensus cleanup failed: %s", e)
+        except sqlite3.Error as e:
+            logger.warning("Consensus cleanup database error: %s", e)
+        except (OSError, IOError) as e:
+            logger.warning("Consensus cleanup I/O error: %s", e)
 
     manager.register_task(
         name="consensus_cleanup",
