@@ -118,6 +118,8 @@ class DebateStorage:
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_slug ON debates(slug)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_created ON debates(created_at)")
+            # Index on task for search optimization (LIKE queries)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_task ON debates(task)")
 
             # Add audio columns (migration for existing databases)
             self._safe_add_column(conn, "debates", "audio_path", "TEXT")
@@ -475,6 +477,91 @@ class DebateStorage:
                 ))
 
         return results
+
+    def search(
+        self,
+        query: str,
+        limit: int = 20,
+        offset: int = 0,
+        org_id: Optional[str] = None,
+    ) -> tuple[list[DebateMetadata], int]:
+        """
+        Search debates by task/slug using efficient SQL LIKE queries.
+
+        Args:
+            query: Search term to match against task and slug
+            limit: Maximum number of results to return
+            offset: Number of results to skip (for pagination)
+            org_id: If provided, only search within this organization's debates
+
+        Returns:
+            Tuple of (matching debates, total count)
+        """
+        # Escape LIKE special characters for safe SQL
+        safe_query = _escape_like_pattern(query)
+        like_pattern = f"%{safe_query}%"
+
+        with self._get_connection() as conn:
+            # Get total count first
+            if org_id:
+                count_cursor = conn.execute("""
+                    SELECT COUNT(*)
+                    FROM debates
+                    WHERE org_id = ?
+                      AND (task LIKE ? ESCAPE '\\' OR slug LIKE ? ESCAPE '\\')
+                """, (org_id, like_pattern, like_pattern))
+            else:
+                count_cursor = conn.execute("""
+                    SELECT COUNT(*)
+                    FROM debates
+                    WHERE task LIKE ? ESCAPE '\\'
+                       OR slug LIKE ? ESCAPE '\\'
+                """, (like_pattern, like_pattern))
+
+            total = count_cursor.fetchone()[0]
+
+            # Get paginated results
+            if org_id:
+                cursor = conn.execute("""
+                    SELECT slug, id, task, agents, consensus_reached,
+                           confidence, created_at, view_count, is_public
+                    FROM debates
+                    WHERE org_id = ?
+                      AND (task LIKE ? ESCAPE '\\' OR slug LIKE ? ESCAPE '\\')
+                    ORDER BY created_at DESC
+                    LIMIT ? OFFSET ?
+                """, (org_id, like_pattern, like_pattern, limit, offset))
+            else:
+                cursor = conn.execute("""
+                    SELECT slug, id, task, agents, consensus_reached,
+                           confidence, created_at, view_count, is_public
+                    FROM debates
+                    WHERE task LIKE ? ESCAPE '\\'
+                       OR slug LIKE ? ESCAPE '\\'
+                    ORDER BY created_at DESC
+                    LIMIT ? OFFSET ?
+                """, (like_pattern, like_pattern, limit, offset))
+
+            results = []
+            for row in cursor.fetchall():
+                try:
+                    created = datetime.fromisoformat(row[6])
+                except (ValueError, TypeError):
+                    created = datetime.now()
+
+                results.append(DebateMetadata(
+                    slug=row[0],
+                    debate_id=row[1],
+                    task=row[2],
+                    agents=json.loads(row[3]) if row[3] else [],
+                    consensus_reached=bool(row[4]),
+                    confidence=row[5] or 0,
+                    created_at=created,
+                    view_count=row[7] or 0,
+                    is_public=bool(row[8]) if len(row) > 8 else False,
+                ))
+
+        return results, total
 
     def delete(
         self, slug: str, org_id: Optional[str] = None, require_ownership: bool = False

@@ -381,7 +381,8 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
     ) -> HandlerResult:
         """Search debates by query string, optionally filtered by organization.
 
-        Searches across debate tasks/topics using SQL LIKE pattern matching.
+        Uses efficient SQL LIKE queries instead of loading all debates into memory.
+        This is optimized for large debate databases.
 
         Args:
             query: Search query string
@@ -394,36 +395,22 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         """
         storage = self.get_storage()
         try:
-            import sqlite3
-            from aragora.config import DB_TIMEOUT_SECONDS
-
-            # Get all recent debates and filter in Python
-            # (More robust than raw SQL for now)
-            all_debates = storage.list_recent(limit=500, org_id=org_id)
-
-            # Filter by query if provided
+            # Use efficient SQL search if query provided
             if query:
-                query_lower = query.lower()
-                matching = []
-                for d in all_debates:
-                    task = getattr(d, 'task', '') or ''
-                    topic = getattr(d, 'topic', '') or task
-                    slug = getattr(d, 'slug', '') or ''
-
-                    if (query_lower in task.lower() or
-                        query_lower in topic.lower() or
-                        query_lower in slug.lower()):
-                        matching.append(d)
+                matching, total = storage.search(
+                    query=query,
+                    limit=limit,
+                    offset=offset,
+                    org_id=org_id,
+                )
             else:
-                matching = list(all_debates)
-
-            # Apply pagination
-            total = len(matching)
-            paginated = matching[offset:offset + limit]
+                # No query - just list recent debates
+                matching = storage.list_recent(limit=limit, org_id=org_id)
+                total = len(matching)  # Approximate for no-query case
 
             # Convert to dicts
             results = []
-            for d in paginated:
+            for d in matching:
                 if hasattr(d, '__dict__'):
                     results.append(d.__dict__)
                 elif isinstance(d, dict):
