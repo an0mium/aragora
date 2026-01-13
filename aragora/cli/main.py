@@ -6,11 +6,15 @@ Usage:
     aragora ask "Design a rate limiter" --agents anthropic-api,openai-api --rounds 3
     aragora ask "Implement auth system" --agents anthropic-api,openai-api,gemini
     aragora stats
+
+Environment Variables:
+    ARAGORA_API_URL: API server URL (default: http://localhost:8080)
 """
 
 import argparse
 import asyncio
 import hashlib
+import os
 import sys
 from pathlib import Path
 from typing import Any, Optional
@@ -24,7 +28,11 @@ from aragora.memory.store import CritiqueStore
 from aragora.core import Environment
 
 
-def get_event_emitter_if_available(server_url: str = "http://localhost:8080") -> Optional[Any]:
+# Default API URL from environment or localhost fallback
+DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
+
+
+def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Optional[Any]:
     """
     Try to connect to the streaming server for audience participation.
     Returns event emitter if server is available, None otherwise.
@@ -71,7 +79,7 @@ async def run_debate(
     learn: bool = True,
     db_path: str = "agora_memory.db",
     enable_audience: bool = True,
-    server_url: str = "http://localhost:8080",
+    server_url: str = DEFAULT_API_URL,
     protocol_overrides: dict[str, Any] | None = None,
 ):
     """Run a decision stress-test (debate engine)."""
@@ -245,7 +253,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 
     # Check server health
     print("\n🌐 Server Status:")
-    server_url = args.server if hasattr(args, 'server') else "http://localhost:8080"
+    server_url = args.server if hasattr(args, 'server') else DEFAULT_API_URL
     try:
         import urllib.request
         req = urllib.request.Request(f"{server_url}/api/health", method="GET")
@@ -734,7 +742,11 @@ def get_version() -> str:
     try:
         from importlib.metadata import version
         return version("aragora")
+    except ImportError:
+        # importlib.metadata not available (Python < 3.8)
+        return "0.8.0-dev"
     except Exception:
+        # Package not installed in editable mode - use dev version
         return "0.8.0-dev"
 
 
@@ -794,7 +806,7 @@ Examples:
 
     # Status command - environment health check
     status_parser = subparsers.add_parser("status", help="Show environment health and agent availability")
-    status_parser.add_argument("--server", "-s", default="http://localhost:8080", help="Server URL to check")
+    status_parser.add_argument("--server", "-s", default=DEFAULT_API_URL, help=f"Server URL to check (default: {DEFAULT_API_URL})")
     status_parser.set_defaults(func=cmd_status)
 
     # Agents command - list available agents
@@ -989,8 +1001,8 @@ Examples:
     )
     batch_parser.add_argument(
         "--url", "-u",
-        default="http://localhost:8080",
-        help="Server URL (default: http://localhost:8080)",
+        default=DEFAULT_API_URL,
+        help=f"Server URL (default: {DEFAULT_API_URL})",
     )
     batch_parser.add_argument(
         "--token", "-t",

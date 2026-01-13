@@ -22,7 +22,7 @@ At least one AI provider key is required.
 | `GROK_API_KEY` | Optional | Alias for XAI_API_KEY | - |
 | `MISTRAL_API_KEY` | Optional | Mistral AI API key (Large, Codestral) | - |
 | `OPENROUTER_API_KEY` | Optional | OpenRouter for multi-model access | - |
-| `DEEPSEEK_API_KEY` | Optional | DeepSeek API key | - |
+| `DEEPSEEK_API_KEY` | Optional | DeepSeek CLI key (for `deepseek-cli`) | - |
 
 **Note:** Never commit your `.env` file. It's gitignored for security.
 
@@ -84,14 +84,15 @@ Enables:
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_PORT` | Optional | Unified HTTP/WS server port | `8080` |
-| `ARAGORA_HOST` | Optional | Bind address | `0.0.0.0` |
-| `ARAGORA_ENVIRONMENT` | Recommended | `development` or `production` | `development` |
+| `ARAGORA_API_URL` | Optional | API base URL for CLI/SDK clients | `http://localhost:8080` |
+| `ARAGORA_ENV` | Recommended | `development` or `production` | `development` |
+| `ARAGORA_ENVIRONMENT` | Optional | Alias used by billing/auth | `development` |
 | `ARAGORA_API_TOKEN` | Optional | Enable token auth | Disabled |
 | `ARAGORA_TOKEN_TTL` | Optional | Token lifetime (seconds) | `3600` |
-| `ARAGORA_WS_MAX_SIZE` | Optional | Max WebSocket message size | `65536` |
+| `ARAGORA_WS_MAX_MESSAGE_SIZE` | Optional | Max WebSocket message size | `65536` |
+| `ARAGORA_WS_HEARTBEAT` | Optional | WebSocket heartbeat interval (seconds) | `30` |
 
-**Note:** The unified server runs HTTP API and WebSocket on the same port. WebSocket connects via `/ws` endpoint upgrade.
+**Note:** `aragora serve` runs HTTP on port 8080 and WebSocket on port 8765 by default. The WebSocket server accepts `/` or `/ws`. For single-port deployments, embed `AiohttpUnifiedServer` (advanced).
 
 ### Environment Mode
 
@@ -391,8 +392,9 @@ See [BROADCAST.md](./BROADCAST.md) for the complete audio pipeline documentation
 
 ### Ports
 - Must be integers 1-65535
-- Unified server: 8080 (HTTP + WebSocket on /ws/debates)
-- Legacy WebSocket: 8765 (deprecated, use unified server)
+- HTTP API: 8080 (default)
+- WebSocket: 8765 (default, `/` or `/ws`)
+- Single-port option: use `AiohttpUnifiedServer` (advanced)
 
 ### URLs
 - Must be valid HTTPS URLs (for production)
@@ -420,8 +422,8 @@ OLLAMA_MODEL=llama2
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_KEY=eyJ...
 
-# Optional: Server config
-API_PORT=8080
+# Optional: Client defaults / auth
+ARAGORA_API_URL=http://localhost:8080
 ARAGORA_API_TOKEN=my-secret-token
 
 # Optional: JWT Authentication
@@ -454,11 +456,11 @@ TWITTER_BEARER_TOKEN=AAAA...  # For trending topics
 - Check for typos in origin URLs
 
 ### "WebSocket connection failed"
-- Verify `API_PORT` matches your client config
+- Verify `--ws-port` (server) matches `NEXT_PUBLIC_WS_URL` (frontend) or your client URL
 - Check firewall/proxy settings
 
 ### "Rate limit exceeded"
-- Increase `RATE_LIMIT_PER_MINUTE`
+- Increase `ARAGORA_RATE_LIMIT` / `ARAGORA_IP_RATE_LIMIT`
 - Or wait for rate limit window to reset
 
 ---

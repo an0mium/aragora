@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { API_BASE_URL } from '@/config';
 
 // API endpoint definition
 interface Endpoint {
@@ -306,7 +307,7 @@ export function ApiExplorerPanel() {
   const [baseUrl, setBaseUrl] = useState(
     typeof window !== 'undefined'
       ? window.location.origin
-      : 'http://localhost:8080'
+      : API_BASE_URL
   );
 
   const filteredCategories = useMemo(() => {

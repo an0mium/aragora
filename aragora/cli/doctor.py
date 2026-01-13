@@ -21,6 +21,10 @@ except ImportError:
     pass  # dotenv not required
 
 
+# Default API URL from environment or localhost fallback
+DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
+
+
 class CheckResult(NamedTuple):
     """Result of a single health check."""
     name: str
@@ -382,19 +386,23 @@ def check_server() -> list[CheckResult]:
 
     try:
         import urllib.request
-        req = urllib.request.Request("http://localhost:8080/healthz", method="GET")
+        from urllib.parse import urlparse
+
+        # Use health endpoint
+        health_url = f"{DEFAULT_API_URL}/healthz"
+        req = urllib.request.Request(health_url, method="GET")
         with urllib.request.urlopen(req, timeout=2) as resp:
             if resp.status == 200:
                 results.append(CheckResult(
                     "server",
                     "pass",
-                    "API server running at localhost:8080"
+                    f"API server running at {DEFAULT_API_URL}"
                 ))
     except (OSError, TimeoutError):
         results.append(CheckResult(
             "server",
             "warn",
-            "API server not running (optional)"
+            f"API server not running at {DEFAULT_API_URL} (optional)"
         ))
 
     return results

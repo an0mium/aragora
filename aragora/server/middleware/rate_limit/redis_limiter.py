@@ -56,7 +56,8 @@ def get_redis_client() -> Optional["redis.Redis"]:
     """
     Get Redis client if configured and available.
 
-    Uses settings from aragora.config.settings for Redis URL.
+    Uses centralized redis_config for connection pooling, with fallback
+    to settings-based configuration for backward compatibility.
     Returns None if Redis is not configured or unavailable.
     """
     global _redis_client, _redis_init_attempted
@@ -70,6 +71,18 @@ def get_redis_client() -> Optional["redis.Redis"]:
         logger.debug("Redis package not installed, using in-memory rate limiting")
         return None
 
+    # Try centralized redis_config first (preferred)
+    try:
+        from aragora.server.redis_config import get_redis_client as get_shared_client
+        shared_client = get_shared_client()
+        if shared_client is not None:
+            _redis_client = shared_client
+            logger.debug("Rate limiting using shared Redis connection pool")
+            return _redis_client
+    except ImportError:
+        pass  # Fall back to settings-based configuration
+
+    # Fall back to settings-based configuration
     try:
         from aragora.config.settings import get_settings
 

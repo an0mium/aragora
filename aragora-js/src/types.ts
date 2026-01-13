@@ -901,3 +901,240 @@ export interface MemoryPressureResponse {
   utilization_percent: number;
   recommended_action?: string;
 }
+
+// =============================================================================
+// Auth Types
+// =============================================================================
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name?: string;
+}
+
+export interface RegisterResponse {
+  user_id: string;
+  email: string;
+  message: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+  mfa_code?: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  user: AuthUser;
+}
+
+export interface AuthUser {
+  user_id: string;
+  email: string;
+  name?: string;
+  role: string;
+  org_id?: string;
+  mfa_enabled: boolean;
+  created_at: string;
+  last_login_at?: string;
+}
+
+export interface RefreshRequest {
+  refresh_token: string;
+}
+
+export interface RefreshResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+export interface RevokeTokenRequest {
+  token: string;
+  token_type?: 'access' | 'refresh';
+}
+
+export interface UpdateMeRequest {
+  name?: string;
+  email?: string;
+}
+
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
+export interface ChangePasswordResponse {
+  message: string;
+}
+
+export interface ApiKeyCreateRequest {
+  name?: string;
+  expires_in_days?: number;
+}
+
+export interface ApiKeyResponse {
+  api_key: string;
+  key_id: string;
+  name?: string;
+  expires_at?: string;
+  message: string;
+}
+
+export interface MfaSetupResponse {
+  secret: string;
+  qr_code: string;
+  provisioning_uri: string;
+  message: string;
+}
+
+export interface MfaEnableRequest {
+  code: string;
+}
+
+export interface MfaEnableResponse {
+  message: string;
+  backup_codes: string[];
+}
+
+export interface MfaDisableRequest {
+  code: string;
+  password: string;
+}
+
+export interface MfaVerifyRequest {
+  code: string;
+}
+
+export interface MfaVerifyResponse {
+  valid: boolean;
+  message: string;
+}
+
+export interface MfaBackupCodesResponse {
+  backup_codes: string[];
+  message: string;
+}
+
+// =============================================================================
+// Billing Types
+// =============================================================================
+
+export interface BillingPlan {
+  id: string;
+  name: string;
+  tier: 'free' | 'starter' | 'professional' | 'enterprise';
+  price_monthly: number;
+  price_yearly: number;
+  currency: string;
+  features: string[];
+  limits: {
+    debates_per_month: number;
+    api_calls_per_minute: number;
+    storage_gb: number;
+    team_members: number;
+  };
+  stripe_price_id_monthly?: string;
+  stripe_price_id_yearly?: string;
+}
+
+export interface BillingPlansResponse {
+  plans: BillingPlan[];
+}
+
+export interface BillingUsage {
+  debates_used: number;
+  debates_limit: number;
+  api_calls_used: number;
+  api_calls_limit: number;
+  storage_used_bytes: number;
+  storage_limit_bytes: number;
+  period_start: string;
+  period_end: string;
+  usage_percent: number;
+}
+
+export interface BillingSubscription {
+  id: string;
+  status: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete';
+  plan: BillingPlan;
+  current_period_start: string;
+  current_period_end: string;
+  cancel_at_period_end: boolean;
+  trial_end?: string;
+  stripe_subscription_id?: string;
+}
+
+export interface CheckoutRequest {
+  plan_id: string;
+  billing_period: 'monthly' | 'yearly';
+  success_url?: string;
+  cancel_url?: string;
+}
+
+export interface CheckoutResponse {
+  checkout_url: string;
+  session_id: string;
+}
+
+export interface PortalResponse {
+  portal_url: string;
+}
+
+export interface CancelSubscriptionResponse {
+  message: string;
+  cancel_at: string;
+}
+
+export interface ResumeSubscriptionResponse {
+  message: string;
+  subscription: BillingSubscription;
+}
+
+export interface BillingAuditEntry {
+  id: string;
+  timestamp: string;
+  action: string;
+  user_id: string;
+  details: Record<string, unknown>;
+}
+
+export interface BillingAuditLogResponse {
+  entries: BillingAuditEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface UsageForecast {
+  projected_debates: number;
+  projected_api_calls: number;
+  projected_cost: number;
+  days_remaining: number;
+  will_exceed_limit: boolean;
+  exceed_date?: string;
+}
+
+export interface Invoice {
+  id: string;
+  number: string;
+  status: 'draft' | 'open' | 'paid' | 'void' | 'uncollectible';
+  amount_due: number;
+  amount_paid: number;
+  currency: string;
+  created_at: string;
+  due_date?: string;
+  paid_at?: string;
+  pdf_url?: string;
+  hosted_invoice_url?: string;
+}
+
+export interface InvoicesResponse {
+  invoices: Invoice[];
+  total: number;
+}

@@ -116,12 +116,17 @@ class ProofSandbox:
         self._closed = True
 
     def __del__(self):
-        """Destructor - fallback cleanup if context manager not used."""
+        """Destructor - fallback cleanup if context manager not used.
+
+        Note: Bare except is intentional here - during garbage collection,
+        any exception (including AttributeError for partially-constructed objects)
+        must be suppressed to avoid runtime errors during interpreter shutdown.
+        """
         try:
             if not self._closed and self.config.cleanup_on_exit:
                 self._cleanup_temp_dirs()
         except Exception:
-            pass  # Suppress errors during garbage collection
+            pass  # Suppress all errors during garbage collection (standard Python pattern)
 
     def _create_temp_dir(self) -> Path:
         """Create a temporary directory for sandboxed execution."""

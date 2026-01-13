@@ -101,7 +101,7 @@ Create `.env.local` for local development:
 ```bash
 # API Configuration
 NEXT_PUBLIC_API_URL=http://localhost:8080
-NEXT_PUBLIC_WS_URL=ws://localhost:8080
+NEXT_PUBLIC_WS_URL=ws://localhost:8765/ws
 
 # Optional: Supabase (for debate history)
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
@@ -174,7 +174,7 @@ function DebateViewer({ debateId }: { debateId: string }) {
     reconnect,       // Manual reconnect trigger
   } = useDebateWebSocket({
     debateId,
-    wsUrl: 'ws://localhost:8080',
+    wsUrl: 'ws://localhost:8765/ws',
     enabled: true,
   });
 
@@ -423,7 +423,7 @@ Centralized configuration with environment variable overrides:
 ```typescript
 // API endpoints
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
+export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8765/ws';
 
 // Defaults
 export const DEFAULT_AGENTS = process.env.NEXT_PUBLIC_DEFAULT_AGENTS || 'anthropic-api,openai-api';
@@ -585,7 +585,7 @@ Set these environment variables in production:
 
 ```bash
 NEXT_PUBLIC_API_URL=https://api.aragora.ai
-NEXT_PUBLIC_WS_URL=wss://api.aragora.ai
+NEXT_PUBLIC_WS_URL=wss://api.aragora.ai/ws
 NEXT_PUBLIC_SUPABASE_URL=your-production-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-production-key
 ```

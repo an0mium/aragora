@@ -5,6 +5,7 @@ Provides bounded collections and state tracking for active debates and
 nomic loop instances, with TTL-based cleanup to prevent memory leaks.
 """
 
+import asyncio
 import logging
 import threading
 import time
@@ -289,6 +290,97 @@ class DebateStateManager:
             return False
 
 
+# =============================================================================
+# Global DebateStateManager Singleton
+# =============================================================================
+
+_state_manager: Optional[DebateStateManager] = None
+_state_manager_lock = threading.Lock()
+
+
+def get_state_manager() -> DebateStateManager:
+    """Get the global DebateStateManager singleton.
+
+    Thread-safe lazy initialization of the shared state manager instance.
+    """
+    global _state_manager
+    if _state_manager is None:
+        with _state_manager_lock:
+            if _state_manager is None:
+                _state_manager = DebateStateManager()
+    return _state_manager
+
+
+# =============================================================================
+# Periodic Cleanup Background Task
+# =============================================================================
+
+_cleanup_task: Optional[asyncio.Task] = None
+_default_cleanup_interval = 300  # 5 minutes
+
+
+async def periodic_state_cleanup(
+    manager: DebateStateManager,
+    interval_seconds: int = 300,
+) -> None:
+    """Background task to periodically clean stale state entries.
+
+    Runs indefinitely, cleaning up stale entries from active_loops and
+    debate_states dictionaries every `interval_seconds`.
+
+    This ensures cleanup happens even on low-traffic servers where the
+    counter-based cleanup (every 100 operations) might never trigger.
+
+    Args:
+        manager: The DebateStateManager instance to clean
+        interval_seconds: Seconds between cleanup runs (default: 300 = 5 min)
+    """
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            cleaned = manager.cleanup_stale_entries()
+            if cleaned > 0:
+                logger.info(f"Periodic cleanup: removed {cleaned} stale state entries")
+        except Exception as e:
+            logger.warning(f"Periodic state cleanup error: {e}")
+
+
+def start_cleanup_task(
+    manager: DebateStateManager,
+    interval_seconds: int = 300,
+) -> asyncio.Task:
+    """Start the periodic cleanup background task.
+
+    Safe to call multiple times - will only start one task.
+
+    Args:
+        manager: The DebateStateManager instance to clean
+        interval_seconds: Seconds between cleanup runs
+
+    Returns:
+        The asyncio.Task running the cleanup loop
+    """
+    global _cleanup_task
+    if _cleanup_task is None or _cleanup_task.done():
+        _cleanup_task = asyncio.create_task(
+            periodic_state_cleanup(manager, interval_seconds)
+        )
+        logger.debug(f"Started periodic state cleanup task (interval={interval_seconds}s)")
+    return _cleanup_task
+
+
+def stop_cleanup_task() -> None:
+    """Stop the periodic cleanup task gracefully.
+
+    Safe to call even if no task is running.
+    """
+    global _cleanup_task
+    if _cleanup_task and not _cleanup_task.done():
+        _cleanup_task.cancel()
+        logger.debug("Stopped periodic state cleanup task")
+    _cleanup_task = None
+
+
 __all__ = [
     "BoundedDebateDict",
     "LoopInstance",
@@ -299,6 +391,11 @@ __all__ = [
     "get_debate_executor",
     "set_debate_executor",
     "get_debate_executor_lock",
+    "get_state_manager",
     "cleanup_stale_debates",
     "increment_cleanup_counter",
+    # Periodic cleanup
+    "periodic_state_cleanup",
+    "start_cleanup_task",
+    "stop_cleanup_task",
 ]

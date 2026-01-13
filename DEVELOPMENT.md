@@ -6,7 +6,7 @@ This guide helps new contributors get set up and productive with Aragora develop
 
 ```bash
 # Clone the repository
-git clone https://github.com/agora-protocol/aragora.git
+git clone https://github.com/an0mium/aragora.git
 cd aragora
 
 # Create virtual environment

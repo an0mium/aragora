@@ -17,7 +17,7 @@
       "description": "Development server"
     },
     {
-      "url": "https://api.aragora.dev",
+      "url": "https://api.aragora.ai",
       "description": "Production server"
     }
   ],

@@ -314,8 +314,8 @@ class QualityScorer:
                 if domain in self.DOMAIN_AUTHORITY:
                     # Blend with source type score
                     score = (score + self.DOMAIN_AUTHORITY[domain]) / 2
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Could not parse URL for authority scoring: {e}")
 
         # Provenance adjustments
         if provenance:

@@ -3,11 +3,36 @@
  *
  * Centralized configuration with environment variable overrides.
  * Import these values instead of hardcoding throughout components.
+ *
+ * PRODUCTION NOTE: Set NEXT_PUBLIC_API_URL and NEXT_PUBLIC_WS_URL in production.
+ * Without these, the app defaults to localhost which will fail in production.
  */
 
 // === API Configuration ===
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
+const _API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const _WS_URL = process.env.NEXT_PUBLIC_WS_URL;
+
+// Warn in browser when env vars are missing (only warn once)
+if (typeof window !== 'undefined') {
+  if (!_API_BASE_URL) {
+    console.warn(
+      '[Aragora] NEXT_PUBLIC_API_URL not set, using localhost:8080 fallback. ' +
+      'This will fail in production - set the environment variable.'
+    );
+  }
+  if (!_WS_URL) {
+    console.warn(
+      '[Aragora] NEXT_PUBLIC_WS_URL not set, using ws://localhost:8080 fallback. ' +
+      'This will fail in production - set the environment variable.'
+    );
+  }
+}
+
+export const API_BASE_URL = _API_BASE_URL || 'http://localhost:8080';
+export const WS_URL = _WS_URL || 'ws://localhost:8080';
+
+// Helper to detect dev/localhost mode (useful for conditional behavior)
+export const IS_DEV_MODE = !_API_BASE_URL || API_BASE_URL.includes('localhost');
 
 // === Debate Defaults ===
 export const DEFAULT_AGENTS = process.env.NEXT_PUBLIC_DEFAULT_AGENTS || 'grok,anthropic-api,openai-api,deepseek,mistral-api,gemini,qwen-max,kimi';

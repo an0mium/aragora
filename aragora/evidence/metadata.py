@@ -286,8 +286,8 @@ class MetadataEnricher:
                     return SourceType.SOCIAL
                 if any(d in domain for d in self.CODE_DOMAINS):
                     return SourceType.CODE
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Could not parse URL for source type detection: {e}")
 
         # Check source name
         if source:

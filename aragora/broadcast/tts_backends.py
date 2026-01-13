@@ -640,7 +640,8 @@ class PollyBackend(TTSBackend):
             creds = session.get_credentials()
             if creds is None:
                 return False
-        except Exception:
+        except Exception as e:
+            logger.debug(f"AWS credentials check failed: {e}")
             return False
         return True
 

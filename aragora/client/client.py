@@ -1149,7 +1149,9 @@ class AragoraClient:
             body = json.loads(e.read().decode())
             error_msg = body.get("error", str(e))
             error_code = body.get("code", "HTTP_ERROR")
-        except Exception:
+        except Exception as parse_err:
+            # Failed to parse error response body - use raw error
+            logger.debug(f"Could not parse HTTP error body: {parse_err}")
             error_msg = str(e)
             error_code = "HTTP_ERROR"
 

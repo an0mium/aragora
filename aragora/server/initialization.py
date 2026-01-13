@@ -616,3 +616,123 @@ async def initialize_subsystems_async(
     await registry.initialize_all_async(nomic_dir, enable_persistence)
     registry.log_availability()
     return registry
+
+
+# =============================================================================
+# Cache Pre-Warming
+# =============================================================================
+
+async def prewarm_caches(
+    registry: Optional[SubsystemRegistry] = None,
+    nomic_dir: Optional[Path] = None,
+) -> dict:
+    """
+    Pre-warm caches with commonly accessed data.
+
+    Call during server startup after subsystem initialization to reduce
+    cold-start latency for the first requests.
+
+    Pre-warms:
+    - Top 20 leaderboard entries
+    - Top 10 agent profiles
+    - Consensus stats summary
+
+    Args:
+        registry: Optional SubsystemRegistry with initialized subsystems
+        nomic_dir: Path to nomic directory for database access
+
+    Returns:
+        Dictionary with counts of pre-warmed entries
+    """
+    result = {
+        "leaderboard_entries": 0,
+        "agent_profiles": 0,
+        "consensus_stats": False,
+    }
+
+    if registry is None:
+        registry = get_registry()
+
+    loop = asyncio.get_running_loop()
+
+    # Pre-warm leaderboard cache
+    if registry.elo_system is not None:
+        try:
+            # Import cache and populate
+            from aragora.utils.cache import get_method_cache
+
+            cache = get_method_cache()
+
+            # Fetch top 20 leaderboard entries
+            def _fetch_leaderboard():
+                leaderboard = registry.elo_system.get_leaderboard(limit=20)
+                # Cache each entry
+                for entry in leaderboard:
+                    agent_name = entry.get("agent", entry.get("name", ""))
+                    if agent_name:
+                        cache.set(f"leaderboard:agent:{agent_name}", entry)
+                # Cache the full list
+                cache.set("leaderboard:top20", leaderboard)
+                return len(leaderboard)
+
+            result["leaderboard_entries"] = await loop.run_in_executor(
+                None, _fetch_leaderboard
+            )
+            logger.debug(f"[prewarm] Cached {result['leaderboard_entries']} leaderboard entries")
+
+        except Exception as e:
+            logger.debug(f"[prewarm] Leaderboard cache failed: {e}")
+
+    # Pre-warm agent profiles
+    if registry.persona_manager is not None:
+        try:
+            from aragora.utils.cache import get_method_cache
+
+            cache = get_method_cache()
+
+            def _fetch_profiles():
+                # Get top agents by activity/score
+                profiles = registry.persona_manager.get_all_profiles(limit=10)
+                for profile in profiles:
+                    agent_name = profile.get("name", "")
+                    if agent_name:
+                        cache.set(f"profile:{agent_name}", profile)
+                return len(profiles)
+
+            result["agent_profiles"] = await loop.run_in_executor(
+                None, _fetch_profiles
+            )
+            logger.debug(f"[prewarm] Cached {result['agent_profiles']} agent profiles")
+
+        except Exception as e:
+            logger.debug(f"[prewarm] Agent profile cache failed: {e}")
+
+    # Pre-warm consensus stats
+    if registry.consensus_memory is not None:
+        try:
+            from aragora.utils.cache import get_method_cache
+
+            cache = get_method_cache()
+
+            def _fetch_consensus_stats():
+                stats = registry.consensus_memory.get_summary_stats()
+                cache.set("consensus:summary_stats", stats)
+                return True
+
+            result["consensus_stats"] = await loop.run_in_executor(
+                None, _fetch_consensus_stats
+            )
+            logger.debug("[prewarm] Cached consensus stats")
+
+        except Exception as e:
+            logger.debug(f"[prewarm] Consensus stats cache failed: {e}")
+
+    total = (
+        result["leaderboard_entries"] +
+        result["agent_profiles"] +
+        (1 if result["consensus_stats"] else 0)
+    )
+    if total > 0:
+        logger.info(f"[prewarm] Pre-warmed {total} cache entries")
+
+    return result

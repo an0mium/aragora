@@ -417,7 +417,8 @@ def verify_migration(
                 pg_cursor = pg_conn.cursor()
                 pg_cursor.execute(f"SELECT COUNT(*) FROM {table}")
                 pg_count = pg_cursor.fetchone()[0]
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to get row count for table {table} in PostgreSQL: {e}")
                 pg_count = -1
 
             results[table] = {

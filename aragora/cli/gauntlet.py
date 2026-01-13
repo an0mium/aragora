@@ -7,9 +7,12 @@ Extracted from main.py for modularity.
 import argparse
 import asyncio
 import hashlib
+import logging
 import sys
 import time
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def parse_agents(agents_str: str) -> list[tuple[str, str]]:
@@ -308,7 +311,11 @@ Examples:
     try:
         from aragora.gauntlet.personas import list_personas
         persona_choices = sorted(list_personas())
-    except Exception:
+    except ImportError:
+        # Gauntlet personas module not available - use defaults
+        persona_choices = ["gdpr", "hipaa", "ai_act", "security", "sox"]
+    except Exception as e:
+        logger.debug(f"Could not load personas, using defaults: {e}")
         persona_choices = ["gdpr", "hipaa", "ai_act", "security", "sox"]
     gauntlet_parser.add_argument(
         "--persona",

@@ -727,5 +727,10 @@ def is_local_llm_available() -> bool:
         from aragora.agents.registry import AgentRegistry
         status = AgentRegistry.get_local_status()
         return status.get("any_available", False)
-    except Exception:
+    except ImportError:
+        # AgentRegistry not available - expected in some configurations
+        logger.debug("AgentRegistry not available for local LLM check")
+        return False
+    except Exception as e:
+        logger.warning(f"Failed to check local LLM availability: {e}")
         return False

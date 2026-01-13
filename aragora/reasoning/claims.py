@@ -169,6 +169,8 @@ class ArgumentChain:
 import re
 from functools import lru_cache
 
+from aragora.utils.cache_registry import register_lru_cache
+
 # Patterns for quick claim detection (compiled once for performance)
 _CLAIM_PATTERNS = {
     ClaimType.PROPOSAL: re.compile(r'\b(should|propose|suggest|recommend|let\'s|we could|consider)\b', re.I),
@@ -233,6 +235,7 @@ def fast_extract_claims(text: str, author: str = "unknown") -> list[dict]:
 
 
 # Cached version for repeated calls with same text
+@register_lru_cache
 @lru_cache(maxsize=1000)
 def fast_extract_claims_cached(text: str, author: str = "unknown") -> tuple:
     """

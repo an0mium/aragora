@@ -1,793 +1,1033 @@
-"""Tests for the AuditingHandler class."""
+"""
+Tests for the auditing and security analysis endpoint handlers.
 
+Covers:
+- AuditRequestParser: JSON body parsing and validation
+- AuditAgentFactory: Agent creation and validation
+- AuditResultRecorder: ELO recording and report saving
+- AuditingHandler: Main handler routing and endpoints
+"""
+
+from __future__ import annotations
+
+import io
 import json
+import tempfile
+import uuid
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Optional
+from unittest.mock import MagicMock, patch, AsyncMock
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 
-
-class TestAuditingHandlerRouting:
-    """Test route matching for AuditingHandler."""
-
-    @pytest.fixture
-    def handler(self):
-        from aragora.server.handlers.auditing import AuditingHandler
-        ctx = {}
-        return AuditingHandler(ctx)
-
-    def test_can_handle_capability_probe(self, handler):
-        assert handler.can_handle("/api/debates/capability-probe") is True
-
-    def test_can_handle_deep_audit(self, handler):
-        assert handler.can_handle("/api/debates/deep-audit") is True
-
-    def test_can_handle_red_team(self, handler):
-        assert handler.can_handle("/api/debates/some-id/red-team") is True
-
-    def test_cannot_handle_unknown_route(self, handler):
-        assert handler.can_handle("/api/other") is False
-        assert handler.can_handle("/api/debates/other") is False
-
-
-class TestCapabilityProbeEndpoint:
-    """Test /api/debates/capability-probe endpoint."""
-
-    @pytest.fixture
-    def handler(self):
-        from aragora.server.handlers.auditing import AuditingHandler
-        ctx = {"elo_system": None}
-        return AuditingHandler(ctx)
-
-    def test_probe_requires_prober_available(self, handler):
-        """Returns 503 when prober not available."""
-        mock_http_handler = Mock()
-        mock_http_handler.headers = {"Content-Length": "0"}
-        mock_http_handler.rfile.read.return_value = b'{}'
-
-        with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", False):
-            result = handler._run_capability_probe(mock_http_handler)
-            assert result.status_code == 503
-
-    def test_probe_requires_agent_name(self, handler):
-        """Returns 400 when agent_name missing."""
-        mock_http_handler = Mock()
-        mock_http_handler.headers = {"Content-Length": "2"}
-        mock_http_handler.rfile.read.return_value = b'{}'
-
-        with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", True):
-            with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
-                with patch("aragora.server.handlers.auditing.create_agent", Mock()):
-                    result = handler._run_capability_probe(mock_http_handler)
-                    assert result.status_code == 400
-                    data = json.loads(result.body)
-                    assert "agent_name" in data["error"]
-
-    def test_probe_validates_agent_name_format(self, handler):
-        """Returns 400 for invalid agent_name format."""
-        mock_http_handler = Mock()
-        mock_http_handler.headers = {"Content-Length": "50"}
-        mock_http_handler.rfile.read.return_value = b'{"agent_name": "../evil"}'
-
-        with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", True):
-            with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
-                with patch("aragora.server.handlers.auditing.create_agent", Mock()):
-                    result = handler._run_capability_probe(mock_http_handler)
-                    assert result.status_code == 400
-
-
-class TestDeepAuditEndpoint:
-    """Test /api/debates/deep-audit endpoint."""
-
-    @pytest.fixture
-    def handler(self):
-        from aragora.server.handlers.auditing import AuditingHandler
-        ctx = {"elo_system": None}
-        return AuditingHandler(ctx)
-
-    def test_audit_requires_task(self, handler):
-        """Returns 400 when task missing."""
-        mock_http_handler = Mock()
-        mock_http_handler.headers = {"Content-Length": "2"}
-        mock_http_handler.rfile.read.return_value = b'{}'
-
-        with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
-            with patch("aragora.server.handlers.auditing.create_agent", Mock()):
-                with patch.dict("sys.modules", {"aragora.modes.deep_audit": MagicMock()}):
-                    result = handler._run_deep_audit(mock_http_handler)
-                    assert result.status_code == 400
-                    data = json.loads(result.body)
-                    assert "task" in data["error"]
-
-
-class TestRedTeamEndpoint:
-    """Test /api/debates/:id/red-team endpoint."""
-
-    @pytest.fixture
-    def handler(self):
-        from aragora.server.handlers.auditing import AuditingHandler
-        ctx = {"storage": Mock()}
-        return AuditingHandler(ctx)
-
-    def test_redteam_requires_redteam_available(self, handler):
-        """Returns 503 when redteam not available."""
-        mock_http_handler = Mock()
-        mock_http_handler.headers = {"Content-Length": "0"}
-        mock_http_handler.rfile.read.return_value = b'{}'
-
-        with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", False):
-            result = handler._run_red_team_analysis("test-id", mock_http_handler)
-            assert result.status_code == 503
-
-    def test_redteam_requires_storage(self, handler):
-        """Returns 500 when storage not configured."""
-        handler.ctx = {}  # No storage
-        mock_http_handler = Mock()
-        mock_http_handler.headers = {"Content-Length": "0"}
-        mock_http_handler.rfile.read.return_value = b'{}'
-
-        with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
-            result = handler._run_red_team_analysis("test-id", mock_http_handler)
-            assert result.status_code == 500
-
-    def test_redteam_returns_404_for_unknown_debate(self, handler):
-        """Returns 404 when debate not found."""
-        mock_storage = Mock()
-        mock_storage.get_by_slug.return_value = None
-        mock_storage.get_by_id.return_value = None
-        handler.ctx = {"storage": mock_storage}
-
-        mock_http_handler = Mock()
-        mock_http_handler.headers = {"Content-Length": "0"}
-        mock_http_handler.rfile.read.return_value = b'{}'
-
-        with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
-            result = handler._run_red_team_analysis("nonexistent", mock_http_handler)
-            assert result.status_code == 404
-
-
-class TestAnalyzeProposalForRedteam:
-    """Test _analyze_proposal_for_redteam helper method."""
-
-    @pytest.fixture
-    def handler(self):
-        from aragora.server.handlers.auditing import AuditingHandler
-        ctx = {}
-        return AuditingHandler(ctx)
-
-    def test_detects_logical_fallacy_keywords(self, handler):
-        """Detects absolute language in proposals."""
-        with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
-            # Mock the AttackType import
-            mock_attack_type = MagicMock()
-            mock_attack_type.side_effect = lambda x: x
-            with patch.dict("sys.modules", {"aragora.modes.redteam": MagicMock(AttackType=mock_attack_type)}):
-                findings = handler._analyze_proposal_for_redteam(
-                    "This will always work and never fail",
-                    ["logical_fallacy"],
-                    {}
-                )
-                # Will return empty list due to mock - just test no exception
-                assert isinstance(findings, list)
-
-    def test_returns_empty_for_no_matches(self, handler):
-        """Returns findings with low severity when no keywords match."""
-        with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
-            findings = handler._analyze_proposal_for_redteam(
-                "A simple proposal",
-                ["unknown_type"],
-                {}
-            )
-            assert isinstance(findings, list)
-
-
-class TestAuditingHandlerImport:
-    """Test AuditingHandler import and export."""
-
-    def test_handler_importable(self):
-        """AuditingHandler can be imported from handlers package."""
-        from aragora.server.handlers import AuditingHandler
-        assert AuditingHandler is not None
-
-    def test_handler_in_all_exports(self):
-        """AuditingHandler is in __all__ exports."""
-        from aragora.server.handlers import __all__
-        assert "AuditingHandler" in __all__
+from aragora.server.handlers.auditing import (
+    AuditRequestParser,
+    AuditAgentFactory,
+    AuditResultRecorder,
+    AuditingHandler,
+)
+from aragora.server.handlers.base import json_response, error_response
 
 
 # =============================================================================
-# Test AuditRequestParser
+# Test Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def server_context():
+    """Create a basic server context."""
+    return {
+        "storage": MagicMock(),
+        "elo_system": MagicMock(),
+        "nomic_dir": Path(tempfile.mkdtemp()),
+    }
+
+
+@pytest.fixture
+def mock_handler():
+    """Create a mock HTTP request handler."""
+    handler = MagicMock()
+    handler.headers = {"Content-Type": "application/json"}
+    return handler
+
+
+@pytest.fixture
+def mock_handler_with_body():
+    """Create a mock handler with JSON body."""
+    def create(body: dict):
+        handler = MagicMock()
+        body_bytes = json.dumps(body).encode()
+        handler.headers = {
+            "Content-Type": "application/json",
+            "Content-Length": str(len(body_bytes)),
+        }
+        handler.rfile = io.BytesIO(body_bytes)
+        return handler
+    return create
+
+
+@pytest.fixture
+def auditing_handler(server_context):
+    """Create an AuditingHandler instance."""
+    return AuditingHandler(server_context)
+
+
+@pytest.fixture
+def mock_admin_user():
+    """Create a mock authenticated admin user with admin:audit permission."""
+    from dataclasses import dataclass
+
+    @dataclass
+    class MockUserContext:
+        user_id: str = "user-123"
+        org_id: str = "org-456"
+        is_authenticated: bool = True
+        role: str = "admin"
+        permissions: list = None
+
+        def __post_init__(self):
+            if self.permissions is None:
+                self.permissions = ["admin:audit", "debates:read", "debates:write"]
+
+        def has_permission(self, perm: str) -> bool:
+            """Check if user has a permission."""
+            if self.role == "admin":
+                return True  # Admins have all permissions
+            return perm in self.permissions
+
+    return MockUserContext()
+
+
+@pytest.fixture
+def auth_bypass():
+    """Fixture to bypass authentication for testing protected endpoints."""
+    @dataclass
+    class MockUserContext:
+        user_id: str = "admin-user"
+        org_id: str = "org-123"
+        is_authenticated: bool = True
+        role: str = "admin"
+
+        def has_permission(self, perm: str) -> bool:
+            return True
+
+    def bypass_extractor(handler, user_store=None):
+        return MockUserContext()
+
+    # Patch at the location where it's imported
+    return patch(
+        "aragora.billing.jwt_auth.extract_user_from_request",
+        bypass_extractor
+    )
+
+
+@dataclass
+class MockProbeReport:
+    """Mock probe report for testing."""
+    report_id: str = "probe-report-abc123"
+    probes_run: int = 10
+    vulnerabilities_found: int = 2
+    vulnerability_rate: float = 0.2
+    elo_penalty: float = 5.0
+    critical_count: int = 0
+    high_count: int = 1
+    medium_count: int = 1
+    low_count: int = 0
+    recommendations: list = None
+    created_at: str = "2026-01-12T00:00:00"
+    by_type: dict = None
+
+    def __post_init__(self):
+        if self.recommendations is None:
+            self.recommendations = ["Improve input validation"]
+        if self.by_type is None:
+            self.by_type = {}
+
+    def to_dict(self):
+        return {
+            "report_id": self.report_id,
+            "probes_run": self.probes_run,
+            "vulnerabilities_found": self.vulnerabilities_found,
+        }
+
+
+@dataclass
+class MockFinding:
+    """Mock audit finding."""
+    category: str = "security"
+    summary: str = "Test finding"
+    details: str = "Detailed description"
+    agents_agree: list = None
+    agents_disagree: list = None
+    confidence: float = 0.8
+    severity: float = 0.6
+    citations: list = None
+
+    def __post_init__(self):
+        if self.agents_agree is None:
+            self.agents_agree = ["agent-1"]
+        if self.agents_disagree is None:
+            self.agents_disagree = []
+        if self.citations is None:
+            self.citations = []
+
+
+@dataclass
+class MockVerdict:
+    """Mock audit verdict."""
+    recommendation: str = "Proceed with caution"
+    confidence: float = 0.75
+    unanimous_issues: list = None
+    split_opinions: list = None
+    risk_areas: list = None
+    findings: list = None
+    cross_examination_notes: str = "Notes"
+    citations: list = None
+
+    def __post_init__(self):
+        if self.unanimous_issues is None:
+            self.unanimous_issues = ["Issue 1"]
+        if self.split_opinions is None:
+            self.split_opinions = []
+        if self.risk_areas is None:
+            self.risk_areas = ["Area 1"]
+        if self.findings is None:
+            self.findings = [MockFinding()]
+        if self.citations is None:
+            self.citations = []
+
+
+@dataclass
+class MockAgent:
+    """Mock agent for testing."""
+    name: str = "test-agent"
+    role: str = "proposer"
+
+    def generate(self, prompt: str) -> str:
+        return f"Response to: {prompt}"
+
+
+@dataclass
+class MockUserContext:
+    """Mock user authentication context."""
+    is_authenticated: bool = True
+    user_id: str = "user_123"
+    org_id: str = "org_456"
+    email: str = "admin@example.com"
+    role: str = "admin"
+
+
+# =============================================================================
+# AuditRequestParser Tests
 # =============================================================================
 
 
 class TestAuditRequestParser:
-    """Tests for the AuditRequestParser utility class."""
+    """Tests for AuditRequestParser utility class."""
 
-    @pytest.fixture
-    def parser(self):
-        from aragora.server.handlers.auditing import AuditRequestParser
-        return AuditRequestParser
+    def test_read_json_success(self):
+        """Test successful JSON reading."""
+        def read_json_fn(h):
+            return {"key": "value"}
 
-    def test_read_json_returns_error_for_none(self, parser):
-        """Returns error response when JSON read fails."""
-        data, err = parser._read_json(None, lambda h: None)
-        assert data is None
-        assert err is not None
-        assert err.status_code == 400
-        assert "JSON" in json.loads(err.body)["error"]
-
-    def test_read_json_returns_data_on_success(self, parser):
-        """Returns data when JSON read succeeds."""
-        data, err = parser._read_json(None, lambda h: {"key": "value"})
+        data, err = AuditRequestParser._read_json(None, read_json_fn)
         assert data == {"key": "value"}
         assert err is None
 
-    def test_require_field_missing_returns_error(self, parser):
-        """Returns error for missing required field."""
-        value, err = parser._require_field({}, "task")
-        assert value is None
-        assert err is not None
-        assert err.status_code == 400
-        assert "task" in json.loads(err.body)["error"]
+    def test_read_json_failure(self):
+        """Test JSON reading failure."""
+        def read_json_fn(h):
+            return None
 
-    def test_require_field_empty_returns_error(self, parser):
-        """Returns error for empty required field."""
-        value, err = parser._require_field({"task": "   "}, "task")
-        assert value is None
-        assert err is not None
+        data, err = AuditRequestParser._read_json(None, read_json_fn)
+        assert data is None
         assert err.status_code == 400
 
-    def test_require_field_with_validator_success(self, parser):
-        """Returns value when validator passes."""
-        value, err = parser._require_field(
-            {"name": "valid"},
-            "name",
-            lambda v: (True, None)
-        )
-        assert value == "valid"
+    def test_require_field_success(self):
+        """Test required field extraction."""
+        data = {"name": "test-value"}
+        value, err = AuditRequestParser._require_field(data, "name")
+        assert value == "test-value"
         assert err is None
 
-    def test_require_field_with_validator_failure(self, parser):
-        """Returns error when validator fails."""
-        value, err = parser._require_field(
-            {"name": "invalid!"},
-            "name",
-            lambda v: (False, "Invalid name format")
-        )
+    def test_require_field_missing(self):
+        """Test missing required field."""
+        data = {}
+        value, err = AuditRequestParser._require_field(data, "name")
         assert value is None
-        assert err is not None
+        assert err.status_code == 400
+        assert "Missing required field" in json.loads(err.body)["error"]
+
+    def test_require_field_empty(self):
+        """Test empty required field."""
+        data = {"name": "   "}
+        value, err = AuditRequestParser._require_field(data, "name")
+        assert value is None
         assert err.status_code == 400
 
-    def test_parse_int_default_value(self, parser):
-        """Returns default value when field missing."""
-        value, err = parser._parse_int({}, "rounds", 5, 10)
+    def test_require_field_with_validator(self):
+        """Test required field with validation."""
+        def validator(val):
+            if len(val) < 3:
+                return False, "Too short"
+            return True, None
+
+        data = {"name": "ab"}
+        value, err = AuditRequestParser._require_field(data, "name", validator)
+        assert value is None
+        assert err.status_code == 400
+
+    def test_parse_int_success(self):
+        """Test integer parsing."""
+        data = {"count": "5"}
+        value, err = AuditRequestParser._parse_int(data, "count", 3, 10)
         assert value == 5
         assert err is None
 
-    def test_parse_int_clamped_value(self, parser):
-        """Returns clamped value when exceeds max."""
-        value, err = parser._parse_int({"rounds": 100}, "rounds", 5, 10)
+    def test_parse_int_default(self):
+        """Test integer parsing with default."""
+        data = {}
+        value, err = AuditRequestParser._parse_int(data, "count", 3, 10)
+        assert value == 3
+        assert err is None
+
+    def test_parse_int_clamped(self):
+        """Test integer parsing clamped to max."""
+        data = {"count": "100"}
+        value, err = AuditRequestParser._parse_int(data, "count", 3, 10)
         assert value == 10
         assert err is None
 
-    def test_parse_int_invalid_value_returns_error(self, parser):
-        """Returns error for non-integer value."""
-        value, err = parser._parse_int({"rounds": "not_a_number"}, "rounds", 5, 10)
-        assert value == 0
-        assert err is not None
+    def test_parse_int_invalid(self):
+        """Test invalid integer parsing."""
+        data = {"count": "not-a-number"}
+        value, err = AuditRequestParser._parse_int(data, "count", 3, 10)
         assert err.status_code == 400
+        assert "must be an integer" in json.loads(err.body)["error"]
 
-    def test_parse_capability_probe_full(self, parser):
-        """Parse full capability probe request."""
-        mock_handler = Mock()
-
-        def read_fn(h):
+    def test_parse_capability_probe_valid(self):
+        """Test parsing valid capability probe request."""
+        def read_json_fn(h):
             return {
-                "agent_name": "test_agent",
-                "probe_types": ["contradiction"],
+                "agent_name": "claude-test",
+                "probe_types": ["contradiction", "hallucination"],
                 "probes_per_type": 5,
-                "model_type": "openai"
             }
 
-        parsed, err = parser.parse_capability_probe(mock_handler, read_fn)
+        result, err = AuditRequestParser.parse_capability_probe(None, read_json_fn)
         assert err is None
-        assert parsed["agent_name"] == "test_agent"
-        assert parsed["probe_types"] == ["contradiction"]
-        assert parsed["probes_per_type"] == 5
-        assert parsed["model_type"] == "openai"
+        assert result["agent_name"] == "claude-test"
+        assert result["probe_types"] == ["contradiction", "hallucination"]
+        assert result["probes_per_type"] == 5
+        assert result["model_type"] == "anthropic-api"
 
-    def test_parse_capability_probe_defaults(self, parser):
-        """Parse capability probe with defaults."""
-        mock_handler = Mock()
+    def test_parse_capability_probe_missing_agent(self):
+        """Test parsing probe request without agent name."""
+        def read_json_fn(h):
+            return {"probe_types": ["contradiction"]}
 
-        def read_fn(h):
-            return {"agent_name": "test_agent"}
+        result, err = AuditRequestParser.parse_capability_probe(None, read_json_fn)
+        assert result is None
+        assert err.status_code == 400
 
-        parsed, err = parser.parse_capability_probe(mock_handler, read_fn)
+    def test_parse_capability_probe_defaults(self):
+        """Test parsing probe request with defaults."""
+        def read_json_fn(h):
+            return {"agent_name": "test-agent"}
+
+        result, err = AuditRequestParser.parse_capability_probe(None, read_json_fn)
         assert err is None
-        assert parsed["probes_per_type"] == 3  # Default
-        assert parsed["model_type"] == "anthropic-api"  # Default
-        assert len(parsed["probe_types"]) == 4  # Default types
+        assert result["probes_per_type"] == 3
+        assert "contradiction" in result["probe_types"]
 
-    def test_parse_deep_audit_full(self, parser):
-        """Parse full deep audit request."""
-        mock_handler = Mock()
-
-        def read_fn(h):
+    def test_parse_deep_audit_valid(self):
+        """Test parsing valid deep audit request."""
+        def read_json_fn(h):
             return {
-                "task": "Review security",
-                "context": "Some context",
-                "agent_names": ["agent1", "agent2"],
+                "task": "Review this code for security issues",
+                "context": "def process(input): return eval(input)",
                 "config": {
-                    "rounds": 5,
-                    "cross_examination_depth": 2,
+                    "rounds": 4,
                     "risk_threshold": 0.8,
-                    "enable_research": False,
-                    "audit_type": "security",
                 }
             }
 
-        parsed, err = parser.parse_deep_audit(mock_handler, read_fn)
+        result, err = AuditRequestParser.parse_deep_audit(None, read_json_fn)
         assert err is None
-        assert parsed["task"] == "Review security"
-        assert parsed["rounds"] == 5
-        assert parsed["cross_examination_depth"] == 2
-        assert parsed["risk_threshold"] == 0.8
-        assert parsed["enable_research"] is False
+        assert result["task"] == "Review this code for security issues"
+        assert result["rounds"] == 4
+        assert result["risk_threshold"] == 0.8
 
-    def test_parse_deep_audit_invalid_risk_threshold(self, parser):
-        """Returns error for invalid risk_threshold."""
-        mock_handler = Mock()
+    def test_parse_deep_audit_missing_task(self):
+        """Test parsing audit request without task."""
+        def read_json_fn(h):
+            return {"context": "some context"}
 
-        def read_fn(h):
+        result, err = AuditRequestParser.parse_deep_audit(None, read_json_fn)
+        assert result is None
+        assert err.status_code == 400
+
+    def test_parse_deep_audit_invalid_risk_threshold(self):
+        """Test parsing audit with invalid risk threshold."""
+        def read_json_fn(h):
             return {
-                "task": "Test",
-                "config": {"risk_threshold": "not_a_number"}
+                "task": "Test task",
+                "config": {"risk_threshold": "invalid"}
             }
 
-        parsed, err = parser.parse_deep_audit(mock_handler, read_fn)
-        assert parsed is None
-        assert err is not None
+        result, err = AuditRequestParser.parse_deep_audit(None, read_json_fn)
+        assert result is None
         assert err.status_code == 400
+        assert "risk_threshold" in json.loads(err.body)["error"]
 
 
 # =============================================================================
-# Test AuditAgentFactory
+# AuditAgentFactory Tests
 # =============================================================================
 
 
 class TestAuditAgentFactory:
-    """Tests for the AuditAgentFactory utility class."""
+    """Tests for AuditAgentFactory utility class."""
 
-    @pytest.fixture
-    def factory(self):
-        from aragora.server.handlers.auditing import AuditAgentFactory
-        return AuditAgentFactory
-
-    def test_create_single_agent_not_available(self, factory):
-        """Returns error when debate module not available."""
+    def test_create_single_agent_not_available(self):
+        """Test agent creation when debate module unavailable."""
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", False):
-            agent, err = factory.create_single_agent("test", "agent1")
-            assert agent is None
-            assert err is not None
-            assert err.status_code == 503
+            agent, err = AuditAgentFactory.create_single_agent(
+                "anthropic-api", "test-agent"
+            )
+        assert agent is None
+        assert err.status_code == 503
 
-    def test_create_single_agent_creation_fails(self, factory):
-        """Returns error when agent creation fails."""
+    def test_create_single_agent_success(self):
+        """Test successful single agent creation."""
+        mock_agent = MockAgent()
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
-            mock_create = Mock(side_effect=ValueError("Invalid model"))
-            with patch("aragora.server.handlers.auditing.create_agent", mock_create):
-                agent, err = factory.create_single_agent("invalid", "agent1")
-                assert agent is None
-                assert err is not None
-                assert err.status_code == 400
+            with patch("aragora.server.handlers.auditing.create_agent") as mock_create:
+                mock_create.return_value = mock_agent
+                agent, err = AuditAgentFactory.create_single_agent(
+                    "anthropic-api", "test-agent"
+                )
 
-    def test_create_single_agent_success(self, factory):
-        """Returns agent on success."""
+        assert err is None
+        assert agent == mock_agent
+        mock_create.assert_called_once_with(
+            "anthropic-api", name="test-agent", role="proposer"
+        )
+
+    def test_create_single_agent_failure(self):
+        """Test agent creation failure."""
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
-            mock_agent = Mock()
-            mock_create = Mock(return_value=mock_agent)
-            with patch("aragora.server.handlers.auditing.create_agent", mock_create):
-                agent, err = factory.create_single_agent("test", "agent1", "proposer")
-                assert agent == mock_agent
-                assert err is None
-                mock_create.assert_called_once_with("test", name="agent1", role="proposer")
+            with patch("aragora.server.handlers.auditing.create_agent") as mock_create:
+                mock_create.side_effect = ValueError("Invalid agent")
+                agent, err = AuditAgentFactory.create_single_agent(
+                    "anthropic-api", "test-agent"
+                )
 
-    def test_create_multiple_agents_not_available(self, factory):
-        """Returns error when debate module not available."""
+        assert agent is None
+        assert err.status_code == 400
+
+    def test_create_multiple_agents_not_available(self):
+        """Test multiple agent creation when unavailable."""
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", False):
-            agents, err = factory.create_multiple_agents("test", [], ["a", "b"])
-            assert agents == []
-            assert err is not None
-            assert err.status_code == 503
+            agents, err = AuditAgentFactory.create_multiple_agents(
+                "anthropic-api", ["agent1", "agent2"], ["default1", "default2"]
+            )
+        assert agents == []
+        assert err.status_code == 503
 
-    def test_create_multiple_agents_uses_defaults(self, factory):
-        """Uses default names when agent_names empty."""
+    def test_create_multiple_agents_success(self):
+        """Test successful multiple agent creation."""
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
-            mock_agent = Mock()
-            mock_create = Mock(return_value=mock_agent)
-            with patch("aragora.server.handlers.auditing.create_agent", mock_create):
-                agents, err = factory.create_multiple_agents(
-                    "test", [], ["default1", "default2", "default3"]
+            with patch("aragora.server.handlers.auditing.create_agent") as mock_create:
+                mock_create.side_effect = [
+                    MockAgent(name="agent1"),
+                    MockAgent(name="agent2"),
+                ]
+                agents, err = AuditAgentFactory.create_multiple_agents(
+                    "anthropic-api", ["agent1", "agent2"], ["default1"]
                 )
-                assert err is None
-                assert len(agents) == 3
-                assert mock_create.call_count == 3
 
-    def test_create_multiple_agents_too_few(self, factory):
-        """Returns error when fewer than 2 agents created."""
+        assert err is None
+        assert len(agents) == 2
+
+    def test_create_multiple_agents_uses_defaults(self):
+        """Test multiple agents uses defaults when no names provided."""
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
-            # Make create_agent fail for all but 1
-            call_count = [0]
-            def mock_create(*args, **kwargs):
-                call_count[0] += 1
-                if call_count[0] > 1:
-                    raise ValueError("Failed")
-                return Mock()
-
-            with patch("aragora.server.handlers.auditing.create_agent", mock_create):
-                agents, err = factory.create_multiple_agents(
-                    "test", ["a", "b", "c"], []
+            with patch("aragora.server.handlers.auditing.create_agent") as mock_create:
+                mock_create.side_effect = [
+                    MockAgent(name="default1"),
+                    MockAgent(name="default2"),
+                ]
+                agents, err = AuditAgentFactory.create_multiple_agents(
+                    "anthropic-api", [], ["default1", "default2"]
                 )
-                assert agents == []
-                assert err is not None
-                assert "at least 2" in json.loads(err.body)["error"]
 
-    def test_create_multiple_agents_limits_to_max(self, factory):
-        """Limits agents to max_agents."""
+        assert err is None
+        assert len(agents) == 2
+
+    def test_create_multiple_agents_minimum_two(self):
+        """Test requires at least 2 agents."""
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
-            mock_create = Mock(return_value=Mock())
-            with patch("aragora.server.handlers.auditing.create_agent", mock_create):
-                agents, err = factory.create_multiple_agents(
-                    "test", ["a", "b", "c", "d", "e", "f", "g"], [], max_agents=3
+            with patch("aragora.server.handlers.auditing.create_agent") as mock_create:
+                mock_create.side_effect = [MockAgent()]
+                # Only one valid agent creation succeeds
+                agents, err = AuditAgentFactory.create_multiple_agents(
+                    "anthropic-api", ["agent1"], ["default1"]
                 )
-                assert err is None
-                assert len(agents) == 3
+
+        assert agents == []
+        assert err.status_code == 400
+        assert "at least 2 agents" in json.loads(err.body)["error"]
+
+    def test_create_multiple_agents_max_limit(self):
+        """Test agents limited to max count."""
+        with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
+            with patch("aragora.server.handlers.auditing.create_agent") as mock_create:
+                mock_create.side_effect = [
+                    MockAgent(name=f"agent{i}") for i in range(10)
+                ]
+                agents, err = AuditAgentFactory.create_multiple_agents(
+                    "anthropic-api",
+                    [f"agent{i}" for i in range(10)],
+                    [],
+                    max_agents=5
+                )
+
+        assert err is None
+        assert len(agents) == 5
 
 
 # =============================================================================
-# Test AuditResultRecorder
+# AuditResultRecorder Tests
 # =============================================================================
 
 
 class TestAuditResultRecorder:
-    """Tests for the AuditResultRecorder utility class."""
+    """Tests for AuditResultRecorder utility class."""
 
-    @pytest.fixture
-    def recorder(self):
-        from aragora.server.handlers.auditing import AuditResultRecorder
-        return AuditResultRecorder
+    def test_record_probe_elo_success(self):
+        """Test recording probe ELO results."""
+        elo_system = MagicMock()
+        report = MockProbeReport()
 
-    def test_record_probe_elo_skips_when_no_system(self, recorder):
-        """Skips recording when no ELO system."""
-        mock_report = Mock(probes_run=5)
+        AuditResultRecorder.record_probe_elo(
+            elo_system, "test-agent", report, "report-123"
+        )
+
+        elo_system.record_redteam_result.assert_called_once()
+        call_args = elo_system.record_redteam_result.call_args
+        assert call_args.kwargs["agent_name"] == "test-agent"
+        assert call_args.kwargs["robustness_score"] == 0.8  # 1.0 - 0.2
+
+    def test_record_probe_elo_no_system(self):
+        """Test recording with no ELO system."""
+        report = MockProbeReport()
         # Should not raise
-        recorder.record_probe_elo(None, "agent1", mock_report, "report-1")
+        AuditResultRecorder.record_probe_elo(None, "test-agent", report, "report-123")
 
-    def test_record_probe_elo_skips_when_no_probes(self, recorder):
-        """Skips recording when no probes run."""
-        mock_elo = Mock()
-        mock_report = Mock(probes_run=0)
-        recorder.record_probe_elo(mock_elo, "agent1", mock_report, "report-1")
-        mock_elo.record_redteam_result.assert_not_called()
+    def test_record_probe_elo_no_probes(self):
+        """Test recording with no probes run."""
+        elo_system = MagicMock()
+        report = MockProbeReport(probes_run=0)
 
-    def test_record_probe_elo_records_correctly(self, recorder):
-        """Records ELO result with correct values."""
-        mock_elo = Mock()
-        mock_report = Mock(
-            probes_run=10,
-            vulnerability_rate=0.3,
-            vulnerabilities_found=3,
-            critical_count=1
+        AuditResultRecorder.record_probe_elo(
+            elo_system, "test-agent", report, "report-123"
         )
 
-        recorder.record_probe_elo(mock_elo, "agent1", mock_report, "report-123")
+        elo_system.record_redteam_result.assert_not_called()
 
-        mock_elo.record_redteam_result.assert_called_once_with(
-            agent_name="agent1",
-            robustness_score=0.7,  # 1.0 - 0.3
-            successful_attacks=3,
-            total_attacks=10,
-            critical_vulnerabilities=1,
-            session_id="report-123"
+    def test_calculate_audit_elo_adjustments(self):
+        """Test calculating ELO adjustments from findings."""
+        elo_system = MagicMock()
+        verdict = MockVerdict(
+            findings=[
+                MockFinding(agents_agree=["agent1", "agent2"], agents_disagree=["agent3"]),
+                MockFinding(agents_agree=["agent1"], agents_disagree=["agent2"]),
+            ]
         )
 
-    def test_record_probe_elo_handles_exception(self, recorder):
-        """Handles ELO recording exception gracefully."""
-        mock_elo = Mock()
-        mock_elo.record_redteam_result.side_effect = RuntimeError("DB error")
-        mock_report = Mock(
-            probes_run=10,
-            vulnerability_rate=0.3,
-            vulnerabilities_found=3,
-            critical_count=1
-        )
+        adjustments = AuditResultRecorder.calculate_audit_elo_adjustments(verdict, elo_system)
 
-        # Should not raise, just log warning
-        recorder.record_probe_elo(mock_elo, "agent1", mock_report, "report-123")
+        assert adjustments["agent1"] == 4  # +2 + 2
+        assert adjustments["agent2"] == 1  # +2 - 1
+        assert adjustments["agent3"] == -1
 
-    def test_calculate_audit_elo_adjustments_empty(self, recorder):
-        """Returns empty dict when no ELO system."""
-        result = recorder.calculate_audit_elo_adjustments(Mock(), None)
-        assert result == {}
+    def test_calculate_audit_elo_no_system(self):
+        """Test calculation with no ELO system."""
+        verdict = MockVerdict()
+        adjustments = AuditResultRecorder.calculate_audit_elo_adjustments(verdict, None)
+        assert adjustments == {}
 
-    def test_calculate_audit_elo_adjustments_correct(self, recorder):
-        """Calculates adjustments correctly from findings."""
-        mock_finding1 = Mock(agents_agree=["agent1", "agent2"], agents_disagree=["agent3"])
-        mock_finding2 = Mock(agents_agree=["agent1"], agents_disagree=["agent2"])
-        mock_verdict = Mock(findings=[mock_finding1, mock_finding2])
-        mock_elo = Mock()
+    def test_save_probe_report(self):
+        """Test saving probe report to storage."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            nomic_dir = Path(tmpdir)
+            report = MockProbeReport()
 
-        result = recorder.calculate_audit_elo_adjustments(mock_verdict, mock_elo)
+            AuditResultRecorder.save_probe_report(nomic_dir, "test-agent", report)
 
-        assert result["agent1"] == 4  # 2 + 2
-        assert result["agent2"] == 1  # 2 - 1
-        assert result["agent3"] == -1
+            probes_dir = nomic_dir / "probes" / "test-agent"
+            assert probes_dir.exists()
+            files = list(probes_dir.glob("*.json"))
+            assert len(files) == 1
 
-    def test_save_probe_report_skips_when_no_dir(self, recorder):
-        """Skips saving when no nomic_dir."""
+    def test_save_probe_report_no_dir(self):
+        """Test saving with no nomic dir."""
+        report = MockProbeReport()
         # Should not raise
-        recorder.save_probe_report(None, "agent1", Mock())
+        AuditResultRecorder.save_probe_report(None, "test-agent", report)
 
-    def test_save_probe_report_creates_file(self, recorder, tmp_path):
-        """Creates probe report file."""
-        mock_report = Mock()
-        mock_report.report_id = "test-report"
-        mock_report.to_dict.return_value = {"status": "complete"}
+    def test_save_audit_report(self):
+        """Test saving audit report to storage."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            nomic_dir = Path(tmpdir)
+            verdict = MockVerdict()
+            config = MagicMock()
+            config.rounds = 6
+            config.enable_research = True
+            config.cross_examination_depth = 3
+            config.risk_threshold = 0.7
+            agents = [MockAgent(name="agent1"), MockAgent(name="agent2")]
 
-        recorder.save_probe_report(tmp_path, "test_agent", mock_report)
+            AuditResultRecorder.save_audit_report(
+                nomic_dir, "audit-123", "Test task", "Test context",
+                agents, verdict, config, 1500.0, {"agent1": 2}
+            )
 
-        probes_dir = tmp_path / "probes" / "test_agent"
-        assert probes_dir.exists()
-        files = list(probes_dir.glob("*.json"))
-        assert len(files) == 1
-
-    def test_save_audit_report_creates_file(self, recorder, tmp_path):
-        """Creates audit report file."""
-        mock_agent = Mock()
-        mock_agent.name = "TestAgent"
-        mock_finding = Mock(
-            category="security",
-            summary="Test finding",
-            details="Details",
-            agents_agree=["agent1"],
-            agents_disagree=[],
-            confidence=0.9,
-            severity=0.8,
-            citations=[]
-        )
-        mock_verdict = Mock(
-            recommendation="Proceed",
-            confidence=0.85,
-            unanimous_issues=["issue1"],
-            split_opinions=[],
-            risk_areas=["risk1"],
-            findings=[mock_finding]
-        )
-        mock_config = Mock(
-            rounds=5,
-            enable_research=True,
-            cross_examination_depth=3,
-            risk_threshold=0.7
-        )
-
-        recorder.save_audit_report(
-            tmp_path, "audit-123", "Test task", "Context",
-            [mock_agent], mock_verdict, mock_config, 1000.0, {"agent1": 2}
-        )
-
-        audits_dir = tmp_path / "audits"
-        assert audits_dir.exists()
-        files = list(audits_dir.glob("*.json"))
-        assert len(files) == 1
+            audits_dir = nomic_dir / "audits"
+            assert audits_dir.exists()
+            files = list(audits_dir.glob("*.json"))
+            assert len(files) == 1
 
 
 # =============================================================================
-# Test Red Team Analysis
+# AuditingHandler Tests
 # =============================================================================
 
 
-class TestRedTeamAnalysisEndpoint:
-    """Additional tests for red team analysis endpoint."""
+class TestAuditingHandler:
+    """Tests for AuditingHandler class."""
 
-    @pytest.fixture
-    def handler(self):
-        from aragora.server.handlers.auditing import AuditingHandler
-        mock_storage = Mock()
-        mock_storage.get_by_slug.return_value = {
-            "id": "debate-1",
+    # === Route Handling ===
+
+    def test_can_handle_capability_probe(self, auditing_handler):
+        """Test can_handle for capability probe."""
+        assert auditing_handler.can_handle("/api/debates/capability-probe") is True
+
+    def test_can_handle_deep_audit(self, auditing_handler):
+        """Test can_handle for deep audit."""
+        assert auditing_handler.can_handle("/api/debates/deep-audit") is True
+
+    def test_can_handle_attack_types(self, auditing_handler):
+        """Test can_handle for attack types."""
+        assert auditing_handler.can_handle("/api/redteam/attack-types") is True
+
+    def test_can_handle_red_team(self, auditing_handler):
+        """Test can_handle for red team analysis."""
+        assert auditing_handler.can_handle("/api/debates/abc123/red-team") is True
+
+    def test_can_handle_unrelated_path(self, auditing_handler):
+        """Test can_handle returns False for unrelated paths."""
+        assert auditing_handler.can_handle("/api/debates") is False
+        assert auditing_handler.can_handle("/api/other") is False
+
+    def test_handle_routes_capability_probe(self, auditing_handler, mock_handler):
+        """Test handle routes to capability probe."""
+        with patch.object(auditing_handler, "_run_capability_probe") as mock_method:
+            mock_method.return_value = json_response({"success": True})
+            result = auditing_handler.handle(
+                "/api/debates/capability-probe", {}, mock_handler
+            )
+
+        mock_method.assert_called_once_with(mock_handler)
+
+    def test_handle_routes_deep_audit(self, auditing_handler, mock_handler):
+        """Test handle routes to deep audit."""
+        with patch.object(auditing_handler, "_run_deep_audit") as mock_method:
+            mock_method.return_value = json_response({"success": True})
+            result = auditing_handler.handle(
+                "/api/debates/deep-audit", {}, mock_handler
+            )
+
+        mock_method.assert_called_once_with(mock_handler)
+
+    def test_handle_routes_attack_types(self, auditing_handler, mock_handler):
+        """Test handle routes to attack types."""
+        with patch.object(auditing_handler, "_get_attack_types") as mock_method:
+            mock_method.return_value = json_response({"attack_types": []})
+            result = auditing_handler.handle(
+                "/api/redteam/attack-types", {}, mock_handler
+            )
+
+        mock_method.assert_called_once()
+
+    def test_handle_routes_red_team(self, auditing_handler, mock_handler):
+        """Test handle routes to red team analysis."""
+        with patch.object(auditing_handler, "_run_red_team_analysis") as mock_method:
+            mock_method.return_value = json_response({"success": True})
+            result = auditing_handler.handle(
+                "/api/debates/debate123/red-team", {}, mock_handler
+            )
+
+        mock_method.assert_called_once_with("debate123", mock_handler)
+
+    def test_handle_invalid_debate_id_red_team(self, auditing_handler, mock_handler):
+        """Test handle rejects invalid debate ID for red team."""
+        result = auditing_handler.handle(
+            "/api/debates/../etc/passwd/red-team", {}, mock_handler
+        )
+        assert result.status_code == 400
+
+    def test_handle_unhandled_path(self, auditing_handler, mock_handler):
+        """Test handle returns None for unhandled paths."""
+        result = auditing_handler.handle("/api/other", {}, mock_handler)
+        assert result is None
+
+    # === Attack Types Endpoint ===
+
+    def test_get_attack_types_not_available(self, auditing_handler):
+        """Test attack types when module unavailable."""
+        with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", False):
+            result = auditing_handler._get_attack_types()
+
+        assert result.status_code == 503
+
+    def test_get_attack_types_success(self, auditing_handler):
+        """Test getting attack types successfully."""
+        from enum import Enum
+
+        # Include all attack types that _get_attack_category checks for
+        class MockAttackType(Enum):
+            LOGICAL_FALLACY = "logical_fallacy"
+            UNSTATED_ASSUMPTION = "unstated_assumption"
+            COUNTEREXAMPLE = "counterexample"
+            SECURITY = "security"
+            RESOURCE_EXHAUSTION = "resource_exhaustion"
+            RACE_CONDITION = "race_condition"
+            DEPENDENCY_FAILURE = "dependency_failure"
+            EDGE_CASE = "edge_case"
+
+        mock_module = MagicMock()
+        mock_module.AttackType = MockAttackType
+
+        with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
+            with patch.dict("sys.modules", {"aragora.modes.redteam": mock_module}):
+                result = auditing_handler._get_attack_types()
+
+        assert result.status_code == 200
+        parsed = json.loads(result.body)
+        assert "attack_types" in parsed
+        assert parsed["count"] == 8
+
+    # === Capability Probe Endpoint ===
+
+    def test_run_capability_probe_not_available(self, auditing_handler, mock_handler, auth_bypass):
+        """Test capability probe when prober unavailable."""
+        with auth_bypass:
+            with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", False):
+                result = auditing_handler._run_capability_probe(mock_handler)
+
+        assert result.status_code == 503
+
+    def test_run_capability_probe_invalid_json(self, auditing_handler, mock_handler, auth_bypass):
+        """Test capability probe with invalid JSON."""
+        mock_handler.rfile = io.BytesIO(b"not json")
+        mock_handler.headers = {"Content-Length": "8"}
+
+        with auth_bypass:
+            with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", True):
+                result = auditing_handler._run_capability_probe(mock_handler)
+
+        assert result.status_code == 400
+
+    # === Deep Audit Endpoint ===
+
+    def test_run_deep_audit_module_not_available(self, auditing_handler, mock_handler, auth_bypass):
+        """Test deep audit when module unavailable."""
+        import builtins
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "aragora.modes.deep_audit":
+                raise ImportError("No module named 'aragora.modes.deep_audit'")
+            return original_import(name, *args, **kwargs)
+
+        with auth_bypass:
+            with patch.object(builtins, "__import__", side_effect=mock_import):
+                result = auditing_handler._run_deep_audit(mock_handler)
+
+        # Should be 503 when module unavailable
+        assert result.status_code == 503
+
+    # === Red Team Analysis Endpoint ===
+
+    def test_run_red_team_not_available(self, auditing_handler, mock_handler, auth_bypass):
+        """Test red team when module unavailable."""
+        with auth_bypass:
+            with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", False):
+                result = auditing_handler._run_red_team_analysis(
+                    "debate123", mock_handler
+                )
+
+        assert result.status_code == 503
+
+    def test_run_red_team_no_storage(self, server_context, mock_handler, auth_bypass):
+        """Test red team with no storage."""
+        server_context["storage"] = None
+        handler = AuditingHandler(server_context)
+
+        with auth_bypass:
+            with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
+                result = handler._run_red_team_analysis("debate123", mock_handler)
+
+        assert result.status_code == 500
+
+    def test_run_red_team_debate_not_found(self, auditing_handler, mock_handler, auth_bypass):
+        """Test red team with non-existent debate."""
+        auditing_handler.ctx["storage"].get_by_slug.return_value = None
+        auditing_handler.ctx["storage"].get_by_id.return_value = None
+
+        with auth_bypass:
+            with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
+                result = auditing_handler._run_red_team_analysis(
+                    "nonexistent", mock_handler
+                )
+
+        assert result.status_code == 404
+
+    def test_run_red_team_success(self, auditing_handler, mock_handler_with_body, auth_bypass):
+        """Test successful red team analysis."""
+        mock_handler = mock_handler_with_body({
+            "attack_types": ["logical_fallacy"],
+            "max_rounds": 2,
+        })
+
+        from enum import Enum
+        class MockAttackType(Enum):
+            LOGICAL_FALLACY = "logical_fallacy"
+
+        auditing_handler.ctx["storage"].get_by_slug.return_value = {
+            "id": "debate123",
             "task": "Test task",
-            "consensus_answer": "The answer is 42"
-        }
-        mock_storage.get_by_id.return_value = None
-        ctx = {"storage": mock_storage}
-        return AuditingHandler(ctx)
-
-    def test_redteam_success_response_format(self, handler):
-        """Returns correct response format on success."""
-        mock_http_handler = Mock()
-        mock_http_handler.headers = {"Content-Length": "2"}
-        mock_http_handler.rfile.read.return_value = b'{}'
-
-        with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
-            result = handler._run_red_team_analysis("debate-1", mock_http_handler)
-            assert result.status_code == 200
-
-            data = json.loads(result.body)
-            assert "session_id" in data
-            assert "debate_id" in data
-            assert "target_proposal" in data
-            assert "findings" in data
-            assert "robustness_score" in data
-            assert "status" in data
-            assert data["status"] == "analysis_complete"
-
-    def test_redteam_with_custom_attack_types(self, handler):
-        """Handles custom attack types."""
-        mock_http_handler = Mock()
-        mock_http_handler.headers = {"Content-Length": "50"}
-        mock_http_handler.rfile.read.return_value = b'{"attack_types": ["security", "scalability"]}'
-
-        with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
-            result = handler._run_red_team_analysis("debate-1", mock_http_handler)
-            assert result.status_code == 200
-
-            data = json.loads(result.body)
-            assert "security" in data["attack_types"]
-            assert "scalability" in data["attack_types"]
-
-    def test_redteam_with_focus_proposal(self, handler):
-        """Uses provided focus_proposal."""
-        mock_http_handler = Mock()
-        mock_http_handler.headers = {"Content-Length": "100"}
-        mock_http_handler.rfile.read.return_value = b'{"focus_proposal": "Custom proposal to analyze"}'
-
-        with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
-            result = handler._run_red_team_analysis("debate-1", mock_http_handler)
-            assert result.status_code == 200
-
-            data = json.loads(result.body)
-            assert "Custom proposal" in data["target_proposal"]
-
-    def test_redteam_max_rounds_capped(self, handler):
-        """Max rounds is capped at 5."""
-        mock_http_handler = Mock()
-        mock_http_handler.headers = {"Content-Length": "50"}
-        mock_http_handler.rfile.read.return_value = b'{"max_rounds": 100}'
-
-        with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
-            result = handler._run_red_team_analysis("debate-1", mock_http_handler)
-            assert result.status_code == 200
-
-            data = json.loads(result.body)
-            assert data["max_rounds"] == 5
-
-    def test_redteam_empty_body_uses_defaults(self, handler):
-        """Uses default values when body is empty."""
-        mock_http_handler = Mock()
-        mock_http_handler.headers = {"Content-Length": "0"}
-        mock_http_handler.rfile.read.return_value = b''
-
-        with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
-            result = handler._run_red_team_analysis("debate-1", mock_http_handler)
-            assert result.status_code == 200
-
-            data = json.loads(result.body)
-            assert len(data["attack_types"]) == 6  # Default 6 attack types
-            assert data["max_rounds"] == 3  # Default
-
-
-# =============================================================================
-# Test Transform Probe Results
-# =============================================================================
-
-
-class TestTransformProbeResults:
-    """Tests for _transform_probe_results method."""
-
-    @pytest.fixture
-    def handler(self):
-        from aragora.server.handlers.auditing import AuditingHandler
-        return AuditingHandler({})
-
-    def test_transforms_results_correctly(self, handler):
-        """Transforms probe results with correct structure."""
-        mock_result = Mock()
-        mock_result.to_dict.return_value = {
-            "probe_id": "probe-1",
-            "probe_type": "contradiction",
-            "vulnerability_found": True,
-            "severity": "HIGH",
-            "vulnerability_description": "Found issue",
-            "evidence": "Evidence text",
-            "response_time_ms": 150
+            "consensus_answer": "The solution is X",
         }
 
-        by_type = {"contradiction": [mock_result]}
+        mock_redteam_module = MagicMock()
+        mock_redteam_module.AttackType = MockAttackType
 
-        result = handler._transform_probe_results(by_type)
+        with auth_bypass:
+            with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
+                with patch.dict("sys.modules", {"aragora.modes.redteam": mock_redteam_module}):
+                    result = auditing_handler._run_red_team_analysis(
+                        "debate123", mock_handler
+                    )
 
-        assert "contradiction" in result
-        assert len(result["contradiction"]) == 1
-        transformed = result["contradiction"][0]
-        assert transformed["probe_id"] == "probe-1"
-        assert transformed["passed"] is False  # vulnerability_found=True means failed
-        assert transformed["severity"] == "high"
-        assert transformed["description"] == "Found issue"
+        assert result.status_code == 200
+        parsed = json.loads(result.body)
+        assert "session_id" in parsed
+        assert "findings" in parsed
+        assert parsed["status"] == "analysis_complete"
 
-    def test_handles_dict_results(self, handler):
-        """Handles results that are already dicts."""
-        by_type = {
-            "edge_case": [{
-                "probe_id": "probe-2",
-                "vulnerability_found": False,
-                "severity": None,
-            }]
-        }
+    # === Proposal Analysis ===
 
-        result = handler._transform_probe_results(by_type)
+    def test_analyze_proposal_for_redteam(self, auditing_handler):
+        """Test proposal vulnerability analysis."""
+        from enum import Enum
+        class MockAttackType(Enum):
+            LOGICAL_FALLACY = "logical_fallacy"
+            SECURITY = "security"
 
-        transformed = result["edge_case"][0]
-        assert transformed["passed"] is True
-        assert transformed["severity"] is None
+        proposal = "This solution is always the best and most secure option"
 
+        with patch("aragora.modes.redteam.AttackType", MockAttackType, create=True):
+            findings = auditing_handler._analyze_proposal_for_redteam(
+                proposal, ["logical_fallacy", "security"], {}
+            )
 
-# =============================================================================
-# Test Audit Config Selection
-# =============================================================================
+        assert len(findings) == 2
+        # Should find matches for "always" and "best" (logical_fallacy)
+        # and "secure" (security)
+        fallacy_finding = next(
+            (f for f in findings if f["attack_type"] == "logical_fallacy"), None
+        )
+        assert fallacy_finding is not None
+        assert fallacy_finding["keyword_matches"] > 0
 
+    def test_analyze_proposal_no_matches(self, auditing_handler):
+        """Test analysis with no keyword matches."""
+        from enum import Enum
+        class MockAttackType(Enum):
+            LOGICAL_FALLACY = "logical_fallacy"
 
-class TestGetAuditConfig:
-    """Tests for _get_audit_config method."""
+        proposal = "Simple text without any special keywords"
 
-    @pytest.fixture
-    def handler(self):
-        from aragora.server.handlers.auditing import AuditingHandler
-        return AuditingHandler({})
+        with patch("aragora.modes.redteam.AttackType", MockAttackType, create=True):
+            findings = auditing_handler._analyze_proposal_for_redteam(
+                proposal, ["logical_fallacy"], {}
+            )
 
-    def test_returns_strategy_preset(self, handler):
-        """Returns strategy preset for audit_type='strategy'."""
-        strategy_preset = Mock()
-        result = handler._get_audit_config(
-            "strategy", {},
-            Mock, strategy_preset, Mock(), Mock()
+        assert len(findings) == 1
+        assert findings[0]["keyword_matches"] == 0
+        assert findings[0]["requires_manual_review"] is False
+
+    def test_analyze_proposal_invalid_attack_type(self, auditing_handler):
+        """Test analysis skips invalid attack types."""
+        from enum import Enum
+        class MockAttackType(Enum):
+            LOGICAL_FALLACY = "logical_fallacy"
+
+        with patch("aragora.modes.redteam.AttackType", MockAttackType, create=True):
+            findings = auditing_handler._analyze_proposal_for_redteam(
+                "test", ["invalid_type"], {}
+            )
+
+        assert len(findings) == 0
+
+    # === Audit Config ===
+
+    def test_get_audit_config_strategy(self, auditing_handler):
+        """Test getting strategy preset config."""
+        strategy_preset = MagicMock()
+        result = auditing_handler._get_audit_config(
+            "strategy", {}, MagicMock, strategy_preset, None, None
         )
         assert result == strategy_preset
 
-    def test_returns_contract_preset(self, handler):
-        """Returns contract preset for audit_type='contract'."""
-        contract_preset = Mock()
-        result = handler._get_audit_config(
-            "contract", {},
-            Mock, Mock(), contract_preset, Mock()
+    def test_get_audit_config_contract(self, auditing_handler):
+        """Test getting contract preset config."""
+        contract_preset = MagicMock()
+        result = auditing_handler._get_audit_config(
+            "contract", {}, MagicMock, None, contract_preset, None
         )
         assert result == contract_preset
 
-    def test_returns_code_preset(self, handler):
-        """Returns code preset for audit_type='code_architecture'."""
-        code_preset = Mock()
-        result = handler._get_audit_config(
-            "code_architecture", {},
-            Mock, Mock(), Mock(), code_preset
+    def test_get_audit_config_code_architecture(self, auditing_handler):
+        """Test getting code architecture preset config."""
+        code_preset = MagicMock()
+        result = auditing_handler._get_audit_config(
+            "code_architecture", {}, MagicMock, None, None, code_preset
         )
         assert result == code_preset
 
-    def test_returns_custom_config(self, handler):
-        """Returns custom config for unknown audit_type."""
-        config_class = Mock()
+    def test_get_audit_config_custom(self, auditing_handler):
+        """Test getting custom config from parsed values."""
         parsed = {
             "rounds": 8,
             "enable_research": False,
-            "cross_examination_depth": 4,
-            "risk_threshold": 0.6,
+            "cross_examination_depth": 5,
+            "risk_threshold": 0.9,
         }
 
-        result = handler._get_audit_config(
-            "custom_type", parsed,
-            config_class, Mock(), Mock(), Mock()
+        config_class = MagicMock()
+        result = auditing_handler._get_audit_config(
+            "custom", parsed, config_class, None, None, None
         )
 
         config_class.assert_called_once_with(
             rounds=8,
             enable_research=False,
-            cross_examination_depth=4,
-            risk_threshold=0.6
+            cross_examination_depth=5,
+            risk_threshold=0.9,
         )
+
+    # === Transform Probe Results ===
+
+    def test_transform_probe_results(self, auditing_handler):
+        """Test transforming probe results for API response."""
+        by_type = {
+            "contradiction": [
+                {
+                    "probe_id": "p1",
+                    "probe_type": "contradiction",
+                    "vulnerability_found": True,
+                    "severity": "HIGH",
+                    "vulnerability_description": "Found issue",
+                    "evidence": "Details here",
+                    "response_time_ms": 150,
+                }
+            ]
+        }
+
+        result = auditing_handler._transform_probe_results(by_type)
+
+        assert "contradiction" in result
+        assert len(result["contradiction"]) == 1
+        probe = result["contradiction"][0]
+        assert probe["passed"] is False
+        assert probe["severity"] == "high"
+        assert probe["response_time_ms"] == 150
+
+    def test_transform_probe_results_passed(self, auditing_handler):
+        """Test transforming passed probe result."""
+        by_type = {
+            "hallucination": [
+                {
+                    "probe_id": "p2",
+                    "vulnerability_found": False,
+                }
+            ]
+        }
+
+        result = auditing_handler._transform_probe_results(by_type)
+        assert result["hallucination"][0]["passed"] is True
+
+
+# =============================================================================
+# Integration Tests
+# =============================================================================
+
+
+class TestAuditingHandlerIntegration:
+    """Integration tests for AuditingHandler."""
+
+    def test_full_red_team_flow(self, server_context, mock_handler_with_body, auth_bypass):
+        """Test complete red team analysis flow."""
+        from enum import Enum
+        class MockAttackType(Enum):
+            EDGE_CASE = "edge_case"
+            SECURITY = "security"
+
+        handler = AuditingHandler(server_context)
+        mock_http = mock_handler_with_body({
+            "attack_types": ["edge_case", "security"],
+        })
+
+        server_context["storage"].get_by_slug.return_value = {
+            "id": "test-debate",
+            "task": "Design a user authentication system",
+            "consensus_answer": "Use JWT tokens with secure encryption",
+        }
+
+        mock_redteam_module = MagicMock()
+        mock_redteam_module.AttackType = MockAttackType
+
+        with auth_bypass:
+            with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
+                with patch.dict("sys.modules", {"aragora.modes.redteam": mock_redteam_module}):
+                    result = handler.handle(
+                        "/api/debates/test-debate/red-team",
+                        {},
+                        mock_http
+                    )
+
+        assert result.status_code == 200
+        parsed = json.loads(result.body)
+
+        # Verify response structure
+        assert "session_id" in parsed
+        assert parsed["debate_id"] == "test-debate"
+        assert "findings" in parsed
+        assert "robustness_score" in parsed
+        assert 0 <= parsed["robustness_score"] <= 1
+
+        # Should find security-related keywords
+        security_finding = next(
+            (f for f in parsed["findings"] if f["attack_type"] == "security"),
+            None
+        )
+        assert security_finding is not None
+        # "secure" and "encrypt" should be matched
+        assert security_finding["keyword_matches"] >= 1

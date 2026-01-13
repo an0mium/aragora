@@ -262,7 +262,8 @@ class SQLiteBackend(DatabaseBackend):
             logger.error(f"SQLite error: {e}")
             conn.rollback()
             raise
-        except Exception:
+        except Exception as e:
+            logger.error(f"Unexpected error in database operation: {e}", exc_info=True)
             conn.rollback()
             raise
         finally:

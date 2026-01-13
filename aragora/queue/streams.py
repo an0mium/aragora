@@ -314,7 +314,8 @@ class RedisStreamsQueue(JobQueue):
         try:
             pending_info = await self._redis.xpending(self.stream_key, self.group_name)
             pending_count = pending_info.get("pending", 0) if pending_info else 0
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Could not get pending count for {self.stream_key}: {e}")
             pending_count = 0
 
         return {

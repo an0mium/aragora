@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, memo } from 'react';
 import { VirtualList } from './VirtualList';
+import { API_BASE_URL } from '@/config';
 
 interface DebateSummary {
   id: string;
@@ -28,7 +29,7 @@ export function DebateListPanel({ onSelectDebate, limit = 20 }: DebateListPanelP
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const apiBase = API_BASE_URL;
 
   const fetchDebates = useCallback(async (reset = false) => {
     try {

@@ -525,7 +525,8 @@ The aragora API server runs on AWS Lightsail with Cloudflare Tunnel:
 
 Configuration:
 - **Instance**: Ubuntu 22.04, nano_3_0 ($5/month)
-- **API Server**: Port 8080 (HTTP + WebSocket on /ws/debates)
+- **HTTP API**: Port 8080
+- **WebSocket**: Port 8765 (ws://host:8765 or ws://host:8765/ws)
 - **Tunnel**: Cloudflare Tunnel proxies api.aragora.ai
 
 ### API Endpoints
@@ -545,7 +546,7 @@ Configuration:
 | `GET /api/agent/{name}/persona` | Persona for specific agent |
 | `GET /api/agent/{name}/performance` | Agent performance summary |
 | `GET /api/learning/evolution` | Learning pattern evolution over time |
-| `WS /ws` | Real-time debate streaming |
+| `WS /ws` | Real-time debate streaming (WebSocket server port) |
 
 ### WebSocket Events
 
@@ -592,7 +593,7 @@ Configure security via environment variables:
 export ARAGORA_API_TOKEN="your-secret-token"    # Enable token auth
 export ARAGORA_ALLOWED_ORIGINS="https://aragora.ai,https://live.aragora.ai"
 export ARAGORA_TOKEN_TTL=3600                   # Token lifetime in seconds
-export ARAGORA_WS_MAX_SIZE=65536                # Max WebSocket message size (bytes)
+export ARAGORA_WS_MAX_MESSAGE_SIZE=65536        # Max WebSocket message size (bytes)
 ```
 
 ## Contributing

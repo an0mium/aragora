@@ -428,4 +428,33 @@ def setup_default_tasks(
         run_on_startup=False,
     )
 
+    # LRU cache cleanup - runs every 12 hours
+    # Clears module-level @lru_cache functions to prevent memory accumulation
+    def lru_cache_cleanup_task():
+        try:
+            from aragora.utils.cache_registry import (
+                clear_all_lru_caches,
+                get_registered_cache_count,
+            )
+            cache_count = get_registered_cache_count()
+            if cache_count > 0:
+                cleared = clear_all_lru_caches()
+                if cleared > 0:
+                    logger.info(
+                        "LRU cache cleanup: cleared %d entries from %d caches",
+                        cleared, cache_count
+                    )
+        except ImportError:
+            logger.debug("cache_registry not available, skipping LRU cleanup")
+        except Exception as e:
+            logger.warning("LRU cache cleanup failed: %s", e)
+
+    manager.register_task(
+        name="lru_cache_cleanup",
+        interval_seconds=12 * 3600,  # 12 hours
+        callback=lru_cache_cleanup_task,
+        enabled=True,
+        run_on_startup=False,
+    )
+
     logger.info("Default background tasks registered")

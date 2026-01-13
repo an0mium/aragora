@@ -16,6 +16,7 @@ from functools import lru_cache
 from typing import Optional
 
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
+from aragora.utils.cache_registry import register_lru_cache
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
 from aragora.exceptions import EarlyStopError
 from aragora.debate.convergence import ConvergenceDetector
@@ -61,6 +62,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+@register_lru_cache
 @lru_cache(maxsize=256)
 def _compute_domain_from_task(task_lower: str) -> str:
     """Compute domain from lowercased task string.

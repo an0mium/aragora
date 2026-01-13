@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from functools import wraps
 from typing import Any, Callable, Optional, Tuple
@@ -184,12 +185,17 @@ logger = logging.getLogger(__name__)
 # aragora.server.handlers.utils.safe_data and re-exported above
 
 
-def get_host_header(handler, default: str = 'localhost:8080') -> str:
+# Default host from environment (used when Host header is missing)
+_DEFAULT_HOST = os.environ.get('ARAGORA_DEFAULT_HOST', 'localhost:8080')
+
+
+def get_host_header(handler, default: str | None = None) -> str:
     """Extract Host header from request handler.
 
     Args:
         handler: HTTP request handler with headers attribute
-        default: Default value if handler is None or Host header missing
+        default: Default value if handler is None or Host header missing.
+                 If None, uses ARAGORA_DEFAULT_HOST env var or 'localhost:8080'.
 
     Returns:
         Host header value or default
@@ -201,6 +207,8 @@ def get_host_header(handler, default: str = 'localhost:8080') -> str:
         # After:
         host = get_host_header(handler)
     """
+    if default is None:
+        default = _DEFAULT_HOST
     if handler is None:
         return default
     return handler.headers.get('Host', default) if hasattr(handler, 'headers') else default

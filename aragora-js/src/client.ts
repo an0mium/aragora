@@ -98,6 +98,41 @@ import {
   OrganizationUpdateRequest,
   // Analytics types
   AnalyticsResponse,
+  // Auth types
+  RegisterRequest,
+  RegisterResponse,
+  LoginRequest,
+  LoginResponse,
+  AuthUser,
+  RefreshRequest,
+  RefreshResponse,
+  RevokeTokenRequest,
+  UpdateMeRequest,
+  ChangePasswordRequest,
+  ChangePasswordResponse,
+  ApiKeyCreateRequest,
+  ApiKeyResponse,
+  MfaSetupResponse,
+  MfaEnableRequest,
+  MfaEnableResponse,
+  MfaDisableRequest,
+  MfaVerifyRequest,
+  MfaVerifyResponse,
+  MfaBackupCodesResponse,
+  // Billing types
+  BillingPlan,
+  BillingPlansResponse,
+  BillingUsage,
+  BillingSubscription,
+  CheckoutRequest,
+  CheckoutResponse,
+  PortalResponse,
+  CancelSubscriptionResponse,
+  ResumeSubscriptionResponse,
+  BillingAuditLogResponse,
+  UsageForecast,
+  Invoice,
+  InvoicesResponse,
 } from './types';
 
 // =============================================================================
@@ -1021,6 +1056,221 @@ class AnalyticsAPI {
   }
 }
 
+class AuthAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Register a new user account.
+   */
+  async register(request: RegisterRequest): Promise<RegisterResponse> {
+    return this.http.post<RegisterResponse>('/api/auth/register', request);
+  }
+
+  /**
+   * Authenticate and get tokens.
+   * If MFA is enabled, include mfa_code in the request.
+   */
+  async login(request: LoginRequest): Promise<LoginResponse> {
+    return this.http.post<LoginResponse>('/api/auth/login', request);
+  }
+
+  /**
+   * Invalidate current token (logout from current device).
+   */
+  async logout(): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>('/api/auth/logout', {});
+  }
+
+  /**
+   * Invalidate all tokens for user (logout from all devices).
+   */
+  async logoutAll(): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>('/api/auth/logout-all', {});
+  }
+
+  /**
+   * Refresh access token using refresh token.
+   */
+  async refresh(request: RefreshRequest): Promise<RefreshResponse> {
+    return this.http.post<RefreshResponse>('/api/auth/refresh', request);
+  }
+
+  /**
+   * Explicitly revoke a specific token.
+   */
+  async revoke(request: RevokeTokenRequest): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>('/api/auth/revoke', request);
+  }
+
+  /**
+   * Get current user information.
+   */
+  async me(): Promise<AuthUser> {
+    return this.http.get<AuthUser>('/api/auth/me');
+  }
+
+  /**
+   * Update current user information.
+   */
+  async updateMe(request: UpdateMeRequest): Promise<AuthUser> {
+    return this.http.put<AuthUser>('/api/auth/me', request);
+  }
+
+  /**
+   * Change password.
+   */
+  async changePassword(request: ChangePasswordRequest): Promise<ChangePasswordResponse> {
+    return this.http.post<ChangePasswordResponse>('/api/auth/password', request);
+  }
+
+  /**
+   * Generate an API key.
+   */
+  async createApiKey(request?: ApiKeyCreateRequest): Promise<ApiKeyResponse> {
+    return this.http.post<ApiKeyResponse>('/api/auth/api-key', request || {});
+  }
+
+  /**
+   * Revoke an API key.
+   */
+  async revokeApiKey(): Promise<{ message: string }> {
+    return this.http.delete<{ message: string }>('/api/auth/api-key');
+  }
+
+  // =========================================================================
+  // MFA (Multi-Factor Authentication)
+  // =========================================================================
+
+  /**
+   * Set up MFA - returns secret and QR code for authenticator app.
+   */
+  async mfaSetup(): Promise<MfaSetupResponse> {
+    return this.http.post<MfaSetupResponse>('/api/auth/mfa/setup', {});
+  }
+
+  /**
+   * Enable MFA after setup - requires verification code from authenticator.
+   */
+  async mfaEnable(request: MfaEnableRequest): Promise<MfaEnableResponse> {
+    return this.http.post<MfaEnableResponse>('/api/auth/mfa/enable', request);
+  }
+
+  /**
+   * Disable MFA - requires verification code and password.
+   */
+  async mfaDisable(request: MfaDisableRequest): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>('/api/auth/mfa/disable', request);
+  }
+
+  /**
+   * Verify a TOTP code (for testing during setup or re-verification).
+   */
+  async mfaVerify(request: MfaVerifyRequest): Promise<MfaVerifyResponse> {
+    return this.http.post<MfaVerifyResponse>('/api/auth/mfa/verify', request);
+  }
+
+  /**
+   * Generate new backup codes for MFA recovery.
+   */
+  async mfaBackupCodes(): Promise<MfaBackupCodesResponse> {
+    return this.http.post<MfaBackupCodesResponse>('/api/auth/mfa/backup-codes', {});
+  }
+}
+
+class BillingAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get available subscription plans.
+   */
+  async plans(): Promise<BillingPlan[]> {
+    const response = await this.http.get<BillingPlansResponse>('/api/billing/plans');
+    return response.plans;
+  }
+
+  /**
+   * Get current usage for authenticated user.
+   */
+  async usage(): Promise<BillingUsage> {
+    return this.http.get<BillingUsage>('/api/billing/usage');
+  }
+
+  /**
+   * Get current subscription.
+   */
+  async subscription(): Promise<BillingSubscription> {
+    return this.http.get<BillingSubscription>('/api/billing/subscription');
+  }
+
+  /**
+   * Create a checkout session for a subscription.
+   */
+  async checkout(request: CheckoutRequest): Promise<CheckoutResponse> {
+    return this.http.post<CheckoutResponse>('/api/billing/checkout', request);
+  }
+
+  /**
+   * Create a billing portal session (for managing subscription in Stripe).
+   */
+  async portal(): Promise<PortalResponse> {
+    return this.http.post<PortalResponse>('/api/billing/portal', {});
+  }
+
+  /**
+   * Cancel subscription (at period end).
+   */
+  async cancel(): Promise<CancelSubscriptionResponse> {
+    return this.http.post<CancelSubscriptionResponse>('/api/billing/cancel', {});
+  }
+
+  /**
+   * Resume a canceled subscription.
+   */
+  async resume(): Promise<ResumeSubscriptionResponse> {
+    return this.http.post<ResumeSubscriptionResponse>('/api/billing/resume', {});
+  }
+
+  /**
+   * Get billing audit log.
+   */
+  async auditLog(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<BillingAuditLogResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+
+    const query = params.toString();
+    const path = query ? `/api/billing/audit-log?${query}` : '/api/billing/audit-log';
+    return this.http.get<BillingAuditLogResponse>(path);
+  }
+
+  /**
+   * Export usage data as CSV.
+   */
+  async exportUsage(): Promise<string> {
+    const response = await this.http.get<{ csv: string }>('/api/billing/usage/export');
+    return response.csv;
+  }
+
+  /**
+   * Get usage forecast for remaining billing period.
+   */
+  async forecast(): Promise<UsageForecast> {
+    return this.http.get<UsageForecast>('/api/billing/usage/forecast');
+  }
+
+  /**
+   * Get invoice history.
+   */
+  async invoices(options?: { limit?: number }): Promise<Invoice[]> {
+    const params = options?.limit ? `?limit=${options.limit}` : '';
+    const response = await this.http.get<InvoicesResponse>(`/api/billing/invoices${params}`);
+    return response.invoices;
+  }
+}
+
 // =============================================================================
 // Main Client
 // =============================================================================
@@ -1044,6 +1294,8 @@ export class AragoraClient {
   readonly tournaments: TournamentsAPI;
   readonly organizations: OrganizationsAPI;
   readonly analytics: AnalyticsAPI;
+  readonly auth: AuthAPI;
+  readonly billing: BillingAPI;
 
   /**
    * Create a new Aragora client.
@@ -1088,6 +1340,8 @@ export class AragoraClient {
     this.tournaments = new TournamentsAPI(this.http);
     this.organizations = new OrganizationsAPI(this.http);
     this.analytics = new AnalyticsAPI(this.http);
+    this.auth = new AuthAPI(this.http);
+    this.billing = new BillingAPI(this.http);
   }
 
   /**

@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { StreamEvent, NomicState, LoopInstance } from '@/types/events';
 import { logger } from '@/utils/logger';
+import { WS_URL, API_BASE_URL } from '@/config';
 
-const DEFAULT_WS_URL = 'ws://localhost:8765';
+const DEFAULT_WS_URL = WS_URL;
 const MAX_EVENTS = 5000;
 
 // Circuit breaker configuration
@@ -342,7 +343,7 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
 }
 
 // Fetch nomic state from REST API
-export async function fetchNomicState(apiUrl: string = 'http://localhost:8080'): Promise<NomicState> {
+export async function fetchNomicState(apiUrl: string = API_BASE_URL): Promise<NomicState> {
   const response = await fetch(`${apiUrl}/api/nomic/state`);
   if (!response.ok) {
     throw new Error(`Failed to fetch state: ${response.status}`);
@@ -352,7 +353,7 @@ export async function fetchNomicState(apiUrl: string = 'http://localhost:8080'):
 
 // Fetch nomic log lines from REST API
 export async function fetchNomicLog(
-  apiUrl: string = 'http://localhost:8080',
+  apiUrl: string = API_BASE_URL,
   lines: number = 100
 ): Promise<string[]> {
   const response = await fetch(`${apiUrl}/api/nomic/log?lines=${lines}`);

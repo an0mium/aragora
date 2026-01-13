@@ -1410,6 +1410,18 @@ class UnifiedServer:
         except Exception as e:
             logger.warning(f"Failed to auto-start pulse scheduler: {e}")
 
+        # Start periodic state cleanup task (prevents memory leaks from stale entries)
+        try:
+            from aragora.server.stream.state_manager import (
+                get_state_manager,
+                start_cleanup_task,
+            )
+            state_manager = get_state_manager()
+            start_cleanup_task(state_manager, interval_seconds=300)
+            logger.debug("State cleanup task started (5 min interval)")
+        except (ImportError, RuntimeError) as e:
+            logger.debug(f"State cleanup task not started: {e}")
+
         logger.info("Starting unified server...")
         protocol = "https" if self.ssl_enabled else "http"
         logger.info(f"  HTTP API:   {protocol}://localhost:{self.http_port}")
@@ -1534,6 +1546,14 @@ class UnifiedServer:
         except (ImportError, RuntimeError, AttributeError) as e:
             logger.debug(f"Pulse scheduler shutdown: {e}")
 
+        # 4.6. Stop state cleanup task
+        try:
+            from aragora.server.stream.state_manager import stop_cleanup_task
+            stop_cleanup_task()
+            logger.debug("State cleanup task stopped")
+        except (ImportError, RuntimeError) as e:
+            logger.debug(f"State cleanup shutdown: {e}")
+
         # 5. Close WebSocket connections
         if hasattr(self, 'stream_server') and self.stream_server:
             try:
@@ -1549,6 +1569,14 @@ class UnifiedServer:
             logger.info("Shared HTTP connector closed")
         except (ImportError, OSError, RuntimeError) as e:
             logger.debug(f"Connector shutdown: {e}")
+
+        # 6.5. Close Redis connection pool
+        try:
+            from aragora.server.redis_config import close_redis_pool
+            close_redis_pool()
+            logger.debug("Redis connection pool closed")
+        except (ImportError, RuntimeError) as e:
+            logger.debug(f"Redis shutdown: {e}")
 
         # 7. Close database connections (connection pool cleanup)
         try:

@@ -22,6 +22,7 @@ from aragora.config import DB_MEMORY_PATH, DB_TIMEOUT_SECONDS
 from aragora.exceptions import ConfigurationError
 from aragora.memory.database import MemoryDatabase
 from aragora.utils.async_utils import run_async
+from aragora.utils.cache_registry import register_lru_cache
 from aragora.utils.json_helpers import safe_json_loads
 
 if TYPE_CHECKING:
@@ -69,6 +70,7 @@ def get_embedding_provider() -> Optional["EmbeddingProvider"]:
     return _embedding_provider_ref
 
 
+@register_lru_cache
 @lru_cache(maxsize=1000)
 def _get_cached_embedding(content: str) -> tuple[float, ...]:
     """
