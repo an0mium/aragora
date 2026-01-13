@@ -73,6 +73,11 @@ def mock_user_store(mock_user):
     store.update_user = Mock(return_value=mock_user)
     store.create_organization = Mock(return_value=Mock(id="org-456"))
     store.get_organization_by_id = Mock(return_value=None)
+    # Account lockout check - returns (is_locked, lockout_until, failed_attempts)
+    store.is_account_locked = Mock(return_value=(False, None, 0))
+    # record_failed_login returns (attempts, lockout_until)
+    store.record_failed_login = Mock(return_value=(1, None))
+    store.clear_failed_logins = Mock()
     return store
 
 
