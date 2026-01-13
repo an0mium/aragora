@@ -1364,3 +1364,78 @@ export interface InvoicesResponse {
   invoices: Invoice[];
   total: number;
 }
+
+// =============================================================================
+// Evidence Types
+// =============================================================================
+
+export interface EvidenceSnippet {
+  id: string;
+  source: string;
+  title: string;
+  snippet: string;
+  url?: string;
+  reliability_score: number;
+  freshness_score?: number;
+  quality_score?: number;
+  timestamp?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface EvidenceListResponse {
+  evidence: EvidenceSnippet[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface EvidenceSearchRequest {
+  query: string;
+  limit?: number;
+  source?: string;
+  min_reliability?: number;
+  context?: {
+    topic?: string;
+    required_sources?: string[];
+    recency_weight?: number;
+  };
+}
+
+export interface EvidenceSearchResponse {
+  query: string;
+  results: EvidenceSnippet[];
+  count: number;
+}
+
+export interface EvidenceCollectRequest {
+  task: string;
+  connectors?: string[];
+  debate_id?: string;
+  round?: number;
+}
+
+export interface EvidenceCollectResponse {
+  task: string;
+  keywords: string[];
+  snippets: EvidenceSnippet[];
+  count: number;
+  total_searched: number;
+  average_reliability: number;
+  average_freshness: number;
+  saved_ids: string[];
+  debate_id?: string;
+}
+
+export interface EvidenceStatistics {
+  total_evidence: number;
+  total_debates: number;
+  avg_reliability: number;
+  sources_distribution: Record<string, number>;
+}
+
+export interface EvidenceDebateResponse {
+  debate_id: string;
+  round?: number;
+  evidence: EvidenceSnippet[];
+  count: number;
+}

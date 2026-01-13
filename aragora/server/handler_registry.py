@@ -95,6 +95,7 @@ try:
         OAuthHandler,
         ReviewsHandler,
         FormalVerificationHandler,
+        EvidenceHandler,
         HandlerResult,
     )
 
@@ -151,6 +152,7 @@ except ImportError:
     OAuthHandler: HandlerType = None
     ReviewsHandler: HandlerType = None
     FormalVerificationHandler: HandlerType = None
+    EvidenceHandler: HandlerType = None
     HandlerResult: HandlerType = None
 
 
@@ -205,6 +207,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_oauth_handler", OAuthHandler),
     ("_reviews_handler", ReviewsHandler),
     ("_formal_verification_handler", FormalVerificationHandler),
+    ("_evidence_handler", EvidenceHandler),
 ]
 
 
@@ -278,6 +281,7 @@ class RouteIndex:
             "_oauth_handler": ["/api/auth/oauth/"],
             "_reviews_handler": ["/api/reviews/"],
             "_formal_verification_handler": ["/api/verify/"],
+            "_evidence_handler": ["/api/evidence"],
         }
 
         for attr_name, _ in HANDLER_REGISTRY:
@@ -454,6 +458,7 @@ class HandlerRegistryMixin:
     _reviews_handler: Optional["BaseHandler"] = None
     _formal_verification_handler: Optional["BaseHandler"] = None
     _evolution_ab_testing_handler: Optional["BaseHandler"] = None
+    _evidence_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False
 
     @classmethod

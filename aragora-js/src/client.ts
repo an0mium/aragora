@@ -137,6 +137,15 @@ import {
   UsageForecast,
   Invoice,
   InvoicesResponse,
+  // Evidence types
+  EvidenceSnippet,
+  EvidenceListResponse,
+  EvidenceSearchRequest,
+  EvidenceSearchResponse,
+  EvidenceCollectRequest,
+  EvidenceCollectResponse,
+  EvidenceStatistics,
+  EvidenceDebateResponse,
 } from './types';
 
 // =============================================================================
@@ -1621,6 +1630,104 @@ class BillingAPI {
 }
 
 // =============================================================================
+// Evidence API
+// =============================================================================
+
+class EvidenceAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all evidence with optional filtering and pagination.
+   */
+  async list(options?: {
+    limit?: number;
+    offset?: number;
+    source?: string;
+    min_reliability?: number;
+  }): Promise<EvidenceListResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.source) params.set('source', options.source);
+    if (options?.min_reliability) params.set('min_reliability', String(options.min_reliability));
+
+    const query = params.toString();
+    const path = query ? `/api/evidence?${query}` : '/api/evidence';
+    return this.http.get<EvidenceListResponse>(path);
+  }
+
+  /**
+   * Get a specific evidence item by ID.
+   */
+  async get(evidenceId: string): Promise<EvidenceSnippet> {
+    const response = await this.http.get<{ evidence: EvidenceSnippet }>(
+      `/api/evidence/${evidenceId}`
+    );
+    return response.evidence;
+  }
+
+  /**
+   * Search evidence with full-text query.
+   */
+  async search(request: EvidenceSearchRequest): Promise<EvidenceSearchResponse> {
+    return this.http.post<EvidenceSearchResponse>('/api/evidence/search', request);
+  }
+
+  /**
+   * Collect evidence for a topic/task.
+   * This triggers active evidence collection from configured connectors.
+   */
+  async collect(request: EvidenceCollectRequest): Promise<EvidenceCollectResponse> {
+    return this.http.post<EvidenceCollectResponse>('/api/evidence/collect', request);
+  }
+
+  /**
+   * Get evidence associated with a specific debate.
+   */
+  async forDebate(debateId: string, round?: number): Promise<EvidenceDebateResponse> {
+    const params = round !== undefined ? `?round=${round}` : '';
+    return this.http.get<EvidenceDebateResponse>(
+      `/api/evidence/debate/${debateId}${params}`
+    );
+  }
+
+  /**
+   * Associate evidence with a debate.
+   */
+  async associateWithDebate(
+    debateId: string,
+    evidenceIds: string[],
+    options?: { round?: number; relevance_score?: number }
+  ): Promise<{ debate_id: string; associated: string[]; count: number }> {
+    return this.http.post(`/api/evidence/debate/${debateId}`, {
+      evidence_ids: evidenceIds,
+      round: options?.round,
+      relevance_score: options?.relevance_score,
+    });
+  }
+
+  /**
+   * Get evidence store statistics.
+   */
+  async statistics(): Promise<EvidenceStatistics> {
+    const response = await this.http.get<{ statistics: EvidenceStatistics }>(
+      '/api/evidence/statistics'
+    );
+    return response.statistics;
+  }
+
+  /**
+   * Delete evidence by ID.
+   */
+  async delete(evidenceId: string): Promise<boolean> {
+    const response = await this.http.delete<{ deleted: boolean }>(
+      `/api/evidence/${evidenceId}`
+    );
+    return response.deleted;
+  }
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -1645,6 +1752,7 @@ export class AragoraClient {
   readonly analytics: AnalyticsAPI;
   readonly auth: AuthAPI;
   readonly billing: BillingAPI;
+  readonly evidence: EvidenceAPI;
 
   /**
    * Create a new Aragora client.
@@ -1691,6 +1799,7 @@ export class AragoraClient {
     this.analytics = new AnalyticsAPI(this.http);
     this.auth = new AuthAPI(this.http);
     this.billing = new BillingAPI(this.http);
+    this.evidence = new EvidenceAPI(this.http);
   }
 
   /**

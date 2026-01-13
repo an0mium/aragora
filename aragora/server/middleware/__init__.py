@@ -140,6 +140,17 @@ from .tier_enforcement import (
     require_quota,
     get_quota_status,
 )
+from .timeout import (
+    RequestTimeoutConfig,
+    RequestTimeoutError,
+    get_timeout_config,
+    configure_timeout,
+    with_timeout,
+    async_with_timeout,
+    timeout_context,
+    get_timeout_stats,
+    shutdown_executor,
+)
 
 __all__ = [
     # Auth
@@ -251,4 +262,14 @@ __all__ = [
     "increment_org_usage",
     "require_quota",
     "get_quota_status",
+    # Request timeout
+    "RequestTimeoutConfig",
+    "RequestTimeoutError",
+    "get_timeout_config",
+    "configure_timeout",
+    "with_timeout",
+    "async_with_timeout",
+    "timeout_context",
+    "get_timeout_stats",
+    "shutdown_executor",
 ]

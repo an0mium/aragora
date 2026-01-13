@@ -7,6 +7,7 @@ This runbook provides procedures for common operational issues, debugging, and r
 - [Quick Reference](#quick-reference)
 - [Common Issues](#common-issues)
 - [Debugging Procedures](#debugging-procedures)
+- [Admin Console & Developer Portal](#admin-console--developer-portal)
 - [Recovery Procedures](#recovery-procedures)
 - [Health Checks](#health-checks)
 - [Alerts and Responses](#alerts-and-responses)
@@ -358,6 +359,58 @@ host api.openai.com
 # Test agent connectivity
 curl -X POST http://localhost:8080/api/debug/connectivity-check
 ```
+
+---
+
+## Admin Console & Developer Portal
+
+### Admin Console Access Issues
+
+**Symptoms:**
+- `/admin` page loads but panels show “Unauthorized” or empty data
+- 401/403 responses from `/api/system/*` endpoints
+
+**Checks:**
+```bash
+# Validate API auth and role
+curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/auth/me
+
+# Health endpoint should always respond
+curl http://localhost:8080/api/health
+
+# Admin endpoints (require admin/owner role)
+curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/system/circuit-breakers
+curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/system/errors?limit=5
+curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/system/rate-limits
+```
+
+**Common Fixes:**
+- Ensure `ARAGORA_JWT_SECRET` is set in production.
+- Verify the user role is `admin` or `owner`.
+- Confirm CORS allowlist includes the admin host.
+
+### Developer Portal Issues
+
+**Symptoms:**
+- API key missing or cannot be generated
+- Usage data shows zeros or errors
+
+**Checks:**
+```bash
+# Check authenticated user
+curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/auth/me
+
+# Generate/revoke API key
+curl -X POST -H "Authorization: Bearer <access_token>" http://localhost:8080/api/auth/api-key
+curl -X DELETE -H "Authorization: Bearer <access_token>" http://localhost:8080/api/auth/api-key
+
+# Usage stats
+curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/billing/usage
+```
+
+**Common Fixes:**
+- Check billing configuration if usage metrics are empty.
+- Ensure API key storage backend is available (database health).
 
 ---
 
