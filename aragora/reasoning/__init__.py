@@ -5,66 +5,66 @@ Provides typed claims, evidence tracking, logical inference,
 and cryptographic provenance for evidence.
 """
 
-from aragora.reasoning.claims import (
-    ClaimsKernel,
-    TypedClaim,
-    TypedEvidence,
-    ClaimType,
-    RelationType,
-    EvidenceType,
-    ClaimRelation,
-    ArgumentChain,
-    SourceReference,
-)
-from aragora.reasoning.provenance import (
-    ProvenanceManager,
-    ProvenanceChain,
-    ProvenanceRecord,
-    ProvenanceVerifier,
-    CitationGraph,
-    Citation,
-    MerkleTree,
-    SourceType,
-    TransformationType,
-)
 from aragora.reasoning.belief import (
+    BeliefDistribution,
     BeliefNetwork,
     BeliefNode,
-    BeliefDistribution,
+    BeliefPropagationAnalyzer,
     BeliefStatus,
     Factor,
     PropagationResult,
-    BeliefPropagationAnalyzer,
-)
-from aragora.reasoning.provenance_enhanced import (
-    EnhancedProvenanceManager,
-    GitProvenanceTracker,
-    WebProvenanceTracker,
-    GitSourceInfo,
-    WebSourceInfo,
-    StalenessCheck,
-    StalenessStatus,
-    RevalidationTrigger,
-    ProvenanceValidator,
-)
-from aragora.reasoning.reliability import (
-    ReliabilityScorer,
-    ReliabilityLevel,
-    ClaimReliability,
-    EvidenceReliability,
-    compute_claim_reliability,
 )
 
 # Scholarly Citation Grounding (Heavy3-inspired evidence-backed verdicts)
 from aragora.reasoning.citations import (
-    ScholarlyEvidence,
-    CitationType,
+    CitationExtractor,
     CitationQuality,
+    CitationStore,
+    CitationType,
     CitedClaim,
     GroundedVerdict,
-    CitationExtractor,
-    CitationStore,
+    ScholarlyEvidence,
     create_citation_from_url,
+)
+from aragora.reasoning.claims import (
+    ArgumentChain,
+    ClaimRelation,
+    ClaimsKernel,
+    ClaimType,
+    EvidenceType,
+    RelationType,
+    SourceReference,
+    TypedClaim,
+    TypedEvidence,
+)
+from aragora.reasoning.provenance import (
+    Citation,
+    CitationGraph,
+    MerkleTree,
+    ProvenanceChain,
+    ProvenanceManager,
+    ProvenanceRecord,
+    ProvenanceVerifier,
+    SourceType,
+    TransformationType,
+)
+from aragora.reasoning.provenance_enhanced import (
+    EnhancedProvenanceManager,
+    GitProvenanceTracker,
+    GitSourceInfo,
+    ProvenanceValidator,
+    RevalidationTrigger,
+    StalenessCheck,
+    StalenessStatus,
+    WebProvenanceTracker,
+    WebSourceInfo,
+)
+from aragora.reasoning.reliability import (
+    ClaimReliability,
+    EvidenceReliability,
+    ReliabilityLevel,
+    ReliabilityScorer,
+    compute_claim_reliability,
 )
 
 __all__ = [

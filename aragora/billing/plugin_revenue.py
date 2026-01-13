@@ -12,7 +12,6 @@ import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from decimal import Decimal
 from enum import Enum
 from pathlib import Path
 from typing import Any, Generator, Optional
@@ -581,7 +580,6 @@ class PluginRevenueTracker:
         Returns:
             List of revenue events
         """
-        import json
 
         with self._connection() as conn:
             rows = conn.execute(

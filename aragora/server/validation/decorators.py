@@ -9,7 +9,6 @@ from functools import wraps
 from typing import Callable, Dict, Optional, Tuple
 
 from .schema import validate_against_schema
-from .query_params import safe_query_int
 
 
 def validate_request(

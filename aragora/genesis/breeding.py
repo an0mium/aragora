@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
 from aragora.agents.personas import EXPERTISE_DOMAINS, PERSONALITY_TRAITS
 from aragora.config import resolve_db_path
 from aragora.genesis.database import GenesisDatabase

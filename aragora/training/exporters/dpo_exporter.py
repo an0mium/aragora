@@ -7,16 +7,14 @@ Exports preference pairs from:
 - Consensus strength (unanimous = chosen, split = rejected)
 """
 
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
-import json
 import logging
+from dataclasses import dataclass
+from typing import Any
 
-from aragora.training.exporters.base import BaseExporter, PreferenceRecord
-from aragora.ranking.elo import EloSystem
+from aragora.config import DB_ELO_PATH, resolve_db_path
 from aragora.memory.store import CritiqueStore
-from aragora.config import resolve_db_path, DB_ELO_PATH
+from aragora.ranking.elo import EloSystem
+from aragora.training.exporters.base import BaseExporter
 
 logger = logging.getLogger(__name__)
 

@@ -11,7 +11,7 @@ import asyncio
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 from . import ContextResult
 

@@ -21,7 +21,7 @@ from aragora.config import (
 )
 from aragora.utils.cache import TTLCache
 
-from .base import BaseRepository, EntityNotFoundError
+from .base import BaseRepository
 
 logger = logging.getLogger(__name__)
 

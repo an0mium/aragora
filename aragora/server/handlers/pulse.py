@@ -29,31 +29,29 @@ try:
 except ImportError:
     httpx = None  # type: ignore[assignment]
 
-from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.server.http_utils import run_async
 
 logger = logging.getLogger(__name__)
-from .base import (
-    BaseHandler,
-    HandlerResult,
-    json_response,
-    error_response,
-    get_int_param,
-    get_string_param,
-    validate_path_segment,
-    SAFE_ID_PATTERN,
-    feature_unavailable_response,
-    auto_error_response,
-    ttl_cache,
-    safe_error_message,
-    require_auth,
-)
-from .utils.rate_limit import rate_limit
-
-
 # Shared PulseManager singleton for analytics tracking
 # This allows FeedbackPhase to record outcomes that persist across requests
 import threading
+
+from .base import (
+    SAFE_ID_PATTERN,
+    BaseHandler,
+    HandlerResult,
+    auto_error_response,
+    error_response,
+    feature_unavailable_response,
+    get_int_param,
+    get_string_param,
+    json_response,
+    require_auth,
+    safe_error_message,
+    ttl_cache,
+    validate_path_segment,
+)
+from .utils.rate_limit import rate_limit
 
 _pulse_lock = threading.Lock()
 _shared_pulse_manager = None
@@ -78,10 +76,10 @@ def get_pulse_manager():
             if _shared_pulse_manager is None:
                 try:
                     from aragora.pulse.ingestor import (
-                        PulseManager,
-                        TwitterIngestor,
                         HackerNewsIngestor,
+                        PulseManager,
                         RedditIngestor,
+                        TwitterIngestor,
                     )
 
                     manager = PulseManager()
@@ -101,8 +99,8 @@ def get_scheduled_debate_store():
         with _pulse_lock:
             if _shared_debate_store is None:
                 try:
-                    from aragora.pulse.store import ScheduledDebateStore
                     from aragora.config.legacy import DATA_DIR
+                    from aragora.pulse.store import ScheduledDebateStore
 
                     db_path = DATA_DIR / "scheduled_debates.db"
                     _shared_debate_store = ScheduledDebateStore(db_path)
@@ -224,10 +222,10 @@ class PulseHandler(BaseHandler):
         """
         try:
             from aragora.pulse.ingestor import (
-                PulseManager,
-                TwitterIngestor,
                 HackerNewsIngestor,
+                PulseManager,
                 RedditIngestor,
+                TwitterIngestor,
             )
         except ImportError:
             return feature_unavailable_response("pulse")
@@ -283,10 +281,10 @@ class PulseHandler(BaseHandler):
         """
         try:
             from aragora.pulse.ingestor import (
-                PulseManager,
-                TwitterIngestor,
                 HackerNewsIngestor,
+                PulseManager,
                 RedditIngestor,
+                TwitterIngestor,
             )
         except ImportError:
             return feature_unavailable_response("pulse")
@@ -419,7 +417,7 @@ class PulseHandler(BaseHandler):
             return error_response("topic contains invalid characters", 400)
 
         try:
-            from aragora import Arena, Environment, DebateProtocol
+            from aragora import Arena, DebateProtocol, Environment
             from aragora.agents import get_agents_by_names
         except ImportError:
             return feature_unavailable_response("debate")
@@ -446,7 +444,7 @@ class PulseHandler(BaseHandler):
             # Create environment
             env = Environment(
                 task=f"Debate the following trending topic: {topic}",
-                context=f"This topic is currently trending and warrants thoughtful analysis from multiple perspectives.",
+                context="This topic is currently trending and warrants thoughtful analysis from multiple perspectives.",
             )
 
             # Get agents
@@ -550,7 +548,7 @@ class PulseHandler(BaseHandler):
 
             async def create_debate(topic_text: str, rounds: int, threshold: float):
                 try:
-                    from aragora import Arena, Environment, DebateProtocol
+                    from aragora import Arena, DebateProtocol, Environment
                     from aragora.agents import get_agents_by_names
 
                     env = Environment(task=topic_text)

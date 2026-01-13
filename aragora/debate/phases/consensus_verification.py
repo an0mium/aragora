@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import Counter
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -23,33 +22,33 @@ from pathlib import Path
 from typing import Any, Optional
 
 from aragora.config import (
-    DB_ELO_PATH,
-    resolve_db_path,
-    ELO_INITIAL_RATING,
-    ELO_K_FACTOR,
-    ELO_CALIBRATION_MIN_COUNT,
+    CACHE_TTL_CALIBRATION_LB,
+    CACHE_TTL_LB_STATS,
     CACHE_TTL_LEADERBOARD,
     CACHE_TTL_RECENT_MATCHES,
-    CACHE_TTL_LB_STATS,
-    CACHE_TTL_CALIBRATION_LB,
+    DB_ELO_PATH,
+    ELO_CALIBRATION_MIN_COUNT,
+    ELO_INITIAL_RATING,
+    ELO_K_FACTOR,
+    resolve_db_path,
 )
-from aragora.ranking.database import EloDatabase
-from aragora.ranking.leaderboard_engine import LeaderboardEngine
 from aragora.ranking.calibration_engine import CalibrationEngine, DomainCalibrationEngine
-from aragora.ranking.relationships import (
-    RelationshipTracker,
-    RelationshipStats,
-    RelationshipMetrics,
-)
-from aragora.ranking.redteam import RedTeamIntegrator, RedTeamResult, VulnerabilitySummary
+from aragora.ranking.database import EloDatabase
 from aragora.ranking.elo_core import (
-    expected_score,
+    apply_elo_changes,
     calculate_new_elo,
     calculate_pairwise_elo_changes,
-    apply_elo_changes,
+    expected_score,
 )
+from aragora.ranking.leaderboard_engine import LeaderboardEngine
+from aragora.ranking.redteam import RedTeamIntegrator, RedTeamResult, VulnerabilitySummary
+from aragora.ranking.relationships import (
+    RelationshipMetrics,
+    RelationshipStats,
+    RelationshipTracker,
+)
+from aragora.utils.cache import TTLCache
 from aragora.utils.json_helpers import safe_json_loads
-from aragora.utils.cache import TTLCache, lru_cache_with_ttl
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +72,6 @@ CALIBRATION_MIN_COUNT = ELO_CALIBRATION_MIN_COUNT
 
 
 # Import from centralized location (defined here for backwards compatibility)
-from aragora.utils.sql_helpers import _escape_like_pattern
 
 
 # Maximum agent name length (matches SAFE_AGENT_PATTERN in validation/entities.py)
@@ -157,6 +155,16 @@ class AgentRating:
         # Confidence scales from 0.5 at min_count to 1.0 at 50+ predictions
         confidence = min(1.0, 0.5 + 0.5 * (self.calibration_total - CALIBRATION_MIN_COUNT) / 40)
         return (1 - self.calibration_brier_score) * confidence
+
+    @property
+    def elo_rating(self) -> float:
+        """ELO rating (alias for elo)."""
+        return self.elo
+
+    @property
+    def total_debates(self) -> int:
+        """Total debates (alias for debates_count)."""
+        return self.debates_count
 
 
 @dataclass

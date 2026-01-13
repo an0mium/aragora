@@ -707,7 +707,6 @@ class FeaturesHandler(BaseHandler):
         - deprecated: Being phased out
         """
         from aragora.server.handlers import (
-            HANDLER_STABILITY,
             ALL_HANDLERS,
             get_all_handler_stability,
         )

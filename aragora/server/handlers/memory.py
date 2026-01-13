@@ -23,15 +23,15 @@ from typing import Optional
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
-    get_clamped_int_param,
     get_bounded_float_param,
     get_bounded_string_param,
+    get_clamped_int_param,
     handle_errors,
+    json_response,
     safe_error_message,
 )
-from .utils.rate_limit import rate_limit, RateLimiter, get_client_ip
+from .utils.rate_limit import RateLimiter, get_client_ip
 
 # Rate limiters for memory endpoints
 _retrieve_limiter = RateLimiter(requests_per_minute=60)  # Read operations
@@ -421,6 +421,7 @@ class MemoryHandler(BaseHandler):
     def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route DELETE memory requests to appropriate methods with auth."""
         from aragora.billing.jwt_auth import extract_user_from_request
+
         from .utils.rate_limit import RateLimiter, get_client_ip
 
         if path.startswith("/api/memory/continuum/"):

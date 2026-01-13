@@ -10,22 +10,22 @@ Provides common implementation for agents using OpenAI-compatible APIs:
 This eliminates ~150 lines of duplicate code per agent.
 """
 
-import aiohttp
 import logging
-from typing import AsyncGenerator, Callable
+from typing import AsyncGenerator
 
-from aragora.agents.api_agents.base import APIAgent
+import aiohttp
+
 from aragora.agents.api_agents.common import (
-    Message,
-    Critique,
-    handle_agent_errors,
     AgentAPIError,
-    AgentRateLimitError,
     AgentConnectionError,
+    AgentRateLimitError,
     AgentStreamError,
     AgentTimeoutError,
+    Critique,
+    Message,
     _sanitize_error_message,
     create_openai_sse_parser,
+    handle_agent_errors,
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 

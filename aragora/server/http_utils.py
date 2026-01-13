@@ -6,7 +6,6 @@ used across the unified server.
 """
 
 import logging
-from typing import Any, Coroutine
 
 # Import run_async from central utils for re-export
 from aragora.utils.async_utils import run_async

@@ -12,11 +12,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
 
-# Import shared types
-from .types import Verdict, SeverityLevel, RiskSummary as BaseRiskSummary
-
 # Import categories from config
-from .config import AttackCategory, ProbeCategory
+from .types import RiskSummary as BaseRiskSummary
+
+# Import shared types
+from .types import SeverityLevel, Verdict
 
 
 @dataclass

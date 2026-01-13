@@ -11,8 +11,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator, Optional, Union
 
-from aragora.storage.schema import DatabaseManager
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.storage.schema import DatabaseManager
 
 logger = logging.getLogger(__name__)
 

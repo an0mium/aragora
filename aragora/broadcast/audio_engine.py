@@ -29,10 +29,10 @@ from typing import Dict, Optional
 
 from aragora.broadcast.script_gen import ScriptSegment
 from aragora.broadcast.tts_backends import (
-    TTSBackend,
-    get_tts_backend,
-    get_fallback_backend,
     EDGE_TTS_VOICES,
+    TTSBackend,
+    get_fallback_backend,
+    get_tts_backend,
 )
 
 logger = logging.getLogger(__name__)

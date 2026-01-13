@@ -12,7 +12,7 @@ import logging
 import secrets
 import sqlite3
 from datetime import datetime
-from typing import Any, Callable, ContextManager, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Optional
 
 if TYPE_CHECKING:
     from aragora.billing.models import Organization, SubscriptionTier, User

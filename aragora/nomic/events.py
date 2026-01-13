@@ -5,11 +5,11 @@ Events are the triggers that cause state transitions. Each event
 carries data needed for the transition and can be logged for auditing.
 """
 
-from enum import Enum, auto
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, List
-from datetime import datetime
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum, auto
+from typing import Any, Dict, List, Optional
 
 
 class EventType(Enum):

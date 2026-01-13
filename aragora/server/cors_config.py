@@ -13,7 +13,6 @@ import logging
 import os
 from typing import Set
 
-
 logger = logging.getLogger(__name__)
 
 # Check if we're in production mode

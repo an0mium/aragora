@@ -13,7 +13,6 @@ from enum import Enum
 from typing import Any, Callable, Optional
 
 from aragora.genesis.genome import AgentGenome
-from aragora.genesis.ledger import GenesisEventType
 
 
 class GenesisStreamEventType(Enum):

@@ -25,21 +25,20 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, List, Dict, Any, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict
 
 logger = logging.getLogger(__name__)
 
 from aragora.config import DB_MEMORY_PATH
-from aragora.storage.base_store import SQLiteStore
-from aragora.storage.schema import SchemaManager, get_wal_connection, safe_add_column
-from aragora.utils.json_helpers import safe_json_loads
 from aragora.memory.tier_manager import (
-    TierManager,
-    TierConfig,
-    MemoryTier,
     DEFAULT_TIER_CONFIGS,
+    MemoryTier,
+    TierManager,
     get_tier_manager,
 )
+from aragora.storage.base_store import SQLiteStore
+from aragora.storage.schema import SchemaManager
+from aragora.utils.json_helpers import safe_json_loads
 
 # Schema version for ContinuumMemory
 CONTINUUM_SCHEMA_VERSION = 2

@@ -1,7 +1,6 @@
-from dataclasses import dataclass, field, asdict
-from typing import Optional, Dict, Any, List
-from datetime import datetime
 import json
+from dataclasses import asdict, dataclass, field
+from typing import Any, Dict, List, Optional
 
 SCHEMA_VERSION = "1.0"
 

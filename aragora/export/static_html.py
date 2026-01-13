@@ -11,12 +11,9 @@ No external dependencies - all assets are embedded.
 """
 
 import json
-from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from aragora.export.artifact import DebateArtifact
-
 
 # Embedded CSS styles for the HTML viewer
 # Extracted from _generate_styles() for better organization and maintainability

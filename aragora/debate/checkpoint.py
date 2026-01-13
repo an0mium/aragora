@@ -24,16 +24,16 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Callable, Optional
 from enum import Enum
+from pathlib import Path
+from typing import Callable, Optional
 
 # Git-safe ID pattern: alphanumeric, dash, underscore only (no path traversal or special chars)
 SAFE_CHECKPOINT_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$")
 
 logger = logging.getLogger(__name__)
 
-from aragora.core import Message, Vote, DebateResult, Critique
+from aragora.core import Critique, Message, Vote
 from aragora.exceptions import ConfigurationError
 
 
@@ -390,7 +390,6 @@ class S3CheckpointStore(CheckpointStore):
         return f"{self.prefix}{checkpoint_id}.json.gz"
 
     async def save(self, checkpoint: DebateCheckpoint) -> str:
-        import io
 
         client = self._get_client()
         key = self._get_key(checkpoint.checkpoint_id)

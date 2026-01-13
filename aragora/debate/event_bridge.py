@@ -5,7 +5,7 @@ Extracts event emission logic from Arena orchestrator for better modularity.
 """
 
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +183,7 @@ class EventEmitterBridge:
             from aragora.server.stream import StreamEvent, StreamEventType
 
             self.event_emitter.emit(
-                StreamEvent(  # type: ignore[call-arg]
+                StreamEvent(
                     type=StreamEventType.MOMENT_DETECTED,
                     data=moment.to_dict(),
                     debate_id=self.loop_id or "unknown",

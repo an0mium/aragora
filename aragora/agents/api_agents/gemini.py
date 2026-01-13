@@ -2,25 +2,26 @@
 Gemini agent for Google Generative AI API.
 """
 
-import aiohttp
 import asyncio
 import json
 import logging
 from typing import AsyncGenerator
 
+import aiohttp
+
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.api_agents.common import (
-    Message,
-    Critique,
-    handle_agent_errors,
+    MAX_STREAM_BUFFER_SIZE,
     AgentAPIError,
-    AgentRateLimitError,
     AgentConnectionError,
+    AgentRateLimitError,
     AgentStreamError,
     AgentTimeoutError,
-    get_api_key,
+    Critique,
+    Message,
     _sanitize_error_message,
-    MAX_STREAM_BUFFER_SIZE,
+    get_api_key,
+    handle_agent_errors,
     iter_chunks_with_timeout,
 )
 from aragora.agents.fallback import QuotaFallbackMixin
@@ -170,13 +171,13 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                     if not text.strip():
                         if finish_reason == "MAX_TOKENS":
                             raise AgentAPIError(
-                                f"Gemini response truncated (MAX_TOKENS): output limit reached with no content. "
-                                f"Consider reducing prompt length or increasing maxOutputTokens.",
+                                "Gemini response truncated (MAX_TOKENS): output limit reached with no content. "
+                                "Consider reducing prompt length or increasing maxOutputTokens.",
                                 agent_name=self.name,
                             )
                         elif finish_reason == "SAFETY":
                             raise AgentAPIError(
-                                f"Gemini blocked response (SAFETY filter)",
+                                "Gemini blocked response (SAFETY filter)",
                                 agent_name=self.name,
                             )
                         else:
@@ -186,7 +187,7 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                             )
 
                     return text
-                except (KeyError, IndexError) as e:
+                except (KeyError, IndexError):
                     raise AgentAPIError(
                         f"Unexpected Gemini response format: {data}",
                         agent_name=self.name,

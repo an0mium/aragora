@@ -9,11 +9,10 @@ import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Optional
 
 from aragora.config import (
     DB_INSIGHTS_PATH,
-    DB_PERSONAS_PATH,
 )
 from aragora.persistence.db_config import (
     DatabaseType,

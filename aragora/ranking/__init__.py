@@ -5,26 +5,26 @@ Provides ELO-based skill tracking for agents, calibration scoring,
 relationship tracking, and red team integration.
 """
 
-from aragora.ranking.elo import EloSystem, AgentRating, MatchResult
 from aragora.ranking.calibration_engine import (
-    CalibrationEngine,
-    DomainCalibrationEngine,
-    CalibrationPrediction,
     BucketStats,
+    CalibrationEngine,
+    CalibrationPrediction,
+    DomainCalibrationEngine,
 )
-from aragora.ranking.relationships import (
-    RelationshipTracker,
-    RelationshipStats,
-    RelationshipMetrics,
-)
+from aragora.ranking.elo import AgentRating, EloSystem, MatchResult
 from aragora.ranking.redteam import (
     RedTeamIntegrator,
     RedTeamResult,
     VulnerabilitySummary,
 )
+from aragora.ranking.relationships import (
+    RelationshipMetrics,
+    RelationshipStats,
+    RelationshipTracker,
+)
 from aragora.ranking.tournaments import (
-    TournamentManager,
     Tournament,
+    TournamentManager,
     TournamentMatch,
     TournamentStanding,
 )

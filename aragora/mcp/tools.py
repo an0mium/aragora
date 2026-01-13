@@ -10,7 +10,7 @@ import asyncio
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Union
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,8 @@ async def run_debate_tool(
         Dict with debate results including final_answer, consensus status, confidence
     """
     from aragora.agents.base import create_agent
-    from aragora.debate.orchestrator import Arena, DebateProtocol
     from aragora.core import Environment
+    from aragora.debate.orchestrator import Arena, DebateProtocol
 
     if not question:
         return {"error": "Question is required"}
@@ -109,7 +109,7 @@ async def run_gauntlet_tool(
     Returns:
         Dict with verdict, risk score, and vulnerabilities found
     """
-    from aragora.gauntlet import GauntletRunner, GauntletConfig
+    from aragora.gauntlet import GauntletConfig, GauntletRunner
     from aragora.gauntlet.config import AttackCategory
 
     if not content:
@@ -431,7 +431,7 @@ async def list_trending_topics_tool(
     topics: List[Dict[str, Any]] = []
 
     try:
-        from aragora.pulse import PulseManager, TopicSelector, SchedulerConfig
+        from aragora.pulse import PulseManager, SchedulerConfig, TopicSelector
 
         # Create pulse manager and fetch topics
         pulse_manager = PulseManager()
@@ -572,8 +572,9 @@ async def store_memory_tool(
         return {"error": "content is required"}
 
     try:
-        from aragora.memory.continuum import ContinuumMemory, MemoryTier
         import uuid
+
+        from aragora.memory.continuum import ContinuumMemory, MemoryTier
 
         continuum = ContinuumMemory()
 
@@ -666,9 +667,10 @@ async def fork_debate_tool(
         return {"error": "debate_id is required"}
 
     try:
-        from aragora.server.storage import get_debates_db
-        from aragora.debate.counterfactual import CounterfactualOrchestrator, PivotClaim
         import uuid
+
+        from aragora.debate.counterfactual import CounterfactualOrchestrator, PivotClaim
+        from aragora.server.storage import get_debates_db
 
         db = get_debates_db()
         if not db:
@@ -968,16 +970,16 @@ async def create_checkpoint_tool(
         return {"error": "debate_id is required"}
 
     try:
-        from aragora.server.storage import get_debates_db
+        from aragora.core import Critique, Message, Vote
         from aragora.debate.checkpoint import (
-            CheckpointManager,
-            CheckpointConfig,
-            CheckpointStore,
-            FileCheckpointStore,
-            DatabaseCheckpointStore,
             AgentState,
+            CheckpointConfig,
+            CheckpointManager,
+            CheckpointStore,
+            DatabaseCheckpointStore,
+            FileCheckpointStore,
         )
-        from aragora.core import Message, Vote, Critique
+        from aragora.server.storage import get_debates_db
 
         db = get_debates_db()
         if not db:
@@ -1401,7 +1403,6 @@ async def cite_evidence_tool(
         return {"error": "debate_id and evidence_id are required"}
 
     try:
-        from aragora.evidence.collector import EvidenceCollector
         from aragora.server.storage import get_debates_db
 
         db = get_debates_db()

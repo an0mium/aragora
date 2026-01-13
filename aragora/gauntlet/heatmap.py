@@ -8,7 +8,7 @@ for dashboard visualization.
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from .result import GauntletResult, SeverityLevel
+from .result import GauntletResult
 
 
 @dataclass

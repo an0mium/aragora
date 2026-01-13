@@ -12,9 +12,8 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Callable, Any, Awaitable
 from enum import Enum
-import json
+from typing import Any, Awaitable, Callable, Optional
 
 logger = logging.getLogger(__name__)
 

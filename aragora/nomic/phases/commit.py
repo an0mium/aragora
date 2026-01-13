@@ -7,16 +7,15 @@ Phase 5: Commit changes if verified
 - Commit hash tracking
 """
 
+# Import automation flag from environment
+import os
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 from . import CommitResult
-
-# Import automation flag from environment
-import os
 
 NOMIC_AUTO_COMMIT = os.environ.get("NOMIC_AUTO_COMMIT", "0") == "1"
 

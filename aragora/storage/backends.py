@@ -27,7 +27,7 @@ import threading
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
-from queue import Queue, Empty
+from queue import Empty, Queue
 from typing import Any, ContextManager, Optional, Union
 
 logger = logging.getLogger(__name__)

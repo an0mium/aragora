@@ -15,13 +15,13 @@ import time
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from aragora.server.error_utils import safe_error_message as _safe_error_message
+from aragora.server.state import get_state_manager
 from aragora.server.stream import (
-    SyncEventEmitter,
     StreamEvent,
     StreamEventType,
+    SyncEventEmitter,
 )
-from aragora.server.error_utils import safe_error_message as _safe_error_message
-from aragora.server.state import get_state_manager, StateManager
 
 logger = logging.getLogger(__name__)
 

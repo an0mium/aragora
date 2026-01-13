@@ -7,7 +7,6 @@ from __future__ import annotations
 from aragora.agents.registry import AgentRegistry
 from aragora.core import Agent, Critique, Message, Vote
 
-
 _TASK_LABELS = ("Task:", "Original Task:")
 _MAX_TASK_LEN = 140
 

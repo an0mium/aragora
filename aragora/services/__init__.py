@@ -24,16 +24,15 @@ Usage:
 """
 
 from .registry import (
-    ServiceRegistry,
-    ServiceNotFoundError,
-    ServiceScope,
-    ServiceDescriptor,
     RegistryStats,
+    ServiceDescriptor,
+    ServiceNotFoundError,
+    ServiceRegistry,
+    ServiceScope,
     get_service,
-    register_service,
     has_service,
+    register_service,
 )
-
 
 # =============================================================================
 # Marker Types for Cache Services

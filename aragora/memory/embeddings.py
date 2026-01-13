@@ -6,19 +6,19 @@ Uses OpenAI, Gemini, or local embeddings depending on availability.
 """
 
 import asyncio
-import aiohttp
-from collections import OrderedDict
 import hashlib
 import json
 import logging
 import os
 import struct
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import Optional
-import sqlite3
 
-from aragora.config import DB_TIMEOUT_SECONDS, get_api_key, CACHE_TTL_EMBEDDINGS
+import aiohttp
+
+from aragora.config import CACHE_TTL_EMBEDDINGS, get_api_key
 from aragora.exceptions import ExternalServiceError
 from aragora.memory.database import MemoryDatabase
 
@@ -91,7 +91,7 @@ def _register_embedding_cache() -> None:
         return
 
     try:
-        from aragora.services import ServiceRegistry, EmbeddingCacheService
+        from aragora.services import EmbeddingCacheService, ServiceRegistry
 
         registry = ServiceRegistry.get()
         if not registry.has(EmbeddingCacheService):

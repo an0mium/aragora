@@ -11,28 +11,28 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-import re
-from pathlib import Path
 from functools import wraps
-from typing import Any, Callable, NamedTuple, Optional, TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Optional
 
 if TYPE_CHECKING:
     from aragora.agents.grounded import RelationshipTracker
 
+from aragora.persistence.db_config import DatabaseType, get_db_path
+from aragora.utils.optional_imports import try_import
+
 from .base import (
+    SAFE_AGENT_PATTERN,
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
-    get_int_param,
-    get_float_param,
     get_db_connection,
+    get_float_param,
+    get_int_param,
+    json_response,
     table_exists,
-    SAFE_AGENT_PATTERN,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
-from aragora.utils.optional_imports import try_import
-from aragora.persistence.db_config import DatabaseType, get_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,6 @@ RelationshipTracker = _relationship_imports["RelationshipTracker"]  # type: igno
 AgentRelationship = _relationship_imports["AgentRelationship"]  # type: ignore[misc]
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
-
 
 # =============================================================================
 # Score Computation Utilities

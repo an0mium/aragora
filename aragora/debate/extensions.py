@@ -19,11 +19,11 @@ Usage:
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aragora.debate.context import DebateContext
     from aragora.core import Agent, DebateResult
+    from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
 

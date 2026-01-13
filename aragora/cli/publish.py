@@ -14,7 +14,6 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from dataclasses import asdict
 
 from aragora.core import DebateResult
 from aragora.debate.traces import DebateTrace
@@ -430,7 +429,7 @@ Examples:
 
     if args.demo:
         # Create a demo debate result
-        from aragora.core import Message, Critique
+        from aragora.core import Critique, Message
 
         demo_result = DebateResult(
             task="What is the best programming language for AI development?",

@@ -4,11 +4,9 @@ Simple system observer for tracking agent failures and loop_id issues.
 Provides basic monitoring without complex ML or learning.
 """
 
-import json
 import logging
 import time
-from typing import Dict, Any, Optional
-from pathlib import Path
+from typing import Any, Dict, Optional
 
 
 class SimpleObserver:

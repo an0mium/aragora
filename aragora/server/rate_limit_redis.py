@@ -31,7 +31,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     pass
@@ -40,11 +40,11 @@ logger = logging.getLogger(__name__)
 
 # Import RateLimitResult and RateLimitConfig for compatibility
 from aragora.server.middleware.rate_limit import (
-    RateLimitConfig,
-    RateLimitResult,
+    BURST_MULTIPLIER,
     DEFAULT_RATE_LIMIT,
     IP_RATE_LIMIT,
-    BURST_MULTIPLIER,
+    RateLimitConfig,
+    RateLimitResult,
 )
 
 

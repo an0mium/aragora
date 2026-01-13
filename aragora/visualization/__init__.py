@@ -2,15 +2,14 @@
 
 from aragora.visualization.mapper import (
     ArgumentCartographer,
-    ArgumentNode,
     ArgumentEdge,
-    NodeType,
+    ArgumentNode,
     EdgeRelation,
+    NodeType,
 )
-
 from aragora.visualization.replay import (
-    ReplayGenerator,
     ReplayArtifact,
+    ReplayGenerator,
     ReplayScene,
 )
 

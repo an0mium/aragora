@@ -14,6 +14,7 @@ Environment Variables:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -21,11 +22,8 @@ import logging
 import os
 import re
 import time
-from typing import Any, Callable, Coroutine, Dict, List, Optional
+from typing import Any, Coroutine, Dict, List, Optional
 from urllib.parse import parse_qs
-
-from aragora.server.http_utils import run_async
-import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +51,9 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
-    error_response,
-    safe_json_parse,
     auto_error_response,
+    error_response,
+    json_response,
 )
 from .utils.rate_limit import rate_limit
 
@@ -81,7 +78,7 @@ def get_slack_integration() -> Optional[Any]:
             logger.debug("Slack integration disabled (no SLACK_WEBHOOK_URL)")
             return None
         try:
-            from aragora.integrations.slack import SlackIntegration, SlackConfig
+            from aragora.integrations.slack import SlackConfig, SlackIntegration
 
             config = SlackConfig(webhook_url=SLACK_WEBHOOK_URL)
             _slack_integration = SlackIntegration(config)
@@ -421,10 +418,9 @@ class SlackHandler(BaseHandler):
         channel_id: str,
     ) -> None:
         """Create debate asynchronously and POST result to Slack response_url."""
-        import aiohttp
 
         try:
-            from aragora import Arena, Environment, DebateProtocol
+            from aragora import Arena, DebateProtocol, Environment
             from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
 
             # Create debate
@@ -438,7 +434,7 @@ class SlackHandler(BaseHandler):
                     response_url,
                     {
                         "response_type": "in_channel",
-                        "text": f"Failed to create debate: No agents available",
+                        "text": "Failed to create debate: No agents available",
                         "replace_original": False,
                     },
                 )
@@ -927,7 +923,7 @@ class SlackHandler(BaseHandler):
                 agents = store.get_all_ratings()
                 if agents:
                     agents = sorted(agents, key=lambda a: getattr(a, "elo", 1500), reverse=True)
-                    lines = [f"*Top Agents*"]
+                    lines = ["*Top Agents*"]
                     for i, agent in enumerate(agents[:5]):
                         name = getattr(agent, "name", "Unknown")
                         elo = getattr(agent, "elo", 1500)
@@ -995,7 +991,7 @@ class SlackHandler(BaseHandler):
     ) -> None:
         """Create debate from DM and send result back to user."""
         try:
-            from aragora import Arena, Environment, DebateProtocol
+            from aragora import Arena, DebateProtocol, Environment
             from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
 
             env = Environment(task=f"Debate: {topic}")

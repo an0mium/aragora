@@ -6,12 +6,12 @@ Provides abstract base classes and dataclasses that define the queue contract.
 
 from __future__ import annotations
 
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional
-import uuid
 
 
 class JobStatus(Enum):

@@ -34,36 +34,32 @@ Example Usage:
     ```
 """
 
-from aragora.genesis.genome import (
-    AgentGenome,
-    GenomeStore,
-    generate_genome_id,
-)
-
 from aragora.genesis import breeding  # Expose submodule for patching
 from aragora.genesis.breeding import (
-    Population,
     GenomeBreeder,
+    Population,
     PopulationManager,
 )
-
+from aragora.genesis.events import (
+    GenesisStreamEventType,
+    create_genesis_hooks,
+    create_logging_hooks,
+)
 from aragora.genesis.fractal import (
     FractalOrchestrator,
     FractalResult,
     SubDebateResult,
 )
-
+from aragora.genesis.genome import (
+    AgentGenome,
+    GenomeStore,
+    generate_genome_id,
+)
 from aragora.genesis.ledger import (
-    GenesisLedger,
+    FractalTree,
     GenesisEvent,
     GenesisEventType,
-    FractalTree,
-)
-
-from aragora.genesis.events import (
-    GenesisStreamEventType,
-    create_genesis_hooks,
-    create_logging_hooks,
+    GenesisLedger,
 )
 
 __all__ = [

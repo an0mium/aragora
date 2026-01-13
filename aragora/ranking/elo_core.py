@@ -8,9 +8,8 @@ These functions implement the standard ELO rating system used in chess
 and adapted for multi-agent debate ranking.
 """
 
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from aragora.config import ELO_INITIAL_RATING, ELO_K_FACTOR
 

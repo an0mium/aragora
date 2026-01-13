@@ -16,18 +16,18 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+from aragora.server.validation import validate_debate_id, validate_id
+from aragora.utils.optional_imports import try_import
+
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     get_clamped_int_param,
-    get_bounded_float_param,
     handle_errors,
+    json_response,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
-from aragora.server.validation import validate_id, validate_debate_id
-from aragora.utils.optional_imports import try_import
 
 logger = logging.getLogger(__name__)
 
@@ -278,8 +278,8 @@ class BeliefHandler(BaseHandler):
     @handle_errors("debate graph stats retrieval")
     def _get_debate_graph_stats(self, nomic_dir: Optional[Path], debate_id: str) -> HandlerResult:
         """Get argument graph statistics for a debate."""
-        from aragora.visualization.mapper import ArgumentCartographer
         from aragora.debate.traces import DebateTrace
+        from aragora.visualization.mapper import ArgumentCartographer
 
         if not nomic_dir:
             return error_response("Nomic directory not configured", 503)

@@ -26,7 +26,6 @@ Usage:
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 # Use lazy imports to avoid circular import with handlers/base.py
 # The actual imports are done when the functions are first accessed

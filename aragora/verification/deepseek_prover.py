@@ -10,7 +10,6 @@ for this task.
 """
 
 import asyncio
-import json
 import logging
 import os
 import re

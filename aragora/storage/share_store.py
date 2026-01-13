@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
 from aragora.storage.base_store import SQLiteStore
-from aragora.storage.schema import SchemaManager
 
 if TYPE_CHECKING:
     from aragora.server.handlers.sharing import ShareSettings
@@ -314,7 +313,7 @@ class ShareLinkStore(SQLiteStore):
     def _row_to_settings(self, row: tuple) -> "ShareSettings":
         """Convert a database row to ShareSettings object."""
         # Import here to avoid circular dependency
-        from aragora.server.handlers.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.sharing import DebateVisibility, ShareSettings
 
         return ShareSettings(
             debate_id=row[1],

@@ -10,10 +10,9 @@ Phase 2: Implementation design
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 from . import DesignResult
-
 
 # Default protected files
 DEFAULT_PROTECTED_FILES = [
@@ -381,7 +380,7 @@ Designs missing any of these will be automatically rejected."""
                     result.final_answer = arbitrated
                     result.consensus_reached = True
                     result.confidence = 0.7
-                    self._log(f"  [fast-track] Judge selected design")
+                    self._log("  [fast-track] Judge selected design")
                     return result
 
         # Try counterfactual resolution via nomic integration

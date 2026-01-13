@@ -41,16 +41,14 @@ from aragora.debate.cache.embeddings_lru import (
 
 # Re-export similarity backends
 from aragora.debate.similarity.backends import (
-    SimilarityBackend,
-    JaccardBackend,
-    TFIDFBackend,
-    SentenceTransformerBackend,
-    get_similarity_backend,
-    _normalize_backend_name,
     _ENV_CONVERGENCE_BACKEND,
-    _ENV_SIMILARITY_BACKEND,
+    JaccardBackend,
+    SentenceTransformerBackend,
+    SimilarityBackend,
+    TFIDFBackend,
+    _normalize_backend_name,
+    get_similarity_backend,
 )
-
 
 # =============================================================================
 # Convergence Result

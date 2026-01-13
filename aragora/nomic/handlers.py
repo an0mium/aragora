@@ -18,14 +18,12 @@ Usage:
         machine.register_handler(state, handler)
 """
 
-import asyncio
 import logging
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple
 
-from .states import NomicState, StateContext
 from .events import Event
+from .states import NomicState, StateContext
 
 logger = logging.getLogger(__name__)
 
@@ -552,12 +550,12 @@ def create_handlers(
     """
     # Import phase implementations lazily to avoid circular imports
     from scripts.nomic.phases import (
+        CommitPhase,
         ContextPhase,
         DebatePhase,
         DesignPhase,
         ImplementPhase,
         VerifyPhase,
-        CommitPhase,
     )
 
     # Create phase instances

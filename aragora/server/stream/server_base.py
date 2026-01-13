@@ -21,10 +21,10 @@ import logging
 import threading
 import time
 from collections import OrderedDict
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Set
+from dataclasses import dataclass
+from typing import Any, Dict, Optional, Set
 
-from .emitter import SyncEventEmitter, TokenBucket, AudienceInbox
+from .emitter import AudienceInbox, SyncEventEmitter, TokenBucket
 from .state_manager import LoopInstance
 
 logger = logging.getLogger(__name__)

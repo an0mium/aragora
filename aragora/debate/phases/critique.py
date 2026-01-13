@@ -10,7 +10,7 @@ Provides utilities for:
 import hashlib
 import logging
 import random
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique

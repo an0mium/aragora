@@ -6,7 +6,7 @@ Attacks from HIPAA (Health Insurance Portability and Accountability Act) perspec
 
 from dataclasses import dataclass, field
 
-from .base import RegulatoryPersona, PersonaAttack
+from .base import PersonaAttack, RegulatoryPersona
 
 
 @dataclass

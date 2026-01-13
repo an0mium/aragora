@@ -17,29 +17,26 @@ import logging
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional, Awaitable
+from typing import Any, Awaitable, Callable, Dict, Optional
 
+from .events import (
+    Event,
+    EventLog,
+    EventType,
+    checkpoint_loaded_event,
+    error_event,
+    pause_event,
+    phase_complete_event,
+    retry_event,
+    start_event,
+    stop_event,
+    timeout_event,
+)
 from .states import (
     NomicState,
     StateContext,
-    StateMetadata,
-    VALID_TRANSITIONS,
-    STATE_CONFIG,
-    is_valid_transition,
     get_state_config,
-)
-from .events import (
-    Event,
-    EventType,
-    EventLog,
-    start_event,
-    stop_event,
-    pause_event,
-    error_event,
-    timeout_event,
-    retry_event,
-    phase_complete_event,
-    checkpoint_loaded_event,
+    is_valid_transition,
 )
 
 logger = logging.getLogger(__name__)

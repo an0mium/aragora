@@ -21,9 +21,9 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from aragora.debate.traces import DebateTrace
 
-from .script_gen import generate_script, ScriptSegment
-from .audio_engine import generate_audio, VOICE_MAP
+from .audio_engine import VOICE_MAP, generate_audio
 from .mixer import mix_audio, mix_audio_with_ffmpeg
+from .script_gen import ScriptSegment, generate_script
 
 
 async def broadcast_debate(

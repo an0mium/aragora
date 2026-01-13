@@ -6,15 +6,15 @@ Provides functions to aggregate introspection data from various sources
 """
 
 import logging
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from .types import IntrospectionSnapshot
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from aragora.memory.store import CritiqueStore
     from aragora.agents.personas import PersonaManager
+    from aragora.memory.store import CritiqueStore
 
 
 def get_agent_introspection(

@@ -14,7 +14,6 @@ Example usage via API:
 import asyncio
 import json
 import shutil
-from typing import Optional
 
 from aragora.plugins.runner import PluginContext
 
@@ -97,7 +96,7 @@ async def run(context: PluginContext) -> dict:
     try:
         data = json.loads(output_text) if output_text.strip() else {}
     except json.JSONDecodeError:
-        context.error(f"Failed to parse bandit output")
+        context.error("Failed to parse bandit output")
         return {"vulnerabilities": [], "error": "Parse error", "raw": output_text[:1000]}
 
     # Extract vulnerabilities

@@ -8,22 +8,22 @@ without affecting debate loop performance.
 import atexit
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
 import os
 import queue
 import random
+import socket
 import threading
 import time
-import urllib.request
 import urllib.error
-import socket
-import ipaddress
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import urlparse
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Set, List, Dict, Any
+from typing import Any, Dict, List, Optional, Set
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 

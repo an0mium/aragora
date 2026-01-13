@@ -12,8 +12,7 @@ import json
 import logging
 import sqlite3
 import sys
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

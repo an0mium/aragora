@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import time
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from .limiter import RateLimitResult
 from .registry import get_rate_limiter

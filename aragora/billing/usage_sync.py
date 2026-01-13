@@ -11,16 +11,14 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 from typing import Any, Optional
 from uuid import uuid4
 
-from aragora.billing.models import SubscriptionTier, TIER_LIMITS
+from aragora.billing.models import TIER_LIMITS, SubscriptionTier
 from aragora.billing.stripe_client import (
-    StripeClient,
     StripeAPIError,
-    STRIPE_METERED_PRICES,
+    StripeClient,
     get_stripe_client,
 )
 from aragora.billing.usage import UsageTracker

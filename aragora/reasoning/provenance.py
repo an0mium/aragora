@@ -15,13 +15,12 @@ Key concepts:
 - ProvenanceVerifier: Validates evidence integrity
 """
 
+import hashlib
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
-import hashlib
-import json
-import uuid
 
 
 class SourceType(Enum):

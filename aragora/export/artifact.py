@@ -14,13 +14,13 @@ Key features:
 - Verifiable: Chain integrity can be validated
 """
 
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Optional
 import hashlib
 import json
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
 
 
 @dataclass
@@ -254,7 +254,6 @@ class ArtifactBuilder:
 
     def from_result(self, result) -> "ArtifactBuilder":
         """Initialize from a DebateResult."""
-        from aragora.core import DebateResult
 
         self._artifact.debate_id = result.id
         self._artifact.task = result.task

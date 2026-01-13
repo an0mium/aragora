@@ -10,16 +10,12 @@ Well-calibrated agents have confidence that matches their accuracy:
 - 80% confidence predictions should be correct 80% of the time
 """
 
-import sqlite3
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Generator, Optional
+from typing import Optional
 
 from aragora.config import DB_CALIBRATION_PATH, DB_TIMEOUT_SECONDS
 from aragora.storage.base_store import SQLiteStore
-from aragora.storage.schema import SchemaManager
 
 # Schema version for CalibrationTracker migrations
 CALIBRATION_SCHEMA_VERSION = 1

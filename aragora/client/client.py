@@ -38,50 +38,47 @@ import json
 import logging
 import random
 import time as time_module
-from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Iterator, List, NoReturn, Optional, TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, List, NoReturn, Optional
 from urllib.parse import urljoin
 
 from .models import (
+    AgentProfile,
+    ConsensusType,
     Debate,
     DebateCreateRequest,
     DebateCreateResponse,
     DebateStatus,
-    ConsensusType,
-    AgentProfile,
-    LeaderboardEntry,
     GauntletReceipt,
     GauntletRunRequest,
     GauntletRunResponse,
-    HealthCheck,
-    APIError,
     # Graph debates
     GraphDebate,
+    GraphDebateBranch,
     GraphDebateCreateRequest,
     GraphDebateCreateResponse,
-    GraphDebateBranch,
+    HealthCheck,
+    LeaderboardEntry,
+    MatrixConclusion,
     # Matrix debates
     MatrixDebate,
     MatrixDebateCreateRequest,
     MatrixDebateCreateResponse,
     MatrixScenario,
-    MatrixConclusion,
-    # Verification
-    VerifyClaimRequest,
-    VerifyClaimResponse,
-    VerifyStatusResponse,
     # Memory analytics
     MemoryAnalyticsResponse,
     MemorySnapshotResponse,
     # Replays
     Replay,
     ReplaySummary,
+    # Verification
+    VerifyClaimRequest,
+    VerifyClaimResponse,
+    VerifyStatusResponse,
 )
 
 if TYPE_CHECKING:
     import aiohttp
-    import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -1283,9 +1280,9 @@ class AragoraClient:
 
     def _get(self, path: str, params: dict | None = None) -> dict:
         """Make a synchronous GET request with retry and rate limiting."""
-        import urllib.request
-        import urllib.parse
         import urllib.error
+        import urllib.parse
+        import urllib.request
 
         url = urljoin(self.base_url, path)
         if params:
@@ -1321,8 +1318,8 @@ class AragoraClient:
 
     def _post(self, path: str, data: dict) -> dict:
         """Make a synchronous POST request with retry and rate limiting."""
-        import urllib.request
         import urllib.error
+        import urllib.request
 
         url = urljoin(self.base_url, path)
         req = urllib.request.Request(
@@ -1360,9 +1357,9 @@ class AragoraClient:
 
     def _delete(self, path: str, params: dict | None = None) -> dict:
         """Make a synchronous DELETE request with retry and rate limiting."""
-        import urllib.request
-        import urllib.parse
         import urllib.error
+        import urllib.parse
+        import urllib.request
 
         url = urljoin(self.base_url, path)
         if params:
@@ -1398,8 +1395,9 @@ class AragoraClient:
 
     async def _delete_async(self, path: str, params: dict | None = None) -> dict:
         """Make an asynchronous DELETE request with retry and rate limiting."""
-        import aiohttp
         import asyncio
+
+        import aiohttp
 
         if self._session is None:
             self._session = aiohttp.ClientSession()
@@ -1463,8 +1461,9 @@ class AragoraClient:
 
     async def _get_async(self, path: str, params: dict | None = None) -> dict:
         """Make an asynchronous GET request with retry and rate limiting."""
-        import aiohttp
         import asyncio
+
+        import aiohttp
 
         if self._session is None:
             self._session = aiohttp.ClientSession()
@@ -1514,8 +1513,9 @@ class AragoraClient:
 
     async def _post_async(self, path: str, data: dict) -> dict:
         """Make an asynchronous POST request with retry and rate limiting."""
-        import aiohttp
         import asyncio
+
+        import aiohttp
 
         if self._session is None:
             self._session = aiohttp.ClientSession()

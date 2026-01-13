@@ -12,11 +12,10 @@ This moves aragora beyond chat orchestration into verifiable reasoning.
 """
 
 import json
-import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Optional, Any, Callable
 from enum import Enum
+from typing import Callable, Optional
 
 
 class ClaimType(Enum):
@@ -587,8 +586,8 @@ class ClaimsKernel:
             TypedEvidence if verification succeeded, None otherwise
         """
         from aragora.verification.formal import (
-            Z3Backend,
             FormalProofStatus,
+            Z3Backend,
         )
 
         if claim_id not in self.claims:

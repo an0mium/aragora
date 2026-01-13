@@ -36,7 +36,6 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
-from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)

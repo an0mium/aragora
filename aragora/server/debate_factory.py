@@ -21,18 +21,18 @@ except ImportError:
     create_agent = None  # type: ignore
 
 if TYPE_CHECKING:
-    from aragora.core import Environment
-    from aragora.debate.protocol import DebateProtocol
-    from aragora.debate.orchestrator import Arena
-    from aragora.ranking.elo import EloSystem
+    from aragora.agents.grounded import MomentDetector, PositionLedger  # type: ignore[attr-defined]
     from aragora.agents.personas import PersonaManager
-    from aragora.debate.embeddings import DebateEmbeddingsDatabase as DebateEmbeddings  # type: ignore[attr-defined]
     from aragora.agents.truth_grounding import PositionTracker  # type: ignore[attr-defined]
-    from aragora.agents.grounded import PositionLedger, MomentDetector  # type: ignore[attr-defined]
+    from aragora.debate.embeddings import (
+        DebateEmbeddingsDatabase as DebateEmbeddings,  # type: ignore[attr-defined]
+    )
+    from aragora.debate.orchestrator import Arena
     from aragora.insights.flip_detector import FlipDetector
     from aragora.memory.consensus import DissentRetriever  # type: ignore[attr-defined]
-    from aragora.server.stream import StreamEvent, SyncEventEmitter  # type: ignore[attr-defined]
     from aragora.pulse.ingestor import TrendingTopic
+    from aragora.ranking.elo import EloSystem
+    from aragora.server.stream import SyncEventEmitter  # type: ignore[attr-defined]
 
 
 @dataclass
@@ -269,8 +269,8 @@ class DebateFactory:
             ValueError: If not enough agents could be created
         """
         from aragora.core import Environment
-        from aragora.debate.protocol import DebateProtocol
         from aragora.debate.arena_builder import ArenaBuilder
+        from aragora.debate.protocol import DebateProtocol
 
         # Parse and create agents
         specs = config.parse_agent_specs()

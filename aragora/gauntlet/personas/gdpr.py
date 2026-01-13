@@ -6,7 +6,7 @@ Attacks from GDPR (General Data Protection Regulation) perspective.
 
 from dataclasses import dataclass, field
 
-from .base import RegulatoryPersona, PersonaAttack
+from .base import PersonaAttack, RegulatoryPersona
 
 
 @dataclass

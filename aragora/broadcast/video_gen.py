@@ -327,7 +327,7 @@ async def generate_thumbnail(
             "#aaaaaa",
             "-annotate",
             "+0+100",
-            f"Aragora Debate",
+            "Aragora Debate",
             "-annotate",
             "+0+160",
             agent_text,

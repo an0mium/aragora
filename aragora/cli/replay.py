@@ -9,8 +9,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from aragora.spectate.stream import SpectatorStream
 from aragora.spectate.events import SpectatorEvents
+from aragora.spectate.stream import SpectatorStream
 
 
 def find_replay_files(directory: Optional[str] = None) -> list[Path]:

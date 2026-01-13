@@ -16,7 +16,7 @@ Performance optimizations:
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Pattern, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional, Pattern
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import BaseHandler, HandlerResult

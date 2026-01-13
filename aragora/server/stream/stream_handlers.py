@@ -19,21 +19,21 @@ Handlers are organized by domain:
 import json
 import logging
 import threading
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
-from aragora.server.validation import safe_query_int, safe_query_float
+from aragora.server.validation import safe_query_float, safe_query_int
 
 if TYPE_CHECKING:
     import aiohttp.web
-    from aragora.ranking.elo import EloSystem
-    from aragora.insights.store import InsightStore
-    from aragora.insights.flip_detector import FlipDetector
+
     from aragora.agents.personas import PersonaManager
     from aragora.debate.embeddings import DebateEmbeddingsDatabase
-    from aragora.visualization.mapper import ArgumentCartographer
+    from aragora.insights.flip_detector import FlipDetector
+    from aragora.insights.store import InsightStore
+    from aragora.ranking.elo import EloSystem
     from aragora.server.stream.emitter import AudienceInbox, SyncEventEmitter
+    from aragora.visualization.mapper import ArgumentCartographer
 
 logger = logging.getLogger(__name__)
 
@@ -280,8 +280,9 @@ class StreamAPIHandlersMixin:
 
     async def _handle_tournament_details(self, request) -> "aiohttp.web.Response":
         """GET /api/tournaments/{tournament_id} - Tournament details with standings."""
-        import aiohttp.web as web
         import re
+
+        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -365,8 +366,9 @@ class StreamAPIHandlersMixin:
 
     async def _handle_agent_consistency(self, request) -> "aiohttp.web.Response":
         """GET /api/agent/{name}/consistency - Agent consistency score from FlipDetector."""
-        import aiohttp.web as web
         import re
+
+        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -381,8 +383,8 @@ class StreamAPIHandlersMixin:
             )
 
         try:
-            from aragora.insights.flip_detector import FlipDetector
             from aragora.config import DB_PERSONAS_PATH
+            from aragora.insights.flip_detector import FlipDetector
 
             db_path = self.nomic_dir / DB_PERSONAS_PATH if self.nomic_dir else DB_PERSONAS_PATH
             detector = FlipDetector(db_path=str(db_path))
@@ -431,8 +433,9 @@ class StreamAPIHandlersMixin:
 
     async def _handle_agent_network(self, request) -> "aiohttp.web.Response":
         """GET /api/agent/{name}/network - Agent relationship network (rivals, allies)."""
-        import aiohttp.web as web
         import re
+
+        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -626,8 +629,9 @@ class StreamAPIHandlersMixin:
 
     async def _handle_health(self, request) -> "aiohttp.web.Response":
         """GET /api/health - Health check endpoint."""
-        import aiohttp.web as web
         from datetime import datetime
+
+        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -643,7 +647,7 @@ class StreamAPIHandlersMixin:
         import aiohttp.web as web
 
         try:
-            from aragora.server.prometheus import get_prometheus_metrics, CONTENT_TYPE_LATEST
+            from aragora.server.prometheus import CONTENT_TYPE_LATEST, get_prometheus_metrics
 
             metrics_text = get_prometheus_metrics()
             return web.Response(
@@ -682,8 +686,9 @@ class StreamAPIHandlersMixin:
 
     async def _handle_graph_json(self, request) -> "aiohttp.web.Response":
         """GET /api/debate/{loop_id}/graph - Debate argument graph as JSON."""
-        import aiohttp.web as web
         import re
+
+        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -719,8 +724,9 @@ class StreamAPIHandlersMixin:
 
     async def _handle_graph_mermaid(self, request) -> "aiohttp.web.Response":
         """GET /api/debate/{loop_id}/graph/mermaid - Debate argument graph as Mermaid diagram."""
-        import aiohttp.web as web
         import re
+
+        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -761,8 +767,9 @@ class StreamAPIHandlersMixin:
 
     async def _handle_graph_stats(self, request) -> "aiohttp.web.Response":
         """GET /api/debate/{loop_id}/graph/stats - Debate argument graph statistics."""
-        import aiohttp.web as web
         import re
+
+        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -801,8 +808,9 @@ class StreamAPIHandlersMixin:
 
     async def _handle_audience_clusters(self, request) -> "aiohttp.web.Response":
         """GET /api/debate/{loop_id}/audience/clusters - Clustered audience suggestions."""
-        import aiohttp.web as web
         import re
+
+        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -926,8 +934,9 @@ class StreamAPIHandlersMixin:
 
     async def _handle_replay_html(self, request) -> "aiohttp.web.Response":
         """GET /api/replays/{replay_id}/html - Get HTML replay visualization."""
-        import aiohttp.web as web
         import re
+
+        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -978,9 +987,10 @@ class StreamAPIHandlersMixin:
                 )
 
             # Load events and generate HTML
-            from aragora.visualization.replay import ReplayGenerator, ReplayArtifact, ReplayScene
-            from aragora.core import Message
             from datetime import datetime
+
+            from aragora.core import Message
+            from aragora.visualization.replay import ReplayArtifact, ReplayGenerator, ReplayScene
 
             events = []
             with events_file.open() as f:

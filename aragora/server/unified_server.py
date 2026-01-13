@@ -12,60 +12,65 @@ import json
 import re
 import sqlite3
 from collections import deque
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
-from typing import TYPE_CHECKING, Optional, Dict
+from typing import TYPE_CHECKING, Dict, Optional
 
 if TYPE_CHECKING:
-    from aragora.persistence.supabase import SupabaseClient
-    from aragora.insights.store import InsightStore
-    from aragora.ranking.elo import EloSystem
-    from aragora.insights.flip_detector import FlipDetector
+    from aragora.agents.grounded import (
+        MomentDetector,  # type: ignore[attr-defined]
+        PositionLedger,  # type: ignore[attr-defined]
+    )
     from aragora.agents.personas import PersonaManager
-    from aragora.debate.embeddings import DebateEmbeddingsDatabase
     from aragora.agents.truth_grounding import PositionTracker  # type: ignore[attr-defined]
-    from aragora.agents.grounded import PositionLedger  # type: ignore[attr-defined]
-    from aragora.memory.consensus import ConsensusMemory, DissentRetriever  # type: ignore[attr-defined]
-    from aragora.agents.grounded import MomentDetector  # type: ignore[attr-defined]
-    from aragora.storage import UserStore
     from aragora.billing.usage import UsageTracker
-    from aragora.server.middleware.rate_limit import RateLimitResult
-    from aragora.server.documents import DocumentStore
     from aragora.broadcast.storage import AudioFileStore
+    from aragora.broadcast.video_gen import VideoGenerator
     from aragora.connectors.twitter_poster import TwitterPosterConnector
     from aragora.connectors.youtube_uploader import YouTubeUploaderConnector
-    from aragora.broadcast.video_gen import VideoGenerator
-from urllib.parse import urlparse, parse_qs
-
-from .stream import (
-    DebateStreamServer,
-    SyncEventEmitter,
-)
-from .storage import DebateStorage
-from .prometheus import record_http_request
-from .auth import auth_config, check_auth
-from .cors_config import cors_config
-from .middleware.tracing import TracingMiddleware, get_trace_id, TRACE_ID_HEADER
+    from aragora.debate.embeddings import DebateEmbeddingsDatabase
+    from aragora.insights.flip_detector import FlipDetector
+    from aragora.insights.store import InsightStore
+    from aragora.memory.consensus import (  # type: ignore[attr-defined]
+        ConsensusMemory,
+        DissentRetriever,
+    )
+    from aragora.persistence.supabase import SupabaseClient
+    from aragora.ranking.elo import EloSystem
+    from aragora.server.documents import DocumentStore
+    from aragora.server.middleware.rate_limit import RateLimitResult
+    from aragora.storage import UserStore
+import logging
 
 # For ad-hoc debates
 import threading
 import time
 import uuid
-import logging
+from urllib.parse import parse_qs, urlparse
+
+from .auth import auth_config, check_auth
+from .cors_config import cors_config
+from .middleware.tracing import TRACE_ID_HEADER, TracingMiddleware, get_trace_id
+from .prometheus import record_http_request
+from .storage import DebateStorage
+from .stream import (
+    DebateStreamServer,
+    SyncEventEmitter,
+)
 
 # Configure module logger
 logger = logging.getLogger(__name__)
 
 # Import centralized config and error utilities
 from aragora.config import ALLOWED_AGENT_TYPES
-from aragora.server.validation import safe_query_int, safe_query_float
+from aragora.server.debate_controller import DebateController
+from aragora.server.debate_factory import DebateFactory
+from aragora.server.debate_utils import get_active_debates
 
 # Import utilities from extracted modules
 from aragora.server.http_utils import validate_query_params as _validate_query_params
-from aragora.server.debate_utils import get_active_debates
-from aragora.server.debate_controller import DebateController
-from aragora.server.debate_factory import DebateFactory
+from aragora.server.validation import safe_query_float, safe_query_int
 
 # DoS protection limits
 MAX_MULTIPART_PARTS = 10
@@ -86,24 +91,23 @@ TRUSTED_PROXIES = frozenset(
 
 
 # Import from initialization module (subsystem init functions)
-from aragora.server.initialization import (
-    ROUTING_AVAILABLE,
-    AgentSelector,
-    AgentProfile,
-    TaskRequirements,
-    init_persistence,
-    init_insight_store,
-    init_elo_system,
-    init_flip_detector,
-    init_persona_manager,
-    init_position_ledger,
-    init_debate_embeddings,
-    init_consensus_memory,
-    init_moment_detector,
-)
-
 # Modular HTTP handlers via registry mixin
 from aragora.server.handler_registry import HandlerRegistryMixin
+from aragora.server.initialization import (
+    ROUTING_AVAILABLE,
+    AgentProfile,
+    AgentSelector,
+    TaskRequirements,
+    init_consensus_memory,
+    init_debate_embeddings,
+    init_elo_system,
+    init_flip_detector,
+    init_insight_store,
+    init_moment_detector,
+    init_persistence,
+    init_persona_manager,
+    init_position_ledger,
+)
 
 # Server startup time for uptime tracking
 _server_start_time: float = time.time()
@@ -1120,8 +1124,8 @@ class UnifiedServer:
 
         # Initialize OpenTelemetry tracing (if OTEL_ENABLED=true)
         try:
-            from aragora.observability.tracing import get_tracer
             from aragora.observability.config import is_tracing_enabled
+            from aragora.observability.tracing import get_tracer
 
             if is_tracing_enabled():
                 tracer = get_tracer()
@@ -1135,8 +1139,8 @@ class UnifiedServer:
 
         # Initialize Prometheus metrics (if METRICS_ENABLED=true)
         try:
-            from aragora.observability.metrics import start_metrics_server
             from aragora.observability.config import is_metrics_enabled
+            from aragora.observability.metrics import start_metrics_server
 
             if is_metrics_enabled():
                 # Note: start_metrics_server starts a separate HTTP server on METRICS_PORT (default 9090)
@@ -1185,8 +1189,8 @@ class UnifiedServer:
         try:
             from aragora.config.legacy import (
                 PULSE_SCHEDULER_AUTOSTART,
-                PULSE_SCHEDULER_POLL_INTERVAL,
                 PULSE_SCHEDULER_MAX_PER_HOUR,
+                PULSE_SCHEDULER_POLL_INTERVAL,
             )
 
             if PULSE_SCHEDULER_AUTOSTART:
@@ -1205,7 +1209,7 @@ class UnifiedServer:
                     # Set up debate creator callback
                     async def auto_create_debate(topic_text: str, rounds: int, threshold: float):
                         try:
-                            from aragora import Arena, Environment, DebateProtocol
+                            from aragora import Arena, DebateProtocol, Environment
                             from aragora.agents import get_agents_by_names
 
                             env = Environment(task=topic_text)
@@ -1471,7 +1475,7 @@ async def run_unified_server(
         )
     """
     # Check environment variables for SSL config
-    from aragora.config import SSL_ENABLED, SSL_CERT_PATH, SSL_KEY_PATH
+    from aragora.config import SSL_CERT_PATH, SSL_ENABLED, SSL_KEY_PATH
 
     if ssl_cert is None and SSL_ENABLED:
         ssl_cert = SSL_CERT_PATH

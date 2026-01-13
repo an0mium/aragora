@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, List, Optional, Set
 
 from . import ImplementResult
-from .scope_limiter import ScopeLimiter, ScopeEvaluation
+from .scope_limiter import ScopeLimiter
 
 # Default protected files
 DEFAULT_PROTECTED_FILES = [

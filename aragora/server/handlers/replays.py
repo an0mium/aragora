@@ -16,24 +16,24 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Optional
 
+from aragora.config import (
+    CACHE_TTL_LEARNING_EVOLUTION,
+    CACHE_TTL_META_LEARNING,
+    CACHE_TTL_REPLAYS_LIST,
+)
+from aragora.memory.database import MemoryDatabase
+
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     get_int_param,
-    ttl_cache,
-    safe_json_parse,
     handle_errors,
+    json_response,
+    safe_json_parse,
+    ttl_cache,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
-from aragora.config import (
-    DB_TIMEOUT_SECONDS,
-    CACHE_TTL_REPLAYS_LIST,
-    CACHE_TTL_LEARNING_EVOLUTION,
-    CACHE_TTL_META_LEARNING,
-)
-from aragora.memory.database import MemoryDatabase
 
 logger = logging.getLogger(__name__)
 

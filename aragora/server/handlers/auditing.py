@@ -15,23 +15,23 @@ import logging
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 
 from aragora.server.http_utils import run_async
 from aragora.server.middleware.rate_limit import rate_limit
-from .base import (
-    BaseHandler,
-    HandlerResult,
-    json_response,
-    error_response,
-    safe_error_response,
-    invalidate_leaderboard_cache,
-    SAFE_SLUG_PATTERN,
-    safe_error_message,
-    require_permission,
-)
 from aragora.server.validation import validate_agent_name, validate_id
 from aragora.utils.optional_imports import try_import_class
+
+from .base import (
+    SAFE_SLUG_PATTERN,
+    BaseHandler,
+    HandlerResult,
+    error_response,
+    invalidate_leaderboard_cache,
+    json_response,
+    require_permission,
+    safe_error_message,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +40,8 @@ CapabilityProber, PROBER_AVAILABLE = try_import_class("aragora.modes.prober", "C
 RedTeamMode, REDTEAM_AVAILABLE = try_import_class("aragora.modes.redteam", "RedTeamMode")
 create_agent, DEBATE_AVAILABLE = try_import_class("aragora.debate", "create_agent")
 
-from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.debate.sanitization import OutputSanitizer
-
+from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 # =============================================================================
 # Audit Request Utilities
@@ -448,7 +447,7 @@ class AuditingHandler(BaseHandler):
                 parsed["probes_per_type"],
             )
 
-            from aragora.modes.prober import ProbeType, CapabilityProber
+            from aragora.modes.prober import CapabilityProber, ProbeType
 
             # Convert string probe types to enum
             probe_types = []
@@ -591,11 +590,11 @@ class AuditingHandler(BaseHandler):
         """
         try:
             from aragora.modes.deep_audit import (
-                DeepAuditOrchestrator,
-                DeepAuditConfig,
-                STRATEGY_AUDIT,
-                CONTRACT_AUDIT,
                 CODE_ARCHITECTURE_AUDIT,
+                CONTRACT_AUDIT,
+                STRATEGY_AUDIT,
+                DeepAuditConfig,
+                DeepAuditOrchestrator,
             )
         except ImportError:
             logger.warning("Deep audit requested but module not available")
@@ -869,7 +868,6 @@ class AuditingHandler(BaseHandler):
 
             logger.info("Starting red team analysis: debate_id=%s", debate_id)
 
-            from aragora.modes.redteam import AttackType
 
             attack_type_names = data.get(
                 "attack_types",

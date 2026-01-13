@@ -10,24 +10,24 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Coroutine, Optional, TypeVar
 
 T = TypeVar("T")
 
+from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.server.http_utils import run_async
+from aragora.server.middleware.rate_limit import rate_limit
+
 from .base import (
+    SAFE_SLUG_PATTERN,
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     get_bool_param,
-    get_string_param,
     get_int_param,
-    SAFE_SLUG_PATTERN,
+    get_string_param,
+    json_response,
 )
-from aragora.server.error_utils import safe_error_message as _safe_error_message
-from aragora.server.middleware.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ except ImportError:
     broadcast_debate = None
 
 try:
-    from aragora.broadcast.pipeline import BroadcastPipeline, BroadcastOptions
+    from aragora.broadcast.pipeline import BroadcastOptions, BroadcastPipeline
 
     PIPELINE_AVAILABLE = True
 except ImportError:
@@ -178,7 +178,7 @@ class BroadcastHandler(BaseHandler):
         if not feed_xml:
             # Return empty feed if no episodes yet
             try:
-                from aragora.broadcast.rss_gen import PodcastFeedGenerator, PodcastConfig
+                from aragora.broadcast.rss_gen import PodcastConfig, PodcastFeedGenerator
 
                 config = PodcastConfig()
                 generator = PodcastFeedGenerator(config)

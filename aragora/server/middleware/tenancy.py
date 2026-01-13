@@ -18,14 +18,13 @@ Usage:
 """
 
 import logging
-from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from .auth_v2 import User, Workspace, get_current_user
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.base import HandlerResult
+    pass
 
 logger = logging.getLogger(__name__)
 

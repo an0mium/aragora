@@ -11,7 +11,7 @@ Handles:
 import logging
 import mimetypes
 from pathlib import Path
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler

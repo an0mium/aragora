@@ -15,8 +15,8 @@ Key features:
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Optional
 from enum import Enum
+from typing import Callable, Optional
 
 
 class CostTier(Enum):

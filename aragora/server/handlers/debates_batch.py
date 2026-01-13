@@ -10,18 +10,17 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Optional
 
+from aragora.exceptions import DebateStartError
 from aragora.server.handlers.base import (
-    error_response,
-    json_response,
     HandlerResult,
+    error_response,
     handle_errors,
+    json_response,
     safe_error_message,
 )
-from aragora.server.middleware.tier_enforcement import check_org_quota, increment_org_usage
 from aragora.server.handlers.utils.rate_limit import rate_limit
-from aragora.server.validation.entities import validate_path_segment, SAFE_ID_PATTERN
-from aragora.server.validation.schema import validate_against_schema, BATCH_SUBMIT_SCHEMA
-from aragora.exceptions import DebateStartError
+from aragora.server.validation.entities import SAFE_ID_PATTERN, validate_path_segment
+from aragora.server.validation.schema import BATCH_SUBMIT_SCHEMA, validate_against_schema
 
 if TYPE_CHECKING:
     from aragora.server.handlers.debates import DebatesHandler
@@ -65,8 +64,8 @@ class BatchOperationsMixin:
         """
         from aragora.config import MAX_CONCURRENT_DEBATES
         from aragora.server.debate_queue import (
-            BatchRequest,
             BatchItem,
+            BatchRequest,
             sanitize_webhook_headers,
             validate_webhook_url,
         )
@@ -239,7 +238,7 @@ class BatchOperationsMixin:
 
         async def execute_debate(item: BatchItem):
             """Execute a single debate from batch."""
-            from aragora.server.debate_controller import DebateRequest, DebateController
+            from aragora.server.debate_controller import DebateController, DebateRequest
             from aragora.server.debate_factory import DebateFactory
             from aragora.server.stream import SyncEventEmitter
 
@@ -306,7 +305,7 @@ class BatchOperationsMixin:
             limit: Maximum batches to return (default 50, max 100)
             status: Filter by status (pending, processing, completed, etc.)
         """
-        from aragora.server.debate_queue import get_debate_queue_sync, BatchStatus
+        from aragora.server.debate_queue import BatchStatus, get_debate_queue_sync
 
         queue = get_debate_queue_sync()
         if not queue:

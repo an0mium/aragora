@@ -9,13 +9,13 @@ and intelligent recovery decisions.
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
+from .events import Event
 from .states import NomicState, StateContext, get_state_config
-from .events import Event, EventType, error_event
 
 logger = logging.getLogger(__name__)
 

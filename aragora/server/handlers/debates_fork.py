@@ -12,10 +12,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
 from aragora.server.handlers.base import (
-    error_response,
-    json_response,
     HandlerResult,
+    error_response,
     handle_errors,
+    json_response,
     require_storage,
     safe_error_message,
 )
@@ -95,9 +95,9 @@ class ForkOperationsMixin:
             # Import counterfactual module
             try:
                 from aragora.debate.counterfactual import (
+                    CounterfactualBranch,
                     CounterfactualOrchestrator,
                     PivotClaim,
-                    CounterfactualBranch,
                 )
             except ImportError as e:
                 import_error_msg = str(e)
@@ -279,7 +279,7 @@ class ForkOperationsMixin:
 
             # If no stored cruxes, analyze the debate
             if not cruxes:
-                from aragora.core import Vote, Message
+                from aragora.core import Message, Vote
 
                 votes_data = debate.get("votes", [])
                 messages_data = debate.get("messages", [])
@@ -433,7 +433,6 @@ class ForkOperationsMixin:
 
             # Create unique ID for follow-up debate
             import time
-            import hashlib
 
             followup_id = f"followup-{debate_id[:8]}-{int(time.time()) % 100000}"
 
@@ -495,7 +494,6 @@ class ForkOperationsMixin:
             total: Total fork count
         """
         import json as json_mod
-        import time as time_mod
 
         nomic_dir = self.get_nomic_dir()
         if not nomic_dir:

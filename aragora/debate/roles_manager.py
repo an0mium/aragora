@@ -14,13 +14,12 @@ if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
     from aragora.agents.personas import PersonaManager
     from aragora.core import Agent
-    from aragora.debate.protocol import DebateProtocol
     from aragora.debate.prompt_builder import PromptBuilder
-    from aragora.debate.role_matcher import RoleMatcher, RoleMatchingConfig
+    from aragora.debate.protocol import DebateProtocol
+    from aragora.debate.role_matcher import RoleMatcher
     from aragora.debate.roles import (
-        RoleRotator,
-        RoleRotationConfig,
         RoleAssignment,
+        RoleRotator,
     )
 
 logger = logging.getLogger(__name__)
@@ -73,8 +72,8 @@ class RolesManager:
 
     def _init_role_systems(self) -> None:
         """Initialize role rotation or matching systems based on protocol."""
-        from aragora.debate.roles import RoleRotator, RoleRotationConfig
         from aragora.debate.role_matcher import RoleMatcher, RoleMatchingConfig
+        from aragora.debate.roles import RoleRotationConfig, RoleRotator
 
         # Role matching takes priority over simple rotation
         if self.protocol.role_matching:

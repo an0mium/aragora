@@ -10,7 +10,7 @@ import asyncio
 import json
 import logging
 import sys
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Sequence, cast
+from typing import Any, Callable, Coroutine, Dict, List, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +19,10 @@ try:
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
     from mcp.types import (
-        Tool,
-        TextContent,
         Resource,
         ResourceTemplate,
+        TextContent,
+        Tool,
     )
 
     MCP_AVAILABLE = True
@@ -233,11 +233,12 @@ class AragoraMCPServer:
 
     async def _run_debate(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Run a debate and return results."""
-        from aragora.agents.base import create_agent
-        from aragora.debate.orchestrator import Arena, DebateProtocol
-        from aragora.core import Environment
         import time
         import uuid
+
+        from aragora.agents.base import create_agent
+        from aragora.core import Environment
+        from aragora.debate.orchestrator import Arena, DebateProtocol
 
         question = args.get("question", "")
         agents_str = args.get("agents", "anthropic-api,openai-api")
@@ -303,15 +304,13 @@ class AragoraMCPServer:
     async def _run_gauntlet(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Run gauntlet stress-test."""
         from aragora.gauntlet import (
-            GauntletRunner,
-            GauntletConfig,
-            AttackCategory,
-            QUICK_GAUNTLET,
-            THOROUGH_GAUNTLET,
             CODE_REVIEW_GAUNTLET,
-            SECURITY_GAUNTLET,
             GDPR_GAUNTLET,
             HIPAA_GAUNTLET,
+            QUICK_GAUNTLET,
+            SECURITY_GAUNTLET,
+            THOROUGH_GAUNTLET,
+            GauntletRunner,
         )
 
         content = args.get("content", "")
@@ -407,7 +406,6 @@ class AragoraMCPServer:
 
     async def _search_debates(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Search debates by topic, date, or agents."""
-        from datetime import datetime
 
         query = args.get("query", "")
         agent_filter = args.get("agent", "")

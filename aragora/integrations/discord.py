@@ -4,13 +4,12 @@ Posts debate summaries and consensus alerts using Discord webhooks.
 Uses Discord's rich embed format for message formatting.
 """
 
-import logging
-import json
-from dataclasses import dataclass, field
-from typing import Any, Optional
-from datetime import datetime, timezone
 import asyncio
-import hashlib
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Optional
+
 import aiohttp
 
 logger = logging.getLogger(__name__)

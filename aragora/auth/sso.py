@@ -24,7 +24,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -378,7 +378,7 @@ def get_sso_provider() -> Optional[SSOProvider]:
 
         # Create provider based on type
         if sso_settings.provider_type == "saml":
-            from .saml import SAMLProvider, SAMLConfig
+            from .saml import SAMLConfig, SAMLProvider
 
             saml_config = SAMLConfig(
                 provider_type=SSOProviderType.SAML,
@@ -397,7 +397,7 @@ def get_sso_provider() -> Optional[SSOProvider]:
             _sso_provider = SAMLProvider(saml_config)
 
         elif sso_settings.provider_type in ("oidc", "azure_ad", "okta", "google"):
-            from .oidc import OIDCProvider, OIDCConfig
+            from .oidc import OIDCConfig, OIDCProvider
 
             oidc_config = OIDCConfig(
                 provider_type=SSOProviderType(sso_settings.provider_type),

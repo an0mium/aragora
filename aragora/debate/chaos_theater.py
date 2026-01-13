@@ -10,7 +10,6 @@ Inspired by nomic loop debate synthesis on resilience and viral growth.
 from __future__ import annotations
 
 import random
-import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional

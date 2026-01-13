@@ -7,7 +7,6 @@ Used by both agents and server components.
 
 import re
 
-
 # Patterns for redacting sensitive data in error messages
 SENSITIVE_PATTERNS = [
     # API keys

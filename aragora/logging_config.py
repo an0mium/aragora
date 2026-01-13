@@ -26,12 +26,11 @@ import os
 import sys
 import threading
 import time
-import traceback
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Optional
 
 # Context variables for automatic field injection
 _log_context: ContextVar[Dict[str, Any]] = ContextVar("log_context", default={})
@@ -349,7 +348,7 @@ def inject_trace_context() -> None:
     Call this to sync trace IDs from spans into structured logs.
     """
     try:
-        from aragora.debate.tracing import get_tracer, get_debate_id
+        from aragora.debate.tracing import get_debate_id, get_tracer
 
         tracer = get_tracer()
         span = tracer.get_current_span()

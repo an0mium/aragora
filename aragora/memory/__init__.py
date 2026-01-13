@@ -10,34 +10,34 @@ Provides:
 - TierManager: Configurable memory tier management
 """
 
-from aragora.memory.store import CritiqueStore, Pattern
-from aragora.memory.embeddings import (
-    SemanticRetriever,
-    OpenAIEmbedding,
-    GeminiEmbedding,
-    OllamaEmbedding,
-)
 from aragora.memory.consensus import (
     ConsensusMemory,
     ConsensusRecord,
     ConsensusStrength,
     DissentRecord,
-    DissentType,
     DissentRetriever,
+    DissentType,
     SimilarDebate,
 )
-from aragora.memory.tier_manager import (
-    TierManager,
-    TierConfig,
-    TierTransitionMetrics,
-    MemoryTier,
-    get_tier_manager,
+from aragora.memory.embeddings import (
+    GeminiEmbedding,
+    OllamaEmbedding,
+    OpenAIEmbedding,
+    SemanticRetriever,
 )
+from aragora.memory.store import CritiqueStore, Pattern
 from aragora.memory.tier_analytics import (
+    MemoryAnalytics,
+    MemoryUsageEvent,
     TierAnalyticsTracker,
     TierStats,
-    MemoryUsageEvent,
-    MemoryAnalytics,
+)
+from aragora.memory.tier_manager import (
+    MemoryTier,
+    TierConfig,
+    TierManager,
+    TierTransitionMetrics,
+    get_tier_manager,
 )
 
 __all__ = [

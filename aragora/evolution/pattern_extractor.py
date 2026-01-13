@@ -10,8 +10,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Optional, TypedDict
-from collections import defaultdict
+from typing import Optional, TypedDict
 
 
 class StrategyTemplate(TypedDict):

@@ -10,6 +10,7 @@ Supports different visualization modes:
 
 from pathlib import Path
 from typing import Optional
+
 from aragora.export.artifact import DebateArtifact
 
 
@@ -55,7 +56,7 @@ class DOTExporter:
             safe_name = agent.replace("-", "_").replace(".", "_")
             lines.append(f"    subgraph cluster_{safe_name} {{")
             lines.append(f'        label="{agent}";')
-            lines.append(f"        style=filled;")
+            lines.append("        style=filled;")
             lines.append(f'        color="{color}";')
             lines.append("    }")
 

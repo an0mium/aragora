@@ -10,18 +10,17 @@ from __future__ import annotations
 import logging
 import os
 import threading
-import time
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from .base import (
     DEFAULT_RATE_LIMIT,
     IP_RATE_LIMIT,
     _normalize_ip,
-    sanitize_rate_limit_key_component,
     normalize_rate_limit_path,
+    sanitize_rate_limit_key_component,
 )
 from .bucket import RedisTokenBucket
-from .limiter import RateLimitConfig, RateLimitResult, RateLimiter
+from .limiter import RateLimitConfig, RateLimiter, RateLimitResult
 
 if TYPE_CHECKING:
     import redis

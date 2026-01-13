@@ -12,16 +12,15 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from .base import (
     DEFAULT_RATE_LIMIT,
     IP_RATE_LIMIT,
-    BURST_MULTIPLIER,
-    _normalize_ip,
     _extract_client_ip,
-    sanitize_rate_limit_key_component,
+    _normalize_ip,
     normalize_rate_limit_path,
+    sanitize_rate_limit_key_component,
 )
 from .bucket import TokenBucket
 

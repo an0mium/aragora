@@ -49,11 +49,11 @@ def _ensure_telemetry_collectors() -> None:
 
 
 if TYPE_CHECKING:
-    from aragora.core import Agent, Critique, Message, Vote
-    from aragora.insights.store import InsightStore
-    from aragora.debate.immune_system import TransparentImmuneSystem
-    from aragora.debate.chaos_theater import ChaosDirector
     from aragora.agents.performance_monitor import AgentPerformanceMonitor
+    from aragora.core import Agent, Critique, Message, Vote
+    from aragora.debate.chaos_theater import ChaosDirector
+    from aragora.debate.immune_system import TransparentImmuneSystem
+    from aragora.insights.store import InsightStore
 
 logger = logging.getLogger(__name__)
 

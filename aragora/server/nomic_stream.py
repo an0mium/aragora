@@ -9,7 +9,7 @@ Refactored to use category-based organization for improved maintainability.
 
 from typing import Callable, Optional
 
-from .stream import StreamEventType, StreamEvent, SyncEventEmitter
+from .stream import StreamEvent, StreamEventType, SyncEventEmitter
 
 
 def _emit(emitter: SyncEventEmitter, event_type: StreamEventType, data: dict, **kwargs) -> None:

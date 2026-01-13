@@ -7,10 +7,10 @@ Provides structured competitions with multiple formats and ELO tracking.
 from aragora.tournaments.tournament import (
     Tournament,
     TournamentFormat,
-    TournamentTask,
     TournamentMatch,
-    TournamentStanding,
     TournamentResult,
+    TournamentStanding,
+    TournamentTask,
     create_default_tasks,
 )
 

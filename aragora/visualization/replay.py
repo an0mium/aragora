@@ -4,12 +4,13 @@ Replay Theater: Interactive HTML visualizations for aragora debates.
 Generates self-contained HTML files with timelines and verdict cards.
 """
 
+import html as html_module
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Dict, Any, Optional
 from pathlib import Path
-import json
-import html as html_module
+from typing import Any, Dict, List, Optional
+
 from aragora.core import DebateResult, Message, Vote
 
 # Optional imports for trace support

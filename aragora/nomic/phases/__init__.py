@@ -13,8 +13,8 @@ Note: Phase implementations are currently in the main NomicLoop class.
 This package provides type definitions and helpers for future extraction.
 """
 
-from typing import TypedDict, Optional, List, Any, Dict, Tuple
 import logging
+from typing import Any, Dict, List, Optional, Tuple, TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -269,13 +269,13 @@ def validate_agents_list(agents: List[Any], min_agents: int = 1) -> Tuple[bool, 
 
 
 # Phase implementations
-from .verify import VerifyPhase
 from .commit import CommitPhase
 from .context import ContextPhase, set_metrics_recorder
+from .debate import DebateConfig, DebatePhase, LearningContext, PostDebateHooks
+from .design import BeliefContext, DesignConfig, DesignPhase
 from .implement import ImplementPhase
-from .debate import DebatePhase, DebateConfig, LearningContext, PostDebateHooks
-from .design import DesignPhase, DesignConfig, BeliefContext
-from .scope_limiter import ScopeLimiter, ScopeEvaluation, check_design_scope
+from .scope_limiter import ScopeEvaluation, ScopeLimiter, check_design_scope
+from .verify import VerifyPhase
 
 __all__ = [
     # Result types

@@ -1,5 +1,4 @@
 import logging
-import os
 import queue
 import threading
 import time
@@ -9,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from aragora.config import MAX_REPLAY_QUEUE_SIZE
+
 from .schema import ReplayEvent, ReplayMeta
 
 logger = logging.getLogger(__name__)

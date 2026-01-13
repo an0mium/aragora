@@ -19,13 +19,12 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, Sequence, cast
+from typing import Any, Optional, cast
 
 from aragora.agents.base import AgentType, create_agent
-from aragora.core import Agent, Environment, DebateResult, Critique
-from aragora.debate.orchestrator import Arena, DebateProtocol
+from aragora.core import Agent, DebateResult, Environment
 from aragora.debate.disagreement import DisagreementReporter
-
+from aragora.debate.orchestrator import Arena, DebateProtocol
 
 # Default agents for code review (fast, diverse perspectives)
 DEFAULT_REVIEW_AGENTS = "anthropic-api,openai-api"

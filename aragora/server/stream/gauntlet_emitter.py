@@ -28,12 +28,12 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional
 
-from .events import StreamEventType, StreamEvent
+from .events import StreamEvent, StreamEventType
 
 if TYPE_CHECKING:
-    from aragora.gauntlet import GauntletConfig, GauntletResult, Finding
+    pass
 
 logger = logging.getLogger(__name__)
 

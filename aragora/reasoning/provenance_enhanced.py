@@ -11,26 +11,20 @@ Extends the base provenance system with:
 This ensures debate conclusions remain valid as underlying evidence changes.
 """
 
-import asyncio
 import hashlib
-import subprocess
 import os
 import re
-import urllib.parse
+import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Callable, Optional
 from enum import Enum
+from pathlib import Path
+from typing import Any, Optional
 
 from aragora.reasoning.provenance import (
-    ProvenanceRecord,
-    ProvenanceChain,
     ProvenanceManager,
+    ProvenanceRecord,
     SourceType,
-    TransformationType,
-    Citation,
-    CitationGraph,
 )
 
 

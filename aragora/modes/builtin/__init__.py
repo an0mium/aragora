@@ -11,9 +11,9 @@ These modes provide standard operational patterns:
 
 from aragora.modes.builtin.architect import ArchitectMode
 from aragora.modes.builtin.coder import CoderMode
-from aragora.modes.builtin.reviewer import ReviewerMode
 from aragora.modes.builtin.debugger import DebuggerMode
 from aragora.modes.builtin.orchestrator import OrchestratorMode
+from aragora.modes.builtin.reviewer import ReviewerMode
 
 __all__ = [
     "ArchitectMode",

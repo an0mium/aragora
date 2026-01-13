@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 if TYPE_CHECKING:
-    from aragora.core import Agent, Vote
+    from aragora.core import Vote
     from aragora.debate.convergence import SimilarityBackend
     from aragora.debate.protocol import DebateProtocol
 

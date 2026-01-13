@@ -10,11 +10,9 @@ The ArXiv API is free and requires no authentication.
 """
 
 import asyncio
-import hashlib
 import logging
 import re
 import xml.etree.ElementTree as ET
-from datetime import datetime
 from typing import Optional
 from urllib.parse import quote_plus
 

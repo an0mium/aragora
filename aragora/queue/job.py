@@ -6,11 +6,11 @@ Provides specific job types for debate processing.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-import uuid
 
-from aragora.queue.base import Job, JobStatus
+from aragora.queue.base import Job
 
 
 @dataclass

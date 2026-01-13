@@ -21,7 +21,6 @@ from enum import Enum
 from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
-import json
 import uuid
 
 
@@ -799,7 +798,6 @@ class GraphDebateOrchestrator:
         5. Detect convergence and merge branches
         6. Produce a final synthesis
         """
-        import asyncio
 
         # Create event-emitting wrapper callbacks
         def emit_node(node: DebateNode) -> None:

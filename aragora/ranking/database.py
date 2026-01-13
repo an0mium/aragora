@@ -12,7 +12,6 @@ from aragora.config import resolve_db_path
 from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager, safe_add_column
 
-
 ELO_SCHEMA_VERSION = 2
 
 ELO_INITIAL_SCHEMA = """

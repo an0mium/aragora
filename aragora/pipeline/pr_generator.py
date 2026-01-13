@@ -13,8 +13,7 @@ Usage:
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
-import json
+from typing import Any
 
 from aragora.export.artifact import DebateArtifact
 

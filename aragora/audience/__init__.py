@@ -7,9 +7,9 @@ for injection into agent prompts.
 
 from .suggestions import (
     SuggestionCluster,
-    sanitize_suggestion,
     cluster_suggestions,
     format_for_prompt,
+    sanitize_suggestion,
 )
 
 __all__ = [

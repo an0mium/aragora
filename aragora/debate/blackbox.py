@@ -15,13 +15,13 @@ from __future__ import annotations
 import json
 import logging
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from aragora.core import Message
+    pass
 
 logger = logging.getLogger(__name__)
 

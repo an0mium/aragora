@@ -12,7 +12,6 @@ The Wikipedia API is free and requires no authentication.
 import asyncio
 import hashlib
 import logging
-from datetime import datetime
 from typing import Optional
 from urllib.parse import quote_plus
 

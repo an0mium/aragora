@@ -15,23 +15,20 @@ All webhook payloads include HMAC-SHA256 signatures for verification.
 
 import hashlib
 import hmac
-import json
 import logging
-import os
 import secrets
 import time
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
 from aragora.server.handlers.base import (
+    SAFE_ID_PATTERN,
     BaseHandler,
     error_response,
     json_response,
-    SAFE_ID_PATTERN,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
-from aragora.server.stream.events import StreamEventType
 
 logger = logging.getLogger(__name__)
 

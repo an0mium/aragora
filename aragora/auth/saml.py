@@ -29,20 +29,20 @@ import base64
 import logging
 import os
 import time
+import xml.etree.ElementTree as ET
 import zlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlencode, quote
-import xml.etree.ElementTree as ET
+from urllib.parse import quote, urlencode
 
 from .sso import (
+    SSOAuthenticationError,
+    SSOConfig,
+    SSOConfigurationError,
+    SSOError,
     SSOProvider,
     SSOProviderType,
-    SSOConfig,
     SSOUser,
-    SSOError,
-    SSOAuthenticationError,
-    SSOConfigurationError,
 )
 
 logger = logging.getLogger(__name__)

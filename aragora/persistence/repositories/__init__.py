@@ -24,10 +24,10 @@ Benefits:
 - Type-safe: Entity classes with validation
 """
 
-from .base import BaseRepository, RepositoryError, EntityNotFoundError
-from .debate import DebateRepository, DebateEntity, DebateMetadata
-from .elo import EloRepository, RatingEntity, MatchEntity, LeaderboardEntry
-from .memory import MemoryRepository, MemoryEntity, RetrievedMemory, ReflectionSchedule
+from .base import BaseRepository, EntityNotFoundError, RepositoryError
+from .debate import DebateEntity, DebateMetadata, DebateRepository
+from .elo import EloRepository, LeaderboardEntry, MatchEntity, RatingEntity
+from .memory import MemoryEntity, MemoryRepository, ReflectionSchedule, RetrievedMemory
 
 __all__ = [
     # Base

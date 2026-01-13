@@ -18,12 +18,11 @@ from __future__ import annotations
 
 import logging
 import re
-import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
 from aragora.billing.models import OrganizationInvitation
-from aragora.server.validation.schema import validate_against_schema, ORG_INVITE_SCHEMA
+from aragora.server.validation.schema import ORG_INVITE_SCHEMA, validate_against_schema
 
 from .base import (
     BaseHandler,
@@ -480,7 +479,7 @@ class OrganizationsHandler(BaseHandler):
 
         return json_response(
             {
-                "message": f"User removed from organization",
+                "message": "User removed from organization",
                 "user_id": target_user_id,
             }
         )

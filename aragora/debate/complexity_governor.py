@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional, Callable
+from typing import Callable, Optional
 
 from aragora.config import AGENT_TIMEOUT_SECONDS
 from aragora.core import TaskComplexity

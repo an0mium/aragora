@@ -50,80 +50,80 @@ Gauntlet Usage:
 """
 
 from .client import (
-    AragoraClient,
-    AragoraAPIError,
-    RetryConfig,
-    RateLimiter,
-    DebatesAPI,
     AgentsAPI,
-    LeaderboardAPI,
+    AragoraAPIError,
+    AragoraClient,
+    DebatesAPI,
     GauntletAPI,
     GraphDebatesAPI,
+    LeaderboardAPI,
     MatrixDebatesAPI,
-    VerificationAPI,
     MemoryAPI,
+    RateLimiter,
     ReplayAPI,
-)
-from .websocket import (
-    DebateStream,
-    DebateEvent,
-    DebateEventType,
-    WebSocketOptions,
-    stream_debate,
+    RetryConfig,
+    VerificationAPI,
 )
 from .models import (
-    # Enums
-    DebateStatus,
-    ConsensusType,
-    GauntletVerdict,
-    VerificationStatus,
-    VerificationBackend,
-    # Debate models
-    Debate,
-    DebateRound,
-    DebateCreateRequest,
-    DebateCreateResponse,
     AgentMessage,
-    Vote,
-    ConsensusResult,
-    # Graph debate models
-    GraphDebate,
-    GraphDebateNode,
-    GraphDebateBranch,
-    GraphDebateCreateRequest,
-    GraphDebateCreateResponse,
-    # Matrix debate models
-    MatrixDebate,
-    MatrixScenario,
-    MatrixScenarioResult,
-    MatrixConclusion,
-    MatrixDebateCreateRequest,
-    MatrixDebateCreateResponse,
-    # Verification models
-    VerifyClaimRequest,
-    VerifyClaimResponse,
-    VerifyStatusResponse,
-    VerificationBackendStatus,
-    # Memory models
-    MemoryTierStats,
-    MemoryRecommendation,
-    MemoryAnalyticsResponse,
-    MemorySnapshotResponse,
-    # Replay models
-    Replay,
-    ReplaySummary,
-    ReplayEvent,
     # Agent models
     AgentProfile,
-    LeaderboardEntry,
+    APIError,
+    ConsensusResult,
+    ConsensusType,
+    # Debate models
+    Debate,
+    DebateCreateRequest,
+    DebateCreateResponse,
+    DebateRound,
+    # Enums
+    DebateStatus,
+    Finding,
     # Gauntlet models
     GauntletReceipt,
     GauntletRunRequest,
     GauntletRunResponse,
-    Finding,
+    GauntletVerdict,
+    # Graph debate models
+    GraphDebate,
+    GraphDebateBranch,
+    GraphDebateCreateRequest,
+    GraphDebateCreateResponse,
+    GraphDebateNode,
     # System models
     HealthCheck,
-    APIError,
+    LeaderboardEntry,
+    MatrixConclusion,
+    # Matrix debate models
+    MatrixDebate,
+    MatrixDebateCreateRequest,
+    MatrixDebateCreateResponse,
+    MatrixScenario,
+    MatrixScenarioResult,
+    MemoryAnalyticsResponse,
+    MemoryRecommendation,
+    MemorySnapshotResponse,
+    # Memory models
+    MemoryTierStats,
+    # Replay models
+    Replay,
+    ReplayEvent,
+    ReplaySummary,
+    VerificationBackend,
+    VerificationBackendStatus,
+    VerificationStatus,
+    # Verification models
+    VerifyClaimRequest,
+    VerifyClaimResponse,
+    VerifyStatusResponse,
+    Vote,
+)
+from .websocket import (
+    DebateEvent,
+    DebateEventType,
+    DebateStream,
+    WebSocketOptions,
+    stream_debate,
 )
 
 __all__ = [

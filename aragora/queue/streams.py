@@ -14,7 +14,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from aragora.queue.base import Job, JobQueue, JobStatus
 from aragora.queue.config import QueueConfig, get_queue_config

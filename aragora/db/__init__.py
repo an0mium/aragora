@@ -16,11 +16,11 @@ Usage:
 
 from aragora.db.backends import (
     DatabaseBackend,
-    SQLiteBackend,
-    PostgresBackend,
-    get_database,
-    configure_database,
     DatabaseConfig,
+    PostgresBackend,
+    SQLiteBackend,
+    configure_database,
+    get_database,
 )
 
 __all__ = [

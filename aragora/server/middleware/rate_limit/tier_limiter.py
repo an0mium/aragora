@@ -13,7 +13,6 @@ from collections import OrderedDict
 from typing import Any, Dict, Optional
 
 from .base import (
-    _normalize_ip,
     _extract_client_ip,
     sanitize_rate_limit_key_component,
 )

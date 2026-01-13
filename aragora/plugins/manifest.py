@@ -9,14 +9,14 @@ Plugins must declare:
 Manifests are validated before plugins are loaded.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
-from typing import Any, Optional
 import json
 import logging
 import os
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
 from pathlib import Path
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

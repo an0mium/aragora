@@ -23,32 +23,31 @@ Usage:
 """
 
 # Re-export everything from the canonical middleware implementation
+from typing import Union
+
 from aragora.server.middleware.rate_limit import (
-    # Core classes
-    TokenBucket,
-    RedisTokenBucket,
-    RateLimitConfig,
-    RateLimitResult,
-    RateLimiter,
-    RedisRateLimiter,
-    RateLimiterRegistry,
-    # Functions
-    get_rate_limiter,
-    cleanup_rate_limiters,
-    reset_rate_limiters,
-    rate_limit_headers,
-    rate_limit,
-    get_redis_client,
-    reset_redis_client,
+    BURST_MULTIPLIER,
     # Constants
     DEFAULT_RATE_LIMIT,
     IP_RATE_LIMIT,
-    BURST_MULTIPLIER,
     REDIS_AVAILABLE,
+    RateLimitConfig,
+    RateLimiter,
+    RateLimiterRegistry,
+    RateLimitResult,
+    RedisRateLimiter,
+    RedisTokenBucket,
+    # Core classes
+    TokenBucket,
+    cleanup_rate_limiters,
+    # Functions
+    get_rate_limiter,
+    get_redis_client,
+    rate_limit,
+    rate_limit_headers,
+    reset_rate_limiters,
+    reset_redis_client,
 )
-
-
-from typing import Union
 
 
 # Legacy API compatibility - these function names were in the old module

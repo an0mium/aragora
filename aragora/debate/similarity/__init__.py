@@ -1,10 +1,10 @@
 """Similarity computation backends for debate convergence detection."""
 
 from aragora.debate.similarity.backends import (
-    SimilarityBackend,
     JaccardBackend,
-    TFIDFBackend,
     SentenceTransformerBackend,
+    SimilarityBackend,
+    TFIDFBackend,
     get_similarity_backend,
 )
 

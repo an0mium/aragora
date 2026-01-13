@@ -14,17 +14,17 @@ Usage:
 """
 
 import logging
-from typing import TYPE_CHECKING, Optional, Type, Any
+from typing import TYPE_CHECKING, Any, Optional, Type
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from aragora.agents.truth_grounding import PositionTracker
     from aragora.agents.calibration import CalibrationTracker
-    from aragora.reasoning.belief import BeliefNetwork, BeliefPropagationAnalyzer
-    from aragora.reasoning.citations import CitationExtractor
+    from aragora.agents.truth_grounding import PositionTracker
     from aragora.insights import InsightExtractor, InsightStore
     from aragora.memory.store import CritiqueStore
+    from aragora.reasoning.belief import BeliefNetwork, BeliefPropagationAnalyzer
+    from aragora.reasoning.citations import CitationExtractor
     from aragora.visualization.mapper import ArgumentCartographer
 
 

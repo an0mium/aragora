@@ -28,17 +28,17 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Optional
 
+from aragora.debate.cross_proposal_analyzer import (
+    CrossProposalAnalysis,
+    CrossProposalAnalyzer,
+)
 from aragora.debate.evidence_quality import (
     EvidenceQualityAnalyzer,
     EvidenceQualityScore,
     HollowConsensusAlert,
     HollowConsensusDetector,
 )
-from aragora.debate.cross_proposal_analyzer import (
-    CrossProposalAnalyzer,
-    CrossProposalAnalysis,
-)
-from aragora.debate.roles import CognitiveRole, RoleAssignment, ROLE_PROMPTS
+from aragora.debate.roles import ROLE_PROMPTS, CognitiveRole, RoleAssignment
 
 logger = logging.getLogger(__name__)
 

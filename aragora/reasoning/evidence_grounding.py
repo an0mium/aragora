@@ -16,14 +16,13 @@ Usage:
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Any
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from aragora.evidence.collector import EvidencePack
     from aragora.reasoning.citations import (
         CitationExtractor,
         GroundedVerdict,
-        CitedClaim,
         ScholarlyEvidence,
     )
 
@@ -98,9 +97,9 @@ class EvidenceGrounder:
             GroundingResult with list of ScholarlyEvidence and grounding score
         """
         from aragora.reasoning.citations import (
-            ScholarlyEvidence,
-            CitationType,
             CitationQuality,
+            CitationType,
+            ScholarlyEvidence,
         )
 
         if not self.evidence_pack or not self.evidence_pack.snippets:
@@ -198,7 +197,7 @@ class EvidenceGrounder:
             return None
 
         try:
-            from aragora.reasoning.citations import GroundedVerdict, CitedClaim
+            from aragora.reasoning.citations import CitedClaim, GroundedVerdict
 
             # Extract claims from the final answer
             claims_text = self.citation_extractor.extract_claims(final_answer)
@@ -284,8 +283,8 @@ class EvidenceGrounder:
 
         try:
             from aragora.verification.formal import (
-                get_formal_verification_manager,
                 FormalProofStatus,
+                get_formal_verification_manager,
             )
         except ImportError:
             return 0, 0  # Formal verification not available

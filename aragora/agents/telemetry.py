@@ -17,8 +17,8 @@ import functools
 import logging
 import threading
 import time
-from dataclasses import dataclass, asdict, field
-from typing import Any, Awaitable, Callable, Optional, TypeVar, ParamSpec
+from dataclasses import asdict, dataclass, field
+from typing import Any, Awaitable, Callable, Optional, ParamSpec, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -123,8 +123,8 @@ def _default_prometheus_collector(telemetry: AgentTelemetry) -> None:
     """Default collector that records to Prometheus metrics."""
     try:
         from aragora.server.prometheus import (
-            record_agent_generation,
             record_agent_failure,
+            record_agent_generation,
         )
 
         # Record generation time

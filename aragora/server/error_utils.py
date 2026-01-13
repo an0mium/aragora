@@ -18,10 +18,6 @@ F = TypeVar("F", bound=Callable[..., Any])
 logger = logging.getLogger(__name__)
 
 # Import shared sanitization utilities
-from aragora.utils.error_sanitizer import (
-    sanitize_error_text,
-    SENSITIVE_PATTERNS as _SENSITIVE_PATTERNS,  # For backwards compatibility
-)
 
 
 # =============================================================================

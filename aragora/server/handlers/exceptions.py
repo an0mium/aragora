@@ -27,23 +27,23 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from typing import TYPE_CHECKING, Any, Optional, Tuple
+from typing import TYPE_CHECKING, Tuple
 
 # Import base exceptions from main module
 from aragora.exceptions import (
     AragoraError,
-    ValidationError,
-    InputValidationError,
-    DatabaseError,
-    RecordNotFoundError,
-    AuthError,
     AuthenticationError,
+    AuthError,
     AuthorizationError,
+    DatabaseError,
+    InputValidationError,
     RateLimitExceededError,
+    RecordNotFoundError,
+    ValidationError,
 )
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.base import HandlerResult
+    pass
 
 
 # =============================================================================

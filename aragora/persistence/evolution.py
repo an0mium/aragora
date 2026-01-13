@@ -12,7 +12,6 @@ Enables surfacing "what changed and why" for debugging and learning.
 import json
 import logging
 import sqlite3
-import uuid
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -20,9 +19,9 @@ from typing import Generator, Optional
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.persistence.models import (
-    NomicRollback,
     CycleEvolution,
     CycleFileChange,
+    NomicRollback,
 )
 
 logger = logging.getLogger(__name__)

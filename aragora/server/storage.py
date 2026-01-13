@@ -6,17 +6,14 @@ URL slugs for sharing (e.g., rate-limiter-2026-01-01).
 """
 
 import json
+import logging
 import re
 import sqlite3
-from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
-from typing import Optional, TYPE_CHECKING, Generator
-import logging
+from typing import TYPE_CHECKING, Optional
 
 from aragora.storage.base_store import SQLiteStore
-from aragora.storage.schema import SchemaManager, get_wal_connection, DB_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -661,6 +658,45 @@ class DebateStorage(SQLiteStore):
             Debate artifact dict or None
         """
         return self.get_by_id(debate_id)
+
+    def get_debate(self, debate_id: str) -> Optional[dict]:
+        """
+        Get debate by ID (handler-compatible alias).
+
+        Args:
+            debate_id: Debate ID
+
+        Returns:
+            Debate artifact dict or None
+        """
+        return self.get_by_id(debate_id)
+
+    def get_debate_by_slug(self, slug: str) -> Optional[dict]:
+        """
+        Get debate by slug (handler-compatible alias).
+
+        Args:
+            slug: URL-friendly debate slug
+
+        Returns:
+            Debate artifact dict or None
+        """
+        return self.get_by_slug(slug)
+
+    def list_debates(
+        self, limit: int = 20, org_id: Optional[str] = None
+    ) -> list[DebateMetadata]:
+        """
+        List debates (handler-compatible alias for list_recent).
+
+        Args:
+            limit: Maximum number of debates to return
+            org_id: Filter by organization
+
+        Returns:
+            List of DebateMetadata objects
+        """
+        return self.list_recent(limit=limit, org_id=org_id)
 
 
 # Global storage instance

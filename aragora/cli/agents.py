@@ -11,7 +11,6 @@ import os
 import shutil
 from typing import Any
 
-
 # Agent registry with metadata for CLI display
 AGENT_REGISTRY: list[dict[str, Any]] = [
     # Built-in demo agent

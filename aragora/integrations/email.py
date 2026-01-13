@@ -5,18 +5,16 @@ Sends debate summaries, consensus alerts, and digest emails.
 Supports HTML email templates with inline CSS.
 """
 
-import logging
 import asyncio
+import logging
 import smtplib
 import ssl
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Any, Optional
-from collections import defaultdict
-
-import aiohttp
 
 from aragora.core import DebateResult
 
@@ -575,7 +573,7 @@ class EmailIntegration:
     def _build_digest_text(self, items: list[dict[str, Any]]) -> str:
         """Build plain text email for digest."""
         lines = [
-            f"ARAGORA DEBATE DIGEST",
+            "ARAGORA DEBATE DIGEST",
             f"{len(items)} debates in the last {self.config.digest_frequency.replace('ly', '')}",
             "=" * 40,
             "",

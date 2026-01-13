@@ -34,7 +34,6 @@ from .exceptions import (
     CLITimeoutError,
 )
 
-
 # =============================================================================
 # Error Category Enum
 # =============================================================================
@@ -803,7 +802,7 @@ def classify_cli_error(
     # Rate limit detection using centralized patterns
     if ErrorClassifier.is_rate_limit(stderr_lower):
         return CLIAgentError(
-            f"Rate limit exceeded",
+            "Rate limit exceeded",
             agent_name=agent_name,
             returncode=returncode,
             stderr=stderr[:500] if stderr else None,
@@ -825,14 +824,14 @@ def classify_cli_error(
     # Command not found
     if returncode == 127 or "command not found" in stderr_lower or "not found" in stderr_lower:
         return CLINotFoundError(
-            f"CLI tool not found",
+            "CLI tool not found",
             agent_name=agent_name,
         )
 
     # Permission denied
     if returncode == 126 or "permission denied" in stderr_lower:
         return CLISubprocessError(
-            f"Permission denied executing CLI",
+            "Permission denied executing CLI",
             agent_name=agent_name,
             returncode=returncode,
             stderr=stderr[:500] if stderr else None,
@@ -841,7 +840,7 @@ def classify_cli_error(
     # JSON parse error detection
     if stdout and not stdout.strip():
         return CLIParseError(
-            f"Empty response from CLI",
+            "Empty response from CLI",
             agent_name=agent_name,
             returncode=returncode,
             stderr=stderr[:500] if stderr else None,
@@ -864,7 +863,7 @@ def classify_cli_error(
                 )
         except json.JSONDecodeError:
             return CLIParseError(
-                f"Invalid JSON response from CLI",
+                "Invalid JSON response from CLI",
                 agent_name=agent_name,
                 returncode=returncode,
                 stderr=stderr[:500] if stderr else None,

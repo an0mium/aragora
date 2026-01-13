@@ -12,15 +12,15 @@ Provides domain-specific attack prompts and compliance checks for:
 - NIST CSF (Cybersecurity Framework)
 """
 
-from .base import RegulatoryPersona, PersonaAttack
+from .ai_act import AIActPersona
+from .base import PersonaAttack, RegulatoryPersona
 from .gdpr import GDPRPersona
 from .hipaa import HIPAAPersona
-from .ai_act import AIActPersona
+from .nist_csf import NISTCSFPersona
+from .pci_dss import PCIDSSPersona
 from .security import SecurityPersona
 from .soc2 import SOC2Persona
 from .sox import SOXPersona
-from .pci_dss import PCIDSSPersona
-from .nist_csf import NISTCSFPersona
 
 __all__ = [
     "RegulatoryPersona",

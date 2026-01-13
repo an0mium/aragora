@@ -6,7 +6,7 @@ Attacks from EU AI Act perspective.
 
 from dataclasses import dataclass, field
 
-from .base import RegulatoryPersona, PersonaAttack
+from .base import PersonaAttack, RegulatoryPersona
 
 
 @dataclass

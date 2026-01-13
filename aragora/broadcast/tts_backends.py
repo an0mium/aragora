@@ -31,7 +31,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from aragora.exceptions import ConfigurationError, ExternalServiceError
 

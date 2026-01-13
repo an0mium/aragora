@@ -7,7 +7,7 @@ Based on NIST CSF 2.0.
 
 from dataclasses import dataclass, field
 
-from .base import RegulatoryPersona, PersonaAttack
+from .base import PersonaAttack, RegulatoryPersona
 
 
 @dataclass

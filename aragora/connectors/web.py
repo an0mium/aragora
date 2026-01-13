@@ -15,7 +15,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -327,8 +326,8 @@ class WebConnector(BaseConnector):
             Tuple of (is_safe, error_message). If is_safe is False,
             error_message contains the reason.
         """
-        import socket
         import ipaddress
+        import socket
 
         try:
             parsed = urlparse(url)

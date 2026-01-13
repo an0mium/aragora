@@ -9,7 +9,6 @@ import asyncio
 import statistics
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -107,7 +106,7 @@ async def benchmark_agent(
 
         except asyncio.TimeoutError:
             result.errors += 1
-        except Exception as e:
+        except Exception:
             result.errors += 1
 
     result.success_rate = (iterations - result.errors) / iterations
@@ -122,7 +121,7 @@ def print_result(result: BenchmarkResult) -> None:
     print(f"  Success Rate: {result.success_rate * 100:.1f}%")
 
     if result.response_times:
-        print(f"  Response Time:")
+        print("  Response Time:")
         print(f"    Avg: {result.avg_response_time:.2f}s")
         print(f"    P50: {result.p50_response_time:.2f}s")
         print(f"    P95: {result.p95_response_time:.2f}s")

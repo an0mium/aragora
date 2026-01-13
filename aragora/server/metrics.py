@@ -32,7 +32,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import Any, Callable, Generator, Optional
+from typing import Any, Generator, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -781,7 +781,7 @@ def generate_metrics() -> str:
 
     # Include observability metrics if prometheus_client is available
     try:
-        from prometheus_client import generate_latest, REGISTRY
+        from prometheus_client import REGISTRY, generate_latest
 
         observability_metrics = generate_latest(REGISTRY).decode("utf-8")
         if observability_metrics.strip():

@@ -14,11 +14,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from aragora.core import Message, Critique
-    from aragora.debate.complexity_governor import StressLevel
+    pass
 
 logger = logging.getLogger(__name__)
 

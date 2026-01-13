@@ -11,12 +11,12 @@ This module provides:
 5. GroundedVerdict: Verdict + supporting citations
 """
 
+import hashlib
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Any
-import re
-import hashlib
+from typing import Any, Optional
 
 
 class CitationType(Enum):

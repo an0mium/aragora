@@ -21,56 +21,50 @@ import queue
 import secrets
 import threading
 import time
-from collections import OrderedDict
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional, Any, Dict, cast
-from urllib.parse import parse_qs, urlparse
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     import aiohttp.web
+
     from aragora.core import Agent
-from concurrent.futures import ThreadPoolExecutor
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
 # Configure module logger
 logger = logging.getLogger(__name__)
 
 # Import from sibling modules (core streaming components)
-from .events import (
-    StreamEventType,
-    StreamEvent,
-    AudienceMessage,
-)
-from .emitter import (
-    TokenBucket,
-    AudienceInbox,
-    SyncEventEmitter,
-    normalize_intensity,
-)
-from .state_manager import (
-    BoundedDebateDict,
-    LoopInstance,
-    DebateStateManager,
-    get_active_debates,
-    get_active_debates_lock,
-    get_debate_executor,
-    set_debate_executor,
-    get_debate_executor_lock,
-    cleanup_stale_debates,
-    increment_cleanup_counter,
-)
 from .arena_hooks import (
     create_arena_hooks,
     wrap_agent_for_streaming,
 )
+from .emitter import (
+    TokenBucket,
+)
+from .events import (
+    AudienceMessage,
+    StreamEvent,
+    StreamEventType,
+)
+from .server_base import ServerBase
+from .state_manager import (
+    LoopInstance,
+    cleanup_stale_debates,
+    get_active_debates,
+    get_active_debates_lock,
+    get_debate_executor,
+    get_debate_executor_lock,
+    increment_cleanup_counter,
+    set_debate_executor,
+)
 from .stream_handlers import StreamAPIHandlersMixin
-from .server_base import ServerBase, ServerConfig
 
 # Import debate components (lazy-loaded for optional functionality)
 try:
-    from aragora.debate.orchestrator import Arena, DebateProtocol
     from aragora.agents.base import create_agent
     from aragora.core import Environment
+    from aragora.debate.orchestrator import Arena, DebateProtocol
 
     DEBATE_AVAILABLE = True
 except ImportError:
@@ -110,13 +104,12 @@ _wrap_agent_for_streaming = wrap_agent_for_streaming
 
 
 # Centralized CORS configuration
-from aragora.server.cors_config import WS_ALLOWED_ORIGINS
-
 # Import WebSocket config from centralized location
 from aragora.config import WS_MAX_MESSAGE_SIZE
 
 # Import auth for WebSocket authentication
 from aragora.server.auth import auth_config
+from aragora.server.cors_config import WS_ALLOWED_ORIGINS
 
 # Trusted proxies for X-Forwarded-For header validation
 # Only trust X-Forwarded-For if request comes from these IPs
@@ -150,7 +143,6 @@ WS_MAX_CONNECTIONS_PER_IP = int(os.getenv("ARAGORA_WS_MAX_PER_IP", "10"))
 # =============================================================================
 
 # Import DebateStreamServer from its dedicated module for backward compatibility
-from .debate_stream_server import DebateStreamServer
 
 
 # =============================================================================
@@ -515,10 +507,10 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         """
         try:
             from aragora.pulse.ingestor import (
-                PulseManager,
-                TwitterIngestor,
                 HackerNewsIngestor,
+                PulseManager,
                 RedditIngestor,
+                TwitterIngestor,
             )
 
             manager = PulseManager()
@@ -701,7 +693,8 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         """
         global _active_debates, _debate_executor
         import aiohttp.web as web
-        from aragora.server.auth import auth_config, check_auth
+
+        from aragora.server.auth import check_auth
 
         origin = request.headers.get("Origin")
 
@@ -1282,7 +1275,6 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
     async def _drain_loop(self) -> None:
         """Drain events from the sync emitter and broadcast to WebSocket clients."""
-        import aiohttp
 
         while self._running:
             try:

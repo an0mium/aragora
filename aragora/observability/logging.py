@@ -42,7 +42,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional, Generator
+from typing import Any, Generator, Optional
 
 # Thread-local storage for correlation IDs
 _correlation_id = threading.local()

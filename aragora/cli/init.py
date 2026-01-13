@@ -4,7 +4,6 @@ Aragora init command - Project scaffolding.
 Creates a new Aragora project with configuration files and directory structure.
 """
 
-import os
 from pathlib import Path
 from typing import Optional
 

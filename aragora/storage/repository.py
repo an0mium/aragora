@@ -10,12 +10,11 @@ Provides:
 """
 
 import logging
+import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Generator, Optional, TypeVar, Union
-
-import re
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.storage.schema import get_wal_connection

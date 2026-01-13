@@ -14,7 +14,7 @@ from typing import Optional
 
 def create_demo_artifact():
     """Create a demo artifact for testing exports."""
-    from aragora.core import DebateResult, Message, Critique
+    from aragora.core import Critique, DebateResult, Message
     from aragora.export.artifact import ArtifactBuilder
 
     demo_result = DebateResult(
@@ -74,7 +74,7 @@ def create_demo_artifact():
 def load_artifact_from_debate(debate_id: str, db_path: Optional[str] = None):
     """Load an artifact from a debate trace database."""
     from aragora.debate.traces import DebateReplayer
-    from aragora.export.artifact import DebateArtifact, ConsensusProof
+    from aragora.export.artifact import ConsensusProof, DebateArtifact
 
     replayer = DebateReplayer.from_database(f"trace-{debate_id}", db_path or "aragora_traces.db")
     trace = replayer.trace

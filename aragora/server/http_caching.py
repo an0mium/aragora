@@ -21,8 +21,8 @@ Usage:
 import hashlib
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional, Tuple, TypeVar
+from datetime import datetime
+from typing import Any, Dict, Optional, Tuple, TypeVar
 
 logger = logging.getLogger(__name__)
 

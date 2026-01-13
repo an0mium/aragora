@@ -15,16 +15,15 @@ import asyncio
 import importlib
 import logging
 import resource
-import signal
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Optional
 from pathlib import Path
+from typing import Any, Callable, Optional
 
 from aragora.plugins.manifest import (
-    PluginManifest,
     PluginCapability,
+    PluginManifest,
     PluginRequirement,
 )
 

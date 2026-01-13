@@ -8,14 +8,14 @@ Generated from nomic loop proposal by codex-engineer with critique fixes
 from gemini-visionary.
 """
 
+import json
 import logging
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
-import json
 
 logger = logging.getLogger(__name__)
 

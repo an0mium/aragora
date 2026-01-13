@@ -2,10 +2,9 @@
 Data models for persistent storage.
 """
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Optional, Any
-import json
+from typing import Optional
 
 
 @dataclass

@@ -10,7 +10,6 @@ import hashlib
 import logging
 import os
 import secrets
-import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum

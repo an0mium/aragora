@@ -5,8 +5,8 @@ Allows agents to retrieve and learn from past debates, enhancing continuity
 and intelligence in the nomic loop.
 """
 
-import asyncio
-from typing import List, Tuple, Optional
+from typing import List, Tuple
+
 from aragora.config import resolve_db_path
 from aragora.memory.embeddings import SemanticRetriever
 from aragora.persistence.models import DebateArtifact

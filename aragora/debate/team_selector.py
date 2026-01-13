@@ -13,8 +13,6 @@ from typing import TYPE_CHECKING, Optional, Protocol
 if TYPE_CHECKING:
     from aragora.core import Agent
     from aragora.debate.protocol import CircuitBreaker
-    from aragora.ranking.elo import EloSystem
-    from aragora.ranking.calibration import CalibrationTracker
 
 logger = logging.getLogger(__name__)
 

@@ -10,13 +10,12 @@ import hashlib
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 from aragora.connectors.base import Connector
-from aragora.core import Message, Environment
 from aragora.reasoning.provenance import ProvenanceManager
 
 

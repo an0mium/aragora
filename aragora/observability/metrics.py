@@ -31,7 +31,7 @@ from contextlib import contextmanager
 from functools import wraps
 from typing import Any, Callable, Generator, Optional, TypeVar
 
-from aragora.observability.config import get_metrics_config, is_metrics_enabled
+from aragora.observability.config import get_metrics_config
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ def _init_metrics() -> bool:
         return False
 
     try:
-        from prometheus_client import Counter, Histogram, Gauge
+        from prometheus_client import Counter, Gauge, Histogram
 
         # Request metrics
         REQUEST_COUNT = Counter(

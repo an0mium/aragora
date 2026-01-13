@@ -9,12 +9,11 @@ Provides periodic task execution for maintenance operations like:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import sqlite3
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -280,8 +279,8 @@ def setup_default_tasks(
             if _shared_memory is not None:
                 memory = _shared_memory
             else:
-                from aragora.memory.continuum import ContinuumMemory
                 from aragora.config import DB_MEMORY_PATH
+                from aragora.memory.continuum import ContinuumMemory
 
                 # Use provided path or default
                 db_path = nomic_dir + "/continuum_memory.db" if nomic_dir else DB_MEMORY_PATH
@@ -342,9 +341,9 @@ def setup_default_tasks(
     def circuit_breaker_cleanup():
         try:
             from aragora.resilience import (
-                prune_circuit_breakers,
-                persist_all_circuit_breakers,
                 cleanup_stale_persisted,
+                persist_all_circuit_breakers,
+                prune_circuit_breakers,
             )
 
             # Prune in-memory stale circuit breakers
@@ -378,8 +377,8 @@ def setup_default_tasks(
             if _shared_memory is not None:
                 memory = _shared_memory
             else:
-                from aragora.memory.continuum import ContinuumMemory
                 from aragora.config import DB_MEMORY_PATH
+                from aragora.memory.continuum import ContinuumMemory
 
                 db_path = nomic_dir + "/continuum_memory.db" if nomic_dir else DB_MEMORY_PATH
                 memory = ContinuumMemory(db_path=db_path)

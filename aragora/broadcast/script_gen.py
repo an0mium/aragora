@@ -6,7 +6,8 @@ Parses DebateTrace to extract speaker turns and generates podcast script.
 
 from dataclasses import dataclass
 from typing import List, Optional
-from aragora.debate.traces import DebateTrace, TraceEvent, EventType
+
+from aragora.debate.traces import DebateTrace, EventType
 
 
 @dataclass

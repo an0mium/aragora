@@ -13,15 +13,14 @@ Production features:
 """
 
 import asyncio
-import json
 import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
+
 import httpx
 
-from aragora.core import Message, Environment
 from aragora.exceptions import ExternalServiceError
 from aragora.resilience import CircuitBreaker
 

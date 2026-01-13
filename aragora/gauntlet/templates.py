@@ -8,12 +8,11 @@ adversarial validation, optimized for specific domains and use cases.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
 
 from .config import (
+    AttackCategory,
     GauntletConfig,
     PassFailCriteria,
-    AttackCategory,
 )
 
 

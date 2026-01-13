@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 from .types import ImplementProgress
 
-
 PROGRESS_FILENAME = "implement_progress.json"
 
 

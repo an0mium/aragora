@@ -7,15 +7,15 @@ providing confidence calibration and disagreement analysis.
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Tuple
-from collections import Counter
-from datetime import datetime
 import math
+from collections import Counter
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-from aragora.core import Agent, Message, Vote, DebateResult
+from aragora.core import Agent, Message, Vote
 
 
 @dataclass

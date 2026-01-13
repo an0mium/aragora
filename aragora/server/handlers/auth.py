@@ -17,12 +17,16 @@ Endpoints:
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from datetime import datetime
 from typing import Any, Optional
-from uuid import uuid4
+
+# Lockout tracker for brute-force protection
+from aragora.auth.lockout import get_lockout_tracker
+
+# Module-level imports for test mocking compatibility
+from aragora.billing.jwt_auth import extract_user_from_request, validate_refresh_token
 
 from .base import (
     BaseHandler,
@@ -32,13 +36,7 @@ from .base import (
     json_response,
     log_request,
 )
-from .utils.rate_limit import rate_limit, get_client_ip
-
-# Module-level imports for test mocking compatibility
-from aragora.billing.jwt_auth import extract_user_from_request, validate_refresh_token
-
-# Lockout tracker for brute-force protection
-from aragora.auth.lockout import get_lockout_tracker
+from .utils.rate_limit import get_client_ip, rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -164,8 +162,8 @@ class AuthHandler(BaseHandler):
     @log_request("user registration")
     def _handle_register(self, handler) -> HandlerResult:
         """Handle user registration."""
-        from aragora.billing.models import hash_password
         from aragora.billing.jwt_auth import create_token_pair
+        from aragora.billing.models import hash_password
 
         # Parse request body
         body = self.read_json_body(handler)
@@ -245,7 +243,7 @@ class AuthHandler(BaseHandler):
     @log_request("user login")
     def _handle_login(self, handler) -> HandlerResult:
         """Handle user login."""
-        from aragora.billing.jwt_auth import create_token_pair, create_mfa_pending_token
+        from aragora.billing.jwt_auth import create_mfa_pending_token, create_token_pair
 
         # Parse request body
         body = self.read_json_body(handler)
@@ -929,8 +927,9 @@ class AuthHandler(BaseHandler):
     @log_request("MFA verify")
     def _handle_mfa_verify(self, handler) -> HandlerResult:
         """Verify MFA code during login."""
-        from aragora.billing.jwt_auth import validate_mfa_pending_token, create_token_pair
         import hashlib
+
+        from aragora.billing.jwt_auth import create_token_pair, validate_mfa_pending_token
 
         try:
             import pyotp

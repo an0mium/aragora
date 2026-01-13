@@ -12,16 +12,15 @@ Searches:
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
 import subprocess
 from typing import Optional
-from datetime import datetime
-import hashlib
 
-from aragora.reasoning.provenance import SourceType
 from aragora.connectors.base import BaseConnector, Evidence
+from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 

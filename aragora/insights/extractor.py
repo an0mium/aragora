@@ -9,12 +9,12 @@ Analyzes completed debates to extract:
 - Decision-making patterns
 """
 
+import hashlib
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Optional
-import hashlib
-import re
 
 
 class InsightType(Enum):

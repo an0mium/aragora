@@ -7,7 +7,7 @@ Based on PCI-DSS v4.0.
 
 from dataclasses import dataclass, field
 
-from .base import RegulatoryPersona, PersonaAttack
+from .base import PersonaAttack, RegulatoryPersona
 
 
 @dataclass

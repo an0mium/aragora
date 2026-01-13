@@ -9,20 +9,18 @@ Also includes domain-specific calibration tracking for grounded personas.
 
 import logging
 import math
-import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.config import (
-    DB_TIMEOUT_SECONDS,
     ELO_CALIBRATION_MIN_COUNT,
 )
 from aragora.ranking.calibration_database import CalibrationDatabase
 
 if TYPE_CHECKING:
-    from aragora.ranking.elo import EloSystem, AgentRating
+    from aragora.ranking.elo import AgentRating, EloSystem
 
 logger = logging.getLogger(__name__)
 

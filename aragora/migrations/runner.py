@@ -5,20 +5,19 @@ Provides a lightweight alternative to Alembic for managing schema changes
 across SQLite and PostgreSQL backends.
 """
 
+import importlib
 import logging
 import os
-import importlib
 import pkgutil
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 
 from aragora.storage.backends import (
-    DatabaseBackend,
-    SQLiteBackend,
-    PostgreSQLBackend,
     POSTGRESQL_AVAILABLE,
+    DatabaseBackend,
+    PostgreSQLBackend,
+    SQLiteBackend,
 )
 
 logger = logging.getLogger(__name__)

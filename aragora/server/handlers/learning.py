@@ -12,18 +12,18 @@ from __future__ import annotations
 
 import json
 import logging
+from collections import defaultdict
 from pathlib import Path
 from typing import Optional
-from collections import defaultdict
 
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
-    handle_errors,
     get_clamped_int_param,
     get_db_connection,
+    handle_errors,
+    json_response,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
 

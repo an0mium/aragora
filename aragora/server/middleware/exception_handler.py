@@ -32,15 +32,13 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import functools
 import logging
-import sqlite3
 import time
 import uuid
-from contextlib import contextmanager, asynccontextmanager
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Callable, Generator, Optional, TypeVar
+from typing import Any, AsyncGenerator, Callable, Optional, TypeVar
 
 from aragora.server.error_utils import safe_error_message
 

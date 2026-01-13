@@ -10,12 +10,12 @@ Searches:
 Uses simple text search with optional regex support.
 """
 
+import hashlib
 import logging
 import os
 import re
 from pathlib import Path
 from typing import Optional
-import hashlib
 
 from aragora.reasoning.provenance import SourceType
 

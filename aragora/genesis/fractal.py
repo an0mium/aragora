@@ -6,18 +6,16 @@ evolved specialist agents to resolve specific points, then synthesizes
 results back into the parent debate.
 """
 
-import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Optional, Sequence
+from typing import Any, Optional
 
 from aragora.core import Agent, DebateResult, Environment
+from aragora.debate.consensus import UnresolvedTension
 from aragora.debate.orchestrator import Arena, DebateProtocol
-from aragora.debate.consensus import UnresolvedTension, ConsensusProof
+from aragora.genesis.breeding import GenomeBreeder, Population, PopulationManager
 from aragora.genesis.genome import AgentGenome, GenomeStore
-from aragora.genesis.breeding import GenomeBreeder, PopulationManager, Population
 
 logger = logging.getLogger(__name__)
 

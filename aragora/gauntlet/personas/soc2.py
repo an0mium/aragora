@@ -7,7 +7,7 @@ Based on AICPA Trust Services Criteria.
 
 from dataclasses import dataclass, field
 
-from .base import RegulatoryPersona, PersonaAttack
+from .base import PersonaAttack, RegulatoryPersona
 
 
 @dataclass

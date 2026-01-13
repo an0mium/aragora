@@ -7,7 +7,6 @@ Audio files are stored in .nomic/audio/ with accompanying JSON metadata.
 
 import json
 import logging
-import os
 import re
 import shutil
 from dataclasses import dataclass, field

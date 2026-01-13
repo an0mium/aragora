@@ -7,19 +7,18 @@ All connectors inherit from BaseConnector and implement:
 - record(): Store evidence in provenance chain
 """
 
+import hashlib
+import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
-import time
-from typing import Any, Optional, Tuple
-import hashlib
+from typing import Optional, Tuple
 
 from aragora.reasoning.provenance import (
     ProvenanceManager,
     ProvenanceRecord,
     SourceType,
-    TransformationType,
 )
 
 

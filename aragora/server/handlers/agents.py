@@ -25,38 +25,39 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, List
+from typing import Any, List, Optional
 
 from aragora.config import (
-    CACHE_TTL_LEADERBOARD,
-    CACHE_TTL_CALIBRATION_LB,
-    CACHE_TTL_RECENT_MATCHES,
-    CACHE_TTL_AGENT_PROFILE,
-    CACHE_TTL_AGENT_H2H,
     CACHE_TTL_AGENT_FLIPS,
+    CACHE_TTL_AGENT_H2H,
+    CACHE_TTL_AGENT_PROFILE,
+    CACHE_TTL_CALIBRATION_LB,
     CACHE_TTL_FLIPS_RECENT,
     CACHE_TTL_FLIPS_SUMMARY,
+    CACHE_TTL_LEADERBOARD,
+    CACHE_TTL_RECENT_MATCHES,
 )
 
 logger = logging.getLogger(__name__)
+from aragora.persistence.db_config import DatabaseType, get_db_path
+
 from .base import (
+    SAFE_AGENT_PATTERN,
+    SAFE_ID_PATTERN,
     BaseHandler,
     HandlerResult,
-    json_response,
+    agent_to_dict,
     error_response,
+    get_agent_name,
     get_int_param,
     get_string_param,
-    get_agent_name,
-    agent_to_dict,
-    ttl_cache,
     handle_errors,
-    validate_path_segment,
-    SAFE_ID_PATTERN,
-    SAFE_AGENT_PATTERN,
+    json_response,
     safe_error_message,
+    ttl_cache,
+    validate_path_segment,
 )
 from .utils.rate_limit import rate_limit
-from aragora.persistence.db_config import DatabaseType, get_db_path
 
 
 class AgentsHandler(BaseHandler):
@@ -540,8 +541,10 @@ class AgentsHandler(BaseHandler):
         if not elo:
             return error_response("ELO system not available", 503)
 
-        history = elo.get_agent_history(agent, limit=min(limit, 100))
-        return json_response({"agent": agent, "history": history})
+        history = elo.get_elo_history(agent, limit=min(limit, 100))
+        # Convert list of (timestamp, elo) tuples to list of dicts for JSON
+        history_list = [{"timestamp": ts, "elo": rating} for ts, rating in history]
+        return json_response({"agent": agent, "history": history_list})
 
     @handle_errors("agent calibration")
     def _get_calibration(self, agent: str, domain: Optional[str]) -> HandlerResult:

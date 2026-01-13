@@ -10,11 +10,9 @@ from typing import Optional
 
 # Import shared types from types.py
 from .types import (
-    Verdict,
-    SeverityLevel,
     GauntletPhase,
     GauntletSeverity,  # Alias for SeverityLevel
-)
+    )
 
 
 class AttackCategory(Enum):

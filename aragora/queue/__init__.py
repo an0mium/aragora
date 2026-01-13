@@ -40,8 +40,8 @@ from aragora.queue.base import (
 from aragora.queue.config import (
     QueueConfig,
     get_queue_config,
-    set_queue_config,
     reset_queue_config,
+    set_queue_config,
 )
 from aragora.queue.job import (
     DebateJobPayload,
@@ -59,8 +59,8 @@ from aragora.queue.streams import (
     create_redis_queue,
 )
 from aragora.queue.worker import (
-    DebateWorker,
     DebateExecutor,
+    DebateWorker,
     create_default_executor,
 )
 

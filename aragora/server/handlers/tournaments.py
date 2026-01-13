@@ -14,18 +14,17 @@ Endpoints:
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     get_int_param,
     handle_errors,
+    json_response,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
 
@@ -45,7 +44,7 @@ _TournamentMatch: Any = None
 TOURNAMENT_AVAILABLE = False
 
 try:
-    from aragora.ranking.tournaments import TournamentManager, Tournament, TournamentMatch
+    from aragora.ranking.tournaments import Tournament, TournamentManager, TournamentMatch
 
     _TournamentManager = TournamentManager
     _Tournament = Tournament

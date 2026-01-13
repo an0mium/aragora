@@ -13,18 +13,16 @@ import logging
 import re
 from typing import Optional
 
-from aragora.server.http_utils import run_async
-
 logger = logging.getLogger(__name__)
 
 from .base import (
+    SAFE_ID_PATTERN,
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
-    validate_path_segment,
-    SAFE_ID_PATTERN,
+    json_response,
     safe_error_message,
+    validate_path_segment,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
 
@@ -233,8 +231,9 @@ class BreakpointsHandler(BaseHandler):
         redirect_task = body.get("redirect_task")
 
         try:
-            from aragora.debate.breakpoints import HumanGuidance
             import uuid
+
+            from aragora.debate.breakpoints import HumanGuidance
 
             guidance = HumanGuidance(
                 guidance_id=str(uuid.uuid4()),

@@ -7,7 +7,7 @@ across multiple API agent implementations.
 
 import json
 import logging
-from typing import AsyncIterator, Any
+from typing import Any, AsyncIterator
 
 from aragora.exceptions import StreamingError
 

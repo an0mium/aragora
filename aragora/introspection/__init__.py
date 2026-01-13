@@ -17,9 +17,9 @@ Usage:
     prompt_section = snapshot.to_prompt_section()
 """
 
-from .types import IntrospectionSnapshot
+from .api import format_introspection_section, get_agent_introspection
 from .cache import IntrospectionCache
-from .api import get_agent_introspection, format_introspection_section
+from .types import IntrospectionSnapshot
 
 __all__ = [
     "IntrospectionSnapshot",

@@ -3,6 +3,7 @@
 import html
 import re
 from dataclasses import dataclass
+
 from aragora.debate.convergence import get_similarity_backend
 
 # Regex patterns for sanitization

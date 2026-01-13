@@ -39,46 +39,39 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from aragora.core import Agent, Message
-from aragora.debate.risk_assessor import RiskLevel, RiskAssessment, RiskAssessor
+from aragora.core import Agent
 from aragora.debate.consensus import (
-    Evidence,
     DissentRecord,
     UnresolvedTension,
-    ConsensusProof,
 )
-from aragora.modes.redteam import (
-    AttackType,
-    Attack,
-    RedTeamMode,
-    RedTeamProtocol,
-    RedTeamResult,
-)
-from aragora.modes.prober import (
-    ProbeType,
-    VulnerabilitySeverity,
-    VulnerabilityReport,
-    CapabilityProber,
-)
+from aragora.debate.risk_assessor import RiskAssessment, RiskAssessor, RiskLevel
+
+# Import shared types from aragora.gauntlet.types (canonical source)
+from aragora.gauntlet.types import InputType, Verdict
 from aragora.modes.deep_audit import (
     DeepAuditConfig,
     DeepAuditOrchestrator,
     DeepAuditVerdict,
-    AuditFinding,
+)
+from aragora.modes.prober import (
+    CapabilityProber,
+    ProbeType,
+    VulnerabilityReport,
+    VulnerabilitySeverity,
+)
+from aragora.modes.redteam import (
+    AttackType,
+    RedTeamMode,
+    RedTeamResult,
 )
 from aragora.verification.formal import (
     FormalProofStatus,
-    FormalProofResult,
-    FormalVerificationManager,
     get_formal_verification_manager,
 )
 
-# Import shared types from aragora.gauntlet.types (canonical source)
-from aragora.gauntlet.types import InputType, Verdict, SeverityLevel
-
 # Import personas for compliance-aware stress testing
 try:
-    from aragora.gauntlet.personas import RegulatoryPersona, PersonaAttack, get_persona
+    from aragora.gauntlet.personas import PersonaAttack, RegulatoryPersona, get_persona
 
     PERSONAS_AVAILABLE = True
 except ImportError:

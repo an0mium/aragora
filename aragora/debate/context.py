@@ -7,7 +7,7 @@ modify debate state without tight coupling to the orchestrator.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, DebateResult, Environment, Message

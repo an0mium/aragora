@@ -12,13 +12,13 @@ Arena._run_inner() method, handling:
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import AGENT_TIMEOUT_SECONDS
 from aragora.debate.complexity_governor import get_complexity_governor
 
 if TYPE_CHECKING:
-    from aragora.core import Agent, Message
+    from aragora.core import Agent
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
@@ -96,7 +96,6 @@ class ProposalPhase:
         Args:
             ctx: The DebateContext to update with proposals
         """
-        from aragora.core import Message
 
         # 1. Update role assignments for round 0
         if self._update_role_assignments:
@@ -161,7 +160,6 @@ class ProposalPhase:
         self, ctx: "DebateContext", proposers: list["Agent"]
     ) -> None:
         """Generate proposals in parallel with streaming output."""
-        from aragora.core import Message
 
         if not proposers:
             logger.warning("No proposers available for proposal phase")

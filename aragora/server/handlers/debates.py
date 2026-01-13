@@ -21,40 +21,34 @@ from __future__ import annotations
 
 import logging
 from typing import Optional
+
+from aragora.exceptions import (
+    DatabaseError,
+    RecordNotFoundError,
+    StorageError,
+)
+from aragora.server.middleware.tier_enforcement import require_quota
+from aragora.server.validation import validate_debate_id
+from aragora.server.validation.schema import (
+    DEBATE_START_SCHEMA,
+    DEBATE_UPDATE_SCHEMA,
+    validate_against_schema,
+)
+
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
-    handle_errors,
-    require_storage,
     get_int_param,
-    ttl_cache,
+    handle_errors,
+    json_response,
+    require_storage,
     safe_json_parse,
-    safe_error_message,
-    validate_path_segment,
-    SAFE_ID_PATTERN,
+    ttl_cache,
 )
 from .debates_batch import BatchOperationsMixin
 from .debates_fork import ForkOperationsMixin
 from .utils.rate_limit import rate_limit
-from aragora.server.middleware.tier_enforcement import require_quota
-from aragora.server.validation import validate_debate_id
-from aragora.server.validation.schema import (
-    validate_against_schema,
-    DEBATE_START_SCHEMA,
-    DEBATE_UPDATE_SCHEMA,
-)
-from aragora.exceptions import (
-    StorageError,
-    DatabaseError,
-    RecordNotFoundError,
-    ValidationError,
-)
-from aragora.server.handlers.exceptions import (
-    HandlerNotFoundError,
-    HandlerDatabaseError,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -736,7 +730,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             else:  # format == "html"
                 return self._format_html(debate)
 
-        except RecordNotFoundError as e:
+        except RecordNotFoundError:
             logger.info("Export failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
@@ -787,7 +781,6 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         - Overall grounding score
         - Full citation list with sources
         """
-        import json as json_module
 
         storage = self.get_storage()
         try:
@@ -833,7 +826,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 }
             )
 
-        except RecordNotFoundError as e:
+        except RecordNotFoundError:
             logger.info("Citations failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
@@ -857,7 +850,6 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             - related_evidence: Evidence snippets from memory
             - metadata: Search context and quality metrics
         """
-        import json as json_module
 
         storage = self.get_storage()
 
@@ -874,7 +866,6 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             task = debate.get("task", "")
 
             try:
-                from aragora.memory.continuum import ContinuumMemory
 
                 continuum = self.ctx.get("continuum_memory")
                 if continuum and task:
@@ -928,7 +919,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
             return json_response(response)
 
-        except RecordNotFoundError as e:
+        except RecordNotFoundError:
             logger.info("Evidence failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
@@ -999,7 +990,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 }
             )
 
-        except RecordNotFoundError as e:
+        except RecordNotFoundError:
             logger.info("Messages failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
@@ -1054,7 +1045,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                     "recommendations": critique.recommendations,
                 }
             )
-        except RecordNotFoundError as e:
+        except RecordNotFoundError:
             logger.info("Meta critique failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
@@ -1076,8 +1067,8 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         Returns node counts, edge counts, depth, branching factor, and complexity.
         """
         try:
-            from aragora.visualization.mapper import ArgumentCartographer
             from aragora.debate.traces import DebateTrace
+            from aragora.visualization.mapper import ArgumentCartographer
         except ImportError:
             return error_response("Graph analysis module not available", 503)
 
@@ -1125,7 +1116,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
             stats = cartographer.get_statistics()
             return json_response(stats)
 
-        except RecordNotFoundError as e:
+        except RecordNotFoundError:
             logger.info("Graph stats failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
@@ -1181,7 +1172,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
 
             stats = cartographer.get_statistics()
             return json_response(stats)
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             logger.info("Build graph failed - replay file not found: %s", replay_path)
             return error_response(f"Replay file not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:
@@ -1419,7 +1410,7 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                     },
                 }
             )
-        except RecordNotFoundError as e:
+        except RecordNotFoundError:
             logger.info("Update failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
         except (StorageError, DatabaseError) as e:

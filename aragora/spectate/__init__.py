@@ -1,6 +1,6 @@
 """Spectator Mode - Real-time debate observation."""
 
-from .stream import SpectatorStream
 from .events import SpectatorEvents
+from .stream import SpectatorStream
 
 __all__ = ["SpectatorStream", "SpectatorEvents"]

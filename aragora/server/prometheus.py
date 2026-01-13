@@ -12,19 +12,19 @@ Provides OpenMetrics-compliant metrics for monitoring:
 
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Callable
 from functools import wraps
+from typing import Callable, Dict
 
 # Try to import prometheus_client, fall back to simple implementation
 try:
     from prometheus_client import (
-        Counter,
-        Histogram,
-        Gauge,
-        Info,
-        generate_latest,
         CONTENT_TYPE_LATEST,
         REGISTRY,
+        Counter,
+        Gauge,
+        Histogram,
+        Info,
+        generate_latest,
     )
 
     PROMETHEUS_AVAILABLE = True
@@ -630,7 +630,7 @@ def timed_http_request(endpoint: str) -> Callable[[Callable], Callable]:
                 result = func(*args, **kwargs)
                 status = getattr(result, "status_code", 200) if result else 200
                 return result
-            except Exception as e:
+            except Exception:
                 status = 500
                 raise
             finally:
@@ -847,7 +847,7 @@ def timed_nomic_phase(phase: str) -> Callable[[Callable], Callable]:
                 if hasattr(result, "get") and not result.get("success", True):
                     outcome = "failure"
                 return result
-            except Exception as e:
+            except Exception:
                 outcome = "failure"
                 raise
             finally:

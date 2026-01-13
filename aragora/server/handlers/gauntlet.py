@@ -15,31 +15,27 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import logging
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Callable, Optional, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.gauntlet.storage import GauntletStorage
 
+from aragora.server.validation.entities import validate_gauntlet_id
+from aragora.server.validation.schema import GAUNTLET_RUN_SCHEMA, validate_against_schema
+
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
-    handle_errors,
-    get_string_param,
-    get_bool_param,
     get_int_param,
-    safe_json_parse,
-    require_quota,
+    get_string_param,
+    json_response,
 )
 from .utils.rate_limit import rate_limit
-from aragora.server.validation.entities import validate_gauntlet_id
-from aragora.server.validation.schema import validate_against_schema, GAUNTLET_RUN_SCHEMA
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +43,8 @@ logger = logging.getLogger(__name__)
 # In-memory storage for in-flight gauntlet runs (pending/running)
 # Completed runs are persisted to GauntletStorage
 # Using OrderedDict for FIFO eviction when memory limit reached
-from collections import OrderedDict
 import threading
+from collections import OrderedDict
 
 _gauntlet_runs: OrderedDict[str, dict[str, Any]] = OrderedDict()
 
@@ -288,7 +284,7 @@ class GauntletHandler(BaseHandler):
     def _list_personas(self) -> HandlerResult:
         """List available regulatory personas."""
         try:
-            from aragora.gauntlet.personas import list_personas, get_persona
+            from aragora.gauntlet.personas import get_persona, list_personas
 
             personas_list = []
             for name in list_personas():
@@ -433,13 +429,13 @@ class GauntletHandler(BaseHandler):
     ) -> None:
         """Run gauntlet asynchronously."""
         try:
+            from aragora.agents.base import AgentType, create_agent
             from aragora.gauntlet import (
                 GauntletOrchestrator,
-                OrchestratorConfig,
                 GauntletProgress,
                 InputType,
+                OrchestratorConfig,
             )
-            from aragora.agents.base import create_agent, AgentType
             from aragora.server.stream.gauntlet_emitter import GauntletStreamEmitter
 
             # Create stream emitter if broadcasting is available
@@ -691,7 +687,7 @@ class GauntletHandler(BaseHandler):
 
     async def _get_heatmap(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Get risk heatmap for gauntlet run."""
-        from aragora.gauntlet.heatmap import RiskHeatmap, HeatmapCell
+        from aragora.gauntlet.heatmap import HeatmapCell, RiskHeatmap
 
         run = None
         result = None

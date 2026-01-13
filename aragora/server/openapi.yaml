@@ -2121,6 +2121,21 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/APIError'
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Invalid request: missing required field 'task'"
+              details:
+                type: object
+                description: Field-specific validation errors
+                additionalProperties:
+                  type: string
 
   schemas:
     DebateStatus:

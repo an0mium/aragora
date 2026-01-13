@@ -4,12 +4,12 @@ Core abstractions for the Aragora adversarial validation engine (multi-agent deb
 
 from __future__ import annotations
 
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable, Literal, Optional
 from datetime import datetime
-import uuid
+from enum import Enum
+from typing import Any, Callable, Optional
 
 
 class TaskComplexity(Enum):

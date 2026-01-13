@@ -12,7 +12,6 @@ import asyncio
 import time
 from typing import Any
 
-
 # Demo task configurations
 DEMO_TASKS: dict[str, dict[str, Any]] = {
     "rate-limiter": {

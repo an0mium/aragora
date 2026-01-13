@@ -1,33 +1,33 @@
 """Aragora integrations for external services."""
 
-from aragora.integrations.webhooks import (
-    WebhookDispatcher,
-    WebhookConfig,
-    AragoraJSONEncoder,
-    DEFAULT_EVENT_TYPES,
-)
-from aragora.integrations.slack import (
-    SlackIntegration,
-    SlackConfig,
-    SlackMessage,
-)
 from aragora.integrations.discord import (
-    DiscordIntegration,
     DiscordConfig,
+    DiscordIntegration,
     DiscordWebhookManager,
-    discord_manager,
     create_discord_integration,
-)
-from aragora.integrations.telegram import (
-    TelegramIntegration,
-    TelegramConfig,
-    TelegramMessage,
-    InlineButton,
+    discord_manager,
 )
 from aragora.integrations.email import (
-    EmailIntegration,
     EmailConfig,
+    EmailIntegration,
     EmailRecipient,
+)
+from aragora.integrations.slack import (
+    SlackConfig,
+    SlackIntegration,
+    SlackMessage,
+)
+from aragora.integrations.telegram import (
+    InlineButton,
+    TelegramConfig,
+    TelegramIntegration,
+    TelegramMessage,
+)
+from aragora.integrations.webhooks import (
+    DEFAULT_EVENT_TYPES,
+    AragoraJSONEncoder,
+    WebhookConfig,
+    WebhookDispatcher,
 )
 
 __all__ = [

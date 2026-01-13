@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional, TextIO
 
-from .events import SpectatorEvents, EVENT_STYLES, EVENT_ASCII
+from .events import EVENT_ASCII, EVENT_STYLES, SpectatorEvents
 
 logger = logging.getLogger(__name__)
 

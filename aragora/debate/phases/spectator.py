@@ -12,8 +12,8 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from aragora.spectate.stream import SpectatorStream
     from aragora.server.stream import SyncEventEmitter
+    from aragora.spectate.stream import SpectatorStream
     from aragora.visualization.mapper import ArgumentCartographer
 
 logger = logging.getLogger(__name__)

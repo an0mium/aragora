@@ -16,16 +16,15 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
 from typing import Any, Dict, Optional, Union
-
-from .base import BaseHandler, HandlerResult, json_response, error_response, handle_errors
-from .utils.rate_limit import rate_limit
-from aragora.exceptions import ConfigurationError
 from urllib.parse import urlparse
+
+from aragora.exceptions import ConfigurationError
+
+from .base import BaseHandler, HandlerResult, error_response, json_response
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +47,8 @@ except ImportError:  # pragma: no cover - optional dependency
     auth_config = None  # type: ignore[assignment]
 
 try:
-    from aragora.auth.sso import SSOUser as _SSOUser, SSOProviderType as _SSOProviderType
+    from aragora.auth.sso import SSOProviderType as _SSOProviderType
+    from aragora.auth.sso import SSOUser as _SSOUser
     SSOUser: Any = _SSOUser
     SSOProviderType: Any = _SSOProviderType
 except ImportError:  # pragma: no cover - optional dependency

@@ -17,8 +17,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from .base import BaseRepository, EntityNotFoundError
 from aragora.config import DB_MEMORY_PATH
+
+from .base import BaseRepository
 
 logger = logging.getLogger(__name__)
 

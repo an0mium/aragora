@@ -5,14 +5,14 @@ This is a pure observer that reads debate events and constructs a graph
 representation. It never modifies debate state or agent prompts.
 """
 
-from collections import deque
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
-from enum import Enum
-import json
 import hashlib
+import json
 import logging
 import time
+from collections import deque
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

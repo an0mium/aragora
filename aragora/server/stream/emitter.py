@@ -16,9 +16,9 @@ from typing import Any, Callable, Optional
 
 from aragora.config import MAX_EVENT_QUEUE_SIZE
 from aragora.server.stream.events import (
+    AudienceMessage,
     StreamEvent,
     StreamEventType,
-    AudienceMessage,
 )
 
 logger = logging.getLogger(__name__)

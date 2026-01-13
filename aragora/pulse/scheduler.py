@@ -18,14 +18,12 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Union
+from typing import Any, Callable, Coroutine, Dict, List, Optional
 
 from aragora.exceptions import ConfigurationError
 from aragora.pulse.ingestor import PulseManager, TrendingTopic

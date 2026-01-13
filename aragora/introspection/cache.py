@@ -7,14 +7,14 @@ initialization and reused throughout the debate.
 """
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from .types import IntrospectionSnapshot
 
 if TYPE_CHECKING:
+    from aragora.agents.personas import PersonaManager
     from aragora.core import Agent
     from aragora.memory.store import CritiqueStore
-    from aragora.agents.personas import PersonaManager
 
 
 class IntrospectionCache:

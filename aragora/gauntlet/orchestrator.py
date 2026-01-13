@@ -15,21 +15,19 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
 
 from .config import (
     GauntletConfig,
-    GauntletResult,
     GauntletFinding,
     GauntletPhase,
+    GauntletResult,
     GauntletSeverity,
     PhaseResult,
-    AttackCategory,
 )
-from .templates import GauntletTemplate, get_template
 from .receipt import DecisionReceipt
+from .templates import GauntletTemplate, get_template
 
 # Try to import real mode integrations
 try:
@@ -45,10 +43,10 @@ except ImportError:
 
 try:
     from aragora.modes.prober import (
-        ProbeType,
-        VulnerabilitySeverity,
-        VulnerabilityReport,
         CapabilityProber,
+        ProbeType,
+        VulnerabilityReport,
+        VulnerabilitySeverity,
     )
 
     PROBER_AVAILABLE = True
@@ -58,8 +56,10 @@ except ImportError:
 try:
     from aragora.modes.deep_audit import (
         DeepAuditConfig,
-        DeepAuditOrchestrator as DeepAuditOrc,
         DeepAuditVerdict,
+    )
+    from aragora.modes.deep_audit import (
+        DeepAuditOrchestrator as DeepAuditOrc,
     )
 
     DEEP_AUDIT_AVAILABLE = True
@@ -311,9 +311,9 @@ class GauntletOrchestrator:
 
         try:
             from aragora.debate.scenarios import (
-                ScenarioMatrix,
-                ScenarioComparator,
                 OutcomeCategory,
+                ScenarioComparator,
+                ScenarioMatrix,
             )
 
             # Build scenario matrix from presets
@@ -529,8 +529,8 @@ class GauntletOrchestrator:
 
         try:
             from aragora.verification.formal import (
-                FormalVerificationManager,
                 FormalProofStatus,
+                FormalVerificationManager,
             )
 
             manager = FormalVerificationManager()

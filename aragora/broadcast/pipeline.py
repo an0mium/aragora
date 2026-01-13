@@ -14,12 +14,11 @@ Usage:
     result = await pipeline.run("debate-123", BroadcastOptions(video_enabled=True))
 """
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.traces import DebateTrace
@@ -255,9 +254,9 @@ class BroadcastPipeline:
             # Try to create a default generator
             try:
                 from aragora.broadcast.rss_gen import (
-                    PodcastFeedGenerator,
                     PodcastConfig,
                     PodcastEpisode,
+                    PodcastFeedGenerator,
                 )
 
                 if not self.rss_generator:

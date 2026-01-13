@@ -2,24 +2,25 @@
 OpenRouter agent and provider-specific subclasses.
 """
 
-import aiohttp
 import asyncio
 import logging
 import os
 from typing import AsyncGenerator
 
+import aiohttp
+
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.api_agents.common import (
-    Message,
-    Critique,
     AgentAPIError,
-    AgentRateLimitError,
     AgentConnectionError,
+    AgentRateLimitError,
     AgentStreamError,
-    get_api_key,
+    Critique,
+    Message,
     _sanitize_error_message,
-    create_openai_sse_parser,
     create_client_session,
+    create_openai_sse_parser,
+    get_api_key,
 )
 from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
@@ -162,7 +163,7 @@ class OpenRouterAgent(APIAgent):
                                     f"OpenRouter rate limited (429), waiting {wait_time:.0f}s before retry {attempt + 2}/{max_retries}"
                                 )
                                 await asyncio.sleep(wait_time)
-                                last_error = f"Rate limited (429)"
+                                last_error = "Rate limited (429)"
                                 continue
                             else:
                                 raise AgentRateLimitError(
@@ -295,7 +296,7 @@ class OpenRouterAgent(APIAgent):
                                     f"OpenRouter streaming rate limited (429), waiting {wait_time:.0f}s before retry {attempt + 2}/{max_retries}"
                                 )
                                 await asyncio.sleep(wait_time)
-                                last_error = f"Rate limited (429)"
+                                last_error = "Rate limited (429)"
                                 continue
                             else:
                                 raise AgentRateLimitError(
@@ -595,7 +596,6 @@ class KimiAgent(APIAgent):
 
     async def generate(self, prompt: str, context: list | None = None) -> str:
         """Generate response using Moonshot API."""
-        import aiohttp
 
         messages = []
         if self.system_prompt:

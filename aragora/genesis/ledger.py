@@ -12,26 +12,25 @@ Provides:
 import hashlib
 import json
 import logging
-import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Optional
+
 from aragora.config import resolve_db_path
 from aragora.genesis.database import GenesisDatabase
 
 logger = logging.getLogger(__name__)
 
-from aragora.reasoning.provenance import (
-    ProvenanceChain,
-    ProvenanceRecord,
-    SourceType,
-    TransformationType,
-    MerkleTree,
-)
 from aragora.debate.consensus import ConsensusProof
 from aragora.genesis.genome import AgentGenome
+from aragora.reasoning.provenance import (
+    MerkleTree,
+    ProvenanceChain,
+    SourceType,
+    TransformationType,
+)
 
 
 class GenesisEventType(Enum):

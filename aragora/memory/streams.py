@@ -14,8 +14,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
-from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from aragora.config import DB_MEMORY_PATH, DB_TIMEOUT_SECONDS
 from aragora.exceptions import ConfigurationError
@@ -41,7 +40,7 @@ def _register_embedding_provider(provider: "EmbeddingProvider") -> None:
         return
 
     try:
-        from aragora.services import ServiceRegistry, EmbeddingProviderService
+        from aragora.services import EmbeddingProviderService, ServiceRegistry
 
         registry = ServiceRegistry.get()
         if not registry.has(EmbeddingProviderService):
@@ -57,7 +56,7 @@ def get_embedding_provider() -> Optional["EmbeddingProvider"]:
 
     # Try ServiceRegistry first
     try:
-        from aragora.services import ServiceRegistry, EmbeddingProviderService
+        from aragora.services import EmbeddingProviderService, ServiceRegistry
 
         registry = ServiceRegistry.get()
         if registry.has(EmbeddingProviderService):

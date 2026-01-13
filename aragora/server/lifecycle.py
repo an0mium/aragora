@@ -14,7 +14,7 @@ import logging
 import signal
 import sqlite3
 import time
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.server.stream.server import GauntletStreamServer
@@ -161,7 +161,7 @@ class ServerLifecycleManager:
                 return
             await asyncio.sleep(sleep_interval)
 
-        logger.warning(f"Shutdown timeout reached with debates still running")
+        logger.warning("Shutdown timeout reached with debates still running")
 
     def _persist_circuit_breakers(self) -> None:
         """Persist circuit breaker states."""

@@ -15,22 +15,21 @@ import logging
 from typing import Any, Optional
 
 from aragora.config import (
-    DB_INSIGHTS_PATH,
     CACHE_TTL_ANALYTICS,
-    CACHE_TTL_ANALYTICS_RANKING,
     CACHE_TTL_ANALYTICS_DEBATES,
     CACHE_TTL_ANALYTICS_MEMORY,
+    CACHE_TTL_ANALYTICS_RANKING,
+    DB_INSIGHTS_PATH,
 )
 
 logger = logging.getLogger(__name__)
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
-    get_int_param,
-    ttl_cache,
     handle_errors,
+    json_response,
+    ttl_cache,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
 
@@ -318,14 +317,14 @@ class AnalyticsHandler(BaseHandler):
 
         stats = {
             "total_agents": len(leaderboard),
-            "total_matches": sum(a.total_debates for a in leaderboard) if leaderboard else 0,
+            "total_matches": sum(a.debates_count for a in leaderboard) if leaderboard else 0,
             "avg_elo": (
-                sum(a.elo_rating for a in leaderboard) / len(leaderboard) if leaderboard else 1500
+                sum(a.elo for a in leaderboard) / len(leaderboard) if leaderboard else 1500
             ),
             "top_agent": leaderboard[0].agent_name if leaderboard else None,
             "elo_range": {
-                "min": min(a.elo_rating for a in leaderboard) if leaderboard else 1500,
-                "max": max(a.elo_rating for a in leaderboard) if leaderboard else 1500,
+                "min": min(a.elo for a in leaderboard) if leaderboard else 1500,
+                "max": max(a.elo for a in leaderboard) if leaderboard else 1500,
             },
         }
 

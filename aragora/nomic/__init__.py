@@ -27,79 +27,79 @@ Legacy integration is preserved for backward compatibility.
 """
 
 # State Machine (New - recommended)
-from aragora.nomic.states import (
-    NomicState,
-    StateContext,
-    StateMetadata,
-    VALID_TRANSITIONS,
-    STATE_CONFIG,
-    is_valid_transition,
-    get_state_config,
+from aragora.nomic.checkpoints import (
+    CheckpointManager,
+    cleanup_old_checkpoints,
+    list_checkpoints,
+    load_checkpoint,
+    load_latest_checkpoint,
+    save_checkpoint,
 )
 from aragora.nomic.events import (
     Event,
-    EventType,
     EventLog,
+    EventType,
+    agent_failed_event,
+    checkpoint_loaded_event,
+    circuit_open_event,
+    error_event,
+    pause_event,
+    phase_complete_event,
+    retry_event,
+    rollback_event,
     start_event,
     stop_event,
-    pause_event,
-    error_event,
     timeout_event,
-    retry_event,
-    phase_complete_event,
-    agent_failed_event,
-    circuit_open_event,
-    rollback_event,
-    checkpoint_loaded_event,
-)
-from aragora.nomic.state_machine import (
-    NomicStateMachine,
-    TransitionError,
-    StateTimeoutError,
-    create_nomic_state_machine,
-)
-from aragora.nomic.checkpoints import (
-    CheckpointManager,
-    save_checkpoint,
-    load_checkpoint,
-    load_latest_checkpoint,
-    list_checkpoints,
-    cleanup_old_checkpoints,
-)
-from aragora.nomic.recovery import (
-    RecoveryStrategy,
-    RecoveryDecision,
-    RecoveryManager,
-    CircuitBreaker,
-    CircuitBreakerRegistry,
-    calculate_backoff,
-    recovery_handler,
 )
 from aragora.nomic.handlers import (
-    create_handlers,
+    create_commit_handler,
     create_context_handler,
     create_debate_handler,
     create_design_handler,
+    create_handlers,
     create_implement_handler,
     create_verify_handler,
-    create_commit_handler,
 )
 
 # Phase implementations
 from aragora.nomic.phases import (
+    BeliefContext,
+    CommitPhase,
     ContextPhase,
+    DebateConfig,
     DebatePhase,
+    DesignConfig,
     DesignPhase,
     ImplementPhase,
-    VerifyPhase,
-    CommitPhase,
-    DebateConfig,
-    DesignConfig,
     LearningContext,
-    BeliefContext,
     PostDebateHooks,
     ScopeLimiter,
+    VerifyPhase,
     check_design_scope,
+)
+from aragora.nomic.recovery import (
+    CircuitBreaker,
+    CircuitBreakerRegistry,
+    RecoveryDecision,
+    RecoveryManager,
+    RecoveryStrategy,
+    calculate_backoff,
+    recovery_handler,
+)
+from aragora.nomic.state_machine import (
+    NomicStateMachine,
+    StateTimeoutError,
+    TransitionError,
+    create_nomic_state_machine,
+)
+from aragora.nomic.states import (
+    STATE_CONFIG,
+    VALID_TRANSITIONS,
+    NomicState,
+    StateContext,
+    StateMetadata,
+    get_state_config,
+    is_valid_transition,
 )
 
 

@@ -12,7 +12,7 @@ from datetime import datetime
 from html import escape
 from typing import Any, Optional
 
-from .result import GauntletResult, Vulnerability
+from .result import GauntletResult
 
 
 @dataclass
@@ -443,7 +443,7 @@ class DecisionReceipt:
         }.get(self.verdict, "?")
 
         lines = [
-            f"# Decision Receipt",
+            "# Decision Receipt",
             "",
             f"**Receipt ID:** `{self.receipt_id}`",
             f"**Gauntlet ID:** `{self.gauntlet_id}`",

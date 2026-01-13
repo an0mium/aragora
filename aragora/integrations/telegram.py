@@ -5,8 +5,8 @@ Posts debate summaries, consensus alerts, and error notifications to Telegram ch
 Uses Telegram's HTML formatting and inline keyboards for rich messages.
 """
 
-import logging
 import asyncio
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
@@ -257,7 +257,7 @@ class TelegramIntegration:
             lines.extend(
                 [
                     "",
-                    f"<b>Final Proposal:</b>",
+                    "<b>Final Proposal:</b>",
                     f"<pre>{preview}</pre>",
                 ]
             )

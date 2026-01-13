@@ -22,7 +22,7 @@ from __future__ import annotations
 import functools
 import logging
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 

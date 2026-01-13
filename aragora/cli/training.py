@@ -8,8 +8,6 @@ Provides commands for:
 """
 
 import asyncio
-import json
-import sys
 from pathlib import Path
 from typing import Optional
 
@@ -99,7 +97,7 @@ def export_all(
     limit: int = typer.Option(1000, "--limit", help="Maximum records per export type"),
 ):
     """Export all training data types."""
-    from aragora.training.exporters import SFTExporter, DPOExporter, GauntletExporter
+    from aragora.training.exporters import DPOExporter, GauntletExporter, SFTExporter
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -135,7 +133,8 @@ def export_all(
 def test_connection():
     """Test connection to Tinker API."""
     import os
-    from aragora.training.tinker_client import TinkerClient, TinkerAPIError
+
+    from aragora.training.tinker_client import TinkerAPIError, TinkerClient
 
     api_key = os.getenv("TINKER_API_KEY")
     if not api_key:
@@ -186,7 +185,7 @@ def train_sft(
                 job = await scheduler.wait_for_job(job.job_id)
 
                 if job.status.value == "completed":
-                    typer.echo(f"\nTraining completed!")
+                    typer.echo("\nTraining completed!")
                     typer.echo(f"  Model ID: {job.model_id}")
                     if job.result:
                         typer.echo(f"  Final loss: {job.result.final_loss}")
@@ -233,7 +232,7 @@ def train_dpo(
                 job = await scheduler.wait_for_job(job.job_id)
 
                 if job.status.value == "completed":
-                    typer.echo(f"\nTraining completed!")
+                    typer.echo("\nTraining completed!")
                     typer.echo(f"  Model ID: {job.model_id}")
                 else:
                     typer.echo(f"\nTraining failed: {job.error}", err=True)
@@ -276,7 +275,7 @@ def train_combined(
                 job = await scheduler.wait_for_job(job.job_id, timeout=7200)  # 2 hour timeout
 
                 if job.status.value == "completed":
-                    typer.echo(f"\nTraining completed!")
+                    typer.echo("\nTraining completed!")
                     typer.echo(f"  Model ID: {job.model_id}")
                 else:
                     typer.echo(f"\nTraining failed: {job.error}", err=True)

@@ -12,13 +12,11 @@ Inspired by nomic loop debate synthesis on resilience.
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     pass

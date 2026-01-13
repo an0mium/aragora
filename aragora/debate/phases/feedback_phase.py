@@ -27,7 +27,7 @@ Arena._run_inner() method, handling post-debate updates:
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if not TYPE_CHECKING:
     from aragora.memory.consensus import ConsensusStrength
@@ -35,7 +35,7 @@ if not TYPE_CHECKING:
 from aragora.agents.errors import _build_error_action
 
 if TYPE_CHECKING:
-    from aragora.core import Agent, DebateResult
+    from aragora.core import Agent
     from aragora.debate.context import DebateContext
     from aragora.memory.consensus import ConsensusStrength
 

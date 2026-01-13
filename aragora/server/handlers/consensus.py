@@ -18,26 +18,27 @@ import logging
 from typing import Optional
 
 from aragora.config import (
-    CACHE_TTL_CONSENSUS_SIMILAR,
     CACHE_TTL_CONSENSUS_SETTLED,
+    CACHE_TTL_CONSENSUS_SIMILAR,
     CACHE_TTL_CONSENSUS_STATS,
-    CACHE_TTL_RECENT_DISSENTS,
     CACHE_TTL_CONTRARIAN_VIEWS,
+    CACHE_TTL_RECENT_DISSENTS,
     CACHE_TTL_RISK_WARNINGS,
 )
+
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
-    get_clamped_int_param,
     get_bounded_float_param,
     get_bounded_string_param,
-    ttl_cache,
-    require_feature,
+    get_clamped_int_param,
     get_db_connection,
     handle_errors,
+    json_response,
+    require_feature,
     safe_error_message,
+    ttl_cache,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
 
@@ -281,7 +282,7 @@ class ConsensusHandler(BaseHandler):
                     ),
                 }
             )
-        except ImportError as e:
+        except ImportError:
             return error_response("Fixtures module not available", 503)
         except Exception as e:
             logger.error(f"Failed to seed demo data: {e}")

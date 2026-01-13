@@ -12,15 +12,14 @@ Key concepts:
 - ScenarioComparator: Analyze results across scenarios
 """
 
+import asyncio
+import itertools
+import logging
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Optional
-import asyncio
-import itertools
-import json
-import logging
-import uuid
 
 logger = logging.getLogger(__name__)
 

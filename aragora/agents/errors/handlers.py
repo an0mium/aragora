@@ -11,6 +11,7 @@ import logging
 from typing import Any, Callable, Optional
 
 from aragora.agents.types import T
+
 from .classifier import ErrorClassifier
 
 logger = logging.getLogger(__name__)

@@ -10,16 +10,12 @@ Inspired by Project Sid's emergent specialization, this module provides:
 from __future__ import annotations
 
 import json
-import sqlite3
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 from aragora.config import DB_PERSONAS_PATH, DB_TIMEOUT_SECONDS
 from aragora.storage.base_store import SQLiteStore
-from aragora.storage.schema import SchemaManager
 from aragora.utils.json_helpers import safe_json_loads
 
 # Schema version for PersonaManager migrations

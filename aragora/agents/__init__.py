@@ -8,30 +8,56 @@ Also includes persona management and the Emergent Persona Laboratory
 for evolving agent specializations.
 """
 
-from aragora.agents.cli_agents import (
-    CodexAgent,
-    ClaudeAgent,
-    OpenAIAgent,
-    GeminiCLIAgent,
-    GrokCLIAgent,
-    QwenCLIAgent,
-    DeepseekCLIAgent,
-    KiloCodeAgent,
+from aragora.agents.airlock import (
+    AirlockConfig,
+    AirlockMetrics,
+    AirlockProxy,
+    wrap_agent,
+    wrap_agents,
 )
-from aragora.agents.demo_agent import DemoAgent
 from aragora.agents.api_agents import (
-    GeminiAgent,
-    OllamaAgent,
-    LMStudioAgent,
     AnthropicAPIAgent,
-    OpenAIAPIAgent,
-    GrokAgent,
-    OpenRouterAgent,
     DeepSeekAgent,
     DeepSeekReasonerAgent,
     DeepSeekV3Agent,
+    GeminiAgent,
+    GrokAgent,
     LlamaAgent,
+    LMStudioAgent,
     MistralAgent,
+    OllamaAgent,
+    OpenAIAPIAgent,
+    OpenRouterAgent,
+)
+from aragora.agents.base import create_agent, list_available_agents
+from aragora.agents.calibration import (
+    CalibrationBucket,
+    CalibrationSummary,
+    CalibrationTracker,
+)
+from aragora.agents.cli_agents import (
+    ClaudeAgent,
+    CodexAgent,
+    DeepseekCLIAgent,
+    GeminiCLIAgent,
+    GrokCLIAgent,
+    KiloCodeAgent,
+    OpenAIAgent,
+    QwenCLIAgent,
+)
+from aragora.agents.demo_agent import DemoAgent
+from aragora.agents.fallback import (
+    QUOTA_ERROR_KEYWORDS,
+    AgentFallbackChain,
+    AllProvidersExhaustedError,
+    FallbackMetrics,
+    QuotaFallbackMixin,
+)
+from aragora.agents.laboratory import (
+    EmergentTrait,
+    PersonaExperiment,
+    PersonaLaboratory,
+    TraitTransfer,
 )
 from aragora.agents.local_llm_detector import (
     LocalLLMDetector,
@@ -40,48 +66,22 @@ from aragora.agents.local_llm_detector import (
     detect_local_llms,
     detect_local_llms_sync,
 )
-from aragora.agents.base import create_agent, list_available_agents
+from aragora.agents.performance_monitor import (
+    AgentMetric,
+    AgentPerformanceMonitor,
+    AgentStats,
+)
+from aragora.agents.personas import EXPERTISE_DOMAINS, PERSONALITY_TRAITS, Persona, PersonaManager
 from aragora.agents.registry import AgentRegistry, register_all_agents
-from aragora.agents.personas import Persona, PersonaManager, EXPERTISE_DOMAINS, PERSONALITY_TRAITS
-from aragora.agents.laboratory import (
-    PersonaLaboratory,
-    PersonaExperiment,
-    EmergentTrait,
-    TraitTransfer,
-)
-from aragora.agents.calibration import (
-    CalibrationTracker,
-    CalibrationBucket,
-    CalibrationSummary,
-)
-from aragora.agents.fallback import (
-    AgentFallbackChain,
-    AllProvidersExhaustedError,
-    FallbackMetrics,
-    QuotaFallbackMixin,
-    QUOTA_ERROR_KEYWORDS,
-)
-from aragora.agents.airlock import (
-    AirlockProxy,
-    AirlockConfig,
-    AirlockMetrics,
-    wrap_agent,
-    wrap_agents,
-)
 from aragora.agents.telemetry import (
     AgentTelemetry,
-    with_telemetry,
     TelemetryContext,
-    register_telemetry_collector,
-    unregister_telemetry_collector,
-    setup_default_collectors,
     get_telemetry_stats,
+    register_telemetry_collector,
     reset_telemetry,
-)
-from aragora.agents.performance_monitor import (
-    AgentPerformanceMonitor,
-    AgentMetric,
-    AgentStats,
+    setup_default_collectors,
+    unregister_telemetry_collector,
+    with_telemetry,
 )
 
 

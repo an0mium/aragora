@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
     from aragora.agents.grounded import MomentDetector
     from aragora.agents.positions import PositionLedger
-    from aragora.debate.breakpoints import BreakpointManager, BreakpointConfig
+    from aragora.debate.breakpoints import BreakpointConfig, BreakpointManager
     from aragora.insights.flip_detector import FlipDetector
     from aragora.memory.consensus import ConsensusMemory, DissentRetriever
     from aragora.ranking.elo import EloSystem
@@ -138,7 +138,7 @@ class TrackerFactory:
     ) -> Optional["BreakpointManager"]:
         """Create BreakpointManager for human-in-the-loop breakpoints."""
         try:
-            from aragora.debate.breakpoints import BreakpointManager, BreakpointConfig
+            from aragora.debate.breakpoints import BreakpointConfig, BreakpointManager
 
             config = config or BreakpointConfig()
             manager = BreakpointManager(config=config)

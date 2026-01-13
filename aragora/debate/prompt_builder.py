@@ -9,18 +9,16 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from aragora.core import Agent
-    from aragora.debate.protocol import DebateProtocol
-    from aragora.core import Environment
-    from aragora.memory.critique_store import CritiqueStore
-    from aragora.memory.continuum import ContinuumMemory
-    from aragora.memory.consensus import DissentRetriever
+    from aragora.agents.calibration import CalibrationTracker
     from aragora.agents.flip_detector import FlipDetector
     from aragora.agents.personas import PersonaManager
-    from aragora.agents.calibration import CalibrationTracker
-    from aragora.debate.roles import RoleRotator, RoleAssignment
-    from aragora.core import Critique
+    from aragora.core import Agent, Critique, Environment
+    from aragora.debate.protocol import DebateProtocol
+    from aragora.debate.roles import RoleAssignment, RoleRotator
     from aragora.evidence.collector import EvidencePack
+    from aragora.memory.consensus import DissentRetriever
+    from aragora.memory.continuum import ContinuumMemory
+    from aragora.memory.critique_store import CritiqueStore
 
 logger = logging.getLogger(__name__)
 

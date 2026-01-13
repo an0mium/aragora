@@ -339,6 +339,7 @@ class LeanBackend:
         3. GPT-4 (fallback)
         """
         import os
+
         import aiohttp
 
         # Try DeepSeek-Prover first if configured

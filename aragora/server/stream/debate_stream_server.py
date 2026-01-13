@@ -23,10 +23,10 @@ import threading
 import time
 from typing import Optional
 
-from .events import StreamEventType, StreamEvent, AudienceMessage
-from .emitter import TokenBucket, SyncEventEmitter
-from .state_manager import LoopInstance
+from .emitter import TokenBucket
+from .events import AudienceMessage, StreamEvent, StreamEventType
 from .server_base import ServerBase
+from .state_manager import LoopInstance
 
 logger = logging.getLogger(__name__)
 

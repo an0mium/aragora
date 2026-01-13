@@ -12,19 +12,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
 import uuid
+from typing import Any
 
+from aragora.server.error_utils import safe_error_message
 
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     handle_errors,
+    json_response,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
-from aragora.server.error_utils import safe_error_message
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +161,10 @@ class MatrixDebatesHandler(BaseHandler):
             return error_response("max_rounds must be at most 10", 400)
 
         try:
-            from aragora.debate.scenarios import MatrixDebateRunner, ScenarioConfig  # type: ignore[attr-defined]
+            from aragora.debate.scenarios import (  # type: ignore[attr-defined]
+                MatrixDebateRunner,
+                ScenarioConfig,
+            )
 
             # Load agents
             agents = await self._load_agents(agent_names)
@@ -212,8 +215,8 @@ class MatrixDebatesHandler(BaseHandler):
 
     async def _run_matrix_debate_fallback(self, handler: Any, data: dict[str, Any]) -> HandlerResult:
         """Fallback implementation using Arena directly for each scenario."""
-        from aragora.debate.orchestrator import Arena, ArenaConfig
-        from aragora.core import Environment, DebateProtocol
+        from aragora.core import DebateProtocol, Environment
+        from aragora.debate.orchestrator import Arena
 
         task = data.get("task")
         scenarios = data.get("scenarios", [])

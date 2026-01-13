@@ -8,7 +8,7 @@ and improve database performance.
 import logging
 import sqlite3
 import time
-from typing import Any, Callable, Iterator, Optional, TypeVar
+from typing import Any, Iterator, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 

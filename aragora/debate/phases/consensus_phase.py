@@ -15,21 +15,17 @@ Weight calculation and vote aggregation logic is extracted to:
 
 import asyncio
 import logging
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.agents.errors import _build_error_action
 from aragora.config import AGENT_TIMEOUT_SECONDS
 from aragora.debate.complexity_governor import get_complexity_governor
 from aragora.debate.phases.weight_calculator import WeightCalculator
-from aragora.debate.phases.vote_aggregator import (
-    VoteAggregator,
-    calculate_consensus_strength,
-)
 
 if TYPE_CHECKING:
-    from aragora.core import Agent, Vote, DebateResult
+    from aragora.core import Agent, Vote
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
@@ -1491,7 +1487,7 @@ class ConsensusPhase:
                 vote_counts[canonical] += 1
 
         result.final_answer = (
-            f"[No unanimous consensus reached]\n\nProposals:\n"
+            "[No unanimous consensus reached]\n\nProposals:\n"
             + "\n\n---\n\n".join(
                 f"[{agent}] ({vote_counts.get(choice_mapping.get(agent, agent), 0)} votes):\n{prop}"
                 for agent, prop in proposals.items()

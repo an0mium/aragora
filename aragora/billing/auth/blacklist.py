@@ -14,7 +14,7 @@ import time
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from .tokens import JWTPayload
+    pass
 
 logger = logging.getLogger(__name__)
 

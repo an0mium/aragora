@@ -137,9 +137,9 @@ def _register_caches_with_service_registry() -> None:
 
     try:
         from aragora.services import (
-            ServiceRegistry,
             MethodCacheService,
             QueryCacheService,
+            ServiceRegistry,
         )
 
         registry = ServiceRegistry.get()
@@ -363,7 +363,6 @@ def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first:
         key_prefix: Prefix for cache key to namespace different functions
         skip_first: If True, skip first arg (self) when building cache key for methods.
     """
-    import asyncio
 
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @wraps(func)

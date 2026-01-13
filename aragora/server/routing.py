@@ -24,7 +24,7 @@ Usage:
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Pattern, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Pattern, Tuple
 
 logger = logging.getLogger(__name__)
 

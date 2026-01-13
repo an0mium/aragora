@@ -82,8 +82,8 @@ def validate_api_key(provider: str, api_key: str) -> tuple[bool, str]:
     Returns (is_valid, message).
     """
     import json
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     try:
         if provider == "Anthropic":
@@ -358,7 +358,6 @@ def check_server() -> list[CheckResult]:
 
     try:
         import urllib.request
-        from urllib.parse import urlparse
 
         # Use health endpoint
         health_url = f"{DEFAULT_API_URL}/healthz"

@@ -22,17 +22,18 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
+
+from aragora.server.validation.schema import SHARE_UPDATE_SCHEMA, validate_against_schema
 
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     handle_errors,
+    json_response,
 )
 from .utils.rate_limit import rate_limit
-from aragora.server.validation.schema import validate_against_schema, SHARE_UPDATE_SCHEMA
 
 logger = logging.getLogger(__name__)
 
@@ -197,8 +198,8 @@ def get_share_store() -> Any:
             # Double-check after acquiring lock
             if _share_store is None:
                 try:
-                    from aragora.storage.share_store import ShareLinkStore
                     from aragora.config.legacy import DATA_DIR
+                    from aragora.storage.share_store import ShareLinkStore
 
                     db_path = DATA_DIR / "share_links.db"
                     _share_store = ShareLinkStore(db_path)

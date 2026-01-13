@@ -413,7 +413,6 @@ class UsageTracker:
         Returns:
             Usage summary
         """
-        import json
 
         if period_end is None:
             period_end = datetime.utcnow()

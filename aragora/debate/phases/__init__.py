@@ -22,33 +22,27 @@ Context:
 """
 
 from aragora.debate.context import DebateContext
-from aragora.debate.phases.context_init import ContextInitializer
-from aragora.debate.phases.proposal_phase import ProposalPhase
-from aragora.debate.phases.debate_rounds import DebateRoundsPhase
-from aragora.debate.phases.consensus_phase import ConsensusPhase
 from aragora.debate.phases.analytics_phase import AnalyticsPhase
-from aragora.debate.phases.feedback_phase import FeedbackPhase
-from aragora.debate.phases.voting import (
-    VotingPhase,
-    VoteWeightCalculator,
-    WeightedVoteResult,
-)
 from aragora.debate.phases.belief_analysis import (
-    DebateBeliefAnalyzer,
     BeliefAnalysisResult,
+    DebateBeliefAnalyzer,
 )
+from aragora.debate.phases.consensus_phase import ConsensusPhase
+from aragora.debate.phases.consensus_verification import ConsensusVerifier
+from aragora.debate.phases.context_init import ContextInitializer
 from aragora.debate.phases.critique import CritiquePhase
+from aragora.debate.phases.debate_rounds import DebateRoundsPhase
+from aragora.debate.phases.feedback_phase import FeedbackPhase
 from aragora.debate.phases.judgment import JudgmentPhase
+from aragora.debate.phases.metrics import MetricsHelper, build_relationship_updates
+from aragora.debate.phases.proposal_phase import ProposalPhase
 from aragora.debate.phases.roles_manager import RolesManager
 from aragora.debate.phases.spectator import SpectatorMixin
-from aragora.debate.phases.metrics import MetricsHelper, build_relationship_updates
-from aragora.debate.phases.consensus_verification import ConsensusVerifier
-from aragora.debate.phases.vote_aggregator import VoteAggregator, AggregatedVotes
-from aragora.debate.phases.weight_calculator import WeightCalculator
+from aragora.debate.phases.vote_aggregator import AggregatedVotes, VoteAggregator
 from aragora.debate.phases.vote_collector import (
     VoteCollector,
-    VoteCollectorConfig,
     VoteCollectorCallbacks,
+    VoteCollectorConfig,
     VoteCollectorDeps,
 )
 from aragora.debate.phases.vote_weighter import (
@@ -56,6 +50,12 @@ from aragora.debate.phases.vote_weighter import (
     VoteWeighterConfig,
     VoteWeighterDeps,
 )
+from aragora.debate.phases.voting import (
+    VoteWeightCalculator,
+    VotingPhase,
+    WeightedVoteResult,
+)
+from aragora.debate.phases.weight_calculator import WeightCalculator
 
 __all__ = [
     "DebateContext",

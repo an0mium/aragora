@@ -16,11 +16,10 @@ from typing import Optional
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     get_int_param,
     handle_errors,
-    safe_error_message,
+    json_response,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
 

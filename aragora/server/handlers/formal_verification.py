@@ -11,16 +11,15 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     handle_errors,
+    json_response,
     safe_json_parse,
 )
 from .utils.rate_limit import rate_limit
@@ -31,9 +30,9 @@ logger = logging.getLogger(__name__)
 def _init_verification():
     """Deferred import to avoid circular dependencies."""
     from aragora.verification.formal import (
-        FormalVerificationManager,
-        FormalProofStatus,
         FormalLanguage,
+        FormalProofStatus,
+        FormalVerificationManager,
         TranslationModel,
         get_formal_verification_manager,
     )

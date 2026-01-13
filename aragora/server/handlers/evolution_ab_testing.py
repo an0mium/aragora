@@ -19,12 +19,12 @@ from typing import Any, Optional
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
-    handle_errors,
-    validate_path_segment,
     get_clamped_int_param,
     get_db_connection,
+    handle_errors,
+    json_response,
+    validate_path_segment,
 )
 
 logger = logging.getLogger(__name__)
@@ -143,6 +143,7 @@ class EvolutionABTestingHandler(BaseHandler):
     ) -> Optional[HandlerResult]:
         """Route DELETE requests with auth and rate limiting."""
         from aragora.billing.jwt_auth import extract_user_from_request
+
         from .utils.rate_limit import RateLimiter, get_client_ip
 
         if not AB_TESTING_AVAILABLE:

@@ -71,23 +71,22 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
     """Handle 'gauntlet' command - adversarial stress-testing."""
     from aragora.agents.base import create_agent
     from aragora.gauntlet import (
-        GauntletOrchestrator,
-        OrchestratorConfig,
-        GauntletProgress,
-        InputType,
-        QUICK_GAUNTLET,
-        THOROUGH_GAUNTLET,
+        AI_ACT_GAUNTLET,
         CODE_REVIEW_GAUNTLET,
-        POLICY_GAUNTLET,
         GDPR_GAUNTLET,
         HIPAA_GAUNTLET,
-        AI_ACT_GAUNTLET,
+        POLICY_GAUNTLET,
+        QUICK_GAUNTLET,
         SECURITY_GAUNTLET,
         SOX_GAUNTLET,
-        get_compliance_gauntlet,
+        THOROUGH_GAUNTLET,
         DecisionReceipt,
+        GauntletOrchestrator,
+        GauntletProgress,
+        InputType,
+        OrchestratorConfig,
+        get_compliance_gauntlet,
     )
-    from aragora.gauntlet.personas import list_personas, get_persona
 
     print("\n" + "=" * 60)
     print("GAUNTLET - Adversarial Stress-Testing")
@@ -98,7 +97,7 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
     if not input_path.exists():
         print(f"\nError: Input file not found: {input_path}")
         print("\nPlease check:")
-        print(f"  - The file path is correct")
+        print("  - The file path is correct")
         print(f"  - The file exists: ls -la {input_path.parent}")
         print("\nUsage:")
         print("  aragora gauntlet path/to/spec.md --input-type spec")

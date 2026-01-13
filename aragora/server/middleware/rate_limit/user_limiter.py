@@ -11,7 +11,7 @@ import logging
 import threading
 import time
 from collections import OrderedDict
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 from .base import (
     BURST_MULTIPLIER,

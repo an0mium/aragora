@@ -11,17 +11,15 @@ Provides capabilities for agents to:
 
 import json
 import logging
-import os
 import re
 import subprocess
 
 logger = logging.getLogger(__name__)
-import tempfile
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Optional, Any, Callable
 from enum import Enum
+from pathlib import Path
+from typing import Any, Callable, Optional
 
 
 class ChangeType(Enum):

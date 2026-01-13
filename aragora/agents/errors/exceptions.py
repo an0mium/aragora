@@ -12,7 +12,6 @@ from typing import Any
 
 from aragora.exceptions import AragoraError
 
-
 # =============================================================================
 # API Agent Exceptions
 # =============================================================================

@@ -38,14 +38,13 @@ from __future__ import annotations
 import ast
 import logging
 import operator
-import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Optional, Union
+from typing import Callable, Optional, Union
 
-from aragora.policy.risk import BlastRadius, RiskBudget, RiskLevel
-from aragora.policy.tools import Tool, ToolCapability, ToolRegistry, get_tool_registry
+from aragora.policy.risk import RiskBudget
+from aragora.policy.tools import ToolRegistry, get_tool_registry
 
 logger = logging.getLogger(__name__)
 

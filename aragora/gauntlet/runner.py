@@ -8,21 +8,20 @@ Chains together:
 4. Risk aggregation
 """
 
-import asyncio
 import hashlib
 import logging
 import uuid
 from datetime import datetime
 from typing import Any, Callable, Optional
 
-from .config import GauntletConfig, AttackCategory, ProbeCategory
+from .config import AttackCategory, GauntletConfig, ProbeCategory
 from .result import (
-    GauntletResult,
-    Vulnerability,
-    SeverityLevel,
     AttackSummary,
+    GauntletResult,
     ProbeSummary,
     ScenarioSummary,
+    SeverityLevel,
+    Vulnerability,
 )
 
 logger = logging.getLogger(__name__)
@@ -148,7 +147,7 @@ class GauntletRunner:
 
         # Import here to avoid circular imports
         try:
-            from aragora.modes.redteam import RedTeamMode, RedTeamProtocol, AttackType
+            from aragora.modes.redteam import AttackType, RedTeamMode, RedTeamProtocol
         except ImportError:
             logger.warning("[gauntlet] RedTeam mode not available")
             return summary
@@ -334,9 +333,9 @@ class GauntletRunner:
 
         try:
             from aragora.debate.scenarios import (
-                ScenarioMatrix,
                 MatrixDebateRunner,
                 ScenarioComparator,
+                ScenarioMatrix,
             )
         except ImportError:
             logger.warning("[gauntlet] Scenario matrix not available")
@@ -352,7 +351,7 @@ class GauntletRunner:
         # Create debate function using real Arena
         async def debate_func(task: str, ctx: str):
             try:
-                from aragora import Arena, Environment, DebateProtocol
+                from aragora import Arena, DebateProtocol, Environment
                 from aragora.debate.orchestrator import ArenaConfig
 
                 # Create environment for this scenario

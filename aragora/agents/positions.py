@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Generator, Literal
 
-from aragora.config import DB_PERSONAS_PATH, DB_TIMEOUT_SECONDS
+from aragora.config import DB_PERSONAS_PATH
 from aragora.insights.database import InsightsDatabase
 
 logger = logging.getLogger(__name__)

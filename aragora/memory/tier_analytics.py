@@ -7,14 +7,11 @@ enabling data-driven memory management decisions.
 
 from __future__ import annotations
 
-import json
 import logging
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
-from collections import defaultdict
 
 from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
 from aragora.memory.tier_manager import MemoryTier

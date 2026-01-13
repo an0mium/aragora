@@ -37,13 +37,13 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode, urljoin
 
 from .sso import (
+    SSOAuthenticationError,
+    SSOConfig,
+    SSOConfigurationError,
+    SSOError,
     SSOProvider,
     SSOProviderType,
-    SSOConfig,
     SSOUser,
-    SSOError,
-    SSOAuthenticationError,
-    SSOConfigurationError,
 )
 
 logger = logging.getLogger(__name__)
@@ -411,8 +411,8 @@ class OIDCProvider(SSOProvider):
                     return response.json()
             else:
                 # Fallback to sync
-                import urllib.request
                 import urllib.parse
+                import urllib.request
 
                 req_data = urllib.parse.urlencode(data).encode()
                 req = urllib.request.Request(
@@ -596,8 +596,8 @@ class OIDCProvider(SSOProvider):
                     response.raise_for_status()
                     tokens = response.json()
             else:
-                import urllib.request
                 import urllib.parse
+                import urllib.request
 
                 req_data = urllib.parse.urlencode(data).encode()
                 req = urllib.request.Request(token_endpoint, data=req_data, method="POST")

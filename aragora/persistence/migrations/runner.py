@@ -27,9 +27,7 @@ import importlib
 import logging
 import os
 import re
-import sqlite3
 import sys
-import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -386,7 +384,6 @@ class MigrationRunner:
 
     def _is_empty_migration(self, func: Callable) -> bool:
         """Check if a migration function is effectively empty (only pass/pass-like)."""
-        import dis
         import inspect
 
         try:

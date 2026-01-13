@@ -9,8 +9,8 @@ Usage:
 """
 
 import argparse
-import sys
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -75,7 +75,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
     try:
         status = runner.status()
-        print(f"Migration Status:")
+        print("Migration Status:")
         print(f"  Backend: {runner._backend.backend_type}")
         print(f"  Applied: {status['applied_count']}")
         print(f"  Pending: {status['pending_count']}")
@@ -83,7 +83,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"  Latest available: {status['latest_available'] or 'None'}")
 
         if status["pending_versions"]:
-            print(f"\nPending migrations:")
+            print("\nPending migrations:")
             for v in status["pending_versions"]:
                 print(f"  - {v}")
 

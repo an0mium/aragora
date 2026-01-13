@@ -5,10 +5,10 @@ Defines all possible states and valid transitions for the nomic loop
 state machine. Each state is idempotent and can be safely retried.
 """
 
-from enum import Enum, auto
 from dataclasses import dataclass, field
-from typing import Set, Dict, Any, Optional
 from datetime import datetime
+from enum import Enum, auto
+from typing import Any, Dict, Optional, Set
 
 
 class NomicState(Enum):

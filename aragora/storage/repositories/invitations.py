@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import datetime
-from typing import Callable, ContextManager, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, ContextManager, Optional
 
 if TYPE_CHECKING:
     from aragora.billing.models import OrganizationInvitation

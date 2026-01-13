@@ -13,9 +13,9 @@ Features:
 """
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any, Optional
 
 from aragora.config import resolve_db_path
 from aragora.storage.base_store import SQLiteStore

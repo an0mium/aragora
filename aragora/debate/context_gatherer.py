@@ -251,7 +251,7 @@ class ContextGatherer:
 
             # Add web connector if available
             try:
-                from aragora.connectors.web import WebConnector, DDGS_AVAILABLE
+                from aragora.connectors.web import DDGS_AVAILABLE, WebConnector
 
                 if DDGS_AVAILABLE:
                     collector.add_connector("web", WebConnector())
@@ -261,8 +261,9 @@ class ContextGatherer:
 
             # Add GitHub connector if available
             try:
-                from aragora.connectors.github import GitHubConnector
                 import os
+
+                from aragora.connectors.github import GitHubConnector
 
                 if os.environ.get("GITHUB_TOKEN"):
                     collector.add_connector("github", GitHubConnector())
@@ -323,10 +324,10 @@ class ContextGatherer:
         """
         try:
             from aragora.pulse.ingestor import (
-                PulseManager,
-                TwitterIngestor,
                 HackerNewsIngestor,
+                PulseManager,
                 RedditIngestor,
+                TwitterIngestor,
             )
 
             manager = PulseManager()

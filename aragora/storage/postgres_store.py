@@ -38,12 +38,12 @@ logger = logging.getLogger(__name__)
 # Optional asyncpg import - graceful degradation
 try:
     import asyncpg
-    from asyncpg import Pool, Connection
+    from asyncpg import Connection, Pool
     ASYNCPG_AVAILABLE = True
 except ImportError:
-    asyncpg = None  # type: ignore
-    Pool = Any  # type: ignore
-    Connection = Any  # type: ignore
+    asyncpg = None
+    Pool = Any
+    Connection = Any
     ASYNCPG_AVAILABLE = False
     logger.debug("asyncpg not available, PostgreSQL backend disabled")
 

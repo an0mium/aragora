@@ -15,27 +15,25 @@ Endpoints:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.evidence import (
     EvidenceCollector,
     EvidenceStore,
-    InMemoryEvidenceStore,
     QualityContext,
 )
 from aragora.server.handlers.base import (
+    SAFE_ID_PATTERN,
     BaseHandler,
     PaginatedHandlerMixin,
     error_response,
-    json_response,
-    get_int_param,
     get_float_param,
+    get_int_param,
     get_string_param,
-    get_bool_param,
-    SAFE_ID_PATTERN,
+    json_response,
 )
-from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.handlers.utils.responses import HandlerResult
 
 logger = logging.getLogger(__name__)
 

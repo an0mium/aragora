@@ -63,7 +63,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum, auto
-from typing import Any, TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.core import Agent, Environment
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol
@@ -103,19 +103,22 @@ if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
     from aragora.agents.grounded import MomentDetector
     from aragora.agents.personas import PersonaManager
-    from aragora.agents.truth_grounding import PositionLedger, PositionTracker  # type: ignore[attr-defined]
+    from aragora.agents.truth_grounding import (  # type: ignore[attr-defined]
+        PositionLedger,
+        PositionTracker,
+    )
+    from aragora.connectors.evidence import EvidenceCollector
+    from aragora.debate.orchestrator import Arena
     from aragora.insights.store import InsightStore
     from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.embeddings import DebateEmbeddingsDatabase  # type: ignore[attr-defined]
     from aragora.memory.store import CritiqueStore
+    from aragora.pulse.ingestor import TrendingTopic
     from aragora.ranking.dissent import DissentRetriever
     from aragora.ranking.elo import EloSystem
     from aragora.ranking.relationship import RelationshipTracker
     from aragora.reasoning.flip import FlipDetector
-    from aragora.connectors.evidence import EvidenceCollector
     from aragora.replay.recorder import ReplayRecorder
-    from aragora.pulse.ingestor import TrendingTopic
-    from aragora.debate.orchestrator import Arena
     from aragora.templates import DebateTemplate
 
 logger = logging.getLogger(__name__)

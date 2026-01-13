@@ -13,7 +13,6 @@ Environment Variables:
 
 import argparse
 import asyncio
-import hashlib
 import os
 import sys
 from pathlib import Path
@@ -23,10 +22,9 @@ from typing import Any, Optional
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from aragora.agents.base import create_agent
+from aragora.core import Environment
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.memory.store import CritiqueStore
-from aragora.core import Environment
-
 
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
@@ -269,7 +267,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 
     # Check database
     print("\n💾 Databases:")
-    from aragora.config import DB_MEMORY_PATH, DB_INSIGHTS_PATH, DB_ELO_PATH
+    from aragora.config import DB_ELO_PATH, DB_INSIGHTS_PATH, DB_MEMORY_PATH
 
     db_paths = [
         (DB_MEMORY_PATH, "Memory store"),
@@ -438,7 +436,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
     print(f"HTTP API:  http://{args.host}:{args.api_port}")
     if static_dir:
         print(f"Dashboard: http://{args.host}:{args.api_port}/")
-    print(f"\nPress Ctrl+C to stop\n")
+    print("\nPress Ctrl+C to stop\n")
     print("=" * 60 + "\n")
 
     try:
@@ -516,7 +514,7 @@ def cmd_mcp_server(args: argparse.Namespace) -> None:
 
         mcp_main()
     except ImportError as e:
-        print(f"\nError: MCP dependencies not installed")
+        print("\nError: MCP dependencies not installed")
         print(f"\nMissing: {e}")
         print("\nTo install MCP support:")
         print("  pip install mcp")
@@ -538,7 +536,6 @@ def cmd_mcp_server(args: argparse.Namespace) -> None:
 def cmd_batch(args: argparse.Namespace) -> None:
     """Handle 'batch' command - run multiple debates from file."""
     import json
-    import time
     from pathlib import Path
 
     input_path = Path(args.input)
@@ -589,9 +586,8 @@ def cmd_batch(args: argparse.Namespace) -> None:
 def _batch_via_server(items: list, args: argparse.Namespace) -> None:
     """Submit batch to server API."""
     import json
-    import urllib.request
     import urllib.error
-    import time
+    import urllib.request
 
     server_url = args.url.rstrip("/")
 
@@ -625,7 +621,7 @@ def _batch_via_server(items: list, args: argparse.Namespace) -> None:
             sys.exit(1)
 
         batch_id = result.get("batch_id")
-        print(f"\nBatch submitted successfully!")
+        print("\nBatch submitted successfully!")
         print(f"Batch ID: {batch_id}")
         print(f"Items queued: {result.get('items_queued', len(items))}")
         print(f"Status URL: {result.get('status_url', '')}")
@@ -646,8 +642,8 @@ def _batch_via_server(items: list, args: argparse.Namespace) -> None:
 def _poll_batch_status(server_url: str, batch_id: str, token: str = None) -> None:
     """Poll batch status until completion."""
     import json
-    import urllib.request
     import time
+    import urllib.request
 
     poll_interval = 5  # seconds
     max_polls = 360  # 30 minutes max

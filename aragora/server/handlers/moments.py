@@ -11,18 +11,18 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-import re
 from typing import Optional
+
+from aragora.utils.optional_imports import try_import
 
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     get_int_param,
+    json_response,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
-from aragora.utils.optional_imports import try_import
 
 logger = logging.getLogger(__name__)
 

@@ -2,24 +2,23 @@
 Anthropic API agent with OpenRouter fallback support.
 """
 
-import aiohttp
 import logging
 from typing import AsyncGenerator
 
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.api_agents.common import (
-    Message,
-    Critique,
-    handle_agent_errors,
     AgentAPIError,
-    AgentRateLimitError,
     AgentConnectionError,
+    AgentRateLimitError,
     AgentStreamError,
     AgentTimeoutError,
-    get_api_key,
+    Critique,
+    Message,
     _sanitize_error_message,
     create_anthropic_sse_parser,
     create_client_session,
+    get_api_key,
+    handle_agent_errors,
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry

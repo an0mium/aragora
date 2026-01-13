@@ -5,26 +5,22 @@ Uses YouTube Data API v3 with OAuth 2.0 for uploading videos
 and managing video metadata.
 """
 
-import asyncio
 import json
 import logging
 import os
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlencode
 
-import httpx
-
-from aragora.resilience import CircuitBreaker
 from aragora.connectors.exceptions import (
-    ConnectorError,
-    ConnectorAuthError,
-    ConnectorQuotaError,
     ConnectorAPIError,
+    ConnectorAuthError,
+    ConnectorError,
+    ConnectorQuotaError,
 )
+from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -588,7 +584,7 @@ class YouTubeUploaderConnector:
                         return items[0]
                     raise YouTubeAPIError(f"Video not found: {video_id}")
                 else:
-                    raise YouTubeAPIError(f"API request failed", status_code=response.status_code)
+                    raise YouTubeAPIError("API request failed", status_code=response.status_code)
 
         except (YouTubeAuthError, YouTubeAPIError):
             raise

@@ -13,13 +13,12 @@ import logging
 from typing import Any, Optional
 
 from aragora.config import (
-    DB_PERSONAS_PATH,
-    CACHE_TTL_LB_RANKINGS,
-    CACHE_TTL_LB_MATCHES,
-    CACHE_TTL_LB_REPUTATION,
-    CACHE_TTL_LB_TEAMS,
-    CACHE_TTL_LB_STATS,
     CACHE_TTL_LB_INTROSPECTION,
+    CACHE_TTL_LB_MATCHES,
+    CACHE_TTL_LB_RANKINGS,
+    CACHE_TTL_LB_REPUTATION,
+    CACHE_TTL_LB_STATS,
+    CACHE_TTL_LB_TEAMS,
 )
 from aragora.persistence.db_config import DatabaseType, get_db_path
 
@@ -29,17 +28,17 @@ logger = logging.getLogger(__name__)
 MAX_INTROSPECTION_AGENTS = 50  # Prevent unbounded introspection calls
 
 from .base import (
+    SAFE_ID_PATTERN,
     BaseHandler,
     HandlerResult,
-    json_response,
+    agent_to_dict,
     error_response,
+    get_agent_name,
     get_int_param,
     get_string_param,
-    get_agent_name,
-    agent_to_dict,
+    json_response,
     ttl_cache,
     validate_path_segment,
-    SAFE_ID_PATTERN,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
 

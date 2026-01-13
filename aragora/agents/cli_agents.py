@@ -12,23 +12,18 @@ enable_fallback=True (default) and providing OPENROUTER_API_KEY.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
-import subprocess
-import json
 import re
-from typing import Any, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
-from aragora.agents.base import CritiqueMixin, MAX_CONTEXT_CHARS, MAX_MESSAGE_CHARS
+from aragora.agents.base import MAX_CONTEXT_CHARS, MAX_MESSAGE_CHARS, CritiqueMixin
 from aragora.agents.errors import (
+    RATE_LIMIT_PATTERNS,
     AgentCircuitOpenError,
     CLISubprocessError,
     ErrorClassifier,
-    # Re-export patterns for backward compatibility
-    RATE_LIMIT_PATTERNS,
-    NETWORK_ERROR_PATTERNS,
-    CLI_ERROR_PATTERNS,
-    ALL_FALLBACK_PATTERNS,
 )
 from aragora.agents.registry import AgentRegistry
 from aragora.core import Agent, Critique, Message

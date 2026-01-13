@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Callable, Optional
+from typing import Optional
 
 from aragora.policy.risk import BlastRadius, RiskLevel
 

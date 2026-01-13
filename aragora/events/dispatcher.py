@@ -23,7 +23,6 @@ Usage:
     # Events are automatically delivered to registered webhooks
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -31,9 +30,9 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
-from urllib.request import Request, urlopen
+from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from aragora.server.middleware.tracing import get_trace_id
 

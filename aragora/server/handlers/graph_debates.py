@@ -11,17 +11,15 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
-
 import re
 
 from .base import (
+    SAFE_AGENT_PATTERN,
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     handle_errors,
-    SAFE_AGENT_PATTERN,
+    json_response,
 )
 
 # Suspicious patterns for task sanitization
@@ -92,7 +90,7 @@ class GraphDebatesHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for graph debates: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        logger.debug(f"POST /api/debates/graph - running graph debate")
+        logger.debug("POST /api/debates/graph - running graph debate")
         return await self._run_graph_debate(handler, data)
 
     async def _run_graph_debate(self, handler, data: dict) -> HandlerResult:
@@ -175,13 +173,14 @@ class GraphDebatesHandler(BaseHandler):
                 )
 
         try:
+            import uuid
+
+            from aragora.agents import create_agent
             from aragora.debate.graph import (
-                GraphDebateOrchestrator,
                 BranchPolicy,
                 BranchReason,
+                GraphDebateOrchestrator,
             )
-            from aragora.agents import create_agent
-            import uuid
 
             # Load agents
             agents = await self._load_agents(agent_names)
@@ -250,7 +249,6 @@ class GraphDebatesHandler(BaseHandler):
         """Load agents by name."""
         try:
             from aragora.agents import create_agent
-            from aragora.agents.base import AgentType
 
             agents = []
             for name in agent_names or ["claude", "gpt4"]:

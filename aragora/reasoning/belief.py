@@ -11,17 +11,16 @@ Extends the Claims Kernel with probabilistic graphical model capabilities:
 This moves aragora from binary accept/reject to nuanced probabilistic reasoning.
 """
 
+import json
 import math
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Optional
 from enum import Enum
-import hashlib
-import json
+from typing import Any, Optional
 
-from aragora.reasoning.claims import ClaimsKernel, TypedClaim, ClaimType, RelationType
-from aragora.config import BELIEF_MAX_ITERATIONS, BELIEF_CONVERGENCE_THRESHOLD
+from aragora.config import BELIEF_CONVERGENCE_THRESHOLD, BELIEF_MAX_ITERATIONS
+from aragora.reasoning.claims import ClaimsKernel, ClaimType, RelationType, TypedClaim
 
 
 class BeliefStatus(Enum):
@@ -690,13 +689,13 @@ class BeliefNetwork:
     def generate_summary(self) -> str:
         """Generate a text summary of the belief network."""
         lines = [
-            f"# Belief Network Summary",
-            f"",
+            "# Belief Network Summary",
+            "",
             f"**Debate ID:** {self.debate_id}",
             f"**Nodes:** {len(self.nodes)}",
             f"**Factors:** {len(self.factors)}",
             f"**Propagations:** {self.propagation_count}",
-            f"",
+            "",
         ]
 
         # Most certain claims

@@ -12,16 +12,15 @@ Inspired by nomic loop debate consensus on audience participation.
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import logging
 import time
-from dataclasses import dataclass, field, asdict
+from collections import defaultdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
-from collections import defaultdict
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     pass

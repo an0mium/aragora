@@ -28,10 +28,10 @@ Configuration in claude_desktop_config.json:
 
 from .server import AragoraMCPServer, run_server
 from .tools import (
+    get_debate_tool,
+    list_agents_tool,
     run_debate_tool,
     run_gauntlet_tool,
-    list_agents_tool,
-    get_debate_tool,
 )
 
 __all__ = [

@@ -12,16 +12,17 @@ import time
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
+from aragora.config import CACHE_TTL_DASHBOARD_DEBATES
+
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     get_int_param,
+    json_response,
     ttl_cache,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
-from aragora.config import DB_TIMEOUT_SECONDS, CACHE_TTL_DASHBOARD_DEBATES
 
 logger = logging.getLogger(__name__)
 
@@ -506,10 +507,9 @@ class DashboardHandler(BaseHandler):
         }
 
         try:
-            from aragora.memory.consensus import ConsensusMemory
-
-            from aragora.storage.schema import get_wal_connection
             from aragora.config import DB_TIMEOUT_SECONDS
+            from aragora.memory.consensus import ConsensusMemory
+            from aragora.storage.schema import get_wal_connection
 
             memory = ConsensusMemory()
             stats = memory.get_statistics()
@@ -549,7 +549,6 @@ class DashboardHandler(BaseHandler):
         try:
             from aragora.server.prometheus import (
                 is_prometheus_available,
-                get_metrics_output,
             )
 
             health["prometheus_available"] = is_prometheus_available()

@@ -5,23 +5,24 @@ LM Studio uses an OpenAI-compatible API, making integration straightforward.
 Default endpoint: http://localhost:1234/v1
 """
 
-import aiohttp
 import asyncio
 import json
 import logging
 import os
 from typing import AsyncGenerator, Optional
 
+import aiohttp
+
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.api_agents.common import (
-    Message,
-    Critique,
-    handle_agent_errors,
     AgentAPIError,
-    AgentRateLimitError,
     AgentConnectionError,
+    AgentRateLimitError,
     AgentTimeoutError,
+    Critique,
+    Message,
     _sanitize_error_message,
+    handle_agent_errors,
 )
 from aragora.agents.registry import AgentRegistry
 

@@ -9,7 +9,6 @@ Provides persistence for state machine state, enabling:
 
 import json
 import logging
-import os
 import re
 import shutil
 from datetime import datetime

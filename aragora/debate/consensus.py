@@ -10,12 +10,12 @@ Generates auditable artifacts from debates with:
 
 from __future__ import annotations
 
-import json
 import hashlib
-from dataclasses import dataclass, field, asdict
+import json
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Any
 from enum import Enum
+from typing import Any
 
 
 class VoteType(Enum):
@@ -319,12 +319,12 @@ class ConsensusProof:
     def to_markdown(self) -> str:
         """Generate readable Markdown report."""
         lines = [
-            f"# Consensus Proof",
-            f"",
+            "# Consensus Proof",
+            "",
             f"**Proof ID:** `{self.proof_id}`",
             f"**Debate ID:** `{self.debate_id}`",
             f"**Checksum:** `{self.checksum}`",
-            f"",
+            "",
             "---",
             "",
             "## Task",

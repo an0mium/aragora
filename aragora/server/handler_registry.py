@@ -19,24 +19,24 @@ Usage:
 import asyncio
 import logging
 from functools import lru_cache
-from typing import Any, BinaryIO, Callable, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Dict, List, Optional, Tuple, Type
 
 from aragora.server.versioning import (
     extract_version,
     strip_version_prefix,
     version_response_headers,
-    APIVersion,
 )
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.base import BaseHandler
-    from aragora.server.storage import DebateStorage
-    from aragora.ranking.elo import EloSystem
-    from aragora.debate.embeddings import DebateEmbeddingsDatabase
-    from aragora.memory.store import CritiqueStore
+    from pathlib import Path
+
     from aragora.agents.personas import PersonaManager
     from aragora.agents.positions import PositionLedger
-    from pathlib import Path
+    from aragora.debate.embeddings import DebateEmbeddingsDatabase
+    from aragora.memory.store import CritiqueStore
+    from aragora.ranking.elo import EloSystem
+    from aragora.server.handlers.base import BaseHandler
+    from aragora.server.storage import DebateStorage
 
 logger = logging.getLogger(__name__)
 
@@ -101,58 +101,160 @@ HandlerResult: HandlerType = None
 # Import handlers with graceful fallback
 try:
     from aragora.server.handlers import (
-        SystemHandler as _SystemHandler,
-        DebatesHandler as _DebatesHandler,
-        AgentsHandler as _AgentsHandler,
-        PulseHandler as _PulseHandler,
-        AnalyticsHandler as _AnalyticsHandler,
-        MetricsHandler as _MetricsHandler,
-        ConsensusHandler as _ConsensusHandler,
-        BeliefHandler as _BeliefHandler,
-        CritiqueHandler as _CritiqueHandler,
-        GenesisHandler as _GenesisHandler,
-        ReplaysHandler as _ReplaysHandler,
-        TournamentHandler as _TournamentHandler,
-        MemoryHandler as _MemoryHandler,
-        LeaderboardViewHandler as _LeaderboardViewHandler,
-        DocumentHandler as _DocumentHandler,
-        VerificationHandler as _VerificationHandler,
-        AuditingHandler as _AuditingHandler,
-        RelationshipHandler as _RelationshipHandler,
-        MomentsHandler as _MomentsHandler,
-        PersonaHandler as _PersonaHandler,
-        DashboardHandler as _DashboardHandler,
-        IntrospectionHandler as _IntrospectionHandler,
-        CalibrationHandler as _CalibrationHandler,
-        RoutingHandler as _RoutingHandler,
-        EvolutionHandler as _EvolutionHandler,
-        EvolutionABTestingHandler as _EvolutionABTestingHandler,
-        PluginsHandler as _PluginsHandler,
-        BroadcastHandler as _BroadcastHandler,
-        AudioHandler as _AudioHandler,
-        SocialMediaHandler as _SocialMediaHandler,
-        LaboratoryHandler as _LaboratoryHandler,
-        ProbesHandler as _ProbesHandler,
-        InsightsHandler as _InsightsHandler,
-        BreakpointsHandler as _BreakpointsHandler,
-        LearningHandler as _LearningHandler,
-        GalleryHandler as _GalleryHandler,
-        AuthHandler as _AuthHandler,
-        BillingHandler as _BillingHandler,
-        GraphDebatesHandler as _GraphDebatesHandler,
-        MatrixDebatesHandler as _MatrixDebatesHandler,
-        FeaturesHandler as _FeaturesHandler,
-        MemoryAnalyticsHandler as _MemoryAnalyticsHandler,
-        GauntletHandler as _GauntletHandler,
-        SlackHandler as _SlackHandler,
-        OrganizationsHandler as _OrganizationsHandler,
-        OAuthHandler as _OAuthHandler,
-        ReviewsHandler as _ReviewsHandler,
-        FormalVerificationHandler as _FormalVerificationHandler,
-        EvidenceHandler as _EvidenceHandler,
-        WebhookHandler as _WebhookHandler,
         AdminHandler as _AdminHandler,
+    )
+    from aragora.server.handlers import (
+        AgentsHandler as _AgentsHandler,
+    )
+    from aragora.server.handlers import (
+        AnalyticsHandler as _AnalyticsHandler,
+    )
+    from aragora.server.handlers import (
+        AudioHandler as _AudioHandler,
+    )
+    from aragora.server.handlers import (
+        AuditingHandler as _AuditingHandler,
+    )
+    from aragora.server.handlers import (
+        AuthHandler as _AuthHandler,
+    )
+    from aragora.server.handlers import (
+        BeliefHandler as _BeliefHandler,
+    )
+    from aragora.server.handlers import (
+        BillingHandler as _BillingHandler,
+    )
+    from aragora.server.handlers import (
+        BreakpointsHandler as _BreakpointsHandler,
+    )
+    from aragora.server.handlers import (
+        BroadcastHandler as _BroadcastHandler,
+    )
+    from aragora.server.handlers import (
+        CalibrationHandler as _CalibrationHandler,
+    )
+    from aragora.server.handlers import (
+        ConsensusHandler as _ConsensusHandler,
+    )
+    from aragora.server.handlers import (
+        CritiqueHandler as _CritiqueHandler,
+    )
+    from aragora.server.handlers import (
+        DashboardHandler as _DashboardHandler,
+    )
+    from aragora.server.handlers import (
+        DebatesHandler as _DebatesHandler,
+    )
+    from aragora.server.handlers import (
+        DocumentHandler as _DocumentHandler,
+    )
+    from aragora.server.handlers import (
+        EvidenceHandler as _EvidenceHandler,
+    )
+    from aragora.server.handlers import (
+        EvolutionABTestingHandler as _EvolutionABTestingHandler,
+    )
+    from aragora.server.handlers import (
+        EvolutionHandler as _EvolutionHandler,
+    )
+    from aragora.server.handlers import (
+        FeaturesHandler as _FeaturesHandler,
+    )
+    from aragora.server.handlers import (
+        FormalVerificationHandler as _FormalVerificationHandler,
+    )
+    from aragora.server.handlers import (
+        GalleryHandler as _GalleryHandler,
+    )
+    from aragora.server.handlers import (
+        GauntletHandler as _GauntletHandler,
+    )
+    from aragora.server.handlers import (
+        GenesisHandler as _GenesisHandler,
+    )
+    from aragora.server.handlers import (
+        GraphDebatesHandler as _GraphDebatesHandler,
+    )
+    from aragora.server.handlers import (
         HandlerResult as _HandlerResult,
+    )
+    from aragora.server.handlers import (
+        InsightsHandler as _InsightsHandler,
+    )
+    from aragora.server.handlers import (
+        IntrospectionHandler as _IntrospectionHandler,
+    )
+    from aragora.server.handlers import (
+        LaboratoryHandler as _LaboratoryHandler,
+    )
+    from aragora.server.handlers import (
+        LeaderboardViewHandler as _LeaderboardViewHandler,
+    )
+    from aragora.server.handlers import (
+        LearningHandler as _LearningHandler,
+    )
+    from aragora.server.handlers import (
+        MatrixDebatesHandler as _MatrixDebatesHandler,
+    )
+    from aragora.server.handlers import (
+        MemoryAnalyticsHandler as _MemoryAnalyticsHandler,
+    )
+    from aragora.server.handlers import (
+        MemoryHandler as _MemoryHandler,
+    )
+    from aragora.server.handlers import (
+        MetricsHandler as _MetricsHandler,
+    )
+    from aragora.server.handlers import (
+        MomentsHandler as _MomentsHandler,
+    )
+    from aragora.server.handlers import (
+        OAuthHandler as _OAuthHandler,
+    )
+    from aragora.server.handlers import (
+        OrganizationsHandler as _OrganizationsHandler,
+    )
+    from aragora.server.handlers import (
+        PersonaHandler as _PersonaHandler,
+    )
+    from aragora.server.handlers import (
+        PluginsHandler as _PluginsHandler,
+    )
+    from aragora.server.handlers import (
+        ProbesHandler as _ProbesHandler,
+    )
+    from aragora.server.handlers import (
+        PulseHandler as _PulseHandler,
+    )
+    from aragora.server.handlers import (
+        RelationshipHandler as _RelationshipHandler,
+    )
+    from aragora.server.handlers import (
+        ReplaysHandler as _ReplaysHandler,
+    )
+    from aragora.server.handlers import (
+        ReviewsHandler as _ReviewsHandler,
+    )
+    from aragora.server.handlers import (
+        RoutingHandler as _RoutingHandler,
+    )
+    from aragora.server.handlers import (
+        SlackHandler as _SlackHandler,
+    )
+    from aragora.server.handlers import (
+        SocialMediaHandler as _SocialMediaHandler,
+    )
+    from aragora.server.handlers import (
+        SystemHandler as _SystemHandler,
+    )
+    from aragora.server.handlers import (
+        TournamentHandler as _TournamentHandler,
+    )
+    from aragora.server.handlers import (
+        VerificationHandler as _VerificationHandler,
+    )
+    from aragora.server.handlers import (
+        WebhookHandler as _WebhookHandler,
     )
 
     # Assign imported classes to module-level variables

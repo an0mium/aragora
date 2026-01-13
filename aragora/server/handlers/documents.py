@@ -23,9 +23,9 @@ from typing import Any, Optional
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     handle_errors,
+    json_response,
     require_user_auth,
     safe_error_message,
 )
@@ -354,7 +354,7 @@ class DocumentHandler(BaseHandler):
 
         # Import document parsing
         try:
-            from aragora.server.documents import parse_document, SUPPORTED_EXTENSIONS
+            from aragora.server.documents import SUPPORTED_EXTENSIONS, parse_document
         except ImportError:
             return UploadError(
                 UploadErrorCode.PARSING_FAILED, "Document parsing module not available"

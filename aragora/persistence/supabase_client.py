@@ -4,15 +4,14 @@ Supabase client for aragora persistence.
 Handles all database operations and real-time subscriptions.
 """
 
+import logging
 import os
-import asyncio
 import time
 from datetime import datetime
-from typing import Optional, Callable
-import logging
+from typing import Callable, Optional
 
 try:
-    from supabase import create_client, Client
+    from supabase import Client, create_client
 
     SUPABASE_AVAILABLE = True
 except ImportError:
@@ -20,10 +19,10 @@ except ImportError:
     Client = None
 
 from aragora.persistence.models import (
-    NomicCycle,
-    DebateArtifact,
-    StreamEvent,
     AgentMetrics,
+    DebateArtifact,
+    NomicCycle,
+    StreamEvent,
 )
 
 logger = logging.getLogger(__name__)

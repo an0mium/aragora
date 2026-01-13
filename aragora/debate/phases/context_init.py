@@ -15,10 +15,9 @@ Arena._run_inner() method, handling:
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
-    from aragora.core import Message
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
@@ -123,7 +122,7 @@ class ContextInitializer:
         Args:
             ctx: The DebateContext to initialize
         """
-        from aragora.core import DebateResult, Message
+        from aragora.core import DebateResult
 
         # 1. Inject fork debate history
         self._inject_fork_history(ctx)

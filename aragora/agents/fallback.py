@@ -12,7 +12,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 try:
     from aragora.agents.registry import AgentRegistry
@@ -20,8 +20,9 @@ except (ImportError, ModuleNotFoundError):
     AgentRegistry = None  # type: ignore[assignment, misc]
 
 if TYPE_CHECKING:
-    from .api_agents import OpenRouterAgent
     from aragora.resilience import CircuitBreaker
+
+    from .api_agents import OpenRouterAgent
 
 logger = logging.getLogger(__name__)
 

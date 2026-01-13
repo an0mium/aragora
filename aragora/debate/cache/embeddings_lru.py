@@ -209,8 +209,8 @@ def get_embedding_cache(
             # Default to core.db for persistence
             if persist and db_path is None:
                 from aragora.persistence.db_config import (
-                    get_db_path_str,
                     DatabaseType,
+                    get_db_path_str,
                 )
 
                 db_path = get_db_path_str(DatabaseType.EMBEDDINGS)

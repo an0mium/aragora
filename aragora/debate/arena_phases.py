@@ -14,7 +14,6 @@ from aragora.debate.context_gatherer import ContextGatherer
 from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.memory_manager import MemoryManager
 from aragora.debate.optional_imports import OptionalImports
-from aragora.reasoning.claims import fast_extract_claims
 from aragora.debate.phases import (
     AnalyticsPhase,
     ConsensusPhase,
@@ -24,8 +23,9 @@ from aragora.debate.phases import (
     ProposalPhase,
     VotingPhase,
 )
-from aragora.debate.protocol import user_vote_multiplier
 from aragora.debate.prompt_builder import PromptBuilder
+from aragora.debate.protocol import user_vote_multiplier
+from aragora.reasoning.claims import fast_extract_claims
 from aragora.reasoning.evidence_grounding import EvidenceGrounder
 
 # Optional genesis import for evolution
@@ -74,8 +74,8 @@ def _create_verify_claims_callback(arena: "Arena"):
         if _formal_manager is None:
             try:
                 from aragora.verification.formal import (
-                    get_formal_verification_manager,
                     FormalProofStatus,
+                    get_formal_verification_manager,
                 )
 
                 _formal_manager = get_formal_verification_manager()

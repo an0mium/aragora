@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 from typing import Any, Optional
 
-from .base import BaseHandler, HandlerResult, json_response, error_response
+from .base import BaseHandler, HandlerResult, error_response, json_response
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)

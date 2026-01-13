@@ -9,13 +9,12 @@ Provides comprehensive quality scoring for evidence snippets including:
 - Overall quality score (weighted combination)
 """
 
-import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from aragora.evidence.metadata import EnrichedMetadata, SourceType
 

@@ -24,8 +24,8 @@ from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
-from urllib.request import Request, urlopen
 from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +169,7 @@ class BillingNotifier:
         Returns:
             NotificationResult indicating success/failure
         """
-        subject = f"[Aragora] Payment Failed - Action Required"
+        subject = "[Aragora] Payment Failed - Action Required"
 
         # Determine urgency based on attempt count
         if attempt_count >= 3:

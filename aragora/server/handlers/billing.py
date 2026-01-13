@@ -14,37 +14,33 @@ Endpoints:
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime
 from typing import Any, Optional
+
+from aragora.billing.jwt_auth import extract_user_from_request
+
+# Module-level imports for test mocking compatibility
+from aragora.billing.models import TIER_LIMITS, SubscriptionTier
+from aragora.billing.stripe_client import (
+    StripeAPIError,
+    StripeConfigError,
+    StripeError,
+    get_stripe_client,
+)
+from aragora.server.validation.schema import CHECKOUT_SESSION_SCHEMA, validate_against_schema
 
 from .base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    get_string_param,
     handle_errors,
     json_response,
     log_request,
-    get_string_param,
     require_permission,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
-from aragora.server.validation.schema import validate_against_schema, CHECKOUT_SESSION_SCHEMA
-
-# Module-level imports for test mocking compatibility
-from aragora.billing.models import TIER_LIMITS, SubscriptionTier
-from aragora.billing.stripe_client import (
-    get_stripe_client,
-    StripeError,
-    StripeConfigError,
-    StripeAPIError,
-)
-from aragora.billing.jwt_auth import extract_user_from_request
-from aragora.server.handlers.exceptions import (
-    HandlerExternalServiceError,
-    HandlerNotFoundError,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -680,7 +676,7 @@ class BillingHandler(BaseHandler):
 
         # Suggest tier upgrade if hitting limits
         tier_recommendation = None
-        from aragora.billing.models import SubscriptionTier, TIER_LIMITS
+        from aragora.billing.models import TIER_LIMITS, SubscriptionTier
 
         if will_hit_limit and org.tier != SubscriptionTier.ENTERPRISE:
             # Find next tier
@@ -900,9 +896,7 @@ class BillingHandler(BaseHandler):
         """Handle Stripe webhook events."""
         from aragora.billing.stripe_client import (
             parse_webhook_event,
-            get_tier_from_price_id,
         )
-        from aragora.billing.models import SubscriptionTier
 
         # Get raw body and signature (limit to 1MB for webhook payloads)
         MAX_WEBHOOK_SIZE = 1 * 1024 * 1024

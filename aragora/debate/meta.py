@@ -9,14 +9,14 @@ Enables agents to analyze the debate process itself, identifying:
 - Process improvements
 """
 
-from dataclasses import dataclass, field
-from typing import Any, Optional
-from datetime import datetime
 import logging
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-from aragora.core import Message, Critique, DebateResult
+from aragora.core import Critique, DebateResult, Message
 from aragora.memory.embeddings import EmbeddingProvider, cosine_similarity
 from aragora.utils.async_utils import run_async
 
@@ -272,7 +272,7 @@ class MetaCritiqueAnalyzer:
                         severity=0.4,
                         round_range=(0, 0),
                         agents_involved=[critique.agent, target_agent],
-                        evidence=[f"Low overlap between suggestions and response"],
+                        evidence=["Low overlap between suggestions and response"],
                     )
                 )
 

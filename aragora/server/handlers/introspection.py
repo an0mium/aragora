@@ -15,18 +15,19 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from .base import (
-    BaseHandler,
-    HandlerResult,
-    json_response,
-    error_response,
-    get_int_param,
-    ttl_cache,
-    SAFE_AGENT_PATTERN,
-)
-from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.config import DB_PERSONAS_PATH
 from aragora.utils.optional_imports import try_import_class
+
+from .base import (
+    SAFE_AGENT_PATTERN,
+    BaseHandler,
+    HandlerResult,
+    error_response,
+    get_int_param,
+    json_response,
+    ttl_cache,
+)
+from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 

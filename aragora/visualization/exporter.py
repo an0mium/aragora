@@ -1,14 +1,12 @@
 """Export utilities for argument graphs."""
 
-from pathlib import Path
-from typing import Optional
 import hashlib
-import json
 import threading
 import time
+from pathlib import Path
+from typing import Optional
 
 from aragora.visualization.mapper import ArgumentCartographer
-
 
 # In-memory export cache with TTL
 # Key: (debate_id, format, graph_hash) -> (content, timestamp)

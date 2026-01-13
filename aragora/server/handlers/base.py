@@ -42,66 +42,23 @@ import logging
 import os
 import re
 from functools import wraps
-from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, Union
 
 from aragora.config import DB_TIMEOUT_SECONDS
-from aragora.protocols import HTTPRequestHandler, AgentRating, AuthenticatedUser
+from aragora.protocols import AgentRating, AuthenticatedUser, HTTPRequestHandler
 
 if TYPE_CHECKING:
-    from aragora.server.storage import DebateStorage
-    from aragora.ranking.elo import EloSystem
-    from aragora.debate.embeddings import DebateEmbeddingsDatabase
-    from aragora.memory.store import CritiqueStore
     from pathlib import Path
 
+    from aragora.debate.embeddings import DebateEmbeddingsDatabase
+    from aragora.memory.store import CritiqueStore
+    from aragora.ranking.elo import EloSystem
+    from aragora.server.storage import DebateStorage
+
 # Import from extracted utility modules (re-exported for backwards compatibility)
-from aragora.server.handlers.utils.safe_data import (
-    safe_get,
-    safe_get_nested,
-    safe_json_parse,
-)
-from aragora.server.handlers.utils.database import (
-    get_db_connection,
-    table_exists,
-)
-from aragora.server.handlers.utils.params import (
-    parse_query_params,
-    get_int_param,
-    get_float_param,
-    get_bool_param,
-    get_string_param,
-    get_clamped_int_param,
-    get_bounded_float_param,
-    get_bounded_string_param,
-)
-from aragora.server.handlers.utils.routing import (
-    PathMatcher,
-    RouteDispatcher,
-)
-from aragora.server.handlers.utils.decorators import (
-    generate_trace_id,
-    map_exception_to_status as _map_exception_to_status,
-    validate_params,
-    handle_errors,
-    auto_error_response,
-    log_request,
-    PERMISSION_MATRIX,
-    has_permission,
-    require_permission,
-    require_user_auth,
-    require_auth,
-    require_storage,
-    require_feature,
-    safe_fetch,
-    with_error_recovery,
-)
 from aragora.server.error_utils import safe_error_message
 from aragora.server.handlers.cache import (
-    BoundedTTLCache,
     CACHE_INVALIDATION_MAP,
-    CACHE_MAX_ENTRIES,
-    CACHE_EVICT_PERCENT,
-    _cache,  # Re-export for backwards compatibility
     async_ttl_cache,
     clear_cache,
     get_cache_stats,
@@ -113,14 +70,48 @@ from aragora.server.handlers.cache import (
     invalidate_on_event,
     ttl_cache,
 )
+from aragora.server.handlers.utils.database import (
+    get_db_connection,
+    table_exists,
+)
+from aragora.server.handlers.utils.decorators import (
+    PERMISSION_MATRIX,
+    auto_error_response,
+    generate_trace_id,
+    handle_errors,
+    has_permission,
+    log_request,
+    require_auth,
+    require_feature,
+    require_permission,
+    require_storage,
+    require_user_auth,
+    safe_fetch,
+    validate_params,
+)
+from aragora.server.handlers.utils.params import (
+    get_bool_param,
+    get_bounded_float_param,
+    get_bounded_string_param,
+    get_clamped_int_param,
+    get_float_param,
+    get_int_param,
+    get_string_param,
+)
+from aragora.server.handlers.utils.routing import (
+    PathMatcher,
+    RouteDispatcher,
+)
+from aragora.server.handlers.utils.safe_data import (
+    safe_get,
+    safe_get_nested,
+    safe_json_parse,
+)
 from aragora.server.validation import (
-    SAFE_ID_PATTERN,
     SAFE_AGENT_PATTERN,
+    SAFE_ID_PATTERN,
     SAFE_SLUG_PATTERN,
-    # Re-export validation functions for backwards compatibility
     validate_path_segment,
-    validate_agent_name,
-    validate_debate_id,
 )
 
 # Rate limiting is available from aragora.server.middleware.rate_limit
@@ -347,10 +338,8 @@ def agent_to_dict(agent: Union[dict, AgentRating, Any, None], include_name: bool
 
 from aragora.server.handlers.utils.responses import (
     HandlerResult,
-    json_response,
     error_response,
-    html_response,
-    redirect_response,
+    json_response,
 )
 
 

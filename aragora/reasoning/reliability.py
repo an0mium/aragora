@@ -12,13 +12,11 @@ Outputs reliability metrics that integrate with the provenance system.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 from enum import Enum
+from typing import Optional
 
 from aragora.reasoning.provenance import (
     ProvenanceManager,
-    ProvenanceChain,
-    CitationGraph,
     SourceType,
 )
 

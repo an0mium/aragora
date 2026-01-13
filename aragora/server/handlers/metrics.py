@@ -19,13 +19,13 @@ import sqlite3
 import threading
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 from aragora.config import DB_ELO_PATH, DB_INSIGHTS_PATH
-from .base import BaseHandler, HandlerResult, json_response, error_response, safe_error_message
+
+from .base import BaseHandler, HandlerResult, error_response, json_response, safe_error_message
 from .cache import _cache, get_cache_stats
 from .utils.rate_limit import RateLimiter, get_client_ip
 
@@ -33,11 +33,9 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 _metrics_limiter = RateLimiter(requests_per_minute=60)
 from ..prometheus import (
     get_metrics_output,
-    is_prometheus_available,
     set_cache_size,
     set_server_info,
 )
-
 
 # Request tracking for metrics (thread-safe)
 _request_counts: dict[str, int] = {}

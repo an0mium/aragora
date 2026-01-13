@@ -18,15 +18,20 @@ import threading
 import time
 from collections import defaultdict
 from functools import wraps
-from typing import Callable, Optional, TypeVar, Any
+from typing import Any, Callable, Optional, TypeVar
+
+from aragora.server.middleware.rate_limit import (
+    RateLimitResult,
+    rate_limit_headers,
+)
+from aragora.server.middleware.rate_limit import (
+    get_rate_limiter as get_middleware_limiter,
+)
 
 # Re-export the middleware rate_limit decorator for handlers that want
 # the full-featured version with burst support and rate limit headers
 from aragora.server.middleware.rate_limit import (
     rate_limit as middleware_rate_limit,
-    get_rate_limiter as get_middleware_limiter,
-    RateLimitResult,
-    rate_limit_headers,
 )
 
 logger = logging.getLogger(__name__)

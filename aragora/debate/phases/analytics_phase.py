@@ -17,7 +17,7 @@ Arena._run_inner() method, handling post-consensus processing:
 
 import logging
 import time
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
@@ -190,7 +190,9 @@ class AnalyticsPhase:
     def _record_metrics(self, ctx: "DebateContext") -> None:
         """Record debate metrics for observability."""
         try:
-            from aragora.debate.orchestrator import record_debate_completed  # type: ignore[attr-defined]
+            from aragora.debate.orchestrator import (
+                record_debate_completed,  # type: ignore[attr-defined]
+            )
 
             result = ctx.result
             record_debate_completed(

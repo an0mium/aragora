@@ -31,13 +31,12 @@ Usage:
 import logging
 import sqlite3
 from abc import ABC
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Generator, Optional, Union
+from typing import Optional, Union
 
+from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.storage.base_database import BaseDatabase
 from aragora.storage.schema import SchemaManager, safe_add_column
-from aragora.config import DB_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 

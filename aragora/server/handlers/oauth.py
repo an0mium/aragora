@@ -14,17 +14,15 @@ Endpoints:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
 import secrets
 import time
+from collections.abc import Iterator, MutableMapping
 from dataclasses import dataclass
 from typing import Any, Optional, Union
-from collections.abc import MutableMapping, Iterator
-from urllib.parse import urlencode, parse_qs
-from uuid import uuid4
+from urllib.parse import urlencode
 
 from .base import (
     BaseHandler,
@@ -145,9 +143,13 @@ GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 # Import from dedicated state store module
 from aragora.server.oauth_state_store import (
     OAuthState,
-    generate_oauth_state as _generate_state,
-    validate_oauth_state as _validate_state_internal,
     get_oauth_state_store,
+)
+from aragora.server.oauth_state_store import (
+    generate_oauth_state as _generate_state,
+)
+from aragora.server.oauth_state_store import (
+    validate_oauth_state as _validate_state_internal,
 )
 
 
@@ -379,8 +381,6 @@ class OAuthHandler(BaseHandler):
     @log_request("Google OAuth callback")
     def _handle_google_callback(self, handler, query_params: dict) -> HandlerResult:
         """Handle Google OAuth callback with authorization code."""
-        import urllib.request
-        import urllib.error
 
         # Check for error from Google
         error = query_params.get("error", [None])[0]
@@ -468,8 +468,8 @@ class OAuthHandler(BaseHandler):
 
     def _exchange_code_for_tokens(self, code: str) -> dict:
         """Exchange authorization code for access tokens."""
-        import urllib.request
         import urllib.error
+        import urllib.request
 
         data = urlencode(
             {

@@ -15,9 +15,9 @@ from aragora.agents.errors import _build_error_action
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
+    from aragora.memory.consensus import ConsensusMemory, ConsensusStrength
     from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.critique_store import CritiqueStore
-    from aragora.memory.consensus import ConsensusMemory
     from aragora.memory.embeddings import DebateEmbeddingsDatabase  # type: ignore[attr-defined]
     from aragora.spectate.stream import SpectatorStream
 
@@ -173,7 +173,6 @@ class MemoryManager:
             return
 
         try:
-            from aragora.memory.consensus import ConsensusStrength, DissentType
 
             # Determine strength from confidence
             strength = self._confidence_to_strength(result.confidence)

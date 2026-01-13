@@ -53,7 +53,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Protocol, Union
+from typing import Any, Callable, Dict, List, Optional, Protocol
 
 logger = logging.getLogger(__name__)
 

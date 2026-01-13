@@ -12,7 +12,6 @@ Usage:
         return {"user_id": user.id}
 """
 
-import asyncio
 import base64
 import json
 import logging
@@ -20,17 +19,17 @@ import os
 import time
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 # JWT validation (using PyJWT if available, fallback to manual)
 try:
     import jwt
     from jwt.exceptions import (
-        ExpiredSignatureError,
-        InvalidSignatureError,
         DecodeError,
-        InvalidTokenError,
+        ExpiredSignatureError,
         InvalidAudienceError,
+        InvalidSignatureError,
+        InvalidTokenError,
     )
 
     HAS_JWT = True
@@ -57,7 +56,7 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.base import HandlerResult
+    pass
 
 logger = logging.getLogger(__name__)
 

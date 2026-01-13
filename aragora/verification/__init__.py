@@ -9,31 +9,31 @@ Provides:
 - FormalVerificationBackend: Interface for theorem provers (Lean, Z3)
 """
 
-from aragora.verification.proofs import (
-    VerificationProof,
-    ProofType,
-    ProofStatus,
-    VerificationResult,
-    ProofExecutor,
-    ClaimVerifier,
-    VerificationReport,
-    ProofBuilder,
-)
-from aragora.verification.formal import (
-    FormalVerificationBackend,
-    FormalVerificationManager,
-    FormalProofResult,
-    FormalProofStatus,
-    FormalLanguage,
-    TranslationModel,
-    LeanBackend,
-    Z3Backend,
-    get_formal_verification_manager,
-)
 from aragora.verification.deepseek_prover import (
     DeepSeekProverTranslator,
     TranslationResult,
     translate_to_lean,
+)
+from aragora.verification.formal import (
+    FormalLanguage,
+    FormalProofResult,
+    FormalProofStatus,
+    FormalVerificationBackend,
+    FormalVerificationManager,
+    LeanBackend,
+    TranslationModel,
+    Z3Backend,
+    get_formal_verification_manager,
+)
+from aragora.verification.proofs import (
+    ClaimVerifier,
+    ProofBuilder,
+    ProofExecutor,
+    ProofStatus,
+    ProofType,
+    VerificationProof,
+    VerificationReport,
+    VerificationResult,
 )
 from aragora.verification.sandbox import (
     ProofSandbox,

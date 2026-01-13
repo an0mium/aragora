@@ -27,9 +27,9 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Set
+from typing import Any, Callable, Coroutine, Dict, List, Optional
 
-from aragora.server.middleware.tracing import get_trace_id, get_span_id
+from aragora.server.middleware.tracing import get_span_id, get_trace_id
 
 logger = logging.getLogger(__name__)
 

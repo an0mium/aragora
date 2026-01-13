@@ -5,14 +5,13 @@ Compares fine-tuned Tinker models against baseline models using
 debate outcomes, win rates, and calibration metrics.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any
-import asyncio
 import json
 import logging
 import random
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from aragora.core import Agent, DebateResult
 from aragora.ranking.elo import EloSystem
@@ -298,7 +297,7 @@ class TinkerEvaluator:
         rounds: int = 3,
     ) -> DebateResult:
         """Run a single debate."""
-        from aragora.core import Environment, DebateProtocol
+        from aragora.core import DebateProtocol, Environment
         from aragora.debate.orchestrator import Arena
 
         env = Environment(task=task)

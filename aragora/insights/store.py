@@ -8,13 +8,13 @@ Stores and retrieves insights with:
 """
 
 import asyncio
-import logging
 import json
+import logging
 from datetime import datetime
 from typing import Optional
 
 from aragora.config import DB_INSIGHTS_PATH, resolve_db_path
-from aragora.insights.extractor import Insight, InsightType, DebateInsights
+from aragora.insights.extractor import DebateInsights, Insight, InsightType
 from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager
 from aragora.utils.json_helpers import safe_json_loads

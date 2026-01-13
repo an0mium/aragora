@@ -36,7 +36,8 @@ Usage:
 """
 
 from typing import Any, Optional
-from .handlers.base import json_response, HandlerResult
+
+from .handlers.base import HandlerResult, json_response
 
 
 def paginated_response(

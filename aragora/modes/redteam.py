@@ -10,11 +10,10 @@ Makes agents actively try to break each other's arguments through:
 This is a key differentiator vs AutoGen/CrewAI which focus on cooperation.
 """
 
-import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Callable, Any
 from enum import Enum
+from typing import Any, Callable, Optional
 
 
 class AttackType(Enum):
@@ -409,17 +408,17 @@ class RedTeamMode:
     def generate_report(self, result: RedTeamResult) -> str:
         """Generate a Markdown report of red-team findings."""
         lines = [
-            f"# Red Team Report",
-            f"",
+            "# Red Team Report",
+            "",
             f"**Session:** {result.session_id}",
             f"**Target:** {result.target[:100]}...",
-            f"",
+            "",
             "---",
             "",
             "## Summary",
             "",
-            f"| Metric | Value |",
-            f"|--------|-------|",
+            "| Metric | Value |",
+            "|--------|-------|",
             f"| Total Attacks | {result.total_attacks} |",
             f"| Successful | {result.successful_attacks} |",
             f"| Robustness Score | {result.robustness_score:.0%} |",

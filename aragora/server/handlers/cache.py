@@ -186,7 +186,7 @@ def _register_handler_cache() -> None:
         return
 
     try:
-        from aragora.services import ServiceRegistry, HandlerCacheService
+        from aragora.services import HandlerCacheService, ServiceRegistry
 
         registry = ServiceRegistry.get()
         if not registry.has(HandlerCacheService):

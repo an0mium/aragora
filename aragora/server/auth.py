@@ -11,17 +11,17 @@ import os
 import secrets
 import threading
 import time
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 from aragora.config import (
-    TOKEN_TTL_SECONDS,
     DEFAULT_RATE_LIMIT,
     IP_RATE_LIMIT,
     SHAREABLE_LINK_TTL,
+    TOKEN_TTL_SECONDS,
     get_settings,
 )
-from aragora.server.cors_config import cors_config
 from aragora.exceptions import AuthenticationError
+from aragora.server.cors_config import cors_config
 
 
 class AuthConfig:

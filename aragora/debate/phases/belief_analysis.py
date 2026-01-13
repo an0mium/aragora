@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.core import Message
-    from aragora.reasoning.belief import BeliefNetwork, BeliefPropagationAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +28,8 @@ def _load_belief_classes():
         try:
             from aragora.reasoning.belief import (
                 BeliefNetwork as BN,
+            )
+            from aragora.reasoning.belief import (
                 BeliefPropagationAnalyzer as BPA,
             )
 

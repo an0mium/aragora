@@ -14,9 +14,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import (
-    ALLOWED_AGENT_TYPES,
     DEBATE_TIMEOUT_SECONDS,
-    MAX_AGENTS_PER_DEBATE,
     MAX_CONCURRENT_DEBATES,
 )
 from aragora.server.debate_factory import DebateConfig, DebateFactory
@@ -27,9 +25,9 @@ from aragora.server.debate_utils import (
     update_debate_status,
     wrap_agent_for_streaming,
 )
-from aragora.server.state import get_state_manager
 from aragora.server.error_utils import safe_error_message
 from aragora.server.http_utils import run_async
+from aragora.server.state import get_state_manager
 from aragora.server.stream import (
     StreamEvent,
     StreamEventType,

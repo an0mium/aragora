@@ -23,32 +23,32 @@ Usage:
         return error(f"Locked for {remaining} seconds")
 """
 
-from .sso import (
-    SSOProvider,
-    SSOUser,
-    SSOConfig,
-    SSOError,
-    SSOProviderType,
-    SSOAuthenticationError,
-    SSOConfigurationError,
-    get_sso_provider,
-    reset_sso_provider,
-)
-from .saml import (
-    SAMLProvider,
-    SAMLConfig,
-    SAMLError,
-)
-from .oidc import (
-    OIDCProvider,
-    OIDCConfig,
-    OIDCError,
-)
 from .lockout import (
-    LockoutTracker,
     LockoutEntry,
+    LockoutTracker,
     get_lockout_tracker,
     reset_lockout_tracker,
+)
+from .oidc import (
+    OIDCConfig,
+    OIDCError,
+    OIDCProvider,
+)
+from .saml import (
+    SAMLConfig,
+    SAMLError,
+    SAMLProvider,
+)
+from .sso import (
+    SSOAuthenticationError,
+    SSOConfig,
+    SSOConfigurationError,
+    SSOError,
+    SSOProvider,
+    SSOProviderType,
+    SSOUser,
+    get_sso_provider,
+    reset_sso_provider,
 )
 
 __all__ = [

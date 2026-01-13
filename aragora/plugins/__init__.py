@@ -12,8 +12,8 @@ Key design decisions:
 - Curated set: Ship with core distribution, user plugins later
 """
 
-from aragora.plugins.manifest import PluginManifest, PluginCapability, PluginRequirement
-from aragora.plugins.runner import PluginRunner, PluginResult, PluginContext
+from aragora.plugins.manifest import PluginCapability, PluginManifest, PluginRequirement
+from aragora.plugins.runner import PluginContext, PluginResult, PluginRunner
 
 __all__ = [
     "PluginManifest",

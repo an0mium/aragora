@@ -38,8 +38,8 @@ SentenceTransformer = None  # type: ignore
 np = None  # type: ignore
 
 try:
-    from sentence_transformers import SentenceTransformer as _SentenceTransformer
     import numpy as _np
+    from sentence_transformers import SentenceTransformer as _SentenceTransformer
 
     SentenceTransformer = _SentenceTransformer
     np = _np

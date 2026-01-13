@@ -10,16 +10,15 @@ import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
-
-from aragora.config import DB_TIMEOUT_SECONDS
-from aragora.core import Agent, DebateResult, Critique
-from aragora.debate.safety import resolve_prompt_evolution
-from aragora.storage.base_store import SQLiteStore
-from aragora.memory.store import CritiqueStore, Pattern
 
 # Import gauntlet types for vulnerability recording
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
+
+from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.core import Agent, DebateResult
+from aragora.debate.safety import resolve_prompt_evolution
+from aragora.memory.store import CritiqueStore
+from aragora.storage.base_store import SQLiteStore
 
 if TYPE_CHECKING:
     from aragora.gauntlet.result import Vulnerability
@@ -411,6 +410,7 @@ class PromptEvolver(SQLiteStore):
         Falls back to append strategy if LLM is unavailable.
         """
         import os
+
         import requests  # type: ignore[import-untyped]
         from requests.adapters import HTTPAdapter  # type: ignore[import-untyped]
         from urllib3.util.retry import Retry

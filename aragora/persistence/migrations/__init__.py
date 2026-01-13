@@ -20,8 +20,8 @@ See aragora/persistence/migrations/runner.py for full documentation.
 """
 
 from aragora.persistence.migrations.runner import (
-    MigrationRunner,
     MigrationFile,
+    MigrationRunner,
     MigrationStatus,
 )
 

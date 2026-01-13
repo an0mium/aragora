@@ -12,8 +12,8 @@ import secrets
 import threading
 import time
 from collections import OrderedDict
-from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Set
+from dataclasses import dataclass
+from typing import Any, Optional, Set
 
 from .emitter import AudienceInbox, SyncEventEmitter, TokenBucket
 from .events import StreamEvent, StreamEventType

@@ -7,8 +7,7 @@ import asyncio
 import json
 import logging
 import threading
-import uuid
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +23,10 @@ def _ensure_imports():
     global Arena, DebateProtocol, Environment, create_agent
     if Arena is None:
         try:
-            from aragora.debate.orchestrator import Arena as _Arena, DebateProtocol as _DP
-            from aragora.core import Environment as _Env
             from aragora.agents.base import create_agent as _ca
+            from aragora.core import Environment as _Env
+            from aragora.debate.orchestrator import Arena as _Arena
+            from aragora.debate.orchestrator import DebateProtocol as _DP
 
             Arena = _Arena
             DebateProtocol = _DP

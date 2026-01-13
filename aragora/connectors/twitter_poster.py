@@ -19,15 +19,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-import httpx
-
-from aragora.resilience import CircuitBreaker
 from aragora.connectors.exceptions import (
-    ConnectorError,
-    ConnectorAuthError,
-    ConnectorRateLimitError,
     ConnectorAPIError,
+    ConnectorAuthError,
+    ConnectorError,
+    ConnectorRateLimitError,
 )
+from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -499,7 +497,7 @@ class TwitterPosterConnector:
                 elif response.status_code == 429:
                     raise TwitterRateLimitError("Rate limit exceeded for media upload")
                 else:
-                    raise TwitterAPIError(f"Media upload failed", status_code=response.status_code)
+                    raise TwitterAPIError("Media upload failed", status_code=response.status_code)
 
         except (TwitterAuthError, TwitterMediaError, TwitterAPIError, TwitterRateLimitError):
             raise

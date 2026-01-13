@@ -14,19 +14,19 @@ Key components:
 """
 
 from aragora.insights.extractor import (
-    Insight,
-    InsightType,
     DebateInsights,
+    Insight,
     InsightExtractor,
+    InsightType,
 )
-from aragora.insights.store import InsightStore
 from aragora.insights.flip_detector import (
-    FlipEvent,
     AgentConsistencyScore,
     FlipDetector,
-    format_flip_for_ui,
+    FlipEvent,
     format_consistency_for_ui,
+    format_flip_for_ui,
 )
+from aragora.insights.store import InsightStore
 
 __all__ = [
     "Insight",

@@ -12,21 +12,21 @@ import logging
 import os
 from typing import Any, Optional
 
+from aragora.integrations.email import EmailConfig, EmailIntegration, EmailRecipient
+from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
+    json_response,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation.schema import (
-    validate_against_schema,
     EMAIL_CONFIG_SCHEMA,
-    TELEGRAM_CONFIG_SCHEMA,
     NOTIFICATION_SEND_SCHEMA,
+    TELEGRAM_CONFIG_SCHEMA,
+    validate_against_schema,
 )
-from aragora.integrations.email import EmailConfig, EmailIntegration, EmailRecipient
-from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
 
 logger = logging.getLogger(__name__)
 
@@ -448,6 +448,7 @@ class NotificationsHandler(BaseHandler):
             telegram = get_telegram_integration()
             if telegram:
                 import asyncio
+
                 from aragora.integrations.telegram import TelegramMessage
 
                 async def send_test_telegram():

@@ -20,13 +20,6 @@ what functions are available to executed code. Do not expose proof execution
 to untrusted users without additional sandboxing (subprocess, containers).
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
-from typing import Any, Callable, Optional
-
-from aragora.exceptions import VerificationError
-
 import ast
 import asyncio
 import hashlib
@@ -37,6 +30,12 @@ import sys
 import tempfile
 import traceback
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Optional
+
+from aragora.exceptions import VerificationError
 
 # Timeout for code execution (seconds) - prevents infinite loops/CPU exhaustion
 EXEC_TIMEOUT_SECONDS = 5.0

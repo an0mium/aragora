@@ -21,11 +21,9 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from typing import Any, Optional
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from aragora.billing.models import SubscriptionTier
 

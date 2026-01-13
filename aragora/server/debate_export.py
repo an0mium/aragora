@@ -9,7 +9,7 @@ import csv
 import html
 import io
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 # Type alias for csv.writer return type (csv._writer is internal)
 CSVWriter = Any

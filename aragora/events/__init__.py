@@ -19,9 +19,9 @@ Usage:
 
 from .dispatcher import (
     WebhookDispatcher,
-    get_dispatcher,
     dispatch_event,
     dispatch_webhook,
+    get_dispatcher,
     shutdown_dispatcher,
 )
 

@@ -8,9 +8,9 @@ system, enabling real-time WebSocket broadcasts of debate events.
 from datetime import datetime
 from typing import Callable
 
-from aragora.server.stream.events import StreamEvent, StreamEventType
-from aragora.server.stream.emitter import SyncEventEmitter
 from aragora.server.error_utils import safe_error_message as _safe_error_message
+from aragora.server.stream.emitter import SyncEventEmitter
+from aragora.server.stream.events import StreamEvent, StreamEventType
 
 
 def wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):

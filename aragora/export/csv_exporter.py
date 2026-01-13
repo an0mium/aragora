@@ -15,6 +15,7 @@ import csv
 from io import StringIO
 from pathlib import Path
 from typing import Optional
+
 from aragora.export.artifact import DebateArtifact
 
 

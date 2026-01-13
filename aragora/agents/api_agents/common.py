@@ -6,7 +6,6 @@ to avoid code duplication.
 """
 
 import asyncio
-import aiohttp
 import json
 import logging
 import os
@@ -16,6 +15,8 @@ import threading
 import time
 from dataclasses import dataclass
 from typing import AsyncGenerator, Callable, Optional
+
+import aiohttp
 
 from aragora.agents.base import CritiqueMixin
 from aragora.agents.errors import (

@@ -13,12 +13,12 @@ Features:
 - Automatic path management
 """
 
-from dataclasses import dataclass, field
+import json
+import logging
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
-import json
-import logging
 
 logger = logging.getLogger(__name__)
 

@@ -15,22 +15,18 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     get_int_param,
-    ttl_cache,
+    json_response,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
-from aragora.config import DB_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 

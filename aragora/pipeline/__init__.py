@@ -8,11 +8,11 @@ Transforms debate outcomes into actionable development artifacts:
 - PatchPlan: Implementation steps
 """
 
-from aragora.pipeline.pr_generator import PRGenerator, DecisionMemo, PatchPlan
-from aragora.pipeline.risk_register import RiskRegister, Risk
+from aragora.pipeline.pr_generator import DecisionMemo, PatchPlan, PRGenerator
+from aragora.pipeline.risk_register import Risk, RiskRegister
 from aragora.pipeline.verification_plan import (
-    VerificationPlan,
     VerificationCase,
+    VerificationPlan,
     VerificationPlanGenerator,
 )
 

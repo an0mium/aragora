@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
 from enum import Enum
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.export.artifact import DebateArtifact
@@ -231,7 +231,6 @@ class VerificationPlanGenerator:
     """
 
     def __init__(self, artifact: "DebateArtifact") -> None:
-        from aragora.export.artifact import DebateArtifact
 
         self.artifact: DebateArtifact = artifact
 

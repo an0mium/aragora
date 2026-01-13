@@ -18,12 +18,13 @@ import aiohttp
 
 from aragora.agents.types import T
 from aragora.utils.error_sanitizer import sanitize_error
-from .classifier import ErrorContext, ErrorAction
+
+from .classifier import ErrorAction, ErrorContext
 from .exceptions import (
-    AgentError,
     AgentAPIError,
     AgentCircuitOpenError,
     AgentConnectionError,
+    AgentError,
     AgentRateLimitError,
     AgentResponseError,
     AgentStreamError,

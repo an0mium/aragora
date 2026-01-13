@@ -6,7 +6,6 @@ that gets injected into debate prompts.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass

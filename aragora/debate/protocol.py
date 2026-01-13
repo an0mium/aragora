@@ -14,9 +14,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal, Optional
 
-from aragora.config import DEBATE_TIMEOUT_SECONDS, AGENT_TIMEOUT_SECONDS
-from aragora.debate.roles import RoleRotationConfig
+from aragora.config import AGENT_TIMEOUT_SECONDS, DEBATE_TIMEOUT_SECONDS
 from aragora.debate.role_matcher import RoleMatchingConfig
+from aragora.debate.roles import RoleRotationConfig
 from aragora.resilience import CircuitBreaker  # Re-export for backwards compatibility
 
 if TYPE_CHECKING:

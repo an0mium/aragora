@@ -13,7 +13,6 @@ The free tier allows read-only access with limited rate limits.
 import asyncio
 import logging
 import os
-from datetime import datetime
 from typing import Optional
 
 from aragora.connectors.base import BaseConnector, Evidence

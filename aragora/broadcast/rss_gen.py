@@ -5,11 +5,10 @@ Generates iTunes-compatible podcast feeds from debate audio broadcasts.
 """
 
 import html
-import hashlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
 from xml.sax.saxutils import escape
 
 logger = logging.getLogger(__name__)
@@ -204,9 +203,9 @@ class PodcastFeedGenerator:
     ) -> str:
         """Create full episode content (show notes)."""
         lines = [
-            f"<h2>Debate Topic</h2>",
+            "<h2>Debate Topic</h2>",
             f"<p>{_escape_xml(task)}</p>",
-            f"<h2>Participants</h2>",
+            "<h2>Participants</h2>",
             "<ul>",
         ]
 
@@ -256,14 +255,14 @@ class PodcastFeedGenerator:
             f"    <itunes:author>{_escape_xml(config.author)}</itunes:author>",
             f"    <itunes:summary>{_escape_xml(config.description)}</itunes:summary>",
             f"    <itunes:explicit>{'yes' if config.explicit else 'no'}</itunes:explicit>",
-            f"    <itunes:owner>",
+            "    <itunes:owner>",
             f"      <itunes:name>{_escape_xml(config.author)}</itunes:name>",
             f"      <itunes:email>{_escape_xml(config.email)}</itunes:email>",
-            f"    </itunes:owner>",
+            "    </itunes:owner>",
             f'    <itunes:image href="{_escape_xml(config.image_url)}"/>',
             f'    <itunes:category text="{_escape_xml(config.category)}">',
             f'      <itunes:category text="{_escape_xml(config.subcategory)}"/>',
-            f"    </itunes:category>",
+            "    </itunes:category>",
             "",
         ]
 

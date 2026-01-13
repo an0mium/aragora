@@ -27,7 +27,8 @@ from typing import Any, Callable, ContextManager, Dict, Generator, List, Optiona
 
 # Use structured logging if available
 try:
-    from aragora.logging_config import get_logger as get_structured_logger, set_context
+    from aragora.logging_config import get_logger as get_structured_logger
+    from aragora.logging_config import set_context
 
     _structured_logger = get_structured_logger(__name__)
 except ImportError:
@@ -383,7 +384,7 @@ def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
                     span.set_attribute("response_length", len(result) if result else 0)
                     span.set_attribute("success", True)
                     return result
-                except Exception as e:
+                except Exception:
                     span.set_attribute("success", False)
                     raise
 
@@ -400,7 +401,7 @@ def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
                     span.set_attribute("response_length", len(result) if result else 0)
                     span.set_attribute("success", True)
                     return result
-                except Exception as e:
+                except Exception:
                     span.set_attribute("success", False)
                     raise
 

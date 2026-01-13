@@ -20,14 +20,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from aragora.config import DB_LAB_PATH
-from aragora.insights.database import InsightsDatabase
 from aragora.agents.personas import (
-    Persona,
-    PersonaManager,
     EXPERTISE_DOMAINS,
     PERSONALITY_TRAITS,
+    Persona,
+    PersonaManager,
 )
+from aragora.config import DB_LAB_PATH
+from aragora.insights.database import InsightsDatabase
 from aragora.utils.json_helpers import safe_json_loads
 
 logger = logging.getLogger(__name__)

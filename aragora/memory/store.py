@@ -4,30 +4,28 @@ SQLite-based critique pattern store for self-improvement.
 Stores successful critique patterns so future debates can learn from past successes.
 """
 
-import json
 import hashlib
+import json
 import logging
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-from aragora.core import Critique, DebateResult
-from aragora.utils.json_helpers import safe_json_loads
-from aragora.utils.cache import ttl_cache, invalidate_cache
 from aragora.config import (
-    resolve_db_path,
-    CACHE_TTL_CRITIQUE_PATTERNS,
-    CACHE_TTL_CRITIQUE_STATS,
     CACHE_TTL_AGENT_REPUTATION,
     CACHE_TTL_ALL_REPUTATIONS,
     CACHE_TTL_ARCHIVE_STATS,
+    CACHE_TTL_CRITIQUE_PATTERNS,
+    CACHE_TTL_CRITIQUE_STATS,
+    resolve_db_path,
 )
-
-
+from aragora.core import Critique, DebateResult
 from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import safe_add_column
+from aragora.utils.cache import invalidate_cache, ttl_cache
+from aragora.utils.json_helpers import safe_json_loads
 
 # Schema version for CritiqueStore migrations
 CRITIQUE_STORE_SCHEMA_VERSION = 1

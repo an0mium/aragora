@@ -64,6 +64,7 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
         UserAuthContext with authentication info
     """
     from aragora.server.middleware.auth import extract_client_ip
+
     from .tokens import validate_access_token
 
     context = UserAuthContext(

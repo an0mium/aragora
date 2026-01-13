@@ -6,7 +6,6 @@ Uses Slack's Block Kit for rich message formatting.
 """
 
 import logging
-import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional

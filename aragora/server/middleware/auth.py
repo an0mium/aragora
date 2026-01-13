@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import HandlerResult

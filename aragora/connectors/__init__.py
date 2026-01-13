@@ -17,29 +17,29 @@ All connectors record evidence through ProvenanceManager
 with proper source typing and confidence scoring.
 """
 
-from aragora.connectors.local_docs import LocalDocsConnector
-from aragora.connectors.github import GitHubConnector
-from aragora.connectors.web import WebConnector
-from aragora.connectors.arxiv import ArXivConnector, ARXIV_CATEGORIES
-from aragora.connectors.hackernews import HackerNewsConnector
-from aragora.connectors.wikipedia import WikipediaConnector
-from aragora.connectors.reddit import RedditConnector
-from aragora.connectors.twitter import TwitterConnector
+from aragora.connectors.arxiv import ARXIV_CATEGORIES, ArXivConnector
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.connectors.exceptions import (
-    ConnectorError,
+    ConnectorAPIError,
     ConnectorAuthError,
+    ConnectorError,
+    ConnectorNetworkError,
+    ConnectorNotFoundError,
+    ConnectorParseError,
+    ConnectorQuotaError,
     ConnectorRateLimitError,
     ConnectorTimeoutError,
-    ConnectorNetworkError,
-    ConnectorAPIError,
     ConnectorValidationError,
-    ConnectorNotFoundError,
-    ConnectorQuotaError,
-    ConnectorParseError,
-    is_retryable_error,
     get_retry_delay,
+    is_retryable_error,
 )
+from aragora.connectors.github import GitHubConnector
+from aragora.connectors.hackernews import HackerNewsConnector
+from aragora.connectors.local_docs import LocalDocsConnector
+from aragora.connectors.reddit import RedditConnector
+from aragora.connectors.twitter import TwitterConnector
+from aragora.connectors.web import WebConnector
+from aragora.connectors.wikipedia import WikipediaConnector
 
 __all__ = [
     # Base classes

@@ -23,6 +23,8 @@ _EXPORT_MAP = {
     "ExtensionsConfig": ("aragora.debate.extensions", "ExtensionsConfig"),
     "SubsystemCoordinator": ("aragora.debate.subsystem_coordinator", "SubsystemCoordinator"),
     "SubsystemConfig": ("aragora.debate.subsystem_coordinator", "SubsystemConfig"),
+    "DebateHooks": ("aragora.debate.debate_hooks", "DebateHooks"),
+    "HooksConfig": ("aragora.debate.debate_hooks", "HooksConfig"),
     "InitPhase": ("aragora.debate.arena_builder", "InitPhase"),
     "BlackboxEvent": ("aragora.debate.blackbox", "BlackboxEvent"),
     "BlackboxRecorder": ("aragora.debate.blackbox", "BlackboxRecorder"),
@@ -168,6 +170,8 @@ __all__ = [
     "ExtensionsConfig",
     "SubsystemCoordinator",
     "SubsystemConfig",
+    "DebateHooks",
+    "HooksConfig",
     "InitPhase",
     "DebateProtocol",
     # Core Services (extracted from Arena)

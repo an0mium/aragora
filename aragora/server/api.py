@@ -6,17 +6,17 @@ Provides REST endpoints for fetching debates and serves the viewer HTML.
 
 import json
 import logging
-import os
-import re
 import uuid
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 # Safe ID pattern for slugs (allows dots for slugs like "rate-limiter-2026-01-01")
 from aragora.server.validation import (
     SAFE_ID_PATTERN_WITH_DOTS as SAFE_ID_PATTERN,
+)
+from aragora.server.validation import (
     parse_int_param,
 )
 
@@ -29,10 +29,9 @@ from aragora.server.cors_config import ALLOWED_ORIGINS
 # Maximum request body size (50 MB) to prevent memory exhaustion
 MAX_REQUEST_SIZE = 50 * 1024 * 1024
 
-from aragora.server.storage import DebateStorage
 from aragora.replay.storage import ReplayStorage
-from aragora.replay.reader import ReplayReader
-from aragora.utils.paths import safe_path, PathTraversalError
+from aragora.server.storage import DebateStorage
+from aragora.utils.paths import PathTraversalError, safe_path
 
 
 class DebateAPIHandler(BaseHTTPRequestHandler):
@@ -382,11 +381,11 @@ def run_api_server(
 
     server = HTTPServer((host, port), DebateAPIHandler)
     logger.info(f"API server: http://localhost:{port}")
-    logger.info(f"  - GET /api/debates - List recent debates")
-    logger.info(f"  - GET /api/debates/<slug> - Get debate by slug")
-    logger.info(f"  - GET /api/replays - List recent replays")
-    logger.info(f"  - GET /api/replays/<debate_id> - Get replay bundle")
-    logger.info(f"  - GET /viewer.html?id=<slug> - View debate")
+    logger.info("  - GET /api/debates - List recent debates")
+    logger.info("  - GET /api/debates/<slug> - Get debate by slug")
+    logger.info("  - GET /api/replays - List recent replays")
+    logger.info("  - GET /api/replays/<debate_id> - Get replay bundle")
+    logger.info("  - GET /viewer.html?id=<slug> - View debate")
 
     try:
         server.serve_forever()

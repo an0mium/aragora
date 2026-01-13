@@ -5,19 +5,18 @@ Provides deterministic, replayable debate artifacts with full event logging.
 Enables audits, regression tests, and research reproducibility.
 """
 
-import json
 import hashlib
-import sqlite3
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
-from pathlib import Path
-from typing import Optional, Any, Iterator
-from enum import Enum
+import json
 import random
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Iterator, Optional
 
 from aragora.config import DB_TIMEOUT_SECONDS
-from aragora.storage.base_store import SQLiteStore
 from aragora.debate.traces_database import TracesDatabase
+from aragora.storage.base_store import SQLiteStore
 
 
 class EventType(Enum):
@@ -597,14 +596,14 @@ class DebateReplayer:
     def generate_markdown_report(self) -> str:
         """Generate a readable Markdown report of the debate."""
         lines = [
-            f"# Debate Trace Report",
-            f"",
+            "# Debate Trace Report",
+            "",
             f"**Trace ID:** {self.trace.trace_id}",
             f"**Task:** {self.trace.task}",
             f"**Agents:** {', '.join(self.trace.agents)}",
             f"**Duration:** {self.trace.duration_ms}ms" if self.trace.duration_ms else "",
             f"**Checksum:** {self.trace.checksum}",
-            f"",
+            "",
             "---",
             "",
         ]

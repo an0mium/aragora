@@ -13,49 +13,49 @@ For new code, prefer importing directly from the package:
 # Explicit re-exports from the errors package for backward compatibility
 # (Avoid wildcard imports for better IDE analysis and explicit dependencies)
 from aragora.agents.errors import (  # noqa: F401
-    # Type variable
-    T,
-    # Exceptions
-    AgentError,
-    AgentConnectionError,
-    AgentTimeoutError,
-    AgentRateLimitError,
-    AgentAPIError,
-    AgentResponseError,
-    AgentStreamError,
-    AgentCircuitOpenError,
-    CLIAgentError,
-    CLIParseError,
-    CLITimeoutError,
-    CLISubprocessError,
-    CLINotFoundError,
+    _SENSITIVE_PATTERNS,
+    ALL_FALLBACK_PATTERNS,
+    CLI_ERROR_PATTERNS,
+    NETWORK_ERROR_PATTERNS,
     # Patterns
     RATE_LIMIT_PATTERNS,
-    NETWORK_ERROR_PATTERNS,
-    CLI_ERROR_PATTERNS,
-    ALL_FALLBACK_PATTERNS,
-    # Dataclasses
-    ErrorContext,
+    AgentAPIError,
+    AgentCircuitOpenError,
+    AgentConnectionError,
+    # Exceptions
+    AgentError,
+    AgentRateLimitError,
+    AgentResponseError,
+    AgentStreamError,
+    AgentTimeoutError,
+    CLIAgentError,
+    CLINotFoundError,
+    CLIParseError,
+    CLISubprocessError,
+    CLITimeoutError,
     ErrorAction,
     # Classifier
     ErrorClassifier,
-    classify_cli_error,
-    # Retry calculation
-    calculate_retry_delay_with_jitter,
+    # Dataclasses
+    ErrorContext,
+    # Type variable
+    T,
     _calculate_retry_delay_with_jitter,
-    # Handler functions
-    _handle_timeout_error,
+    _handle_agent_error,
     _handle_connection_error,
+    _handle_json_error,
     _handle_payload_error,
     _handle_response_error,
-    _handle_agent_error,
-    _handle_json_error,
+    # Handler functions
+    _handle_timeout_error,
     _handle_unexpected_error,
+    # Retry calculation
+    calculate_retry_delay_with_jitter,
+    classify_cli_error,
     # Decorators
     handle_agent_errors,
-    with_error_handling,
     handle_stream_errors,
     # Sanitization
     sanitize_error,
-    _SENSITIVE_PATTERNS,
+    with_error_handling,
 )

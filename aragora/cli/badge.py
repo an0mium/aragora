@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 
-
 # Badge URL configurations
 BADGE_URLS = {
     "reviewed": {

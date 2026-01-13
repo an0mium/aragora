@@ -14,21 +14,20 @@ Enables:
 - Avoiding repeated debates on settled topics
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from enum import Enum
-from typing import Any, Optional
 import hashlib
 import json
 import logging
 import sqlite3
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Optional
 
 from aragora.config import DB_CONSENSUS_PATH, DB_TIMEOUT_SECONDS
 from aragora.storage.base_store import SQLiteStore
-from aragora.storage.schema import SchemaManager, get_wal_connection
+from aragora.utils.cache import TTLCache, invalidate_cache
 from aragora.utils.json_helpers import safe_json_loads
-from aragora.utils.cache import invalidate_cache, TTLCache
 
 logger = logging.getLogger(__name__)
 

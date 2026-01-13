@@ -12,53 +12,44 @@ This module provides a unified interface for the nomic loop to leverage
 all aragora features in a coordinated way.
 """
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
 from pathlib import Path
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-from aragora.core import Agent, DebateResult, Vote
-from aragora.reasoning.claims import ClaimsKernel, TypedClaim, ClaimType
-from aragora.reasoning.belief import (
-    BeliefNetwork,
-    BeliefNode,
-    BeliefDistribution,
-    BeliefStatus,
-    BeliefPropagationAnalyzer,
-)
-from aragora.reasoning.provenance_enhanced import (
-    EnhancedProvenanceManager,
-    StalenessCheck,
-    StalenessStatus,
-    RevalidationTrigger,
-)
-from aragora.modes.prober import (
-    CapabilityProber,
-    VulnerabilityReport,
-    ProbeResult,
-    VulnerabilitySeverity,
-)
-from aragora.debate.counterfactual import (
-    CounterfactualOrchestrator,
-    CounterfactualBranch,
-    ConditionalConsensus,
-    PivotClaim,
-    ImpactDetector,
-    CounterfactualStatus,
-)
+from aragora.core import Agent, DebateResult
 from aragora.debate.checkpoint import (
     CheckpointManager,
     DebateCheckpoint,
-    CheckpointStore,
     FileCheckpointStore,
-    CheckpointConfig,
-    CheckpointStatus,
-    ResumedDebate,
-    AgentState,
+)
+from aragora.debate.counterfactual import (
+    ConditionalConsensus,
+    CounterfactualOrchestrator,
+    CounterfactualStatus,
+    PivotClaim,
+)
+from aragora.modes.prober import (
+    CapabilityProber,
+    ProbeResult,
+    VulnerabilityReport,
+)
+from aragora.reasoning.belief import (
+    BeliefDistribution,
+    BeliefNetwork,
+    BeliefNode,
+    BeliefPropagationAnalyzer,
+    BeliefStatus,
+)
+from aragora.reasoning.claims import ClaimsKernel, ClaimType, TypedClaim
+from aragora.reasoning.provenance_enhanced import (
+    EnhancedProvenanceManager,
+    RevalidationTrigger,
+    StalenessCheck,
+    StalenessStatus,
 )
 
 
@@ -408,7 +399,7 @@ class NomicIntegration:
 
                 weights[agent.name] = weight
 
-            except Exception as e:
+            except Exception:
                 # If probing fails, assume moderate reliability
                 weights[agent.name] = 0.75
 

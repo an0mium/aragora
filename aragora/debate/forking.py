@@ -10,14 +10,14 @@ Inspired by UniversalBackrooms' branching conversations, this module provides:
 import asyncio
 import logging
 import uuid
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Callable
-from copy import deepcopy
+from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
-from aragora.core import Agent, Message, DebateResult, Environment
+from aragora.core import Agent, DebateResult, Environment, Message
 
 
 @dataclass

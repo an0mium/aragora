@@ -14,11 +14,10 @@ Works alongside aragora/reasoning/provenance.py which provides:
 """
 
 import hashlib
-import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 

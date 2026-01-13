@@ -5,18 +5,16 @@ Provides schema definitions for common endpoints and a function
 to validate data against these schemas.
 """
 
-import re
 
 from .core import (
     ValidationResult,
-    validate_string_field,
-    validate_int_field,
-    validate_float_field,
-    validate_list_field,
     validate_enum_field,
+    validate_float_field,
+    validate_int_field,
+    validate_list_field,
+    validate_string_field,
 )
 from .entities import SAFE_AGENT_PATTERN
-
 
 # =============================================================================
 # Endpoint-Specific Validation Schemas

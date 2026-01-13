@@ -13,7 +13,7 @@ Arena._run_inner() method, handling:
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES, MAX_CONCURRENT_REVISIONS
 from aragora.debate.complexity_governor import get_complexity_governor
@@ -184,7 +184,6 @@ class DebateRoundsPhase:
         Args:
             ctx: The DebateContext with proposals and result
         """
-        from aragora.core import Message
 
         result = ctx.result
         proposals = ctx.proposals
@@ -601,7 +600,7 @@ class DebateRoundsPhase:
                 if self._notify_spectator:
                     self._notify_spectator(
                         "hollow_consensus",
-                        details=f"Evidence quality challenge triggered",
+                        details="Evidence quality challenge triggered",
                         metric=intervention.priority,
                         agent="trickster",
                     )
@@ -682,7 +681,6 @@ class DebateRoundsPhase:
         # Check for low novelty and trigger trickster intervention
         if novelty_result.has_low_novelty() and self.trickster:
             # Use trickster to generate novelty challenge
-            from aragora.debate.trickster import InterventionType
 
             if hasattr(self.trickster, "create_novelty_challenge"):
                 intervention = self.trickster.create_novelty_challenge(

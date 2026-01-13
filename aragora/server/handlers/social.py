@@ -17,16 +17,17 @@ import threading
 import time
 from typing import Optional
 
+from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.server.http_utils import run_async
+
 from .base import (
+    SAFE_SLUG_PATTERN,
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     get_host_header,
-    SAFE_SLUG_PATTERN,
+    json_response,
 )
-from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +197,7 @@ class SocialMediaHandler(BaseHandler):
 
         # Validate state parameter (CSRF protection)
         if not _validate_oauth_state(state):
-            logger.warning(f"OAuth callback with invalid/expired state")
+            logger.warning("OAuth callback with invalid/expired state")
             return error_response("Invalid or expired state parameter", status=400)
 
         youtube = self.ctx.get("youtube_connector")

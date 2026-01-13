@@ -8,9 +8,8 @@ and exploring the Aragora system.
 import asyncio
 import logging
 import readline
-import sys
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Optional, cast
 
 from aragora.agents.base import AgentType
 
@@ -222,8 +221,8 @@ class AragoraREPL:
 
         try:
             from aragora.agents.base import create_agent
-            from aragora.debate.orchestrator import Arena, DebateProtocol
             from aragora.core import Agent, Environment
+            from aragora.debate.orchestrator import Arena, DebateProtocol
             from aragora.spectate.stream import SpectatorStream
 
             # Parse agents

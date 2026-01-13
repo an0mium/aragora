@@ -13,7 +13,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Optional, Protocol, Sequence, runtime_checkable
+from typing import Any, Optional, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -318,6 +318,11 @@ class AuthenticatedUser(Protocol):
     org_id: Optional[str]
 
     @property
+    def id(self) -> str:
+        """User ID (alias for user_id for compatibility)."""
+        ...
+
+    @property
     def is_admin(self) -> bool:
         """Check if user has admin role."""
         ...
@@ -338,11 +343,22 @@ class Agent(Protocol):
 class AgentRating(Protocol):
     """Protocol for agent rating/ELO data."""
 
-    name: str
+    agent_name: str
     elo: float
     wins: int
     losses: int
     draws: int
+    debates_count: int
+
+    @property
+    def elo_rating(self) -> float:
+        """ELO rating (alias for elo)."""
+        ...
+
+    @property
+    def total_debates(self) -> int:
+        """Total debates (alias for debates_count)."""
+        ...
 
 
 # Type aliases for common return types

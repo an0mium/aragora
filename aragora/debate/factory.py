@@ -6,7 +6,7 @@ dependencies, eliminating lazy imports in orchestrator.py.
 """
 
 import logging
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.core import Agent, Environment
 

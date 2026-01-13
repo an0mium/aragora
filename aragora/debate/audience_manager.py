@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Callable, Optional
 from aragora.config import USER_EVENT_QUEUE_SIZE
 
 if TYPE_CHECKING:
-    from aragora.server.stream.events import StreamEventType
+    pass
 
 logger = logging.getLogger(__name__)
 

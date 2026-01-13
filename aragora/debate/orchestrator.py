@@ -11,59 +11,50 @@ import asyncio
 import logging
 import time
 from collections import deque
-from dataclasses import dataclass
 from functools import lru_cache
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Optional
-
-from aragora.observability.logging import get_logger as get_structured_logger, correlation_context
+from typing import TYPE_CHECKING, Optional
 
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
-from aragora.utils.cache_registry import register_lru_cache
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
-from aragora.server.metrics import (
-    ACTIVE_DEBATES,
-    track_debate_outcome,
-    track_agent_error,
-    track_circuit_breaker_state,
-)
-from aragora.exceptions import EarlyStopError
-from aragora.debate.convergence import ConvergenceDetector
-from aragora.debate.event_bridge import EventEmitterBridge
-from aragora.debate.event_bus import EventBus
 from aragora.debate.agent_pool import AgentPool, AgentPoolConfig
-from aragora.debate.phase_executor import PhaseExecutor
-from aragora.debate.immune_system import TransparentImmuneSystem, get_immune_system
-from aragora.debate.chaos_theater import ChaosDirector, get_chaos_director, DramaLevel
+from aragora.debate.arena_config import ArenaConfig
+from aragora.debate.arena_phases import init_phases
 from aragora.debate.audience_manager import AudienceManager
 from aragora.debate.autonomic_executor import AutonomicExecutor
-from aragora.debate.safety import resolve_auto_evolve, resolve_prompt_evolution
-from aragora.debate.arena_phases import init_phases
+from aragora.debate.chaos_theater import DramaLevel, get_chaos_director
 from aragora.debate.complexity_governor import (
     classify_task_complexity,
     get_complexity_governor,
 )
-from aragora.debate.optional_imports import OptionalImports
-from aragora.debate.protocol import CircuitBreaker, DebateProtocol
-from aragora.debate.roles import (
-    RoleAssignment,
-    RoleRotationConfig,
-    RoleRotator,
-)
-from aragora.debate.role_matcher import RoleMatcher, RoleMatchingConfig
-from aragora.debate.roles_manager import RolesManager
-from aragora.debate.topology import TopologySelector
-from aragora.debate.judge_selector import JudgeSelector, JudgeScoringMixin
-from aragora.debate.team_selector import TeamSelector
-from aragora.debate.sanitization import OutputSanitizer
-from aragora.debate.termination_checker import TerminationChecker
-from aragora.debate.result_formatter import ResultFormatter
-from aragora.spectate.stream import SpectatorStream
-from aragora.observability.tracing import get_tracer, add_span_attributes, trace_debate_phase
-
 from aragora.debate.context import DebateContext
-from aragora.debate.arena_config import ArenaConfig
+from aragora.debate.convergence import ConvergenceDetector
+from aragora.debate.event_bridge import EventEmitterBridge
+from aragora.debate.event_bus import EventBus
 from aragora.debate.extensions import ArenaExtensions
+from aragora.debate.immune_system import get_immune_system
+from aragora.debate.judge_selector import JudgeScoringMixin, JudgeSelector
+from aragora.debate.optional_imports import OptionalImports
+from aragora.debate.phase_executor import PhaseExecutor
+from aragora.debate.protocol import CircuitBreaker, DebateProtocol
+from aragora.debate.result_formatter import ResultFormatter
+from aragora.debate.roles_manager import RolesManager
+from aragora.debate.safety import resolve_auto_evolve, resolve_prompt_evolution
+from aragora.debate.sanitization import OutputSanitizer
+from aragora.debate.team_selector import TeamSelector
+from aragora.debate.termination_checker import TerminationChecker
+from aragora.debate.topology import TopologySelector
+from aragora.exceptions import EarlyStopError
+from aragora.observability.logging import correlation_context
+from aragora.observability.logging import get_logger as get_structured_logger
+from aragora.observability.tracing import add_span_attributes, get_tracer, trace_debate_phase
+from aragora.server.metrics import (
+    ACTIVE_DEBATES,
+    track_circuit_breaker_state,
+    track_debate_outcome,
+)
+from aragora.spectate.stream import SpectatorStream
+from aragora.utils.cache_registry import register_lru_cache
 
 # Optional evolution import for prompt self-improvement
 try:
@@ -479,7 +470,7 @@ class Arena:
 
         # Wrap agents with airlock protection if enabled
         if use_airlock:
-            from aragora.agents.airlock import wrap_agents, AirlockConfig
+            from aragora.agents.airlock import AirlockConfig, wrap_agents
 
             airlock_cfg = airlock_config or AirlockConfig()
             self.agents = wrap_agents(self.agents, airlock_cfg)
@@ -732,7 +723,7 @@ class Arena:
     def _auto_init_breakpoint_manager(self) -> None:
         """Auto-initialize BreakpointManager when enable_breakpoints is True."""
         try:
-            from aragora.debate.breakpoints import BreakpointManager, BreakpointConfig
+            from aragora.debate.breakpoints import BreakpointConfig, BreakpointManager
 
             config = self.protocol.breakpoint_config or BreakpointConfig()
             self.breakpoint_manager = BreakpointManager(config=config)

@@ -12,7 +12,7 @@ Consolidates security checks that were scattered in unified_server.py:
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Any, Optional, FrozenSet
+from typing import FrozenSet, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -198,8 +198,8 @@ def generate_nonce() -> str:
         headers = get_security_headers(enable_csp=True, nonce=nonce)
         # In HTML: <script nonce="{nonce}">...</script>
     """
-    import secrets
     import base64
+    import secrets
 
     return base64.b64encode(secrets.token_bytes(16)).decode("ascii")
 

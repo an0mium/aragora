@@ -33,18 +33,12 @@ Usage (Orchestrator - full 5-phase):
 """
 
 # Shared types (canonical source)
-from .types import (
-    InputType,
-    Verdict,
-    SeverityLevel,
-    GauntletSeverity,
-    GauntletPhase,
-    BaseFinding,
-    RiskSummary,
-)
-
 # Config and categories
-from .config import GauntletConfig, AttackCategory, ProbeCategory
+from .config import AttackCategory, GauntletConfig, ProbeCategory
+from .heatmap import HeatmapCell, RiskHeatmap
+
+# Output formats
+from .receipt import DecisionReceipt
 
 # Result types
 from .result import GauntletResult, Vulnerability
@@ -52,10 +46,15 @@ from .result import RiskSummary as ResultRiskSummary  # Alias for backward compa
 
 # Runner
 from .runner import GauntletRunner
-
-# Output formats
-from .receipt import DecisionReceipt
-from .heatmap import RiskHeatmap, HeatmapCell
+from .types import (
+    BaseFinding,
+    GauntletPhase,
+    GauntletSeverity,
+    InputType,
+    RiskSummary,
+    SeverityLevel,
+    Verdict,
+)
 
 
 # Re-export orchestrator classes from modes (full 5-phase implementation)
@@ -69,23 +68,31 @@ def _get_orchestrator_classes():
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         from aragora.modes.gauntlet import (
-            GauntletOrchestrator as _Orchestrator,
-            GauntletConfig as _OrchestratorConfig,
-            GauntletProgress as _Progress,
-            GauntletResult as _OrchestratorResult,
-            Finding,
-            VerifiedClaim,
-            run_gauntlet,
-            get_compliance_gauntlet,
-            QUICK_GAUNTLET,
-            THOROUGH_GAUNTLET,
+            AI_ACT_GAUNTLET,
             CODE_REVIEW_GAUNTLET,
-            POLICY_GAUNTLET,
             GDPR_GAUNTLET,
             HIPAA_GAUNTLET,
-            AI_ACT_GAUNTLET,
+            POLICY_GAUNTLET,
+            QUICK_GAUNTLET,
             SECURITY_GAUNTLET,
             SOX_GAUNTLET,
+            THOROUGH_GAUNTLET,
+            Finding,
+            VerifiedClaim,
+            get_compliance_gauntlet,
+            run_gauntlet,
+        )
+        from aragora.modes.gauntlet import (
+            GauntletConfig as _OrchestratorConfig,
+        )
+        from aragora.modes.gauntlet import (
+            GauntletOrchestrator as _Orchestrator,
+        )
+        from aragora.modes.gauntlet import (
+            GauntletProgress as _Progress,
+        )
+        from aragora.modes.gauntlet import (
+            GauntletResult as _OrchestratorResult,
         )
     return {
         "GauntletOrchestrator": _Orchestrator,

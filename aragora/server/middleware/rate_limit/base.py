@@ -11,12 +11,11 @@ import ipaddress
 import logging
 import os
 import posixpath
-from dataclasses import dataclass
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.base import HandlerResult
+    pass
 
 logger = logging.getLogger(__name__)
 

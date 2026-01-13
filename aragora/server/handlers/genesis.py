@@ -13,24 +13,22 @@ Endpoints:
 
 from __future__ import annotations
 
-import json
 import logging
-import sqlite3
 from pathlib import Path
 from typing import Optional
+
+from aragora.server.validation import validate_debate_id, validate_genome_id
+from aragora.utils.optional_imports import try_import
 
 from .base import (
     BaseHandler,
     HandlerResult,
-    json_response,
     error_response,
     get_int_param,
-    DB_TIMEOUT_SECONDS,
+    json_response,
     safe_json_parse,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
-from aragora.server.validation import validate_genome_id, validate_debate_id
-from aragora.utils.optional_imports import try_import
 
 logger = logging.getLogger(__name__)
 

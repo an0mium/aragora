@@ -11,26 +11,19 @@ Components:
 - PersonaSynthesizer: Generate identity prompts from all data sources
 """
 
-import json
 import logging
-import sqlite3
 import uuid
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Generator, Literal, Optional, Union
+from typing import Literal, Optional
 
-from aragora.config import DB_ELO_PATH, DB_PERSONAS_PATH, DB_TIMEOUT_SECONDS
-from aragora.insights.database import InsightsDatabase
-from aragora.ranking.database import EloDatabase
-from .personas import Persona, PersonaManager, EXPERTISE_DOMAINS
+from .personas import Persona, PersonaManager
 
 # Import from extracted modules for backward compatibility
 from .positions import (
-    Position,
     CalibrationBucket,
     DomainCalibration,
+    Position,
     PositionLedger,
 )
 from .relationships import (

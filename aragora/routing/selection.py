@@ -11,12 +11,11 @@ Routes tasks to best-fit agents by:
 """
 
 import logging
+import random
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Any, TYPE_CHECKING
-import random
-import math
+from typing import TYPE_CHECKING, Any, Optional
 
 logger = logging.getLogger(__name__)
 

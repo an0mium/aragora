@@ -15,16 +15,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from aragora.modes.gauntlet import GauntletResult, Finding, VerifiedClaim
-    from aragora.gauntlet.types import Verdict
-    from aragora.debate.consensus import DissentRecord, UnresolvedTension
-    from aragora.debate.risk_assessor import RiskAssessment, RiskLevel
+    from aragora.modes.gauntlet import GauntletResult
 
 
 @dataclass
@@ -240,8 +237,8 @@ class DecisionReceipt:
             "",
             "## Findings Summary",
             "",
-            f"| Severity | Count |",
-            f"|----------|-------|",
+            "| Severity | Count |",
+            "|----------|-------|",
             f"| Critical | {self.critical_count} |",
             f"| High | {self.high_count} |",
             f"| Medium | {self.medium_count} |",
@@ -576,7 +573,6 @@ class DecisionReceiptGenerator:
         Returns:
             A DecisionReceipt ready for export
         """
-        from aragora.gauntlet import Verdict
 
         # Convert findings
         findings = []

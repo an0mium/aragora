@@ -15,11 +15,10 @@ agents should implement a reset() method to clear state between uses.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Union
 
-from aragora.config import ALLOWED_AGENT_TYPES
 from aragora.agents.types import T
+from aragora.config import ALLOWED_AGENT_TYPES
 
 try:
     from aragora.agents.local_llm_detector import LocalLLMDetector
