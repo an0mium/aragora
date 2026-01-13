@@ -42,6 +42,11 @@ MISTRAL_API_KEY=xxx              # Mistral (optional)
 OPENROUTER_API_KEY=sk-or-xxx     # OpenRouter (optional)
 ```
 
+Optional but recommended: keep runtime data out of the repo root.
+```bash
+ARAGORA_DATA_DIR=.nomic
+```
+
 ### 3. Verify Setup
 
 ```bash
@@ -93,6 +98,9 @@ Final Answer: [synthesized recommendation]
 ```bash
 aragora ask "<your question>" --agents <agent1>,<agent2>
 ```
+
+Note: the CLI default is `codex,claude` (local CLI agents). If you only have API keys,
+use `--agents anthropic-api,openai-api` or another API-backed set.
 
 ### Available Agents
 

@@ -834,14 +834,36 @@ class Arena:
         """Initialize phase classes for orchestrator decomposition."""
         init_phases(self)
 
-        # Initialize PhaseExecutor for future gradual migration
-        # Currently phases are executed directly in run() method
+        # Initialize PhaseExecutor with all phases for centralized execution
         from aragora.debate.phase_executor import PhaseConfig
 
         timeout = getattr(self.protocol, "timeout", 300.0)
+
+        # Create wrapper for context_initializer to match Phase protocol
+        # (context_initializer uses .initialize() instead of .execute())
+        class ContextInitWrapper:
+            name = "context_initializer"
+
+            def __init__(self, initializer):
+                self._initializer = initializer
+
+            async def execute(self, context):
+                return await self._initializer.initialize(context)
+
         self.phase_executor = PhaseExecutor(
-            phases={},  # Phases are currently executed directly in run()
-            config=PhaseConfig(total_timeout_seconds=timeout),
+            phases={
+                "context_initializer": ContextInitWrapper(self.context_initializer),
+                "proposal": self.proposal_phase,
+                "debate_rounds": self.debate_rounds_phase,
+                "consensus": self.consensus_phase,
+                "analytics": self.analytics_phase,
+                "feedback": self.feedback_phase,
+            },
+            config=PhaseConfig(
+                total_timeout_seconds=timeout,
+                phase_timeout_seconds=timeout / 3,  # Per-phase timeout
+                enable_tracing=True,
+            ),
         )
 
     def _init_termination_checker(self) -> None:

@@ -87,6 +87,11 @@ ARAGORA_ALLOWED_ORIGINS=http://localhost:3000
 
 See `docs/ENVIRONMENT.md` for full reference.
 
+Optional but recommended for local dev:
+```bash
+ARAGORA_DATA_DIR=.nomic
+```
+
 ## Running Tests
 
 ```bash

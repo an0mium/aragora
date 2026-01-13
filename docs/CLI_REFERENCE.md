@@ -20,16 +20,26 @@ aragora [--version] [--db PATH] [--verbose] <command> [options]
 | `--db PATH` | SQLite database path (default: `agora_memory.db`) |
 | `-v, --verbose` | Enable verbose output |
 
+Note: `--db` controls the local CritiqueStore file. To keep runtime data out of the
+repo root, set `ARAGORA_DATA_DIR` and pass `--db "$ARAGORA_DATA_DIR/agora_memory.db"`.
+
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `ARAGORA_API_URL` | API server URL | `http://localhost:8080` |
-| `ANTHROPIC_API_KEY` | Anthropic API key for Claude agents | - |
-| `OPENAI_API_KEY` | OpenAI API key for GPT agents | - |
-| `OPENROUTER_API_KEY` | OpenRouter API key (fallback) | - |
+| `ANTHROPIC_API_KEY` | Anthropic API key for `anthropic-api` | - |
+| `OPENAI_API_KEY` | OpenAI API key for `openai-api` | - |
 | `GEMINI_API_KEY` | Google Gemini API key | - |
 | `XAI_API_KEY` | xAI Grok API key | - |
+| `MISTRAL_API_KEY` | Mistral API key (`mistral-api`, `codestral`) | - |
+| `OPENROUTER_API_KEY` | OpenRouter key (OpenRouter agents) | - |
+| `KIMI_API_KEY` | Moonshot/Kimi API key | - |
+| `OLLAMA_HOST` | Ollama server URL | `http://localhost:11434` |
+| `OLLAMA_MODEL` | Default Ollama model | `llama3.2` |
+| `DEEPSEEK_API_KEY` | DeepSeek CLI key (`deepseek-cli`) | - |
+
+See [ENVIRONMENT](ENVIRONMENT.md) for the full configuration reference.
 
 ---
 
@@ -53,7 +63,7 @@ aragora ask "Design a rate limiter" --agents anthropic-api,openai-api --rounds 3
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `-a, --agents` | `codex,claude` | Comma-separated agents. Use `agent:role` for specific roles |
+| `-a, --agents` | `codex,claude` | Comma-separated agents. `codex,claude` are CLI agents; use `anthropic-api,openai-api` if you only have API keys |
 | `-r, --rounds` | `3` | Number of debate rounds |
 | `-c, --consensus` | `majority` | Consensus mechanism: `majority`, `unanimous`, `judge`, `none` |
 | `--context` | - | Additional context for the task |
@@ -65,6 +75,9 @@ aragora ask "Design a rate limiter" --agents anthropic-api,openai-api --rounds 3
 ```bash
 # Basic debate with default agents
 aragora ask "Should we use microservices or monolith?"
+
+# Recommended default if you only have API keys configured
+aragora ask "Should we use microservices or monolith?" --agents anthropic-api,openai-api
 
 # Specify agents and roles
 aragora ask "Design an auth system" -a "anthropic-api:proposer,openai-api:critic,gemini:synthesizer"
@@ -517,28 +530,62 @@ Configure in `claude_desktop_config.json`:
 }
 ```
 
-**Exposed Tools:**
-- `run_debate`: Run decision stress-tests
-- `run_gauntlet`: Stress-test documents
-- `list_agents`: List available agents
-- `get_debate`: Retrieve debate results
+**Exposed Tools (current set):**
+- Core: `run_debate`, `run_gauntlet`, `list_agents`, `get_debate`, `search_debates`
+- Agent stats: `get_agent_history`, `get_consensus_proofs`, `list_trending_topics`
+- Memory: `query_memory`, `store_memory`, `get_memory_pressure`
+- Forks: `fork_debate`, `get_forks`
+- Genesis: `get_agent_lineage`, `breed_agents`
+- Checkpoints: `create_checkpoint`, `list_checkpoints`, `resume_checkpoint`, `delete_checkpoint`
+- Verification: `verify_consensus`, `generate_proof`
+- Evidence: `search_evidence`, `cite_evidence`, `verify_citation`
+
+See `aragora/mcp/tools.py` for the authoritative list and parameter schemas.
 
 ---
 
 ## Agent Types
 
-Available agent types for the `--agents` option:
+Available agent types for the `--agents` option. The full catalog and defaults live in [AGENTS.md](../AGENTS.md).
+
+### Direct API agents
 
 | Agent | Description | API Key Required |
 |-------|-------------|------------------|
 | `anthropic-api` | Claude via Anthropic API | `ANTHROPIC_API_KEY` |
-| `openai-api` | GPT via OpenAI API | `OPENAI_API_KEY` |
+| `openai-api` | OpenAI via API | `OPENAI_API_KEY` |
 | `gemini` | Google Gemini | `GEMINI_API_KEY` |
 | `grok` | xAI Grok | `XAI_API_KEY` |
-| `mistral` | Mistral AI | `MISTRAL_API_KEY` |
-| `codex` | CLI Claude (requires `claude` CLI) | - |
-| `claude` | CLI Claude (alias for codex) | - |
+| `mistral-api` | Mistral direct API | `MISTRAL_API_KEY` |
+| `codestral` | Mistral code model | `MISTRAL_API_KEY` |
+| `ollama` | Local Ollama models | `OLLAMA_HOST` |
+| `kimi` | Moonshot/Kimi | `KIMI_API_KEY` |
 | `demo` | Demo agent (no API required) | - |
+
+### OpenRouter agents
+
+| Agent | Model | API Key Required |
+|-------|-------|------------------|
+| `deepseek` | DeepSeek V3 (chat) | `OPENROUTER_API_KEY` |
+| `deepseek-r1` | DeepSeek R1 (reasoning) | `OPENROUTER_API_KEY` |
+| `llama` | Llama 3.3 70B | `OPENROUTER_API_KEY` |
+| `mistral` | Mistral Large | `OPENROUTER_API_KEY` |
+| `qwen` | Qwen 2.5 Coder | `OPENROUTER_API_KEY` |
+| `qwen-max` | Qwen Max | `OPENROUTER_API_KEY` |
+| `yi` | Yi Large | `OPENROUTER_API_KEY` |
+
+### CLI agents (local binaries required)
+
+| Agent | CLI Tool | Notes |
+|-------|----------|-------|
+| `claude` | `claude` | Anthropic Claude CLI (claude-code) |
+| `codex` | `codex` | OpenAI Codex CLI |
+| `openai` | `openai` | OpenAI CLI |
+| `gemini-cli` | `gemini` | Google Gemini CLI |
+| `grok-cli` | `grok` | xAI Grok CLI |
+| `qwen-cli` | `qwen` | Qwen CLI |
+| `deepseek-cli` | `deepseek` | DeepSeek CLI |
+| `kilocode` | `kilocode` | KiloCode CLI |
 
 **Agent Roles:**
 

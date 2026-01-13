@@ -8,16 +8,18 @@ The MCP server exposes Aragora's core capabilities as tools and resources:
 
 ### Tools
 
-| Tool | Description |
-|------|-------------|
-| `run_debate` | Run a decision stress-test (debate engine) on a topic |
-| `run_gauntlet` | Stress-test content through adversarial analysis |
-| `list_agents` | List available AI agents |
-| `get_debate` | Retrieve results of a previous debate |
-| `search_debates` | Search debates by topic, date, or agents |
-| `get_agent_history` | Get agent debate history and ELO stats |
-| `get_consensus_proofs` | Retrieve formal verification proofs |
-| `list_trending_topics` | Get trending topics from Pulse |
+The MCP server exposes a growing set of tools. Current categories include:
+
+- Core: `run_debate`, `run_gauntlet`, `list_agents`, `get_debate`, `search_debates`
+- Agent stats: `get_agent_history`, `get_consensus_proofs`, `list_trending_topics`
+- Memory: `query_memory`, `store_memory`, `get_memory_pressure`
+- Forks: `fork_debate`, `get_forks`
+- Genesis: `get_agent_lineage`, `breed_agents`
+- Checkpoints: `create_checkpoint`, `list_checkpoints`, `resume_checkpoint`, `delete_checkpoint`
+- Verification: `verify_consensus`, `generate_proof`
+- Evidence: `search_evidence`, `cite_evidence`, `verify_citation`
+
+See `aragora/mcp/tools.py` for the authoritative list and parameter schemas.
 
 ### Resources
 
@@ -161,10 +163,11 @@ Get a list of available AI agents.
     "openai-api",
     "gemini",
     "grok",
+    "mistral-api",
     "deepseek",
-    "mistral"
+    "qwen"
   ],
-  "count": 6
+  "count": 7
 }
 ```
 
@@ -429,8 +432,14 @@ pip install mcp
 | `openai-api` | `OPENAI_API_KEY` |
 | `gemini` | `GEMINI_API_KEY` |
 | `grok` | `XAI_API_KEY` |
+| `mistral-api` | `MISTRAL_API_KEY` |
+| `codestral` | `MISTRAL_API_KEY` |
 | `deepseek` | `OPENROUTER_API_KEY` |
-| `mistral` | `MISTRAL_API_KEY` |
+| `mistral` | `OPENROUTER_API_KEY` |
+| `qwen` | `OPENROUTER_API_KEY` |
+| `qwen-max` | `OPENROUTER_API_KEY` |
+| `llama` | `OPENROUTER_API_KEY` |
+| `yi` | `OPENROUTER_API_KEY` |
 
 At least one key is required. For best results, set both `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`.
 

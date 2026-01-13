@@ -13,6 +13,18 @@ This document describes the HTTP and WebSocket APIs for the Aragora AI red team 
 | **Ready to Wire** | 4 | High-value, not yet connected to frontend |
 | **Advanced/Analytics** | 85 | Specialized features, plugins, analytics |
 
+## OpenAPI Specification
+
+The generated OpenAPI spec lives in `docs/api/openapi.json` and `docs/api/openapi.yaml`.
+Regenerate them with:
+
+```bash
+python scripts/export_openapi.py --output-dir docs/api
+```
+
+The contract tests use `aragora/server/openapi.yaml` as the canonical spec. If you
+add or change endpoints, update both to keep tests and docs in sync.
+
 ### New Endpoints (2026-01-09)
 
 | Endpoint | Description | Status |
@@ -86,9 +98,9 @@ The following endpoints were identified as unused but are now connected:
 The unified server exposes HTTP on port 8080 and WebSocket on port 8765 by default.
 
 ```bash
-aragora serve
+aragora serve --api-port 8080 --ws-port 8765
 # Or directly:
-python -m aragora.server --http-port 8080 --port 8765 --nomic-dir .nomic
+python -m aragora.server.unified_server --api-port 8080 --ws-port 8765
 ```
 
 ## Authentication

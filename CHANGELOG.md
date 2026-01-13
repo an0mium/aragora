@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *No unreleased changes*
 
+## [1.0.1] - 2026-01-13
+
+### Fixed
+- **OpenAPI schema**: Added missing `BadRequest` response component that was causing contract test failures
+- **Type safety**: Fixed implicit Optional patterns across multiple modules (security_barrier.py, routing.py, json_helpers.py, etc.)
+- **Removed unused type:ignore comments**: Cleaned up stale type suppressions in typing.py, postgres_store.py, event_bridge.py
+
+### Documentation
+- Updated STATUS.md with v1.0.0 release information
+- Added MIGRATION.md with upgrade guide from 0.8.x to 1.0.x
+
+### Changed
+- Added mypy configuration to ignore yaml library stubs
+
 ## [1.0.0] - 2026-01-13
 
 ### Added

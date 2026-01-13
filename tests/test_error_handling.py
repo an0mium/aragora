@@ -104,7 +104,13 @@ class TestMapExceptionToStatus:
 
     def test_custom_default_status(self):
         """Custom default should be used for unknown exceptions."""
-        status = map_exception_to_status(RuntimeError("unknown"), default=503)
+
+        class CustomUnknownError(Exception):
+            """A custom exception type not in the exception map."""
+
+            pass
+
+        status = map_exception_to_status(CustomUnknownError("unknown"), default=503)
         assert status == 503
 
 

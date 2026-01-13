@@ -63,6 +63,7 @@ The **nomic loop** (self-modifying rules) mirrors this internal engine by debati
 - **Self-Improvement**: SQLite-based pattern store learns from successful critiques
 - **CLI Interface**: One command, multiple agents working behind the scenes
 - **12+ Model Providers**: Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, Qwen, Kimi, and more via OpenRouter
+- **Agent Catalog**: Full agent IDs and defaults live in `AGENTS.md`
 
 ### Nomic Loop (Self-Improving System)
 The **Nomic Loop** is aragora's autonomous self-improvement system—a society of AI agents that debates and implements improvements to its own codebase:
@@ -174,6 +175,9 @@ pip install -e .
 
 # Set at least one API key
 export ANTHROPIC_API_KEY=your-key  # or OPENAI_API_KEY, GEMINI_API_KEY, XAI_API_KEY
+
+# Optional but recommended: keep runtime data out of the repo root
+export ARAGORA_DATA_DIR=.nomic
 
 # Run a debate with API agents (recommended - no CLI tools needed)
 aragora ask "Design a rate limiter for 1M requests/sec" \
@@ -318,11 +322,11 @@ from aragora.debate import Arena, DebateProtocol
 from aragora.core import Environment
 from aragora.memory import CritiqueStore
 
-# Create heterogeneous agents
+# Create heterogeneous agents (API-backed)
 agents = [
-    create_agent("codex", name="codex_proposer", role="proposer"),
-    create_agent("claude", name="claude_critic", role="critic"),
-    create_agent("codex", name="codex_synth", role="synthesizer"),
+    create_agent("anthropic-api", name="claude_proposer", role="proposer"),
+    create_agent("openai-api", name="openai_critic", role="critic"),
+    create_agent("gemini", name="gemini_synth", role="synthesizer"),
 ]
 
 # Define task
@@ -350,7 +354,7 @@ print(f"Consensus: {result.consensus_reached} ({result.confidence:.0%})")
 
 ```bash
 # Run a decision stress-test
-aragora ask "Your task here" --agents codex,claude --rounds 3
+aragora ask "Your task here" --agents anthropic-api,openai-api --rounds 3
 
 # View statistics
 aragora stats

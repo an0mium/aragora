@@ -420,6 +420,73 @@ class PluginResponse(TypedDict):
 
 
 # =============================================================================
+# Internal Metrics Types
+# =============================================================================
+
+
+class ConvergenceMetrics(TypedDict):
+    """Metrics from convergence detection during debate."""
+
+    status: str  # "converged", "refining", "diverging"
+    similarity: float
+    per_agent: Dict[str, float]
+    rounds_to_converge: NotRequired[int]
+
+
+class PhaseMetrics(TypedDict):
+    """Metrics from phase execution."""
+
+    phase_name: str
+    duration_ms: float
+    status: str  # "completed", "failed", "skipped"
+    error: NotRequired[str]
+
+
+class DebateMetrics(TypedDict):
+    """Comprehensive debate metrics."""
+
+    debate_id: str
+    total_duration_ms: float
+    rounds_used: int
+    messages_count: int
+    consensus_reached: bool
+    confidence: float
+    convergence: NotRequired[ConvergenceMetrics]
+    phases: NotRequired[List["PhaseMetrics"]]
+
+
+class AgentPerformanceMetrics(TypedDict):
+    """Per-agent performance metrics."""
+
+    agent_name: str
+    elo_rating: float
+    win_rate: float
+    debates_participated: int
+    avg_confidence: float
+    calibration_score: NotRequired[float]
+
+
+class DashboardSummary(TypedDict):
+    """Summary data for dashboard."""
+
+    total_debates: int
+    active_debates: int
+    total_agents: int
+    avg_confidence: float
+    consensus_rate: float
+
+
+class DashboardResponse(TypedDict):
+    """Full dashboard response."""
+
+    summary: DashboardSummary
+    recent_activity: List[Dict[str, Any]]
+    agent_performance: List[AgentPerformanceMetrics]
+    top_domains: List[Dict[str, Any]]
+    generated_at: float
+
+
+# =============================================================================
 # Error Response Types
 # =============================================================================
 
@@ -513,6 +580,13 @@ __all__ = [
     "PluginRunRequest",
     "PluginInstallRequest",
     "PluginResponse",
+    # Metrics types
+    "ConvergenceMetrics",
+    "PhaseMetrics",
+    "DebateMetrics",
+    "AgentPerformanceMetrics",
+    "DashboardSummary",
+    "DashboardResponse",
     # Error types
     "ErrorDetail",
     "ErrorResponse",

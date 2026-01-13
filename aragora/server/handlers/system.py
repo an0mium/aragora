@@ -89,9 +89,12 @@ class SystemHandler(BaseHandler):
         "/api/openapi",
         "/api/openapi.json",
         "/api/openapi.yaml",
-        # Swagger UI documentation
+        "/api/postman.json",
+        # API documentation viewers
         "/api/docs",
         "/api/docs/",
+        "/api/redoc",
+        "/api/redoc/",
         "/api/auth/stats",
         "/api/auth/revoke",
         # Resilience monitoring
@@ -184,8 +187,12 @@ class SystemHandler(BaseHandler):
             return self._get_openapi_spec("json")
         if path == "/api/openapi.yaml":
             return self._get_openapi_spec("yaml")
+        if path == "/api/postman.json":
+            return self._get_postman_collection()
         if path in ("/api/docs", "/api/docs/"):
             return self._get_swagger_ui()
+        if path in ("/api/redoc", "/api/redoc/"):
+            return self._get_redoc()
 
         # Parameterized routes
         if path == "/api/nomic/log":
@@ -1389,6 +1396,67 @@ class SystemHandler(BaseHandler):
             status_code=200,
             content_type="text/html; charset=utf-8",
             body=swagger_html.encode("utf-8"),
+        )
+
+    def _get_postman_collection(self) -> HandlerResult:
+        """Get Postman collection for API testing.
+
+        Returns downloadable Postman Collection v2.1 format JSON file
+        with all API endpoints organized by category.
+
+        Returns:
+            HandlerResult with Postman collection JSON
+        """
+        try:
+            from aragora.server.openapi import handle_postman_request
+
+            content, content_type = handle_postman_request()
+            return HandlerResult(
+                status_code=200,
+                content_type=content_type,
+                body=content.encode("utf-8"),
+                headers={
+                    "Content-Disposition": "attachment; filename=aragora.postman_collection.json"
+                },
+            )
+        except Exception as e:
+            logger.error(f"Error generating Postman collection: {e}")
+            return json_response({"error": str(e)}, status_code=500)
+
+    def _get_redoc(self) -> HandlerResult:
+        """Serve ReDoc API documentation viewer.
+
+        ReDoc provides an alternative, read-focused API documentation
+        interface. Uses the same OpenAPI spec as Swagger UI.
+
+        Returns:
+            HandlerResult with ReDoc HTML page
+        """
+        redoc_html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aragora API - ReDoc</title>
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+    <style>
+        body { margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+    <redoc spec-url="/api/openapi.json"
+           expand-responses="200,201"
+           hide-download-button="false"
+           native-scrollbars="true"
+           path-in-middle-panel="true">
+    </redoc>
+    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+</body>
+</html>"""
+        return HandlerResult(
+            status_code=200,
+            content_type="text/html; charset=utf-8",
+            body=redoc_html.encode("utf-8"),
         )
 
     def _get_auth_stats(self) -> HandlerResult:

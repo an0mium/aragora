@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 from aragora.config import DB_MEMORY_PATH, DB_TIMEOUT_SECONDS
+from aragora.serialization import SerializableMixin
 from aragora.storage.base_store import SQLiteStore
 from aragora.utils.json_helpers import safe_json_loads
 
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class LearningMetrics:
+class LearningMetrics(SerializableMixin):
     """Metrics for evaluating learning efficiency."""
 
     cycles_evaluated: int = 0
@@ -38,21 +39,11 @@ class LearningMetrics:
     prediction_accuracy: float = 0.0  # Agent calibration quality
     tier_efficiency: Dict[str, float] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "cycles_evaluated": self.cycles_evaluated,
-            "pattern_retention_rate": self.pattern_retention_rate,
-            "forgetting_rate": self.forgetting_rate,
-            "learning_velocity": self.learning_velocity,
-            "consensus_rate": self.consensus_rate,
-            "avg_cycles_to_consensus": self.avg_cycles_to_consensus,
-            "prediction_accuracy": self.prediction_accuracy,
-            "tier_efficiency": self.tier_efficiency,
-        }
+    # to_dict() and from_dict() inherited from SerializableMixin
 
 
 @dataclass
-class HyperparameterState:
+class HyperparameterState(SerializableMixin):
     """Current state of tunable hyperparameters."""
 
     # Surprise calculation weights
@@ -82,30 +73,7 @@ class HyperparameterState:
     # Learning rates
     meta_learning_rate: float = 0.01  # Rate at which hyperparams change
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "surprise_weight_success": self.surprise_weight_success,
-            "surprise_weight_semantic": self.surprise_weight_semantic,
-            "surprise_weight_temporal": self.surprise_weight_temporal,
-            "surprise_weight_agent": self.surprise_weight_agent,
-            "fast_promotion_threshold": self.fast_promotion_threshold,
-            "medium_promotion_threshold": self.medium_promotion_threshold,
-            "slow_promotion_threshold": self.slow_promotion_threshold,
-            "fast_demotion_threshold": self.fast_demotion_threshold,
-            "medium_demotion_threshold": self.medium_demotion_threshold,
-            "slow_demotion_threshold": self.slow_demotion_threshold,
-            "fast_half_life_hours": self.fast_half_life_hours,
-            "medium_half_life_hours": self.medium_half_life_hours,
-            "slow_half_life_hours": self.slow_half_life_hours,
-            "glacial_half_life_hours": self.glacial_half_life_hours,
-            "consolidation_threshold": self.consolidation_threshold,
-            "promotion_cooldown_hours": self.promotion_cooldown_hours,
-            "meta_learning_rate": self.meta_learning_rate,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HyperparameterState":
-        return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
+    # to_dict() and from_dict() inherited from SerializableMixin
 
 
 class MetaLearner(SQLiteStore):

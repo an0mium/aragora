@@ -48,6 +48,9 @@ from aragora.ranking.relationships import (
     RelationshipTracker,
 )
 from aragora.utils.cache import TTLCache
+
+# Re-export for backwards compatibility (moved to sql_helpers)
+from aragora.utils.sql_helpers import _escape_like_pattern
 from aragora.utils.json_helpers import safe_json_loads
 
 logger = logging.getLogger(__name__)

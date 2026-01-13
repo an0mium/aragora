@@ -90,6 +90,7 @@ from aragora.server.handlers.utils.decorators import (
     require_user_auth,
     safe_fetch,
     validate_params,
+    with_error_recovery,
 )
 from aragora.server.handlers.utils.params import (
     get_bool_param,
@@ -99,6 +100,7 @@ from aragora.server.handlers.utils.params import (
     get_float_param,
     get_int_param,
     get_string_param,
+    parse_query_params,
 )
 from aragora.server.handlers.utils.routing import (
     PathMatcher,
@@ -113,6 +115,8 @@ from aragora.server.validation import (
     SAFE_AGENT_PATTERN,
     SAFE_ID_PATTERN,
     SAFE_SLUG_PATTERN,
+    validate_agent_name,
+    validate_debate_id,
     validate_path_segment,
 )
 

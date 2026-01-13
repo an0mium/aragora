@@ -15,7 +15,9 @@ These variables **MUST** be set in production (`ARAGORA_ENV=production`). The ap
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `GOOGLE_REDIRECT_URI` | OAuth callback URL | `https://api.aragora.ai/api/oauth/google/callback` |
+| `GOOGLE_OAUTH_CLIENT_ID` | Google OAuth client ID | `1234567890-abc.apps.googleusercontent.com` |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Google OAuth client secret | `your-client-secret` |
+| `GOOGLE_OAUTH_REDIRECT_URI` | OAuth callback URL | `https://api.aragora.ai/api/oauth/google/callback` |
 | `OAUTH_SUCCESS_URL` | Post-login redirect | `https://aragora.ai/auth/success` |
 | `OAUTH_ERROR_URL` | Auth error page | `https://aragora.ai/auth/error` |
 | `OAUTH_ALLOWED_REDIRECT_HOSTS` | Comma-separated allowed hosts | `aragora.ai,api.aragora.ai` |
@@ -30,7 +32,9 @@ These variables **MUST** be set in production (`ARAGORA_ENV=production`). The ap
 **Example Production Configuration:**
 ```bash
 # OAuth (required in production)
-GOOGLE_REDIRECT_URI=https://api.aragora.ai/api/oauth/google/callback
+GOOGLE_OAUTH_CLIENT_ID=1234567890-abc.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
+GOOGLE_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/oauth/google/callback
 OAUTH_SUCCESS_URL=https://aragora.ai/auth/success
 OAUTH_ERROR_URL=https://aragora.ai/auth/error
 OAUTH_ALLOWED_REDIRECT_HOSTS=aragora.ai,api.aragora.ai,www.aragora.ai

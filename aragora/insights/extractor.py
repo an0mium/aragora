@@ -16,6 +16,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
+from aragora.serialization import SerializableMixin
+
 
 class InsightType(Enum):
     """Types of insights that can be extracted."""
@@ -30,7 +32,7 @@ class InsightType(Enum):
 
 
 @dataclass
-class Insight:
+class Insight(SerializableMixin):
     """A structured insight extracted from a debate."""
 
     id: str
@@ -48,19 +50,7 @@ class Insight:
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     metadata: dict = field(default_factory=dict)
 
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "type": self.type.value,
-            "title": self.title,
-            "description": self.description,
-            "confidence": self.confidence,
-            "debate_id": self.debate_id,
-            "agents_involved": self.agents_involved,
-            "evidence": self.evidence,
-            "created_at": self.created_at,
-            "metadata": self.metadata,
-        }
+    # to_dict() inherited from SerializableMixin
 
 
 @dataclass

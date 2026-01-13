@@ -29,19 +29,24 @@ pip install -e .
 
 ### Configuration
 
-Copy the example environment file and add your API keys:
+Copy the starter environment file and add your API keys:
 
 ```bash
-cp .env.example .env
+cp .env.starter .env
 ```
 
-Edit `.env` with your API keys:
+Edit `.env` with your API keys (use `.env.example` for the full template):
 
 ```
 GEMINI_API_KEY=your_gemini_key
 ANTHROPIC_API_KEY=your_anthropic_key
 OPENAI_API_KEY=your_openai_key
 XAI_API_KEY=your_xai_key
+```
+
+Optional but recommended:
+```
+ARAGORA_DATA_DIR=.nomic
 ```
 
 ### Running

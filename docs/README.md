@@ -35,6 +35,7 @@ Welcome to Aragora's documentation. This index helps you find the right document
 | Document | Description |
 |----------|-------------|
 | [AGENT_SELECTION](./AGENT_SELECTION.md) | Agent selection algorithms |
+| [AGENTS](../AGENTS.md) | Agent type catalog and defaults |
 | [AGENT_DEVELOPMENT](./AGENT_DEVELOPMENT.md) | Creating custom agents |
 | [CUSTOM_AGENTS](./CUSTOM_AGENTS.md) | Custom agent configuration |
 | [MEMORY_STRATEGY](./MEMORY_STRATEGY.md) | Memory tier architecture |

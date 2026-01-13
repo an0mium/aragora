@@ -105,6 +105,9 @@ DEFAULT_TIER_CONFIGS: Dict[MemoryTier, TierConfig] = {
     ),
 }
 
+# Backwards compatibility alias
+TIER_CONFIGS = DEFAULT_TIER_CONFIGS
+
 
 @dataclass
 class TierTransitionMetrics:
