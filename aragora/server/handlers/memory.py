@@ -9,10 +9,14 @@ Endpoints:
 - GET /api/memory/archive-stats - Get archive statistics
 - GET /api/memory/pressure - Get memory pressure and utilization
 - DELETE /api/memory/continuum/{id} - Delete a memory by ID
+- GET /api/memory/tiers - List all memory tiers with detailed stats
+- GET /api/memory/search - Search memories across tiers
+- GET /api/memory/critiques - Browse critique store entries
 """
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Optional
 
@@ -34,6 +38,8 @@ _retrieve_limiter = RateLimiter(requests_per_minute=60)  # Read operations
 _stats_limiter = RateLimiter(requests_per_minute=30)     # Stats operations
 _mutation_limiter = RateLimiter(requests_per_minute=10)  # State-changing operations
 
+logger = logging.getLogger(__name__)
+
 # Optional import for memory functionality
 try:
     from aragora.memory.continuum import ContinuumMemory, MemoryTier
@@ -42,6 +48,14 @@ except ImportError:
     CONTINUUM_AVAILABLE = False
     ContinuumMemory = None  # type: ignore[misc, assignment]
     MemoryTier = None  # type: ignore[misc, assignment]
+
+# Optional import for critique store
+try:
+    from aragora.memory.store import CritiqueStore
+    CRITIQUE_STORE_AVAILABLE = True
+except ImportError:
+    CRITIQUE_STORE_AVAILABLE = False
+    CritiqueStore = None  # type: ignore[misc, assignment]
 
 
 class MemoryHandler(BaseHandler):
@@ -54,6 +68,9 @@ class MemoryHandler(BaseHandler):
         "/api/memory/tier-stats",
         "/api/memory/archive-stats",
         "/api/memory/pressure",
+        "/api/memory/tiers",
+        "/api/memory/search",
+        "/api/memory/critiques",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -107,6 +124,24 @@ class MemoryHandler(BaseHandler):
             if not _stats_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._get_memory_pressure()
+
+        if path == "/api/memory/tiers":
+            # Rate limit: 30/min for stats operations
+            if not _stats_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+            return self._get_all_tiers()
+
+        if path == "/api/memory/search":
+            # Rate limit: 60/min for retrieve operations
+            if not _retrieve_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+            return self._search_memories(query_params)
+
+        if path == "/api/memory/critiques":
+            # Rate limit: 30/min for stats operations
+            if not _stats_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+            return self._get_critiques(query_params)
 
         return None
 
@@ -418,3 +453,237 @@ class MemoryHandler(BaseHandler):
                 return error_response(f"Memory not found: {memory_id}", 404)
         except Exception as e:
             return error_response(safe_error_message(e, "delete memory"), 500)
+
+    @handle_errors("get all tiers")
+    def _get_all_tiers(self) -> HandlerResult:
+        """Get comprehensive information about all memory tiers.
+
+        Returns detailed stats for each tier including:
+        - Name, description, and TTL
+        - Current count and limit
+        - Utilization percentage
+        - Average importance and surprise scores
+        - Recent activity count
+        """
+        if not CONTINUUM_AVAILABLE:
+            return error_response("Continuum memory system not available", 503)
+
+        continuum = self.ctx.get("continuum_memory")
+        if not continuum:
+            return error_response("Continuum memory not initialized", 503)
+
+        # Get base stats
+        stats = continuum.get_stats()
+        tier_stats = stats.get("by_tier", {})
+
+        # Tier metadata
+        tier_info = {
+            "FAST": {
+                "name": "Fast",
+                "description": "Immediate context, very short-term",
+                "ttl_seconds": 60,
+                "limit": 100,
+            },
+            "MEDIUM": {
+                "name": "Medium",
+                "description": "Session memory, short-term",
+                "ttl_seconds": 3600,
+                "limit": 500,
+            },
+            "SLOW": {
+                "name": "Slow",
+                "description": "Cross-session learning, medium-term",
+                "ttl_seconds": 86400,
+                "limit": 1000,
+            },
+            "GLACIAL": {
+                "name": "Glacial",
+                "description": "Long-term patterns and insights",
+                "ttl_seconds": 604800,
+                "limit": 5000,
+            },
+        }
+
+        # Build comprehensive tier data
+        tiers = []
+        for tier_name, info in tier_info.items():
+            tier_data = tier_stats.get(tier_name, {})
+            count = tier_data.get("count", 0)
+            limit = info["limit"]
+            utilization = count / limit if limit > 0 else 0.0
+
+            tiers.append({
+                "id": tier_name.lower(),
+                "name": info["name"],
+                "description": info["description"],
+                "ttl_seconds": info["ttl_seconds"],
+                "ttl_human": self._format_ttl(info["ttl_seconds"]),
+                "count": count,
+                "limit": limit,
+                "utilization": round(utilization, 3),
+                "avg_importance": tier_data.get("avg_importance", 0.0),
+                "avg_surprise": tier_data.get("avg_surprise", 0.0),
+            })
+
+        return json_response({
+            "tiers": tiers,
+            "total_memories": stats.get("total_memories", 0),
+            "transitions_24h": len(stats.get("transitions", [])),
+        })
+
+    def _format_ttl(self, seconds: int) -> str:
+        """Format TTL in human-readable form."""
+        if seconds < 60:
+            return f"{seconds}s"
+        elif seconds < 3600:
+            return f"{seconds // 60}m"
+        elif seconds < 86400:
+            return f"{seconds // 3600}h"
+        else:
+            return f"{seconds // 86400}d"
+
+    @handle_errors("search memories")
+    def _search_memories(self, params: dict) -> HandlerResult:
+        """Search memories across all tiers with filtering.
+
+        Query params:
+            q: Search query (required)
+            tier: Filter by tier (optional, comma-separated)
+            min_importance: Minimum importance score (0.0-1.0)
+            limit: Maximum results (default: 20, max: 100)
+            sort: Sort by 'relevance', 'importance', 'recency' (default: relevance)
+        """
+        if not CONTINUUM_AVAILABLE:
+            return error_response("Continuum memory system not available", 503)
+
+        continuum = self.ctx.get("continuum_memory")
+        if not continuum:
+            return error_response("Continuum memory not initialized", 503)
+
+        query = get_bounded_string_param(params, "q", "", max_length=500)
+        if not query:
+            return error_response("Missing required parameter: q (search query)", 400)
+
+        tier_param = get_bounded_string_param(params, "tier", "", max_length=100)
+        limit = get_clamped_int_param(params, "limit", 20, min_val=1, max_val=100)
+        min_importance = get_bounded_float_param(params, "min_importance", 0.0, min_val=0.0, max_val=1.0)
+        sort_by = get_bounded_string_param(params, "sort", "relevance", max_length=20)
+
+        # Parse tiers
+        tiers = []
+        if tier_param:
+            for name in tier_param.split(","):
+                try:
+                    tiers.append(MemoryTier[name.strip().upper()])
+                except KeyError:
+                    continue
+        if not tiers:
+            tiers = list(MemoryTier)
+
+        # Search memories
+        memories = continuum.retrieve(
+            query=query,
+            tiers=tiers,
+            limit=limit,
+            min_importance=min_importance,
+        )
+
+        # Sort results
+        if sort_by == "importance":
+            memories.sort(key=lambda m: getattr(m, "importance", 0), reverse=True)
+        elif sort_by == "recency":
+            memories.sort(key=lambda m: getattr(m, "updated_at", 0), reverse=True)
+        # 'relevance' is default from retrieve
+
+        results = []
+        for m in memories:
+            results.append({
+                "id": m.id,
+                "tier": m.tier.name.lower(),
+                "content": m.content[:300] + "..." if len(m.content) > 300 else m.content,
+                "importance": round(getattr(m, "importance", 0.0), 3),
+                "surprise_score": round(getattr(m, "surprise_score", 0.0), 3),
+                "created_at": str(m.created_at) if hasattr(m, "created_at") else None,
+                "updated_at": str(m.updated_at) if hasattr(m, "updated_at") else None,
+                "metadata": getattr(m, "metadata", {}),
+            })
+
+        return json_response({
+            "query": query,
+            "results": results,
+            "count": len(results),
+            "tiers_searched": [t.name.lower() for t in tiers],
+            "filters": {
+                "min_importance": min_importance,
+                "sort": sort_by,
+            },
+        })
+
+    @handle_errors("get critiques")
+    def _get_critiques(self, params: dict) -> HandlerResult:
+        """Browse critique store entries.
+
+        Query params:
+            debate_id: Filter by debate ID (optional)
+            agent: Filter by agent name (optional)
+            limit: Maximum results (default: 20, max: 100)
+            offset: Skip first N results (default: 0)
+        """
+        if not CRITIQUE_STORE_AVAILABLE:
+            return error_response("Critique store not available", 503)
+
+        nomic_dir = self.ctx.get("nomic_dir")
+        if not nomic_dir:
+            return error_response("Critique store not configured", 503)
+
+        debate_id = get_bounded_string_param(params, "debate_id", "", max_length=100)
+        agent = get_bounded_string_param(params, "agent", "", max_length=100)
+        limit = get_clamped_int_param(params, "limit", 20, min_val=1, max_val=100)
+        offset = get_clamped_int_param(params, "offset", 0, min_val=0, max_val=10000)
+
+        try:
+            store = CritiqueStore(nomic_dir)
+
+            # Get critiques with optional filtering
+            if debate_id:
+                critiques = store.get_critiques_for_debate(debate_id)
+            elif agent:
+                critiques = store.get_critiques_by_agent(agent)
+            else:
+                critiques = store.get_recent_critiques(limit=limit + offset)
+
+            # Apply offset and limit
+            critiques = critiques[offset:offset + limit]
+
+            results = []
+            for c in critiques:
+                results.append({
+                    "id": getattr(c, "id", None),
+                    "debate_id": getattr(c, "debate_id", None),
+                    "agent": getattr(c, "agent", None),
+                    "target_agent": getattr(c, "target_agent", None),
+                    "critique_type": getattr(c, "critique_type", None),
+                    "content": getattr(c, "content", "")[:300],
+                    "severity": getattr(c, "severity", 0.0),
+                    "accepted": getattr(c, "accepted", None),
+                    "created_at": str(c.created_at) if hasattr(c, "created_at") else None,
+                })
+
+            # Get total count for pagination
+            total = len(store.get_recent_critiques(limit=10000)) if not debate_id and not agent else len(results)
+
+            return json_response({
+                "critiques": results,
+                "count": len(results),
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "filters": {
+                    "debate_id": debate_id or None,
+                    "agent": agent or None,
+                },
+            })
+
+        except Exception as e:
+            logger.error(f"Failed to get critiques: {e}")
+            return error_response(safe_error_message(e, "get critiques"), 500)
