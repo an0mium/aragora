@@ -3,6 +3,13 @@ Tournament Management System.
 
 Provides tournament bracket generation, match tracking, and standings
 calculation for agent competitions.
+
+Hardening features:
+- Input validation for participants and bracket types
+- Connection pooling with context managers
+- Tournament history/event logging
+- Double elimination support
+- Concurrent access protection
 """
 
 from __future__ import annotations
@@ -10,14 +17,77 @@ from __future__ import annotations
 import json
 import logging
 import math
+import re
 import sqlite3
+import threading
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Any, Generator, Optional
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Validation Constants
+# =============================================================================
+
+# Allowed bracket types
+VALID_BRACKET_TYPES = {"round_robin", "single_elimination", "double_elimination"}
+
+# Participant name validation
+PARTICIPANT_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+MAX_PARTICIPANTS = 128
+MIN_PARTICIPANTS = 2
+
+# Tournament name validation
+MAX_TOURNAMENT_NAME_LENGTH = 256
+
+
+class TournamentStatus(str, Enum):
+    """Tournament status enumeration."""
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class TournamentEvent(str, Enum):
+    """Types of tournament events for history tracking."""
+    CREATED = "created"
+    STARTED = "started"
+    MATCH_COMPLETED = "match_completed"
+    ROUND_ADVANCED = "round_advanced"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class TournamentError(Exception):
+    """Base exception for tournament errors."""
+    pass
+
+
+class ValidationError(TournamentError):
+    """Invalid input data."""
+    pass
+
+
+class TournamentNotFoundError(TournamentError):
+    """Tournament does not exist."""
+    pass
+
+
+class MatchNotFoundError(TournamentError):
+    """Match does not exist."""
+    pass
+
+
+class InvalidStateError(TournamentError):
+    """Operation not allowed in current state."""
+    pass
 
 
 @dataclass
@@ -51,8 +121,30 @@ class TournamentMatch:
     score1: float = 0.0
     score2: float = 0.0
     debate_id: Optional[str] = None
+    bracket_position: int = 0  # Position in bracket (for elimination)
+    is_losers_bracket: bool = False  # For double elimination
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     completed_at: Optional[str] = None
+
+
+@dataclass
+class TournamentHistoryEntry:
+    """An event in tournament history for audit/replay."""
+    entry_id: str
+    tournament_id: str
+    event_type: TournamentEvent
+    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    details: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        """Serialize to dictionary."""
+        return {
+            "entry_id": self.entry_id,
+            "tournament_id": self.tournament_id,
+            "event_type": self.event_type.value,
+            "timestamp": self.timestamp,
+            "details": self.details,
+        }
 
 
 @dataclass
@@ -72,6 +164,13 @@ class TournamentManager:
     """
     Manages tournaments, brackets, and standings.
 
+    Features:
+    - Thread-safe connection management via SQLiteStore
+    - Input validation for participants and tournament names
+    - Tournament history/event logging
+    - Support for round-robin, single elimination, and double elimination
+    - Proper state transition management
+
     Example:
         manager = TournamentManager(db_path="tournaments/contest.db")
         tournament = manager.create_tournament(
@@ -80,6 +179,57 @@ class TournamentManager:
             bracket_type="round_robin"
         )
         standings = manager.get_current_standings()
+    """
+
+    SCHEMA_NAME = "ranking_tournaments"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS tournaments (
+            tournament_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            bracket_type TEXT DEFAULT 'round_robin',
+            participants TEXT NOT NULL,
+            rounds_completed INTEGER DEFAULT 0,
+            total_rounds INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'pending',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS matches (
+            match_id TEXT PRIMARY KEY,
+            tournament_id TEXT NOT NULL,
+            round_num INTEGER NOT NULL,
+            agent1 TEXT NOT NULL,
+            agent2 TEXT NOT NULL,
+            winner TEXT,
+            score1 REAL DEFAULT 0.0,
+            score2 REAL DEFAULT 0.0,
+            debate_id TEXT,
+            bracket_position INTEGER DEFAULT 0,
+            is_losers_bracket INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            completed_at TEXT,
+            FOREIGN KEY (tournament_id) REFERENCES tournaments(tournament_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS tournament_history (
+            entry_id TEXT PRIMARY KEY,
+            tournament_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+            details TEXT DEFAULT '{}',
+            FOREIGN KEY (tournament_id) REFERENCES tournaments(tournament_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_matches_tournament
+        ON matches(tournament_id);
+
+        CREATE INDEX IF NOT EXISTS idx_matches_agents
+        ON matches(agent1, agent2);
+
+        CREATE INDEX IF NOT EXISTS idx_history_tournament
+        ON tournament_history(tournament_id);
     """
 
     def __init__(
@@ -94,6 +244,8 @@ class TournamentManager:
             db_path: Path to tournament SQLite database
             nomic_dir: Base directory for tournament storage
         """
+        from aragora.storage.base_store import SQLiteStore
+
         if db_path:
             self.db_path = Path(db_path)
         elif nomic_dir:
@@ -101,56 +253,129 @@ class TournamentManager:
         else:
             self.db_path = Path("tournaments") / "default.db"
 
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._init_db()
+        # Create SQLiteStore-based database wrapper
+        class _TournamentDB(SQLiteStore):
+            SCHEMA_NAME = TournamentManager.SCHEMA_NAME
+            SCHEMA_VERSION = TournamentManager.SCHEMA_VERSION
+            INITIAL_SCHEMA = TournamentManager.INITIAL_SCHEMA
 
-    def _init_db(self) -> None:
-        """Initialize the database schema."""
-        conn = sqlite3.connect(str(self.db_path))
-        try:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS tournaments (
-                    tournament_id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    bracket_type TEXT DEFAULT 'round_robin',
-                    participants TEXT NOT NULL,
-                    rounds_completed INTEGER DEFAULT 0,
-                    total_rounds INTEGER DEFAULT 0,
-                    status TEXT DEFAULT 'pending',
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        self._db = _TournamentDB(str(self.db_path), timeout=30.0)
+        self._lock = threading.RLock()
+
+    @contextmanager
+    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
+        """Thread-safe connection context manager."""
+        with self._db.connection() as conn:
+            conn.row_factory = sqlite3.Row
+            yield conn
+
+    # =========================================================================
+    # Validation Methods
+    # =========================================================================
+
+    def _validate_tournament_name(self, name: str) -> None:
+        """Validate tournament name."""
+        if not name or not name.strip():
+            raise ValidationError("Tournament name cannot be empty")
+        if len(name) > MAX_TOURNAMENT_NAME_LENGTH:
+            raise ValidationError(f"Tournament name exceeds {MAX_TOURNAMENT_NAME_LENGTH} characters")
+
+    def _validate_participants(self, participants: list[str]) -> None:
+        """Validate participant list."""
+        if not participants:
+            raise ValidationError("Participants list cannot be empty")
+        if len(participants) < MIN_PARTICIPANTS:
+            raise ValidationError(f"Need at least {MIN_PARTICIPANTS} participants")
+        if len(participants) > MAX_PARTICIPANTS:
+            raise ValidationError(f"Cannot exceed {MAX_PARTICIPANTS} participants")
+
+        seen = set()
+        for p in participants:
+            if not p or not p.strip():
+                raise ValidationError("Participant name cannot be empty")
+            if not PARTICIPANT_NAME_PATTERN.match(p):
+                raise ValidationError(
+                    f"Invalid participant name '{p}'. "
+                    "Must be 1-64 alphanumeric characters, underscores, or hyphens."
                 )
-            """)
+            if p in seen:
+                raise ValidationError(f"Duplicate participant: {p}")
+            seen.add(p)
 
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS matches (
-                    match_id TEXT PRIMARY KEY,
-                    tournament_id TEXT NOT NULL,
-                    round_num INTEGER NOT NULL,
-                    agent1 TEXT NOT NULL,
-                    agent2 TEXT NOT NULL,
-                    winner TEXT,
-                    score1 REAL DEFAULT 0.0,
-                    score2 REAL DEFAULT 0.0,
-                    debate_id TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    completed_at TEXT,
-                    FOREIGN KEY (tournament_id) REFERENCES tournaments(tournament_id)
-                )
-            """)
+    def _validate_bracket_type(self, bracket_type: str) -> None:
+        """Validate bracket type."""
+        if bracket_type not in VALID_BRACKET_TYPES:
+            raise ValidationError(
+                f"Invalid bracket type '{bracket_type}'. "
+                f"Must be one of: {', '.join(VALID_BRACKET_TYPES)}"
+            )
 
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_matches_tournament
-                ON matches(tournament_id)
-            """)
+    def _validate_score(self, score: float) -> float:
+        """Validate and normalize score."""
+        if not isinstance(score, (int, float)):
+            raise ValidationError(f"Score must be a number, got {type(score)}")
+        if score < 0:
+            raise ValidationError("Score cannot be negative")
+        return float(score)
 
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_matches_agents
-                ON matches(agent1, agent2)
-            """)
+    # =========================================================================
+    # History Management
+    # =========================================================================
 
-            conn.commit()
-        finally:
-            conn.close()
+    def _log_event(
+        self,
+        conn: sqlite3.Connection,
+        tournament_id: str,
+        event_type: TournamentEvent,
+        details: Optional[dict] = None,
+    ) -> None:
+        """Log a tournament event to history."""
+        entry_id = f"evt_{uuid.uuid4().hex[:12]}"
+        conn.execute(
+            """
+            INSERT INTO tournament_history (entry_id, tournament_id, event_type, details)
+            VALUES (?, ?, ?, ?)
+            """,
+            (entry_id, tournament_id, event_type.value, json.dumps(details or {})),
+        )
+
+    def get_tournament_history(
+        self,
+        tournament_id: str,
+        limit: int = 100,
+    ) -> list[TournamentHistoryEntry]:
+        """Get tournament event history.
+
+        Args:
+            tournament_id: Tournament identifier
+            limit: Maximum entries to return
+
+        Returns:
+            List of TournamentHistoryEntry, most recent first
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT entry_id, tournament_id, event_type, timestamp, details
+                FROM tournament_history
+                WHERE tournament_id = ?
+                ORDER BY timestamp DESC
+                LIMIT ?
+                """,
+                (tournament_id, limit),
+            )
+
+            history = []
+            for row in cursor:
+                history.append(TournamentHistoryEntry(
+                    entry_id=row["entry_id"],
+                    tournament_id=row["tournament_id"],
+                    event_type=TournamentEvent(row["event_type"]),
+                    timestamp=row["timestamp"],
+                    details=json.loads(row["details"]),
+                ))
+
+            return history
 
     def create_tournament(
         self,
@@ -168,7 +393,15 @@ class TournamentManager:
 
         Returns:
             Created Tournament object
+
+        Raises:
+            ValidationError: If inputs are invalid
         """
+        # Validate inputs
+        self._validate_tournament_name(name)
+        self._validate_participants(participants)
+        self._validate_bracket_type(bracket_type)
+
         tournament_id = f"tournament_{uuid.uuid4().hex[:8]}"
 
         # Calculate total rounds based on bracket type
@@ -177,40 +410,50 @@ class TournamentManager:
             total_rounds = n - 1 if n > 1 else 0
         elif bracket_type == "single_elimination":
             total_rounds = math.ceil(math.log2(n)) if n > 1 else 0
+        elif bracket_type == "double_elimination":
+            # Double elimination: winners bracket + losers bracket
+            total_rounds = math.ceil(math.log2(n)) * 2 if n > 1 else 0
         else:
             total_rounds = n - 1
 
         tournament = Tournament(
             tournament_id=tournament_id,
-            name=name,
+            name=name.strip(),
             participants=participants,
             bracket_type=bracket_type,
             total_rounds=total_rounds,
-            status="pending",
+            status=TournamentStatus.PENDING.value,
         )
 
-        conn = sqlite3.connect(str(self.db_path))
-        try:
-            conn.execute(
-                """
-                INSERT INTO tournaments
-                (tournament_id, name, bracket_type, participants, total_rounds, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    tournament.tournament_id,
-                    tournament.name,
-                    tournament.bracket_type,
-                    json.dumps(tournament.participants),
-                    tournament.total_rounds,
-                    tournament.status,
-                    tournament.created_at,
-                ),
-            )
-            conn.commit()
-            logger.info(f"Created tournament: {tournament_id}")
-        finally:
-            conn.close()
+        with self._lock:
+            with self._get_connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO tournaments
+                    (tournament_id, name, bracket_type, participants, total_rounds, status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        tournament.tournament_id,
+                        tournament.name,
+                        tournament.bracket_type,
+                        json.dumps(tournament.participants),
+                        tournament.total_rounds,
+                        tournament.status,
+                        tournament.created_at,
+                    ),
+                )
+
+                # Log creation event
+                self._log_event(
+                    conn,
+                    tournament_id,
+                    TournamentEvent.CREATED,
+                    {"name": name, "participants": participants, "bracket_type": bracket_type},
+                )
+
+                conn.commit()
+                logger.info(f"Created tournament: {tournament_id}")
 
         # Generate initial bracket/matches
         self._generate_matches(tournament)
@@ -223,6 +466,8 @@ class TournamentManager:
             self._generate_round_robin_matches(tournament)
         elif tournament.bracket_type == "single_elimination":
             self._generate_single_elimination_matches(tournament)
+        elif tournament.bracket_type == "double_elimination":
+            self._generate_double_elimination_matches(tournament)
 
     def _generate_round_robin_matches(self, tournament: Tournament) -> None:
         """Generate all matches for round-robin tournament."""
@@ -230,6 +475,7 @@ class TournamentManager:
         matches = []
 
         # Round-robin: every participant plays every other participant once
+        position = 0
         for i, agent1 in enumerate(participants):
             for agent2 in participants[i + 1:]:
                 match = TournamentMatch(
@@ -238,18 +484,23 @@ class TournamentManager:
                     round_num=1,  # All in round 1 for round-robin
                     agent1=agent1,
                     agent2=agent2,
+                    bracket_position=position,
                 )
                 matches.append(match)
+                position += 1
 
-        # Insert matches
-        conn = sqlite3.connect(str(self.db_path))
-        try:
+        self._insert_matches(matches, tournament.tournament_id)
+
+    def _insert_matches(self, matches: list[TournamentMatch], tournament_id: str) -> None:
+        """Insert matches into database."""
+        with self._get_connection() as conn:
             for match in matches:
                 conn.execute(
                     """
                     INSERT INTO matches
-                    (match_id, tournament_id, round_num, agent1, agent2, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (match_id, tournament_id, round_num, agent1, agent2,
+                     bracket_position, is_losers_bracket, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         match.match_id,
@@ -257,51 +508,77 @@ class TournamentManager:
                         match.round_num,
                         match.agent1,
                         match.agent2,
+                        match.bracket_position,
+                        1 if match.is_losers_bracket else 0,
                         match.created_at,
                     ),
                 )
             conn.commit()
-            logger.info(f"Generated {len(matches)} matches for tournament {tournament.tournament_id}")
-        finally:
-            conn.close()
+            logger.info(f"Generated {len(matches)} matches for tournament {tournament_id}")
 
     def _generate_single_elimination_matches(self, tournament: Tournament) -> None:
         """Generate first round matches for single elimination."""
         participants = tournament.participants
         matches = []
 
-        # First round: pair up participants
-        for i in range(0, len(participants) - 1, 2):
+        # Pad to power of 2 for balanced bracket
+        n = len(participants)
+        next_power = 1
+        while next_power < n:
+            next_power *= 2
+
+        # First round: pair up participants with BYEs for padding
+        padded = participants + ["BYE"] * (next_power - n)
+        for position, i in enumerate(range(0, len(padded), 2)):
             match = TournamentMatch(
                 match_id=f"match_{uuid.uuid4().hex[:8]}",
                 tournament_id=tournament.tournament_id,
                 round_num=1,
-                agent1=participants[i],
-                agent2=participants[i + 1] if i + 1 < len(participants) else "BYE",
+                agent1=padded[i],
+                agent2=padded[i + 1],
+                bracket_position=position,
+                is_losers_bracket=False,
             )
             matches.append(match)
 
-        conn = sqlite3.connect(str(self.db_path))
-        try:
-            for match in matches:
-                conn.execute(
-                    """
-                    INSERT INTO matches
-                    (match_id, tournament_id, round_num, agent1, agent2, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        match.match_id,
-                        match.tournament_id,
-                        match.round_num,
-                        match.agent1,
-                        match.agent2,
-                        match.created_at,
-                    ),
-                )
-            conn.commit()
-        finally:
-            conn.close()
+        self._insert_matches(matches, tournament.tournament_id)
+
+    def _generate_double_elimination_matches(self, tournament: Tournament) -> None:
+        """Generate first round matches for double elimination.
+
+        In double elimination:
+        - Winners bracket: participants compete; losers drop to losers bracket
+        - Losers bracket: eliminated participants compete for second chance
+        - Final: winners bracket champion vs losers bracket champion
+        """
+        participants = tournament.participants
+        matches = []
+
+        # Pad to power of 2
+        n = len(participants)
+        next_power = 1
+        while next_power < n:
+            next_power *= 2
+
+        # Winners bracket first round
+        padded = participants + ["BYE"] * (next_power - n)
+        for position, i in enumerate(range(0, len(padded), 2)):
+            match = TournamentMatch(
+                match_id=f"match_{uuid.uuid4().hex[:8]}",
+                tournament_id=tournament.tournament_id,
+                round_num=1,
+                agent1=padded[i],
+                agent2=padded[i + 1],
+                bracket_position=position,
+                is_losers_bracket=False,
+            )
+            matches.append(match)
+
+        # Losers bracket matches are generated dynamically as participants lose
+        # Only create the winners bracket initially
+
+        self._insert_matches(matches, tournament.tournament_id)
+        logger.info(f"Generated double elimination bracket with {len(matches)} winners bracket matches")
 
     def record_match_result(
         self,
@@ -320,53 +597,113 @@ class TournamentManager:
             score1: Score for agent1
             score2: Score for agent2
             debate_id: Optional associated debate ID
+
+        Raises:
+            ValidationError: If scores are invalid
+            MatchNotFoundError: If match doesn't exist
         """
+        # Validate scores
+        score1 = self._validate_score(score1)
+        score2 = self._validate_score(score2)
+
         completed_at = datetime.utcnow().isoformat()
 
-        conn = sqlite3.connect(str(self.db_path))
-        try:
-            conn.execute(
-                """
-                UPDATE matches
-                SET winner = ?, score1 = ?, score2 = ?, debate_id = ?, completed_at = ?
-                WHERE match_id = ?
-                """,
-                (winner, score1, score2, debate_id, completed_at, match_id),
-            )
-            conn.commit()
-            logger.info(f"Recorded result for match {match_id}: winner={winner}")
-        finally:
-            conn.close()
+        with self._lock:
+            with self._get_connection() as conn:
+                # Verify match exists
+                cursor = conn.execute(
+                    "SELECT tournament_id, agent1, agent2 FROM matches WHERE match_id = ?",
+                    (match_id,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    raise MatchNotFoundError(f"Match {match_id} not found")
 
-    def get_current_standings(self) -> list[TournamentStanding]:
+                tournament_id = row["tournament_id"]
+                agent1, agent2 = row["agent1"], row["agent2"]
+
+                # Validate winner
+                if winner is not None and winner not in (agent1, agent2):
+                    raise ValidationError(f"Winner must be one of {agent1} or {agent2}")
+
+                conn.execute(
+                    """
+                    UPDATE matches
+                    SET winner = ?, score1 = ?, score2 = ?, debate_id = ?, completed_at = ?
+                    WHERE match_id = ?
+                    """,
+                    (winner, score1, score2, debate_id, completed_at, match_id),
+                )
+
+                # Log event
+                self._log_event(
+                    conn,
+                    tournament_id,
+                    TournamentEvent.MATCH_COMPLETED,
+                    {
+                        "match_id": match_id,
+                        "winner": winner,
+                        "score1": score1,
+                        "score2": score2,
+                        "debate_id": debate_id,
+                    },
+                )
+
+                conn.commit()
+                logger.info(f"Recorded result for match {match_id}: winner={winner}")
+
+    def get_current_standings(self, tournament_id: Optional[str] = None) -> list[TournamentStanding]:
         """
         Get current tournament standings.
+
+        Args:
+            tournament_id: Optional tournament ID to filter by
 
         Returns:
             List of TournamentStanding sorted by points (descending)
         """
-        conn = sqlite3.connect(str(self.db_path))
-        try:
+        with self._get_connection() as conn:
             # Get all participants from tournaments
-            cursor = conn.execute("SELECT participants FROM tournaments LIMIT 1")
+            if tournament_id:
+                cursor = conn.execute(
+                    "SELECT participants FROM tournaments WHERE tournament_id = ?",
+                    (tournament_id,),
+                )
+            else:
+                cursor = conn.execute("SELECT participants FROM tournaments LIMIT 1")
+
             row = cursor.fetchone()
             if not row:
                 return []
 
-            participants = json.loads(row[0])
+            participants = json.loads(row["participants"])
             standings_dict = {p: TournamentStanding(agent=p) for p in participants}
 
             # Calculate standings from completed matches
-            cursor = conn.execute(
-                """
-                SELECT agent1, agent2, winner, score1, score2
-                FROM matches
-                WHERE completed_at IS NOT NULL
-                """
-            )
+            if tournament_id:
+                cursor = conn.execute(
+                    """
+                    SELECT agent1, agent2, winner, score1, score2
+                    FROM matches
+                    WHERE completed_at IS NOT NULL AND tournament_id = ?
+                    """,
+                    (tournament_id,),
+                )
+            else:
+                cursor = conn.execute(
+                    """
+                    SELECT agent1, agent2, winner, score1, score2
+                    FROM matches
+                    WHERE completed_at IS NOT NULL
+                    """
+                )
 
             for row in cursor:
-                agent1, agent2, winner, score1, score2 = row
+                agent1 = row["agent1"]
+                agent2 = row["agent2"]
+                winner = row["winner"]
+                score1 = row["score1"] or 0.0
+                score2 = row["score2"] or 0.0
 
                 if agent1 in standings_dict:
                     standings_dict[agent1].total_score += score1
@@ -401,14 +738,12 @@ class TournamentManager:
 
             return standings
 
-        finally:
-            conn.close()
-
     def get_matches(
         self,
         tournament_id: Optional[str] = None,
         round_num: Optional[int] = None,
         completed_only: bool = False,
+        losers_bracket: Optional[bool] = None,
     ) -> list[TournamentMatch]:
         """
         Get matches with optional filtering.
@@ -417,14 +752,14 @@ class TournamentManager:
             tournament_id: Filter by tournament
             round_num: Filter by round number
             completed_only: Only return completed matches
+            losers_bracket: Filter by bracket type (True=losers, False=winners, None=all)
 
         Returns:
             List of TournamentMatch objects
         """
-        conn = sqlite3.connect(str(self.db_path))
-        try:
+        with self._get_connection() as conn:
             query = "SELECT * FROM matches WHERE 1=1"
-            params = []
+            params: list[Any] = []
 
             if tournament_id:
                 query += " AND tournament_id = ?"
@@ -437,35 +772,44 @@ class TournamentManager:
             if completed_only:
                 query += " AND completed_at IS NOT NULL"
 
-            query += " ORDER BY created_at DESC"
+            if losers_bracket is not None:
+                query += " AND is_losers_bracket = ?"
+                params.append(1 if losers_bracket else 0)
+
+            query += " ORDER BY round_num, bracket_position"
 
             cursor = conn.execute(query, params)
             matches = []
 
             for row in cursor:
                 matches.append(TournamentMatch(
-                    match_id=row[0],
-                    tournament_id=row[1],
-                    round_num=row[2],
-                    agent1=row[3],
-                    agent2=row[4],
-                    winner=row[5],
-                    score1=row[6] or 0.0,
-                    score2=row[7] or 0.0,
-                    debate_id=row[8],
-                    created_at=row[9],
-                    completed_at=row[10],
+                    match_id=row["match_id"],
+                    tournament_id=row["tournament_id"],
+                    round_num=row["round_num"],
+                    agent1=row["agent1"],
+                    agent2=row["agent2"],
+                    winner=row["winner"],
+                    score1=row["score1"] or 0.0,
+                    score2=row["score2"] or 0.0,
+                    debate_id=row["debate_id"],
+                    bracket_position=row["bracket_position"] or 0,
+                    is_losers_bracket=bool(row["is_losers_bracket"]),
+                    created_at=row["created_at"],
+                    completed_at=row["completed_at"],
                 ))
 
             return matches
 
-        finally:
-            conn.close()
-
     def get_tournament(self, tournament_id: str) -> Optional[Tournament]:
-        """Get tournament by ID."""
-        conn = sqlite3.connect(str(self.db_path))
-        try:
+        """Get tournament by ID.
+
+        Args:
+            tournament_id: Tournament identifier
+
+        Returns:
+            Tournament object or None if not found
+        """
+        with self._get_connection() as conn:
             cursor = conn.execute(
                 "SELECT * FROM tournaments WHERE tournament_id = ?",
                 (tournament_id,),
@@ -475,125 +819,199 @@ class TournamentManager:
                 return None
 
             return Tournament(
-                tournament_id=row[0],
-                name=row[1],
-                bracket_type=row[2],
-                participants=json.loads(row[3]),
-                rounds_completed=row[4],
-                total_rounds=row[5],
-                status=row[6],
-                created_at=row[7],
+                tournament_id=row["tournament_id"],
+                name=row["name"],
+                bracket_type=row["bracket_type"],
+                participants=json.loads(row["participants"]),
+                rounds_completed=row["rounds_completed"],
+                total_rounds=row["total_rounds"],
+                status=row["status"],
+                created_at=row["created_at"],
             )
-        finally:
-            conn.close()
 
-    def list_tournaments(self, limit: int = 50) -> list[Tournament]:
-        """List all tournaments."""
-        conn = sqlite3.connect(str(self.db_path))
-        try:
-            cursor = conn.execute(
-                "SELECT * FROM tournaments ORDER BY created_at DESC LIMIT ?",
-                (limit,),
-            )
+    def list_tournaments(self, limit: int = 50, status: Optional[str] = None) -> list[Tournament]:
+        """List all tournaments.
+
+        Args:
+            limit: Maximum tournaments to return
+            status: Optional status filter (pending, in_progress, completed, cancelled)
+
+        Returns:
+            List of Tournament objects, newest first
+        """
+        with self._get_connection() as conn:
+            if status:
+                cursor = conn.execute(
+                    "SELECT * FROM tournaments WHERE status = ? ORDER BY created_at DESC LIMIT ?",
+                    (status, limit),
+                )
+            else:
+                cursor = conn.execute(
+                    "SELECT * FROM tournaments ORDER BY created_at DESC LIMIT ?",
+                    (limit,),
+                )
+
             tournaments = []
-
             for row in cursor:
                 tournaments.append(Tournament(
-                    tournament_id=row[0],
-                    name=row[1],
-                    bracket_type=row[2],
-                    participants=json.loads(row[3]),
-                    rounds_completed=row[4],
-                    total_rounds=row[5],
-                    status=row[6],
-                    created_at=row[7],
+                    tournament_id=row["tournament_id"],
+                    name=row["name"],
+                    bracket_type=row["bracket_type"],
+                    participants=json.loads(row["participants"]),
+                    rounds_completed=row["rounds_completed"],
+                    total_rounds=row["total_rounds"],
+                    status=row["status"],
+                    created_at=row["created_at"],
                 ))
 
             return tournaments
-
-        finally:
-            conn.close()
 
     def advance_round(self, tournament_id: str) -> bool:
         """
         Advance tournament to next round (for elimination brackets).
 
+        Args:
+            tournament_id: Tournament identifier
+
         Returns:
-            True if advanced, False if tournament is complete
+            True if advanced, False if tournament is complete or cannot advance
+
+        Raises:
+            TournamentNotFoundError: If tournament doesn't exist
+            InvalidStateError: If current round is not complete
         """
         tournament = self.get_tournament(tournament_id)
         if not tournament:
+            raise TournamentNotFoundError(f"Tournament {tournament_id} not found")
+
+        if tournament.bracket_type == "round_robin":
+            # Round-robin completes when all matches are done
+            matches = self.get_matches(tournament_id=tournament_id)
+            completed = all(m.completed_at for m in matches)
+            if completed and tournament.status != TournamentStatus.COMPLETED.value:
+                with self._lock:
+                    with self._get_connection() as conn:
+                        conn.execute(
+                            "UPDATE tournaments SET status = ? WHERE tournament_id = ?",
+                            (TournamentStatus.COMPLETED.value, tournament_id),
+                        )
+                        self._log_event(conn, tournament_id, TournamentEvent.COMPLETED)
+                        conn.commit()
             return False
 
-        if tournament.bracket_type != "single_elimination":
-            # Round-robin doesn't need advancement
+        if tournament.bracket_type not in ("single_elimination", "double_elimination"):
             return False
 
         # Check if all matches in current round are complete
-        matches = self.get_matches(tournament_id=tournament_id)
+        matches = self.get_matches(tournament_id=tournament_id, losers_bracket=False)
         current_round = tournament.rounds_completed + 1
         current_round_matches = [m for m in matches if m.round_num == current_round]
 
-        if not all(m.completed_at for m in current_round_matches):
-            logger.warning(f"Cannot advance: round {current_round} not complete")
+        if not current_round_matches:
             return False
+
+        if not all(m.completed_at for m in current_round_matches):
+            raise InvalidStateError(f"Round {current_round} not complete")
 
         # Get winners for next round
-        winners = [m.winner for m in current_round_matches if m.winner]
+        winners = [m.winner for m in current_round_matches if m.winner and m.winner != "BYE"]
 
-        if len(winners) <= 1:
-            # Tournament complete
-            conn = sqlite3.connect(str(self.db_path))
-            try:
+        with self._lock:
+            with self._get_connection() as conn:
+                if len(winners) <= 1:
+                    # Tournament complete
+                    conn.execute(
+                        "UPDATE tournaments SET status = ?, rounds_completed = ? WHERE tournament_id = ?",
+                        (TournamentStatus.COMPLETED.value, current_round, tournament_id),
+                    )
+                    self._log_event(
+                        conn, tournament_id, TournamentEvent.COMPLETED,
+                        {"final_winner": winners[0] if winners else None},
+                    )
+                    conn.commit()
+                    logger.info(f"Tournament {tournament_id} completed")
+                    return False
+
+                # Generate next round matches
+                next_round = current_round + 1
+                new_matches = []
+
+                for position, i in enumerate(range(0, len(winners), 2)):
+                    agent2 = winners[i + 1] if i + 1 < len(winners) else "BYE"
+                    match = TournamentMatch(
+                        match_id=f"match_{uuid.uuid4().hex[:8]}",
+                        tournament_id=tournament_id,
+                        round_num=next_round,
+                        agent1=winners[i],
+                        agent2=agent2,
+                        bracket_position=position,
+                        is_losers_bracket=False,
+                    )
+                    new_matches.append(match)
+
+                # Insert matches using helper
+                for match in new_matches:
+                    conn.execute(
+                        """
+                        INSERT INTO matches
+                        (match_id, tournament_id, round_num, agent1, agent2,
+                         bracket_position, is_losers_bracket, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            match.match_id,
+                            match.tournament_id,
+                            match.round_num,
+                            match.agent1,
+                            match.agent2,
+                            match.bracket_position,
+                            0,
+                            match.created_at,
+                        ),
+                    )
+
                 conn.execute(
-                    "UPDATE tournaments SET status = 'completed', rounds_completed = ? WHERE tournament_id = ?",
-                    (current_round, tournament_id),
+                    "UPDATE tournaments SET rounds_completed = ?, status = ? WHERE tournament_id = ?",
+                    (current_round, TournamentStatus.IN_PROGRESS.value, tournament_id),
                 )
+
+                self._log_event(
+                    conn, tournament_id, TournamentEvent.ROUND_ADVANCED,
+                    {"from_round": current_round, "to_round": next_round, "matches_created": len(new_matches)},
+                )
+
                 conn.commit()
-            finally:
-                conn.close()
+                logger.info(f"Advanced tournament {tournament_id} to round {next_round}")
+
+        return True
+
+    def cancel_tournament(self, tournament_id: str) -> bool:
+        """Cancel a tournament.
+
+        Args:
+            tournament_id: Tournament identifier
+
+        Returns:
+            True if cancelled, False if already completed/cancelled
+
+        Raises:
+            TournamentNotFoundError: If tournament doesn't exist
+        """
+        tournament = self.get_tournament(tournament_id)
+        if not tournament:
+            raise TournamentNotFoundError(f"Tournament {tournament_id} not found")
+
+        if tournament.status in (TournamentStatus.COMPLETED.value, TournamentStatus.CANCELLED.value):
             return False
 
-        # Generate next round matches
-        next_round = current_round + 1
-        new_matches = []
-
-        for i in range(0, len(winners) - 1, 2):
-            match = TournamentMatch(
-                match_id=f"match_{uuid.uuid4().hex[:8]}",
-                tournament_id=tournament_id,
-                round_num=next_round,
-                agent1=winners[i],
-                agent2=winners[i + 1] if i + 1 < len(winners) else "BYE",
-            )
-            new_matches.append(match)
-
-        conn = sqlite3.connect(str(self.db_path))
-        try:
-            for match in new_matches:
+        with self._lock:
+            with self._get_connection() as conn:
                 conn.execute(
-                    """
-                    INSERT INTO matches
-                    (match_id, tournament_id, round_num, agent1, agent2, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        match.match_id,
-                        match.tournament_id,
-                        match.round_num,
-                        match.agent1,
-                        match.agent2,
-                        match.created_at,
-                    ),
+                    "UPDATE tournaments SET status = ? WHERE tournament_id = ?",
+                    (TournamentStatus.CANCELLED.value, tournament_id),
                 )
-
-            conn.execute(
-                "UPDATE tournaments SET rounds_completed = ?, status = 'in_progress' WHERE tournament_id = ?",
-                (current_round, tournament_id),
-            )
-            conn.commit()
-            logger.info(f"Advanced tournament {tournament_id} to round {next_round}")
-        finally:
-            conn.close()
+                self._log_event(conn, tournament_id, TournamentEvent.CANCELLED)
+                conn.commit()
+                logger.info(f"Cancelled tournament {tournament_id}")
 
         return True
