@@ -151,7 +151,7 @@ class PromptEvolver(SQLiteStore):
         Returns:
             List of pattern dictionaries
         """
-        patterns = []
+        patterns: list[dict[str, Any]] = []
 
         for debate in debates:
             if len(patterns) >= max_patterns:
