@@ -22,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sqlite3
-from typing import Optional
+from typing import Any, Optional
 
 try:
     import httpx
@@ -187,7 +187,7 @@ class PulseHandler(BaseHandler):
 
         return None
 
-    def _run_async_safely(self, coro_factory, timeout: float = None) -> list:
+    def _run_async_safely(self, coro_factory: Any, timeout: float | None = None) -> Any:
         """Run an async coroutine safely, handling event loop edge cases.
 
         Uses run_async() from http_utils which properly handles:

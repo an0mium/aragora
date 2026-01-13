@@ -40,7 +40,8 @@ from aragora.agents.local_llm_detector import (
     detect_local_llms,
     detect_local_llms_sync,
 )
-from aragora.agents.base import create_agent
+from aragora.agents.base import create_agent, list_available_agents
+from aragora.agents.registry import AgentRegistry, register_all_agents
 from aragora.agents.personas import Persona, PersonaManager, EXPERTISE_DOMAINS, PERSONALITY_TRAITS
 from aragora.agents.laboratory import (
     PersonaLaboratory,
@@ -83,6 +84,39 @@ from aragora.agents.performance_monitor import (
     AgentStats,
 )
 
+
+def get_agents_by_names(names: list[str]) -> list:
+    """Get agent instances by their type names.
+
+    Creates agent instances for each valid name in the list.
+    Invalid names are silently skipped.
+
+    Args:
+        names: List of agent type names (e.g., ["anthropic-api", "openai-api"])
+
+    Returns:
+        List of agent instances for valid names
+
+    Example:
+        >>> agents = get_agents_by_names(["anthropic-api", "openai-api"])
+        >>> len(agents)
+        2
+    """
+    # Ensure all agents are registered
+    register_all_agents()
+
+    agents = []
+    for name in names:
+        try:
+            if AgentRegistry.is_registered(name):
+                agent = AgentRegistry.create(name)
+                agents.append(agent)
+        except (ValueError, ImportError, RuntimeError):
+            # Skip invalid agent names
+            pass
+    return agents
+
+
 __all__ = [
     # CLI-based
     "CodexAgent",
@@ -111,6 +145,10 @@ __all__ = [
     "MistralAgent",
     # Factory
     "create_agent",
+    "get_agents_by_names",
+    "list_available_agents",
+    "AgentRegistry",
+    "register_all_agents",
     # Personas
     "Persona",
     "PersonaManager",

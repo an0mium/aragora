@@ -204,7 +204,7 @@ class JobStatusTracker:
             List of matching jobs
         """
         pattern = f"{self._config.status_key_prefix}*"
-        jobs = []
+        jobs: list[Job] = []
 
         async for key in self._redis.scan_iter(match=pattern, count=100):
             if len(jobs) >= limit:

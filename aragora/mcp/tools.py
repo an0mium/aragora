@@ -665,12 +665,62 @@ async def fork_debate_tool(
     if not debate_id:
         return {"error": "debate_id is required"}
 
-    # Note: CounterfactualBranch is a dataclass and does not have create_fork method
-    # Forking requires the full counterfactual exploration system
-    return {
-        "error": "Fork creation not yet implemented via MCP tools. "
-        "Use the counterfactual exploration API directly."
-    }
+    try:
+        from aragora.server.storage import get_debates_db
+        from aragora.debate.counterfactual import CounterfactualOrchestrator, PivotClaim
+        import uuid
+
+        db = get_debates_db()
+        if not db:
+            return {"error": "Storage not available"}
+
+        # Fetch the parent debate
+        debate = db.get(debate_id)
+        if not debate:
+            return {"error": f"Debate {debate_id} not found"}
+
+        # Get messages from the debate
+        messages = debate.get("messages", [])
+        if not messages:
+            return {"error": "Debate has no messages to fork from"}
+
+        # Determine branch point
+        if branch_point < 0:
+            branch_point = len(messages) + branch_point
+        branch_point = max(0, min(branch_point, len(messages) - 1))
+
+        # Create a fork entry in storage
+        fork_id = f"fork-{uuid.uuid4().hex[:8]}"
+
+        fork_data = {
+            "debate_id": fork_id,
+            "parent_debate_id": debate_id,
+            "branch_point": branch_point,
+            "task": modified_context or f"Fork of: {debate.get('task', 'Unknown task')}",
+            "messages": messages[:branch_point + 1],  # Inherit messages up to branch point
+            "consensus_reached": False,
+            "confidence": 0.0,
+            "status": "forked",
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+
+        # Save the fork to storage
+        if hasattr(db, "save"):
+            db.save(fork_id, fork_data)
+
+        return {
+            "success": True,
+            "fork_id": fork_id,
+            "parent_debate_id": debate_id,
+            "branch_point": branch_point,
+            "inherited_messages": branch_point + 1,
+            "modified_context": modified_context or "(none)",
+        }
+
+    except ImportError as e:
+        return {"error": f"Required module not available: {e}"}
+    except Exception as e:
+        return {"error": f"Fork creation failed: {e}"}
 
 
 async def get_forks_tool(
@@ -749,12 +799,65 @@ async def get_agent_lineage_tool(
 
     depth = min(max(depth, 1), 20)
 
-    # Note: AgentEvolver doesn't exist - the evolution module has PromptEvolver
-    # which evolves prompts, not agent lineages
-    return {
-        "error": "Agent lineage tracking not yet implemented. "
-        "The evolution module focuses on prompt evolution via PromptEvolver."
-    }
+    try:
+        from aragora.genesis.genome import GenomeStore
+        from aragora.genesis.database import GenesisDatabase
+
+        # Try to get genome from the genesis database
+        db = GenesisDatabase()
+        genome = db.get_genome_by_name(agent_name)
+
+        if not genome:
+            # Try looking up by genome_id directly
+            genome = db.get_genome(agent_name)
+
+        if not genome:
+            return {
+                "agent_name": agent_name,
+                "lineage": [],
+                "generation": 0,
+                "note": "Agent not found in genesis database. May be a base agent without evolutionary history.",
+            }
+
+        # Build lineage tree
+        lineage = []
+        current = genome
+        visited = set()
+
+        for _ in range(depth):
+            if not current or current.genome_id in visited:
+                break
+
+            visited.add(current.genome_id)
+            lineage.append({
+                "genome_id": current.genome_id,
+                "name": current.name,
+                "generation": current.generation,
+                "fitness_score": current.fitness_score,
+                "parent_genomes": current.parent_genomes,
+                "model_preference": current.model_preference,
+                "birth_debate_id": current.birth_debate_id,
+            })
+
+            # Get first parent for next iteration
+            if current.parent_genomes:
+                parent_id = current.parent_genomes[0]
+                current = db.get_genome(parent_id)
+            else:
+                break
+
+        return {
+            "agent_name": agent_name,
+            "genome_id": genome.genome_id,
+            "generation": genome.generation,
+            "lineage": lineage,
+            "depth_traced": len(lineage),
+        }
+
+    except ImportError:
+        return {"error": "Genesis module not available"}
+    except Exception as e:
+        return {"error": f"Failed to get lineage: {e}"}
 
 
 async def breed_agents_tool(
@@ -766,8 +869,8 @@ async def breed_agents_tool(
     Breed two agents to create a new offspring agent.
 
     Args:
-        parent_a: First parent agent name
-        parent_b: Second parent agent name
+        parent_a: First parent agent name or genome_id
+        parent_b: Second parent agent name or genome_id
         mutation_rate: Mutation rate (0-1)
 
     Returns:
@@ -778,12 +881,69 @@ async def breed_agents_tool(
 
     mutation_rate = min(max(mutation_rate, 0.0), 1.0)
 
-    # Note: AgentEvolver doesn't exist - the evolution module has PromptEvolver
-    # which evolves prompts, not agents
-    return {
-        "error": "Agent breeding not yet implemented. "
-        "The evolution module focuses on prompt evolution via PromptEvolver."
-    }
+    try:
+        from aragora.genesis.breeding import GenomeBreeder
+        from aragora.genesis.database import GenesisDatabase
+
+        db = GenesisDatabase()
+
+        # Look up parent genomes (by name or genome_id)
+        genome_a = db.get_genome_by_name(parent_a) or db.get_genome(parent_a)
+        genome_b = db.get_genome_by_name(parent_b) or db.get_genome(parent_b)
+
+        if not genome_a:
+            return {"error": f"Parent agent '{parent_a}' not found in genesis database"}
+        if not genome_b:
+            return {"error": f"Parent agent '{parent_b}' not found in genesis database"}
+
+        # Create breeder with specified mutation rate
+        breeder = GenomeBreeder(mutation_rate=mutation_rate)
+
+        # Crossover to create offspring
+        offspring = breeder.crossover(
+            parent_a=genome_a,
+            parent_b=genome_b,
+            debate_id=f"mcp_breed_{uuid.uuid4().hex[:8]}",
+        )
+
+        # Apply mutation
+        if mutation_rate > 0:
+            offspring = breeder.mutate(offspring, rate=mutation_rate)
+
+        # Save to database
+        db.save_genome(offspring)
+
+        return {
+            "success": True,
+            "offspring": {
+                "genome_id": offspring.genome_id,
+                "name": offspring.name,
+                "generation": offspring.generation,
+                "parent_genomes": offspring.parent_genomes,
+                "model_preference": offspring.model_preference,
+                "fitness_score": offspring.fitness_score,
+                "traits_count": len(offspring.traits),
+                "expertise_count": len(offspring.expertise),
+            },
+            "parents": {
+                "parent_a": {
+                    "genome_id": genome_a.genome_id,
+                    "name": genome_a.name,
+                    "generation": genome_a.generation,
+                },
+                "parent_b": {
+                    "genome_id": genome_b.genome_id,
+                    "name": genome_b.name,
+                    "generation": genome_b.generation,
+                },
+            },
+            "mutation_rate": mutation_rate,
+        }
+
+    except ImportError:
+        return {"error": "Genesis/breeding module not available"}
+    except Exception as e:
+        return {"error": f"Breeding failed: {e}"}
 
 
 # === Checkpoint Tools ===
@@ -808,13 +968,116 @@ async def create_checkpoint_tool(
     if not debate_id:
         return {"error": "debate_id is required"}
 
-    # Note: CheckpointManager.create_checkpoint requires full debate state
-    # (messages, critiques, votes, agents). This simplified MCP tool cannot
-    # access that state. Use the full CheckpointManager API for checkpointing.
-    return {
-        "error": "Checkpoint creation requires full debate state. "
-        "Use CheckpointManager.create_checkpoint() from the debate context."
-    }
+    try:
+        from aragora.server.storage import get_debates_db
+        from aragora.debate.checkpoint import (
+            CheckpointManager,
+            CheckpointConfig,
+            FileCheckpointStore,
+            DatabaseCheckpointStore,
+            AgentState,
+        )
+        from aragora.core import Message, Vote, Critique
+
+        db = get_debates_db()
+        if not db:
+            return {"error": "Storage not available"}
+
+        # Fetch debate data
+        debate = db.get(debate_id)
+        if not debate:
+            return {"error": f"Debate {debate_id} not found"}
+
+        # Choose storage backend
+        if storage_backend == "database":
+            store = DatabaseCheckpointStore()
+        else:
+            store = FileCheckpointStore()
+
+        manager = CheckpointManager(store=store)
+
+        # Convert stored messages to Message objects
+        messages = []
+        for m in debate.get("messages", []):
+            messages.append(Message(
+                role=m.get("role", "assistant"),
+                agent=m.get("agent", "unknown"),
+                content=m.get("content", ""),
+                round=m.get("round", 0),
+            ))
+
+        # Convert stored votes to Vote objects
+        votes = []
+        for v in debate.get("votes", []):
+            votes.append(Vote(
+                agent=v.get("agent", "unknown"),
+                choice=v.get("choice", ""),
+                confidence=v.get("confidence", 0.5),
+                reasoning=v.get("reasoning", ""),
+            ))
+
+        # Convert stored critiques to Critique objects
+        critiques = []
+        for c in debate.get("critiques", []):
+            critiques.append(Critique(
+                agent=c.get("agent", "unknown"),
+                target_agent=c.get("target_agent", ""),
+                target_content=c.get("target_content", ""),
+                issues=c.get("issues", []),
+                suggestions=c.get("suggestions", []),
+                severity=c.get("severity", "low"),
+                reasoning=c.get("reasoning", ""),
+            ))
+
+        # Create simple agent states from debate metadata
+        agents_info = debate.get("agents", [])
+        agents = []
+        for a in agents_info:
+            if isinstance(a, str):
+                # Just agent name string
+                class SimpleAgent:
+                    def __init__(self, name):
+                        self.name = name
+                        self.model = "unknown"
+                        self.role = "participant"
+                agents.append(SimpleAgent(a))
+            elif isinstance(a, dict):
+                class SimpleAgent:
+                    def __init__(self, data):
+                        self.name = data.get("name", "unknown")
+                        self.model = data.get("model", "unknown")
+                        self.role = data.get("role", "participant")
+                agents.append(SimpleAgent(a))
+
+        # Create checkpoint
+        checkpoint = await manager.create_checkpoint(
+            debate_id=debate_id,
+            task=debate.get("task", "Unknown task"),
+            current_round=debate.get("rounds_used", len(messages) // 3),
+            total_rounds=debate.get("total_rounds", 3),
+            phase=debate.get("phase", "completed"),
+            messages=messages,
+            critiques=critiques,
+            votes=votes,
+            agents=agents,
+            current_consensus=debate.get("final_answer"),
+        )
+
+        return {
+            "success": True,
+            "checkpoint_id": checkpoint.checkpoint_id,
+            "debate_id": debate_id,
+            "label": label or "(none)",
+            "storage_backend": storage_backend,
+            "current_round": checkpoint.current_round,
+            "message_count": len(checkpoint.messages),
+            "created_at": checkpoint.created_at,
+        }
+
+    except ImportError as e:
+        return {"error": f"Checkpoint module not available: {e}"}
+    except Exception as e:
+        return {"error": f"Failed to create checkpoint: {e}"}
 
 
 async def list_checkpoints_tool(

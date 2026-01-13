@@ -327,8 +327,8 @@ class PostgresBackend(DatabaseBackend):
     def __init__(self, config: DatabaseConfig):
         super().__init__(config)
         self._pool = None
-        self._sync_pool: list[Any] = []
-        self._psycopg2 = None
+        self._sync_pool: Any = None
+        self._psycopg2: Any = None
         self._initialized = False
 
         # Try to import psycopg2

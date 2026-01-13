@@ -70,11 +70,12 @@ COMMAND_PATTERN = re.compile(r"^/aragora\s+(\w+)(?:\s+(.*))?$")
 TOPIC_PATTERN = re.compile(r'^["\']?(.+?)["\']?$')
 
 
+_slack_integration: Optional[Any] = None
+
+
 def get_slack_integration() -> Optional[Any]:
     """Get or create the Slack integration singleton."""
     global _slack_integration
-    if "_slack_integration" not in globals():
-        _slack_integration = None
     if _slack_integration is None:
         if not SLACK_WEBHOOK_URL:
             logger.debug("Slack integration disabled (no SLACK_WEBHOOK_URL)")
@@ -265,12 +266,12 @@ class SlackHandler(BaseHandler):
         """Get system status."""
         try:
             # Get basic stats
-            from aragora.ranking.elo import get_elo_store
+            from aragora.ranking.elo import EloSystem
 
-            store = get_elo_store()
-            agents = store.get_all_ratings() if store else []
+            store = EloSystem()
+            agents = store.get_all_ratings()
 
-            blocks = [
+            blocks: List[Dict[str, Any]] = [
                 {
                     "type": "header",
                     "text": {
@@ -310,10 +311,10 @@ class SlackHandler(BaseHandler):
     def _command_agents(self) -> HandlerResult:
         """List available agents."""
         try:
-            from aragora.ranking.elo import get_elo_store
+            from aragora.ranking.elo import EloSystem
 
-            store = get_elo_store()
-            agents = store.get_all_ratings() if store else []
+            store = EloSystem()
+            agents = store.get_all_ratings()
 
             if not agents:
                 return self._slack_response(
@@ -380,7 +381,7 @@ class SlackHandler(BaseHandler):
         # Acknowledge immediately (Slack requires response within 3 seconds)
         # The actual debate will be processed asynchronously
 
-        blocks = [
+        blocks: List[Dict[str, Any]] = [
             {
                 "type": "section",
                 "text": {
@@ -424,7 +425,7 @@ class SlackHandler(BaseHandler):
 
         try:
             from aragora import Arena, Environment, DebateProtocol
-            from aragora.agents import get_agents_by_names
+            from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
 
             # Create debate
             env = Environment(task=f"Debate: {topic}")
@@ -908,10 +909,10 @@ class SlackHandler(BaseHandler):
             )
         elif text.lower() == "status":
             try:
-                from aragora.ranking.elo import get_elo_store
+                from aragora.ranking.elo import EloSystem
 
-                store = get_elo_store()
-                agents = store.get_all_ratings() if store else []
+                store = EloSystem()
+                agents = store.get_all_ratings()
                 response_text = (
                     f"*Aragora Status*\n• Status: Online\n• Agents: {len(agents)} registered"
                 )
@@ -920,10 +921,10 @@ class SlackHandler(BaseHandler):
                 response_text = "*Aragora Status*\n• Status: Online\n• Agents: Unknown"
         elif text.lower() == "agents":
             try:
-                from aragora.ranking.elo import get_elo_store
+                from aragora.ranking.elo import EloSystem
 
-                store = get_elo_store()
-                agents = store.get_all_ratings() if store else []
+                store = EloSystem()
+                agents = store.get_all_ratings()
                 if agents:
                     agents = sorted(agents, key=lambda a: getattr(a, "elo", 1500), reverse=True)
                     lines = [f"*Top Agents*"]
@@ -995,7 +996,7 @@ class SlackHandler(BaseHandler):
         """Create debate from DM and send result back to user."""
         try:
             from aragora import Arena, Environment, DebateProtocol
-            from aragora.agents import get_agents_by_names
+            from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
 
             env = Environment(task=f"Debate: {topic}")
             agents = get_agents_by_names(["anthropic-api", "openai-api"])

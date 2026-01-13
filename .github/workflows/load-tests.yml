@@ -109,35 +109,133 @@ jobs:
         env:
           API_URL: http://localhost:8080
 
-      - name: Check thresholds
+      - name: Check SLO thresholds
+        id: slo_check
         run: |
           python -c "
           import json
           import sys
+          import os
+
+          # SLO Definitions (documented in docs/SCALING.md)
+          SLO = {
+              'p50_ms': 200,      # Median latency
+              'p95_ms': 500,      # 95th percentile
+              'p99_ms': 2000,     # 99th percentile (warning threshold)
+              'error_rate_pct': 1.0,  # Max error rate
+              'min_rps': 50,      # Minimum requests per second
+          }
 
           with open('load-summary.json') as f:
               summary = json.load(f)
 
           metrics = summary.get('metrics', {})
+          duration_values = metrics.get('http_req_duration', {}).get('values', {})
 
-          # Check p95 latency < 500ms
-          p95 = metrics.get('http_req_duration', {}).get('values', {}).get('p(95)', 0)
-          if p95 > 500:
-              print(f'FAIL: p95 latency {p95:.2f}ms > 500ms')
-              sys.exit(1)
-          print(f'PASS: p95 latency {p95:.2f}ms')
+          # Extract latency percentiles
+          p50 = duration_values.get('p(50)', duration_values.get('med', 0))
+          p95 = duration_values.get('p(95)', 0)
+          p99 = duration_values.get('p(99)', 0)
+          avg = duration_values.get('avg', 0)
 
-          # Check error rate < 1%
+          # Calculate error rate and RPS
           reqs = metrics.get('http_reqs', {}).get('values', {}).get('count', 1)
-          fails = metrics.get('http_req_failed', {}).get('values', {}).get('count', 0)
+          rate = metrics.get('http_reqs', {}).get('values', {}).get('rate', 0)
+          fails = metrics.get('http_req_failed', {}).get('values', {}).get('passes', 0)
           error_rate = (fails / reqs) * 100 if reqs > 0 else 0
-          if error_rate > 1:
-              print(f'FAIL: error rate {error_rate:.2f}% > 1%')
-              sys.exit(1)
-          print(f'PASS: error rate {error_rate:.2f}%')
 
-          print('All load test thresholds passed!')
+          # Print metrics summary
+          print('=' * 60)
+          print('SLO COMPLIANCE REPORT')
+          print('=' * 60)
+          print()
+
+          violations = []
+
+          # Check p50 (median)
+          status = 'PASS' if p50 <= SLO['p50_ms'] else 'FAIL'
+          print(f'{status}: p50 latency {p50:.1f}ms (SLO: <{SLO[\"p50_ms\"]}ms)')
+          if p50 > SLO['p50_ms']:
+              violations.append(f'p50 {p50:.1f}ms > {SLO[\"p50_ms\"]}ms')
+
+          # Check p95
+          status = 'PASS' if p95 <= SLO['p95_ms'] else 'FAIL'
+          print(f'{status}: p95 latency {p95:.1f}ms (SLO: <{SLO[\"p95_ms\"]}ms)')
+          if p95 > SLO['p95_ms']:
+              violations.append(f'p95 {p95:.1f}ms > {SLO[\"p95_ms\"]}ms')
+
+          # Check p99
+          status = 'PASS' if p99 <= SLO['p99_ms'] else 'FAIL'
+          print(f'{status}: p99 latency {p99:.1f}ms (SLO: <{SLO[\"p99_ms\"]}ms)')
+          if p99 > SLO['p99_ms']:
+              violations.append(f'p99 {p99:.1f}ms > {SLO[\"p99_ms\"]}ms')
+
+          # Check error rate
+          status = 'PASS' if error_rate <= SLO['error_rate_pct'] else 'FAIL'
+          print(f'{status}: error rate {error_rate:.2f}% (SLO: <{SLO[\"error_rate_pct\"]}%)')
+          if error_rate > SLO['error_rate_pct']:
+              violations.append(f'error rate {error_rate:.2f}% > {SLO[\"error_rate_pct\"]}%')
+
+          # Check throughput
+          status = 'PASS' if rate >= SLO['min_rps'] else 'WARN'
+          print(f'{status}: throughput {rate:.1f} RPS (SLO: >{SLO[\"min_rps\"]} RPS)')
+
+          print()
+          print('=' * 60)
+
+          # Write metrics for artifact and GitHub output
+          metrics_json = json.dumps({
+              'p50_ms': round(p50, 1),
+              'p95_ms': round(p95, 1),
+              'p99_ms': round(p99, 1),
+              'avg_ms': round(avg, 1),
+              'error_rate_pct': round(error_rate, 2),
+              'rps': round(rate, 1),
+              'total_requests': reqs,
+              'slo_violations': violations,
+          })
+
+          with open('slo-report.json', 'w') as f:
+              f.write(metrics_json)
+
+          # Export to GitHub output
+          with open(os.environ.get('GITHUB_OUTPUT', '/dev/null'), 'a') as f:
+              f.write(f'p50={p50:.1f}\n')
+              f.write(f'p95={p95:.1f}\n')
+              f.write(f'p99={p99:.1f}\n')
+              f.write(f'error_rate={error_rate:.2f}\n')
+              f.write(f'rps={rate:.1f}\n')
+              f.write(f'slo_pass={\"true\" if not violations else \"false\"}\n')
+
+          if violations:
+              print(f'FAILED: {len(violations)} SLO violation(s)')
+              for v in violations:
+                  print(f'  - {v}')
+              sys.exit(1)
+
+          print('All SLO thresholds passed!')
           "
+
+      - name: Add SLO summary to job
+        if: always()
+        run: |
+          echo "## Load Test SLO Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f slo-report.json ]; then
+            echo "| Metric | Value | SLO | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|-----|--------|" >> $GITHUB_STEP_SUMMARY
+            python -c "
+          import json
+          with open('slo-report.json') as f:
+              data = json.load(f)
+          slo = {'p50_ms': 200, 'p95_ms': 500, 'p99_ms': 2000, 'error_rate_pct': 1.0}
+          print(f'| p50 latency | {data[\"p50_ms\"]}ms | <{slo[\"p50_ms\"]}ms | {\"PASS\" if data[\"p50_ms\"] <= slo[\"p50_ms\"] else \"FAIL\"} |')
+          print(f'| p95 latency | {data[\"p95_ms\"]}ms | <{slo[\"p95_ms\"]}ms | {\"PASS\" if data[\"p95_ms\"] <= slo[\"p95_ms\"] else \"FAIL\"} |')
+          print(f'| p99 latency | {data[\"p99_ms\"]}ms | <{slo[\"p99_ms\"]}ms | {\"PASS\" if data[\"p99_ms\"] <= slo[\"p99_ms\"] else \"FAIL\"} |')
+          print(f'| Error rate | {data[\"error_rate_pct\"]}% | <{slo[\"error_rate_pct\"]}% | {\"PASS\" if data[\"error_rate_pct\"] <= slo[\"error_rate_pct\"] else \"FAIL\"} |')
+          print(f'| Throughput | {data[\"rps\"]} RPS | >50 RPS | {\"PASS\" if data[\"rps\"] >= 50 else \"WARN\"} |')
+            " >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Upload load test results
         uses: actions/upload-artifact@v4
@@ -148,6 +246,7 @@ jobs:
             load-results.json
             load-summary.json
             ws-results.json
+            slo-report.json
             /tmp/aragora-server.log
           retention-days: 14
 

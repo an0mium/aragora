@@ -197,7 +197,7 @@ class Policy:
         except (SyntaxError, ValueError, TypeError, KeyError):
             return False
 
-    def _eval_node(self, node: ast.AST, context: dict) -> Union[bool, int, float, str, list, None]:
+    def _eval_node(self, node: ast.AST, context: dict) -> Union[bool, int, float, str, list, tuple, None]:
         """Recursively evaluate AST nodes safely.
 
         Explicitly blocks:

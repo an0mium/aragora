@@ -145,7 +145,7 @@ class RedisTokenBucket:
     def _get_consume_script(self) -> str:
         """Get or register the consume Lua script."""
         if self._consume_sha is None:
-            self._consume_sha = self.redis.script_load(self.CONSUME_SCRIPT)
+            self._consume_sha = self.redis.script_load(self.CONSUME_SCRIPT)  # type: ignore[assignment]
         return self._consume_sha
 
     def consume(self, tokens: int = 1) -> bool:
@@ -167,7 +167,7 @@ class RedisTokenBucket:
                 tokens,  # ARGV[4]
                 self.ttl_seconds,  # ARGV[5]
             )
-            return bool(result[0])
+            return bool(result[0])  # type: ignore[index]
         except Exception as e:
             logger.warning(f"Redis rate limit error, allowing request: {e}")
             return True  # Fail open on Redis errors
@@ -175,8 +175,8 @@ class RedisTokenBucket:
     def get_retry_after(self) -> float:
         """Get seconds until next token is available."""
         try:
-            data = self.redis.hmget(self.key, "tokens", "last_refill")
-            tokens = float(data[0]) if data[0] else self.burst_size
+            data: list[bytes | None] = self.redis.hmget(self.key, "tokens", "last_refill")  # type: ignore[assignment]
+            tokens = float(data[0]) if data[0] else float(self.burst_size)
             if tokens >= 1:
                 return 0
             tokens_needed = 1 - tokens
@@ -190,8 +190,8 @@ class RedisTokenBucket:
     def remaining(self) -> int:
         """Get remaining tokens."""
         try:
-            data = self.redis.hmget(self.key, "tokens", "last_refill")
-            tokens = float(data[0]) if data[0] else self.burst_size
+            data: list[bytes | None] = self.redis.hmget(self.key, "tokens", "last_refill")  # type: ignore[assignment]
+            tokens = float(data[0]) if data[0] else float(self.burst_size)
             last_refill = float(data[1]) if data[1] else time.time()
 
             # Calculate refill since last access

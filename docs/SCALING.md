@@ -281,6 +281,18 @@ export ARAGORA_EMBEDDING_CACHE_TTL=86400  # 24 hours
 
 ## Monitoring
 
+### SLO Targets (Enforced in CI)
+
+These SLOs are enforced by the load test workflow (`.github/workflows/load-tests.yml`):
+
+| Metric | SLO Target | Description |
+|--------|------------|-------------|
+| p50 latency | < 200ms | Median response time |
+| p95 latency | < 500ms | 95th percentile |
+| p99 latency | < 2000ms | 99th percentile |
+| Error rate | < 1% | HTTP error responses |
+| Throughput | > 50 RPS | Minimum requests/second |
+
 ### Key Metrics to Watch
 
 | Metric | Warning | Critical | Action |

@@ -298,20 +298,61 @@ jobs:
           EOF
 
       - name: Verify deployment
+        id: ec2_verify
         run: |
           # Wait for server to start (up to 60 seconds)
           # EC2 staging runs on port 8765
           for i in {1..12}; do
             if curl -sf "http://${{ secrets.EC2_HOST }}:8765/api/health" -o /dev/null 2>/dev/null; then
               echo "Health check passed"
+              echo "health_ok=true" >> $GITHUB_OUTPUT
               exit 0
             fi
             echo "Waiting for server... attempt $i/12"
             sleep 5
           done
           echo "Health check failed after 60 seconds"
-          # Don't fail the job - server may be down for other reasons
-          echo "::warning::EC2 health check failed, but deploy completed"
+          echo "health_ok=false" >> $GITHUB_OUTPUT
+
+      - name: Rollback on failure
+        if: steps.ec2_verify.outputs.health_ok == 'false'
+        run: |
+          echo "::warning::Health check failed - initiating rollback"
+          ssh -o ConnectTimeout=30 -i ~/.ssh/ec2 ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+            cd ~/aragora || cd /home/ec2-user/aragora || cd /home/ubuntu/aragora
+
+            # Load previous commit
+            if [ -f /tmp/aragora_deploy_state ]; then
+              source /tmp/aragora_deploy_state
+              echo "Rolling back to: $PREVIOUS_COMMIT"
+
+              # Checkout previous commit
+              git checkout $PREVIOUS_COMMIT
+
+              # Reinstall
+              source venv/bin/activate || source ~/venv/bin/activate
+              pip install -e . --quiet
+
+              # Restart service
+              sudo systemctl restart aragora-staging 2>/dev/null || sudo systemctl restart aragora
+              sleep 5
+
+              # Verify rollback
+              if sudo systemctl is-active --quiet aragora-staging 2>/dev/null || sudo systemctl is-active --quiet aragora; then
+                echo "::notice::Rollback successful - service running on $PREVIOUS_COMMIT"
+              else
+                echo "::error::Rollback failed - service not running"
+                sudo journalctl -u aragora-staging -n 50 --no-pager 2>/dev/null || true
+                sudo journalctl -u aragora -n 50 --no-pager 2>/dev/null || true
+              fi
+
+              # Cleanup
+              rm -f /tmp/aragora_deploy_state
+            else
+              echo "::error::No rollback state found"
+            fi
+          EOF
 
   notify:
     needs: [deploy-cloudflare, deploy-lightsail, deploy-ec2]

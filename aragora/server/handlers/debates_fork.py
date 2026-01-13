@@ -8,7 +8,8 @@ outcome verification, and crux-based follow-up debate creation.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
 from aragora.server.handlers.base import (
     error_response,
@@ -21,16 +22,38 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.debates import DebatesHandler
+    pass
 
 logger = logging.getLogger(__name__)
+
+
+class _DebatesHandlerProtocol(Protocol):
+    """Protocol defining the interface expected by ForkOperationsMixin.
+
+    This protocol enables proper type checking for mixin classes that
+    expect to be mixed into a class providing these methods/attributes.
+    """
+
+    ctx: Dict[str, Any]
+
+    def read_json_body(self, handler: Any, max_size: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """Read and parse JSON body from request handler."""
+        ...
+
+    def get_storage(self) -> Optional[Any]:
+        """Get debate storage instance."""
+        ...
+
+    def get_nomic_dir(self) -> Optional[Path]:
+        """Get nomic directory path."""
+        ...
 
 
 class ForkOperationsMixin:
     """Mixin providing fork and follow-up operations for DebatesHandler."""
 
     @require_storage
-    def _fork_debate(self: "DebatesHandler", handler, debate_id: str) -> HandlerResult:
+    def _fork_debate(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
         """Create a counterfactual fork of a debate at a specific branch point.
 
         Request body:
@@ -159,7 +182,7 @@ class ForkOperationsMixin:
 
     @rate_limit(rpm=10, limiter_name="debates_verify_outcome")
     @handle_errors("verify debate outcome")
-    def _verify_outcome(self: "DebatesHandler", handler, debate_id: str) -> HandlerResult:
+    def _verify_outcome(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
         """Record verification of whether a debate's winning position was correct.
 
         POST body:
@@ -220,7 +243,7 @@ class ForkOperationsMixin:
                 )
 
     @require_storage
-    def _get_followup_suggestions(self: "DebatesHandler", debate_id: str) -> HandlerResult:
+    def _get_followup_suggestions(self: _DebatesHandlerProtocol, debate_id: str) -> HandlerResult:
         """Get follow-up debate suggestions based on identified cruxes.
 
         Analyzes the debate's uncertainty metrics and generates suggestions
@@ -334,7 +357,7 @@ class ForkOperationsMixin:
 
     @rate_limit(rpm=5, limiter_name="debates_followup")
     @require_storage
-    def _create_followup_debate(self: "DebatesHandler", handler, debate_id: str) -> HandlerResult:
+    def _create_followup_debate(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
         """Create a follow-up debate to resolve a specific crux.
 
         POST body:
@@ -463,7 +486,7 @@ class ForkOperationsMixin:
             return error_response(safe_error_message(e, "create followup debate"), 500)
 
     @require_storage
-    def _list_debate_forks(self: "DebatesHandler", debate_id: str) -> HandlerResult:
+    def _list_debate_forks(self: _DebatesHandlerProtocol, debate_id: str) -> HandlerResult:
         """List all forks for a debate with tree structure.
 
         Returns:
@@ -545,10 +568,10 @@ class ForkOperationsMixin:
             return error_response(safe_error_message(e, "list forks"), 500)
 
     def _build_fork_tree(
-        self: "DebatesHandler",
+        self,
         root_id: str,
-        forks: list,
-    ) -> dict:
+        forks: list[Dict[str, Any]],
+    ) -> Dict[str, Any]:
         """Build a hierarchical tree structure from flat fork list.
 
         Args:
@@ -562,14 +585,15 @@ class ForkOperationsMixin:
         fork_lookup = {f.get("branch_id"): f for f in forks}
 
         # Build tree recursively
-        def build_node(node_id: str, is_root: bool = False) -> dict:
+        def build_node(node_id: str, is_root: bool = False) -> Dict[str, Any]:
+            children: list[Dict[str, Any]] = []
             if is_root:
                 # Root node is the original debate
-                node = {
+                node: Dict[str, Any] = {
                     "id": node_id,
                     "type": "root",
                     "branch_point": 0,
-                    "children": [],
+                    "children": children,
                 }
             else:
                 # Fork node
@@ -583,7 +607,7 @@ class ForkOperationsMixin:
                     "modified_context": fork_data.get("modified_context"),
                     "messages_inherited": fork_data.get("messages_inherited", 0),
                     "created_at": fork_data.get("created_at"),
-                    "children": [],
+                    "children": children,
                 }
 
             # Find children (forks that have this node as parent)
@@ -592,7 +616,7 @@ class ForkOperationsMixin:
                     child_id = fork.get("branch_id")
                     if child_id:
                         child_node = build_node(child_id)
-                        node["children"].append(child_node)
+                        children.append(child_node)
 
             return node
 

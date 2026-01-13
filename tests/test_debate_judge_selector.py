@@ -903,3 +903,297 @@ class TestEdgeCases:
         # ELO normalized: (2000 - 1000) / 500 = 2.0
         # Composite: (2.0 * 0.7) + (1.0 * 0.3) = 1.4 + 0.3 = 1.7
         assert score == pytest.approx(1.7)
+
+
+# ============================================================================
+# Multi-Judge Panel Tests
+# ============================================================================
+
+
+from aragora.debate.judge_selector import (
+    JudgingStrategy,
+    JudgeVote,
+    JudgeVoteRecord,
+    JudgingResult,
+    JudgePanel,
+    create_judge_panel,
+)
+
+
+class TestJudgingStrategy:
+    """Tests for JudgingStrategy enum."""
+
+    def test_enum_values(self):
+        """Test enum has expected values."""
+        assert JudgingStrategy.MAJORITY.value == "majority"
+        assert JudgingStrategy.SUPERMAJORITY.value == "supermajority"
+        assert JudgingStrategy.UNANIMOUS.value == "unanimous"
+        assert JudgingStrategy.WEIGHTED.value == "weighted"
+
+
+class TestJudgeVote:
+    """Tests for JudgeVote enum."""
+
+    def test_enum_values(self):
+        """Test enum has expected values."""
+        assert JudgeVote.APPROVE.value == "approve"
+        assert JudgeVote.REJECT.value == "reject"
+        assert JudgeVote.ABSTAIN.value == "abstain"
+
+
+class TestJudgeVoteRecord:
+    """Tests for JudgeVoteRecord dataclass."""
+
+    def test_create_record(self):
+        """Test creating vote record."""
+        record = JudgeVoteRecord(
+            judge_name="claude",
+            vote=JudgeVote.APPROVE,
+            confidence=0.9,
+            reasoning="Well-reasoned argument",
+        )
+        assert record.judge_name == "claude"
+        assert record.vote == JudgeVote.APPROVE
+        assert record.confidence == 0.9
+        assert record.weight == 1.0  # Default
+
+    def test_create_record_with_weight(self):
+        """Test creating vote record with custom weight."""
+        record = JudgeVoteRecord(
+            judge_name="gpt4",
+            vote=JudgeVote.REJECT,
+            confidence=0.7,
+            reasoning="Missing edge case",
+            weight=1.2,
+        )
+        assert record.weight == 1.2
+
+
+class TestJudgingResult:
+    """Tests for JudgingResult dataclass."""
+
+    def test_to_dict(self):
+        """Test serialization."""
+        vote = JudgeVoteRecord(
+            judge_name="claude",
+            vote=JudgeVote.APPROVE,
+            confidence=0.9,
+            reasoning="Good",
+        )
+        result = JudgingResult(
+            approved=True,
+            strategy=JudgingStrategy.MAJORITY,
+            votes=[vote],
+            approval_ratio=1.0,
+            weighted_approval=1.0,
+            confidence=0.9,
+            reasoning="Approved",
+        )
+        d = result.to_dict()
+        assert d["approved"] is True
+        assert d["strategy"] == "majority"
+        assert len(d["votes"]) == 1
+
+
+class TestJudgePanel:
+    """Tests for JudgePanel class."""
+
+    @pytest.fixture
+    def mock_judges(self):
+        """Create mock judges."""
+        judges = []
+        for name in ["claude", "gpt4", "gemini"]:
+            judge = Mock()
+            judge.name = name
+            judges.append(judge)
+        return judges
+
+    def test_create_panel(self, mock_judges):
+        """Test panel creation."""
+        panel = JudgePanel(judges=mock_judges)
+        assert len(panel.judges) == 3
+        assert panel.strategy == JudgingStrategy.MAJORITY
+
+    def test_record_vote(self, mock_judges):
+        """Test recording votes."""
+        panel = JudgePanel(judges=mock_judges)
+        record = panel.record_vote(
+            judge_name="claude",
+            vote=JudgeVote.APPROVE,
+            confidence=0.9,
+            reasoning="Sound logic",
+        )
+        assert record.judge_name == "claude"
+        assert len(panel.votes) == 1
+
+    def test_majority_approval(self, mock_judges):
+        """Test majority voting approves."""
+        panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.MAJORITY)
+        panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
+        panel.record_vote("gpt4", JudgeVote.APPROVE, 0.8, "Also good")
+        panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Not convinced")
+
+        result = panel.get_result()
+        assert result.approved is True
+        assert result.approval_ratio == pytest.approx(2 / 3)
+
+    def test_majority_rejection(self, mock_judges):
+        """Test majority voting rejects."""
+        panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.MAJORITY)
+        panel.record_vote("claude", JudgeVote.REJECT, 0.9, "Bad")
+        panel.record_vote("gpt4", JudgeVote.REJECT, 0.8, "Also bad")
+        panel.record_vote("gemini", JudgeVote.APPROVE, 0.7, "It's fine")
+
+        result = panel.get_result()
+        assert result.approved is False
+        assert result.approval_ratio == pytest.approx(1 / 3)
+
+    def test_supermajority_approval(self, mock_judges):
+        """Test supermajority voting requires 2/3."""
+        panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.SUPERMAJORITY)
+        panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
+        panel.record_vote("gpt4", JudgeVote.APPROVE, 0.8, "Also good")
+        panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Not convinced")
+
+        result = panel.get_result()
+        assert result.approved is True  # 2/3 = 66.7% meets threshold
+
+    def test_supermajority_rejection(self, mock_judges):
+        """Test supermajority rejects with simple majority."""
+        panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.SUPERMAJORITY)
+        panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
+        panel.record_vote("gpt4", JudgeVote.REJECT, 0.8, "Bad")
+        panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Also bad")
+
+        result = panel.get_result()
+        assert result.approved is False  # Only 1/3 approve
+
+    def test_unanimous_approval(self, mock_judges):
+        """Test unanimous voting."""
+        panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.UNANIMOUS)
+        panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
+        panel.record_vote("gpt4", JudgeVote.APPROVE, 0.8, "Good")
+        panel.record_vote("gemini", JudgeVote.APPROVE, 0.7, "Good")
+
+        result = panel.get_result()
+        assert result.approved is True
+
+    def test_unanimous_rejection(self, mock_judges):
+        """Test unanimous rejects with any rejection."""
+        panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.UNANIMOUS)
+        panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
+        panel.record_vote("gpt4", JudgeVote.APPROVE, 0.8, "Good")
+        panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Bad")
+
+        result = panel.get_result()
+        assert result.approved is False
+
+    def test_weighted_voting(self, mock_judges):
+        """Test weighted voting."""
+        panel = JudgePanel(
+            judges=mock_judges,
+            strategy=JudgingStrategy.WEIGHTED,
+            judge_weights={"claude": 2.0, "gpt4": 1.0, "gemini": 1.0},
+        )
+        # claude (weight 2) approves, gpt4 and gemini (weight 1 each) reject
+        # weighted: 2/4 = 0.5, not > 0.5 so rejected
+        panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
+        panel.record_vote("gpt4", JudgeVote.REJECT, 0.8, "Bad")
+        panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Bad")
+
+        result = panel.get_result()
+        assert result.approved is False
+        assert result.weighted_approval == pytest.approx(0.5)
+
+    def test_abstentions_excluded(self, mock_judges):
+        """Test abstentions don't count in ratios."""
+        panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.MAJORITY)
+        panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
+        panel.record_vote("gpt4", JudgeVote.ABSTAIN, 0.5, "Can't decide")
+        panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Bad")
+
+        result = panel.get_result()
+        # 1 approve, 1 reject, 1 abstain = 1/2 = 50%
+        assert result.approval_ratio == pytest.approx(0.5)
+        assert result.approved is False  # Needs > 50%
+        assert "gpt4" in result.abstaining_judges
+
+    def test_no_votes_returns_false(self, mock_judges):
+        """Test empty panel returns not approved."""
+        panel = JudgePanel(judges=mock_judges)
+        result = panel.get_result()
+        assert result.approved is False
+        assert result.reasoning == "No votes recorded"
+
+    def test_reset_clears_votes(self, mock_judges):
+        """Test reset clears votes."""
+        panel = JudgePanel(judges=mock_judges)
+        panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
+        assert len(panel.votes) == 1
+        panel.reset()
+        assert len(panel.votes) == 0
+
+
+class TestCreateJudgePanel:
+    """Tests for create_judge_panel helper."""
+
+    @pytest.fixture
+    def mock_candidates(self):
+        """Create mock candidate agents."""
+        candidates = []
+        for name in ["claude", "gpt4", "gemini", "llama", "mistral"]:
+            agent = Mock()
+            agent.name = name
+            candidates.append(agent)
+        return candidates
+
+    @pytest.fixture
+    def mock_participants(self):
+        """Create mock debate participants."""
+        participants = []
+        for name in ["claude", "gpt4"]:
+            agent = Mock()
+            agent.name = name
+            participants.append(agent)
+        return participants
+
+    def test_create_panel_excludes_participants(self, mock_candidates, mock_participants):
+        """Test panel excludes debate participants."""
+        panel = create_judge_panel(
+            candidates=mock_candidates,
+            participants=mock_participants,
+            count=3,
+        )
+        judge_names = [j.name for j in panel.judges]
+        assert "claude" not in judge_names
+        assert "gpt4" not in judge_names
+        assert len(panel.judges) <= 3
+
+    def test_create_panel_with_elo(self, mock_candidates, mock_participants):
+        """Test panel uses ELO for selection."""
+        mock_elo = Mock()
+        mock_elo.get_ratings_batch = Mock(
+            return_value={
+                "gemini": Mock(elo=1500, calibration_score=0.8),
+                "llama": Mock(elo=1200, calibration_score=0.6),
+                "mistral": Mock(elo=1400, calibration_score=0.7),
+            }
+        )
+        panel = create_judge_panel(
+            candidates=mock_candidates,
+            participants=mock_participants,
+            count=2,
+            elo_system=mock_elo,
+        )
+        # Should select top 2 by composite score (gemini, mistral)
+        judge_names = [j.name for j in panel.judges]
+        assert len(judge_names) <= 2
+
+    def test_create_panel_custom_strategy(self, mock_candidates):
+        """Test panel with custom strategy."""
+        panel = create_judge_panel(
+            candidates=mock_candidates,
+            strategy=JudgingStrategy.SUPERMAJORITY,
+            count=3,
+        )
+        assert panel.strategy == JudgingStrategy.SUPERMAJORITY
