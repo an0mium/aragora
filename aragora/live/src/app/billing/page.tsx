@@ -7,56 +7,22 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { useAuth } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { API_BASE_URL } from '@/config';
+import {
+  getClient,
+  BillingPlan,
+  BillingUsage,
+  BillingSubscription,
+  BillingInvoice,
+  UsageForecast as ForecastType,
+} from '@/lib/aragora-client';
 
 const API_BASE = API_BASE_URL;
 
-interface UsageData {
-  debates_used: number;
-  debates_limit: number;
-  debates_remaining: number;
-  tokens_used: number;
-  estimated_cost_usd: number;
-  period_start: string | null;
-}
-
-interface SubscriptionData {
-  tier: string;
-  status: string;
-  is_active: boolean;
-  current_period_end?: string;
-  cancel_at_period_end?: boolean;
-  trial_start?: string;
-  trial_end?: string;
-  is_trialing?: boolean;
-  payment_failed?: boolean;
-  limits?: {
-    debates_per_month: number;
-    users_per_org: number;
-    api_access: boolean;
-  };
-}
-
-interface Invoice {
-  id: string;
-  number: string;
-  status: string;
-  amount_due: number;
-  amount_paid: number;
-  currency: string;
-  created: string;
-  period_start: string | null;
-  period_end: string | null;
-  hosted_invoice_url: string | null;
-  invoice_pdf: string | null;
-}
-
-interface UsageForecast {
-  projected_debates: number;
-  cost_end_of_cycle_usd: number;
-  days_remaining: number;
-  will_hit_limit: boolean;
-  tier_recommendation: string | null;
-}
+// Use SDK types where available, keeping backward compat aliases
+type UsageData = BillingUsage;
+type SubscriptionData = BillingSubscription;
+type Invoice = BillingInvoice;
+type UsageForecast = ForecastType;
 
 export default function BillingPage() {
   const { user, isAuthenticated, tokens, isLoading: authLoading } = useAuth();
@@ -64,10 +30,12 @@ export default function BillingPage() {
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [forecast, setForecast] = useState<UsageForecast | null>(null);
+  const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [upgradeLoading, setUpgradeLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'plans' | 'invoices'>('overview');
   const accessToken = tokens?.access_token;
 
   const fetchBillingData = useCallback(async () => {
@@ -77,11 +45,12 @@ export default function BillingPage() {
         'Authorization': `Bearer ${accessToken}`,
       };
 
-      const [usageRes, subRes, invoicesRes, forecastRes] = await Promise.all([
+      const [usageRes, subRes, invoicesRes, forecastRes, plansRes] = await Promise.all([
         fetch(`${API_BASE}/api/billing/usage`, { headers }),
         fetch(`${API_BASE}/api/billing/subscription`, { headers }),
         fetch(`${API_BASE}/api/billing/invoices?limit=10`, { headers }),
         fetch(`${API_BASE}/api/billing/usage/forecast`, { headers }),
+        fetch(`${API_BASE}/api/billing/plans`, { headers }),
       ]);
 
       if (usageRes.ok) {
@@ -102,6 +71,11 @@ export default function BillingPage() {
       if (forecastRes.ok) {
         const forecastData = await forecastRes.json();
         setForecast(forecastData.forecast);
+      }
+
+      if (plansRes.ok) {
+        const plansData = await plansRes.json();
+        setPlans(plansData.plans || []);
       }
     } catch (err) {
       setError('Failed to load billing data');
@@ -140,6 +114,35 @@ export default function BillingPage() {
       setError('Failed to open billing portal');
     } finally {
       setPortalLoading(false);
+    }
+  };
+
+  const handleUpgrade = async (tier: string) => {
+    setUpgradeLoading(tier);
+    try {
+      const response = await fetch(`${API_BASE}/api/billing/checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokens?.access_token}`,
+        },
+        body: JSON.stringify({
+          tier,
+          success_url: window.location.href,
+          cancel_url: window.location.href,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.checkout?.url) {
+        window.location.href = data.checkout.url;
+      } else {
+        setError('Failed to start checkout');
+      }
+    } catch (err) {
+      setError('Failed to start checkout');
+    } finally {
+      setUpgradeLoading(null);
     }
   };
 
@@ -191,6 +194,16 @@ export default function BillingPage() {
               }`}
             >
               OVERVIEW
+            </button>
+            <button
+              onClick={() => setActiveTab('plans')}
+              className={`pb-2 font-mono text-sm transition-colors ${
+                activeTab === 'plans'
+                  ? 'text-acid-green border-b-2 border-acid-green'
+                  : 'text-text-muted hover:text-text'
+              }`}
+            >
+              PLANS
             </button>
             <button
               onClick={() => setActiveTab('invoices')}
@@ -438,6 +451,109 @@ export default function BillingPage() {
                   </div>
                 </div>
               )}
+            </div>
+          ) : activeTab === 'plans' ? (
+            /* Plans Tab */
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {plans.map((plan) => {
+                const isCurrentPlan = subscription?.tier === plan.id;
+                const isLoading = upgradeLoading === plan.id;
+
+                return (
+                  <div
+                    key={plan.id}
+                    className={`border bg-surface/30 p-6 ${
+                      isCurrentPlan
+                        ? 'border-acid-green ring-1 ring-acid-green'
+                        : 'border-acid-green/30'
+                    }`}
+                  >
+                    <div className="text-center mb-4">
+                      <h3 className="text-lg font-mono text-acid-cyan uppercase">
+                        {plan.name}
+                      </h3>
+                      <div className="mt-2">
+                        <span className="text-2xl font-mono text-acid-green">
+                          {plan.price_monthly}
+                        </span>
+                        <span className="text-text-muted font-mono text-sm">/mo</span>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-2 mb-6 text-sm font-mono">
+                      <li className="flex items-center gap-2">
+                        <span className="text-acid-green">[+]</span>
+                        <span className="text-text">
+                          {plan.features.debates_per_month === -1
+                            ? 'Unlimited'
+                            : plan.features.debates_per_month}{' '}
+                          debates/mo
+                        </span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="text-acid-green">[+]</span>
+                        <span className="text-text">
+                          {plan.features.users_per_org} team members
+                        </span>
+                      </li>
+                      {plan.features.api_access && (
+                        <li className="flex items-center gap-2">
+                          <span className="text-acid-green">[+]</span>
+                          <span className="text-text">API access</span>
+                        </li>
+                      )}
+                      {plan.features.all_agents && (
+                        <li className="flex items-center gap-2">
+                          <span className="text-acid-green">[+]</span>
+                          <span className="text-text">All AI agents</span>
+                        </li>
+                      )}
+                      {plan.features.sso_enabled && (
+                        <li className="flex items-center gap-2">
+                          <span className="text-acid-green">[+]</span>
+                          <span className="text-text">SSO/SAML</span>
+                        </li>
+                      )}
+                      {plan.features.audit_logs && (
+                        <li className="flex items-center gap-2">
+                          <span className="text-acid-green">[+]</span>
+                          <span className="text-text">Audit logs</span>
+                        </li>
+                      )}
+                      {plan.features.priority_support && (
+                        <li className="flex items-center gap-2">
+                          <span className="text-acid-green">[+]</span>
+                          <span className="text-text">Priority support</span>
+                        </li>
+                      )}
+                    </ul>
+
+                    {isCurrentPlan ? (
+                      <button
+                        disabled
+                        className="w-full py-2 font-mono text-sm border border-acid-green/30 text-text-muted cursor-not-allowed"
+                      >
+                        CURRENT PLAN
+                      </button>
+                    ) : plan.id === 'free' ? (
+                      <button
+                        disabled
+                        className="w-full py-2 font-mono text-sm border border-acid-green/30 text-text-muted cursor-not-allowed"
+                      >
+                        FREE TIER
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleUpgrade(plan.id)}
+                        disabled={isLoading}
+                        className="w-full py-2 font-mono text-sm border border-acid-cyan/50 text-acid-cyan hover:bg-acid-cyan/10 transition-colors disabled:opacity-50"
+                      >
+                        {isLoading ? 'LOADING...' : 'UPGRADE'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             /* Invoices Tab */
