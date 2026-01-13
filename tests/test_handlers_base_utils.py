@@ -765,7 +765,7 @@ class TestErrorHandling:
 
     def test_handle_errors_logs_exception(self):
         """Should log the exception."""
-        with patch("aragora.server.handlers.base.logger") as mock_logger:
+        with patch("aragora.server.handlers.utils.decorators.logger") as mock_logger:
 
             @handle_errors("test operation")
             def failing_func():
@@ -819,8 +819,8 @@ class TestErrorRecovery:
         assert result == [1, 2, 3]
 
     def test_logs_error_when_enabled(self):
-        """Should log errors when log_errors=True."""
-        with patch("aragora.server.handlers.base.logger") as mock_logger:
+        """Should log warnings when log_errors=True."""
+        with patch("aragora.server.handlers.utils.decorators.logger") as mock_logger:
 
             @with_error_recovery(fallback_value=None, log_errors=True)
             def failing_func():
@@ -828,11 +828,11 @@ class TestErrorRecovery:
 
             failing_func()
 
-            mock_logger.error.assert_called_once()
+            mock_logger.warning.assert_called_once()
 
     def test_no_log_when_disabled(self):
         """Should not log when log_errors=False."""
-        with patch("aragora.server.handlers.base.logger") as mock_logger:
+        with patch("aragora.server.handlers.utils.decorators.logger") as mock_logger:
 
             @with_error_recovery(fallback_value=None, log_errors=False)
             def failing_func():
@@ -1165,19 +1165,19 @@ class TestWithErrorRecoveryDecorator:
         assert result == [1, 2, 3]
 
     def test_logs_error_when_enabled(self):
-        """Should log error when log_errors=True."""
-        with patch("aragora.server.handlers.base.logger") as mock_logger:
+        """Should log warning when log_errors=True."""
+        with patch("aragora.server.handlers.utils.decorators.logger") as mock_logger:
 
             @with_error_recovery(fallback_value=None, log_errors=True)
             def failing_func():
                 raise ValueError("test error")
 
             failing_func()
-            mock_logger.error.assert_called()
+            mock_logger.warning.assert_called()
 
     def test_does_not_log_when_disabled(self):
         """Should not log when log_errors=False."""
-        with patch("aragora.server.handlers.base.logger") as mock_logger:
+        with patch("aragora.server.handlers.utils.decorators.logger") as mock_logger:
 
             @with_error_recovery(fallback_value=None, log_errors=False)
             def failing_func():
