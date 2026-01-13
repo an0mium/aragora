@@ -11,13 +11,14 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
+    from aragora.agents.calibration import CalibrationTracker
+    from aragora.agents.personas import PersonaManager
     from aragora.core import Agent
     from aragora.debate.protocol import DebateProtocol
     from aragora.debate.prompt_builder import PromptBuilder
+    from aragora.debate.role_matcher import RoleMatcher, RoleMatchingConfig
     from aragora.debate.roles import (
         RoleRotator,
-        RoleMatcher,
-        RoleMatchingConfig,
         RoleRotationConfig,
         RoleAssignment,
     )
@@ -44,8 +45,8 @@ class RolesManager:
         agents: list["Agent"],
         protocol: "DebateProtocol",
         prompt_builder: Optional["PromptBuilder"] = None,
-        calibration_tracker: Optional[object] = None,
-        persona_manager: Optional[object] = None,
+        calibration_tracker: Optional["CalibrationTracker"] = None,
+        persona_manager: Optional["PersonaManager"] = None,
     ):
         """
         Initialize roles manager.
@@ -85,8 +86,8 @@ class RolesManager:
             )
             logger.info("role_matcher_enabled strategy=%s", config.strategy)
         elif self.protocol.role_rotation:
-            config = self.protocol.role_rotation_config or RoleRotationConfig()
-            self.role_rotator = RoleRotator(config)
+            rotation_config = self.protocol.role_rotation_config or RoleRotationConfig()
+            self.role_rotator = RoleRotator(rotation_config)
 
     def assign_initial_roles(self) -> None:
         """Assign initial roles to agents based on protocol with safety bounds."""
@@ -209,22 +210,29 @@ and building on others' ideas."""
             round_num: Current round number
         """
         if self.role_rotator:
-            self.current_role_assignments = self.role_rotator.rotate(self.agents, round_num)
+            agent_names = [a.name for a in self.agents]
+            total_rounds = self.protocol.rounds
+            self.current_role_assignments = self.role_rotator.get_assignments(
+                agent_names, round_num, total_rounds
+            )
         elif self.role_matcher:
             # Role matcher uses task-based matching, not round rotation
             pass
 
-    def match_roles_for_task(self, task: str) -> dict[str, "RoleAssignment"]:
+    def match_roles_for_task(self, task: str, round_num: int = 0) -> dict[str, "RoleAssignment"]:
         """Match agents to optimal roles for a specific task.
 
         Args:
-            task: The debate task description
+            task: The debate task description (used as domain hint)
+            round_num: Current round number for rotation fallback
 
         Returns:
             Dict mapping agent name to role assignment
         """
         if self.role_matcher:
-            self.current_role_assignments = self.role_matcher.match(self.agents, task)
+            agent_names = [a.name for a in self.agents]
+            result = self.role_matcher.match_roles(agent_names, round_num, debate_domain=task)
+            self.current_role_assignments = result.assignments
         return self.current_role_assignments
 
 

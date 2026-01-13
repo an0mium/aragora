@@ -22,3 +22,13 @@ repos:
     hooks:
       - id: bandit
         args: ["-ll", "-x", "tests/"]
+
+  # Local hooks
+  - repo: local
+    hooks:
+      - id: no-root-artifacts
+        name: Check for root-level runtime artifacts
+        entry: bash -c 'files=$(find . -maxdepth 1 -type f \( -name "*.db" -o -name "*.db-*" -o -name "*.sqlite*" -o -name ":memory:" \) 2>/dev/null); if [ -n "$files" ]; then echo "ERROR: Root-level runtime artifacts found:"; echo "$files"; echo "Run: scripts/cleanup_runtime_artifacts.sh --apply"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        always_run: true

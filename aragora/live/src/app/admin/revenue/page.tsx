@@ -79,7 +79,8 @@ function TierBar({ tier, data }: { tier: string; data: TierRevenue }) {
 
 export default function RevenueAdminPage() {
   const { config: backendConfig } = useBackend();
-  const { user, isAuthenticated, token } = useAuth();
+  const { user, isAuthenticated, tokens } = useAuth();
+  const token = tokens?.access_token;  // Extract access token;
   const [revenue, setRevenue] = useState<RevenueData['revenue'] | null>(null);
   const [stats, setStats] = useState<AdminStats['stats'] | null>(null);
   const [loading, setLoading] = useState(true);

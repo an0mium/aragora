@@ -12,11 +12,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Optional
 import uuid
 
-if TYPE_CHECKING:
-    from aragora.agents.base import BaseAgent
 
 from .base import (
     BaseHandler,
@@ -228,8 +226,8 @@ class MatrixDebatesHandler(BaseHandler):
                 return error_response("No valid agents found", 400)
 
             matrix_id = str(uuid.uuid4())
-            results = []
-            all_conclusions = []
+            results: list[dict[str, Any]] = []
+            all_conclusions: list[dict[str, Any]] = []
 
             # Run scenarios in parallel
             async def run_scenario(scenario_data: dict) -> dict:
@@ -346,9 +344,17 @@ class MatrixDebatesHandler(BaseHandler):
     async def _load_agents(self, agent_names: list[str]) -> list[Any]:
         """Load agents by name."""
         try:
-            from aragora.agents.cli_agents import load_agents
+            from aragora.agents.base import create_agent
 
-            return load_agents(agent_names or ["claude", "gpt4"])  # type: ignore[no-any-return]
+            names = agent_names or ["claude", "openai"]
+            agents = []
+            for name in names:
+                try:
+                    agent = create_agent(name)  # type: ignore[arg-type]
+                    agents.append(agent)
+                except Exception as e:
+                    logger.warning(f"Failed to create agent {name}: {e}")
+            return agents
         except Exception as e:
             logger.warning(f"Failed to load agents: {e}")
             return []

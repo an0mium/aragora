@@ -49,15 +49,44 @@ wscat -c ws://localhost:8765
 
 ### Environment Variables
 
+**AI Providers** (at least one required):
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | Yes* | - | Anthropic Claude API key |
 | `OPENAI_API_KEY` | Yes* | - | OpenAI API key |
 | `OPENROUTER_API_KEY` | No | - | Fallback provider (auto-used on 429) |
+| `MISTRAL_API_KEY` | No | - | Mistral API key |
+| `GEMINI_API_KEY` | No | - | Google Gemini API key |
+| `XAI_API_KEY` | No | - | xAI Grok API key |
+
+**Server Configuration**:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ARAGORA_DATA_DIR` | No | `.nomic` | Runtime data directory (databases, backups) |
 | `ARAGORA_API_TOKEN` | No | - | API authentication token |
 | `ARAGORA_ALLOWED_ORIGINS` | No | `*` | CORS allowed origins |
+| `ARAGORA_LOG_LEVEL` | No | `INFO` | Log level (DEBUG, INFO, WARNING, ERROR) |
+
+**Authentication** (required for production):
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `JWT_SECRET` | Prod | - | Secret for JWT signing (min 32 chars) |
+| `JWT_ALGORITHM` | No | `HS256` | JWT algorithm |
+| `JWT_EXPIRY_HOURS` | No | `24` | Token expiration in hours |
+| `GOOGLE_OAUTH_CLIENT_ID` | No | - | Google OAuth client ID |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | No | - | Google OAuth client secret |
+| `GOOGLE_OAUTH_REDIRECT_URI` | No | - | OAuth callback URL |
+
+**Persistence** (optional):
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
 | `SUPABASE_URL` | No | - | Supabase project URL |
 | `SUPABASE_KEY` | No | - | Supabase anon key |
+| `REDIS_URL` | No | - | Redis URL for distributed caching |
 
 *At least one AI provider key is required.
 
@@ -138,11 +167,15 @@ Key metrics:
 
 ### Grafana Dashboard
 
-Import the provided dashboard:
+Import the provided dashboards:
 
 ```bash
-# Dashboard JSON at:
-docs/grafana/aragora-dashboard.json
+# Dashboard files at:
+deploy/grafana/dashboards/
+  ├── debate-metrics.json      # Debate success rates, rounds, outcomes
+  ├── api-latency.json         # API endpoint latency tracking
+  ├── agent-performance.json   # Agent response times and errors
+  └── slo-tracking.json        # Service level objectives
 ```
 
 ### Log Levels

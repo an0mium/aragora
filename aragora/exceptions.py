@@ -929,7 +929,7 @@ class VerificationError(AragoraError):
 class Z3NotAvailableError(VerificationError):
     """Raised when Z3 solver is not available."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("Z3 solver not available. Install with: pip install z3-solver")
 
 

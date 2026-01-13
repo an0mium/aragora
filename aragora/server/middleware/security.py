@@ -41,22 +41,56 @@ HSTS_VALUE = "max-age=31536000; includeSubDomains"
 
 # CSP header (configurable per environment)
 CSP_HEADER = "Content-Security-Policy"
-CSP_DEFAULT = (
+CSP_REPORT_ONLY_HEADER = "Content-Security-Policy-Report-Only"
+
+# Strict CSP for API-only endpoints (no scripts needed)
+CSP_API_STRICT = (
+    "default-src 'none'; "
+    "frame-ancestors 'none'; "
+    "form-action 'none'; "
+    "base-uri 'none'; "
+    "upgrade-insecure-requests;"
+)
+
+# Standard CSP for web UI - allows self-hosted scripts and styles
+# Note: 'strict-dynamic' allows dynamically loaded scripts when a nonce is present
+CSP_WEB_UI = (
+    "default-src 'self'; "
+    "script-src 'self' 'strict-dynamic'; "
+    "style-src 'self' 'unsafe-inline'; "  # Inline styles often needed for frameworks
+    "img-src 'self' data: https:; "
+    "font-src 'self' data:; "
+    "connect-src 'self' wss: https:; "
+    "frame-ancestors 'none'; "
+    "form-action 'self'; "
+    "base-uri 'self'; "
+    "upgrade-insecure-requests;"
+)
+
+# Development CSP - more permissive for hot reload and dev tools
+CSP_DEVELOPMENT = (
     "default-src 'self'; "
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
     "style-src 'self' 'unsafe-inline'; "
     "img-src 'self' data: https:; "
     "font-src 'self' data:; "
-    "connect-src 'self' wss: https:; "
+    "connect-src 'self' ws: wss: http: https:; "
     "frame-ancestors 'none';"
 )
+
+# Legacy default for backwards compatibility
+CSP_DEFAULT = CSP_DEVELOPMENT
 
 
 def get_security_headers(
     production: bool = False,
     enable_hsts: bool = True,
     enable_csp: bool = False,
+    csp_mode: str = "standard",
     custom_csp: Optional[str] = None,
+    csp_report_uri: Optional[str] = None,
+    report_only: bool = False,
+    nonce: Optional[str] = None,
 ) -> dict[str, str]:
     """
     Get security headers to add to HTTP responses.
@@ -65,7 +99,12 @@ def get_security_headers(
         production: Whether running in production (enables stricter headers)
         enable_hsts: Whether to enable HSTS (only with production=True)
         enable_csp: Whether to enable Content-Security-Policy
-        custom_csp: Custom CSP value (overrides default if provided)
+        csp_mode: CSP mode - "api" (strict, no scripts), "standard" (web UI),
+                  "development" (permissive), or "custom" (use custom_csp)
+        custom_csp: Custom CSP value (used when csp_mode="custom")
+        csp_report_uri: Optional URI for CSP violation reports
+        report_only: If True, use Content-Security-Policy-Report-Only (test mode)
+        nonce: Optional nonce value for script-src (must be unique per request)
 
     Returns:
         Dict of header name -> header value
@@ -78,7 +117,32 @@ def get_security_headers(
 
     # Add CSP if enabled
     if enable_csp:
-        headers[CSP_HEADER] = custom_csp or CSP_DEFAULT
+        # Select CSP based on mode
+        if custom_csp:
+            csp_value = custom_csp
+        elif csp_mode == "api":
+            csp_value = CSP_API_STRICT
+        elif csp_mode == "standard":
+            csp_value = CSP_WEB_UI
+        elif csp_mode == "development":
+            csp_value = CSP_DEVELOPMENT
+        else:
+            csp_value = CSP_DEFAULT
+
+        # Add nonce to script-src if provided
+        if nonce:
+            csp_value = csp_value.replace(
+                "script-src 'self'",
+                f"script-src 'self' 'nonce-{nonce}'",
+            )
+
+        # Add report-uri directive if provided
+        if csp_report_uri:
+            csp_value = csp_value.rstrip(";") + f"; report-uri {csp_report_uri};"
+
+        # Use report-only header if testing
+        csp_header = CSP_REPORT_ONLY_HEADER if report_only else CSP_HEADER
+        headers[csp_header] = csp_value
 
     return headers
 
@@ -88,6 +152,9 @@ def apply_security_headers(
     production: bool = False,
     enable_hsts: bool = True,
     enable_csp: bool = False,
+    csp_mode: str = "standard",
+    csp_report_uri: Optional[str] = None,
+    nonce: Optional[str] = None,
 ) -> None:
     """
     Apply security headers to an HTTP response handler.
@@ -99,15 +166,42 @@ def apply_security_headers(
         production: Whether running in production
         enable_hsts: Whether to enable HSTS
         enable_csp: Whether to enable CSP
+        csp_mode: CSP mode - "api", "standard", "development"
+        csp_report_uri: Optional URI for CSP violation reports
+        nonce: Optional nonce for script-src
     """
     headers = get_security_headers(
         production=production,
         enable_hsts=enable_hsts,
         enable_csp=enable_csp,
+        csp_mode=csp_mode,
+        csp_report_uri=csp_report_uri,
+        nonce=nonce,
     )
 
     for name, value in headers.items():
         handler.send_header(name, value)
+
+
+def generate_nonce() -> str:
+    """
+    Generate a cryptographically secure nonce for CSP script-src.
+
+    The nonce must be unique for every request and should be included
+    in both the CSP header and the script tags.
+
+    Returns:
+        Base64-encoded random nonce string (16 bytes of randomness)
+
+    Example:
+        nonce = generate_nonce()
+        headers = get_security_headers(enable_csp=True, nonce=nonce)
+        # In HTML: <script nonce="{nonce}">...</script>
+    """
+    import secrets
+    import base64
+
+    return base64.b64encode(secrets.token_bytes(16)).decode("ascii")
 
 
 @dataclass
@@ -351,3 +445,26 @@ class SecurityMiddleware:
                 code=413,
             )
         return ValidationResult.ok()
+
+
+__all__ = [
+    # Security headers
+    "SECURITY_HEADERS",
+    "HSTS_HEADER",
+    "HSTS_VALUE",
+    # CSP policies
+    "CSP_HEADER",
+    "CSP_REPORT_ONLY_HEADER",
+    "CSP_API_STRICT",
+    "CSP_WEB_UI",
+    "CSP_DEVELOPMENT",
+    "CSP_DEFAULT",
+    # Functions
+    "get_security_headers",
+    "apply_security_headers",
+    "generate_nonce",
+    # Classes
+    "SecurityConfig",
+    "ValidationResult",
+    "SecurityMiddleware",
+]

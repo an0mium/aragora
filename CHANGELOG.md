@@ -7,18 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+*No unreleased changes*
+
+## [0.8.1] - 2026-01-13
+
 ### Added
 - SOC2, PCI-DSS, and NIST CSF compliance personas for Gauntlet mode
 - `scripts/test_tiers.sh` for common test tiers (fast, ci, lint, typecheck, frontend, e2e)
-- `scripts/cleanup_runtime_artifacts.sh` to relocate root-level runtime DB artifacts
+- `scripts/cleanup_runtime_artifacts.sh` to relocate root-level runtime DB artifacts (now handles directories too)
+- PhaseValidator for Nomic loop state validation between phases
+- WebSocket reconnection with exponential backoff (1s→30s cap, max 5 attempts)
+- Plugin submission flow (`POST /api/plugins/submit`, `GET /api/plugins/submissions`)
+- Load testing module (`tests/load/test_concurrent_debates.py`) with 8 tests
+- Reconnection indicator in GauntletLive UI
 
 ### Changed
 - Onboarding docs now point to `docs/START_HERE.md` / `docs/GETTING_STARTED.md` as the canonical entry
 - Database docs now default to `ARAGORA_DATA_DIR` (`.nomic`) and clarify legacy paths
 - Frontend docs clarify dashboard vs SDK vs legacy frontend
+- OpenAPI spec regenerated (1285 endpoints)
+- MCP server now exposes all 24 tools from tools.py
 
-### Focus
-- Stabilization target: onboarding, test tiers, and runtime data hygiene (0.8.1)
+### Fixed
+- `aragora doctor` circuit breaker status check (handles `_registry_size` metadata key)
+- `notify_payment_failed()` signature (added missing `days_until_downgrade` parameter)
 
 ## [0.8.0] - 2026-01-11
 

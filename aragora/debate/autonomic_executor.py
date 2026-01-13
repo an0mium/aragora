@@ -69,7 +69,7 @@ class StreamingContentBuffer:
     Thread-safe via per-agent locks.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._buffer: dict[str, str] = defaultdict(str)
         self._locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 

@@ -143,6 +143,19 @@ redis:
 # PostgreSQL subchart (disabled by default)
 postgresql:
   enabled: false
+  auth:
+    database: aragora
+    username: aragora
+    existingSecret: ""  # Name of secret containing postgresql-password
+
+# PostgreSQL configuration (when using external Postgres)
+postgres:
+  enabled: false
+  dsn: ""  # Full connection string (use existingSecret in production)
+  existingSecret: ""  # Secret containing DATABASE_URL
+  # Connection pool settings
+  poolMinSize: 5
+  poolMaxSize: 20
 
 # Persistence (for local storage mode)
 persistence:

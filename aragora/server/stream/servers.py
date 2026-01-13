@@ -403,7 +403,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # For unauthorized origins, don't add Allow-Origin (browser will block)
         return headers
 
-    async def _check_usage_limit(self, headers: dict) -> Optional[dict]:
+    async def _check_usage_limit(self, headers: dict[str, Any]) -> Optional[dict[str, Any]]:
         """Check if user has remaining debate quota.
 
         Returns None if within limits, or error dict if limit exceeded.
@@ -431,7 +431,11 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             if not org_id:
                 return None  # No org in token, skip check
 
-            user_store = UserStore()
+            # Require nomic_dir for UserStore initialization
+            if not self.nomic_dir:
+                return None
+
+            user_store = UserStore(self.nomic_dir / "users.db")
             org = user_store.get_organization_by_id(org_id)
             if not org:
                 return None
@@ -447,15 +451,16 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                 "professional": 200,
                 "enterprise": 999999,
             }
-            limit = tier_limits.get(org.subscription_tier, 10)
-            debates_used = usage.get("debates_count", 0)
+            tier_value = org.tier.value if hasattr(org.tier, "value") else str(org.tier)
+            limit = tier_limits.get(tier_value, 10)
+            debates_used = usage.total_debates
 
             if debates_used >= limit:
                 return {
                     "error": "Debate limit reached for this billing period",
                     "debates_used": debates_used,
                     "debates_limit": limit,
-                    "tier": org.subscription_tier,
+                    "tier": tier_value,
                     "upgrade_url": "/pricing",
                 }
 

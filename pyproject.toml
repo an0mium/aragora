@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aragora"
-version = "0.8.0"
+version = "0.8.1"
 description = "Multi-Agent Debate Framework with traces, consensus proofs, red-team mode, self-improvement, templates, and GitHub Actions"
 readme = "README.md"
 license = {text = "MIT"}
@@ -173,6 +173,7 @@ markers = [
 
 [tool.mypy]
 python_version = "3.11"
+mypy_path = "typings"
 warn_return_any = true
 warn_unused_configs = true
 warn_redundant_casts = true

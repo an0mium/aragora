@@ -47,7 +47,8 @@ function TierBadge({ tier }: { tier: string }) {
 
 export default function OrganizationsAdminPage() {
   const { config: backendConfig } = useBackend();
-  const { user, isAuthenticated, token } = useAuth();
+  const { user, isAuthenticated, tokens } = useAuth();
+  const token = tokens?.access_token;
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);

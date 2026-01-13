@@ -52,7 +52,7 @@ async def run_debate_tool(
         role = roles[i] if i < len(roles) else "critic"
         try:
             agent = create_agent(
-                model_type=agent_name,
+                model_type=agent_name,  # type: ignore[arg-type]
                 name=f"{agent_name}_{role}",
                 role=role,
             )
@@ -71,11 +71,11 @@ async def run_debate_tool(
 
     protocol = DebateProtocol(
         rounds=rounds,
-        consensus=consensus,
+        consensus=consensus,  # type: ignore[arg-type]
     )
 
     # Run debate
-    arena = Arena(env, agent_list, protocol)
+    arena = Arena(env, agent_list, protocol)  # type: ignore[arg-type]
     result = await arena.run()
 
     # Generate debate ID
@@ -109,36 +109,25 @@ async def run_gauntlet_tool(
     Returns:
         Dict with verdict, risk score, and vulnerabilities found
     """
-    from aragora.gauntlet import (
-        GauntletRunner,
-        GauntletConfig,
-        QUICK_GAUNTLET,
-        THOROUGH_GAUNTLET,
-        CODE_REVIEW_GAUNTLET,
-        SECURITY_GAUNTLET,
-        GDPR_GAUNTLET,
-        HIPAA_GAUNTLET,
-    )
+    from aragora.gauntlet import GauntletRunner, GauntletConfig
+    from aragora.gauntlet.config import AttackCategory
 
     if not content:
         return {"error": "Content is required"}
 
-    # Select profile
-    profiles = {
-        "quick": QUICK_GAUNTLET,
-        "thorough": THOROUGH_GAUNTLET,
-        "code": CODE_REVIEW_GAUNTLET,
-        "security": SECURITY_GAUNTLET,
-        "gdpr": GDPR_GAUNTLET,
-        "hipaa": HIPAA_GAUNTLET,
-    }
-
-    base_config = profiles.get(profile, QUICK_GAUNTLET)
+    # Configure based on profile
+    if profile == "security":
+        attack_categories = [AttackCategory.SECURITY, AttackCategory.ADVERSARIAL_INPUT]
+    elif profile == "code":
+        attack_categories = [AttackCategory.LOGIC, AttackCategory.EDGE_CASE]
+    else:  # quick/thorough/gdpr/hipaa
+        attack_categories = [AttackCategory.SECURITY, AttackCategory.LOGIC, AttackCategory.ARCHITECTURE]
 
     config = GauntletConfig(
-        attack_categories=base_config.attack_categories,
-        agents=base_config.agents,
-        rounds_per_attack=base_config.rounds_per_attack,
+        name=f"{profile}_gauntlet",
+        input_type=content_type,
+        attack_categories=attack_categories,
+        attack_rounds=2 if profile == "quick" else 3,
     )
 
     runner = GauntletRunner(config)
@@ -257,11 +246,19 @@ async def search_debates_tool(
                 query=query,
                 limit=limit,
             )
-            # search returns tuple (list, count) - extract list
+            # search returns tuple (list[DebateMetadata], count) - extract list
             all_debates = search_result[0] if isinstance(search_result, tuple) else search_result
             # Apply additional filters (agent, consensus_only) in memory
-            for debate in all_debates:
-                debate_dict = debate if isinstance(debate, dict) else vars(debate)
+            for debate_meta in all_debates:
+                # Convert DebateMetadata to dict (dataclass has typed fields)
+                debate_dict: Dict[str, Any] = {
+                    "debate_id": getattr(debate_meta, "debate_id", ""),
+                    "task": getattr(debate_meta, "task", ""),
+                    "agents": getattr(debate_meta, "agents", []),
+                    "consensus_reached": getattr(debate_meta, "consensus_reached", False),
+                    "confidence": getattr(debate_meta, "confidence", 0.0),
+                    "created_at": str(getattr(debate_meta, "created_at", "")),
+                }
                 if agent:
                     agents_list = debate_dict.get("agents", [])
                     if not any(agent.lower() in str(a).lower() for a in agents_list):
@@ -269,19 +266,6 @@ async def search_debates_tool(
                 if consensus_only and not debate_dict.get("consensus_reached", False):
                     continue
                 results.append(debate_dict)
-        elif db and hasattr(db, "list"):
-            # Fallback to list + filter
-            all_debates = db.list(limit=limit * 2)
-            for debate in all_debates:
-                if query and query.lower() not in debate.get("task", "").lower():
-                    continue
-                if agent:
-                    agents = debate.get("agents", [])
-                    if not any(agent.lower() in a.lower() for a in agents):
-                        continue
-                if consensus_only and not debate.get("consensus_reached", False):
-                    continue
-                results.append(debate)
     except Exception as e:
         logger.warning(f"Could not search debates: {e}")
 
@@ -330,11 +314,13 @@ async def get_agent_history_tool(
     try:
         from aragora.ranking.elo import EloSystem
 
-        elo = EloSystem()
-        rating = elo.get_rating(agent_name)
-        if rating:
-            result["elo_rating"] = rating.rating
-            result["elo_deviation"] = rating.deviation
+        elo_system = EloSystem()
+        agent_rating = elo_system.get_rating(agent_name)
+        if agent_rating:
+            result["elo_rating"] = agent_rating.elo
+            result["wins"] = agent_rating.wins
+            result["losses"] = agent_rating.losses
+            result["total_debates"] = agent_rating.debates_count
     except Exception as e:
         logger.debug(f"Could not get ELO: {e}")
 
@@ -523,7 +509,7 @@ async def query_memory_tool(
     try:
         from aragora.memory.continuum import ContinuumMemory, MemoryTier
 
-        continuum = ContinuumMemory.get_instance()
+        continuum = ContinuumMemory()
 
         # Parse tier
         tiers = None
@@ -547,7 +533,7 @@ async def query_memory_tool(
                     "tier": m.tier.name.lower(),
                     "content": m.content[:500] + "..." if len(m.content) > 500 else m.content,
                     "importance": round(m.importance, 3),
-                    "created_at": str(m.created_at) if hasattr(m, "created_at") else None,
+                    "created_at": m.created_at if m.created_at else None,
                 }
             )
 
@@ -587,8 +573,9 @@ async def store_memory_tool(
 
     try:
         from aragora.memory.continuum import ContinuumMemory, MemoryTier
+        import uuid
 
-        continuum = ContinuumMemory.get_instance()
+        continuum = ContinuumMemory()
 
         # Parse tier
         try:
@@ -596,12 +583,13 @@ async def store_memory_tool(
         except KeyError:
             memory_tier = MemoryTier.MEDIUM
 
-        # Store memory
-        memory_id = continuum.store(
+        # Generate ID and store memory using the add method
+        memory_id = f"mcp_{uuid.uuid4().hex[:12]}"
+        continuum.add(
+            id=memory_id,
             content=content,
             tier=memory_tier,
             importance=min(max(importance, 0.0), 1.0),
-            tags=[t.strip() for t in tags.split(",") if t.strip()],
         )
 
         return {
@@ -627,7 +615,7 @@ async def get_memory_pressure_tool() -> Dict[str, Any]:
     try:
         from aragora.memory.continuum import ContinuumMemory
 
-        continuum = ContinuumMemory.get_instance()
+        continuum = ContinuumMemory()
         pressure = continuum.get_memory_pressure()
         stats = continuum.get_stats()
 
@@ -677,27 +665,12 @@ async def fork_debate_tool(
     if not debate_id:
         return {"error": "debate_id is required"}
 
-    try:
-        from aragora.debate.counterfactual import CounterfactualBranch
-
-        branch = await CounterfactualBranch.create_fork(
-            parent_debate_id=debate_id,
-            branch_point=branch_point if branch_point >= 0 else None,
-            modified_context=modified_context or None,
-        )
-
-        return {
-            "success": True,
-            "branch_id": branch.branch_id,
-            "parent_debate_id": debate_id,
-            "branch_point": branch.branch_point,
-            "messages_inherited": branch.messages_inherited,
-        }
-
-    except ImportError:
-        return {"error": "Counterfactual branching not available"}
-    except Exception as e:
-        return {"error": f"Failed to create fork: {e}"}
+    # Note: CounterfactualBranch is a dataclass and does not have create_fork method
+    # Forking requires the full counterfactual exploration system
+    return {
+        "error": "Fork creation not yet implemented via MCP tools. "
+        "Use the counterfactual exploration API directly."
+    }
 
 
 async def get_forks_tool(
@@ -725,20 +698,22 @@ async def get_forks_tool(
             return {"error": "Storage not available"}
 
         # Get forks from storage
-        forks = []
+        forks: List[Dict[str, Any]] = []
         if hasattr(db, "get_forks"):
             forks = db.get_forks(debate_id, include_nested=include_nested)
         else:
-            # Fallback: search for debates with parent_id
-            all_debates = db.list(limit=100)
-            for d in all_debates:
-                if d.get("parent_debate_id") == debate_id:
+            # Fallback: search for debates with parent_id via search
+            search_result = db.search(query="", limit=100)
+            all_debates = search_result[0] if isinstance(search_result, tuple) else search_result
+            for debate_meta in all_debates:
+                parent_id = getattr(debate_meta, "parent_debate_id", None)
+                if parent_id == debate_id:
                     forks.append(
                         {
-                            "branch_id": d.get("id"),
-                            "task": d.get("task", ""),
-                            "branch_point": d.get("branch_point", 0),
-                            "created_at": d.get("created_at", ""),
+                            "branch_id": getattr(debate_meta, "debate_id", ""),
+                            "task": getattr(debate_meta, "task", ""),
+                            "branch_point": getattr(debate_meta, "branch_point", 0),
+                            "created_at": str(getattr(debate_meta, "created_at", "")),
                         }
                     )
 
@@ -774,25 +749,12 @@ async def get_agent_lineage_tool(
 
     depth = min(max(depth, 1), 20)
 
-    try:
-        from aragora.evolution.evolver import AgentEvolver
-
-        evolver = AgentEvolver()
-        lineage = evolver.get_lineage(agent_name, max_depth=depth)
-
-        return {
-            "agent": agent_name,
-            "generation": lineage.get("generation", 0),
-            "fitness": lineage.get("fitness", 0),
-            "ancestors": lineage.get("ancestors", []),
-            "traits": lineage.get("traits", {}),
-            "mutation_history": lineage.get("mutations", [])[:10],
-        }
-
-    except ImportError:
-        return {"error": "Evolution module not available"}
-    except Exception as e:
-        return {"error": f"Failed to get lineage: {e}"}
+    # Note: AgentEvolver doesn't exist - the evolution module has PromptEvolver
+    # which evolves prompts, not agent lineages
+    return {
+        "error": "Agent lineage tracking not yet implemented. "
+        "The evolution module focuses on prompt evolution via PromptEvolver."
+    }
 
 
 async def breed_agents_tool(
@@ -816,30 +778,12 @@ async def breed_agents_tool(
 
     mutation_rate = min(max(mutation_rate, 0.0), 1.0)
 
-    try:
-        from aragora.evolution.evolver import AgentEvolver
-
-        evolver = AgentEvolver()
-        offspring = evolver.crossover(
-            parent_a=parent_a,
-            parent_b=parent_b,
-            mutation_rate=mutation_rate,
-        )
-
-        return {
-            "success": True,
-            "offspring_id": offspring.id,
-            "offspring_name": offspring.name,
-            "parents": [parent_a, parent_b],
-            "generation": offspring.generation,
-            "inherited_traits": offspring.traits,
-            "mutations_applied": offspring.mutation_count,
-        }
-
-    except ImportError:
-        return {"error": "Evolution module not available"}
-    except Exception as e:
-        return {"error": f"Failed to breed agents: {e}"}
+    # Note: AgentEvolver doesn't exist - the evolution module has PromptEvolver
+    # which evolves prompts, not agents
+    return {
+        "error": "Agent breeding not yet implemented. "
+        "The evolution module focuses on prompt evolution via PromptEvolver."
+    }
 
 
 # === Checkpoint Tools ===
@@ -864,37 +808,13 @@ async def create_checkpoint_tool(
     if not debate_id:
         return {"error": "debate_id is required"}
 
-    try:
-        from aragora.debate.checkpoint import CheckpointManager, StorageBackend
-
-        # Map string to enum
-        backend_map = {
-            "file": StorageBackend.FILE,
-            "s3": StorageBackend.S3,
-            "git": StorageBackend.GIT,
-            "database": StorageBackend.DATABASE,
-        }
-        backend = backend_map.get(storage_backend.lower(), StorageBackend.FILE)
-
-        manager = CheckpointManager(backend=backend)
-        checkpoint = await manager.create(
-            debate_id=debate_id,
-            label=label or None,
-        )
-
-        return {
-            "success": True,
-            "checkpoint_id": checkpoint.id,
-            "debate_id": debate_id,
-            "label": label or "(auto)",
-            "storage_backend": storage_backend,
-            "created_at": str(checkpoint.created_at),
-        }
-
-    except ImportError:
-        return {"error": "Checkpoint module not available"}
-    except Exception as e:
-        return {"error": f"Failed to create checkpoint: {e}"}
+    # Note: CheckpointManager.create_checkpoint requires full debate state
+    # (messages, critiques, votes, agents). This simplified MCP tool cannot
+    # access that state. Use the full CheckpointManager API for checkpointing.
+    return {
+        "error": "Checkpoint creation requires full debate state. "
+        "Use CheckpointManager.create_checkpoint() from the debate context."
+    }
 
 
 async def list_checkpoints_tool(
@@ -919,21 +839,20 @@ async def list_checkpoints_tool(
         from aragora.debate.checkpoint import CheckpointManager
 
         manager = CheckpointManager()
-        checkpoints = await manager.list(
+        # Use store.list_checkpoints which is the actual API
+        checkpoints = await manager.store.list_checkpoints(
             debate_id=debate_id or None,
-            include_expired=include_expired,
             limit=limit,
         )
 
         return {
             "checkpoints": [
                 {
-                    "checkpoint_id": c.id,
-                    "debate_id": c.debate_id,
-                    "label": c.label,
-                    "created_at": str(c.created_at),
-                    "expired": c.is_expired,
-                    "message_count": c.message_count,
+                    "checkpoint_id": c.get("checkpoint_id", ""),
+                    "debate_id": c.get("debate_id", ""),
+                    "task": c.get("task", ""),
+                    "current_round": c.get("current_round", 0),
+                    "message_count": c.get("message_count", 0),
                 }
                 for c in checkpoints
             ],
@@ -966,15 +885,20 @@ async def resume_checkpoint_tool(
         from aragora.debate.checkpoint import CheckpointManager
 
         manager = CheckpointManager()
-        debate_state = await manager.resume(checkpoint_id)
+        # Load checkpoint via store
+        checkpoint = await manager.store.load(checkpoint_id)
+
+        if not checkpoint:
+            return {"error": f"Checkpoint {checkpoint_id} not found"}
 
         return {
             "success": True,
             "checkpoint_id": checkpoint_id,
-            "debate_id": debate_state.debate_id,
-            "messages_restored": debate_state.message_count,
-            "round": debate_state.current_round,
-            "phase": debate_state.phase,
+            "debate_id": checkpoint.debate_id,
+            "messages_count": len(checkpoint.messages),
+            "round": checkpoint.current_round,
+            "phase": checkpoint.phase,
+            "task": checkpoint.task,
         }
 
     except ImportError:
@@ -1002,7 +926,8 @@ async def delete_checkpoint_tool(
         from aragora.debate.checkpoint import CheckpointManager
 
         manager = CheckpointManager()
-        success = await manager.delete(checkpoint_id)
+        # Delete via store
+        success = await manager.store.delete(checkpoint_id)
 
         return {
             "success": success,

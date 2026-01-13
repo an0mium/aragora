@@ -4,33 +4,40 @@ Judge Selection for Multi-Agent Debates.
 Provides strategies for selecting judges to evaluate debate outcomes.
 Extracted from Arena orchestrator for cleaner separation of concerns.
 
-Strategies:
+Single Judge Strategies:
 - last: Use synthesizer or last agent (legacy)
 - random: Random selection
 - voted: Agents vote for judge
 - elo_ranked: Highest ELO agent judges
 - calibrated: Best composite score (ELO + calibration)
+- crux_aware: Prefer historical dissenters on similar topics
+
+Multi-Judge Panel:
+- JudgePanel: Coordinates multiple judges with voting strategies
+- JudgingStrategy: MAJORITY, SUPERMAJORITY, UNANIMOUS, WEIGHTED
 
 Features:
 - Circuit breaker awareness: filters unavailable agents before selection
 - Fallback selection: provides ordered list of candidates for retry
+- Panel voting: aggregate multiple judge opinions
 
 Usage:
+    # Single judge
     selector = JudgeSelector(agents, elo_system, protocol)
     judge = await selector.select_judge(proposals, context)
 
-    # With circuit breaker awareness
-    selector = JudgeSelector(agents, elo_system, circuit_breaker=breaker)
-    judge = await selector.select_judge(proposals, context)
-
-    # Get fallback list for retry
-    candidates = await selector.get_judge_candidates(proposals, context)
+    # Multi-judge panel
+    panel = JudgePanel(judges=judges, strategy=JudgingStrategy.MAJORITY)
+    panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Well-reasoned")
+    result = panel.get_result()
 """
 
 import logging
 import random
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
 from typing import TYPE_CHECKING, Callable, Optional, Protocol, Sequence
 
 if TYPE_CHECKING:
@@ -704,3 +711,344 @@ class JudgeSelector(JudgeScoringMixin):
             sanitize_fn=sanitize_fn,
             circuit_breaker=circuit_breaker,
         )
+
+
+# =============================================================================
+# Multi-Judge Panel System
+# =============================================================================
+
+
+class JudgingStrategy(Enum):
+    """Strategy for aggregating multiple judge votes."""
+
+    MAJORITY = "majority"  # Simple majority (>50%)
+    SUPERMAJORITY = "supermajority"  # 2/3+ agreement
+    UNANIMOUS = "unanimous"  # All judges must agree
+    WEIGHTED = "weighted"  # Votes weighted by expertise/calibration
+
+
+class JudgeVote(Enum):
+    """A judge's vote on consensus validity."""
+
+    APPROVE = "approve"  # Consensus is valid
+    REJECT = "reject"  # Consensus should be rejected
+    ABSTAIN = "abstain"  # Cannot evaluate
+
+
+@dataclass
+class JudgeVoteRecord:
+    """Record of a judge's vote on consensus."""
+
+    judge_name: str
+    vote: JudgeVote
+    confidence: float  # 0-1
+    reasoning: str
+    weight: float = 1.0  # For weighted voting
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    metadata: dict = field(default_factory=dict)
+
+
+@dataclass
+class JudgingResult:
+    """Result of judge panel evaluation."""
+
+    approved: bool
+    strategy: JudgingStrategy
+    votes: list[JudgeVoteRecord]
+    approval_ratio: float
+    weighted_approval: float
+    confidence: float
+    reasoning: str
+    dissenting_judges: list[str] = field(default_factory=list)
+    abstaining_judges: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization."""
+        return {
+            "approved": self.approved,
+            "strategy": self.strategy.value,
+            "votes": [
+                {
+                    "judge": v.judge_name,
+                    "vote": v.vote.value,
+                    "confidence": v.confidence,
+                    "reasoning": v.reasoning,
+                    "weight": v.weight,
+                }
+                for v in self.votes
+            ],
+            "approval_ratio": self.approval_ratio,
+            "weighted_approval": self.weighted_approval,
+            "confidence": self.confidence,
+            "reasoning": self.reasoning,
+            "dissenting_judges": self.dissenting_judges,
+            "abstaining_judges": self.abstaining_judges,
+        }
+
+
+class JudgePanel:
+    """
+    Panel of judges that evaluates debate consensus.
+
+    Coordinates judge voting and applies the selected judging strategy.
+    Use this when you want multiple independent judges to evaluate
+    debate outcomes for higher confidence in consensus validity.
+
+    Example:
+        # Create panel with 3 judges using weighted voting
+        panel = JudgePanel(
+            judges=selected_judges,
+            strategy=JudgingStrategy.WEIGHTED,
+            judge_weights={"claude": 1.2, "gpt4": 1.0, "gemini": 0.9}
+        )
+
+        # Record votes (typically from async judge evaluation)
+        panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Well-reasoned argument")
+        panel.record_vote("gpt4", JudgeVote.APPROVE, 0.8, "Sound logic")
+        panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Missing edge case")
+
+        # Get aggregated result
+        result = panel.get_result()
+        if result.approved:
+            print(f"Consensus approved with {result.confidence:.0%} confidence")
+    """
+
+    def __init__(
+        self,
+        judges: list["Agent"],
+        strategy: JudgingStrategy = JudgingStrategy.MAJORITY,
+        judge_weights: Optional[dict[str, float]] = None,
+    ):
+        """
+        Initialize judge panel.
+
+        Args:
+            judges: List of judge agents
+            strategy: Voting strategy for consensus
+            judge_weights: Optional per-judge weights (for weighted voting)
+        """
+        self.judges = judges
+        self.strategy = strategy
+        self.judge_weights = judge_weights or {}
+        self.votes: list[JudgeVoteRecord] = []
+
+    def record_vote(
+        self,
+        judge_name: str,
+        vote: JudgeVote,
+        confidence: float,
+        reasoning: str,
+        metadata: Optional[dict] = None,
+    ) -> JudgeVoteRecord:
+        """
+        Record a judge's vote.
+
+        Args:
+            judge_name: Name of the voting judge
+            vote: The vote (approve/reject/abstain)
+            confidence: Confidence level (0-1)
+            reasoning: Explanation for the vote
+            metadata: Optional additional data
+
+        Returns:
+            The recorded vote
+        """
+        weight = self.judge_weights.get(judge_name, 1.0)
+        record = JudgeVoteRecord(
+            judge_name=judge_name,
+            vote=vote,
+            confidence=confidence,
+            reasoning=reasoning,
+            weight=weight,
+            metadata=metadata or {},
+        )
+        self.votes.append(record)
+        logger.debug(
+            f"judge_vote recorded judge={judge_name} vote={vote.value} "
+            f"confidence={confidence:.2f} weight={weight:.2f}"
+        )
+        return record
+
+    def get_result(self) -> JudgingResult:
+        """
+        Compute judging result based on recorded votes.
+
+        Returns:
+            JudgingResult with approval status and reasoning
+        """
+        if not self.votes:
+            return JudgingResult(
+                approved=False,
+                strategy=self.strategy,
+                votes=[],
+                approval_ratio=0.0,
+                weighted_approval=0.0,
+                confidence=0.0,
+                reasoning="No votes recorded",
+            )
+
+        # Categorize votes
+        approvals = [v for v in self.votes if v.vote == JudgeVote.APPROVE]
+        rejections = [v for v in self.votes if v.vote == JudgeVote.REJECT]
+        abstentions = [v for v in self.votes if v.vote == JudgeVote.ABSTAIN]
+
+        # Compute ratios (excluding abstentions)
+        non_abstain = len(approvals) + len(rejections)
+        approval_ratio = len(approvals) / non_abstain if non_abstain > 0 else 0.0
+
+        # Compute weighted approval
+        total_weight = sum(v.weight for v in self.votes if v.vote != JudgeVote.ABSTAIN)
+        approve_weight = sum(v.weight for v in approvals)
+        weighted_approval = approve_weight / total_weight if total_weight > 0 else 0.0
+
+        # Apply strategy
+        approved = self._apply_strategy(approval_ratio, weighted_approval, approvals, rejections)
+
+        # Compute aggregate confidence
+        if approvals:
+            confidence = sum(v.confidence for v in approvals) / len(approvals)
+        elif rejections:
+            confidence = sum(v.confidence for v in rejections) / len(rejections)
+        else:
+            confidence = 0.0
+
+        # Generate reasoning
+        reasoning = self._generate_reasoning(approved, approvals, rejections, abstentions)
+
+        result = JudgingResult(
+            approved=approved,
+            strategy=self.strategy,
+            votes=self.votes.copy(),
+            approval_ratio=approval_ratio,
+            weighted_approval=weighted_approval,
+            confidence=confidence,
+            reasoning=reasoning,
+            dissenting_judges=[v.judge_name for v in rejections],
+            abstaining_judges=[v.judge_name for v in abstentions],
+        )
+
+        logger.info(
+            f"judge_panel_result approved={approved} strategy={self.strategy.value} "
+            f"ratio={approval_ratio:.2f} weighted={weighted_approval:.2f} "
+            f"confidence={confidence:.2f}"
+        )
+
+        return result
+
+    def _apply_strategy(
+        self,
+        approval_ratio: float,
+        weighted_approval: float,
+        approvals: list[JudgeVoteRecord],
+        rejections: list[JudgeVoteRecord],
+    ) -> bool:
+        """Apply judging strategy to determine approval."""
+        if self.strategy == JudgingStrategy.MAJORITY:
+            return approval_ratio > 0.5
+
+        elif self.strategy == JudgingStrategy.SUPERMAJORITY:
+            return approval_ratio >= 2 / 3
+
+        elif self.strategy == JudgingStrategy.UNANIMOUS:
+            return len(rejections) == 0 and len(approvals) > 0
+
+        elif self.strategy == JudgingStrategy.WEIGHTED:
+            return weighted_approval > 0.5
+
+        else:
+            # Default to majority
+            return approval_ratio > 0.5
+
+    def _generate_reasoning(
+        self,
+        approved: bool,
+        approvals: list[JudgeVoteRecord],
+        rejections: list[JudgeVoteRecord],
+        abstentions: list[JudgeVoteRecord],
+    ) -> str:
+        """Generate human-readable reasoning for the result."""
+        parts = []
+
+        if approved:
+            parts.append(f"Consensus APPROVED by judge panel ({self.strategy.value} strategy).")
+        else:
+            parts.append(f"Consensus REJECTED by judge panel ({self.strategy.value} strategy).")
+
+        parts.append(
+            f"Votes: {len(approvals)} approve, {len(rejections)} reject, "
+            f"{len(abstentions)} abstain."
+        )
+
+        if approvals:
+            parts.append(f"Key approval reason: {approvals[0].reasoning[:100]}")
+
+        if rejections:
+            parts.append(f"Key rejection reason: {rejections[0].reasoning[:100]}")
+
+        return " ".join(parts)
+
+    def reset(self) -> None:
+        """Clear recorded votes for reuse."""
+        self.votes.clear()
+
+
+def create_judge_panel(
+    candidates: list["Agent"],
+    participants: Optional[list["Agent"]] = None,
+    domain: str = "general",
+    strategy: JudgingStrategy = JudgingStrategy.MAJORITY,
+    count: int = 3,
+    elo_system: Optional["EloSystem"] = None,
+    exclude_participants: bool = True,
+) -> JudgePanel:
+    """
+    Convenience function to create a judge panel from candidate agents.
+
+    Selects judges based on ELO and calibration scores, excluding
+    debate participants if specified.
+
+    Args:
+        candidates: Pool of potential judges
+        participants: Debate participants to exclude
+        domain: Debate domain (for logging)
+        strategy: Judging strategy
+        count: Number of judges to select
+        elo_system: Optional ELO system for scoring
+        exclude_participants: Whether to exclude participants from judging
+
+    Returns:
+        Configured JudgePanel ready for evaluation
+    """
+    # Filter out participants
+    participant_names = set()
+    if participants and exclude_participants:
+        participant_names = {p.name for p in participants}
+
+    available = [a for a in candidates if a.name not in participant_names]
+
+    if not available:
+        logger.warning("No eligible judges after filtering participants")
+        available = candidates  # Fall back to all candidates
+
+    # Score and rank by composite score if ELO system available
+    if elo_system:
+        scorer = JudgeScoringMixin(elo_system)
+        scores = scorer.get_all_scores(available)
+
+        # Select top candidates
+        judge_names = [s.agent_name for s in scores[:count]]
+        judges = [a for a in available if a.name in judge_names]
+
+        # Build weights from calibration scores
+        weights = {s.agent_name: 0.5 + s.calibration_score for s in scores[:count]}
+    else:
+        # Random selection without scoring
+        judges = available[:count] if len(available) >= count else available
+        weights = {}
+
+    logger.info(
+        f"create_judge_panel domain={domain} count={len(judges)} "
+        f"excluded={len(participant_names)} participants"
+    )
+
+    return JudgePanel(judges=judges, strategy=strategy, judge_weights=weights)

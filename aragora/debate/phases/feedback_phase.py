@@ -29,11 +29,15 @@ import asyncio
 import logging
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
+if not TYPE_CHECKING:
+    from aragora.memory.consensus import ConsensusStrength
+
 from aragora.agents.errors import _build_error_action
 
 if TYPE_CHECKING:
     from aragora.core import Agent, DebateResult
     from aragora.debate.context import DebateContext
+    from aragora.memory.consensus import ConsensusStrength
 
 logger = logging.getLogger(__name__)
 
@@ -644,12 +648,12 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug(f"Trait emergence check error: {e}")
 
-    def _detect_emerging_traits(self, agent_name: str, ctx: "DebateContext") -> list:
+    def _detect_emerging_traits(self, agent_name: str, ctx: "DebateContext") -> list[dict[str, Any]]:
         """Detect traits based on agent performance patterns.
 
         Returns list of trait dicts with name, description, confidence.
         """
-        traits = []
+        traits: list[dict[str, Any]] = []
 
         try:
             # Get performance stats if available
@@ -970,7 +974,7 @@ class FeedbackPhase:
             )
 
             # Store ID for crux storage in next phase
-            ctx._last_consensus_id = consensus_record.id
+            setattr(ctx, "_last_consensus_id", consensus_record.id)
 
             # Store dissenting views as dissent records
             if dissenting_agents and result.votes:
@@ -1092,7 +1096,7 @@ class FeedbackPhase:
 
         # 3. From votes with conflicting rationales
         if result.votes and len(result.votes) >= 2:
-            vote_choices = {}
+            vote_choices: dict[str, list[dict[str, str]]] = {}
             for vote in result.votes:
                 choice = vote.choice
                 if choice not in vote_choices:
@@ -1506,20 +1510,20 @@ class FeedbackPhase:
             },
         }
 
-    def _build_dpo_records(self, ctx: "DebateContext") -> list[dict]:
+    def _build_dpo_records(self, ctx: "DebateContext") -> list[dict[str, Any]]:
         """Build DPO (Direct Preference Optimization) records from vote outcomes.
 
         Creates preference pairs where winner = chosen, loser = rejected.
         Only generates pairs when there's a clear winner.
         """
         result = ctx.result
-        records = []
+        records: list[dict[str, Any]] = []
 
         if not result.winner or not result.messages:
             return records
 
         # Extract agent responses from messages
-        agent_responses = {}
+        agent_responses: dict[str, str] = {}
         for msg in result.messages:
             agent_name = getattr(msg, "agent", None)
             if not agent_name:
@@ -1568,13 +1572,13 @@ class FeedbackPhase:
 
         return records
 
-    def _build_calibration_records(self, ctx: "DebateContext") -> list[dict]:
+    def _build_calibration_records(self, ctx: "DebateContext") -> list[dict[str, Any]]:
         """Build calibration training records from prediction accuracy.
 
         Creates records mapping confidence to correctness for each vote.
         """
         result = ctx.result
-        records = []
+        records: list[dict[str, Any]] = []
 
         if not result.votes or not result.winner:
             return records

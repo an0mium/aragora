@@ -1083,6 +1083,34 @@ class AgentSelector:
 
         return roles
 
+    # Phase role configuration: phase -> (agent_role_map, fallback_role)
+    # agent_role_map: {agent_type: role}
+    _PHASE_ROLES: dict[str, tuple[dict[str, str], str]] = {
+        "debate": ({}, "proposer"),  # All agents are proposers
+        "design": (
+            {
+                "gemini": "design_lead",
+                "claude": "architecture_critic",
+                "codex": "implementation_critic",
+                "grok": "devil_advocate",
+                "deepseek": "logic_validator",
+            },
+            "critic",
+        ),
+        "implement": ({"claude": "implementer"}, "advisor"),
+        "verify": (
+            {
+                "codex": "verification_lead",
+                "grok": "quality_auditor",
+                "gemini": "design_validator",
+                "claude": "implementation_reviewer",
+                "deepseek": "formal_verifier",
+            },
+            "reviewer",
+        ),
+        "commit": ({}, "reviewer"),
+    }
+
     def assign_hybrid_roles(
         self,
         team: list[AgentProfile],
@@ -1098,79 +1126,21 @@ class AgentSelector:
         - Grok: Lateral thinker/devil's advocate (critiques all phases)
         - DeepSeek: Rigorous analyst/formal reasoner (validates logic all phases)
         """
-        roles = {}
-        agent_map = {a.name.lower(): a for a in team}
+        roles: dict[str, str] = {}
 
-        # Helper to find agent by type
-        def find_agent(agent_type: str) -> AgentProfile | None:
-            for agent in team:
+        # Get phase configuration or default fallback
+        role_map, fallback = self._PHASE_ROLES.get(phase, ({}, "participant"))
+
+        # Assign roles from the role map
+        for agent in team:
+            assigned = False
+            for agent_type, role in role_map.items():
                 if agent_type in agent.name.lower() or agent.agent_type == agent_type:
-                    return agent
-            return None
-
-        gemini = find_agent("gemini")
-        claude = find_agent("claude")
-        codex = find_agent("codex")
-        grok = find_agent("grok")
-        deepseek = find_agent("deepseek")
-
-        if phase == "debate":
-            # All agents are proposers in debate phase
-            for agent in team:
-                roles[agent.name] = "proposer"
-
-        elif phase == "design":
-            # Gemini leads design as primary proposer
-            if gemini:
-                roles[gemini.name] = "design_lead"
-            if claude:
-                roles[claude.name] = "architecture_critic"
-            if codex:
-                roles[codex.name] = "implementation_critic"
-            if grok:
-                roles[grok.name] = "devil_advocate"
-            if deepseek:
-                roles[deepseek.name] = "logic_validator"
-            # Fallback for any unassigned
-            for agent in team:
-                if agent.name not in roles:
-                    roles[agent.name] = "critic"
-
-        elif phase == "implement":
-            # Claude leads implementation
-            if claude:
-                roles[claude.name] = "implementer"
-            # Others are advisors
-            for agent in team:
-                if agent.name not in roles:
-                    roles[agent.name] = "advisor"
-
-        elif phase == "verify":
-            # Codex leads verification
-            if codex:
-                roles[codex.name] = "verification_lead"
-            if grok:
-                roles[grok.name] = "quality_auditor"
-            if gemini:
-                roles[gemini.name] = "design_validator"
-            if claude:
-                roles[claude.name] = "implementation_reviewer"
-            if deepseek:
-                roles[deepseek.name] = "formal_verifier"
-            # Fallback
-            for agent in team:
-                if agent.name not in roles:
-                    roles[agent.name] = "reviewer"
-
-        elif phase == "commit":
-            # All agents review commit
-            for agent in team:
-                roles[agent.name] = "reviewer"
-
-        else:
-            # Fallback to standard role assignment
-            for agent in team:
-                roles[agent.name] = "participant"
+                    roles[agent.name] = role
+                    assigned = True
+                    break
+            if not assigned:
+                roles[agent.name] = fallback
 
         return roles
 

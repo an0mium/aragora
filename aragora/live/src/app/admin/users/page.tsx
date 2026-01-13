@@ -56,7 +56,8 @@ function StatusBadge({ active }: { active: boolean }) {
 
 export default function UsersAdminPage() {
   const { config: backendConfig } = useBackend();
-  const { user, isAuthenticated, token } = useAuth();
+  const { user, isAuthenticated, tokens } = useAuth();
+  const token = tokens?.access_token;  // Extract access token;
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);

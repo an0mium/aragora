@@ -14,7 +14,7 @@ from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
 from types import TracebackType
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 from aragora.utils.cache_registry import register_lru_cache
@@ -66,10 +66,27 @@ try:
 
     PROMPT_EVOLVER_AVAILABLE = True
 except ImportError:
-    PromptEvolver = None
+    PromptEvolver = None  # type: ignore[misc, assignment]
     PROMPT_EVOLVER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+
+# TYPE_CHECKING imports for type hints without runtime import overhead
+if TYPE_CHECKING:
+    from aragora.debate.context_gatherer import ContextGatherer
+    from aragora.debate.memory_manager import MemoryManager
+    from aragora.debate.phases import (
+        AnalyticsPhase,
+        ConsensusPhase,
+        ContextInitializer,
+        DebateRoundsPhase,
+        FeedbackPhase,
+        ProposalPhase,
+        VotingPhase,
+    )
+    from aragora.debate.prompt_builder import PromptBuilder
+    from aragora.reasoning.citations import CitationExtractor
+    from aragora.reasoning.evidence_grounding import EvidenceGrounder
 
 
 @register_lru_cache
@@ -110,6 +127,20 @@ class Arena:
     4. Repeat for configured rounds
     5. Consensus mechanism selects final answer
     """
+
+    # Phase class attributes (initialized by init_phases)
+    voting_phase: "VotingPhase"
+    citation_extractor: Optional["CitationExtractor"]
+    evidence_grounder: "EvidenceGrounder"
+    prompt_builder: "PromptBuilder"
+    memory_manager: "MemoryManager"
+    context_gatherer: "ContextGatherer"
+    context_initializer: "ContextInitializer"
+    proposal_phase: "ProposalPhase"
+    debate_rounds_phase: "DebateRoundsPhase"
+    consensus_phase: "ConsensusPhase"
+    analytics_phase: "AnalyticsPhase"
+    feedback_phase: "FeedbackPhase"
 
     def __init__(
         self,

@@ -39,6 +39,54 @@ Run a comprehensive security audit using the Gauntlet:
 npx ts-node examples/gauntlet-audit.ts
 ```
 
+### Matrix Debate
+
+Run parallel debates across multiple scenarios:
+
+```bash
+npx ts-node examples/matrix-debate.ts
+```
+
+### Consensus Voting
+
+Use debates for group decision-making:
+
+```bash
+npx ts-node examples/consensus-voting.ts
+```
+
+### Evidence Research
+
+Collect and analyze evidence for research tasks:
+
+```bash
+npx ts-node examples/evidence-research.ts
+```
+
+### Batch Analysis
+
+Process multiple topics in parallel:
+
+```bash
+npx ts-node examples/batch-analysis.ts
+```
+
+### Real-Time Streaming
+
+Stream debate events via WebSocket:
+
+```bash
+npx ts-node examples/streaming-example.ts
+```
+
+### Error Handling
+
+Comprehensive error handling patterns:
+
+```bash
+npx ts-node examples/error-handling.ts
+```
+
 ## Quick Start
 
 ```typescript
@@ -147,6 +195,52 @@ const analytics = await client.memory.analytics(30); // last 30 days
 
 // Get tier statistics
 const tierStats = await client.memory.tierStats('fast');
+```
+
+### Evidence Collection & Research
+
+```typescript
+// Collect evidence on a topic
+const evidence = await client.evidence.collect({
+  task: 'Climate change impacts on agriculture',
+  connectors: ['duckduckgo', 'wikipedia'],
+});
+
+// Search existing evidence
+const results = await client.evidence.search({
+  query: 'renewable energy',
+  limit: 20,
+  min_reliability: 0.5,
+});
+
+// Get evidence for a debate
+const debateEvidence = await client.evidence.forDebate(debateId);
+
+// Associate evidence with a debate
+await client.evidence.associateWithDebate(debateId, evidenceIds, {
+  relevance_score: 0.8,
+});
+
+// Get evidence statistics
+const stats = await client.evidence.statistics();
+```
+
+### Batch Debates
+
+```typescript
+// Create batch of debates
+const batch = await client.batchDebates.create({
+  debates: [
+    { task: 'Topic 1', agents: ['claude', 'gpt-4'] },
+    { task: 'Topic 2', agents: ['claude', 'gpt-4'] },
+  ],
+});
+
+// Check batch status
+const status = await client.batchDebates.getStatus(batch.batch_id);
+
+// Get all results
+const results = await client.batchDebates.get(batch.batch_id);
 ```
 
 ### Agents & Leaderboard

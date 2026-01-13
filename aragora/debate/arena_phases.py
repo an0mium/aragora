@@ -34,7 +34,7 @@ try:
 
     GENESIS_AVAILABLE = True
 except ImportError:
-    PopulationManager = None
+    PopulationManager = None  # type: ignore[misc, assignment]
     GENESIS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
@@ -403,7 +403,7 @@ def init_phases(arena: "Arena") -> None:
         auto_evolve=arena.auto_evolve,
         breeding_threshold=arena.breeding_threshold,
         prompt_evolver=arena.prompt_evolver,
-        broadcast_pipeline=arena.broadcast_pipeline,
-        auto_broadcast=arena.auto_broadcast,
-        broadcast_min_confidence=arena.broadcast_min_confidence,
+        broadcast_pipeline=arena.extensions.broadcast_pipeline,
+        auto_broadcast=arena.extensions.auto_broadcast,
+        broadcast_min_confidence=arena.extensions.broadcast_min_confidence,
     )

@@ -753,8 +753,8 @@ class GauntletOrchestrator:
         # Generate and save receipt if configured
         if result.config.generate_receipt:
             receipt = DecisionReceipt.from_gauntlet_result(result)
-            receipt.export(output_dir / f"{result.id}_receipt.md", format="markdown")
-            receipt.export(output_dir / f"{result.id}_receipt.json", format="json")
+            (output_dir / f"{result.id}_receipt.md").write_text(receipt.to_markdown())
+            (output_dir / f"{result.id}_receipt.json").write_text(receipt.to_json())
 
         logger.info(f"Saved Gauntlet artifacts to {output_dir}")
 

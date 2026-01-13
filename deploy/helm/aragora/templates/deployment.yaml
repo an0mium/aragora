@@ -95,6 +95,20 @@ spec:
                   key: SUPABASE_KEY
                   optional: true
             {{- end }}
+            {{- if .Values.postgres.enabled }}
+            - name: ARAGORA_DB_BACKEND
+              value: "postgres"
+            {{- if .Values.postgres.existingSecret }}
+            - name: ARAGORA_POSTGRES_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.existingSecret }}
+                  key: DATABASE_URL
+            {{- else if .Values.postgres.dsn }}
+            - name: ARAGORA_POSTGRES_DSN
+              value: {{ .Values.postgres.dsn | quote }}
+            {{- end }}
+            {{- end }}
           {{- if .Values.persistence.enabled }}
           volumeMounts:
             - name: data

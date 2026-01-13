@@ -70,12 +70,15 @@ function ScenarioCard({
   result,
   isExpanded,
   onToggle,
+  index,
 }: {
   result: ScenarioResult;
   isExpanded: boolean;
   onToggle: () => void;
+  index?: number;
 }) {
   const winnerColors = result.winner ? getAgentColors(result.winner) : null;
+  const cardId = `scenario-card-${index ?? result.scenario_name.replace(/\s+/g, '-')}`;
 
   return (
     <div
@@ -86,10 +89,22 @@ function ScenarioCard({
           ? 'border-acid-green/40'
           : 'border-crimson/40'
       }`}
+      role="article"
+      aria-labelledby={`${cardId}-title`}
     >
       <div
-        className="px-4 py-3 cursor-pointer hover:bg-bg/50 transition-colors"
+        className="px-4 py-3 cursor-pointer hover:bg-bg/50 transition-colors focus:outline-none focus:ring-2 focus:ring-acid-green/50 focus:bg-bg/50"
         onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        tabIndex={0}
+        role="button"
+        aria-expanded={isExpanded}
+        aria-controls={`${cardId}-content`}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -97,10 +112,18 @@ function ScenarioCard({
               className={`text-xs font-mono ${
                 result.is_baseline ? 'text-gold' : 'text-acid-cyan'
               }`}
+              aria-hidden="true"
             >
               {result.is_baseline ? '[BASELINE]' : '[SCENARIO]'}
             </span>
-            <span className="text-sm font-mono text-text">{result.scenario_name}</span>
+            <span id={`${cardId}-title`} className="text-sm font-mono text-text">
+              {result.scenario_name}
+              <span className="sr-only">
+                {result.is_baseline ? ' (baseline)' : ''} -
+                {result.consensus_reached ? 'consensus reached' : 'no consensus'},
+                {(result.confidence * 100).toFixed(0)}% confidence
+              </span>
+            </span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -139,7 +162,7 @@ function ScenarioCard({
       </div>
 
       {isExpanded && (
-        <div className="px-4 pb-4 border-t border-border space-y-3 pt-3">
+        <div id={`${cardId}-content`} className="px-4 pb-4 border-t border-border space-y-3 pt-3">
           {/* Final answer */}
           <div>
             <div className="text-xs font-mono text-text-muted mb-1">CONCLUSION</div>
@@ -428,6 +451,7 @@ function GridView({
   }, [results]);
 
   const [selectedForCompare, setSelectedForCompare] = useState<number | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState<number>(0);
 
   const handleCellClick = (index: number) => {
     if (selectedForCompare === null) {
@@ -440,17 +464,72 @@ function GridView({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+    const cols = window.innerWidth >= 1280 ? 4 : window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1;
+    let newIndex = index;
+
+    switch (e.key) {
+      case 'ArrowRight':
+        newIndex = Math.min(results.length - 1, index + 1);
+        break;
+      case 'ArrowLeft':
+        newIndex = Math.max(0, index - 1);
+        break;
+      case 'ArrowDown':
+        newIndex = Math.min(results.length - 1, index + cols);
+        break;
+      case 'ArrowUp':
+        newIndex = Math.max(0, index - cols);
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        handleCellClick(index);
+        return;
+      case 'Escape':
+        if (selectedForCompare !== null) {
+          setSelectedForCompare(null);
+        }
+        return;
+      default:
+        return;
+    }
+
+    if (newIndex !== index) {
+      e.preventDefault();
+      setFocusedIndex(newIndex);
+      // Focus the new cell
+      const cell = document.getElementById(`grid-cell-${newIndex}`);
+      cell?.focus();
+    }
+  };
+
   return (
-    <div className="overflow-x-auto">
-      <div className="text-xs font-mono text-text-muted mb-2">
-        Click two scenarios to compare them side-by-side
+    <div className="overflow-x-auto" role="grid" aria-label="Scenario comparison grid">
+      <div className="text-xs font-mono text-text-muted mb-2" id="grid-instructions">
+        Click or press Enter on two scenarios to compare them. Use arrow keys to navigate.
+        {selectedForCompare !== null && (
+          <span className="text-purple ml-2">
+            Selected: {results[selectedForCompare]?.scenario_name} - select another to compare (Esc to cancel)
+          </span>
+        )}
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
+        role="rowgroup"
+        aria-describedby="grid-instructions"
+      >
         {results.map((r, i) => (
           <div
             key={i}
+            id={`grid-cell-${i}`}
             onClick={() => handleCellClick(i)}
-            className={`p-3 border cursor-pointer transition-all duration-200 ${
+            onKeyDown={(e) => handleKeyDown(e, i)}
+            tabIndex={i === focusedIndex ? 0 : -1}
+            role="gridcell"
+            aria-selected={selectedForCompare === i}
+            aria-label={`${r.scenario_name}${r.is_baseline ? ' (baseline)' : ''}: ${r.consensus_reached ? 'consensus reached' : 'no consensus'}, ${(r.confidence * 100).toFixed(0)}% confidence`}
+            className={`p-3 border cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple/50 ${
               selectedForCompare === i
                 ? 'border-purple bg-purple/20 scale-105'
                 : r.is_baseline
@@ -846,7 +925,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                   }}
                 />
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3" role="list" aria-label="Scenario results">
                   {filteredResults.map((scenarioResult, i) => {
                     const originalIdx = result.results.indexOf(scenarioResult);
                     return (
@@ -855,6 +934,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                         result={scenarioResult}
                         isExpanded={expandedScenarios.has(originalIdx)}
                         onToggle={() => toggleExpanded(originalIdx)}
+                        index={originalIdx}
                       />
                     );
                   })}

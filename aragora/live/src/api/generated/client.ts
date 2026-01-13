@@ -4,6 +4,77 @@
  */
 
 import type * as Types from './types';
+import type {
+  // Debate types
+  DebateSummary,
+  DebateCreateRequest,
+  DebateCreateResponse,
+  Debate,
+  Round,
+  Message,
+  Critique,
+  ImpasseAnalysis,
+  ConvergenceStatus,
+  Citations,
+  ConsensusStats,
+  SimilarDebate,
+  SettledTopic,
+  Dissent,
+  // Agent types
+  AgentProfile,
+  AgentComparison,
+  LeaderboardEntry,
+  Match,
+  MatchHistoryEntry,
+  ConsistencyScore,
+  RelationshipNetwork,
+  PositionFlip,
+  AgentRecommendation,
+  // Memory types
+  Memory,
+  TierStats,
+  // Tournament types
+  Tournament,
+  TournamentStandings,
+  // Replay types
+  Replay,
+  ReplaySummary,
+  // Document types
+  Document,
+  DocumentSummary,
+  SupportedFormats,
+  // Health types
+  DetailedHealth,
+  NomicState,
+  NomicHealth,
+  Mode,
+  // Verification types
+  VerificationStatus,
+  VerificationResult,
+  // Stats types
+  DisagreementStats,
+  RankingStats,
+  RelationshipSummary,
+  RelationshipGraph,
+  Relationship,
+  MomentsSummary,
+  Moment,
+  DashboardMetrics,
+  TrendingTopic,
+  SchedulerStatus,
+  ScheduledDebateRecord,
+  // Probe/Evolution types
+  ProbeReport,
+  EmergentTrait,
+  CrossPollinationSuggestion,
+  Insight,
+  TeamCombination,
+  EvolutionPattern,
+  EvolutionEvent,
+} from './types';
+
+// Re-export types for convenience
+export type { Types };
 
 export interface ApiClientConfig {
   baseUrl: string;
@@ -216,7 +287,8 @@ Use POST /api/debates instead.
    * Compare multiple agents
    */
   async getAgentCompare(query?: { agents: string[] }, options?: RequestOptions): Promise<AgentComparison> {
-    return this.request<AgentComparison>('GET', `/api/agent/compare`, { ...options, query: query as Record<string, string | number | undefined> });
+    const queryParams = query ? { agents: query.agents.join(',') } : undefined;
+    return this.request<AgentComparison>('GET', `/api/agent/compare`, { ...options, query: queryParams });
   }
 
   /**
@@ -640,7 +712,7 @@ Use POST /api/debates instead.
    * Handle Slack slash commands
    * Endpoint for Slack to POST slash command payloads
    */
-  async postIntegrationsSlackCommands(options?: RequestOptions): Promise<{
+  async postIntegrationsSlackCommands(body: Record<string, unknown>, options?: RequestOptions): Promise<{
   response_type?: 'ephemeral' | 'in_channel';
   text?: string;
   blocks?: Record<string, unknown>[];
@@ -656,7 +728,7 @@ Use POST /api/debates instead.
    * Handle Slack interactive components
    * Endpoint for Slack interactive component callbacks
    */
-  async postIntegrationsSlackInteractive(options?: RequestOptions): Promise<Record<string, unknown>> {
+  async postIntegrationsSlackInteractive(body: Record<string, unknown>, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('POST', `/api/integrations/slack/interactive`, { ...options, body });
   }
 
@@ -901,7 +973,7 @@ Probes test for contradiction handling, hallucination, sycophancy, and more.
    * Get podcast RSS feed
    * Returns RSS feed for the Aragora podcast
    */
-  async getPodcastFeed.xml(options?: RequestOptions): Promise<unknown> {
+  async getPodcastFeedXml(options?: RequestOptions): Promise<unknown> {
     return this.request<unknown>('GET', `/api/podcast/feed.xml`, { ...options });
   }
 

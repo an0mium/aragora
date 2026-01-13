@@ -29,6 +29,44 @@ def parse_agents(agents_str: str) -> list[tuple[str, str]]:
     return agents
 
 
+# API key environment variable mapping for error messages
+_API_KEY_ENV_VARS = {
+    "anthropic-api": "ANTHROPIC_API_KEY",
+    "openai-api": "OPENAI_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "grok": "XAI_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+}
+
+
+def _format_agent_error(agent_type: str, error: str) -> str:
+    """Format agent creation error with helpful guidance."""
+    is_api_agent = "api" in agent_type.lower() or agent_type in _API_KEY_ENV_VARS
+    if is_api_agent:
+        env_var = _API_KEY_ENV_VARS.get(
+            agent_type, f"{agent_type.upper().replace('-', '_')}_API_KEY"
+        )
+        return f"  - {agent_type}: {env_var} not set or invalid"
+    return f"  - {agent_type}: {error}"
+
+
+def _save_receipt(receipt, output_path: Path, format_ext: str) -> Path:
+    """Save decision receipt in the specified format."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    format_handlers = {
+        "json": (lambda r: r.to_json(), ".json"),
+        "md": (lambda r: r.to_markdown(), ".md"),
+    }
+
+    handler, suffix = format_handlers.get(format_ext, (lambda r: r.to_html(), ".html"))
+    output_file = output_path.with_suffix(suffix)
+    output_file.write_text(handler(receipt))
+    return output_file
+
+
 def cmd_gauntlet(args: argparse.Namespace) -> None:
     """Handle 'gauntlet' command - adversarial stress-testing."""
     from aragora.agents.base import create_agent
@@ -102,30 +140,7 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
         print("\nError: No agents could be created.")
         print("\nFailed agents:")
         for agent_type, error in failed_agents:
-            # Provide specific guidance based on agent type
-            if "api" in agent_type.lower() or agent_type in [
-                "anthropic-api",
-                "openai-api",
-                "gemini",
-                "grok",
-                "mistral",
-            ]:
-                env_var_map = {
-                    "anthropic-api": "ANTHROPIC_API_KEY",
-                    "openai-api": "OPENAI_API_KEY",
-                    "gemini": "GEMINI_API_KEY",
-                    "grok": "XAI_API_KEY",
-                    "mistral": "MISTRAL_API_KEY",
-                    "deepseek": "DEEPSEEK_API_KEY",
-                    "openrouter": "OPENROUTER_API_KEY",
-                }
-                env_var = env_var_map.get(
-                    agent_type, f"{agent_type.upper().replace('-', '_')}_API_KEY"
-                )
-                print(f"  - {agent_type}: {env_var} not set or invalid")
-            else:
-                print(f"  - {agent_type}: {error}")
-
+            print(_format_agent_error(agent_type, error))
         print("\nTo fix:")
         print("  1. Set the required API key: export ANTHROPIC_API_KEY='your-key'")
         print("  2. Run 'aragora agents' to see available agents")
@@ -134,41 +149,31 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
 
     print(f"Agents: {', '.join(a.name for a in agents)}")
 
+    # Profile configuration: profile -> (config, persona)
+    profile_configs = {
+        "quick": (QUICK_GAUNTLET, None),
+        "thorough": (THOROUGH_GAUNTLET, None),
+        "code": (CODE_REVIEW_GAUNTLET, None),
+        "policy": (POLICY_GAUNTLET, None),
+        "gdpr": (GDPR_GAUNTLET, "gdpr"),
+        "hipaa": (HIPAA_GAUNTLET, "hipaa"),
+        "ai_act": (AI_ACT_GAUNTLET, "ai_act"),
+        "security": (SECURITY_GAUNTLET, "security"),
+        "sox": (SOX_GAUNTLET, "sox"),
+    }
+
     # Select config profile
-    persona = None
-    if hasattr(args, "persona") and args.persona:
-        # Use persona-based compliance profile
-        persona = args.persona
+    persona = getattr(args, "persona", None)
+    if persona:
         print(f"Persona: {persona}")
-        if args.profile == "quick":
-            base_config = QUICK_GAUNTLET
-        elif args.profile == "thorough":
-            base_config = THOROUGH_GAUNTLET
+        # Use persona-based compliance profile, but allow quick/thorough override
+        if args.profile in ("quick", "thorough"):
+            base_config, _ = profile_configs[args.profile]
         else:
             base_config = get_compliance_gauntlet(persona)
-    elif args.profile == "quick":
-        base_config = QUICK_GAUNTLET
-    elif args.profile == "thorough":
-        base_config = THOROUGH_GAUNTLET
-    elif args.profile == "code":
-        base_config = CODE_REVIEW_GAUNTLET
-    elif args.profile == "policy":
-        base_config = POLICY_GAUNTLET
-    elif args.profile == "gdpr":
-        base_config = GDPR_GAUNTLET
-        persona = "gdpr"
-    elif args.profile == "hipaa":
-        base_config = HIPAA_GAUNTLET
-        persona = "hipaa"
-    elif args.profile == "ai_act":
-        base_config = AI_ACT_GAUNTLET
-        persona = "ai_act"
-    elif args.profile == "security":
-        base_config = SECURITY_GAUNTLET
-        persona = "security"
-    elif args.profile == "sox":
-        base_config = SOX_GAUNTLET
-        persona = "sox"
+    elif args.profile in profile_configs:
+        base_config, profile_persona = profile_configs[args.profile]
+        persona = profile_persona  # Set persona from profile if defined
     else:
         base_config = OrchestratorConfig()
 
@@ -236,28 +241,15 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
     # Generate and save receipt
     if args.output:
         output_path = Path(args.output)
-
         input_hash = hashlib.sha256(config.input_content.encode()).hexdigest()
         receipt = DecisionReceipt.from_mode_result(result, input_hash=input_hash)
 
         # Determine format from extension or --format
         format_ext = args.format or output_path.suffix.lstrip(".")
-        if format_ext not in ("json", "md", "html", "pdf"):
+        if format_ext not in ("json", "md", "html"):
             format_ext = "html"
 
-        # Save in appropriate format
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        if format_ext == "json":
-            output_file = output_path.with_suffix(".json")
-            output_file.write_text(receipt.to_json())
-        elif format_ext == "md":
-            output_file = output_path.with_suffix(".md")
-            output_file.write_text(receipt.to_markdown())
-        else:
-            output_file = output_path.with_suffix(".html")
-            output_file.write_text(receipt.to_html())
-
+        output_file = _save_receipt(receipt, output_path, format_ext)
         print(f"\nDecision Receipt saved: {output_file}")
         print(f"Artifact Hash: {receipt.artifact_hash[:16]}...")
 

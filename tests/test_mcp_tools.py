@@ -498,23 +498,17 @@ class TestListAgentsTool:
     @pytest.mark.asyncio
     async def test_returns_available_agents(self):
         """Test listing available agents."""
-        mock_registry = MagicMock()
-        mock_registry.list_available_agents = MagicMock(
-            return_value=[
-                "anthropic-api",
-                "openai-api",
-                "gemini",
-                "grok",
-            ]
-        )
+        mock_agents = {
+            "anthropic-api": MagicMock(),
+            "openai-api": MagicMock(),
+            "gemini": MagicMock(),
+            "grok": MagicMock(),
+        }
 
-        with patch.dict("sys.modules", {"aragora.agents.registry": mock_registry}):
-            import importlib
-            from aragora.mcp import tools as mcp_tools
+        with patch("aragora.agents.base.list_available_agents", return_value=mock_agents):
+            from aragora.mcp.tools import list_agents_tool
 
-            importlib.reload(mcp_tools)
-
-            result = await mcp_tools.list_agents_tool()
+            result = await list_agents_tool()
 
             assert result["count"] == 4
             assert "anthropic-api" in result["agents"]
@@ -523,18 +517,10 @@ class TestListAgentsTool:
     @pytest.mark.asyncio
     async def test_fallback_on_registry_error(self):
         """Test fallback list when registry fails."""
-        mock_registry = MagicMock()
-        mock_registry.list_available_agents = MagicMock(
-            side_effect=ImportError("Registry not found")
-        )
+        with patch("aragora.agents.base.list_available_agents", side_effect=ImportError("Not found")):
+            from aragora.mcp.tools import list_agents_tool
 
-        with patch.dict("sys.modules", {"aragora.agents.registry": mock_registry}):
-            import importlib
-            from aragora.mcp import tools as mcp_tools
-
-            importlib.reload(mcp_tools)
-
-            result = await mcp_tools.list_agents_tool()
+            result = await list_agents_tool()
 
             assert "agents" in result
             assert result["count"] >= 5  # Fallback has at least 5
@@ -544,16 +530,10 @@ class TestListAgentsTool:
     @pytest.mark.asyncio
     async def test_fallback_includes_common_agents(self):
         """Test fallback list includes common agent types."""
-        mock_registry = MagicMock()
-        mock_registry.list_available_agents = MagicMock(side_effect=Exception("Any error"))
+        with patch("aragora.agents.base.list_available_agents", side_effect=Exception("Any error")):
+            from aragora.mcp.tools import list_agents_tool
 
-        with patch.dict("sys.modules", {"aragora.agents.registry": mock_registry}):
-            import importlib
-            from aragora.mcp import tools as mcp_tools
-
-            importlib.reload(mcp_tools)
-
-            result = await mcp_tools.list_agents_tool()
+            result = await list_agents_tool()
 
             assert "anthropic-api" in result["agents"]
             assert "openai-api" in result["agents"]

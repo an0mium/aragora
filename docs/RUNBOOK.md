@@ -621,6 +621,204 @@ exit 0
 
 ---
 
+## Kubernetes Deployment
+
+### Prerequisites
+
+- Kubernetes cluster (1.26+)
+- kubectl configured
+- Helm 3.x (optional, for Helm charts)
+- Container registry access
+
+### Deployment Files
+
+```
+k8s/
+├── namespace.yaml
+├── configmap.yaml
+├── secret.yaml
+├── deployment.yaml
+├── service.yaml
+├── ingress.yaml
+├── hpa.yaml
+└── pdb.yaml
+```
+
+### Basic Deployment
+
+```bash
+# Create namespace
+kubectl create namespace aragora
+
+# Create secrets (from environment)
+kubectl create secret generic aragora-secrets \
+  --from-literal=ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
+  --from-literal=OPENAI_API_KEY="${OPENAI_API_KEY}" \
+  --from-literal=ARAGORA_JWT_SECRET="${ARAGORA_JWT_SECRET}" \
+  --from-literal=SUPABASE_KEY="${SUPABASE_KEY}" \
+  -n aragora
+
+# Apply configuration
+kubectl apply -f k8s/configmap.yaml -n aragora
+kubectl apply -f k8s/deployment.yaml -n aragora
+kubectl apply -f k8s/service.yaml -n aragora
+kubectl apply -f k8s/ingress.yaml -n aragora
+
+# Verify deployment
+kubectl get pods -n aragora
+kubectl logs -f deployment/aragora -n aragora
+```
+
+### Deployment Manifest Example
+
+```yaml
+# k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aragora
+  namespace: aragora
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: aragora
+  template:
+    metadata:
+      labels:
+        app: aragora
+    spec:
+      containers:
+      - name: aragora
+        image: ghcr.io/aragora/aragora:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8766
+          name: websocket
+        envFrom:
+        - configMapRef:
+            name: aragora-config
+        - secretRef:
+            name: aragora-secrets
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+```
+
+### Horizontal Pod Autoscaler
+
+```yaml
+# k8s/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aragora-hpa
+  namespace: aragora
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aragora
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+```
+
+### Rolling Update Strategy
+
+```bash
+# Update image with rolling deployment
+kubectl set image deployment/aragora aragora=ghcr.io/aragora/aragora:v0.9.0 -n aragora
+
+# Watch rollout status
+kubectl rollout status deployment/aragora -n aragora
+
+# Rollback if needed
+kubectl rollout undo deployment/aragora -n aragora
+
+# View rollout history
+kubectl rollout history deployment/aragora -n aragora
+```
+
+### Pod Disruption Budget
+
+```yaml
+# k8s/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aragora-pdb
+  namespace: aragora
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: aragora
+```
+
+### Monitoring in Kubernetes
+
+```bash
+# Port-forward to access Prometheus metrics
+kubectl port-forward svc/aragora 8080:8080 -n aragora
+
+# Check metrics
+curl http://localhost:8080/metrics
+
+# View pod logs
+kubectl logs -f -l app=aragora -n aragora --all-containers
+
+# Check resource usage
+kubectl top pods -n aragora
+```
+
+### Troubleshooting Kubernetes
+
+```bash
+# Check pod status
+kubectl describe pod -l app=aragora -n aragora
+
+# Check events
+kubectl get events -n aragora --sort-by='.lastTimestamp'
+
+# Shell into pod for debugging
+kubectl exec -it deployment/aragora -n aragora -- /bin/sh
+
+# Check service endpoints
+kubectl get endpoints aragora -n aragora
+```
+
+---
+
 ## Contact Information
 
 | Role | Contact | Escalation Time |
