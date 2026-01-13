@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *No unreleased changes*
 
+## [1.3.0] - 2026-01-13
+
+### Fixed
+- **Test suite blockers**: Fixed 2 import errors that were blocking test collection (22,756 tests now runnable)
+  - Added `TierConfig` re-export to `aragora/memory/continuum.py` (fixes test_continuum.py, test_continuum_memory.py)
+  - Added `DB_TIMEOUT` re-export to `aragora/server/storage.py` (fixes test_server_storage.py)
+
+### Changed
+- **Test collection**: Tests increased from 22,469 to 22,756 (287 additional tests now discoverable)
+
 ## [1.2.0] - 2026-01-13
 
 ### Changed

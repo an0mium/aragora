@@ -363,7 +363,7 @@ def __dir__() -> list[str]:
     return sorted(set(globals()) | set(__all__))
 
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     # Core
     "Agent",
