@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-*No unreleased changes*
+### Added
+- **Template tests**: Added `tests/test_templates.py` with 83 tests covering debate templates module
+- **Streaming tests**: Added `tests/test_stream_arena_hooks.py` (31 tests) and `tests/test_stream_gauntlet_emitter.py` (27 tests)
+- **Server metrics tests**: Added `tests/test_server_metrics.py` with 56 tests for Prometheus-style metrics
+- **Load testing infrastructure**: Added `tests/performance/` with 13 load tests
+
+### Changed
+- **README API documentation**: Updated API Endpoints section with accurate 298 endpoint count and references to full documentation
+- **OpenAPI consolidation**: Consolidated 3 OpenAPI specs into single programmatic source in `openapi.py`
+- **Test count**: Increased from 22,154 to 22,237+ test functions
+
+### Security
+- **SAST scan completed**: Bandit scan shows 0 HIGH severity issues (96 MEDIUM - mostly safe patterns)
+- **Rate limiting verified**: Load tests confirm rate limiting working correctly under concurrent load
+- **Live health checks**: Server health endpoint performing at <11ms average latency
 
 ## [1.3.0] - 2026-01-13
 
