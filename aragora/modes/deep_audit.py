@@ -11,20 +11,21 @@ Use for high-stakes decisions: strategy, contracts, code architecture,
 legal documentation where blind spots carry significant consequences.
 """
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Optional, Callable, Awaitable
+from typing import TYPE_CHECKING, Awaitable, Callable, Optional
+
+if TYPE_CHECKING:
+    from aragora.debate.disagreement import DisagreementReport
 
 logger = logging.getLogger(__name__)
 
-from aragora.core import Agent, DebateResult, Environment, Message, Vote, Critique
+from aragora.core import Agent, DebateResult, Environment
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.debate.roles import (
     CognitiveRole,
     RoleRotationConfig,
     RoleRotator,
-    ROLE_PROMPTS,
 )
 
 

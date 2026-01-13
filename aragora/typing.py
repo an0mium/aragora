@@ -15,21 +15,19 @@ Usage:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import (
     Any,
     AsyncIterator,
     Callable,
     Dict,
-    Iterator,
+    Generic,
     List,
     Optional,
     Protocol,
     TypeVar,
-    Union,
     runtime_checkable,
 )
-from dataclasses import dataclass
-
 
 # =============================================================================
 # Type Variables
@@ -119,7 +117,7 @@ class MemoryProtocol(Protocol):
 class TieredMemoryProtocol(MemoryProtocol, Protocol):
     """Protocol for tiered memory systems like ContinuumMemory."""
 
-    def store(  # type: ignore[override]
+    def store(
         self,
         content: str,
         tier: Any = None,  # MemoryTier, optional for protocol compatibility
@@ -308,12 +306,43 @@ class DebateStorageProtocol(Protocol):
         """Load debate data."""
         ...
 
-    def list_debates(self, limit: int = 100) -> List[str]:
-        """List available debates."""
+    def list_debates(self, limit: int = 100, org_id: Optional[str] = None) -> List[Any]:
+        """List available debates. Returns list of debate metadata objects."""
         ...
 
     def delete_debate(self, debate_id: str) -> bool:
         """Delete a debate."""
+        ...
+
+    def get_debate(self, debate_id: str) -> Optional[Dict[str, Any]]:
+        """Get debate by ID."""
+        ...
+
+    def get_debate_by_slug(self, slug: str) -> Optional[Dict[str, Any]]:
+        """Get debate by slug."""
+        ...
+
+    def get_by_id(self, debate_id: str) -> Optional[Dict[str, Any]]:
+        """Get debate by ID (alias)."""
+        ...
+
+    def get_by_slug(self, slug: str) -> Optional[Dict[str, Any]]:
+        """Get debate by slug (alias)."""
+        ...
+
+    def list_recent(self, limit: int = 20, org_id: Optional[str] = None) -> List[Any]:
+        """List recent debates."""
+        ...
+
+    def search(
+        self,
+        query: Optional[str] = None,
+        agent: Optional[str] = None,
+        min_confidence: Optional[float] = None,
+        limit: int = 20,
+        org_id: Optional[str] = None,
+    ) -> List[Any]:
+        """Search debates."""
         ...
 
 
@@ -420,7 +449,6 @@ class Result(Generic[T]):
         return cls(success=False, error=error)
 
 
-from typing import Generic
 
 
 __all__ = [
