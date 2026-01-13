@@ -311,6 +311,408 @@ import type {
 } from '@aragora/sdk';
 ```
 
+## Framework Integration
+
+### React Hook
+
+Create a custom hook for debates:
+
+```typescript
+// hooks/useDebate.ts
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { AragoraClient, DebateStream, Debate, DebateEvent } from '@aragora/sdk';
+
+const client = new AragoraClient({
+  baseUrl: process.env.NEXT_PUBLIC_ARAGORA_URL || 'http://localhost:8080',
+});
+
+export function useDebate(debateId?: string) {
+  const [debate, setDebate] = useState<Debate | null>(null);
+  const [events, setEvents] = useState<DebateEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const streamRef = useRef<DebateStream | null>(null);
+
+  // Fetch debate details
+  const fetchDebate = useCallback(async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await client.debates.get(id);
+      setDebate(data);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to fetch debate'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Create a new debate
+  const createDebate = useCallback(async (task: string, agents?: string[]) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await client.debates.run({ task, agents });
+      setDebate(result);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to create debate'));
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Subscribe to real-time events
+  const subscribe = useCallback((id: string) => {
+    if (streamRef.current) {
+      streamRef.current.disconnect();
+    }
+
+    const stream = new DebateStream(
+      process.env.NEXT_PUBLIC_ARAGORA_URL || 'http://localhost:8080',
+      id
+    );
+
+    stream
+      .on('agent_message', (event) => {
+        setEvents((prev) => [...prev, event]);
+      })
+      .on('consensus', (event) => {
+        setEvents((prev) => [...prev, event]);
+        fetchDebate(id); // Refresh full debate on consensus
+      })
+      .on('debate_end', () => {
+        fetchDebate(id);
+      })
+      .onError((err) => {
+        setError(new Error(err.message));
+      });
+
+    stream.connect();
+    streamRef.current = stream;
+  }, [fetchDebate]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      streamRef.current?.disconnect();
+    };
+  }, []);
+
+  // Auto-fetch if debateId provided
+  useEffect(() => {
+    if (debateId) {
+      fetchDebate(debateId);
+      subscribe(debateId);
+    }
+  }, [debateId, fetchDebate, subscribe]);
+
+  return {
+    debate,
+    events,
+    loading,
+    error,
+    createDebate,
+    subscribe,
+    refetch: debateId ? () => fetchDebate(debateId) : undefined,
+  };
+}
+```
+
+Usage in a component:
+
+```tsx
+function DebateViewer({ debateId }: { debateId: string }) {
+  const { debate, events, loading, error } = useDebate(debateId);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  if (!debate) return null;
+
+  return (
+    <div>
+      <h1>{debate.task}</h1>
+      <div>Status: {debate.status}</div>
+      {events.map((event, i) => (
+        <div key={i}>
+          {event.type}: {JSON.stringify(event.data)}
+        </div>
+      ))}
+      {debate.consensus && (
+        <div>Consensus: {debate.consensus.conclusion}</div>
+      )}
+    </div>
+  );
+}
+```
+
+### Vue Composable
+
+```typescript
+// composables/useDebate.ts
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { AragoraClient, DebateStream, Debate, DebateEvent } from '@aragora/sdk';
+
+const client = new AragoraClient({
+  baseUrl: import.meta.env.VITE_ARAGORA_URL || 'http://localhost:8080',
+});
+
+export function useDebate(debateId?: string) {
+  const debate = ref<Debate | null>(null);
+  const events = ref<DebateEvent[]>([]);
+  const loading = ref(false);
+  const error = ref<Error | null>(null);
+  let stream: DebateStream | null = null;
+
+  async function fetchDebate(id: string) {
+    loading.value = true;
+    error.value = null;
+    try {
+      debate.value = await client.debates.get(id);
+    } catch (err) {
+      error.value = err instanceof Error ? err : new Error('Failed to fetch');
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function createDebate(task: string, agents?: string[]) {
+    loading.value = true;
+    error.value = null;
+    try {
+      debate.value = await client.debates.run({ task, agents });
+      return debate.value;
+    } catch (err) {
+      error.value = err instanceof Error ? err : new Error('Failed to create');
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  function subscribe(id: string) {
+    if (stream) stream.disconnect();
+
+    stream = new DebateStream(
+      import.meta.env.VITE_ARAGORA_URL || 'http://localhost:8080',
+      id
+    );
+
+    stream
+      .on('agent_message', (event) => {
+        events.value = [...events.value, event];
+      })
+      .on('consensus', (event) => {
+        events.value = [...events.value, event];
+        fetchDebate(id);
+      })
+      .on('debate_end', () => fetchDebate(id))
+      .onError((err) => {
+        error.value = new Error(err.message);
+      });
+
+    stream.connect();
+  }
+
+  onMounted(() => {
+    if (debateId) {
+      fetchDebate(debateId);
+      subscribe(debateId);
+    }
+  });
+
+  onUnmounted(() => {
+    stream?.disconnect();
+  });
+
+  return {
+    debate,
+    events,
+    loading,
+    error,
+    createDebate,
+    subscribe,
+    refetch: () => debateId && fetchDebate(debateId),
+  };
+}
+```
+
+## Advanced Patterns
+
+### Retry with Exponential Backoff
+
+```typescript
+import { AragoraClient, AragoraError } from '@aragora/sdk';
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Don't retry client errors (4xx)
+      if (error instanceof AragoraError && error.status < 500) {
+        throw error;
+      }
+
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+
+  throw lastError!;
+}
+
+// Usage
+const debate = await withRetry(() =>
+  client.debates.run({ task: 'Design a system' })
+);
+```
+
+### Request Caching
+
+```typescript
+import { AragoraClient, Debate } from '@aragora/sdk';
+
+class CachedClient {
+  private client: AragoraClient;
+  private cache = new Map<string, { data: unknown; expires: number }>();
+  private ttl: number;
+
+  constructor(baseUrl: string, ttlMs: number = 60000) {
+    this.client = new AragoraClient({ baseUrl });
+    this.ttl = ttlMs;
+  }
+
+  async getDebate(id: string): Promise<Debate> {
+    const cacheKey = `debate:${id}`;
+    const cached = this.cache.get(cacheKey);
+
+    if (cached && cached.expires > Date.now()) {
+      return cached.data as Debate;
+    }
+
+    const debate = await this.client.debates.get(id);
+    this.cache.set(cacheKey, {
+      data: debate,
+      expires: Date.now() + this.ttl,
+    });
+
+    return debate;
+  }
+
+  invalidate(pattern?: string) {
+    if (!pattern) {
+      this.cache.clear();
+      return;
+    }
+    for (const key of this.cache.keys()) {
+      if (key.includes(pattern)) {
+        this.cache.delete(key);
+      }
+    }
+  }
+}
+```
+
+### Batch Operations with Concurrency Control
+
+```typescript
+async function processBatch<T, R>(
+  items: T[],
+  processor: (item: T) => Promise<R>,
+  concurrency: number = 3
+): Promise<R[]> {
+  const results: R[] = [];
+  const queue = [...items];
+
+  async function worker() {
+    while (queue.length > 0) {
+      const item = queue.shift()!;
+      const result = await processor(item);
+      results.push(result);
+    }
+  }
+
+  await Promise.all(
+    Array(Math.min(concurrency, items.length))
+      .fill(null)
+      .map(worker)
+  );
+
+  return results;
+}
+
+// Run multiple debates with controlled concurrency
+const tasks = [
+  'Design auth system',
+  'Choose database',
+  'API architecture',
+];
+
+const debates = await processBatch(
+  tasks,
+  (task) => client.debates.run({ task }),
+  2 // Max 2 concurrent debates
+);
+```
+
+### Event Aggregation
+
+```typescript
+import { DebateStream, DebateEvent } from '@aragora/sdk';
+
+class DebateEventAggregator {
+  private events: DebateEvent[] = [];
+  private stream: DebateStream;
+
+  constructor(baseUrl: string, debateId: string) {
+    this.stream = new DebateStream(baseUrl, debateId);
+  }
+
+  async collect(): Promise<DebateEvent[]> {
+    return new Promise((resolve, reject) => {
+      this.stream
+        .on('agent_message', (e) => this.events.push(e))
+        .on('critique', (e) => this.events.push(e))
+        .on('consensus', (e) => this.events.push(e))
+        .on('debate_end', () => {
+          this.stream.disconnect();
+          resolve(this.events);
+        })
+        .onError((err) => {
+          this.stream.disconnect();
+          reject(new Error(err.message));
+        });
+
+      this.stream.connect();
+    });
+  }
+
+  getMessagesByAgent(): Map<string, DebateEvent[]> {
+    const byAgent = new Map<string, DebateEvent[]>();
+    for (const event of this.events) {
+      if (event.type === 'agent_message') {
+        const agentId = (event.data as { agent_id?: string }).agent_id || 'unknown';
+        const existing = byAgent.get(agentId) || [];
+        byAgent.set(agentId, [...existing, event]);
+      }
+    }
+    return byAgent;
+  }
+}
+```
+
 ## Browser Support
 
 The SDK uses the standard `fetch` API and works in:
