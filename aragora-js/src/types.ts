@@ -1439,3 +1439,273 @@ export interface EvidenceDebateResponse {
   evidence: EvidenceSnippet[];
   count: number;
 }
+
+// =============================================================================
+// Calibration Types
+// =============================================================================
+
+export interface CalibrationBucket {
+  bucket: string;
+  predicted: number;
+  actual: number;
+  count: number;
+}
+
+export interface CalibrationCurveResponse {
+  agent: string;
+  buckets: CalibrationBucket[];
+  expected_calibration_error: number;
+  domain?: string;
+}
+
+export interface CalibrationSummary {
+  agent: string;
+  brier_score: number;
+  log_loss: number;
+  ece: number;
+  total_predictions: number;
+  accuracy: number;
+  overconfidence_rate: number;
+  underconfidence_rate: number;
+  domain?: string;
+}
+
+export interface CalibrationLeaderboardEntry {
+  agent: string;
+  elo: number;
+  calibration_score: number;
+  brier_score: number;
+  accuracy: number;
+  games: number;
+}
+
+export interface CalibrationLeaderboardResponse {
+  agents: CalibrationLeaderboardEntry[];
+  metric: string;
+  min_predictions: number;
+}
+
+export interface CalibrationVisualizationResponse {
+  agents: Array<{
+    name: string;
+    buckets: CalibrationBucket[];
+    ece: number;
+  }>;
+}
+
+// =============================================================================
+// Insights Types
+// =============================================================================
+
+export interface Insight {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  confidence: number;
+  agents_involved: string[];
+  evidence: string[];
+  timestamp?: string;
+}
+
+export interface InsightsRecentResponse {
+  insights: Insight[];
+  count: number;
+}
+
+export interface FlipEvent {
+  id: string;
+  agent: string;
+  type: 'contradiction' | 'retraction' | 'qualification' | 'refinement';
+  type_emoji: string;
+  before: { claim: string; confidence: string };
+  after: { claim: string; confidence: string };
+  similarity: string;
+  domain?: string;
+  timestamp: string;
+}
+
+export interface FlipsRecentResponse {
+  flips: FlipEvent[];
+  count: number;
+}
+
+export interface ExtractInsightsRequest {
+  content: string;
+  context?: string;
+}
+
+export interface ExtractInsightsResponse {
+  insights: Insight[];
+  extraction_time_ms: number;
+}
+
+// =============================================================================
+// Belief Network Types
+// =============================================================================
+
+export interface Crux {
+  claim_id: string;
+  statement: string;
+  author: string;
+  crux_score: number;
+  centrality: number;
+  entropy: number;
+  current_belief: {
+    true_prob: number;
+    false_prob: number;
+    uncertain_prob: number;
+    confidence: number;
+  };
+}
+
+export interface CruxesResponse {
+  debate_id: string;
+  cruxes: Crux[];
+  count: number;
+}
+
+export interface LoadBearingClaim {
+  claim_id: string;
+  statement: string;
+  author: string;
+  centrality: number;
+  degree: number;
+  downstream_claims: number;
+  belief_state: {
+    true_prob: number;
+    false_prob: number;
+    uncertain_prob: number;
+  };
+}
+
+export interface LoadBearingClaimsResponse {
+  debate_id: string;
+  claims: LoadBearingClaim[];
+  count: number;
+}
+
+export interface ClaimSupportResponse {
+  claim_id: string;
+  statement: string;
+  verification_status: 'verified' | 'disputed' | 'unverified';
+  supporting_evidence: Array<{
+    evidence_id: string;
+    text: string;
+    source?: string;
+    reliability: number;
+  }>;
+  contradicting_evidence: Array<{
+    evidence_id: string;
+    text: string;
+    source?: string;
+    reliability: number;
+  }>;
+}
+
+export interface GraphStatsResponse {
+  debate_id: string;
+  total_claims: number;
+  total_edges: number;
+  average_degree: number;
+  max_depth: number;
+  connected_components: number;
+  claim_types: Record<string, number>;
+}
+
+// =============================================================================
+// Consensus Types
+// =============================================================================
+
+export interface SimilarDebate {
+  debate_id: string;
+  topic: string;
+  similarity: number;
+  consensus_reached: boolean;
+  conclusion?: string;
+  timestamp: string;
+}
+
+export interface ConsensusSimilarResponse {
+  query: string;
+  similar_debates: SimilarDebate[];
+  count: number;
+}
+
+export interface SettledTopic {
+  topic: string;
+  conclusion: string;
+  confidence: number;
+  supporting_debates: number;
+  last_updated: string;
+  domain?: string;
+}
+
+export interface ConsensusSettledResponse {
+  topics: SettledTopic[];
+  count: number;
+  min_confidence: number;
+}
+
+export interface ConsensusStatsResponse {
+  total_debates: number;
+  consensus_rate: number;
+  average_confidence: number;
+  topics_by_domain: Record<string, number>;
+  debates_by_day: Array<{ date: string; count: number }>;
+}
+
+export interface Dissent {
+  id: string;
+  topic: string;
+  agent: string;
+  dissenting_view: string;
+  majority_view: string;
+  confidence: number;
+  timestamp: string;
+}
+
+export interface DissentsResponse {
+  dissents: Dissent[];
+  count: number;
+}
+
+export interface ContrarianView {
+  id: string;
+  topic: string;
+  view: string;
+  reasoning: string;
+  strength: number;
+  timestamp: string;
+}
+
+export interface ContrarianViewsResponse {
+  views: ContrarianView[];
+  count: number;
+}
+
+export interface RiskWarning {
+  id: string;
+  topic: string;
+  warning: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  edge_cases: string[];
+  timestamp: string;
+}
+
+export interface RiskWarningsResponse {
+  warnings: RiskWarning[];
+  count: number;
+}
+
+export interface DomainHistoryResponse {
+  domain: string;
+  debates: Array<{
+    debate_id: string;
+    topic: string;
+    consensus_reached: boolean;
+    conclusion?: string;
+    timestamp: string;
+  }>;
+  count: number;
+}

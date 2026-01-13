@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import FrozenSet, Optional
+from typing import Any, FrozenSet, Optional
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -307,7 +307,7 @@ class SSLSettings(BaseSettings):
 
     @field_validator("cert_path", "key_path")
     @classmethod
-    def validate_ssl_paths(cls, v: str, info) -> str:
+    def validate_ssl_paths(cls, v: str, info: Any) -> str:
         # Only validate if SSL is being enabled
         # Can't check enabled here since it's validated after
         return v

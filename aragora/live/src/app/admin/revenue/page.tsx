@@ -5,38 +5,15 @@ import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { BackendSelector, useBackend } from '@/components/BackendSelector';
+import { BackendSelector } from '@/components/BackendSelector';
 import { useAuth } from '@/context/AuthContext';
-
-interface TierRevenue {
-  count: number;
-  price_cents: number;
-  mrr_cents: number;
-}
-
-interface RevenueData {
-  revenue: {
-    mrr_cents: number;
-    mrr_dollars: number;
-    arr_dollars: number;
-    tier_breakdown: Record<string, TierRevenue>;
-    total_organizations: number;
-    paying_organizations: number;
-  };
-}
-
-interface AdminStats {
-  stats: {
-    total_users: number;
-    active_users: number;
-    total_organizations: number;
-    tier_distribution: Record<string, number>;
-    total_debates_this_month: number;
-    users_active_24h: number;
-    new_users_7d: number;
-    new_orgs_7d: number;
-  };
-}
+import { useAragoraClient, useClientAuth } from '@/hooks/useAragoraClient';
+import type {
+  TierRevenue,
+  RevenueResponse,
+  AdminStatsResponse,
+  AragoraError,
+} from '@/lib/aragora-client';
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -78,69 +55,53 @@ function TierBar({ tier, data }: { tier: string; data: TierRevenue }) {
 }
 
 export default function RevenueAdminPage() {
-  const { config: backendConfig } = useBackend();
-  const { user, isAuthenticated, tokens } = useAuth();
-  const token = tokens?.access_token;  // Extract access token;
-  const [revenue, setRevenue] = useState<RevenueData['revenue'] | null>(null);
-  const [stats, setStats] = useState<AdminStats['stats'] | null>(null);
+  // Use SDK client hook instead of manual fetch
+  const client = useAragoraClient();
+  const { isAuthenticated } = useAuth();
+  const { isAdmin } = useClientAuth();
+
+  const [revenue, setRevenue] = useState<RevenueResponse['revenue'] | null>(null);
+  const [stats, setStats] = useState<AdminStatsResponse['stats'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch revenue data
-      const revenueRes = await fetch(
-        `${backendConfig.api}/api/admin/revenue`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!revenueRes.ok) {
-        if (revenueRes.status === 403) {
-          throw new Error('Admin access required');
-        }
-        throw new Error(`Failed to fetch revenue: ${revenueRes.status}`);
-      }
-
-      const revenueData: RevenueData = await revenueRes.json();
+      // Fetch revenue data using SDK client
+      const revenueData = await client.admin.revenue();
       setRevenue(revenueData.revenue);
 
-      // Fetch admin stats
-      const statsRes = await fetch(
-        `${backendConfig.api}/api/admin/stats`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (statsRes.ok) {
-        const statsData: AdminStats = await statsRes.json();
+      // Fetch admin stats using SDK client
+      try {
+        const statsData = await client.admin.stats();
         setStats(statsData.stats);
+      } catch {
+        // Stats endpoint may fail independently, don't block revenue display
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      // Handle SDK errors with user-friendly messages
+      if (err && typeof err === 'object' && 'toUserMessage' in err) {
+        setError((err as AragoraError).toUserMessage());
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to fetch data');
+      }
     } finally {
       setLoading(false);
     }
-  }, [backendConfig.api, token]);
+  }, [client, isAuthenticated]);
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchData();
     }
   }, [fetchData, isAuthenticated]);
-
-  const isAdmin = isAuthenticated && (user?.role === 'admin' || user?.role === 'owner');
 
   return (
     <>

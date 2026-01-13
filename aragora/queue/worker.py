@@ -304,6 +304,7 @@ async def create_default_executor() -> DebateExecutor:
         try:
             from aragora.debate.orchestrator import Arena
             from aragora.core import Environment, DebateProtocol
+            from aragora.agents.base import create_agent
         except ImportError as e:
             raise InfrastructureError(f"Debate infrastructure not available: {e}")
 
@@ -314,9 +315,12 @@ async def create_default_executor() -> DebateExecutor:
             consensus=payload.consensus,
         )
 
+        # Convert agent strings to Agent objects
+        agents = [create_agent(agent_type) for agent_type in payload.agents]
+
         # Run debate
         start_time = time.time()
-        arena = Arena(env, agents=payload.agents, protocol=protocol)
+        arena = Arena(env, agents=agents, protocol=protocol)
         result = await arena.run()
 
         duration = time.time() - start_time

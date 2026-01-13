@@ -274,7 +274,80 @@ class GenesisBackend(Protocol):
         ...
 
 
+# =============================================================================
+# HTTP Handler Protocols
+# =============================================================================
+
+
+@runtime_checkable
+class HTTPHeaders(Protocol):
+    """Protocol for HTTP headers dictionary-like interface."""
+
+    def get(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        """Get a header value."""
+        ...
+
+
+@runtime_checkable
+class HTTPRequestHandler(Protocol):
+    """
+    Protocol for HTTP request handlers.
+
+    Used to type the `handler` parameter in endpoint handlers,
+    replacing `Any` with a proper structural type.
+    """
+
+    headers: HTTPHeaders
+    client_address: tuple[str, int]
+    command: str  # HTTP method (GET, POST, etc.)
+    path: str  # Request path
+
+    @property
+    def rfile(self) -> Any:
+        """Readable file-like object for request body."""
+        ...
+
+
+@runtime_checkable
+class AuthenticatedUser(Protocol):
+    """Protocol for authenticated user context."""
+
+    user_id: str
+    email: Optional[str]
+    is_authenticated: bool
+    org_id: Optional[str]
+
+    @property
+    def is_admin(self) -> bool:
+        """Check if user has admin role."""
+        ...
+
+
+@runtime_checkable
+class Agent(Protocol):
+    """Protocol for debate agent interface."""
+
+    name: str
+
+    def generate(self, prompt: str, **kwargs: Any) -> str:
+        """Generate a response for the given prompt."""
+        ...
+
+
+@runtime_checkable
+class AgentRating(Protocol):
+    """Protocol for agent rating/ELO data."""
+
+    name: str
+    elo: float
+    wins: int
+    losses: int
+    draws: int
+
+
 # Type aliases for common return types
 DebateRecord = dict[str, Any]
 MemoryRecord = dict[str, Any]
 AgentRecord = dict[str, Any]
+QueryParams = dict[str, Any]
+PathSegments = list[str]

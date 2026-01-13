@@ -33,7 +33,16 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol
+
+
+class RedisClientProtocol(Protocol):
+    """Protocol for Redis client operations we use."""
+
+    def ping(self) -> Any: ...
+    def get(self, key: str) -> Optional[str]: ...
+    def setex(self, key: str, ttl: int, value: str) -> Any: ...
+    def delete(self, key: str) -> Any: ...
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +165,7 @@ class RedisLockoutBackend(LockoutBackend):
         """
         self._redis_url = redis_url or os.getenv("REDIS_URL")
         self._key_prefix = key_prefix
-        self._client: Optional[object] = None
+        self._client: Optional[RedisClientProtocol] = None
         self._available = False
 
         if self._redis_url:
@@ -167,14 +176,15 @@ class RedisLockoutBackend(LockoutBackend):
         try:
             import redis
 
-            self._client = redis.from_url(
+            client = redis.from_url(
                 self._redis_url,
                 decode_responses=True,
                 socket_connect_timeout=2,
                 socket_timeout=2,
             )
             # Test connection
-            self._client.ping()
+            client.ping()
+            self._client = client
             self._available = True
             logger.info("Redis lockout backend connected")
         except ImportError:

@@ -10,6 +10,7 @@ The Algolia HN API is free and requires no authentication.
 """
 
 import asyncio
+import json
 import logging
 from datetime import datetime
 from typing import Optional
@@ -173,8 +174,17 @@ class HackerNewsConnector(BaseConnector):
         except httpx.HTTPStatusError as e:
             logger.error(f"HackerNews API error: {e.response.status_code}")
             return []
+        except httpx.ConnectError as e:
+            logger.error(f"HackerNews connection error: {e}")
+            return []
+        except httpx.RequestError as e:
+            logger.error(f"HackerNews request error: {e}")
+            return []
+        except json.JSONDecodeError as e:
+            logger.error(f"HackerNews JSON parsing error: {e}")
+            return []
         except Exception as e:
-            logger.error(f"HackerNews search failed: {e}")
+            logger.error(f"HackerNews search failed unexpectedly ({type(e).__name__}): {e}")
             return []
 
     async def fetch(self, evidence_id: str) -> Optional[Evidence]:
@@ -213,8 +223,23 @@ class HackerNewsConnector(BaseConnector):
                 self._cache_put(evidence_id, evidence)
             return evidence
 
+        except httpx.TimeoutException:
+            logger.warning(f"HackerNews fetch timeout for {evidence_id}")
+            return None
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HackerNews API error fetching {evidence_id}: {e.response.status_code}")
+            return None
+        except httpx.ConnectError as e:
+            logger.error(f"HackerNews connection error for {evidence_id}: {e}")
+            return None
+        except httpx.RequestError as e:
+            logger.error(f"HackerNews request error for {evidence_id}: {e}")
+            return None
+        except json.JSONDecodeError as e:
+            logger.error(f"HackerNews JSON parsing error for {evidence_id}: {e}")
+            return None
         except Exception as e:
-            logger.error(f"HackerNews fetch failed for {evidence_id}: {e}")
+            logger.error(f"HackerNews fetch failed unexpectedly for {evidence_id} ({type(e).__name__}): {e}")
             return None
 
     def _parse_search_results(self, data: dict) -> list[Evidence]:

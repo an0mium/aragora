@@ -245,7 +245,7 @@ class LearningHandler(BaseHandler):
         if replays_dir.exists():
             # Collect cycle directories with bounds (prevent memory exhaustion)
             max_to_scan = 500
-            cycle_dirs = []
+            cycle_dirs: list[Path] = []
             for cycle_dir in replays_dir.iterdir():
                 if len(cycle_dirs) >= max_to_scan:
                     break

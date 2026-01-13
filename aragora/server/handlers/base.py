@@ -42,9 +42,17 @@ import logging
 import os
 import re
 from functools import wraps
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple, Union, TYPE_CHECKING
 
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.protocols import HTTPRequestHandler, AgentRating, AuthenticatedUser
+
+if TYPE_CHECKING:
+    from aragora.server.storage import DebateStorage
+    from aragora.ranking.elo import EloSystem
+    from aragora.debate.embeddings import DebateEmbeddingsDatabase
+    from aragora.memory.store import CritiqueStore
+    from pathlib import Path
 
 # Import from extracted utility modules (re-exported for backwards compatibility)
 from aragora.server.handlers.utils.safe_data import (
@@ -229,7 +237,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_HOST = os.environ.get("ARAGORA_DEFAULT_HOST", "localhost:8080")
 
 
-def get_host_header(handler, default: str | None = None) -> str:
+def get_host_header(handler: Optional[HTTPRequestHandler], default: str | None = None) -> str:
     """Extract Host header from request handler.
 
     Args:
@@ -254,14 +262,14 @@ def get_host_header(handler, default: str | None = None) -> str:
     return handler.headers.get("Host", default) if hasattr(handler, "headers") else default
 
 
-def get_agent_name(agent: Any) -> Optional[str]:
+def get_agent_name(agent: Union[dict, AgentRating, Any, None]) -> Optional[str]:
     """Extract agent name from dict or object.
 
     Handles the common pattern where agent data might be either
     a dict with 'name'/'agent_name' key or an object with name attribute.
 
     Args:
-        agent: Dict or object containing agent name
+        agent: Dict or AgentRating-like object containing agent name
 
     Returns:
         Agent name string or None if not found
@@ -280,7 +288,7 @@ def get_agent_name(agent: Any) -> Optional[str]:
     return getattr(agent, "agent_name", None) or getattr(agent, "name", None)
 
 
-def agent_to_dict(agent: Any, include_name: bool = True) -> dict:
+def agent_to_dict(agent: Union[dict, AgentRating, Any, None], include_name: bool = True) -> dict:
     """Convert agent object or dict to standardized dict with ELO fields.
 
     Handles the common pattern where agent data might be either a dict
@@ -350,7 +358,7 @@ def safe_error_response(
     exception: Exception,
     context: str,
     status: int = 500,
-    handler: Any = None,
+    handler: Optional[HTTPRequestHandler] = None,
 ) -> HandlerResult:
     """Create an error response with sanitized message.
 
@@ -865,30 +873,30 @@ class BaseHandler:
             result[param_name] = value
         return result, None
 
-    def get_storage(self) -> Optional[Any]:
+    def get_storage(self) -> Optional["DebateStorage"]:
         """Get debate storage instance."""
         return self.ctx.get("storage")
 
-    def get_elo_system(self) -> Optional[Any]:
+    def get_elo_system(self) -> Optional["EloSystem"]:
         """Get ELO system instance."""
         # Check class attribute first (set by unified_server), then ctx
         if hasattr(self.__class__, "elo_system") and self.__class__.elo_system is not None:
             return self.__class__.elo_system
         return self.ctx.get("elo_system")
 
-    def get_debate_embeddings(self) -> Optional[Any]:
+    def get_debate_embeddings(self) -> Optional["DebateEmbeddingsDatabase"]:
         """Get debate embeddings database."""
         return self.ctx.get("debate_embeddings")
 
-    def get_critique_store(self) -> Optional[Any]:
+    def get_critique_store(self) -> Optional["CritiqueStore"]:
         """Get critique store instance."""
         return self.ctx.get("critique_store")
 
-    def get_nomic_dir(self) -> Optional[Any]:
+    def get_nomic_dir(self) -> Optional["Path"]:
         """Get nomic directory path."""
         return self.ctx.get("nomic_dir")
 
-    def get_current_user(self, handler: Any) -> Optional[Any]:
+    def get_current_user(self, handler: HTTPRequestHandler) -> Optional["AuthenticatedUser"]:
         """Get authenticated user from request, if any.
 
         Unlike @require_user_auth decorator which requires authentication,
@@ -924,8 +932,8 @@ class BaseHandler:
         return user_ctx if user_ctx.is_authenticated else None
 
     def require_auth_or_error(
-        self, handler: Any
-    ) -> Tuple[Optional[Any], Optional["HandlerResult"]]:
+        self, handler: HTTPRequestHandler
+    ) -> Tuple[Optional["AuthenticatedUser"], Optional["HandlerResult"]]:
         """Require authentication and return user or error response.
 
         Alternative to @require_user_auth decorator for cases where you need

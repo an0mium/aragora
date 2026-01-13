@@ -207,7 +207,7 @@ class EvolutionHandler(BaseHandler):
             )
 
             # Get summary statistics from the database
-            with evolver.db.connection() as conn:
+            with evolver.connection() as conn:
                 cursor = conn.cursor()
 
                 # Count total prompt versions

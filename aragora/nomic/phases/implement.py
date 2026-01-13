@@ -56,6 +56,7 @@ class ImplementPhase:
         stream_emit_fn: Optional[Callable[..., None]] = None,
         record_replay_fn: Optional[Callable[..., None]] = None,
         save_state_fn: Optional[Callable[[dict], None]] = None,
+        constitution_verifier: Optional[Any] = None,
     ):
         """
         Initialize the implement phase.
@@ -73,6 +74,7 @@ class ImplementPhase:
             stream_emit_fn: Function to emit streaming events
             record_replay_fn: Function to record replay events
             save_state_fn: Function to save phase state
+            constitution_verifier: Optional ConstitutionVerifier for safety checks
         """
         self.aragora_path = aragora_path
         self._plan_generator = plan_generator
@@ -86,6 +88,7 @@ class ImplementPhase:
         self._stream_emit = stream_emit_fn or (lambda *args: None)
         self._record_replay = record_replay_fn or (lambda *args: None)
         self._save_state = save_state_fn or (lambda state: None)
+        self._constitution_verifier = constitution_verifier
 
     async def execute(self, design: str) -> ImplementResult:
         """

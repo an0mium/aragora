@@ -405,12 +405,13 @@ class GenesisHandler(BaseHandler):
             )
 
             # Build response
-            result = {
+            genomes_list: list[dict] = []
+            result: dict = {
                 "population_id": population.population_id,
                 "generation": population.generation,
                 "size": population.size,
                 "average_fitness": population.average_fitness,
-                "genomes": [],
+                "genomes": genomes_list,
                 "best_genome": None,
                 "debate_history_count": len(population.debate_history),
             }

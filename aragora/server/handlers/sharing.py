@@ -179,7 +179,9 @@ class ShareStore:
 
 
 # Global store instance with thread-safe initialization
-_share_store: Optional[ShareStore] = None
+# Can be either in-memory ShareStore or SQLite-backed ShareLinkStore
+# Use Any to allow dynamic ShareLinkStore assignment without import cycle
+_share_store: Optional[Any] = None
 _share_store_lock = threading.Lock()
 
 

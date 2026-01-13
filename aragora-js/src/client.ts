@@ -146,6 +146,39 @@ import {
   EvidenceCollectResponse,
   EvidenceStatistics,
   EvidenceDebateResponse,
+  // Calibration types
+  CalibrationCurveResponse,
+  CalibrationSummary,
+  CalibrationLeaderboardEntry,
+  CalibrationLeaderboardResponse,
+  CalibrationVisualizationResponse,
+  // Insights types
+  Insight,
+  InsightsRecentResponse,
+  FlipEvent,
+  FlipsRecentResponse,
+  ExtractInsightsRequest,
+  ExtractInsightsResponse,
+  // Belief Network types
+  Crux,
+  CruxesResponse,
+  LoadBearingClaim,
+  LoadBearingClaimsResponse,
+  ClaimSupportResponse,
+  GraphStatsResponse,
+  // Consensus types
+  SimilarDebate,
+  ConsensusSimilarResponse,
+  SettledTopic,
+  ConsensusSettledResponse,
+  ConsensusStatsResponse,
+  Dissent,
+  DissentsResponse,
+  ContrarianView,
+  ContrarianViewsResponse,
+  RiskWarning,
+  RiskWarningsResponse,
+  DomainHistoryResponse,
 } from './types';
 
 // =============================================================================
@@ -1728,6 +1761,243 @@ class EvidenceAPI {
 }
 
 // =============================================================================
+// Calibration API
+// =============================================================================
+
+class CalibrationAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get calibration leaderboard showing top calibrated agents.
+   */
+  async leaderboard(options?: {
+    limit?: number;
+    metric?: 'brier' | 'ece' | 'accuracy';
+    min_predictions?: number;
+  }): Promise<CalibrationLeaderboardEntry[]> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.metric) params.set('metric', options.metric);
+    if (options?.min_predictions) params.set('min_predictions', String(options.min_predictions));
+
+    const query = params.toString();
+    const path = query ? `/api/calibration/leaderboard?${query}` : '/api/calibration/leaderboard';
+    const response = await this.http.get<CalibrationLeaderboardResponse>(path);
+    return response.agents;
+  }
+
+  /**
+   * Get calibration curve for a specific agent.
+   */
+  async curve(
+    agentName: string,
+    options?: { buckets?: number; domain?: string }
+  ): Promise<CalibrationCurveResponse> {
+    const params = new URLSearchParams();
+    if (options?.buckets) params.set('buckets', String(options.buckets));
+    if (options?.domain) params.set('domain', options.domain);
+
+    const query = params.toString();
+    const path = query
+      ? `/api/agent/${agentName}/calibration-curve?${query}`
+      : `/api/agent/${agentName}/calibration-curve`;
+    return this.http.get<CalibrationCurveResponse>(path);
+  }
+
+  /**
+   * Get calibration summary metrics for a specific agent.
+   */
+  async summary(agentName: string, domain?: string): Promise<CalibrationSummary> {
+    const params = domain ? `?domain=${encodeURIComponent(domain)}` : '';
+    return this.http.get<CalibrationSummary>(
+      `/api/agent/${agentName}/calibration-summary${params}`
+    );
+  }
+
+  /**
+   * Get calibration visualization data for multiple agents.
+   */
+  async visualization(limit = 5): Promise<CalibrationVisualizationResponse> {
+    return this.http.get<CalibrationVisualizationResponse>(
+      `/api/calibration/visualization?limit=${limit}`
+    );
+  }
+}
+
+// =============================================================================
+// Insights API
+// =============================================================================
+
+class InsightsAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get recent insights from debate analysis.
+   */
+  async recent(limit = 10): Promise<Insight[]> {
+    const response = await this.http.get<InsightsRecentResponse>(
+      `/api/insights/recent?limit=${limit}`
+    );
+    return response.insights;
+  }
+
+  /**
+   * Get recent position flips detected across agents.
+   */
+  async flips(options?: { limit?: number; agent?: string }): Promise<FlipEvent[]> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.agent) params.set('agent', options.agent);
+
+    const query = params.toString();
+    const path = query ? `/api/flips/recent?${query}` : '/api/flips/recent';
+    const response = await this.http.get<FlipsRecentResponse>(path);
+    return response.flips;
+  }
+
+  /**
+   * Extract detailed insights from content using AI analysis.
+   */
+  async extractDetailed(request: ExtractInsightsRequest): Promise<ExtractInsightsResponse> {
+    return this.http.post<ExtractInsightsResponse>('/api/insights/extract-detailed', request);
+  }
+}
+
+// =============================================================================
+// Belief Network API
+// =============================================================================
+
+class BeliefNetworkAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get cruxes (key claims) for a debate that most impact the outcome.
+   */
+  async cruxes(debateId: string, topK = 3): Promise<Crux[]> {
+    const response = await this.http.get<CruxesResponse>(
+      `/api/belief-network/${debateId}/cruxes?top_k=${topK}`
+    );
+    return response.cruxes;
+  }
+
+  /**
+   * Get load-bearing claims with high centrality in the argument graph.
+   */
+  async loadBearingClaims(debateId: string, limit = 5): Promise<LoadBearingClaim[]> {
+    const response = await this.http.get<LoadBearingClaimsResponse>(
+      `/api/belief-network/${debateId}/load-bearing-claims?limit=${limit}`
+    );
+    return response.claims;
+  }
+
+  /**
+   * Get support/contradiction evidence for a specific claim.
+   */
+  async claimSupport(debateId: string, claimId: string): Promise<ClaimSupportResponse> {
+    return this.http.get<ClaimSupportResponse>(
+      `/api/provenance/${debateId}/claims/${claimId}/support`
+    );
+  }
+
+  /**
+   * Get argument graph statistics for a debate.
+   */
+  async graphStats(debateId: string): Promise<GraphStatsResponse> {
+    return this.http.get<GraphStatsResponse>(`/api/debate/${debateId}/graph-stats`);
+  }
+}
+
+// =============================================================================
+// Consensus API
+// =============================================================================
+
+class ConsensusAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Find debates similar to a given topic.
+   */
+  async similar(
+    topic: string,
+    options?: { limit?: number; min_similarity?: number }
+  ): Promise<SimilarDebate[]> {
+    const params = new URLSearchParams({ topic });
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.min_similarity) params.set('min_similarity', String(options.min_similarity));
+
+    const response = await this.http.get<ConsensusSimilarResponse>(
+      `/api/consensus/similar?${params}`
+    );
+    return response.similar_debates;
+  }
+
+  /**
+   * Get high-confidence settled topics from consensus memory.
+   */
+  async settled(options?: {
+    limit?: number;
+    min_confidence?: number;
+    domain?: string;
+  }): Promise<SettledTopic[]> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.min_confidence) params.set('min_confidence', String(options.min_confidence));
+    if (options?.domain) params.set('domain', options.domain);
+
+    const query = params.toString();
+    const path = query ? `/api/consensus/settled?${query}` : '/api/consensus/settled';
+    const response = await this.http.get<ConsensusSettledResponse>(path);
+    return response.topics;
+  }
+
+  /**
+   * Get consensus memory statistics.
+   */
+  async stats(): Promise<ConsensusStatsResponse> {
+    return this.http.get<ConsensusStatsResponse>('/api/consensus/stats');
+  }
+
+  /**
+   * Get recent dissenting views from debates.
+   */
+  async dissents(limit = 10): Promise<Dissent[]> {
+    const response = await this.http.get<DissentsResponse>(
+      `/api/consensus/dissents?limit=${limit}`
+    );
+    return response.dissents;
+  }
+
+  /**
+   * Get contrarian perspectives worth considering.
+   */
+  async contrarianViews(limit = 10): Promise<ContrarianView[]> {
+    const response = await this.http.get<ContrarianViewsResponse>(
+      `/api/consensus/contrarian-views?limit=${limit}`
+    );
+    return response.views;
+  }
+
+  /**
+   * Get risk warnings and edge cases from debate analysis.
+   */
+  async riskWarnings(limit = 10): Promise<RiskWarning[]> {
+    const response = await this.http.get<RiskWarningsResponse>(
+      `/api/consensus/risk-warnings?limit=${limit}`
+    );
+    return response.warnings;
+  }
+
+  /**
+   * Get debate history for a specific domain.
+   */
+  async domainHistory(domain: string, limit = 20): Promise<DomainHistoryResponse> {
+    return this.http.get<DomainHistoryResponse>(
+      `/api/consensus/domain/${encodeURIComponent(domain)}?limit=${limit}`
+    );
+  }
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -1753,6 +2023,10 @@ export class AragoraClient {
   readonly auth: AuthAPI;
   readonly billing: BillingAPI;
   readonly evidence: EvidenceAPI;
+  readonly calibration: CalibrationAPI;
+  readonly insights: InsightsAPI;
+  readonly beliefNetwork: BeliefNetworkAPI;
+  readonly consensus: ConsensusAPI;
 
   /**
    * Create a new Aragora client.
@@ -1800,6 +2074,10 @@ export class AragoraClient {
     this.auth = new AuthAPI(this.http);
     this.billing = new BillingAPI(this.http);
     this.evidence = new EvidenceAPI(this.http);
+    this.calibration = new CalibrationAPI(this.http);
+    this.insights = new InsightsAPI(this.http);
+    this.beliefNetwork = new BeliefNetworkAPI(this.http);
+    this.consensus = new ConsensusAPI(this.http);
   }
 
   /**

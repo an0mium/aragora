@@ -200,10 +200,11 @@ class _OAuthStatesView(MutableMapping[str, dict]):
 
 
 _state_store = get_oauth_state_store()
+_OAUTH_STATES: Union[_OAuthStatesView, dict[str, Any]] = {}
 try:
     _OAUTH_STATES = _OAuthStatesView(_state_store)
 except AttributeError:
-    _OAUTH_STATES = {}
+    pass  # Keep empty dict fallback
 
 # Legacy constants for backward compatibility (actual values from oauth_state_store)
 _STATE_TTL_SECONDS = 600  # 10 minutes

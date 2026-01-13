@@ -365,7 +365,7 @@ REASONING: <brief explanation>"""
         return f"{self.__class__.__name__}(name={self.name}, model={self.model}, role={self.role})"
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name == "DebateProtocol":
         from aragora.debate.protocol import DebateProtocol
 
@@ -373,5 +373,5 @@ def __getattr__(name: str):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-def __dir__():
+def __dir__() -> list[str]:
     return sorted(list(globals().keys()) + ["DebateProtocol"])

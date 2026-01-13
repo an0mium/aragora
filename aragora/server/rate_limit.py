@@ -48,8 +48,11 @@ from aragora.server.middleware.rate_limit import (
 )
 
 
+from typing import Union
+
+
 # Legacy API compatibility - these function names were in the old module
-def get_limiter() -> RateLimiter:
+def get_limiter() -> Union[RateLimiter, RedisRateLimiter]:
     """Get or create the global rate limiter.
 
     Deprecated: Use get_rate_limiter() instead.

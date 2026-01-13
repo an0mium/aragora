@@ -293,7 +293,7 @@ class ReplaysHandler(BaseHandler):
                         }
                     )
             except (json.JSONDecodeError, KeyError) as e:
-                logger.debug(f"Failed to parse ELO snapshot {snapshot_file.name}: {e}")
+                logger.debug(f"Failed to parse ELO snapshot {elo_path.name}: {e}")
 
         # Collect debate data from nomic state history
         debates: list[dict] = []

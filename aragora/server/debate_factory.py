@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from aragora.insights.flip_detector import FlipDetector
     from aragora.memory.consensus import DissentRetriever  # type: ignore[attr-defined]
     from aragora.server.stream import StreamEvent, SyncEventEmitter  # type: ignore[attr-defined]
+    from aragora.pulse.ingestor import TrendingTopic
 
 
 @dataclass
@@ -83,7 +84,7 @@ class DebateConfig:
     rounds: int = 3
     consensus: str = "majority"
     debate_id: Optional[str] = None
-    trending_topic: Optional[object] = None  # TrendingTopic from pulse
+    trending_topic: Optional["TrendingTopic"] = None  # TrendingTopic from pulse
 
     def parse_agent_specs(self) -> list[AgentSpec]:
         """Parse agent specifications from comma-separated string.
