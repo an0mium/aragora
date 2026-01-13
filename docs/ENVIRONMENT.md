@@ -9,6 +9,37 @@ Copy `.env.example` to `.env` and fill in your values:
 cp .env.example .env
 ```
 
+## Production Required Variables
+
+These variables **MUST** be set in production (`ARAGORA_ENV=production`). The application will fail loudly if they are missing, preventing silent fallback to localhost defaults.
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `GOOGLE_REDIRECT_URI` | OAuth callback URL | `https://api.aragora.ai/api/oauth/google/callback` |
+| `OAUTH_SUCCESS_URL` | Post-login redirect | `https://aragora.ai/auth/success` |
+| `OAUTH_ERROR_URL` | Auth error page | `https://aragora.ai/auth/error` |
+| `OAUTH_ALLOWED_REDIRECT_HOSTS` | Comma-separated allowed hosts | `aragora.ai,api.aragora.ai` |
+| `NEXT_PUBLIC_API_URL` | Frontend API base URL | `https://api.aragora.ai` |
+| `NEXT_PUBLIC_WS_URL` | Frontend WebSocket URL | `wss://api.aragora.ai` |
+
+**Warning Behavior:**
+- In development mode, missing URLs will trigger console warnings but fall back to `localhost`
+- In production mode (`ARAGORA_ENV=production`), missing OAuth URLs will cause startup failures
+- Frontend components will log `[Aragora] NEXT_PUBLIC_API_URL not set` if using localhost fallback
+
+**Example Production Configuration:**
+```bash
+# OAuth (required in production)
+GOOGLE_REDIRECT_URI=https://api.aragora.ai/api/oauth/google/callback
+OAUTH_SUCCESS_URL=https://aragora.ai/auth/success
+OAUTH_ERROR_URL=https://aragora.ai/auth/error
+OAUTH_ALLOWED_REDIRECT_HOSTS=aragora.ai,api.aragora.ai,www.aragora.ai
+
+# Frontend URLs (required for deployed frontend)
+NEXT_PUBLIC_API_URL=https://api.aragora.ai
+NEXT_PUBLIC_WS_URL=wss://api.aragora.ai
+```
+
 ## AI Provider Keys
 
 At least one AI provider key is required.

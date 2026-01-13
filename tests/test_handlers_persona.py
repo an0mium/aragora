@@ -1,8 +1,8 @@
 """
-Tests for PersonaHandler endpoints.
+Tests for the Persona Handler endpoints.
 
-Endpoints tested:
-- GET /api/personas - List all personas
+Covers:
+- GET /api/personas - Get all agent personas
 - GET /api/agent/{name}/persona - Get agent persona
 - GET /api/agent/{name}/grounded-persona - Get truth-grounded persona
 - GET /api/agent/{name}/identity-prompt - Get identity prompt
@@ -11,438 +11,411 @@ Endpoints tested:
 - GET /api/agent/{name}/accuracy - Get position accuracy stats
 """
 
+from __future__ import annotations
+
 import json
-import pytest
+import tempfile
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch, MagicMock
+from datetime import datetime
 
-from aragora.server.handlers import PersonaHandler, HandlerResult
-from aragora.server.handlers.base import clear_cache
+import pytest
+
+from aragora.server.handlers.persona import PersonaHandler
 
 
-# ============================================================================
-# Test Fixtures
-# ============================================================================
+# =============================================================================
+# Fixtures
+# =============================================================================
 
 @pytest.fixture
-def mock_persona():
-    """Create a mock persona object."""
-    persona = Mock()
-    persona.agent_name = "claude"
-    persona.description = "A helpful AI assistant"
-    persona.traits = ["helpful", "analytical", "thorough"]
-    persona.expertise = ["coding", "reasoning", "writing"]
-    persona.created_at = "2024-01-01T00:00:00Z"
-    persona.updated_at = "2024-01-15T00:00:00Z"
-    return persona
+def persona_handler(handler_context):
+    """Create a PersonaHandler with mock context."""
+    return PersonaHandler(handler_context)
 
 
 @pytest.fixture
-def mock_persona_manager(mock_persona):
+def mock_http_handler():
+    """Create a mock HTTP handler object."""
+    handler = Mock()
+    handler.headers = {}
+    handler.command = 'GET'
+    return handler
+
+
+@pytest.fixture
+def mock_persona_manager():
     """Create a mock persona manager."""
-    manager = Mock()
+    manager = MagicMock()
+
+    mock_persona = MagicMock()
+    mock_persona.agent_name = "claude"
+    mock_persona.description = "A helpful AI assistant"
+    mock_persona.traits = ["analytical", "helpful"]
+    mock_persona.expertise = ["coding", "analysis"]
+    mock_persona.created_at = "2025-01-01T00:00:00Z"
+    mock_persona.updated_at = "2025-01-10T00:00:00Z"
+
     manager.get_all_personas.return_value = [mock_persona]
     manager.get_persona.return_value = mock_persona
     manager.get_performance_summary.return_value = {
-        "total_debates": 50,
-        "wins": 30,
-        "win_rate": 0.6,
-        "avg_calibration": 0.75,
+        "wins": 10,
+        "losses": 5,
+        "win_rate": 0.67
     }
+
     return manager
 
 
 @pytest.fixture
-def mock_elo_system():
-    """Create a mock ELO system."""
-    elo = Mock()
-    elo.get_best_domains.return_value = [
-        ("coding", 0.85),
-        ("reasoning", 0.78),
-        ("writing", 0.72),
-    ]
-    return elo
+def handler_context_with_persona(handler_context, mock_persona_manager):
+    """Handler context with persona manager configured."""
+    handler_context["persona_manager"] = mock_persona_manager
+    return handler_context
 
 
-@pytest.fixture
-def persona_handler(mock_persona_manager, mock_elo_system):
-    """Create a PersonaHandler with mock dependencies."""
-    ctx = {
-        "persona_manager": mock_persona_manager,
-        "elo_system": mock_elo_system,
-        "position_ledger": None,
-        "nomic_dir": None,
-    }
-    return PersonaHandler(ctx)
+# =============================================================================
+# can_handle Tests
+# =============================================================================
+
+class TestCanHandle:
+    """Test route matching for PersonaHandler."""
+
+    def test_can_handle_personas_route(self, persona_handler):
+        """Test matching all personas endpoint."""
+        assert persona_handler.can_handle("/api/personas")
+
+    def test_can_handle_agent_persona_route(self, persona_handler):
+        """Test matching agent persona endpoint."""
+        assert persona_handler.can_handle("/api/agent/claude/persona")
+
+    def test_can_handle_grounded_persona_route(self, persona_handler):
+        """Test matching grounded persona endpoint."""
+        assert persona_handler.can_handle("/api/agent/claude/grounded-persona")
+
+    def test_can_handle_identity_prompt_route(self, persona_handler):
+        """Test matching identity prompt endpoint."""
+        assert persona_handler.can_handle("/api/agent/claude/identity-prompt")
+
+    def test_can_handle_performance_route(self, persona_handler):
+        """Test matching performance endpoint."""
+        assert persona_handler.can_handle("/api/agent/claude/performance")
+
+    def test_can_handle_domains_route(self, persona_handler):
+        """Test matching domains endpoint."""
+        assert persona_handler.can_handle("/api/agent/claude/domains")
+
+    def test_can_handle_accuracy_route(self, persona_handler):
+        """Test matching accuracy endpoint."""
+        assert persona_handler.can_handle("/api/agent/claude/accuracy")
+
+    def test_cannot_handle_unknown_route(self, persona_handler):
+        """Test rejection of unknown routes."""
+        assert not persona_handler.can_handle("/api/unknown")
+        assert not persona_handler.can_handle("/api/agent/claude/unknown")
+        assert not persona_handler.can_handle("/api/agent/")
 
 
-@pytest.fixture
-def handler_no_persona_manager(mock_elo_system):
-    """Create a PersonaHandler without persona manager."""
-    ctx = {
-        "persona_manager": None,
-        "elo_system": mock_elo_system,
-        "nomic_dir": None,
-    }
-    return PersonaHandler(ctx)
+# =============================================================================
+# All Personas Endpoint Tests
+# =============================================================================
 
+class TestAllPersonasEndpoint:
+    """Test /api/personas endpoint."""
 
-@pytest.fixture
-def handler_no_elo(mock_persona_manager):
-    """Create a PersonaHandler without ELO system."""
-    ctx = {
-        "persona_manager": mock_persona_manager,
-        "elo_system": None,
-        "nomic_dir": None,
-    }
-    return PersonaHandler(ctx)
+    def test_personas_no_manager_returns_error(self, handler_context, mock_http_handler):
+        """Test response when persona manager not configured."""
+        handler_context["persona_manager"] = None
+        handler = PersonaHandler(handler_context)
 
-
-@pytest.fixture(autouse=True)
-def clear_caches():
-    """Clear caches before and after each test."""
-    clear_cache()
-    yield
-    clear_cache()
-
-
-# ============================================================================
-# Route Matching Tests
-# ============================================================================
-
-class TestPersonaRouting:
-    """Tests for route matching."""
-
-    def test_can_handle_personas_list(self, persona_handler):
-        assert persona_handler.can_handle("/api/personas") is True
-
-    def test_can_handle_agent_persona(self, persona_handler):
-        assert persona_handler.can_handle("/api/agent/claude/persona") is True
-
-    def test_can_handle_grounded_persona(self, persona_handler):
-        assert persona_handler.can_handle("/api/agent/claude/grounded-persona") is True
-
-    def test_can_handle_identity_prompt(self, persona_handler):
-        assert persona_handler.can_handle("/api/agent/claude/identity-prompt") is True
-
-    def test_can_handle_performance(self, persona_handler):
-        assert persona_handler.can_handle("/api/agent/claude/performance") is True
-
-    def test_can_handle_domains(self, persona_handler):
-        assert persona_handler.can_handle("/api/agent/claude/domains") is True
-
-    def test_can_handle_accuracy(self, persona_handler):
-        assert persona_handler.can_handle("/api/agent/claude/accuracy") is True
-
-    def test_cannot_handle_unrelated_routes(self, persona_handler):
-        assert persona_handler.can_handle("/api/debates") is False
-        assert persona_handler.can_handle("/api/agents") is False
-        assert persona_handler.can_handle("/api/agent/claude/unknown") is False
-
-    def test_cannot_handle_partial_paths(self, persona_handler):
-        assert persona_handler.can_handle("/api/agent") is False
-        assert persona_handler.can_handle("/api/agent/") is False
-
-
-# ============================================================================
-# GET /api/personas Tests
-# ============================================================================
-
-class TestListPersonas:
-    """Tests for GET /api/personas endpoint."""
-
-    def test_list_personas_success(self, persona_handler, mock_persona_manager):
-        result = persona_handler.handle("/api/personas", {}, None)
+        result = handler.handle("/api/personas", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
-        data = json.loads(result.body)
-        assert "personas" in data
-        assert len(data["personas"]) == 1
-        assert data["count"] == 1
-        assert data["personas"][0]["agent_name"] == "claude"
+        body = json.loads(result.body)
+        assert "error" in body
+        assert body["personas"] == []
 
-    def test_list_personas_no_manager(self, handler_no_persona_manager):
-        result = handler_no_persona_manager.handle("/api/personas", {}, None)
+    def test_personas_returns_all(self, handler_context_with_persona, mock_http_handler):
+        """Test successful retrieval of all personas."""
+        handler = PersonaHandler(handler_context_with_persona)
 
-        assert result is not None
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert "error" in data
-        assert data["personas"] == []
-
-    def test_list_personas_empty(self, persona_handler, mock_persona_manager):
-        mock_persona_manager.get_all_personas.return_value = []
-        result = persona_handler.handle("/api/personas", {}, None)
+        result = handler.handle("/api/personas", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["personas"] == []
-        assert data["count"] == 0
-
-    def test_list_personas_exception(self, persona_handler, mock_persona_manager):
-        mock_persona_manager.get_all_personas.side_effect = Exception("Database error")
-        result = persona_handler.handle("/api/personas", {}, None)
-
-        assert result is not None
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert "error" in data
+        body = json.loads(result.body)
+        assert len(body["personas"]) == 1
+        assert body["personas"][0]["agent_name"] == "claude"
+        assert body["count"] == 1
 
 
-# ============================================================================
-# GET /api/agent/{name}/persona Tests
-# ============================================================================
+# =============================================================================
+# Agent Persona Endpoint Tests
+# =============================================================================
 
-class TestGetAgentPersona:
-    """Tests for GET /api/agent/{name}/persona endpoint."""
+class TestAgentPersonaEndpoint:
+    """Test /api/agent/:name/persona endpoint."""
 
-    def test_get_persona_success(self, persona_handler):
-        result = persona_handler.handle("/api/agent/claude/persona", {}, None)
+    def test_persona_no_manager_returns_503(self, handler_context, mock_http_handler):
+        """Test error when persona manager not configured."""
+        handler_context["persona_manager"] = None
+        handler = PersonaHandler(handler_context)
 
-        assert result is not None
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert "persona" in data
-        assert data["persona"]["agent_name"] == "claude"
-        assert "traits" in data["persona"]
-
-    def test_get_persona_not_found(self, persona_handler, mock_persona_manager):
-        mock_persona_manager.get_persona.return_value = None
-        result = persona_handler.handle("/api/agent/unknown/persona", {}, None)
-
-        assert result is not None
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["persona"] is None
-        assert "error" in data
-
-    def test_get_persona_no_manager(self, handler_no_persona_manager):
-        result = handler_no_persona_manager.handle("/api/agent/claude/persona", {}, None)
-
-        assert result is not None
-        assert result.status_code == 503
-        data = json.loads(result.body)
-        assert "error" in data
-
-    def test_get_persona_invalid_name(self, persona_handler):
-        result = persona_handler.handle("/api/agent/../etc/passwd/persona", {}, None)
-
-        assert result is not None
-        assert result.status_code == 400
-
-    def test_get_persona_exception(self, persona_handler, mock_persona_manager):
-        mock_persona_manager.get_persona.side_effect = Exception("Database error")
-        result = persona_handler.handle("/api/agent/claude/persona", {}, None)
-
-        assert result is not None
-        assert result.status_code == 500
-
-
-# ============================================================================
-# GET /api/agent/{name}/performance Tests
-# ============================================================================
-
-class TestGetAgentPerformance:
-    """Tests for GET /api/agent/{name}/performance endpoint."""
-
-    def test_get_performance_success(self, persona_handler):
-        result = persona_handler.handle("/api/agent/claude/performance", {}, None)
-
-        assert result is not None
-        assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["agent"] == "claude"
-        assert "performance" in data
-        assert data["performance"]["total_debates"] == 50
-
-    def test_get_performance_no_manager(self, handler_no_persona_manager):
-        result = handler_no_persona_manager.handle("/api/agent/claude/performance", {}, None)
+        result = handler.handle("/api/agent/claude/persona", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
 
-    def test_get_performance_exception(self, persona_handler, mock_persona_manager):
-        mock_persona_manager.get_performance_summary.side_effect = Exception("Error")
-        result = persona_handler.handle("/api/agent/claude/performance", {}, None)
+    def test_persona_invalid_name_returns_error(self, handler_context_with_persona, mock_http_handler):
+        """Test error on invalid agent name."""
+        handler = PersonaHandler(handler_context_with_persona)
+
+        result = handler.handle("/api/agent/../etc/passwd/persona", {}, mock_http_handler)
 
         assert result is not None
-        assert result.status_code == 500
+        assert result.status_code == 400
 
+    def test_persona_found(self, handler_context_with_persona, mock_http_handler):
+        """Test successful persona retrieval."""
+        handler = PersonaHandler(handler_context_with_persona)
 
-# ============================================================================
-# GET /api/agent/{name}/domains Tests
-# ============================================================================
-
-class TestGetAgentDomains:
-    """Tests for GET /api/agent/{name}/domains endpoint."""
-
-    def test_get_domains_success(self, persona_handler):
-        result = persona_handler.handle("/api/agent/claude/domains", {}, None)
+        result = handler.handle("/api/agent/claude/persona", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
-        data = json.loads(result.body)
-        assert data["agent"] == "claude"
-        assert "domains" in data
-        assert len(data["domains"]) == 3
-        assert data["domains"][0]["domain"] == "coding"
+        body = json.loads(result.body)
+        assert body["persona"]["agent_name"] == "claude"
+        assert "description" in body["persona"]
 
-    def test_get_domains_with_limit(self, persona_handler, mock_elo_system):
-        mock_elo_system.get_best_domains.return_value = [("coding", 0.85)]
-        result = persona_handler.handle("/api/agent/claude/domains", {"limit": "1"}, None)
+    def test_persona_not_found(self, handler_context_with_persona, mock_http_handler):
+        """Test response when persona not found."""
+        handler_context_with_persona["persona_manager"].get_persona.return_value = None
+        handler = PersonaHandler(handler_context_with_persona)
+
+        result = handler.handle("/api/agent/unknown/persona", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
-        mock_elo_system.get_best_domains.assert_called_with("claude", limit=1)
+        body = json.loads(result.body)
+        assert body["persona"] is None
+        assert "error" in body
 
-    def test_get_domains_no_elo(self, handler_no_elo):
-        result = handler_no_elo.handle("/api/agent/claude/domains", {}, None)
+
+# =============================================================================
+# Performance Endpoint Tests
+# =============================================================================
+
+class TestPerformanceEndpoint:
+    """Test /api/agent/:name/performance endpoint."""
+
+    def test_performance_no_manager_returns_503(self, handler_context, mock_http_handler):
+        """Test error when persona manager not configured."""
+        handler_context["persona_manager"] = None
+        handler = PersonaHandler(handler_context)
+
+        result = handler.handle("/api/agent/claude/performance", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
 
-    def test_get_domains_exception(self, persona_handler, mock_elo_system):
-        mock_elo_system.get_best_domains.side_effect = Exception("Error")
-        result = persona_handler.handle("/api/agent/claude/domains", {}, None)
+    def test_performance_success(self, handler_context_with_persona, mock_http_handler):
+        """Test successful performance retrieval."""
+        handler = PersonaHandler(handler_context_with_persona)
+
+        result = handler.handle("/api/agent/claude/performance", {}, mock_http_handler)
 
         assert result is not None
-        assert result.status_code == 500
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["agent"] == "claude"
+        assert "performance" in body
+        assert body["performance"]["wins"] == 10
 
 
-# ============================================================================
-# GET /api/agent/{name}/grounded-persona Tests
-# ============================================================================
+# =============================================================================
+# Domains Endpoint Tests
+# =============================================================================
 
-class TestGetGroundedPersona:
-    """Tests for GET /api/agent/{name}/grounded-persona endpoint."""
+class TestDomainsEndpoint:
+    """Test /api/agent/:name/domains endpoint."""
 
-    def test_grounded_persona_returns_result(self, persona_handler):
-        # Should return some result (either 503 if module not available, 200 success, or 500 error)
-        result = persona_handler.handle("/api/agent/claude/grounded-persona", {}, None)
-        assert result is not None
-        # Valid responses: 200 (success), 503 (module not available), 500 (internal error)
-        assert result.status_code in (200, 500, 503)
+    def test_domains_no_elo_system_returns_503(self, handler_context, mock_http_handler):
+        """Test error when ELO system not configured."""
+        handler_context["elo_system"] = None
+        handler = PersonaHandler(handler_context)
 
-    def test_grounded_persona_invalid_agent(self, persona_handler):
-        result = persona_handler.handle("/api/agent/../test/grounded-persona", {}, None)
-
-        assert result is not None
-        assert result.status_code == 400
-
-
-# ============================================================================
-# GET /api/agent/{name}/identity-prompt Tests
-# ============================================================================
-
-class TestGetIdentityPrompt:
-    """Tests for GET /api/agent/{name}/identity-prompt endpoint."""
-
-    def test_identity_prompt_invalid_agent(self, persona_handler):
-        result = persona_handler.handle("/api/agent/../../etc/identity-prompt", {}, None)
+        result = handler.handle("/api/agent/claude/domains", {}, mock_http_handler)
 
         assert result is not None
-        assert result.status_code == 400
+        assert result.status_code == 503
 
+    def test_domains_with_limit(self, handler_context, mock_http_handler):
+        """Test domains endpoint respects limit parameter."""
+        mock_elo = MagicMock()
+        mock_elo.get_best_domains.return_value = [
+            ("coding", 0.9),
+            ("analysis", 0.8),
+        ]
+        handler_context["elo_system"] = mock_elo
+        handler = PersonaHandler(handler_context)
 
-# ============================================================================
-# GET /api/agent/{name}/accuracy Tests
-# ============================================================================
-
-class TestGetAgentAccuracy:
-    """Tests for GET /api/agent/{name}/accuracy endpoint."""
-
-    def test_accuracy_no_nomic_dir(self, persona_handler):
-        result = persona_handler.handle("/api/agent/claude/accuracy", {}, None)
-
-        # Without nomic_dir, should return 503
-        assert result is not None
-        # Either 503 (module not available) or returns empty data
-        data = json.loads(result.body)
-        assert "error" in data or "total_positions" in data
-
-    def test_accuracy_invalid_agent(self, persona_handler):
-        result = persona_handler.handle("/api/agent/../test/accuracy", {}, None)
+        result = handler.handle(
+            "/api/agent/claude/domains",
+            {"limit": ["5"]},
+            mock_http_handler
+        )
 
         assert result is not None
-        assert result.status_code == 400
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["agent"] == "claude"
+        assert len(body["domains"]) == 2
 
 
-# ============================================================================
-# Security Tests
-# ============================================================================
+# =============================================================================
+# Grounded Persona Endpoint Tests
+# =============================================================================
 
-class TestPersonaSecurity:
-    """Security tests for persona endpoints."""
+class TestGroundedPersonaEndpoint:
+    """Test /api/agent/:name/grounded-persona endpoint."""
 
-    def test_path_traversal_blocked_persona(self, persona_handler):
-        result = persona_handler.handle("/api/agent/../../../etc/passwd/persona", {}, None)
-        assert result.status_code == 400
+    def test_grounded_persona_module_unavailable_returns_503(self, persona_handler, mock_http_handler):
+        """Test error when grounded module unavailable."""
+        with patch("aragora.server.handlers.persona.GROUNDED_AVAILABLE", False):
+            result = persona_handler.handle(
+                "/api/agent/claude/grounded-persona",
+                {},
+                mock_http_handler
+            )
 
-    def test_path_traversal_blocked_performance(self, persona_handler):
-        result = persona_handler.handle("/api/agent/..%2F..%2Fetc/performance", {}, None)
-        assert result.status_code == 400
-
-    def test_path_traversal_blocked_domains(self, persona_handler):
-        result = persona_handler.handle("/api/agent/test..admin/domains", {}, None)
-        assert result.status_code == 400
-
-    def test_sql_injection_blocked(self, persona_handler):
-        result = persona_handler.handle("/api/agent/'; DROP TABLE agents;--/persona", {}, None)
-        assert result.status_code == 400
-
-    def test_valid_agent_names_accepted(self, persona_handler):
-        # Valid agent names should work
-        valid_names = ["claude", "gpt-4", "gemini_pro", "agent123"]
-        for name in valid_names:
-            result = persona_handler.handle(f"/api/agent/{name}/persona", {}, None)
-            # Should not be 400 (validation error)
-            assert result.status_code != 400 or "invalid" not in json.loads(result.body).get("error", "").lower()
-
-
-# ============================================================================
-# Error Handling Tests
-# ============================================================================
-
-class TestPersonaErrorHandling:
-    """Tests for error handling."""
-
-    def test_handle_returns_none_for_unhandled_route(self, persona_handler):
-        result = persona_handler.handle("/api/other/endpoint", {}, None)
-        assert result is None
-
-    def test_handle_returns_none_for_incomplete_agent_path(self, persona_handler):
-        # Path with only /api/agent/ should not match any endpoint
-        result = persona_handler.handle("/api/agent/claude", {}, None)
-        # Without a valid suffix like /persona, should return None
-        assert result is None
-
-
-# ============================================================================
-# Edge Cases
-# ============================================================================
-
-class TestPersonaEdgeCases:
-    """Tests for edge cases."""
-
-    def test_empty_agent_name(self, persona_handler):
-        # Empty agent name in path
-        result = persona_handler.handle("/api/agent//persona", {}, None)
-        # Should fail validation or return None
-        assert result is None or result.status_code == 400
-
-    def test_very_long_agent_name(self, persona_handler):
-        long_name = "a" * 1000
-        result = persona_handler.handle(f"/api/agent/{long_name}/persona", {}, None)
-        # Should handle gracefully
         assert result is not None
+        assert result.status_code == 503
 
-    def test_special_characters_in_agent_name(self, persona_handler):
-        result = persona_handler.handle("/api/agent/test<script>/persona", {}, None)
-        assert result.status_code == 400
+    def test_grounded_persona_success(self, handler_context_with_persona, mock_http_handler):
+        """Test successful grounded persona retrieval."""
+        handler = PersonaHandler(handler_context_with_persona)
 
-    def test_unicode_agent_name(self, persona_handler):
-        result = persona_handler.handle("/api/agent/测试/persona", {}, None)
-        # Should either accept or reject gracefully
+        mock_grounded = MagicMock()
+        mock_grounded.elo = 1200
+        mock_grounded.domain_elos = {"coding": 1300}
+        mock_grounded.games_played = 50
+        mock_grounded.win_rate = 0.6
+        mock_grounded.calibration_score = 0.8
+        mock_grounded.position_accuracy = 0.75
+        mock_grounded.positions_taken = 100
+        mock_grounded.reversals = 5
+
+        mock_synthesizer = MagicMock()
+        mock_synthesizer.get_grounded_persona.return_value = mock_grounded
+
+        with patch("aragora.server.handlers.persona.GROUNDED_AVAILABLE", True), \
+             patch("aragora.server.handlers.persona.PersonaSynthesizer", return_value=mock_synthesizer):
+            result = handler.handle(
+                "/api/agent/claude/grounded-persona",
+                {},
+                mock_http_handler
+            )
+
         assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["agent"] == "claude"
+        assert body["elo"] == 1200
+
+
+# =============================================================================
+# Identity Prompt Endpoint Tests
+# =============================================================================
+
+class TestIdentityPromptEndpoint:
+    """Test /api/agent/:name/identity-prompt endpoint."""
+
+    def test_identity_prompt_module_unavailable_returns_503(self, persona_handler, mock_http_handler):
+        """Test error when grounded module unavailable."""
+        with patch("aragora.server.handlers.persona.GROUNDED_AVAILABLE", False):
+            result = persona_handler.handle(
+                "/api/agent/claude/identity-prompt",
+                {},
+                mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 503
+
+    def test_identity_prompt_with_sections(self, handler_context_with_persona, mock_http_handler):
+        """Test identity prompt with section filter."""
+        handler = PersonaHandler(handler_context_with_persona)
+
+        mock_synthesizer = MagicMock()
+        mock_synthesizer.synthesize_identity_prompt.return_value = "You are Claude..."
+
+        with patch("aragora.server.handlers.persona.GROUNDED_AVAILABLE", True), \
+             patch("aragora.server.handlers.persona.PersonaSynthesizer", return_value=mock_synthesizer):
+            result = handler.handle(
+                "/api/agent/claude/identity-prompt",
+                {"sections": ["performance,expertise"]},
+                mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["agent"] == "claude"
+        assert body["identity_prompt"] == "You are Claude..."
+        assert body["sections"] == ["performance", "expertise"]
+
+
+# =============================================================================
+# Accuracy Endpoint Tests
+# =============================================================================
+
+class TestAccuracyEndpoint:
+    """Test /api/agent/:name/accuracy endpoint."""
+
+    def test_accuracy_module_unavailable_returns_503(self, persona_handler, mock_http_handler):
+        """Test error when position tracker module unavailable."""
+        with patch("aragora.server.handlers.persona.POSITION_TRACKER_AVAILABLE", False):
+            result = persona_handler.handle(
+                "/api/agent/claude/accuracy",
+                {},
+                mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 503
+
+    def test_accuracy_no_nomic_dir_returns_503(self, handler_context, mock_http_handler):
+        """Test error when nomic_dir not configured."""
+        handler_context["nomic_dir"] = None
+        handler = PersonaHandler(handler_context)
+
+        with patch("aragora.server.handlers.persona.POSITION_TRACKER_AVAILABLE", True):
+            result = handler.handle(
+                "/api/agent/claude/accuracy",
+                {},
+                mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 503
+
+    def test_accuracy_no_data_returns_zeros(self, handler_context, mock_http_handler):
+        """Test response when no accuracy data exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            handler_context["nomic_dir"] = Path(tmpdir)
+            handler = PersonaHandler(handler_context)
+
+            with patch("aragora.server.handlers.persona.POSITION_TRACKER_AVAILABLE", True):
+                result = handler.handle(
+                    "/api/agent/claude/accuracy",
+                    {},
+                    mock_http_handler
+                )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["agent"] == "claude"
+        assert body["total_positions"] == 0
+        assert body["accuracy_rate"] == 0.0

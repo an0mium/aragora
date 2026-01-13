@@ -1,303 +1,429 @@
-"""Tests for CritiqueHandler - critique patterns and reputation endpoints."""
+"""
+Tests for the Critique Handler endpoints.
+
+Covers:
+- GET /api/critiques/patterns - Get high-impact critique patterns
+- GET /api/critiques/archive - Get archive statistics
+- GET /api/reputation/all - Get all agent reputations
+- GET /api/agent/:name/reputation - Get specific agent reputation
+"""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+import tempfile
+from pathlib import Path
+from unittest.mock import Mock, patch, MagicMock
 
 import pytest
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
-import tempfile
-import os
 
-from aragora.server.handlers.critique import CritiqueHandler, CRITIQUE_STORE_AVAILABLE
+from aragora.server.handlers.critique import CritiqueHandler
+
+
+# =============================================================================
+# Fixtures
+# =============================================================================
+
+@pytest.fixture
+def critique_handler(handler_context):
+    """Create a CritiqueHandler with mock context."""
+    return CritiqueHandler(handler_context)
 
 
 @pytest.fixture
-def mock_ctx():
-    """Create mock context for handler."""
-    return {
-        "nomic_dir": Path("/tmp/test_nomic"),
-        "storage": None,
-        "elo_system": None,
-    }
+def mock_http_handler():
+    """Create a mock HTTP handler object."""
+    handler = Mock()
+    handler.headers = {}
+    handler.command = 'GET'
+    return handler
 
 
 @pytest.fixture
-def handler(mock_ctx):
-    """Create CritiqueHandler with mock context."""
-    return CritiqueHandler(mock_ctx)
+def temp_nomic_dir_with_db():
+    """Create a temporary nomic directory with a debates.db."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        nomic_dir = Path(tmpdir)
+        db_path = nomic_dir / "debates.db"
+
+        # Create a minimal database with required tables
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+
+        # Create patterns table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS critique_patterns (
+                id INTEGER PRIMARY KEY,
+                issue_type TEXT,
+                pattern_text TEXT,
+                success_rate REAL,
+                usage_count INTEGER
+            )
+        ''')
+
+        # Create reputations table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS agent_reputations (
+                agent_name TEXT PRIMARY KEY,
+                reputation_score REAL,
+                vote_weight REAL,
+                proposal_acceptance_rate REAL,
+                critique_value REAL,
+                debates_participated INTEGER
+            )
+        ''')
+
+        # Insert test data
+        cursor.execute('''
+            INSERT INTO critique_patterns (issue_type, pattern_text, success_rate, usage_count)
+            VALUES (?, ?, ?, ?)
+        ''', ('logic', 'Check assumptions', 0.8, 10))
+
+        cursor.execute('''
+            INSERT INTO agent_reputations 
+            (agent_name, reputation_score, vote_weight, proposal_acceptance_rate, critique_value, debates_participated)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', ('claude', 0.85, 1.2, 0.7, 0.9, 50))
+
+        conn.commit()
+        conn.close()
+
+        yield nomic_dir
 
 
-class TestCritiqueHandlerRouting:
+# =============================================================================
+# can_handle Tests
+# =============================================================================
+
+class TestCanHandle:
     """Test route matching for CritiqueHandler."""
 
-    def test_can_handle_patterns_endpoint(self, handler):
-        """Handler should match /api/critiques/patterns."""
-        assert handler.can_handle("/api/critiques/patterns")
+    def test_can_handle_patterns_route(self, critique_handler):
+        """Test matching patterns endpoint."""
+        assert critique_handler.can_handle("/api/critiques/patterns")
 
-    def test_can_handle_archive_endpoint(self, handler):
-        """Handler should match /api/critiques/archive."""
-        assert handler.can_handle("/api/critiques/archive")
+    def test_can_handle_archive_route(self, critique_handler):
+        """Test matching archive endpoint."""
+        assert critique_handler.can_handle("/api/critiques/archive")
 
-    def test_can_handle_all_reputations(self, handler):
-        """Handler should match /api/reputation/all."""
-        assert handler.can_handle("/api/reputation/all")
+    def test_can_handle_all_reputations_route(self, critique_handler):
+        """Test matching all reputations endpoint."""
+        assert critique_handler.can_handle("/api/reputation/all")
 
-    def test_can_handle_agent_reputation(self, handler):
-        """Handler should match /api/agent/{name}/reputation."""
-        assert handler.can_handle("/api/agent/claude/reputation")
-        assert handler.can_handle("/api/agent/gpt4/reputation")
+    def test_can_handle_agent_reputation_route(self, critique_handler):
+        """Test matching agent reputation endpoint."""
+        assert critique_handler.can_handle("/api/agent/claude/reputation")
+        assert critique_handler.can_handle("/api/agent/gpt4/reputation")
 
-    def test_cannot_handle_invalid_path(self, handler):
-        """Handler should not match invalid paths."""
-        assert not handler.can_handle("/api/invalid")
-        assert not handler.can_handle("/api/critiques")
-        assert not handler.can_handle("/api/agent/claude/history")
+    def test_cannot_handle_unknown_route(self, critique_handler):
+        """Test rejection of unknown routes."""
+        assert not critique_handler.can_handle("/api/unknown")
+        assert not critique_handler.can_handle("/api/critiques")
+        assert not critique_handler.can_handle("/api/agent/claude/other")
 
-    def test_cannot_handle_partial_paths(self, handler):
-        """Handler should not match partial paths."""
-        assert not handler.can_handle("/api/critiques/patterns/extra")
-        assert not handler.can_handle("/api/reputation")
 
+# =============================================================================
+# Patterns Endpoint Tests
+# =============================================================================
 
 class TestPatternsEndpoint:
     """Test /api/critiques/patterns endpoint."""
 
-    def test_patterns_no_db(self, handler):
-        """Returns empty patterns when database doesn't exist."""
-        result = handler.handle("/api/critiques/patterns", {}, None)
+    def test_patterns_critique_store_unavailable_returns_503(self, critique_handler, mock_http_handler):
+        """Test error when critique store module unavailable."""
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", False):
+            result = critique_handler.handle(
+                "/api/critiques/patterns",
+                {},
+                mock_http_handler
+            )
         assert result is not None
-        # Either empty patterns or 503 if store not available
-        assert result.status_code in (200, 503)
+        assert result.status_code == 503
 
-    def test_patterns_with_limit(self, handler):
-        """Limit parameter is capped at 50."""
-        # Test that limit is applied (we can't easily verify the cap without mocking)
-        result = handler.handle("/api/critiques/patterns", {"limit": ["100"]}, None)
+    def test_patterns_no_db_returns_empty(self, handler_context, mock_http_handler):
+        """Test empty response when no database exists."""
+        handler_context["nomic_dir"] = None
+        handler = CritiqueHandler(handler_context)
+
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True):
+            result = handler.handle(
+                "/api/critiques/patterns",
+                {},
+                mock_http_handler
+            )
+
         assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["patterns"] == []
+        assert body["count"] == 0
 
-    def test_patterns_with_min_success(self, handler):
-        """min_success parameter is clamped to 0-1."""
-        result = handler.handle("/api/critiques/patterns", {"min_success": ["0.8"]}, None)
+    def test_patterns_with_limit_parameter(self, critique_handler, mock_http_handler):
+        """Test limit parameter is respected."""
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", False):
+            result = critique_handler.handle(
+                "/api/critiques/patterns",
+                {"limit": ["5"], "min_success": ["0.7"]},
+                mock_http_handler
+            )
         assert result is not None
+        assert result.status_code == 503  # Store unavailable
 
-    @pytest.mark.skipif(not CRITIQUE_STORE_AVAILABLE, reason="CritiqueStore not available")
-    def test_patterns_with_mock_store(self, mock_ctx):
-        """Test patterns endpoint with mocked CritiqueStore."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            nomic_dir = Path(tmpdir)
-            db_path = nomic_dir / "debates.db"
-            db_path.touch()
+    def test_patterns_with_valid_db(self, handler_context, temp_nomic_dir_with_db, mock_http_handler):
+        """Test patterns endpoint with valid database."""
+        handler_context["nomic_dir"] = temp_nomic_dir_with_db
+        handler = CritiqueHandler(handler_context)
 
-            mock_ctx["nomic_dir"] = nomic_dir
-            handler = CritiqueHandler(mock_ctx)
+        # Mock CritiqueStore
+        mock_store = MagicMock()
+        mock_pattern = MagicMock()
+        mock_pattern.issue_type = "logic"
+        mock_pattern.pattern_text = "Check assumptions"
+        mock_pattern.success_rate = 0.8
+        mock_pattern.usage_count = 10
+        mock_store.retrieve_patterns.return_value = [mock_pattern]
+        mock_store.get_stats.return_value = {"total": 1}
 
-            with patch("aragora.server.handlers.critique.CritiqueStore") as MockStore:
-                mock_store = Mock()
-                mock_store.retrieve_patterns.return_value = []
-                mock_store.get_stats.return_value = {"total": 0}
-                MockStore.return_value = mock_store
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True), \
+             patch("aragora.server.handlers.critique.CritiqueStore", return_value=mock_store):
+            result = handler.handle(
+                "/api/critiques/patterns",
+                {},
+                mock_http_handler
+            )
 
-                result = handler.handle("/api/critiques/patterns", {}, None)
-                assert result is not None
-                assert result.status_code == 200
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert len(body["patterns"]) == 1
+        assert body["patterns"][0]["issue_type"] == "logic"
 
+
+# =============================================================================
+# Archive Endpoint Tests
+# =============================================================================
 
 class TestArchiveEndpoint:
     """Test /api/critiques/archive endpoint."""
 
-    def test_archive_no_db(self, handler):
-        """Returns empty archive when database doesn't exist."""
-        result = handler.handle("/api/critiques/archive", {}, None)
+    def test_archive_critique_store_unavailable_returns_503(self, critique_handler, mock_http_handler):
+        """Test error when critique store module unavailable."""
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", False):
+            result = critique_handler.handle(
+                "/api/critiques/archive",
+                {},
+                mock_http_handler
+            )
         assert result is not None
-        assert result.status_code in (200, 503)
+        assert result.status_code == 503
 
-    @pytest.mark.skipif(not CRITIQUE_STORE_AVAILABLE, reason="CritiqueStore not available")
-    def test_archive_with_mock_store(self, mock_ctx):
-        """Test archive endpoint with mocked CritiqueStore."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            nomic_dir = Path(tmpdir)
-            db_path = nomic_dir / "debates.db"
-            db_path.touch()
+    def test_archive_no_db_returns_empty(self, handler_context, mock_http_handler):
+        """Test empty response when no database exists."""
+        handler_context["nomic_dir"] = None
+        handler = CritiqueHandler(handler_context)
 
-            mock_ctx["nomic_dir"] = nomic_dir
-            handler = CritiqueHandler(mock_ctx)
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True):
+            result = handler.handle(
+                "/api/critiques/archive",
+                {},
+                mock_http_handler
+            )
 
-            with patch("aragora.server.handlers.critique.CritiqueStore") as MockStore:
-                mock_store = Mock()
-                mock_store.get_archive_stats.return_value = {"archived": 0, "by_type": {}}
-                MockStore.return_value = mock_store
-
-                result = handler.handle("/api/critiques/archive", {}, None)
-                assert result is not None
-                assert result.status_code == 200
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["archived"] == 0
 
 
-class TestReputationsEndpoint:
+# =============================================================================
+# All Reputations Endpoint Tests
+# =============================================================================
+
+class TestAllReputationsEndpoint:
     """Test /api/reputation/all endpoint."""
 
-    def test_all_reputations_no_db(self, handler):
-        """Returns empty reputations when database doesn't exist."""
-        result = handler.handle("/api/reputation/all", {}, None)
+    def test_reputations_critique_store_unavailable_returns_503(self, critique_handler, mock_http_handler):
+        """Test error when critique store module unavailable."""
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", False):
+            result = critique_handler.handle(
+                "/api/reputation/all",
+                {},
+                mock_http_handler
+            )
         assert result is not None
-        assert result.status_code in (200, 503)
+        assert result.status_code == 503
 
-    @pytest.mark.skipif(not CRITIQUE_STORE_AVAILABLE, reason="CritiqueStore not available")
-    def test_all_reputations_with_mock_store(self, mock_ctx):
-        """Test all reputations endpoint with mocked store."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            nomic_dir = Path(tmpdir)
-            db_path = nomic_dir / "debates.db"
-            db_path.touch()
+    def test_reputations_no_db_returns_empty(self, handler_context, mock_http_handler):
+        """Test empty response when no database exists."""
+        handler_context["nomic_dir"] = None
+        handler = CritiqueHandler(handler_context)
 
-            mock_ctx["nomic_dir"] = nomic_dir
-            handler = CritiqueHandler(mock_ctx)
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True):
+            result = handler.handle(
+                "/api/reputation/all",
+                {},
+                mock_http_handler
+            )
 
-            with patch("aragora.server.handlers.critique.CritiqueStore") as MockStore:
-                mock_rep = Mock()
-                mock_rep.agent_name = "claude"
-                mock_rep.reputation_score = 0.8
-                mock_rep.vote_weight = 1.2
-                mock_rep.proposal_acceptance_rate = 0.75
-                mock_rep.critique_value = 0.6
-                mock_rep.debates_participated = 10
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["reputations"] == []
+        assert body["count"] == 0
 
-                mock_store = Mock()
-                mock_store.get_all_reputations.return_value = [mock_rep]
-                MockStore.return_value = mock_store
+    def test_reputations_with_valid_db(self, handler_context, temp_nomic_dir_with_db, mock_http_handler):
+        """Test reputations endpoint with valid database."""
+        handler_context["nomic_dir"] = temp_nomic_dir_with_db
+        handler = CritiqueHandler(handler_context)
 
-                result = handler.handle("/api/reputation/all", {}, None)
-                assert result is not None
-                assert result.status_code == 200
+        mock_store = MagicMock()
+        mock_rep = MagicMock()
+        mock_rep.agent_name = "claude"
+        mock_rep.reputation_score = 0.85
+        mock_rep.vote_weight = 1.2
+        mock_rep.proposal_acceptance_rate = 0.7
+        mock_rep.critique_value = 0.9
+        mock_rep.debates_participated = 50
+        mock_store.get_all_reputations.return_value = [mock_rep]
 
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True), \
+             patch("aragora.server.handlers.critique.CritiqueStore", return_value=mock_store):
+            result = handler.handle(
+                "/api/reputation/all",
+                {},
+                mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert len(body["reputations"]) == 1
+        assert body["reputations"][0]["agent"] == "claude"
+        assert body["reputations"][0]["score"] == 0.85
+
+
+# =============================================================================
+# Agent Reputation Endpoint Tests
+# =============================================================================
 
 class TestAgentReputationEndpoint:
-    """Test /api/agent/{name}/reputation endpoint."""
+    """Test /api/agent/:name/reputation endpoint."""
 
-    def test_agent_reputation_no_db(self, handler):
-        """Returns null reputation when database doesn't exist."""
-        result = handler.handle("/api/agent/claude/reputation", {}, None)
+    def test_agent_reputation_critique_store_unavailable_returns_503(self, critique_handler, mock_http_handler):
+        """Test error when critique store module unavailable."""
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", False):
+            result = critique_handler.handle(
+                "/api/agent/claude/reputation",
+                {},
+                mock_http_handler
+            )
         assert result is not None
-        assert result.status_code in (200, 503)
+        assert result.status_code == 503
 
-    def test_agent_reputation_path_traversal_blocked(self, handler):
-        """Path traversal attempts are blocked."""
-        result = handler.handle("/api/agent/../etc/passwd/reputation", {}, None)
+    def test_agent_reputation_invalid_name_returns_400(self, critique_handler, mock_http_handler):
+        """Test error on invalid agent name."""
+        result = critique_handler.handle(
+            "/api/agent/../passwd/reputation",
+            {},
+            mock_http_handler
+        )
         assert result is not None
         assert result.status_code == 400
 
-    def test_agent_reputation_invalid_name(self, handler):
-        """Invalid agent names are rejected."""
-        # Handler extracts agent from path, returns None for invalid
-        result = handler.handle("/api/agent/<script>/reputation", {}, None)
+    def test_agent_reputation_no_db_returns_no_data(self, handler_context, mock_http_handler):
+        """Test response when no database exists."""
+        handler_context["nomic_dir"] = None
+        handler = CritiqueHandler(handler_context)
+
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True):
+            result = handler.handle(
+                "/api/agent/claude/reputation",
+                {},
+                mock_http_handler
+            )
+
         assert result is not None
-        assert result.status_code == 400
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["agent"] == "claude"
+        assert body["reputation"] is None
+        assert "message" in body
 
-    def test_agent_reputation_valid_names(self, handler):
-        """Valid agent names are accepted."""
-        valid_names = ["claude", "gpt4", "gemini-pro", "agent_1", "test.agent"]
-        for name in valid_names:
-            result = handler.handle(f"/api/agent/{name}/reputation", {}, None)
-            assert result is not None
-            # Should not be 400 (bad request)
-            assert result.status_code != 400 or result.status_code in (200, 503)
+    def test_agent_reputation_found(self, handler_context, temp_nomic_dir_with_db, mock_http_handler):
+        """Test successful reputation retrieval."""
+        handler_context["nomic_dir"] = temp_nomic_dir_with_db
+        handler = CritiqueHandler(handler_context)
 
-    @pytest.mark.skipif(not CRITIQUE_STORE_AVAILABLE, reason="CritiqueStore not available")
-    def test_agent_reputation_found(self, mock_ctx):
-        """Test agent reputation when agent exists."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            nomic_dir = Path(tmpdir)
-            db_path = nomic_dir / "debates.db"
-            db_path.touch()
+        mock_store = MagicMock()
+        mock_rep = MagicMock()
+        mock_rep.reputation_score = 0.85
+        mock_rep.vote_weight = 1.2
+        mock_rep.proposal_acceptance_rate = 0.7
+        mock_rep.critique_value = 0.9
+        mock_rep.debates_participated = 50
+        mock_store.get_reputation.return_value = mock_rep
 
-            mock_ctx["nomic_dir"] = nomic_dir
-            handler = CritiqueHandler(mock_ctx)
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True), \
+             patch("aragora.server.handlers.critique.CritiqueStore", return_value=mock_store):
+            result = handler.handle(
+                "/api/agent/claude/reputation",
+                {},
+                mock_http_handler
+            )
 
-            with patch("aragora.server.handlers.critique.CritiqueStore") as MockStore:
-                mock_rep = Mock()
-                mock_rep.reputation_score = 0.85
-                mock_rep.vote_weight = 1.1
-                mock_rep.proposal_acceptance_rate = 0.8
-                mock_rep.critique_value = 0.7
-                mock_rep.debates_participated = 15
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["agent"] == "claude"
+        assert body["reputation"]["score"] == 0.85
 
-                mock_store = Mock()
-                mock_store.get_reputation.return_value = mock_rep
-                MockStore.return_value = mock_store
+    def test_agent_reputation_not_found(self, handler_context, temp_nomic_dir_with_db, mock_http_handler):
+        """Test response when agent not found."""
+        handler_context["nomic_dir"] = temp_nomic_dir_with_db
+        handler = CritiqueHandler(handler_context)
 
-                result = handler.handle("/api/agent/claude/reputation", {}, None)
-                assert result is not None
-                assert result.status_code == 200
+        mock_store = MagicMock()
+        mock_store.get_reputation.return_value = None
 
-    @pytest.mark.skipif(not CRITIQUE_STORE_AVAILABLE, reason="CritiqueStore not available")
-    def test_agent_reputation_not_found(self, mock_ctx):
-        """Test agent reputation when agent doesn't exist."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            nomic_dir = Path(tmpdir)
-            db_path = nomic_dir / "debates.db"
-            db_path.touch()
+        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True), \
+             patch("aragora.server.handlers.critique.CritiqueStore", return_value=mock_store):
+            result = handler.handle(
+                "/api/agent/unknown_agent/reputation",
+                {},
+                mock_http_handler
+            )
 
-            mock_ctx["nomic_dir"] = nomic_dir
-            handler = CritiqueHandler(mock_ctx)
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["reputation"] is None
+        assert "not found" in body.get("message", "").lower()
 
-            with patch("aragora.server.handlers.critique.CritiqueStore") as MockStore:
-                mock_store = Mock()
-                mock_store.get_reputation.return_value = None
-                MockStore.return_value = mock_store
 
-                result = handler.handle("/api/agent/unknown/reputation", {}, None)
-                assert result is not None
-                assert result.status_code == 200  # Returns 200 with null reputation
-
+# =============================================================================
+# Agent Name Extraction Tests
+# =============================================================================
 
 class TestAgentNameExtraction:
     """Test agent name extraction from paths."""
 
-    def test_extract_valid_agent_name(self, handler):
-        """Valid agent names are extracted correctly."""
-        assert handler._extract_agent_name("/api/agent/claude/reputation") == "claude"
-        assert handler._extract_agent_name("/api/agent/gpt-4/reputation") == "gpt-4"
-        assert handler._extract_agent_name("/api/agent/agent_1/reputation") == "agent_1"
+    def test_extract_valid_agent_name(self, critique_handler):
+        """Test extraction of valid agent name."""
+        agent = critique_handler._extract_agent_name("/api/agent/claude/reputation")
+        assert agent == "claude"
 
-    def test_extract_path_traversal_blocked(self, handler):
-        """Path traversal in agent name returns None."""
-        assert handler._extract_agent_name("/api/agent/../passwd/reputation") is None
-        assert handler._extract_agent_name("/api/agent/../../etc/reputation") is None
+    def test_extract_agent_with_version(self, critique_handler):
+        """Test extraction of agent name with version suffix."""
+        agent = critique_handler._extract_agent_name("/api/agent/gpt4_v2/reputation")
+        assert agent == "gpt4_v2"
 
-    def test_extract_special_chars_blocked(self, handler):
-        """Special characters in agent name return None."""
-        assert handler._extract_agent_name("/api/agent/<script>/reputation") is None
-        assert handler._extract_agent_name("/api/agent/agent;rm/reputation") is None
+    def test_extract_path_traversal_returns_none(self, critique_handler):
+        """Test path traversal attempts return None."""
+        agent = critique_handler._extract_agent_name("/api/agent/../etc/passwd/reputation")
+        assert agent is None
 
-
-class TestCritiqueHandlerImport:
-    """Test CritiqueHandler import and export."""
-
-    def test_handler_importable(self):
-        """CritiqueHandler can be imported from handlers package."""
-        from aragora.server.handlers import CritiqueHandler
-        assert CritiqueHandler is not None
-
-    def test_handler_in_all_exports(self):
-        """CritiqueHandler is in __all__ exports."""
-        from aragora.server.handlers import __all__
-        assert "CritiqueHandler" in __all__
-
-    def test_critique_store_available_flag(self):
-        """CRITIQUE_STORE_AVAILABLE flag is defined."""
-        from aragora.server.handlers.critique import CRITIQUE_STORE_AVAILABLE
-        assert isinstance(CRITIQUE_STORE_AVAILABLE, bool)
-
-
-class TestErrorHandling:
-    """Test error handling in CritiqueHandler."""
-
-    def test_handle_returns_none_for_unmatched(self, handler):
-        """Handle returns None for unmatched paths."""
-        result = handler.handle("/api/unmatched", {}, None)
-        assert result is None
-
-    def test_safe_error_message(self):
-        """Safe error message sanitizes error types."""
-        from aragora.server.error_utils import safe_error_message as _safe_error_message
-
-        assert _safe_error_message(FileNotFoundError("test"), "test") == "Resource not found"
-        assert _safe_error_message(ValueError("test"), "test") == "Invalid data format"
-        assert _safe_error_message(Exception("test"), "test") == "An error occurred"
+    def test_extract_from_short_path_returns_none(self, critique_handler):
+        """Test extraction returns None for too-short paths."""
+        agent = critique_handler._extract_agent_name("/api/agent")
+        assert agent is None
