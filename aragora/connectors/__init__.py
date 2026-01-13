@@ -9,6 +9,8 @@ with the provenance system for traceability:
 - WebConnector: Search and fetch live web content
 - ArXivConnector: Academic papers and preprints
 - HackerNewsConnector: Tech community discussions
+- WikipediaConnector: Encyclopedia articles and reference knowledge
+- RedditConnector: Community discussions and sentiment
 
 All connectors record evidence through ProvenanceManager
 with proper source typing and confidence scoring.
@@ -19,6 +21,8 @@ from aragora.connectors.github import GitHubConnector
 from aragora.connectors.web import WebConnector
 from aragora.connectors.arxiv import ArXivConnector, ARXIV_CATEGORIES
 from aragora.connectors.hackernews import HackerNewsConnector
+from aragora.connectors.wikipedia import WikipediaConnector
+from aragora.connectors.reddit import RedditConnector
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.connectors.exceptions import (
     ConnectorError,
@@ -46,6 +50,8 @@ __all__ = [
     "ArXivConnector",
     "ARXIV_CATEGORIES",
     "HackerNewsConnector",
+    "WikipediaConnector",
+    "RedditConnector",
     # Exceptions
     "ConnectorError",
     "ConnectorAuthError",
