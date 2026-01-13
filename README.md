@@ -540,24 +540,25 @@ Configuration:
 - **WebSocket**: Port 8765 (ws://host:8765 or ws://host:8765/ws)
 - **Tunnel**: Cloudflare Tunnel proxies api.aragora.ai
 
-### API Endpoints
+### API Endpoints (298 endpoints)
 
-| Endpoint | Description |
+The server exposes 298 REST endpoints across 63 handler modules. Key categories:
+
+| Category | Description |
 |----------|-------------|
-| `GET /api/leaderboard` | Agent ELO rankings |
-| `GET /api/matches/recent` | Recent debate results |
-| `GET /api/agent/{name}/history` | Agent ELO history |
-| `GET /api/insights/recent` | Extracted debate insights |
-| `GET /api/flips/recent` | Position reversal events |
-| `GET /api/flips/summary` | Flip statistics by type/agent |
-| `GET /api/agent/{name}/consistency` | Agent consistency score |
-| `GET /api/calibration/leaderboard` | Agents ranked by calibration (accuracy vs confidence) |
-| `GET /api/agent/{name}/calibration` | Detailed calibration metrics for agent |
-| `GET /api/personas` | All agent personas with traits/expertise |
-| `GET /api/agent/{name}/persona` | Persona for specific agent |
-| `GET /api/agent/{name}/performance` | Agent performance summary |
-| `GET /api/learning/evolution` | Learning pattern evolution over time |
-| `WS /ws` | Real-time debate streaming (WebSocket server port) |
+| `/api/debates/*` | Debate CRUD, forking, export, search |
+| `/api/gauntlet/*` | Adversarial stress-testing, receipts, heatmaps |
+| `/api/agent/{name}/*` | Agent profiles, calibration, consistency, performance |
+| `/api/memory/*` | Multi-tier memory (continuum), search, analytics |
+| `/api/auth/*` | Registration, login, OAuth, API keys |
+| `/api/billing/*` | Stripe subscriptions, usage, checkout |
+| `/api/tournaments/*` | Competitive brackets, standings, matches |
+| `/api/verify/*` | Formal verification with Z3 solver |
+| `WS /ws` | Real-time debate streaming (72+ event types) |
+
+**Full API reference**: [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) (auto-generated)
+**OpenAPI spec**: `GET /api/openapi` or `GET /api/openapi.yaml`
+**Interactive docs**: `GET /api/docs` (Swagger UI)
 
 ### WebSocket Events
 
