@@ -63,9 +63,9 @@ _EXPORTS = {
     "ServerBase": ("aragora.server.stream.server_base", "ServerBase"),
     "ServerConfig": ("aragora.server.stream.server_base", "ServerConfig"),
     # Servers
-    "DebateStreamServer": ("aragora.server.stream.servers", "DebateStreamServer"),
+    "DebateStreamServer": ("aragora.server.stream.debate_stream_server", "DebateStreamServer"),
     "AiohttpUnifiedServer": ("aragora.server.stream.servers", "AiohttpUnifiedServer"),
-    "DEBATE_AVAILABLE": ("aragora.server.stream.servers", "DEBATE_AVAILABLE"),
+    "DEBATE_AVAILABLE": ("aragora.server.stream.debate_stream_server", "DEBATE_AVAILABLE"),
     # Backward compatibility
     "_cleanup_stale_debates_stream": (
         "aragora.server.stream.servers",
